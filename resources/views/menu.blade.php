@@ -72,6 +72,22 @@
                     </div>
                 </div>
 
+                <!-- MANTENIMIENTO SECTION -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <a href="{{ route('mantenimiento.index') }}" class="dashboard-card" style="text-decoration:none; background: {{ ($equiposInoperativos ?? 0) > 0 ? 'linear-gradient(135deg, #fef2f2, #fff)' : '#fff' }}; border: 1px solid {{ ($equiposInoperativos ?? 0) > 0 ? '#fecaca' : '#e2e8f0' }};">
+                        <div class="icon-wrapper" style="background: {{ ($equiposInoperativos ?? 0) > 0 ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #22c55e, #16a34a)' }};">
+                            <i class="material-icons">build</i>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Mantenimiento</span>
+                            <div class="card-value-row">
+                                <span class="card-value" style="color: {{ ($equiposInoperativos ?? 0) > 0 ? '#dc2626' : '#1e293b' }};">{{ $equiposInoperativos ?? 0 }}</span>
+                                <span class="card-subtext-inline">| Equipos Inoperativos</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
                 <!-- ALERTAS SECTION -->
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                     <!-- Card 4: Alertas -->

@@ -63,4 +63,10 @@ class FrenteTrabajo extends Model
     {
         return $this->hasMany(SolicitudMantenimiento::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');
     }
+
+    /** Reportes diarios de inoperatividad */
+    public function reportesDiarios()
+    {
+        return $this->hasMany(ReporteDiario::class, 'ID_FRENTE', 'ID_FRENTE');
+    }
 }

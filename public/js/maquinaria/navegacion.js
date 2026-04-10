@@ -135,6 +135,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const titleEl = doc.querySelector('title');
             document.title = titleEl ? titleEl.innerText : document.title;
+
+            // ── Inyectar estilos de @section('extra_css') ──
+            // Remover estilos inyectados previamente por SPA
+            document.querySelectorAll('style[data-spa-css]').forEach(s => s.remove());
+            // Extraer estilos entre los marcadores spa-extra-css-start/end
+            const cssStart = doc.querySelector('meta[name="spa-extra-css-start"]');
+            const cssEnd   = doc.querySelector('meta[name="spa-extra-css-end"]');
+            if (cssStart && cssEnd) {
+                let node = cssStart.nextElementSibling;
+                while (node && node !== cssEnd) {
+                    if (node.tagName === 'STYLE') {
+                        const clone = node.cloneNode(true);
+                        clone.setAttribute('data-spa-css', 'true');
+                        document.head.appendChild(clone);
+                    }
+                    node = node.nextElementSibling;
+                }
+            }
+
             mainViewport.innerHTML = newContent.innerHTML;
 
             // Re-ejecutar scripts del contenido inyectado EN ORDEN y esperando

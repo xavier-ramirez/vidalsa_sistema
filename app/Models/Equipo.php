@@ -109,5 +109,17 @@ class Equipo extends Model
     {
         return $this->hasMany(\App\Models\SubActivo::class, 'ID_EQUIPO_HOST', 'ID_EQUIPO');
     }
+
+    /** Registros de fallas de mantenimiento */
+    public function registrosFallas()
+    {
+        return $this->hasMany(RegistroFalla::class, 'ID_EQUIPO', 'ID_EQUIPO');
+    }
+
+    /** Historial de cambios de estado operativo */
+    public function historialEstados()
+    {
+        return $this->hasMany(HistorialEstadoEquipo::class, 'ID_EQUIPO', 'ID_EQUIPO');
+    }
 }
 

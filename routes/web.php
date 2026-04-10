@@ -12,6 +12,132 @@ Route::get('/refresh-csrf', [App\Http\Controllers\SystemController::class, 'refr
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 Route::redirect('/home', '/menu');
 
+// TEMP: Seeder de fallas para mantenimiento (eliminar después de usar)
+Route::get('/system/seed-fallas-temp', function () {
+    $frentes = [28, 15, 8, 12, 14]; // ARECUNA, BARCELONA, CHUTO+BATEA, PATIO MATURIN, ASIG PDVSA DAL
+    $user = \App\Models\Usuario::first();
+    if (!$user) return response()->json(['error' => 'No hay usuarios en la BD']);
+
+    $equipos = \App\Models\Equipo::whereIn('ID_FRENTE_ACTUAL', $frentes)->get()->groupBy('ID_FRENTE_ACTUAL');
+    $allEquipos = \App\Models\Equipo::limit(100)->get();
+    if ($allEquipos->isEmpty()) return response()->json(['error' => 'No hay equipos en la BD']);
+
+    $tipos = ['MECANICA', 'ELECTRICA', 'HIDRAULICA', 'NEUMATICA', 'ESTRUCTURAL'];
+    $prioridades = ['CRITICA', 'ALTA', 'MEDIA', 'BAJA'];
+    $sistemas = ['Motor', 'Transmisión', 'Sistema hidráulico', 'Sistema eléctrico', 'Frenos', 'Dirección', 'Chasis', 'Sistema de enfriamiento', 'Sistema de escape', 'Tren de rodaje'];
+
+    $descripciones = [
+        'Fuga de aceite en empaquetadura del cárter del motor',
+        'Alternador no genera carga, batería se descarga constantemente',
+        'Cilindro de levante presenta fuga por retén inferior',
+        'Compresor de frenos no alcanza presión mínima de operación',
+        'Fisura en el bastidor lateral derecho cerca del punto de articulación',
+        'Sobrecalentamiento del motor al operar bajo carga sostenida',
+        'Válvula de control principal no responde al accionar palanca derecha',
+        'Correa del ventilador presenta desgaste excesivo y patinaje',
+        'Manguera hidráulica de retorno reventada, pérdida total de fluido',
+        'Sensor de temperatura del refrigerante envía lecturas erráticas',
+        'Rodamiento del turbo presenta juego axial excesivo y ruido',
+        'Bomba de combustible pierde cebado después de parada prolongada',
+        'Zapatas del tren de rodaje desgastadas por debajo del límite',
+        'Switch de arranque intermitente, requiere múltiples intentos',
+        'Fuga de refrigerante por manguera superior del radiador',
+        'Pines y bocinas del cucharón con desgaste severo',
+        'Luz de advertencia del filtro hidráulico encendida permanentemente',
+        'Cadena del tren de rodaje izquierdo presenta elongación excesiva',
+        'Sistema de climatización inoperante, compresor no embraga',
+        'Válvula de alivio del circuito de dirección ajustada incorrectamente',
+        'Motor presenta humo negro excesivo bajo carga',
+        'Escape de aire por conexión rápida del sistema neumático',
+        'Cuchilla del ripper con desgaste irregular en un solo lado',
+        'Pedal de freno con recorrido largo, requiere sangrado del sistema',
+        'Luces delanteras de trabajo fundidas ambos lados',
+        'Aceite hidráulico contaminado con agua, aspecto lechoso',
+        'Radiador de aceite hidráulico con aletas aplastadas 40%',
+        'Arrancador gira pero no engrana con el volante del motor',
+        'Sello de la tapa de combustible deteriorado, entra agua al tanque',
+        'Balde de excavación con soldadura fisurada en los laterales',
+    ];
+
+    $resoluciones = [
+        'Se reemplazó empaquetadura y se verificó torque de pernos',
+        'Alternador reemplazado por uno reacondicionado, se verificó carga',
+        'Se cambió kit de sellos del cilindro y se purgó el sistema',
+        'Compresor reemplazado, válvulas de freno calibradas',
+        'Soldadura de reparación con refuerzo estructural aprobada por ingeniería',
+        'Radiador limpiado, termostato reemplazado, mangueras nuevas',
+        'Válvula de control desarmada, se limpiaron carretes y resortes',
+        'Correa reemplazada y tensores ajustados a especificación',
+        'Manguera reemplazada, sistema hidráulico purgado y rellenado',
+        'Sensor de temperatura reemplazado y cableado verificado',
+    ];
+
+    $created = [];
+    $frenteIndex = 0;
+
+    for ($i = 0; $i < 30; $i++) {
+        $frenteId = $frentes[$frenteIndex % 5];
+        $frenteIndex++;
+
+        $reporte = \App\Models\ReporteDiario::firstOrCreate(
+            ['ID_FRENTE' => $frenteId, 'FECHA_REPORTE' => now()->toDateString()],
+            ['ID_USUARIO_CREA' => $user->ID_USUARIO, 'ESTADO_REPORTE' => 'ABIERTO']
+        );
+
+        $frenteEquipos = $equipos->get($frenteId);
+        if ($frenteEquipos && $frenteEquipos->count() > 0) {
+            $equipo = $frenteEquipos->random();
+        } else {
+            $equipo = $allEquipos->random();
+        }
+
+        $horas = ['06:15','06:45','07:00','07:30','08:00','08:20','08:45','09:10','09:30','10:00',
+                   '10:15','10:45','11:00','11:30','12:00','13:15','13:45','14:00','14:30','15:00',
+                   '15:20','15:45','16:00','16:30','17:00','17:15','17:45','18:00','18:30','19:00'];
+
+        $falla = \App\Models\RegistroFalla::create([
+            'ID_REPORTE' => $reporte->ID_REPORTE,
+            'ID_EQUIPO' => $equipo->ID_EQUIPO,
+            'TIPO_FALLA' => $tipos[array_rand($tipos)],
+            'SISTEMA_AFECTADO' => $sistemas[array_rand($sistemas)],
+            'DESCRIPCION_FALLA' => $descripciones[$i],
+            'PRIORIDAD' => $prioridades[array_rand($prioridades)],
+            'ESTADO_FALLA' => 'ABIERTA',
+            'HORA_REGISTRO' => $horas[$i],
+            'ID_USUARIO_REGISTRA' => $user->ID_USUARIO,
+        ]);
+
+        $created[] = $falla->ID_FALLA;
+    }
+
+    // 12 resueltas (IDs 0-11)
+    $toResolve = array_slice($created, 0, 12);
+    foreach ($toResolve as $idx => $fallaId) {
+        \App\Models\RegistroFalla::where('ID_FALLA', $fallaId)->update([
+            'ESTADO_FALLA' => 'RESUELTA',
+            'DESCRIPCION_RESOLUCION' => $resoluciones[$idx % count($resoluciones)],
+            'FECHA_RESOLUCION' => now(),
+        ]);
+    }
+
+    // 5 en proceso (IDs 12-16)
+    $toProcess = array_slice($created, 12, 5);
+    foreach ($toProcess as $fallaId) {
+        \App\Models\RegistroFalla::where('ID_FALLA', $fallaId)->update([
+            'ESTADO_FALLA' => 'EN_PROCESO',
+        ]);
+    }
+
+    return response()->json([
+        'success' => true,
+        'created' => count($created),
+        'resolved' => count($toResolve),
+        'en_proceso' => count($toProcess),
+        'abiertas' => 30 - count($toResolve) - count($toProcess),
+        'falla_ids' => $created,
+    ]);
+});
+
 Route::middleware(['auth'])->group(function () {
     // Password Change Routes (Excluded from password check loop)
     Route::get('/admin/cambiar-clave', [App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])->name('password.change');
@@ -94,6 +220,27 @@ Route::middleware(['auth'])->group(function () {
             Route::post('sub-activos',        [App\Http\Controllers\SubActivoController::class, 'store'])  ->name('sub-activos.store');
             Route::patch('sub-activos/{id}',  [App\Http\Controllers\SubActivoController::class, 'update']) ->name('sub-activos.update');
             Route::delete('sub-activos/{id}', [App\Http\Controllers\SubActivoController::class, 'destroy'])->name('sub-activos.destroy');
+
+            // ── Mantenimiento Integral ───────────────────────────────────────
+            Route::prefix('mantenimiento')->name('mantenimiento.')->group(function () {
+                Route::get('/',                     [App\Http\Controllers\MantenimientoController::class, 'index'])->name('index');
+                Route::get('/reportes',             [App\Http\Controllers\MantenimientoController::class, 'getReportesDiarios'])->name('reportes');
+                Route::get('/reporte/{id}',         [App\Http\Controllers\MantenimientoController::class, 'showReporteDiario'])->name('reporte.show');
+                Route::post('/reporte-hoy',         [App\Http\Controllers\MantenimientoController::class, 'getOrCreateReporte'])->name('reporte.hoy');
+                Route::post('/reporte/{id}/cerrar', [App\Http\Controllers\MantenimientoController::class, 'cerrarReporte'])->name('reporte.cerrar');
+                Route::post('/falla',               [App\Http\Controllers\MantenimientoController::class, 'storeFalla'])->name('falla.store');
+                Route::put('/falla/{id}',           [App\Http\Controllers\MantenimientoController::class, 'updateFalla'])->name('falla.update');
+                Route::get('/falla/{id}',           [App\Http\Controllers\MantenimientoController::class, 'showFalla'])->name('falla.show');
+                Route::get('/consolidado',          [App\Http\Controllers\MantenimientoController::class, 'consolidadoDiario'])->name('consolidado');
+                Route::get('/buscar-equipos',        [App\Http\Controllers\MantenimientoController::class, 'searchEquipos'])->name('buscarEquipos');
+                Route::get('/timeline/{equipoId}',  [App\Http\Controllers\MantenimientoController::class, 'timeline'])->name('timeline');
+                Route::get('/recomendar/{equipoId}',[App\Http\Controllers\MantenimientoController::class, 'recomendarMateriales'])->name('recomendar');
+                Route::post('/falla/{id}/material', [App\Http\Controllers\MantenimientoController::class, 'storeMaterial'])->name('material.store');
+                Route::get('/falla/{id}/pdf',       [App\Http\Controllers\MantenimientoController::class, 'exportPdfIndividual'])->name('falla.pdf');
+                Route::post('/reporte/{id}/pdf',    [App\Http\Controllers\MantenimientoController::class, 'exportPdfLote'])->name('reporte.pdf');
+                Route::get('/consolidado/pdf',      [App\Http\Controllers\MantenimientoController::class, 'exportPdfConsolidado'])->name('consolidado.pdf');
+                Route::get('/stats',                [App\Http\Controllers\MantenimientoController::class, 'statsWidget'])->name('stats');
+            });
 
             // ── Herramientas Manuales ────────────────────────────────────────
             Route::get('herramientas/consolidado-manual', function () {

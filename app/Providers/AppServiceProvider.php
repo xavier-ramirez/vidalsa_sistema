@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\Equipo;
 use App\Models\Movilizacion;
 use App\Models\Documentacion;
+use App\Models\RegistroFalla;
 use App\Observers\EquipoObserver;
 use App\Observers\MovilizacionObserver;
 use App\Observers\DocumentacionObserver;
+use App\Observers\RegistroFallaObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -72,6 +74,7 @@ class AppServiceProvider extends ServiceProvider
         Equipo::observe(EquipoObserver::class);
         Movilizacion::observe(MovilizacionObserver::class);
         Documentacion::observe(DocumentacionObserver::class);
+        RegistroFalla::observe(RegistroFallaObserver::class);
     }
 }
 

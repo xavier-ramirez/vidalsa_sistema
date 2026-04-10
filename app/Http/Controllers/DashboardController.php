@@ -64,7 +64,10 @@ class DashboardController extends Controller
                 ->orderBy('NOMBRE_FRENTE')
                 ->get();
 
-            return compact('movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity', 'expiredList', 'frentes');
+            // 6. Equipos inoperativos (mantenimiento)
+            $equiposInoperativos = Equipo::where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
+
+            return compact('movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity', 'expiredList', 'frentes', 'equiposInoperativos');
         });
 
         return view('menu', $data);
