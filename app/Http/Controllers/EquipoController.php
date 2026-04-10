@@ -631,18 +631,24 @@ class EquipoController extends Controller
         // Bordes a toda la tabla de datos
         $sheet->getStyle('A5:F'.$rowNum)->applyFromArray($headerBorders);
 
-        ob_end_clean(); // CRITICAL: Limpia el buffer de salida para evitar que espacios en blanco o BOM corrompan el Excel
+        // Limpiar TODOS los buffers de salida activos de forma segura.
+        // ob_end_clean() simple puede fallar en php-fpm de producción (nginx) si hay
+        // más de un nivel de buffer activo, corrompiendo los headers HTTP del archivo.
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
 
-        // Usar temp file temporal para asegurar que los headers y nombre de archivo lleguen intactos a cualquier navegador (previene UUID chunks)
-        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        // Escribir en archivo temporal y devolver como descarga
+        $writer   = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
         $tempFile = tempnam(sys_get_temp_dir(), 'export_cvidalsa_');
         $writer->save($tempFile);
 
         return response()->download($tempFile, $fileName, [
             'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
-            'Cache-Control'       => 'max-age=0, must-revalidate, post-check=0, pre-check=0',
-            'Pragma'              => 'public'
+            'Cache-Control'       => 'no-cache, no-store, must-revalidate',
+            'Pragma'              => 'no-cache',
+            'Expires'             => '0',
         ])->deleteFileAfterSend(true);
     }
 
