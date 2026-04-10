@@ -757,28 +757,19 @@ window.clearFrentesSearch = function () {
 };
 // Confirm Delete Frente (Dynamic Modal)
 window.confirmDeleteFrente = function (id, name) {
-    if (typeof showModal === "function") {
-        showModal({
-            type: "error",
-            title: "¿Eliminar Frente?",
-            message: `¿Estás seguro de que deseas eliminar el frente "${name}"? Esta acción no se puede deshacer.`,
-            confirmText: "Sí, Eliminar",
-            onConfirm: () => {
-                const form = document.getElementById("deleteFrenteForm");
-                if (form) {
-                    if (window.showPreloader) window.showPreloader();
-                    form.submit();
-                } else {
-                    alert("Error: Formulario de eliminación no encontrado.");
-                }
-            },
-        });
-    } else {
-        // Fallback
-        if (confirm(`¿Eliminar "${name}"?`)) {
-            document.getElementById("deleteFrenteForm").submit();
-        }
-    }
+    window.showModal({
+        type: "error",
+        title: "¿Eliminar Frente?",
+        message: `¿Estás seguro de que deseas eliminar el frente "${name}"? Esta acción no se puede deshacer.`,
+        confirmText: "Sí, Eliminar",
+        onConfirm: () => {
+            const form = document.getElementById("deleteFrenteForm");
+            if (form) {
+                if (window.showPreloader) window.showPreloader();
+                form.submit();
+            }
+        },
+    });
 };
 
 /**
