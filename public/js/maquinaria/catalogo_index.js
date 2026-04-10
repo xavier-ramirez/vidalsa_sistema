@@ -348,13 +348,18 @@ function initCatalogo() {
 }
 
 // Global Event Delegation for Pagination (Solves intermittent click failures)
-document.addEventListener('click', function(e) {
-    const paginationLink = e.target.closest('#catalogoPagination a');
-    if (paginationLink) {
-        e.preventDefault();
-        window.loadCatalogo(paginationLink.href);
-    }
-});
+if (!window.catalogoPaginationAttached) {
+    window.catalogoPaginationAttached = true;
+    document.addEventListener('click', function(e) {
+        const paginationLink = e.target.closest('#catalogoPagination a');
+        if (paginationLink) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation(); // Crucial to prevent 'navegacion.js' SPA conflict
+            window.loadCatalogo(paginationLink.href);
+        }
+    }, true); // Use capture phase so this fires BEFORE generic SPA handlers
+}
 
 // Register with Module Manager for SPA compatibility
 ModuleManager.register('catalogo',

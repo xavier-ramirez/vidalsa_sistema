@@ -14,7 +14,7 @@ window.toggleStatusDropdown = function (trigger) {
         window.CAN_CHANGE_STATUS === false
     ) {
         if (window.showModal) {
-            showModal({
+            window.showModal({
                 type: "error",
                 title: "Acceso Denegado",
                 message: "No tienes permisos para cambiar el estatus.",
@@ -263,7 +263,7 @@ window.unanchorEquipos = async function (e) {
     } else if (selections.length === 2) {
         ids = [selections[0].id, selections[1].id];
     } else {
-        showModal({
+        window.showModal({
             type: "warning",
             title: "Selección Incorrecta",
             message:
@@ -274,7 +274,7 @@ window.unanchorEquipos = async function (e) {
         return;
     }
 
-    showModal({
+    window.showModal({
         type: "warning",
         title: "Desanclar Equipos",
         message:
@@ -312,7 +312,7 @@ window.unanchorEquipos = async function (e) {
                     }
                 } else {
                     if (window.hidePreloader) window.hidePreloader();
-                    showModal({
+                    window.showModal({
                         type: "error",
                         title: "Error",
                         message: data.error || "Ocurrió un error al desanclar.",
@@ -323,7 +323,7 @@ window.unanchorEquipos = async function (e) {
             } catch (error) {
                 console.error(error);
                 if (window.hidePreloader) window.hidePreloader();
-                showModal({
+                window.showModal({
                     type: "error",
                     title: "Error",
                     message: "Ocurrió un error de red.",
@@ -467,17 +467,6 @@ window.loadEquipos = function (url = null, silent = false) {
             params.append(key, value);
         }
     });
-
-    /* 
-    // OPTIMIZATION: Check if there are any meaningful filters
-    // Strategy: Only skip server request if EVERYTHING is null/empty (truly no input from user)
-    const hasAnyInput = Object.entries(filters).some(([key, value]) => {
-        if (value === null || value === '' || value === undefined) return false;
-        if (typeof value === 'string' && value.trim() === '') return false;
-        return true; 
-    });
-
-    */
 
     // NOTE: reApplySelections() is NOT called here because the table
     // shows a "no filters" message with no real rows to highlight.
@@ -898,7 +887,7 @@ window.openBulkModal = function (event) {
             .then(function (res) {
                 if (res.status === 419) {
                     if (window.hidePreloader) window.hidePreloader();
-                    showModal({
+                    window.showModal({
                         type: "error",
                         title: "Sesión Expirada",
                         message:
@@ -982,7 +971,7 @@ window.openBulkModal = function (event) {
                 btn.style.opacity = "1";
                 btn.style.cursor = "pointer";
 
-                showModal({
+                window.showModal({
                     type: "error",
                     title: "Error",
                     message:
@@ -1009,7 +998,7 @@ window.openAnchorModal = async function (event) {
     const sourceRole = sourceData.rolAnclaje;
 
     if (!firstFrenteId || firstFrenteId === "null") {
-        showModal({
+        window.showModal({
             type: "warning",
             title: "Frente no Asignado",
             message: "Los equipos seleccionados no tienen un frente asignado.",
@@ -1236,7 +1225,7 @@ window.openAnchorModal = async function (event) {
                 overlay.remove();
                 window.clearSelection();
                 window.loadEquipos();
-                showModal({
+                window.showModal({
                     type: "success",
                     title: "¡Operación Exitosa!",
                     message: data.message,
@@ -1244,7 +1233,7 @@ window.openAnchorModal = async function (event) {
                     hideCancel: true,
                 });
             } else {
-                showModal({ type: 'error', title: 'Error', message: data.error || 'Error al anclar equipos.', confirmText: 'Cerrar', hideCancel: true });
+                window.showModal({ type: 'error', title: 'Error', message: data.error || 'Error al anclar equipos.', confirmText: 'Cerrar', hideCancel: true });
             }
         } catch (error) {
             console.error(error);
@@ -1374,18 +1363,14 @@ window.exportEquipos = function () {
 
     // Validate: At least one filter must be active
     if (!hasAnyFilter) {
-        if (window.showModal) {
-            showModal({
-                type: "warning",
-                title: "Filtro Requerido",
-                message:
-                    "Debe aplicar al menos un filtro antes de exportar datos. Esto previene la descarga masiva de toda la base de datos.",
-                confirmText: "Entendido",
-                hideCancel: true,
-            });
-        } else {
-            alert("Debe aplicar al menos un filtro antes de exportar datos.");
-        }
+        window.showModal({
+            type: "warning",
+            title: "Filtro Requerido",
+            message:
+                "Debe aplicar al menos un filtro antes de exportar datos. Esto previene la descarga masiva de toda la base de datos.",
+            confirmText: "Entendido",
+            hideCancel: true,
+        });
         return;
     }
 
@@ -1492,17 +1477,13 @@ window.handleCreateCheck = function (event) {
             event.stopPropagation();
         }
 
-        if (window.showModal) {
-            showModal({
-                type: "error",
-                title: "Acceso Denegado",
-                message: "No tienes permisos para crear nuevos equipos.",
-                confirmText: "Entendido",
-                hideCancel: true,
-            });
-        } else {
-            alert("Acceso Denegado: No tienes permisos para crear.");
-        }
+        window.showModal({
+            type: "error",
+            title: "Acceso Denegado",
+            message: "No tienes permisos para crear nuevos equipos.",
+            confirmText: "Entendido",
+            hideCancel: true,
+        });
         return false;
     }
 
