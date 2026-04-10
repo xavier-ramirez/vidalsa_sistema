@@ -807,8 +807,8 @@ window.showDetailsImproved = function (target, event) {
             .forEach((det) => det.removeAttribute("open"));
     }
 
-    // Helper to identify empty values
-    const isValid = (val) => val && val !== "N/A" && val !== "";
+    // Helper to identify empty values (also rejects the string "null" emitted by PHP when value is null)
+    const isValid = (val) => val && val !== "N/A" && val !== "" && val !== "null" && val !== "undefined";
 
     // Helper to set text
     const set = (id, val) => {
@@ -845,15 +845,16 @@ window.showDetailsImproved = function (target, event) {
     // GPS Button
     const gpsBtn = document.getElementById("modal_gps_btn");
     if (gpsBtn) {
-        if (isValid(d.linkGps)) {
-            gpsBtn.dataset.url = d.linkGps;
-            
+        const rawGps = (d.linkGps || "").trim();
+        if (isValid(rawGps)) {
+            gpsBtn.dataset.url = rawGps;
+
             // Limpiar si el dato guardado en base de datos ya trae la palabra "Placa:" o "Serial:" adentro
-            let rawPlaca = d.placa ? d.placa.toString().replace(/^(placa|serial)[:\s-]+/i, '').trim() : '';
-            let rawChasis = d.chasis ? d.chasis.toString().replace(/^(placa|serial)[:\s-]+/i, '').trim() : '';
+            let rawPlaca = d.placa ? d.placa.toString().replace(/^(placa|serial)[\:\s\-]+/i, '').trim() : '';
+            let rawChasis = d.chasis ? d.chasis.toString().replace(/^(placa|serial)[\:\s\-]+/i, '').trim() : '';
 
             let eqName = "";
-            if (isValid(rawPlaca)) {
+            if (isValid(rawPlaca) && rawPlaca !== "N/A") {
                 eqName = "Placa: " + rawPlaca;
             } else if (isValid(rawChasis)) {
                 eqName = "Serial: " + rawChasis;
@@ -861,7 +862,7 @@ window.showDetailsImproved = function (target, event) {
                 eqName = "Desconocido";
             }
             gpsBtn.dataset.equipoName = eqName;
-            
+
             gpsBtn.style.display = "inline-flex";
         } else {
             gpsBtn.style.display = "none";
