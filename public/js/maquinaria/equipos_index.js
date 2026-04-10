@@ -1374,8 +1374,24 @@ window.exportEquipos = function () {
         return;
     }
 
-    // Forzar apertura en nueva pestaña para purgar interceptores de descarga del navegador (como IDM o Livewire)
-    window.open("/admin/equipos/export?" + params.toString(), "_blank");
+    // Descargar mediante formulario invisible (GET) para que el archivo
+    // se descargue directamente sin abrir ninguna pestaña nueva.
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = '/admin/equipos/export';
+    form.style.display = 'none';
+
+    params.forEach((value, key) => {
+        const input = document.createElement('input');
+        input.type  = 'hidden';
+        input.name  = key;
+        input.value = value;
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 };
 
 function initEquipos() {
