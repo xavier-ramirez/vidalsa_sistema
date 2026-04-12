@@ -545,3 +545,6 @@ MODAL GPS TRACKER — Premium Satellite View
 
     // Cerrar con ESC
     document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.closeGpsModal();
+    });
+</script>
