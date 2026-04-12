@@ -364,10 +364,6 @@
                 });
             });
 
-            // Prevent FOUC for Material Icons
-            document.fonts.ready.then(function() {
-                document.body.classList.add('fonts-loaded');
-            });
 
             // GLOBAL EVENT DELEGATION FOR EQUIPOS MODULE (SPA COMPATIBLE)
             // This ensures that "Acciones" and "Filter" buttons work even after AJAX content replacement

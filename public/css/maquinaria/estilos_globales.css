@@ -73,17 +73,9 @@
     }
 }
 
-/* Material Icons are handled in master.blade.php for critical path performance */
+/* Material Icons are handled natively. FOUC hack removed for stability */
 .material-icons {
     color: inherit;
-    /* Ensure color is inherited from parent */
-    opacity: 0;
-    /* Hide initially to prevent FOUC (text flash) */
-    transition: opacity 0.2s ease;
-}
-
-body.fonts-loaded .material-icons {
-    opacity: 1;
 }
 
 body {
