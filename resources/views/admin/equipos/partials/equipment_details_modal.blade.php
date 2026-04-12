@@ -480,11 +480,11 @@ MODAL GPS TRACKER — Premium Satellite View
         let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== '' && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
         if (deviceEl) {
             if (dPlaca) {
-                deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">PLACA</span><span style="font-size:18px;font-weight:800;color:#1e293b;letter-spacing:1px;">${dPlaca}</span>`;
+                deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">PLACA</span><span style="font-size:13px;font-weight:700;color:#1e293b;">${dPlaca}</span>`;
             } else if (dSerial) {
-                deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">SERIAL DE CHASIS</span><span style="font-size:15px;font-weight:800;color:#1e293b;letter-spacing:0.5px;">${dSerial}</span>`;
+                deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">SERIAL DE CHASIS</span><span style="font-size:13px;font-weight:700;color:#1e293b;">${dSerial}</span>`;
             } else {
-                deviceEl.innerHTML = `<span style="color:#94a3b8;font-style:italic;">Sin identificador</span>`;
+                deviceEl.innerHTML = `<span style="color:#94a3b8;font-style:italic;font-size:12px;">Sin identificador</span>`;
             }
         }
 
