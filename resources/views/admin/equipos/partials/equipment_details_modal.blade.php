@@ -308,14 +308,7 @@ MODAL GPS TRACKER — Premium Satellite View
                             SF132599</span>
                     </div>
 
-                    {{-- Longitud y Latitud --}}
-                    <div style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; padding-top:8px;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">LONGITUD Y LATITUD</span>
-                        <span style="font-size:13px; color:#2563eb; font-family:monospace; font-weight:700;"
-                            id="scraped_coords">-63.033199, 8.708711</span>
-                    </div>
-
-                    {{-- Tiempos --}}
+                    {{-- Longitud y Latitud (REMOVED) --}}                    {{-- Tiempos --}}
                     <div
                         style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; padding-top:8px; gap:8px;">
                         <div>
@@ -480,8 +473,8 @@ MODAL GPS TRACKER — Premium Satellite View
         const deviceEl = document.getElementById('scraped_device');
 
         // Set Name: solo muestra PLACA si tiene, sino solo CHASIS
-        let dPlaca = (equipoPlaca && equipoPlaca !== 'N/A' && equipoPlaca !== '') ? equipoPlaca : null;
-        let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== '') ? equipoSerial : null;
+        let dPlaca = (equipoPlaca && equipoPlaca !== 'N/A' && equipoPlaca !== '' && equipoPlaca !== 'Sin Placa') ? equipoPlaca : null;
+        let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== '' && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
         if (deviceEl) {
             if (dPlaca) {
                 deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">PLACA</span><span style="font-size:18px;font-weight:800;color:#1e293b;letter-spacing:1px;">${dPlaca}</span>`;
@@ -501,7 +494,7 @@ MODAL GPS TRACKER — Premium Satellite View
         const lat = 8.708711 + (Math.random() * 0.005 - 0.0025);
         const lng = -63.033199 + (Math.random() * 0.005 - 0.0025);
 
-        document.getElementById('scraped_coords').innerText = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
+        // document.getElementById('scraped_coords').innerText = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
 
         // Init Leaflet map with Google Satellite + Layer Toggle
         setTimeout(() => {
@@ -510,7 +503,7 @@ MODAL GPS TRACKER — Premium Satellite View
 
             if (!window.gpsMapInstance) {
                 window.gpsMapInstance = L.map('map_container', {
-                    zoomControl: true,
+                    zoomControl: false,
                     attributionControl: false
                 }).setView([lat, lng], 15);
 
