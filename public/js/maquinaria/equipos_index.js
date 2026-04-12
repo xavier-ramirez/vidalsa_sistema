@@ -67,14 +67,16 @@ function updateSelectionUI() {
             const unanchorBtn = document.getElementById('btnUnanchor');
             if (unanchorBtn) {
                 let canUnanchor = false;
-                if (selections.length === 1 && selections[0].anchorId) {
+                const isValidId = (val) => val && val !== "null" && val !== "";
+                
+                if (selections.length === 1 && isValidId(selections[0].anchorId)) {
                     canUnanchor = true;
                 } else if (selections.length === 2) {
                     const s1 = selections[0];
                     const s2 = selections[1];
                     if (
-                        String(s1.anchorId) === String(s2.id) || 
-                        String(s2.anchorId) === String(s1.id)
+                        (isValidId(s1.anchorId) && String(s1.anchorId) === String(s2.id)) || 
+                        (isValidId(s2.anchorId) && String(s2.anchorId) === String(s1.id))
                     ) {
                         canUnanchor = true;
                     }
@@ -159,7 +161,10 @@ function handleRowClick(e) {
     const chasis = btnDetails.dataset.chasis; // SERIAL_CHASIS
     const frenteId = btnDetails.dataset.frenteId;
     const rolAnclaje = btnDetails.dataset.rolAnclaje;
-    const anchorId = btnDetails.dataset.anchorId;
+    let anchorId = btnDetails.dataset.anchorId;
+    if (anchorId === "null" || anchorId === "") {
+        anchorId = null;
+    }
 
     const isSelecting = !(id in window.selectedEquipos);
 
@@ -257,8 +262,9 @@ window.unanchorEquipos = async function (e) {
 
     const selections = Object.values(window.selectedEquipos);
     let ids = [];
+    const isValidId = (val) => val && val !== "null" && val !== "";
 
-    if (selections.length === 1 && selections[0].anchorId) {
+    if (selections.length === 1 && isValidId(selections[0].anchorId)) {
         ids = [selections[0].id, selections[0].anchorId];
     } else if (selections.length === 2) {
         ids = [selections[0].id, selections[1].id];
