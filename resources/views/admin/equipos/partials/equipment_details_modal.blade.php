@@ -398,7 +398,7 @@ MODAL GPS TRACKER — Premium Satellite View
 
                 </div>
 
-                {{-- Eliminado Botón open_in_new --}}
+
 
             </div>
         </div>
@@ -425,18 +425,6 @@ MODAL GPS TRACKER — Premium Satellite View
     @keyframes gps-spin {
         to {
             transform: rotate(360deg);
-        }
-    }
-
-    @keyframes gps-ping-dot {
-
-        0%,
-        100% {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.3;
         }
     }
 
@@ -512,7 +500,7 @@ MODAL GPS TRACKER — Premium Satellite View
         const lat = 8.708711 + (Math.random() * 0.005 - 0.0025);
         const lng = -63.033199 + (Math.random() * 0.005 - 0.0025);
 
-        // document.getElementById('scraped_coords').innerText = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
+
 
         // Init Leaflet map with Google Satellite + Labels (hybrid)
         setTimeout(() => {
