@@ -549,6 +549,16 @@
             const confirmBtn = document.getElementById('modalConfirmBtn');
             const cancelBtn = document.getElementById('modalCancelBtn');
 
+            // Guard: if any modal element is missing, fall back to alert
+            if (!modalEl || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
+                console.warn('showModal: modal DOM elements not found, using alert fallback');
+                if (config.type === 'error' || config.type === 'warning') {
+                    alert(`${config.title}\n\n${config.message}`);
+                }
+                if (config.onConfirm) config.onConfirm();
+                return;
+            }
+
             // Set content
             titleEl.innerText = config.title;
             messageEl.innerHTML = config.message;

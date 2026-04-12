@@ -260,7 +260,7 @@ document.addEventListener("click", handleRowClick);
 window.unanchorEquipos = async function (e) {
     if (e) e.preventDefault();
 
-    const selections = Object.values(window.selectedEquipos);
+    const selections = Object.values(window.selectedEquipos || {});
     let ids = [];
     const isValidId = (val) => val && val !== "null" && val !== "";
 
@@ -269,55 +269,53 @@ window.unanchorEquipos = async function (e) {
     } else if (selections.length === 2) {
         ids = [selections[0].id, selections[1].id];
     } else {
-        window.showModal({
-            type: "warning",
-            title: "Selección Incorrecta",
-            message:
-                "Para desanclar, selecciona un equipo anclado o ambos equipos vinculados.",
-            confirmText: "Entendido",
-            hideCancel: true,
-        });
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: "warning",
+                title: "Selección Incorrecta",
+                message: "Para desanclar, selecciona un equipo anclado o ambos equipos vinculados.",
+                confirmText: "Entendido",
+                hideCancel: true,
+            });
+        } else {
+            alert("Para desanclar, selecciona un equipo anclado o ambos equipos vinculados.");
+        }
         return;
     }
 
-    window.showModal({
-        type: "warning",
-        title: "Desanclar Equipos",
-        message:
-            "¿Estás seguro de que deseas eliminar el vínculo de anclaje de este equipo?",
-        confirmText: "Sí",
-        cancelText: "Cancelar",
-        onConfirm: async () => {
-            if (window.showPreloader) window.showPreloader();
-            try {
-                const response = await fetch("/admin/equipos/clear-anchor", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]',
-                        ).content,
-                        "X-Requested-With": "XMLHttpRequest",
-                    },
-                    body: JSON.stringify({ ids: ids }),
-                });
+    const doUnanchor = async () => {
+        if (window.showPreloader) window.showPreloader();
+        try {
+            const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-                if (response.status === 419 || response.status === 401) {
-                    window.location.reload();
-                    return;
+            const response = await fetch(`${baseUrl}/admin/equipos/clear-anchor`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                body: JSON.stringify({ ids: ids }),
+            });
+
+            if (response.status === 419 || response.status === 401) {
+                window.location.reload();
+                return;
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (window.clearSelection) window.clearSelection();
+                if (window.loadEquipos) window.loadEquipos(null, true);
+                if (window.hidePreloader) window.hidePreloader();
+                if (typeof window.showToast === 'function') {
+                    window.showToast('¡Desanclaje exitoso!', 'success');
                 }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    window.clearSelection();
-                    window.loadEquipos(null, true); // Silent reload
-                    if (window.hidePreloader) window.hidePreloader();
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('¡Desanclaje exitoso!', 'success');
-                    }
-                } else {
-                    if (window.hidePreloader) window.hidePreloader();
+            } else {
+                if (window.hidePreloader) window.hidePreloader();
+                if (typeof window.showModal === 'function') {
                     window.showModal({
                         type: "error",
                         title: "Error",
@@ -325,20 +323,41 @@ window.unanchorEquipos = async function (e) {
                         confirmText: "Entendido",
                         hideCancel: true,
                     });
+                } else {
+                    alert(data.error || "Ocurrió un error al desanclar.");
                 }
-            } catch (error) {
-                console.error(error);
-                if (window.hidePreloader) window.hidePreloader();
+            }
+        } catch (error) {
+            console.error(error);
+            if (window.hidePreloader) window.hidePreloader();
+            if (typeof window.showModal === 'function') {
                 window.showModal({
                     type: "error",
-                    title: "Error",
-                    message: "Ocurrió un error de red.",
+                    title: "Error de Red",
+                    message: "Ocurrió un error de conexión al desanclar.",
                     confirmText: "Entendido",
                     hideCancel: true,
                 });
+            } else {
+                alert("Error de red al desanclar.");
             }
         }
-    });
+    };
+
+    if (typeof window.showModal === 'function') {
+        window.showModal({
+            type: "warning",
+            title: "Desanclar Equipos",
+            message: "¿Estás seguro de que deseas eliminar el vínculo de anclaje de este equipo?",
+            confirmText: "Sí, Desanclar",
+            cancelText: "Cancelar",
+            onConfirm: doUnanchor,
+        });
+    } else {
+        if (confirm("¿Deseas eliminar el vínculo de anclaje de este equipo?")) {
+            await doUnanchor();
+        }
+    }
 };
 
 document.addEventListener("click", function (e) {
