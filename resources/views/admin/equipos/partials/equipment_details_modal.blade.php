@@ -269,7 +269,7 @@ MODAL GPS TRACKER — Premium Satellite View
                 </div>
                 <div>
                     <div style="color:#1e293b; font-weight:800; font-size:15px; font-family:'Nunito',sans-serif;">
-                        Data del Equipo</div>
+                        GPS en Vivo</div>
                 </div>
             </div>
             <button type="button" onclick="closeGpsModal()"
@@ -289,14 +289,14 @@ MODAL GPS TRACKER — Premium Satellite View
                 style="position:relative; flex:1; background:#e2e8f0; overflow:hidden; z-index:1;">
                 {{-- Mapa Leaflet será inyectado aquí --}}
                 
-                {{-- Custom Layer Toggle Button --}}
+                {{-- Custom Layer Toggle Button (Google Maps Style) --}}
                 <button type="button" id="btn_toggle_map_layer"
-                    style="position:absolute; bottom:20px; left:20px; z-index:9999; background:white; color:#1e293b; border:1px solid #cbd5e1; border-radius:8px; padding:10px 14px; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,0.25); display:flex; align-items:center; gap:8px; transition:0.2s; letter-spacing:0.5px;"
+                    style="position:absolute; bottom:20px; left:20px; z-index:9999; background:white; color:#475569; border:none; border-radius:4px; width:44px; height:44px; font-size:10px; font-weight:700; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; transition:0.2s;"
                     onclick="window.toggleGpsMapLayer()"
-                    onmouseover="this.style.transform='scale(1.05)'; this.style.borderColor='#94a3b8';"
-                    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='#cbd5e1';">
-                    <i class="material-icons" id="icon_toggle_layer" style="font-size:20px; color:#2563eb;">map</i>
-                    <span id="text_toggle_layer">VER MAPA</span>
+                    onmouseover="this.style.background='#f1f5f9';"
+                    onmouseout="this.style.background='white';">
+                    <i class="material-icons" style="font-size:20px; margin-bottom:1px;">layers</i>
+                    <span style="line-height:1;">Capas</span>
                 </button>
             </div>
 
@@ -366,7 +366,7 @@ MODAL GPS TRACKER — Premium Satellite View
                     {{-- Telemetría de Máquina --}}
                     <div style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; padding-top:8px;">
                         <span style="font-size:11px; color:#64748b; font-weight:700;">COMBUSTIBLE ESTIMADO</span>
-                        <span style="font-size:13px; color:#1e293b; font-weight:600;">Tanque: 303L / Act: 120L / Baja:
+                        <span style="font-size:13px; color:#1e293b; font-weight:600;">Total: 303L / Act: 120L / Baja:
                             183L</span>
                     </div>
                     <div
@@ -550,27 +550,14 @@ MODAL GPS TRACKER — Premium Satellite View
     window.toggleGpsMapLayer = function() {
         if (!window.gpsMapInstance || !window.gpsSatelliteLyr || !window.gpsRoadmapLyr) return;
         
-        const btnText = document.getElementById('text_toggle_layer');
-        const btnIcon = document.getElementById('icon_toggle_layer');
-        
         if (window.gpsCurrentMode === 'sat') {
             window.gpsMapInstance.removeLayer(window.gpsSatelliteLyr);
             window.gpsRoadmapLyr.addTo(window.gpsMapInstance);
             window.gpsCurrentMode = 'map';
-            if(btnText) btnText.innerText = 'VER SATÉLITE';
-            if(btnIcon) {
-                btnIcon.innerText = 'public';
-                btnIcon.style.color = '#10b981';
-            }
         } else {
             window.gpsMapInstance.removeLayer(window.gpsRoadmapLyr);
             window.gpsSatelliteLyr.addTo(window.gpsMapInstance);
             window.gpsCurrentMode = 'sat';
-            if(btnText) btnText.innerText = 'VER MAPA';
-            if(btnIcon) {
-                btnIcon.innerText = 'map';
-                btnIcon.style.color = '#2563eb';
-            }
         }
     };
 
