@@ -264,12 +264,12 @@ MODAL GPS TRACKER — Premium Satellite View
                 <div style="position:relative; width:36px; height:36px; flex-shrink:0;">
                     <div
                         style="position:absolute; inset:4px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center;">
-                        <i class="material-icons" style="font-size:16px; color:white;">gps_fixed</i>
+                        <i class="material-icons" style="font-size:16px; color:white;">agriculture</i>
                     </div>
                 </div>
                 <div>
                     <div style="color:#1e293b; font-weight:800; font-size:15px; font-family:'Nunito',sans-serif;">
-                        Rastreo Satelital en Vivo</div>
+                        Data del Equipo</div>
                 </div>
             </div>
             <button type="button" onclick="closeGpsModal()"
@@ -479,11 +479,17 @@ MODAL GPS TRACKER — Premium Satellite View
         const modal = document.getElementById('gpsTrackerModal');
         const deviceEl = document.getElementById('scraped_device');
 
-        // Set Name with proper formatting (PLACA and CHASIS)
-        let dPlaca = equipoPlaca || 'Sin Placa';
-        let dSerial = equipoSerial || 'Sin Chasis';
+        // Set Name: solo muestra PLACA si tiene, sino solo CHASIS
+        let dPlaca = (equipoPlaca && equipoPlaca !== 'N/A' && equipoPlaca !== '') ? equipoPlaca : null;
+        let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== '') ? equipoSerial : null;
         if (deviceEl) {
-            deviceEl.innerHTML = `<span style="color:#2563eb;">Placa:</span> ${dPlaca} <br> <span style="color:#2563eb;">Chasis:</span> ${dSerial}`;
+            if (dPlaca) {
+                deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">PLACA</span><span style="font-size:18px;font-weight:800;color:#1e293b;letter-spacing:1px;">${dPlaca}</span>`;
+            } else if (dSerial) {
+                deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;">SERIAL DE CHASIS</span><span style="font-size:15px;font-weight:800;color:#1e293b;letter-spacing:0.5px;">${dSerial}</span>`;
+            } else {
+                deviceEl.innerHTML = `<span style="color:#94a3b8;font-style:italic;">Sin identificador</span>`;
+            }
         }
 
         // Open Modal
@@ -497,35 +503,45 @@ MODAL GPS TRACKER — Premium Satellite View
 
         document.getElementById('scraped_coords').innerText = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
 
-        // Init Leaflet map with Google Satellite
+        // Init Leaflet map with Google Satellite + Layer Toggle
         setTimeout(() => {
+            const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 });
+            const roadmapLayer   = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20 });
+
             if (!window.gpsMapInstance) {
                 window.gpsMapInstance = L.map('map_container', {
-                    zoomControl: false,
+                    zoomControl: true,
                     attributionControl: false
                 }).setView([lat, lng], 15);
 
-                // Google Satellite Tile Layer
-                L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                    maxZoom: 20
-                }).addTo(window.gpsMapInstance);
+                // Capas base
+                satelliteLayer.addTo(window.gpsMapInstance);
 
-                // Custom Marker Icon definition
-                const pinIcon = L.divIcon({
+                // Control de capas (Satélite / Mapa)
+                L.control.layers(
+                    { '🛰️ Satélite': satelliteLayer, '🗺️ Mapa': roadmapLayer },
+                    {},
+                    { position: 'topright', collapsed: false }
+                ).addTo(window.gpsMapInstance);
+
+                // Custom Marker: ícono de maquinaria que titila
+                const truckIcon = L.divIcon({
                     className: 'custom-gps-pin',
                     html: `
                     <div style="position:relative; display:flex; align-items:center; justify-content:center;">
-                        <div style="position:absolute; width:40px; height:40px; background:rgba(37, 99, 235, 0.2); border-radius:50%; animation:gps-ping 1.5s ease-out infinite;"></div>
-                        <div style="position:relative; width:24px; height:24px; background:#2563eb; border:3px solid white; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.4); z-index:2;">
-                            <div style="width:8px; height:8px; background:white; border-radius:50%; animation:gps-ping-dot 2s infinite;"></div>
+                        <div style="position:absolute; width:54px; height:54px; background:rgba(37,99,235,0.15); border-radius:50%; animation:gps-ping 1.8s ease-out infinite;"></div>
+                        <div style="position:absolute; width:38px; height:38px; background:rgba(37,99,235,0.1); border-radius:50%; animation:gps-ping 1.8s ease-out infinite 0.4s;"></div>
+                        <div style="position:relative; width:36px; height:36px; background:#1e40af; border:3px solid white; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,0,0,0.45); z-index:2;">
+                            <span class="material-icons" style="font-size:18px; color:white; line-height:1;">agriculture</span>
                         </div>
                     </div>
-                `,
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
+                    `,
+                    iconSize: [54, 54],
+                    iconAnchor: [27, 27],
+                    popupAnchor: [0, -30]
                 });
 
-                window.gpsMapMarker = L.marker([lat, lng], { icon: pinIcon }).addTo(window.gpsMapInstance);
+                window.gpsMapMarker = L.marker([lat, lng], { icon: truckIcon }).addTo(window.gpsMapInstance);
             } else {
                 // Update existing map
                 window.gpsMapInstance.setView([lat, lng], 15);
