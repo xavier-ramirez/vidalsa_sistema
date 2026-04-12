@@ -246,83 +246,80 @@
             </button>
         </div>
 
-        {{-- Body: Dual Panel (Map Left, Data Right) --}}
-        <div class="gps-modal-body" style="flex:1; display:flex; min-height:540px; background:#f1f5f9; overflow:hidden;">
-            
-            {{-- Panel Izquierdo: Mapa --}}
-            <div class="gps-panel-map" style="position:relative; flex:1; background:#e2e8f0; overflow:hidden;">
+        {{-- Body: iframe GPS + panel info --}}
+        <div class="gps-modal-body" style="flex:1; display:flex; min-height:540px; background:#0f172a; overflow:hidden;">
+
+            {{-- Panel Izquierdo: iframe GPS real del equipo --}}
+            <div class="gps-panel-map" style="position:relative; flex:1; overflow:hidden; background:#0f172a;">
+
                 {{-- Spinner de carga --}}
-                <div id="gps_loading_state" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:#f8fafc; z-index:2;">
-                    <div style="width:48px; height:48px; border:3px solid #cbd5e0; border-top-color:#1e293b; border-radius:50%; animation:gps-spin 0.8s linear infinite;"></div>
-                    <div style="color:#475569; font-size:14px; font-weight:700;">Conectando satélite...</div>
+                <div id="gps_loading_state" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:#0f172a; z-index:3;">
+                    <div style="width:48px; height:48px; border:3px solid #334155; border-top-color:#10b981; border-radius:50%; animation:gps-spin 0.8s linear infinite;"></div>
+                    <div style="color:#94a3b8; font-size:14px; font-weight:700;">Conectando con el dispositivo GPS...</div>
                 </div>
 
-                {{-- Capa Leaflet nativa limpia (Reemplaza el iframe rebelde) --}}
-                <div id="gps_map_container" style="position:absolute; inset:0; z-index:1;"></div>
+                {{-- iframe con el tracking real de gps51 --}}
+                <iframe id="gps_iframe"
+                    src="about:blank"
+                    style="position:absolute; inset:0; width:100%; height:100%; border:none; z-index:1;"
+                    allowfullscreen
+                    loading="lazy"
+                    onload="document.getElementById('gps_loading_state').style.display='none';"
+                ></iframe>
 
-                {{-- Botón Miniatura de Capas (Estilo Google Maps Moderno) --}}
-                <div id="btn_toggle_layer" onclick="toggleCapaGPS()" style="position:absolute; bottom:24px; left:24px; z-index:10; width:48px; height:48px; border-radius:8px; background-image:url('https://mt0.google.com/vt/lyrs=m&hl=es&x=37&y=62&z=7'); background-size:cover; border:2px solid white; box-shadow:0 1px 4px rgba(0,0,0,0.4); overflow:hidden; transition:transform 0.15s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Cambiar vista">
-                    <div id="btn_toggle_text" style="position:absolute; bottom:0; padding:2px 0; width:100%; background:rgba(255,255,255,0.85); color:#1e293b; font-size:9px; font-weight:600; text-align:center; font-family:Roboto, Arial, sans-serif;">Mapa</div>
-                </div>
+                {{-- Botón abrir en nueva pestaña (esquina inferior izquierda) --}}
+                <a id="gps_open_link" href="#" target="_blank"
+                    style="position:absolute; bottom:16px; left:16px; z-index:10; background:rgba(15,23,42,0.85); color:white; padding:7px 13px; border-radius:8px; font-size:11px; font-weight:700; text-decoration:none; display:flex; align-items:center; gap:6px; backdrop-filter:blur(4px); border:1px solid rgba(255,255,255,0.1); transition:all 0.2s;"
+                    onmouseover="this.style.background='rgba(16,185,129,0.9)'"
+                    onmouseout="this.style.background='rgba(15,23,42,0.85)'">
+                    <i class="material-icons" style="font-size:15px;">open_in_new</i>
+                    Abrir en GPS51
+                </a>
             </div>
 
-            {{-- Panel Derecho: Datos GPS --}}
-            <div class="gps-panel-data" style="width:340px; background:#ffffff; border-left:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0;">
-                
-                <div style="color:#0f172a; font-weight:800; font-size:14px; margin-bottom:12px; border-bottom:1px solid #f1f5f9; padding-bottom:6px;">
-                    Telemetría del Vehículo
+            {{-- Panel Derecho: Info del equipo --}}
+            <div class="gps-panel-data" style="width:280px; background:#1e293b; border-left:1px solid #334155; padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex-shrink:0;">
+
+                <div style="color:#f8fafc; font-weight:800; font-size:13px; border-bottom:1px solid #334155; padding-bottom:10px; display:flex; align-items:center; gap:8px;">
+                    <i class="material-icons" style="font-size:18px; color:#10b981;">gps_fixed</i>
+                    Rastreo en Vivo
                 </div>
 
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                    <div style="display:flex; flex-direction:column;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">EQUIPO</span>
-                        <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_device">Cargando...</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; margin-top:2px; padding-top:6px;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">LATITUD Y LONGITUD</span>
-                        <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_coords">-- , --</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-top:1px dashed #e2e8f0; margin-top:2px; padding-top:6px;">
-                        <div style="display:flex; flex-direction:column; width:48%;">
-                            <span style="font-size:11px; color:#64748b; font-weight:700;">ACTUALIZACIÓN</span>
-                            <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_actualizacion">--</span>
-                        </div>
-                        <div style="display:flex; flex-direction:column; width:48%;">
-                            <span style="font-size:11px; color:#64748b; font-weight:700;">POSICIONAMIENTO</span>
-                            <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_posicion">--</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; border-top:1px dashed #e2e8f0; margin-top:2px; padding-top:6px;">
-                        <div style="display:flex; flex-direction:column; width:48%;">
-                            <span style="font-size:11px; color:#64748b; font-weight:700;">VELOCIDAD REAL</span>
-                            <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_speed">-- km/h</span>
-                        </div>
-                        <div style="display:flex; flex-direction:column; width:48%;">
-                            <span style="font-size:11px; color:#64748b; font-weight:700;">PARADA</span>
-                            <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_parada">--</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; justify-content:space-between;">
-                        <div style="display:flex; flex-direction:column; width:48%;">
-                            <span style="font-size:11px; color:#64748b; font-weight:700;">KILOMETRAJE</span>
-                            <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_kilom">-- km</span>
-                        </div>
-                        <div style="display:flex; flex-direction:column; width:48%;">
-                            <span style="font-size:11px; color:#64748b; font-weight:700;">KM TOTAL</span>
-                            <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_kmtot">-- km</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; margin-top:2px; padding-top:6px;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">ESTADO MOTOR Y BATERÍA</span>
-                        <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_acc">--</span>
-                    </div>
-                    <div style="display:flex; flex-direction:column;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">COMBUSTIBLE</span>
-                        <span style="font-size:13px; color:#1e293b; font-weight:600;" id="scraped_combustible">-- / --</span>
+                {{-- Equipo --}}
+                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
+                    <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.6px; margin-bottom:4px;">Equipo</div>
+                    <div id="scraped_device" style="font-size:13px; color:#f1f5f9; font-weight:700; line-height:1.4;">—</div>
+                </div>
+
+                {{-- Estado conexión --}}
+                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #334155;">
+                    <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px;">Estado de Conexión</div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="gps_status_dot" style="width:10px; height:10px; background:#10b981; border-radius:50%; display:inline-block; box-shadow:0 0 6px #10b981;"></span>
+                        <span id="gps_status_text" style="font-size:13px; color:#10b981; font-weight:700;">Conectado</span>
                     </div>
                 </div>
+
+                {{-- Nota informativa --}}
+                <div style="background:#0f172a; border-radius:10px; padding:14px; border:1px solid #1e3a5f;">
+                    <div style="font-size:10px; color:#3b82f6; font-weight:700; text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="material-icons" style="font-size:13px;">info</i> Información
+                    </div>
+                    <div style="font-size:11px; color:#94a3b8; line-height:1.5;">
+                        La ubicación en vivo se muestra directamente desde la plataforma <strong style="color:#60a5fa;">GPS51</strong>. Cada equipo tiene su propio dispositivo y posición en tiempo real.
+                    </div>
+                </div>
+
+                {{-- Botón ver en nueva pestaña (fallback) --}}
+                <a id="gps_fallback_btn" href="#" target="_blank"
+                    style="display:flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg,#10b981,#059669); color:white; padding:11px; border-radius:10px; text-decoration:none; font-size:12px; font-weight:800; transition:all 0.2s; box-shadow:0 4px 12px rgba(16,185,129,0.3);"
+                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 18px rgba(16,185,129,0.45)'"
+                    onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.3)'">
+                    <i class="material-icons" style="font-size:16px;">satellite_alt</i>
+                    Ver GPS Completo
+                </a>
+
             </div>
-            
         </div>
     </div>
 </div>
@@ -351,153 +348,52 @@ details[name="equipment_accordion"] summary { cursor: default; }
 }
 </style>
 
-{{-- LIBRERÍAS DE MAPAS LIGERAS (LEAFLET) PARA EVITAR LIMITACIONES DEL IFRAME DE GOOGLE --}}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{{-- Leaflet eliminado — se usa iframe directo al GPS real del equipo --}}
 
 <script>
-var gpsMapInstance = null;
-var gpsMarker = null;
-var capaSatelite = null;
-var capaMapa = null;
-window.gpsModoActual = 'y'; // Por defecto Satélite
-
-window.toggleCapaGPS = function() {
-    if(!gpsMapInstance) return;
-    
-    const btnContainer = document.getElementById('btn_toggle_layer');
-    const btnText = document.getElementById('btn_toggle_text');
-    
-    if(window.gpsModoActual === 'y') {
-        // Estábamos en Satélite, pasamos a Mapa. El botón mostrará miniatura del Satélite.
-        gpsMapInstance.addLayer(capaMapa);
-        gpsMapInstance.removeLayer(capaSatelite);
-        window.gpsModoActual = 'm';
-        
-        btnContainer.style.backgroundImage = "url('https://mt0.google.com/vt/lyrs=s&hl=es&x=37&y=62&z=7')";
-        btnText.textContent = "Satélite";
-        btnText.style.background = "rgba(0,0,0,0.5)";
-        btnText.style.color = "white";
-    } else {
-        // Estábamos en Mapa, pasamos a Satélite. El botón mostrará miniatura del Mapa.
-        gpsMapInstance.addLayer(capaSatelite);
-        gpsMapInstance.removeLayer(capaMapa);
-        window.gpsModoActual = 'y';
-        
-        btnContainer.style.backgroundImage = "url('https://mt0.google.com/vt/lyrs=m&hl=es&x=37&y=62&z=7')";
-        btnText.textContent = "Mapa";
-        btnText.style.background = "rgba(255,255,255,0.85)";
-        btnText.style.color = "#1e293b";
-    }
-};
-
 window.openGpsModal = function(url, equipoName) {
     if (!url) return;
 
     const modal   = document.getElementById('gpsTrackerModal');
     const loading = document.getElementById('gps_loading_state');
+    const iframe  = document.getElementById('gps_iframe');
+    const openLink   = document.getElementById('gps_open_link');
+    const fallbackBtn = document.getElementById('gps_fallback_btn');
+    const deviceEl   = document.getElementById('scraped_device');
 
-    // UI Elements del panel lateral
-    let displayName = equipoName || 'Equipo Seleccionado';
-    // Si displayName ya empieza por "Serial:" o "Placa:", evitar repetirlo
-    let prefix = (displayName.toLowerCase().includes('serial:') || displayName.toLowerCase().includes('placa:')) ? '' : 'Dato: ';
-    
-    document.getElementById('scraped_device').textContent = prefix + displayName + ' | En L\u00ednea';
-    document.getElementById('scraped_coords').textContent = '-- , --';
-    document.getElementById('scraped_actualizacion').textContent = '...';
-    document.getElementById('scraped_posicion').textContent = '...';
-    document.getElementById('scraped_speed').textContent = '-- km/h';
-    document.getElementById('scraped_parada').textContent = '--';
-    document.getElementById('scraped_kilom').textContent = '--';
-    document.getElementById('scraped_kmtot').textContent = '--';
-    document.getElementById('scraped_acc').textContent = 'Verificando...';
-    document.getElementById('scraped_combustible').textContent = 'Calculando...';
+    // Mostrar nombre del equipo en el panel derecho
+    const displayName = equipoName || 'Equipo Seleccionado';
+    if (deviceEl) deviceEl.textContent = displayName;
 
-    const globalLoader = document.getElementById('preloader');
-    if (globalLoader) globalLoader.style.display = 'flex';
+    // Actualizar ambos botones de "Abrir en GPS51" con el link real
+    if (openLink)    { openLink.href    = url; }
+    if (fallbackBtn) { fallbackBtn.href = url; }
 
-    loading.style.display = 'flex';
+    // Mostrar spinner y ocultar modal hasta que cargue
+    if (loading) loading.style.display = 'flex';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 
-    // SIMULACIÓN DE SCRAPER (Carga Rápida Optimizada)
-    setTimeout(() => {
-        // En etapa final, esto vendrá del ScraperController leyendo gps51 directamente
-        document.getElementById('scraped_device').textContent = prefix + displayName + ' | Conectado';
-        document.getElementById('scraped_coords').textContent = '-64.234510, 8.918608';
-        
-        let d = new Date();
-        document.getElementById('scraped_actualizacion').textContent = d.toLocaleString() + ' (Offline)';
-        document.getElementById('scraped_posicion').textContent = d.toLocaleString();
-        
-        document.getElementById('scraped_speed').textContent = '0 km/h (Señal:88%)';
-        document.getElementById('scraped_parada').textContent = '1D 12H 12M';
-        document.getElementById('scraped_kilom').textContent = '30334.4 km';
-        document.getElementById('scraped_kmtot').textContent = '0 km';
-        document.getElementById('scraped_acc').textContent = 'ACC OFF 1D12H3M / Voltaje 25.0V';
-        document.getElementById('scraped_combustible').textContent = 'Total: 662L (Tanque A: 542L | Tanque B: 120L)';
-
-        // Renderizar Mapa Limpio Leaflet (+Tiles Híbridos Google)
-        const lat = 8.918608;
-        const lng = -64.234510;
-        
-        if (!gpsMapInstance) {
-            gpsMapInstance = L.map('gps_map_container', {
-                zoomControl: false,       // Quitar botones gigantes
-                attributionControl: false,// Quitar barras inferiores
-                doubleClickZoom: false
-            }).setView([lat, lng], 17);
-
-            // lyrs=y es Híbrido (Satélite + Calles)
-            capaSatelite = L.tileLayer('https://mt0.google.com/vt/lyrs=y&hl=es&x={x}&y={y}&z={z}');
-            // lyrs=m es Mapa estándar
-            capaMapa = L.tileLayer('https://mt0.google.com/vt/lyrs=m&hl=es&x={x}&y={y}&z={z}');
-
-            capaSatelite.addTo(gpsMapInstance); // Satélite por default
-            
-            // Detectar si es Camioneta, Maquinaria, o Camión según d_categoria
-            let sysIcon = 'local_shipping'; // Por default: chuto camión
-            const cText = document.getElementById('d_categoria').textContent.toLowerCase();
-            if(cText.includes('camioneta') || cText.includes('liviano') || cText.includes('rústico') || cText.includes('auto')) {
-                sysIcon = 'directions_car';
-            } else if(cText.includes('maquinaria') || cText.includes('excavador') || cText.includes('pesad')) {
-                sysIcon = 'agriculture';
-            }
-
-            // Ping Marker Dinámico
-            const iconHtml = `<div style="width:34px; height:34px; background:#1e293b; border:2px solid white; border-radius:50%; box-shadow:0 3px 10px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; color:white;">
-                                <i class="material-icons" style="font-size:20px;">${sysIcon}</i>
-                              </div>`;
-            const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [34, 34], iconAnchor: [17, 17] });
-            
-            gpsMarker = L.marker([lat, lng], {icon: customIcon}).addTo(gpsMapInstance);
-        } else {
-            // Actualizar vista si ya existía
-            gpsMapInstance.setView([lat, lng], 17);
-            gpsMarker.setLatLng([lat, lng]);
-            setTimeout(() => gpsMapInstance.invalidateSize(), 300); // refresh layout
-        }
-
-        loading.style.display = 'none';
-        
-        // Simulación: Apagar spinner blanco global y MOSTRAR modal
-        if (globalLoader) globalLoader.style.display = 'none';
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        
-        // Forzar actualización del canvas del mapa una vez visible el modal
-        setTimeout(() => { if(gpsMapInstance) gpsMapInstance.invalidateSize(); }, 400);
-
-    }, 800); // 800ms de simulacion del scraper
-};
-
-window.closeGpsModal = function() {
-    const modal = document.getElementById('gpsTrackerModal');
-    if (modal && modal.style.display === 'flex') {
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
+    // Cargar el iframe con el link GPS REAL del equipo
+    // Cada equipo tiene su propio authcode único en gps51.com
+    if (iframe) {
+        iframe.src = url;
     }
 };
 
-// Solo cerrar con ESC — NO al clickear afuera
+window.closeGpsModal = function() {
+    const modal  = document.getElementById('gpsTrackerModal');
+    const iframe = document.getElementById('gps_iframe');
+
+    if (modal && modal.style.display === 'flex') {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+        // Limpiar iframe al cerrar para detener cualquier conexión activa
+        if (iframe) iframe.src = 'about:blank';
+    }
+};
+
+// Cerrar con ESC
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') window.closeGpsModal();
 });
