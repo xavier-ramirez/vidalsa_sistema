@@ -288,6 +288,16 @@ MODAL GPS TRACKER — Premium Satellite View
             <div class="gps-panel-map" id="map_container"
                 style="position:relative; flex:1; background:#e2e8f0; overflow:hidden; z-index:1;">
                 {{-- Mapa Leaflet será inyectado aquí --}}
+                
+                {{-- Custom Layer Toggle Button --}}
+                <button type="button" id="btn_toggle_map_layer"
+                    style="position:absolute; bottom:20px; left:20px; z-index:9999; background:white; color:#1e293b; border:1px solid #cbd5e1; border-radius:8px; padding:10px 14px; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,0.25); display:flex; align-items:center; gap:8px; transition:0.2s; letter-spacing:0.5px;"
+                    onclick="window.toggleGpsMapLayer()"
+                    onmouseover="this.style.transform='scale(1.05)'; this.style.borderColor='#94a3b8';"
+                    onmouseout="this.style.transform='scale(1)'; this.style.borderColor='#cbd5e1';">
+                    <i class="material-icons" id="icon_toggle_layer" style="font-size:20px; color:#2563eb;">map</i>
+                    <span id="text_toggle_layer">VER MAPA</span>
+                </button>
             </div>
 
             {{-- Panel Derecho: Datos GPS (Diseño Original Demandado) --}}
@@ -496,26 +506,19 @@ MODAL GPS TRACKER — Premium Satellite View
 
         // document.getElementById('scraped_coords').innerText = `${lng.toFixed(6)}, ${lat.toFixed(6)}`;
 
-        // Init Leaflet map with Google Satellite + Layer Toggle
+        // Init Leaflet map with Google Satellite + Labels (hybrid)
         setTimeout(() => {
-            const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20 });
-            const roadmapLayer   = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20 });
-
             if (!window.gpsMapInstance) {
+                // Use 'y' for Hybrid (Satellite + Roads/Labels) exactly like Google Maps
+                window.gpsSatelliteLyr = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { maxZoom: 20 });
+                window.gpsRoadmapLyr   = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20 });
+                window.gpsCurrentMode  = 'sat';
+
                 window.gpsMapInstance = L.map('map_container', {
                     zoomControl: false,
-                    attributionControl: false
+                    attributionControl: false,
+                    layers: [window.gpsSatelliteLyr]
                 }).setView([lat, lng], 15);
-
-                // Capas base
-                satelliteLayer.addTo(window.gpsMapInstance);
-
-                // Control de capas (Satélite / Mapa)
-                L.control.layers(
-                    { '🛰️ Satélite': satelliteLayer, '🗺️ Mapa': roadmapLayer },
-                    {},
-                    { position: 'topright', collapsed: false }
-                ).addTo(window.gpsMapInstance);
 
                 // Custom Marker: ícono de maquinaria que titila
                 const truckIcon = L.divIcon({
@@ -542,6 +545,33 @@ MODAL GPS TRACKER — Premium Satellite View
                 window.gpsMapInstance.invalidateSize();
             }
         }, 100);
+    };
+
+    window.toggleGpsMapLayer = function() {
+        if (!window.gpsMapInstance || !window.gpsSatelliteLyr || !window.gpsRoadmapLyr) return;
+        
+        const btnText = document.getElementById('text_toggle_layer');
+        const btnIcon = document.getElementById('icon_toggle_layer');
+        
+        if (window.gpsCurrentMode === 'sat') {
+            window.gpsMapInstance.removeLayer(window.gpsSatelliteLyr);
+            window.gpsRoadmapLyr.addTo(window.gpsMapInstance);
+            window.gpsCurrentMode = 'map';
+            if(btnText) btnText.innerText = 'VER SATÉLITE';
+            if(btnIcon) {
+                btnIcon.innerText = 'public';
+                btnIcon.style.color = '#10b981';
+            }
+        } else {
+            window.gpsMapInstance.removeLayer(window.gpsRoadmapLyr);
+            window.gpsSatelliteLyr.addTo(window.gpsMapInstance);
+            window.gpsCurrentMode = 'sat';
+            if(btnText) btnText.innerText = 'VER MAPA';
+            if(btnIcon) {
+                btnIcon.innerText = 'map';
+                btnIcon.style.color = '#2563eb';
+            }
+        }
     };
 
     window.closeGpsModal = function () {
