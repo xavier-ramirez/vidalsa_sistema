@@ -200,10 +200,11 @@ class EquipoController extends Controller
             // OPTIMIZATION: Calculate stats from the already loaded collection instead of hitting DB again
             // This reduces DB queries from ~5 to 1.
 
-            $stats['total'] = $allResults->count();
+            $stats['total'] = $allResults->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
             $stats['activos'] = $allResults->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
             $stats['inactivos'] = $allResults->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
             $stats['mantenimiento'] = $allResults->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
+            $stats['desincorporados'] = $allResults->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
 
             // Calculate Tipos Stats from Collection
             $tiposStats = $allResults->groupBy('id_tipo_equipo')->map(function ($group) {
@@ -1786,9 +1787,9 @@ class EquipoController extends Controller
                 // NOTA: usamos una query fresca con los mismos wheres para evitar conflicto de SELECT en MySQL
                 $basicStats = (clone $baseQuery)
                     ->selectRaw('
-                        COUNT(*) as total,
-                        SUM(CASE WHEN ANIO >= 2025 THEN 1 ELSE 0 END) as fleet_new,
-                        SUM(CASE WHEN ANIO <  2025 THEN 1 ELSE 0 END) as fleet_old
+                        SUM(CASE WHEN ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as total,
+                        SUM(CASE WHEN ANIO >= 2025 AND ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as fleet_new,
+                        SUM(CASE WHEN ANIO <  2025 AND ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as fleet_old
                     ')
                     ->first();
 
