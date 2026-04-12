@@ -853,6 +853,7 @@ window.showDetailsImproved = function (target, event) {
                 eqName = "Desconocido";
             }
             gpsBtn.dataset.equipoName = eqName;
+            gpsBtn.dataset.equipoSerial = rawChasis || rawPlaca || d.id || "";
 
             gpsBtn.style.display = "inline-flex";
         } else {

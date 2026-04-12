@@ -451,7 +451,7 @@
     {{-- Core Scripts (Always Loaded) --}}
 
     <script src="{{ asset('js/maquinaria/module_manager.js') }}?v=2.2"></script>
-    <script src="{{ asset('js/maquinaria/uicomponents.js') }}?v=18.3"></script>
+    <script src="{{ asset('js/maquinaria/uicomponents.js') }}?v=18.4"></script>
     <script src="{{ asset('js/maquinaria/navegacion.js') }}?v=11.0"></script>
     <script src="{{ asset('js/maquinaria/form_logic.js') }}?v=4.2"></script>
     <script src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v=3.2"></script>
