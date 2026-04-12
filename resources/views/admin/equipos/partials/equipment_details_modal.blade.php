@@ -289,6 +289,12 @@ MODAL GPS TRACKER — Premium Satellite View
                 style="position:relative; flex:1; background:#e2e8f0; overflow:hidden; z-index:1;">
                 {{-- Mapa Leaflet será inyectado aquí --}}
                 
+                {{-- Overlay de Carga (Spinner) --}}
+                <div id="gps-loading-overlay" style="position:absolute; inset:0; background:rgba(226, 232, 240, 0.9); backdrop-filter:blur(4px); z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;">
+                    <div style="width:45px; height:45px; border:4px solid #cbd5e1; border-top-color:#2563eb; border-radius:50%; animation:gps-spin 1s linear infinite;"></div>
+                    <span style="font-weight:800; color:#1e293b; font-size:15px; letter-spacing:0.5px;">Conectando al Satélite...</span>
+                </div>
+
                 {{-- Custom Layer Toggle Button (Google Maps Style) --}}
                 <button type="button" id="btn_toggle_map_layer"
                     style="position:absolute; bottom:20px; left:20px; z-index:9999; background:white; color:#475569; border:none; border-radius:4px; width:44px; height:44px; font-size:10px; font-weight:700; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.3); display:flex; flex-direction:column; align-items:center; justify-content:center; transition:0.2s;"
@@ -313,7 +319,6 @@ MODAL GPS TRACKER — Premium Satellite View
 
                     {{-- Dispositivo --}}
                     <div style="display:flex; flex-direction:column;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">DISPOSITIVO</span>
                         <span style="font-size:13px; color:#1e293b; font-weight:700;" id="scraped_device">GPS-SOLDADURA
                             SF132599</span>
                     </div>
@@ -499,6 +504,9 @@ MODAL GPS TRACKER — Premium Satellite View
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
 
+        const loader = document.getElementById('gps-loading-overlay');
+        if (loader) loader.style.display = 'flex';
+
         // Generar coordenadas reales basadas en "Macapaima" (ej. 8.708711, -63.033199 o cerca)
         // Agregamos un pequeno jitter para que no estén todos exactamente igual
         const lat = 8.708711 + (Math.random() * 0.005 - 0.0025);
@@ -544,7 +552,8 @@ MODAL GPS TRACKER — Premium Satellite View
                 window.gpsMapMarker.setLatLng([lat, lng]);
                 window.gpsMapInstance.invalidateSize();
             }
-        }, 100);
+            if (loader) loader.style.display = 'none';
+        }, 1500);
     };
 
     window.toggleGpsMapLayer = function() {
