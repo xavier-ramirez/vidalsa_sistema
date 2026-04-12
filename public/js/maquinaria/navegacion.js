@@ -47,43 +47,66 @@ document.addEventListener('DOMContentLoaded', () => {
     async function executeScripts(container) {
         const scripts = Array.from(container.querySelectorAll('script'));
 
+        // Detecta si el contenido parece HTML y no JavaScript
+        function looksLikeHTML(text) {
+            if (!text) return false;
+            const t = text.trim();
+            // Empieza con etiqueta HTML o comentario HTML
+            if (/^<[a-z!\/]/i.test(t)) return true;
+            // Solo espacios y comentarios HTML
+            if (/^<!--[\s\S]*-->$/.test(t)) return true;
+            return false;
+        }
+
         for (const oldScript of scripts) {
             await new Promise(resolve => {
-                const newScript = document.createElement('script');
+                try {
+                    const newScript = document.createElement('script');
 
-                // Copiar atributos (src, type, etc.)
-                Array.from(oldScript.attributes).forEach(attr => {
-                    newScript.setAttribute(attr.name, attr.value);
-                });
+                    // Copiar atributos (src, type, etc.)
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
 
-                if (newScript.src) {
-                    // Script externo (CDN / asset):
-                    // Si ya está cargado en el documento, no lo duplicamos
-                    const alreadyLoaded = document.querySelector(`script[src="${newScript.src}"]`);
-                    if (alreadyLoaded) {
-                        resolve();
-                        return;
-                    }
-                    // Esperar a que cargue antes de continuar con el siguiente
-                    newScript.onload = resolve;
-                    newScript.onerror = resolve; // Continuar aunque falle
-                } else {
-                    // Script inline: se ejecuta de forma síncrona al añadirse
-                    // Guard: skip scripts whose content is HTML markup (Blade artifacts)
-                    const content = oldScript.textContent ? oldScript.textContent.trim() : '';
-                    if (content.startsWith('<')) {
-                        // Not a JS script — skip safely
-                        resolve();
-                        return;
-                    }
-                    if (content) {
+                    if (newScript.src) {
+                        // Script externo (CDN / asset):
+                        // Si ya está cargado en el documento, no lo duplicamos
+                        const alreadyLoaded = document.querySelector(`script[src="${newScript.src}"]`);
+                        if (alreadyLoaded) {
+                            resolve();
+                            return;
+                        }
+                        // Esperar a que cargue o falle antes de continuar con el siguiente
+                        newScript.onload  = () => resolve();
+                        newScript.onerror = () => resolve(); // Continuar aunque falle
+                        document.head.appendChild(newScript);
+                    } else {
+                        // Script inline: se ejecuta de forma síncrona al añadirse
+                        const content = oldScript.textContent ? oldScript.textContent.trim() : '';
+
+                        // Guard: saltar scripts que contengan markup HTML (artefactos de Blade)
+                        if (!content || looksLikeHTML(content)) {
+                            resolve();
+                            return;
+                        }
+
                         newScript.textContent = content;
-                    }
-                    resolve(); // No hay evento load para inline scripts
-                }
 
-                // Añadir al document.head para que ejecute correctamente
-                document.head.appendChild(newScript);
+                        // Resolver ANTES de append: si el script falla, no bloquea el loop
+                        resolve();
+
+                        try {
+                            document.head.appendChild(newScript);
+                        } catch (appendErr) {
+                            // Script con contenido inválido — se descarta sin romper el flujo
+                            console.warn('SPA: inline script descartado (contenido inválido):', appendErr.message.substring(0, 120));
+                        }
+                    }
+                } catch (outerErr) {
+                    // Salvaguarda global: ningún script individual puede romper el loop
+                    console.warn('SPA: error procesando script, se continúa:', outerErr.message);
+                    resolve();
+                }
             });
         }
     }
