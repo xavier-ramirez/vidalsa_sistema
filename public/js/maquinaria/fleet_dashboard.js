@@ -317,21 +317,21 @@ window.closeFleetDashboard = function () {
  */
 async function loadChartJS() {
     return new Promise((resolve, reject) => {
-        if (typeof Chart !== 'undefined') { resolve(); return; }
+        const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
 
         const script = document.createElement('script');
-        script.src = '/js/chart.umd.min.js';
+        script.src = baseUrl + '/js/chart.umd.min.js';
 
         script.onload = () => {
             const pluginScript = document.createElement('script');
-            pluginScript.src = '/js/chartjs-plugin-datalabels.min.js';
+            pluginScript.src = baseUrl + '/js/chartjs-plugin-datalabels.min.js';
             pluginScript.onload = () => {
                 Chart.register(ChartDataLabels);
                 
                 // Also load html2canvas for downloads
                 if (typeof html2canvas === 'undefined') {
                     const canvasScript = document.createElement('script');
-                    canvasScript.src = '/js/html2canvas.min.js';
+                    canvasScript.src = baseUrl + '/js/html2canvas.min.js';
                     canvasScript.onload = () => resolve();
                     canvasScript.onerror = () => {
                         console.warn('Failed to load html2canvas, downloads might fail.');

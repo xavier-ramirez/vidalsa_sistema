@@ -844,16 +844,11 @@ window.showDetailsImproved = function (target, event) {
             let rawPlaca = d.placa ? d.placa.toString().replace(/^(placa|serial)[\:\s\-]+/i, '').trim() : '';
             let rawChasis = d.chasis ? d.chasis.toString().replace(/^(placa|serial)[\:\s\-]+/i, '').trim() : '';
 
-            let eqName = "";
-            if (isValid(rawPlaca) && rawPlaca !== "N/A") {
-                eqName = "Placa: " + rawPlaca;
-            } else if (isValid(rawChasis)) {
-                eqName = "Serial: " + rawChasis;
-            } else {
-                eqName = "Desconocido";
-            }
-            gpsBtn.dataset.equipoName = eqName;
-            gpsBtn.dataset.equipoSerial = rawChasis || rawPlaca || d.id || "";
+            let strPlaca = (isValid(rawPlaca) && rawPlaca !== "N/A") ? rawPlaca : "Sin Placa";
+            let strChasis = isValid(rawChasis) ? rawChasis : "Sin Chasis";
+
+            gpsBtn.dataset.equipoName = strPlaca;
+            gpsBtn.dataset.equipoSerial = strChasis;
 
             gpsBtn.style.display = "inline-flex";
         } else {
