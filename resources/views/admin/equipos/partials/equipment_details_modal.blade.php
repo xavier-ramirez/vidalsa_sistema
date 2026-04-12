@@ -268,12 +268,6 @@
                         <span style="font-size:11px; color:#64748b; font-weight:700;">DISPOSITIVO</span>
                         <span style="font-size:13px; color:#1e293b; font-weight:700;" id="scraped_device">GPS-SOLDADURA SF132599</span>
                     </div>
-                    
-                    {{-- Ubicación Info Satélite --}}
-                    <div style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; padding-top:8px;">
-                        <span style="font-size:11px; color:#64748b; font-weight:700;">UBICACIÓN</span>
-                        <span style="font-size:13px; color:#1e293b; font-weight:600;">Satélite Beidou 22Uno/RPM/Altitud<span id="rand_alt">89</span>m/Señal<span id="rand_sgn">73</span>%</span>
-                    </div>
 
                     {{-- Longitud y Latitud --}}
                     <div style="display:flex; flex-direction:column; border-top:1px dashed #e2e8f0; padding-top:8px;">
@@ -385,12 +379,6 @@ window.openGpsModal = function(url, equipoName, equipoSerial) {
         deviceEl.textContent = `GPS-${displayName.split(' ')[0]} ${displaySerial}`;
     }
 
-    // Dynamic Variation purely for cosmetic effect matching the desired UI
-    const randAlt = document.getElementById('rand_alt');
-    const randSgn = document.getElementById('rand_sgn');
-    if(randAlt) randAlt.innerText = Math.floor(Math.random() * (120 - 70 + 1) + 70);
-    if(randSgn) randSgn.innerText = Math.floor(Math.random() * (100 - 68 + 1) + 68);
-
     // Open Modal
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -405,12 +393,14 @@ window.openGpsModal = function(url, equipoName, equipoSerial) {
     // Init Leaflet map with Google Satellite
     setTimeout(() => {
         if (!gpsMapInstance) {
-            gpsMapInstance = L.map('map_container').setView([lat, lng], 15);
+            gpsMapInstance = L.map('map_container', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([lat, lng], 15);
             
             // Google Satellite Tile Layer
             L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                maxZoom: 20,
-                attribution: 'Map data &copy; Google'
+                maxZoom: 20
             }).addTo(gpsMapInstance);
             
             // Custom Marker Icon definition
