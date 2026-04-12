@@ -69,8 +69,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     newScript.onerror = resolve; // Continuar aunque falle
                 } else {
                     // Script inline: se ejecuta de forma síncrona al añadirse
-                    if (oldScript.textContent) {
-                        newScript.textContent = oldScript.textContent;
+                    // Guard: skip scripts whose content is HTML markup (Blade artifacts)
+                    const content = oldScript.textContent ? oldScript.textContent.trim() : '';
+                    if (content.startsWith('<')) {
+                        // Not a JS script — skip safely
+                        resolve();
+                        return;
+                    }
+                    if (content) {
+                        newScript.textContent = content;
                     }
                     resolve(); // No hay evento load para inline scripts
                 }
