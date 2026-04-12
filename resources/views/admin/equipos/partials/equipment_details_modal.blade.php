@@ -472,8 +472,8 @@ MODAL GPS TRACKER — Premium Satellite View
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
-    let gpsMapInstance = null;
-    let gpsMapMarker = null;
+    window.gpsMapInstance = window.gpsMapInstance || null;
+    window.gpsMapMarker = window.gpsMapMarker || null;
 
     window.openGpsModal = function (url, equipoPlaca, equipoSerial) {
         const modal = document.getElementById('gpsTrackerModal');
@@ -499,8 +499,8 @@ MODAL GPS TRACKER — Premium Satellite View
 
         // Init Leaflet map with Google Satellite
         setTimeout(() => {
-            if (!gpsMapInstance) {
-                gpsMapInstance = L.map('map_container', {
+            if (!window.gpsMapInstance) {
+                window.gpsMapInstance = L.map('map_container', {
                     zoomControl: false,
                     attributionControl: false
                 }).setView([lat, lng], 15);
@@ -508,7 +508,7 @@ MODAL GPS TRACKER — Premium Satellite View
                 // Google Satellite Tile Layer
                 L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
                     maxZoom: 20
-                }).addTo(gpsMapInstance);
+                }).addTo(window.gpsMapInstance);
 
                 // Custom Marker Icon definition
                 const pinIcon = L.divIcon({
@@ -525,12 +525,12 @@ MODAL GPS TRACKER — Premium Satellite View
                     iconAnchor: [12, 12]
                 });
 
-                gpsMapMarker = L.marker([lat, lng], { icon: pinIcon }).addTo(gpsMapInstance);
+                window.gpsMapMarker = L.marker([lat, lng], { icon: pinIcon }).addTo(window.gpsMapInstance);
             } else {
                 // Update existing map
-                gpsMapInstance.setView([lat, lng], 15);
-                gpsMapMarker.setLatLng([lat, lng]);
-                gpsMapInstance.invalidateSize();
+                window.gpsMapInstance.setView([lat, lng], 15);
+                window.gpsMapMarker.setLatLng([lat, lng]);
+                window.gpsMapInstance.invalidateSize();
             }
         }, 100);
     };
