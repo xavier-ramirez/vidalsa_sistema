@@ -297,19 +297,55 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 </div>
 
                 {{-- Poblado dinamicamente por openGpsModal() --}}
-                <div id="scraped_device" style="font-size:13px; color:#1e293b; font-weight:600; line-height:1.6;">&mdash;</div>
+                <div id="scraped_device" style="font-size:13px; color:#1e293b; font-weight:600; line-height:1.6; border-bottom:1px dashed #e2e8f0; padding-bottom:8px;">&mdash;</div>
 
-                {{-- Alerta tecnica sobre Telemetria --}}
-                <div style="background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; padding:12px; margin-top:20px;">
-                    <div style="display:flex; align-items:flex-start; gap:8px;">
-                        <i class="material-icons" style="font-size:16px; color:#dc2626; flex-shrink:0; margin-top:1px;">notification_important</i>
-                        <span style="font-size:11px; color:#991b1b; line-height:1.5;">
-                            <b>L&iacute;mite de Integraci&oacute;n:</b> 
-                            <br><br>
-                            Los datos de telemetr&iacute;a (Ubicaci&oacute;n, Velocidad, Parada, Kilometraje, Combustible, etc.) est&aacute;n encapsulados dentro de la plataforma <b>gps51.com</b>.
-                            <br><br>
-                            Por estrictas normas de seguridad del navegador (CORS), no es posible extraer esta informaci&oacute;n del recuadro que se muestra sobre el mapa para colocarla en este panel externo, ni modificar sus men&uacute;s de vistas de sat&eacute;lite o capas.
-                        </span>
+                {{-- Campos GPS51 replicados para organizar la informacion al lado --}}
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:11px; color:#64748b; font-weight:700;">UBICACI&Oacute;N SATELLITAL</span>
+                        <span style="font-size:12px; color:#1e293b; font-weight:600;">&mdash;</span>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:11px; color:#64748b; font-weight:700;">LONGITUD Y LATITUD</span>
+                        <span style="font-size:12px; color:#2563eb; font-family:monospace; font-weight:700;">&mdash;</span>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:11px; color:#64748b; font-weight:700;">ACTUALIZACI&Oacute;N / POSICIONAMIENTO</span>
+                        <span style="font-size:12px; color:#ef4444; font-weight:600;">&mdash;</span>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between;">
+                        <div style="display:flex; flex-direction:column; width:48%;">
+                            <span style="font-size:11px; color:#64748b; font-weight:700;">VELO. TIEMPO REAL</span>
+                            <span style="font-size:12px; color:#1e293b; font-weight:600;">&mdash;</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; width:48%;">
+                            <span style="font-size:11px; color:#64748b; font-weight:700;">PARADA</span>
+                            <span style="font-size:12px; color:#1e293b; font-weight:600;">&mdash;</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between;">
+                        <div style="display:flex; flex-direction:column; width:48%;">
+                            <span style="font-size:11px; color:#64748b; font-weight:700;">KILOMETRAJE</span>
+                            <span style="font-size:12px; color:#1e293b; font-weight:600;">&mdash;</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; width:48%;">
+                            <span style="font-size:11px; color:#64748b; font-weight:700;">COMBUSTIBLE</span>
+                            <span style="font-size:12px; color:#1e293b; font-weight:600;">&mdash;</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:11px; color:#64748b; font-weight:700;">ESTADO</span>
+                        <span style="font-size:12px; color:#1e293b; font-weight:600;">&mdash;</span>
+                    </div>
+
+                    <div style="margin-top:4px; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        <i class="material-icons" style="font-size:14px; color:#64748b; vertical-align:middle; margin-right:4px;">place</i>
+                        <span style="font-size:11px; color:#475569; line-height:1.4;">&mdash;</span>
                     </div>
                 </div>
 
