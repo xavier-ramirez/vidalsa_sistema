@@ -85,7 +85,7 @@
             <div style="font-weight: 700; font-size: 14px; color: #000;">{{ $equipo->MARCA }}</div>
             <div style="font-size: 14px; color: #718096;">{{ $equipo->MODELO }}</div>
         </td>
-        <!-- 4. Serials / Placa / ID -->
+        <!-- 4. Seriales / Placa / ID -->
         <td class="table-cell-custom"
             style="max-width: 160px; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px;">
             <div style="color: #4a5568;"><strong>S:</strong> {{ $equipo->SERIAL_CHASIS }}</div>
