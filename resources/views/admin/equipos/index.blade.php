@@ -461,10 +461,6 @@
                 <i class="material-icons" style="font-size: 15px;">engineering</i>
                 <span id="mobile_stats_mantenimiento">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</span>
             </div>
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); padding: 4px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); min-width: 50px;">
-                <i class="material-icons" style="font-size: 15px; color: #10b981;">gps_fixed</i>
-                <span id="mobile_stats_gps" style="font-weight: 800; color: #047857; font-size: 12px;">{{ $hasFilter ? $stats['con_gps'] : '--' }}</span>
-            </div>
         </div>
     </div>
 
@@ -526,7 +522,7 @@
                 </div>
 
                 <!-- Detailed Stats Row -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; flex: 1;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
                     <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 20px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                         <strong id="stats_inactivos" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
@@ -536,11 +532,6 @@
                         <i class="material-icons" style="font-size: 20px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
                         <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
                         <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mant.</span>
-                    </div>
-                    <div title="Equipos con Rastreo Satelital Activo" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.25);">
-                        <i class="material-icons" style="font-size: 20px; color: #34d399; margin-bottom: 2px;">gps_fixed</i>
-                        <strong id="stats_gps" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['con_gps'] : '--' }}</strong>
-                        <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Con GPS</span>
                     </div>
                 </div>
             </div>

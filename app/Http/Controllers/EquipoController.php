@@ -191,7 +191,7 @@ class EquipoController extends Controller
             $equipos = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
         }
 
-        $stats = ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'mantenimiento' => 0, 'con_gps' => 0];
+        $stats = ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'mantenimiento' => 0];
         $tiposStats = collect([]);
         $frentesStats = []; // Ensure array or collection
 
@@ -205,10 +205,6 @@ class EquipoController extends Controller
             $stats['inactivos'] = $allResults->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
             $stats['mantenimiento'] = $allResults->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
             $stats['desincorporados'] = $allResults->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
-            // Nueva estadistica: Cantidad de equipos con GPS activado
-            $stats['con_gps'] = $allResults->filter(function($equipo) {
-                return !empty($equipo->LINK_GPS);
-            })->count();
 
             // Calculate Tipos Stats from Collection
             $tiposStats = $allResults->groupBy('id_tipo_equipo')->map(function ($group) {
@@ -243,8 +239,7 @@ class EquipoController extends Controller
                     'total' => '--',
                     'activos' => '--',
                     'inactivos' => '--',
-                    'mantenimiento' => '--',
-                    'con_gps' => '--'
+                    'mantenimiento' => '--'
                 ];
             }
 

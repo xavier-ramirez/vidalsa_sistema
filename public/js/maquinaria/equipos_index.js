@@ -538,23 +538,19 @@ window.loadEquipos = function (url = null, silent = false) {
             const statsTotal = document.getElementById("stats_total");
             const statsInactivos = document.getElementById("stats_inactivos");
             const statsMantenimiento = document.getElementById("stats_mantenimiento");
-            const statsGps = document.getElementById("stats_gps");
             
             if (statsTotal) statsTotal.textContent = data.stats.total;
             if (statsInactivos) statsInactivos.textContent = data.stats.inactivos;
             if (statsMantenimiento) statsMantenimiento.textContent = data.stats.mantenimiento;
-            if (statsGps) statsGps.textContent = data.stats.con_gps;
 
             // Sincronizar pills móviles
             const mTotal = document.getElementById("mobile_stats_total");
             const mInop  = document.getElementById("mobile_stats_inactivos");
             const mMant  = document.getElementById("mobile_stats_mantenimiento");
-            const mGps   = document.getElementById("mobile_stats_gps");
             
             if (mTotal) mTotal.textContent = data.stats.total;
             if (mInop)  mInop.textContent  = data.stats.inactivos;
             if (mMant)  mMant.textContent  = data.stats.mantenimiento;
-            if (mGps)   mGps.textContent   = data.stats.con_gps;
 
             const distroContainer = document.getElementById(
                 "distributionStatsContainer",
