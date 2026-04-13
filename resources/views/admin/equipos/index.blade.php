@@ -121,8 +121,8 @@
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search_query') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search_query') ? '#e1effa' : '#fff' }};">
                     <i class="material-icons search-icon">search</i>
                     <input type="text" id="searchInput" name="search_query" value="{{ request('search_query') }}" 
-                        placeholder="Buscar Seriales" 
-                        aria-label="Search Serials"
+                        placeholder="Buscar Seriales, Placa, Etiqueta..." 
+                        aria-label="Buscar Seriales"
                         class="search-input-field"
                         autocomplete="off"
                         onkeyup="if(this.value.length >= 4 || this.value.length == 0) { /* Debounce handled in script */ }">
@@ -461,6 +461,10 @@
                 <i class="material-icons" style="font-size: 15px;">engineering</i>
                 <span id="mobile_stats_mantenimiento">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</span>
             </div>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1); padding: 4px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2); min-width: 50px;">
+                <i class="material-icons" style="font-size: 15px; color: #10b981;">gps_fixed</i>
+                <span id="mobile_stats_gps" style="font-weight: 800; color: #047857; font-size: 12px;">{{ $hasFilter ? $stats['con_gps'] : '--' }}</span>
+            </div>
         </div>
     </div>
 
@@ -472,7 +476,7 @@
                     <th class="table-header-custom" style="width: 150px;"></th> <!-- Foto Fixed -->
                     <th class="table-header-custom" style="width: 22%;">Tipo</th> <!-- Fluid (Wide) -->
                     <th class="table-header-custom" style="width: 15%;">Marca / Modelo</th> <!-- Fluid (Narrower) -->
-                    <th class="table-header-custom" style="width: 25%;">Serials / Placa / ID</th> <!-- Fluid (Wide) -->
+                    <th class="table-header-custom" style="width: 25%;">Seriales / Placa / ID</th> <!-- Fluid (Wide) -->
                     <th class="table-header-custom" style="width: 110px;">Estatus</th> <!-- Fixed -->
                     <th class="table-cell-center" style="width: 50px;"></th> <!-- Fixed -->
                 </tr>
@@ -522,16 +526,21 @@
                 </div>
 
                 <!-- Detailed Stats Row -->
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
-                    <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; flex: 1;">
+                    <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 20px; color: #ef4444; margin-bottom: 2px;">cancel</i>
-                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 20px;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
-                        <span style="font-size: 11px; opacity: 0.8; font-weight: 700; text-transform: uppercase;">Inoperativos</span>
+                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
+                        <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inop.</span>
                     </div>
-                    <div onclick="filterByStatus('EN MANTENIMIENTO')" title="Filtrar: En Mantenimiento" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25);">
+                    <div onclick="filterByStatus('EN MANTENIMIENTO')" title="Filtrar: En Mantenimiento" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 20px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
-                        <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 20px;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
-                        <span style="font-size: 11px; opacity: 0.8; font-weight: 700;">MANTENIMIENTO</span>
+                        <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
+                        <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mant.</span>
+                    </div>
+                    <div title="Equipos con Rastreo Satelital Activo" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.25);">
+                        <i class="material-icons" style="font-size: 20px; color: #34d399; margin-bottom: 2px;">gps_fixed</i>
+                        <strong id="stats_gps" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['con_gps'] : '--' }}</strong>
+                        <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Con GPS</span>
                     </div>
                 </div>
             </div>
