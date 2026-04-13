@@ -1,12 +1,12 @@
-﻿{{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+﻿{{-- Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰
 MODAL DETALLES DE EQUIPO
 Estructura limpia: overlay > modal-content > header + sub-header + body
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰ --}}
 <div id="detailsModal" class="modal-overlay">
     <div class="modal-content"
         style="width: 90%; max-width: 400px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
 
-        {{-- â”€â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+        {{-- Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ HEADER Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ --}}
         <div style="background: var(--maquinaria-dark-blue); color: white;">
 
             {{-- Fila principal: tÃ­tulo + GPS + cerrar --}}
@@ -47,7 +47,7 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                 {{-- Modo lectura --}}
                 <div id="ubicacion_display_wrapper" style="display: flex; align-items: center; gap: 6px;">
                     <span id="d_detalle_ubicacion"
-                        style="color: #ffffff; font-size: 13px; font-weight: 700; opacity: 0.95;">â€”</span>
+                        style="color: #ffffff; font-size: 13px; font-weight: 700; opacity: 0.95;">Ã”Ã‡Ã¶</span>
                     <button type="button" id="btn_edit_ubicacion" title="Editar ubicaciÃ³n"
                         style="background: rgba(255,255,255,0.1); border: none; padding: 3px 6px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; color: rgba(255,255,255,0.6); transition: all 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'"
@@ -67,14 +67,14 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                         style="background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: background 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.3)'"
                         onmouseout="this.style.background='rgba(255,255,255,0.15)'" title="Guardar y cerrar">
-                        âœ•
+                        Ã”Â£Ã²
                     </button>
                 </div>
             </div>
 
         </div>{{-- /HEADER --}}
 
-        {{-- â”€â”€â”€ BODY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+        {{-- Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ BODY Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ --}}
         <div class="modal-body-scroll" style="padding: 25px; max-height: 80vh; overflow-y: auto; overflow-x: hidden;">
             <div style="display: flex; flex-direction: column; gap: 15px;">
 
@@ -249,9 +249,9 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
         </div>{{-- /BODY --}}
 
     </div>{{-- /modal-content --}}
-</div>{{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+</div>{{-- Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰
 MODAL GPS TRACKER â€” Premium Satellite View
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰ --}}
 <div id="gpsTrackerModal"
     style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.8); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px; font-family:'Nunito',sans-serif;">
     <div class="gps-modal-container"
@@ -264,12 +264,12 @@ MODAL GPS TRACKER â€” Premium Satellite View
                 <div style="position:relative; width:36px; height:36px; flex-shrink:0;">
                     <div
                         style="position:absolute; inset:4px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center;">
-                        <i class="material-icons" style="font-size:16px; color:white;">agriculture</i>
+                        <i class="material-icons" style="font-size:16px; color:white;">gps_fixed</i>
                     </div>
                 </div>
                 <div>
                     <div style="color:#1e293b; font-weight:800; font-size:15px; font-family:'Nunito',sans-serif;">
-                        GPS en Vivo</div>
+                        Rastreo Satelital en Vivo</div>
                 </div>
             </div>
             <button type="button" onclick="closeGpsModal()"
@@ -280,69 +280,46 @@ MODAL GPS TRACKER â€” Premium Satellite View
             </button>
         </div>
 
-        {{-- Body: iframe real GPS51 (izquierda) + datos equipo (derecha) --}}
+        {{-- Body: iframe GPS51 izquierda + datos equipo derecha --}}
         <div class="gps-modal-body"
             style="flex:1; display:flex; min-height:540px; overflow:hidden;">
 
-            {{-- Panel Izquierdo: iframe GPS51 con filtro de color Vidalsa --}}
-            <div class="gps-panel-map"
-                style="position:relative; flex:1; overflow:hidden; background:#0f172a;">
+            {{-- Panel Izquierdo: iframe GPS51 — Ubicación en tiempo real --}}
+            <div class="gps-panel-map" id="map_container"
+                style="position:relative; flex:1; background:#f1f5f9; overflow:hidden; z-index:1;">
 
-                {{-- Spinner de carga --}}
+                {{-- Overlay de Carga --}}
                 <div id="gps-loading-overlay"
-                    style="position:absolute; inset:0; background:#0f172a; z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;">
-                    <div style="width:45px; height:45px; border:4px solid #1e3a5f; border-top-color:#3b82f6; border-radius:50%; animation:gps-spin 1s linear infinite;"></div>
-                    <span style="font-weight:800; color:#94a3b8; font-size:13px; letter-spacing:1px; text-transform:uppercase;">Conectando al SatÃ©lite...</span>
+                    style="position:absolute; inset:0; background:rgba(255,255,255,0.92); backdrop-filter:blur(4px); z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;">
+                    <div style="width:45px; height:45px; border:4px solid #cbd5e1; border-top-color:#3b82f6; border-radius:50%; animation:gps-spin 1s linear infinite;"></div>
+                    <span style="font-weight:700; color:#475569; font-size:14px;">Conectando a la Plataforma GPS...</span>
                 </div>
 
-                {{-- iframe GPS51 real con filtro de color Vidalsa --}}
-                <iframe id="gps_iframe"
-                    src="about:blank"
-                    style="width:100%; height:100%; border:none; display:block;
-                           filter: invert(1) hue-rotate(190deg) saturate(1.2) brightness(0.85) contrast(1.05);"
+                {{-- iframe GPS51 real --}}
+                <iframe id="gps_iframe" src="about:blank"
+                    style="width:100%; height:100%; border:none; display:none;"
                     allowfullscreen
-                    onload="window.onGpsIframeLoad()"></iframe>
+                    onload="document.getElementById('gps-loading-overlay').style.display='none'; this.style.display='block';"></iframe>
             </div>
 
-            {{-- Panel Derecho: Datos del equipo --}}
+            {{-- Panel Derecho: Placa/Serial del equipo (datos reales del BD) --}}
             <div class="gps-panel-data"
-                style="width:300px; background:#0f172a; border-left:1px solid #1e3a5f; padding:20px; display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0; gap:16px;">
+                style="width:300px; background:#ffffff; border-left:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex-shrink:0;">
 
-                {{-- Identifcador del equipo --}}
-                <div style="background:#1e293b; border-radius:10px; padding:14px; border:1px solid #334155;">
-                    <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">Equipo</div>
-                    <div style="font-size:13px; color:#e2e8f0; font-weight:700;" id="scraped_device">â€”</div>
+                <div style="display:flex; align-items:center; gap:8px; color:#0f172a; font-weight:800; font-size:14px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+                    <i class="material-icons" style="color:#10b981; font-size:20px;">gps_fixed</i> Datos del Equipo
                 </div>
 
-                {{-- Estado Satelital --}}
-                <div style="background:#1e293b; border-radius:10px; padding:14px; border:1px solid #334155; display:flex; flex-direction:column; gap:10px;">
-                    <div style="font-size:10px; color:#64748b; font-weight:700; letter-spacing:1px; text-transform:uppercase;">Estado GPS</div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="width:8px; height:8px; background:#10b981; border-radius:50%; display:inline-block; box-shadow:0 0 6px #10b981;"></span>
-                        <span style="font-size:12px; color:#94a3b8;">Rastreo Satelital Activo</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <i class="material-icons" style="font-size:14px; color:#3b82f6;">satellite_alt</i>
-                        <span style="font-size:12px; color:#94a3b8;">GPS51 â€” Beidou / GPS</span>
-                    </div>
-                </div>
+                {{-- Poblado dinámicamente por openGpsModal() --}}
+                <div id="scraped_device" style="font-size:13px; color:#1e293b; font-weight:600; line-height:1.6;">—</div>
 
                 {{-- Nota informativa --}}
-                <div style="background:rgba(59,130,246,0.08); border-radius:10px; padding:12px; border:1px solid rgba(59,130,246,0.2);">
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-top:auto;">
                     <div style="display:flex; align-items:flex-start; gap:8px;">
-                        <i class="material-icons" style="font-size:16px; color:#3b82f6; flex-shrink:0; margin-top:1px;">info</i>
-                        <span style="font-size:11px; color:#94a3b8; line-height:1.5;">Los datos de ubicaciÃ³n, velocidad y estado del motor son mostrados en tiempo real por la plataforma GPS51.</span>
+                        <i class="material-icons" style="font-size:16px; color:#16a34a; flex-shrink:0; margin-top:1px;">info</i>
+                        <span style="font-size:11px; color:#166534; line-height:1.5;">La ubicación, velocidad y datos del motor se muestran en tiempo real dentro de la plataforma GPS51.</span>
                     </div>
                 </div>
-
-                {{-- BotÃ³n abrir en nueva pestaÃ±a --}}
-                <a id="gps_open_link" href="#" target="_blank"
-                    style="margin-top:auto; display:flex; align-items:center; justify-content:center; gap:8px; background:linear-gradient(135deg,#2563eb,#1d4ed8); color:white; padding:11px; border-radius:10px; font-size:12px; font-weight:700; text-decoration:none; transition:all 0.2s; box-shadow:0 4px 14px rgba(37,99,235,0.35);"
-                    onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 6px 20px rgba(37,99,235,0.5)';"
-                    onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 14px rgba(37,99,235,0.35)';">
-                    <i class="material-icons" style="font-size:16px;">open_in_new</i>
-                    Ver Plataforma GPS Completa
-                </a>
 
             </div>
         </div>
@@ -350,47 +327,43 @@ MODAL GPS TRACKER â€” Premium Satellite View
 </div>
 
 <style>
-    details[name="equipment_accordion"] summary {
-        cursor: default;
-    }
+    details[name="equipment_accordion"] summary { cursor: default; }
+
     @keyframes gps-spin {
         to { transform: rotate(360deg); }
     }
+
     @media (max-width: 768px) {
         #gpsTrackerModal { padding: 12px !important; }
         .gps-modal-container { max-height: 96vh !important; }
         .gps-modal-body { flex-direction: column !important; min-height: auto !important; height: 100%; }
         .gps-panel-map { flex: none !important; height: 55vh !important; min-height: 280px !important; }
-        .gps-panel-data { width: 100% !important; border-left: none !important; border-top: 1px solid #1e3a5f !important; flex: 1 !important; max-height: calc(45vh - 60px) !important; padding: 15px !important; }
+        .gps-panel-data { width: 100% !important; border-left: none !important; border-top: 1px solid #e2e8f0 !important; flex: 1 !important; max-height: calc(45vh - 60px) !important; padding: 15px !important; }
     }
 </style>
 
 <script>
     window.openGpsModal = function (url, equipoPlaca, equipoSerial) {
         const modal    = document.getElementById('gpsTrackerModal');
-        const iframe   = document.getElementById('gps_iframe');
-        const openLink = document.getElementById('gps_open_link');
         const deviceEl = document.getElementById('scraped_device');
-        const loader   = document.getElementById('gps-loading-overlay');
+        const iframe   = document.getElementById('gps_iframe');
+        const overlay  = document.getElementById('gps-loading-overlay');
 
-        let dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A' && equipoPlaca  !== '' && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
-        let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== '' && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
+        let dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A' && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
+        let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
         if (deviceEl) {
-            if (dPlaca)       deviceEl.innerHTML = `<span style="font-size:10px;color:#64748b;font-weight:700;display:block;letter-spacing:1px;text-transform:uppercase;">Placa</span><span style="font-size:13px;font-weight:700;color:#e2e8f0;">${dPlaca}</span>`;
-            else if (dSerial) deviceEl.innerHTML = `<span style="font-size:10px;color:#64748b;font-weight:700;display:block;letter-spacing:1px;text-transform:uppercase;">Serial de Chasis</span><span style="font-size:13px;font-weight:700;color:#e2e8f0;">${dSerial}</span>`;
+            if (dPlaca)       deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;text-transform:uppercase;letter-spacing:0.5px;">Placa</span><span style="font-size:15px;font-weight:800;color:#1e293b;">${dPlaca}</span>`;
+            else if (dSerial) deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;text-transform:uppercase;letter-spacing:0.5px;">Serial de Chasis</span><span style="font-size:13px;font-weight:700;color:#1e293b;">${dSerial}</span>`;
             else              deviceEl.innerHTML = `<span style="color:#94a3b8;font-style:italic;font-size:12px;">Sin identificador</span>`;
         }
 
-        if (openLink && url) openLink.href = url;
-        if (loader) loader.style.display = 'flex';
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        if (iframe && url) iframe.src = url;
-    };
 
-    window.onGpsIframeLoad = function () {
-        const loader = document.getElementById('gps-loading-overlay');
-        if (loader) loader.style.display = 'none';
+        if (url) {
+            if (overlay) overlay.style.display = 'flex';
+            if (iframe) { iframe.style.display = 'none'; iframe.src = url; }
+        }
     };
 
     window.closeGpsModal = function () {
@@ -407,4 +380,3 @@ MODAL GPS TRACKER â€” Premium Satellite View
         if (e.key === 'Escape') window.closeGpsModal();
     });
 </script>
-
