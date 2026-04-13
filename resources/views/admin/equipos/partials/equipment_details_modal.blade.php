@@ -1,17 +1,16 @@
-﻿{{-- Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰
+{{-- ═══════════════════════════════════════════════════════════
 MODAL DETALLES DE EQUIPO
-Estructura limpia: overlay > modal-content > header + sub-header + body
-Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰ --}}
+Estructura: overlay > modal-content > header + sub-header + body
+═══════════════════════════════════════════════════════════════ --}}
 <div id="detailsModal" class="modal-overlay">
     <div class="modal-content"
         style="width: 90%; max-width: 400px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
 
-        {{-- Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ HEADER Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ --}}
+        {{-- HEADER --}}
         <div style="background: var(--maquinaria-dark-blue); color: white;">
 
-            {{-- Fila principal: tÃ­tulo + GPS + cerrar --}}
-            <div
-                style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+            {{-- Fila principal: titulo + GPS + cerrar --}}
+            <div style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                 <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
                     <div>
                         <h2 id="modal_equipo_title" style="margin: 0; font-size: 17px; font-weight: 700;"></h2>
@@ -19,8 +18,8 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                     </div>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button id="modal_gps_btn" type="button"
-                            onclick="openGpsModal(this.dataset.url, this.dataset.equipoName, this.dataset.equipoSerial)"
-                            data-url="" data-equipo-name="" data-equipo-serial=""
+                            onclick="openGpsModal(this.dataset.url, this.dataset.equipoName, this.dataset.equipoSerial, this.dataset.equipoTipo)"
+                            data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
                             style="display: none; background: linear-gradient(135deg,#10b981,#059669); color: white; padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; align-items: center; gap: 5px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.35);"
                             onmouseover="this.style.transform='scale(1.04)'; this.style.boxShadow='0 4px 14px rgba(16,185,129,0.5)'"
                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(16,185,129,0.35)'">
@@ -30,25 +29,23 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                     </div>
                 </div>
                 <button type="button" onclick="closeDetailsModal(event)"
-                    style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: default; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;"
+                    style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;"
                     onmouseover="this.style.background='rgba(255,255,255,0.2)'"
                     onmouseout="this.style.background='rgba(255,255,255,0.1)'">
                     <i class="material-icons" style="font-size: 18px;">close</i>
                 </button>
             </div>
 
-            {{-- Fila secundaria: UbicaciÃ³n EspecÃ­fica (Quick Edit) --}}
-            <div
-                style="background: #1e293b; padding: 6px 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            {{-- Fila secundaria: Ubicacion Especifica (Quick Edit) --}}
+            <div style="background: #1e293b; padding: 6px 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                 <i class="material-icons" style="font-size: 14px; opacity: 0.65;">place</i>
-                <span
-                    style="font-size: 10px; opacity: 0.65; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;">UbicaciÃ³n:</span>
+                <span style="font-size: 10px; opacity: 0.65; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;">Ubicaci&oacute;n:</span>
 
                 {{-- Modo lectura --}}
                 <div id="ubicacion_display_wrapper" style="display: flex; align-items: center; gap: 6px;">
                     <span id="d_detalle_ubicacion"
-                        style="color: #ffffff; font-size: 13px; font-weight: 700; opacity: 0.95;">Ã”Ã‡Ã¶</span>
-                    <button type="button" id="btn_edit_ubicacion" title="Editar ubicaciÃ³n"
+                        style="color: #ffffff; font-size: 13px; font-weight: 700; opacity: 0.95;">&mdash;</span>
+                    <button type="button" id="btn_edit_ubicacion" title="Editar ubicaci&oacute;n"
                         style="background: rgba(255,255,255,0.1); border: none; padding: 3px 6px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; color: rgba(255,255,255,0.6); transition: all 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'"
                         onmouseout="this.style.background='rgba(255,255,255,0.1)';this.style.color='rgba(255,255,255,0.6)'"
@@ -57,7 +54,7 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                     </button>
                 </div>
 
-                {{-- Modo ediciÃ³n --}}
+                {{-- Modo edicion --}}
                 <div id="ubicacion_edit_wrapper" style="display: none; align-items: center; gap: 6px; flex: 1;">
                     <input type="text" id="input_ubicacion" maxlength="150"
                         style="flex: 1; min-width: 140px; padding: 2px 8px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px; font-size: 12px; color: #1e293b; outline: none; background: white;"
@@ -67,32 +64,31 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                         style="background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: background 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.3)'"
                         onmouseout="this.style.background='rgba(255,255,255,0.15)'" title="Guardar y cerrar">
-                        Ã”Â£Ã²
+                        &#x2715;
                     </button>
                 </div>
             </div>
 
         </div>{{-- /HEADER --}}
 
-        {{-- Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ BODY Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡Ã”Ã¶Ã‡ --}}
+        {{-- BODY --}}
         <div class="modal-body-scroll" style="padding: 25px; max-height: 80vh; overflow-y: auto; overflow-x: hidden;">
             <div style="display: flex; flex-direction: column; gap: 15px;">
 
-                {{-- SecciÃ³n 1: DocumentaciÃ³n Legal --}}
+                {{-- Seccion 1: Documentacion Legal --}}
                 <details name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
                     <summary
                         style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
                         <i class="material-icons" style="font-size: 20px; color: #64748b;">description</i>
-                        <span>DocumentaciÃ³n Legal y Soportes</span>
+                        <span>Documentaci&oacute;n Legal y Soportes</span>
                     </summary>
                     <div style="padding: 10px 16px; border-top: 1px solid #e2e8f0;">
                         <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
 
                             <div class="detail-row-basic"
                                 style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:3px 0;">
-                                <span
-                                    style="color:#64748b;font-size:12px;white-space:nowrap;margin-top:1px;">Titular</span>
+                                <span style="color:#64748b;font-size:12px;white-space:nowrap;margin-top:1px;">Titular</span>
                                 <span id="d_titular"
                                     style="color:#333;font-size:13px;text-align:right;word-wrap:break-word;overflow-wrap:break-word;line-height:1.3;flex:1;max-width:75%;"></span>
                             </div>
@@ -114,7 +110,7 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
 
                             <div class="detail-row-doc"
                                 style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px dashed #f1f5f9;">
-                                <span style="color:#64748b;font-size:12px;">PÃ³liza de Seguro</span>
+                                <span style="color:#64748b;font-size:12px;">P&oacute;liza de Seguro</span>
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <span id="d_venc_seguro" style="color:#333;font-size:13px;"></span>
                                     <div id="d_btn_poliza"></div>
@@ -149,13 +145,13 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- SecciÃ³n 2: InformaciÃ³n General --}}
+                {{-- Seccion 2: Informacion General --}}
                 <details name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
                     <summary
                         style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
                         <i class="material-icons" style="font-size: 20px; color: #64748b;">info</i>
-                        <span>InformaciÃ³n General</span>
+                        <span>Informaci&oacute;n General</span>
                     </summary>
                     <div style="padding: 20px; border-top: 1px solid #e2e8f0;">
                         <div style="display: flex; flex-direction: column; gap: 15px; font-size: 14px;">
@@ -165,26 +161,22 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                             <span id="d_modelo" style="display:none;"></span>
                             <span id="d_motor_serial" style="display:none;"></span>
 
-                            <div
-                                style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
-                                <span style="color: #64748b;">AÃ±o de FabricaciÃ³n:</span>
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
+                                <span style="color: #64748b;">A&ntilde;o de Fabricaci&oacute;n:</span>
                                 <span id="d_anio" style="color: #333333;"></span>
                             </div>
 
-                            <div
-                                style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
-                                <span style="color: #64748b;">CategorÃ­a de Flota:</span>
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
+                                <span style="color: #64748b;">Categor&iacute;a de Flota:</span>
                                 <span id="d_categoria" style="color: #333333;"></span>
                             </div>
 
-                            <div
-                                style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
                                 <span style="color: #64748b;">Tipo de Combustible:</span>
                                 <span id="d_combustible" style="color: #333333;"></span>
                             </div>
 
-                            <div
-                                style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
                                 <span style="color: #64748b;">Consumo Promedio:</span>
                                 <span id="d_consumo" style="color: #333333;"></span>
                             </div>
@@ -193,7 +185,7 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- SecciÃ³n 3: Responsable Asignado --}}
+                {{-- Seccion 3: Responsable Asignado --}}
                 <details id="responsable_accordion" name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
                     <summary
@@ -201,21 +193,18 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                         <i class="material-icons" style="font-size: 20px; color: #64748b;">person_pin</i>
                         <span>Responsable Asignado</span>
                     </summary>
-                    <div
-                        style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                    <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
 
                         {{-- Formulario para asignar nuevo responsable (oculto por defecto) --}}
                         <div id="responsable_form_container"
                             style="display: none; flex-direction: column; gap: 8px; font-size: 13px; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; max-width: 340px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span
-                                    style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">CÃ©dula:</span>
+                                <span style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">C&eacute;dula:</span>
                                 <input type="text" id="resp_cedula" placeholder="Ej: V-12345678" autocomplete="off"
                                     style="flex: 1; padding: 5px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 12px; outline: none; background: white; color: #0f172a;">
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span
-                                    style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">Nombre:</span>
+                                <span style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">Nombre:</span>
                                 <input type="text" id="resp_nombre" placeholder="Nombre completo" autocomplete="off"
                                     style="flex: 1; padding: 5px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 12px; outline: none; background: white; color: #0f172a;">
                             </div>
@@ -228,7 +217,7 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- SecciÃ³n 4: Sub-activos vinculados (oculta por defecto, se muestra via JS) --}}
+                {{-- Seccion 4: Sub-activos vinculados --}}
                 <details id="sa_accordion" name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
                     <summary
@@ -249,27 +238,25 @@ Estructura limpia: overlay > modal-content > header + sub-header + body
         </div>{{-- /BODY --}}
 
     </div>{{-- /modal-content --}}
-</div>{{-- Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰
-MODAL GPS TRACKER â€” Premium Satellite View
-Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰Ã”Ã²Ã‰ --}}
+</div>{{-- /detailsModal --}}
+
+{{-- ═══════════════════════════════════════════════════════════
+MODAL GPS TRACKER — Rastreo Satelital en Vivo
+═══════════════════════════════════════════════════════════════ --}}
 <div id="gpsTrackerModal"
     style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.8); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px; font-family:'Nunito',sans-serif;">
     <div class="gps-modal-container"
         style="background:#ffffff; border-radius:16px; width:100%; max-width:1150px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.2); border:1px solid #e2e8f0;">
 
-        {{-- Header --}}
-        <div
-            style="padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0;">
+        {{-- Header GPS --}}
+        <div style="padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0;">
             <div style="display:flex; align-items:center; gap:12px;">
-                <div style="position:relative; width:36px; height:36px; flex-shrink:0;">
-                    <div
-                        style="position:absolute; inset:4px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center;">
-                        <i class="material-icons" style="font-size:16px; color:white;">gps_fixed</i>
-                    </div>
+                <div style="width:36px; height:36px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="material-icons" style="font-size:18px; color:white;">gps_fixed</i>
                 </div>
-                <div>
-                    <div style="color:#1e293b; font-weight:800; font-size:15px; font-family:'Nunito',sans-serif;">
-                        Rastreo Satelital en Vivo</div>
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <span style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Rastreo Satelital en Vivo</span>
+                    <span id="gps_equipo_title" style="color:#1e293b; font-weight:800; font-size:15px;">&mdash;</span>
                 </div>
             </div>
             <button type="button" onclick="closeGpsModal()"
@@ -280,11 +267,10 @@ MODAL GPS TRACKER â€” Premium Satellite View
             </button>
         </div>
 
-        {{-- Body: iframe GPS51 izquierda + datos equipo derecha --}}
-        <div class="gps-modal-body"
-            style="flex:1; display:flex; min-height:540px; overflow:hidden;">
+        {{-- Body GPS: iframe izquierda + panel datos derecha --}}
+        <div class="gps-modal-body" style="flex:1; display:flex; min-height:540px; overflow:hidden;">
 
-            {{-- Panel Izquierdo: iframe GPS51 — Ubicación en tiempo real --}}
+            {{-- Panel Izquierdo: iframe GPS51 -- Ubicacion en tiempo real --}}
             <div class="gps-panel-map" id="map_container"
                 style="position:relative; flex:1; background:#f1f5f9; overflow:hidden; z-index:1;">
 
@@ -295,36 +281,42 @@ MODAL GPS TRACKER â€” Premium Satellite View
                     <span style="font-weight:700; color:#475569; font-size:14px;">Conectando a la Plataforma GPS...</span>
                 </div>
 
-                {{-- iframe GPS51 real --}}
+                {{-- iframe GPS51 --}}
                 <iframe id="gps_iframe" src="about:blank"
                     style="width:100%; height:100%; border:none; display:none;"
                     allowfullscreen
                     onload="document.getElementById('gps-loading-overlay').style.display='none'; this.style.display='block';"></iframe>
             </div>
 
-            {{-- Panel Derecho: Placa/Serial del equipo (datos reales del BD) --}}
+            {{-- Panel Derecho: Placa/Serial del equipo --}}
             <div class="gps-panel-data"
-                style="width:300px; background:#ffffff; border-left:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex-shrink:0;">
+                style="width:320px; background:#ffffff; border-left:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex-shrink:0;">
 
                 <div style="display:flex; align-items:center; gap:8px; color:#0f172a; font-weight:800; font-size:14px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
-                    <i class="material-icons" style="color:#10b981; font-size:20px;">gps_fixed</i> Datos del Equipo
+                    <i class="material-icons" style="color:#10b981; font-size:20px;">agriculture</i> Datos del Equipo
                 </div>
 
-                {{-- Poblado dinámicamente por openGpsModal() --}}
-                <div id="scraped_device" style="font-size:13px; color:#1e293b; font-weight:600; line-height:1.6;">—</div>
+                {{-- Poblado dinamicamente por openGpsModal() --}}
+                <div id="scraped_device" style="font-size:13px; color:#1e293b; font-weight:600; line-height:1.6;">&mdash;</div>
 
-                {{-- Nota informativa --}}
-                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-top:auto;">
+                {{-- Alerta tecnica sobre Telemetria --}}
+                <div style="background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; padding:12px; margin-top:20px;">
                     <div style="display:flex; align-items:flex-start; gap:8px;">
-                        <i class="material-icons" style="font-size:16px; color:#16a34a; flex-shrink:0; margin-top:1px;">info</i>
-                        <span style="font-size:11px; color:#166534; line-height:1.5;">La ubicación, velocidad y datos del motor se muestran en tiempo real dentro de la plataforma GPS51.</span>
+                        <i class="material-icons" style="font-size:16px; color:#dc2626; flex-shrink:0; margin-top:1px;">notification_important</i>
+                        <span style="font-size:11px; color:#991b1b; line-height:1.5;">
+                            <b>L&iacute;mite de Integraci&oacute;n:</b> 
+                            <br><br>
+                            Los datos de telemetr&iacute;a (Ubicaci&oacute;n, Velocidad, Parada, Kilometraje, Combustible, etc.) est&aacute;n encapsulados dentro de la plataforma <b>gps51.com</b>.
+                            <br><br>
+                            Por estrictas normas de seguridad del navegador (CORS), no es posible extraer esta informaci&oacute;n del recuadro que se muestra sobre el mapa para colocarla en este panel externo, ni modificar sus men&uacute;s de vistas de sat&eacute;lite o capas.
+                        </span>
                     </div>
                 </div>
 
             </div>
-        </div>
+        </div>{{-- /Body GPS --}}
     </div>
-</div>
+</div>{{-- /gpsTrackerModal --}}
 
 <style>
     details[name="equipment_accordion"] summary { cursor: default; }
@@ -343,18 +335,22 @@ MODAL GPS TRACKER â€” Premium Satellite View
 </style>
 
 <script>
-    window.openGpsModal = function (url, equipoPlaca, equipoSerial) {
+    window.openGpsModal = function (url, equipoPlaca, equipoSerial, equipoTipo) {
         const modal    = document.getElementById('gpsTrackerModal');
-        const deviceEl = document.getElementById('scraped_device');
+        const titleEl  = document.getElementById('gps_equipo_title');
         const iframe   = document.getElementById('gps_iframe');
         const overlay  = document.getElementById('gps-loading-overlay');
 
+        let dTipo   = (equipoTipo  && equipoTipo  !== 'null' && equipoTipo  !== '')  ? equipoTipo.toUpperCase()  : null;
         let dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A' && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
         let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
-        if (deviceEl) {
-            if (dPlaca)       deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;text-transform:uppercase;letter-spacing:0.5px;">Placa</span><span style="font-size:15px;font-weight:800;color:#1e293b;">${dPlaca}</span>`;
-            else if (dSerial) deviceEl.innerHTML = `<span style="font-size:11px;color:#64748b;font-weight:700;display:block;text-transform:uppercase;letter-spacing:0.5px;">Serial de Chasis</span><span style="font-size:13px;font-weight:700;color:#1e293b;">${dSerial}</span>`;
-            else              deviceEl.innerHTML = `<span style="color:#94a3b8;font-style:italic;font-size:12px;">Sin identificador</span>`;
+
+        if (titleEl) {
+            let parts = [];
+            if (dTipo)   parts.push(`<span style="font-weight:800;color:#1e293b;">${dTipo}</span>`);
+            if (dPlaca)  parts.push(`<span style="color:#64748b;font-size:13px;">Placa: <strong>${dPlaca}</strong></span>`);
+            else if (dSerial) parts.push(`<span style="color:#64748b;font-size:13px;">Chasis: <strong>${dSerial}</strong></span>`);
+            titleEl.innerHTML = parts.join('<span style="color:#cbd5e1;margin:0 6px;">|</span>') || '&mdash;';
         }
 
         modal.style.display = 'flex';
@@ -362,7 +358,7 @@ MODAL GPS TRACKER â€” Premium Satellite View
 
         if (url) {
             if (overlay) overlay.style.display = 'flex';
-            if (iframe) { iframe.style.display = 'none'; iframe.src = url; }
+            if (iframe)  { iframe.style.display = 'none'; iframe.src = url; }
         }
     };
 

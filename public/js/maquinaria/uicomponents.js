@@ -847,8 +847,9 @@ window.showDetailsImproved = function (target, event) {
             let strPlaca = (isValid(rawPlaca) && rawPlaca !== "N/A") ? rawPlaca : "Sin Placa";
             let strChasis = isValid(rawChasis) ? rawChasis : "Sin Chasis";
 
-            gpsBtn.dataset.equipoName = strPlaca;
+            gpsBtn.dataset.equipoName   = strPlaca;
             gpsBtn.dataset.equipoSerial = strChasis;
+            gpsBtn.dataset.equipoTipo   = (d.tipo && d.tipo !== 'null' && d.tipo !== 'undefined') ? d.tipo : '';
 
             gpsBtn.style.display = "inline-flex";
         } else {
