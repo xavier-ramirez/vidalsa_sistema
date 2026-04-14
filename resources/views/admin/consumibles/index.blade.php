@@ -33,6 +33,15 @@
     .admin-table thead th.th-center { text-align: center !important; }
     .admin-table thead th.th-right  { text-align: right  !important; }
     .admin-table thead th.th-left   { text-align: left   !important; }
+
+    @media (max-width: 900px) {
+        /* Acciones boton full width */
+        .btn-acciones-wrapper { flex: 1 1 100% !important; min-width: 100%; }
+        #btnAcciones { width: 100%; justify-content: center; }
+        #splitDropdownMenu { width: 100%; min-width: 100%; }
+        
+        .hide-on-mobile { display: none !important; }
+    }
 </style>
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
@@ -206,7 +215,7 @@
             </div>
 
             <!-- Botón Acciones -->
-            <div style="position: relative; flex-shrink: 0;">
+            <div class="btn-acciones-wrapper" style="position: relative; flex-shrink: 0;">
                 <button type="button" id="btnAcciones" onclick="toggleAccionesMenu(event)" class="btn-primary-maquinaria" style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                     <i class="material-icons">settings</i>
                     <span>Acciones</span>
@@ -224,7 +233,7 @@
                         <span style="font-size:14px; font-weight:500;">Gráficos y Reportes</span>
                     </a>
                     
-                    <a href="{{ route('consumibles.cargar') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                    <a href="{{ route('consumibles.cargar') }}" class="dropdown-item-custom hide-on-mobile" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                         <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
                             <i class="material-icons" style="font-size: 18px; color: #ea580c;">note_add</i>
                         </div>
@@ -368,8 +377,7 @@
                 };
             @endphp
             <tr>
-                <td style="text-align:center; font-size:11px; font-weight:700; color:#cbd5e0;
-                           background:#f8fafc; border-right:1px solid #e2e8f0; padding:6px 4px;">
+                <td style="text-align:center; font-size:11px; font-weight:700; color:#cbd5e0; background:#f8fafc; border-right:1px solid #e2e8f0; padding:6px 4px;">
                     {{ ($consumibles->currentPage() - 1) * $consumibles->perPage() + $loop->iteration }}
                 </td>
                 <td style="white-space:nowrap; font-weight:600;">

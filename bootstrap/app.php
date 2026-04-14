@@ -31,17 +31,22 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Sesión expirada (token CSRF) → redirigir al login
         $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
-            return redirect()->route('login')->with('info', 'La sesión ha caducado por seguridad. Por favor, inicie sesión nuevamente.');
+            $wantsJson = $request->expectsJson() || $request->is('api/*') || $request->ajax() || strtolower($request->header('X-Requested-With')) === 'xmlhttprequest';
+            if ($wantsJson) {
+                return response()->json(['success' => false, 'message' => 'Sesión expirada por inactividad.', 'redirect' => '/login'], 419);
+            }
+            // Retornamos directamente un relative redirect o a /login previniendo pérdida de puerto local
+            return redirect('/login')->with('info', 'La sesión ha caducado por seguridad. Por favor, inicie sesión nuevamente.');
         });
 
-        // Usuario no autenticado en rutas WEB → redirigir al login (nunca mostrar JSON)
+        // Usuario no autenticado en rutas WEB → redirigir al login (nunca mostrar JSON roto en front)
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
-            // Si es una petición de API (/api/...) → responder JSON normalmente
-            if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json(['error' => 'No autenticado.'], 401);
+            $wantsJson = $request->expectsJson() || $request->is('api/*') || $request->ajax() || strtolower($request->header('X-Requested-With')) === 'xmlhttprequest';
+            if ($wantsJson) {
+                return response()->json(['success' => false, 'error' => 'No autenticado.', 'redirect' => '/login'], 401);
             }
             // Para cualquier otra petición (web, navegador celular) → login
-            return redirect()->route('login')->with('info', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+            return redirect('/login')->with('info', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
         });
 
     })->create();

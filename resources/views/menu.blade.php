@@ -108,7 +108,7 @@
                                 <i class="material-icons" style="font-size: 20px;">file_download</i>
                             </button>
                         </div>
-                        <div class="activity-list" style="max-height: 400px; overflow-y: auto;">
+                        <div class="activity-list" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
                             <div id="dashboardAlertsList">
                                 @include('partials.dashboard_alerts')
                             </div>

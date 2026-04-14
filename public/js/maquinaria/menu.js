@@ -212,31 +212,25 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:20000;display:flex;justify-content:center;align-items:center;opacity:0;transition:opacity 0.2s ease;';
 
     overlay.innerHTML = `
-        <div style="background:white;width:90%;max-width:320px;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px -10px rgba(0,0,0,0.3);transform:scale(0.95);transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);">
-            <div style="background:linear-gradient(135deg, #1e293b, #0f172a);padding:12px 16px;color:white;display:flex;align-items:center;gap:10px;">
-                <i class="material-icons" style="font-size:20px;background:rgba(255,255,255,0.15);padding:4px;border-radius:50%;">manage_accounts</i>
-                <div>
-                    <h3 style="margin:0;font-size:14px;font-weight:700;">Iniciar Gestión</h3>
-                </div>
-            </div>
-            <div style="padding:20px 16px;">
-                <p style="margin:0 0 12px 0;font-size:13px;color:#334155;font-weight:600;line-height:1.4;">
-                    ¿Confirmas que comenzarás a gestionar este documento?
+        <div style="background:white;width:90%;max-width:320px;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px -10px rgba(0,0,0,0.3);transform:scale(0.95);transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);text-align:center;">
+            <div style="padding:26px 16px 20px;">
+                <p style="margin:0 0 16px 0;font-size:14px;color:#1e293b;font-weight:800;line-height:1.4;">
+                    ¿Confirmas que comenzarás a<br>gestionar este documento?
                 </p>
-                <div style="background:#f1f5f9;padding:10px;border-radius:8px;border-left:3px solid #3b82f6;">
-                    <p style="margin:0;font-size:11px;color:#64748b;line-height:1.4;">
-                        Se registrará tu frente como <b>responsable de la renovación</b>.
+                <div style="background:#f1f5f9;padding:12px;border-radius:8px;border:1px solid #e2e8f0;margin:0 auto;max-width:260px;">
+                    <p style="margin:0;font-size:12px;color:#64748b;line-height:1.5;">
+                        Se registrará tu frente como<br><b style="color:#1e293b;font-size:13px;">responsable de la renovación</b>.
                     </p>
                 </div>
             </div>
-            <div style="padding:0 16px 16px;display:flex;gap:8px;">
+            <div style="padding:0 16px 20px;display:flex;gap:8px;justify-content:center;">
                 <button id="btnCancelGestion"
-                    style="flex:1;padding:8px;background:white;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;transition:all 0.2s;"
+                    style="flex:1;max-width:130px;padding:9px;background:white;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:600;color:#64748b;transition:all 0.2s;"
                     onmouseover="this.style.background='#f8fafc';this.style.color='#475569'" onmouseout="this.style.background='white';this.style.color='#64748b'">
                     Cancelar
                 </button>
                 <button id="btnConfirmGestion"
-                    style="flex:1;padding:8px;background:#1e293b;border:none;border-radius:8px;font-size:12px;font-weight:700;color:white;cursor:pointer;transition:background 0.2s;"
+                    style="flex:1;max-width:130px;padding:9px;background:#1e293b;border:none;border-radius:8px;font-size:12px;font-weight:700;color:white;transition:background 0.2s;"
                     onmouseover="this.style.background='#0f172a'" onmouseout="this.style.background='#1e293b'">
                     Aceptar
                 </button>

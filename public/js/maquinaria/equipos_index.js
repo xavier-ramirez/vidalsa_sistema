@@ -502,8 +502,10 @@ window.loadEquipos = function (url = null, silent = false) {
     // NOTE: reApplySelections() is NOT called here because the table
     // shows a "no filters" message with no real rows to highlight.
 
-    const finalUrl =
-        baseUrl + (baseUrl.includes("?") ? "&" : "?") + params.toString();
+    const paramStr = params.toString();
+    const finalUrl = paramStr
+        ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + paramStr
+        : baseUrl;
     tableBody.style.opacity = "0.5";
 
     if (!silent && window.showPreloader) window.showPreloader();
@@ -541,22 +543,27 @@ window.loadEquipos = function (url = null, silent = false) {
                 document.getElementById("equiposPagination");
             if (paginationContainer) paginationContainer.innerHTML = "";
 
-            const statsTotal = document.getElementById("stats_total");
-            const statsInactivos = document.getElementById("stats_inactivos");
-            const statsMantenimiento = document.getElementById("stats_mantenimiento");
-            
-            if (statsTotal) statsTotal.textContent = data.stats.total;
-            if (statsInactivos) statsInactivos.textContent = data.stats.inactivos;
-            if (statsMantenimiento) statsMantenimiento.textContent = data.stats.mantenimiento;
+            // Elementos del DOM para stats (desktop + móvil)
+            const statsTotal        = document.getElementById('stats_total');
+            const statsInactivos    = document.getElementById('stats_inactivos');
+            const statsMantenimiento = document.getElementById('stats_mantenimiento');
+
+            // Show '--' when there are no active filters
+            const hasActiveFilters = !!paramStr;
+            const displayStat = (val) => hasActiveFilters ? val : '--';
+
+            if (statsTotal)         statsTotal.textContent         = displayStat(data.stats.total);
+            if (statsInactivos)     statsInactivos.textContent     = displayStat(data.stats.inactivos);
+            if (statsMantenimiento) statsMantenimiento.textContent = displayStat(data.stats.mantenimiento);
 
             // Sincronizar pills móviles
             const mTotal = document.getElementById("mobile_stats_total");
             const mInop  = document.getElementById("mobile_stats_inactivos");
             const mMant  = document.getElementById("mobile_stats_mantenimiento");
             
-            if (mTotal) mTotal.textContent = data.stats.total;
-            if (mInop)  mInop.textContent  = data.stats.inactivos;
-            if (mMant)  mMant.textContent  = data.stats.mantenimiento;
+            if (mTotal) mTotal.textContent = displayStat(data.stats.total);
+            if (mInop)  mInop.textContent  = displayStat(data.stats.inactivos);
+            if (mMant)  mMant.textContent  = displayStat(data.stats.mantenimiento);
 
             const distroContainer = document.getElementById(
                 "distributionStatsContainer",

@@ -2070,9 +2070,9 @@ input:-webkit-autofill:active {
     }
 
     #detailsModal .modal-content {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 !important;
+        width: 90% !important;
+        max-width: 380px !important;
+        margin: auto !important;
         height: auto !important;
         max-height: 94dvh !important;
         border-radius: 12px !important;

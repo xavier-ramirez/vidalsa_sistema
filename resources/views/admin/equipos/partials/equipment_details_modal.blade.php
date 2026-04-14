@@ -11,10 +11,10 @@ Estructura: overlay > modal-content > header + sub-header + body
 
             {{-- Fila principal: titulo + GPS + cerrar --}}
             <div style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-                <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;">
                     <div>
-                        <h2 id="modal_equipo_title" style="margin: 0; font-size: 17px; font-weight: 700;"></h2>
-                        <p id="modal_equipo_subtitle" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px;"></p>
+                        <h2 id="modal_equipo_title" style="margin: 0; font-size: 17px; font-weight: 700; word-break: break-word; line-height: 1.2;"></h2>
+                        <p id="modal_equipo_subtitle" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px; word-break: break-word;"></p>
                     </div>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button id="modal_gps_btn" type="button"
@@ -249,14 +249,14 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         style="background:#ffffff; border-radius:16px; width:100%; max-width:1150px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.2); border:1px solid #e2e8f0;">
 
         {{-- Header GPS --}}
-        <div style="padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0;">
-            <div style="display:flex; align-items:center; gap:12px;">
+        <div style="padding:14px 20px; display:flex; align-items:flex-start; justify-content:space-between; border-bottom:1px solid #e2e8f0; background:#f8fafc; flex-shrink:0;">
+            <div style="display:flex; align-items:flex-start; gap:12px; flex:1; min-width:0; padding-right:10px;">
                 <div style="width:36px; height:36px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                     <i class="material-icons" style="font-size:18px; color:white;">gps_fixed</i>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:2px;">
+                <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
                     <span style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Rastreo Satelital en Vivo</span>
-                    <span id="gps_equipo_title" style="color:#1e293b; font-weight:800; font-size:15px;">&mdash;</span>
+                    <span id="gps_equipo_title" style="color:#1e293b; font-weight:800; font-size:15px; word-break:break-word; max-width:100%; line-height:1.2;">&mdash;</span>
                 </div>
             </div>
             <button type="button" onclick="closeGpsModal()"
@@ -267,33 +267,20 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
             </button>
         </div>
 
-        {{-- Body GPS: iframe Único de mapa --}}
-        <div class="gps-modal-body" style="flex:1; display:flex; min-height:540px; overflow:hidden;">
-
-            {{-- Panel Único: iframe GPS51 -- Ubicacion en tiempo real --}}
-            <div class="gps-panel-map" id="map_container"
-                style="position:relative; flex:1; background:#f1f5f9; overflow:hidden; z-index:1;">
-
-                {{-- Overlay de Carga Tradicional --}}
-                <div id="gps-loading-overlay"
-                    style="position:absolute; inset:0; background:rgb(255 255 255); z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px;">
-                    <div class="preloader-content" style="position:relative; transform:scale(0.8);">
-                        <div class="spinner-circle"></div>
-                    </div>
-                </div>
-
-                {{-- iframe GPS --}}
-                <iframe id="gps_iframe" src="about:blank"
-                    style="width:100%; height:100%; border:none; display:none;"
-                    allowfullscreen="true"
-                    webkitallowfullscreen="true"
-                    mozallowfullscreen="true"
-                    allow="geolocation; microphone; camera; display-capture; fullscreen"
-                    onload="document.getElementById('gps-loading-overlay').style.display='none'; this.style.display='block';"></iframe>
+        {{-- iframe GPS --}}
+        <div class="gps-panel-map" style="flex:1; min-height:540px; overflow:hidden; position:relative;">
+            <div id="gps-loading-overlay"
+                style="position:absolute; inset:0; background:white; z-index:10; display:flex; align-items:center; justify-content:center;">
+                <div class="spinner-circle"></div>
             </div>
-        </div>{{-- /Body GPS --}}
+            <iframe id="gps_iframe" src="about:blank"
+                style="width:100%; height:100%; border:none; display:none; min-height:540px;"
+                allowfullscreen
+                allow="geolocation; fullscreen"
+                onload="document.getElementById('gps-loading-overlay').style.display='none'; this.style.display='block';"></iframe>
+        </div>
     </div>
-</div>{{-- /gpsTrackerModal --}}
+</div>
 
 <style>
     details[name="equipment_accordion"] summary { cursor: default; }
@@ -305,26 +292,25 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     @media (max-width: 768px) {
         #gpsTrackerModal { padding: 12px !important; }
         .gps-modal-container { max-height: 96vh !important; }
-        .gps-modal-body { flex-direction: column !important; min-height: auto !important; height: 100%; }
         .gps-panel-map { height: 80vh !important; min-height: 350px !important; }
     }
 </style>
 
 <script>
     window.openGpsModal = function (url, equipoPlaca, equipoSerial, equipoTipo) {
-        const modal    = document.getElementById('gpsTrackerModal');
-        const titleEl  = document.getElementById('gps_equipo_title');
-        const iframe   = document.getElementById('gps_iframe');
-        const overlay  = document.getElementById('gps-loading-overlay');
+        const modal   = document.getElementById('gpsTrackerModal');
+        const titleEl = document.getElementById('gps_equipo_title');
+        const iframe  = document.getElementById('gps_iframe');
+        const overlay = document.getElementById('gps-loading-overlay');
 
-        let dTipo   = (equipoTipo  && equipoTipo  !== 'null' && equipoTipo  !== '')  ? equipoTipo.toUpperCase()  : null;
-        let dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A' && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
-        let dSerial = (equipoSerial && equipoSerial !== 'N/A' && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
+        let dTipo   = (equipoTipo   && equipoTipo   !== 'null' && equipoTipo   !== '') ? equipoTipo.toUpperCase() : null;
+        let dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A'  && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
+        let dSerial = (equipoSerial && equipoSerial !== 'N/A'  && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
 
         if (titleEl) {
             let parts = [];
-            if (dTipo)   parts.push(`<span style="font-weight:800;color:#1e293b;">${dTipo}</span>`);
-            if (dPlaca)  parts.push(`<span style="color:#64748b;font-size:13px;">Placa: <strong>${dPlaca}</strong></span>`);
+            if (dTipo)        parts.push(`<span style="font-weight:800;color:#1e293b;">${dTipo}</span>`);
+            if (dPlaca)       parts.push(`<span style="color:#64748b;font-size:13px;">Placa: <strong>${dPlaca}</strong></span>`);
             else if (dSerial) parts.push(`<span style="color:#64748b;font-size:13px;">Chasis: <strong>${dSerial}</strong></span>`);
             titleEl.innerHTML = parts.join('<span style="color:#cbd5e1;margin:0 6px;">|</span>') || '&mdash;';
         }
@@ -332,7 +318,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
 
-        if (url) {
+        if (url && url !== 'null' && url !== '') {
             if (overlay) overlay.style.display = 'flex';
             if (iframe)  { iframe.style.display = 'none'; iframe.src = url; }
         }

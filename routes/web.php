@@ -109,6 +109,15 @@ Route::middleware(['auth'])->group(function () {
                 $frentes = \App\Models\FrenteTrabajo::orderBy('NOMBRE_FRENTE')->pluck('NOMBRE_FRENTE')->toArray();
                 return view('admin.herramientas.calculadora_frentes', compact('frentes'));
             })->name('herramientas.calculadoraFrentes');
+
+            // RUTA DE EMERGENCIA: REPARAR ESQUEMA BD
+            // Requiere autenticación (heredada) + permiso explícito super.admin
+            Route::get('system/force-fix-db/vidalsa123', function () {
+                if (!auth()->user()->can('super.admin')) {
+                    abort(403, 'Acceso denegado.');
+                }
+                return app(App\Http\Controllers\SystemController::class)->forceFixDb();
+            });
         });
 
     });
@@ -121,6 +130,3 @@ Route::post('/logout', [App\Http\Controllers\Auth\LoginController::class, 'logou
 Route::middleware(['auth'])->get('storage/google/{path}', [App\Http\Controllers\GoogleDriveController::class, 'proxy'])
     ->where('path', '.*')
     ->name('drive.file');
-
-// RUTA DE EMERGENCIA: REPARAR Y TIPO LOCAL (ORDENAR COLUMNAS)
-Route::get('/system/force-fix-db/vidalsa123', [App\Http\Controllers\SystemController::class, 'forceFixDb']);

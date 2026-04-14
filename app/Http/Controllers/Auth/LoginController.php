@@ -45,7 +45,7 @@ class LoginController extends Controller
             $seconds = RateLimiter::availableIn($throttleKey);
             
             return back()->withErrors([
-                'login_error' => 'Demasiados intentos fallidos. Por favor idente de nuevo en ' . $seconds . ' segundos.',
+                'login_error' => 'Demasiados intentos fallidos. Por favor intente de nuevo en ' . $seconds . ' segundos.',
             ])->withInput($request->except('password'));
         }
 
@@ -139,35 +139,76 @@ class LoginController extends Controller
         }
     }
 
-    // ─── MOBILE API ENDPOINTS ──────────────────────────────────────────────────
+    // ─── MOBILE API ENDPOINTS ─────────────────────────────────────────────
     public function mobileLogin(Request $request)
     {
         $request->validate([
-            'correo' => 'required|string',
+            'correo'   => 'required|string',
             'password' => 'required|string',
         ]);
 
-        $user = \App\Models\Usuario::where('CORREO_ELECTRONICO', $request->correo)->first();
+        $ip = $request->ip();
 
-        if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->PASSWORD_HASH)) {
-            return response()->json(['error' => 'Credenciales incorrectas.'], 401);
+        // 1. Bloqueo permanente por IP (misma tabla que el login web)
+        $bloqueo = BloqueoIp::where('DIRECCION_IP', $ip)->first();
+        if ($bloqueo && $bloqueo->BLOQUEO_PERMANENTE) {
+            return response()->json(['error' => 'Su dirección IP ha sido bloqueada por seguridad. Contacte al administrador.'], 403);
         }
 
+        // 2. Rate Limiting (máx. 5 intentos / 60 s por correo+IP)
+        $throttleKey = Str::lower($request->correo) . '|' . $ip . '|mobile';
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return response()->json([
+                'error' => 'Demasiados intentos fallidos. Intente de nuevo en ' . $seconds . ' segundos.'
+            ], 429);
+        }
+
+        $user = \App\Models\Usuario::where('CORREO_ELECTRONICO', $request->correo)->first();
+
+        if (!$user || !Hash::check($request->password, $user->PASSWORD_HASH)) {
+            // Registrar intento fallido (Rate Limiter + BD)
+            RateLimiter::hit($throttleKey);
+
+            if (!$bloqueo) {
+                $bloqueo = new BloqueoIp();
+                $bloqueo->DIRECCION_IP = $ip;
+                $bloqueo->CANTIDAD_INTENTOS = 0;
+            }
+            $bloqueo->CANTIDAD_INTENTOS++;
+            $bloqueo->ULTIMO_INTENTO = Carbon::now();
+            if ($bloqueo->CANTIDAD_INTENTOS >= 10) {
+                $bloqueo->BLOQUEO_PERMANENTE = true;
+            }
+            $bloqueo->save();
+
+            if ($bloqueo->BLOQUEO_PERMANENTE) {
+                return response()->json(['error' => 'Ha excedido el límite de intentos. Su IP ha sido bloqueada permanentemente.'], 403);
+            }
+
+            return response()->json(['error' => 'Credenciales incorrectas.'], 401);
+        }
 
         if ($user->ESTATUS === 'INACTIVO') {
             return response()->json(['error' => 'Usuario inactivo. Contacte al administrador.'], 403);
         }
 
-        // Create Sanctum token for mobile
+        // Limpiar contadores de intento fallido al éxito
+        RateLimiter::clear($throttleKey);
+        if ($bloqueo) {
+            $bloqueo->CANTIDAD_INTENTOS = 0;
+            $bloqueo->save();
+        }
+
         $token = $user->createToken('mobile-app')->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'user' => [
-                'id' => $user->ID_USUARIO,
+            'user'  => [
+                'id'     => $user->ID_USUARIO,
                 'nombre' => $user->NOMBRE_USUARIO,
                 'correo' => $user->CORREO_ELECTRONICO,
-                'nivel' => $user->NIVEL_ACCESO,
+                'nivel'  => $user->NIVEL_ACCESO,
             ]
         ]);
     }

@@ -195,11 +195,10 @@ class EquipoController extends Controller
         $tiposStats = collect([]);
         $frentesStats = []; // Ensure array or collection
 
-        // Only calculate stats if filters are active and we have data
+        // Calculate stats only when a filter is active
         if ($hasFilter) {
             // OPTIMIZATION: Calculate stats from the already loaded collection instead of hitting DB again
             // This reduces DB queries from ~5 to 1.
-
             $stats['total'] = $allResults->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
             $stats['activos'] = $allResults->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
             $stats['inactivos'] = $allResults->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
@@ -208,16 +207,15 @@ class EquipoController extends Controller
 
             // Calculate Tipos Stats from Collection
             $tiposStats = $allResults->groupBy('id_tipo_equipo')->map(function ($group) {
-                // Get the first item to access relation (assuming eager loaded)
                 $first = $group->first();
                 return (object) [
                     'id_tipo_equipo' => $first->id_tipo_equipo,
-                    'nombre' => $first->tipo->nombre ?? 'Sin Tipo', // Access relation
+                    'nombre' => $first->tipo->nombre ?? 'Sin Tipo',
                     'total' => $group->count()
                 ];
             })->sortBy('nombre')->values();
 
-            // Calculate Frentes Stats from Collection (if needed for drilldown)
+            // Calculate Frentes Stats from Collection
             if ($request->filled('id_tipo')) {
                 $frentesStats = $allResults->whereNotNull('ID_FRENTE_ACTUAL')->groupBy('ID_FRENTE_ACTUAL')->map(function ($group) {
                     $first = $group->first();
@@ -229,24 +227,13 @@ class EquipoController extends Controller
                 })->sortBy('NOMBRE_FRENTE')->values();
             }
         }
+        // else: $stats queda en ceros => la vista muestra '--' (comportamiento original)
 
         if ($request->wantsJson()) {
-            // When no filter is active, we want the UI to show '--' to indicate "waiting for filter"
-            // specifically for the counter cards.
-            $responseStats = $stats;
-            if (!$hasFilter) {
-                $responseStats = [
-                    'total' => '--',
-                    'activos' => '--',
-                    'inactivos' => '--',
-                    'mantenimiento' => '--'
-                ];
-            }
-
             return response()->json([
                 'html' => view('admin.equipos.partials.table_rows', compact('equipos'))->render(),
                 'pagination' => '',
-                'stats' => $responseStats,
+                'stats' => $stats,
                 'distribution' => view('admin.equipos.partials.distribution_stats', compact('frentesStats', 'tiposStats', 'hasFilter'))->render(), // Pass hasFilter explicitly
             ]);
         }

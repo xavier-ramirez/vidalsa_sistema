@@ -103,7 +103,7 @@ class DashboardController extends Controller
         $isGlobal    = $user && $user->NIVEL_ACCESO == 1;
         $frenteIds   = $user ? $user->getFrentesIds() : [];
 
-        $expiredList = $this->generateAlertsList((count($frenteIds) > 0) ? $frenteIds : (!$isGlobal ? [] : null));
+        $expiredList = $this->generateAlertsList(!$isGlobal ? $frenteIds : null);
         $totalAlerts = $expiredList->count();
 
         return response()->json([

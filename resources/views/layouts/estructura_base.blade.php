@@ -62,6 +62,31 @@
     </style>
     <!-- Custom UI Components (SPA Friendly) -->
     <!-- Scripts moved to footer for performance -->
+    
+    <script>
+        // Interceptor GLOBAL de Fetch para manejar expiración de sesión (419, 401)
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            try {
+                const response = await originalFetch.apply(this, args);
+                // Si la sesión expiró o hubo un problema de token CSRF
+                if (response.status === 401 || response.status === 419) {
+                    // Prevenir que se ejecute la lógica inferior y redirigir silenciosamente
+                    window.location.href = '/login';
+                    return new Promise(() => {}); // Promesa pendiente eterna
+                }
+                return response;
+            } catch (err) {
+                // Si la conexión es rechazada por completo (ej: servidor local caído)
+                if (err.message && (err.message.includes('fetch') || err.message.includes('NetworkError'))) {
+                    // Opcionalmente podríamos redirigir al login si ocurre un error de red masivo
+                    console.warn('Error de red detectado en fetch. Posible desconexión del servidor.');
+                }
+                throw err;
+            }
+        };
+    </script>
+
     @yield('extra_css')
 </head>
 <body class="modern-app">

@@ -447,19 +447,18 @@
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
             Consolidado de Equipos
         </div>
-        <div style="display: flex; gap: 8px;">
-            <div onclick="filterByStatus('')" class="eq-mobile-stat-pill eq-pill-total">
-                <span id="mobile_stats_total">{{ $hasFilter ? $stats['total'] : '--' }}</span>
-                <span>TOTAL</span>
+        <div style="display: flex; gap: 8px; justify-content: space-between;">
+            <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
+                <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['total'] : '--' }}</span>
             </div>
-            <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-pill eq-pill-inop">
-                <i class="material-icons" style="font-size: 15px;">cancel</i>
-                <span id="mobile_stats_inactivos">{{ $hasFilter ? $stats['inactivos'] : '--' }}</span>
-                <span>Inoperativos</span>
+            <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
+                <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</span>
             </div>
-            <div onclick="filterByStatus('EN MANTENIMIENTO')" class="eq-mobile-stat-pill eq-pill-mant">
-                <i class="material-icons" style="font-size: 15px;">engineering</i>
-                <span id="mobile_stats_mantenimiento">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</span>
+            <div onclick="filterByStatus('EN MANTENIMIENTO')" class="eq-mobile-stat-block eq-block-mant" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#fcd34d; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">engineering</i> MANT.</span>
+                <span id="mobile_stats_mantenimiento" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</span>
             </div>
         </div>
     </div>

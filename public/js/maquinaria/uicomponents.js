@@ -899,9 +899,13 @@ window.showDetailsImproved = function (target, event) {
                 <div class="pdf-btn-container">
                     <button type="button"
                         onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
-                        style="background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;"
-                        title="Ver PDF: ${label}">
-                        <i class="material-icons" style="font-size: 22px; color: #ef4444;">picture_as_pdf</i>
+                        style="background: none; border: none; padding: 0; cursor: default; display: flex; align-items: center; justify-content: center;"
+                        title="Ver documento: ${label}">
+                        <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35); transition: transform 0.15s, box-shadow 0.15s;"
+                            onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 4px 12px rgba(37,99,235,0.5)'"
+                            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 6px rgba(37,99,235,0.35)'">
+                            <i class="material-icons" style="font-size:17px; color:white; pointer-events:none;">description</i>
+                        </span>
                     </button>
                 </div>
             `;

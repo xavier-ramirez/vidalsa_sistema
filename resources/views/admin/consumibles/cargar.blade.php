@@ -47,6 +47,10 @@
 
     .badge-count { display:inline-block; background:#0067b1; color:#fff; border-radius:20px;
                    padding:1px 10px; font-size:12px; font-weight:700; margin-left:8px; }
+                   
+    @media (max-width: 900px) {
+        .hide-on-mobile { display: none !important; }
+    }
 </style>
 
 {{-- CABECERA --}}
@@ -147,14 +151,14 @@
                 </button>
                 <div id="splitDropdownMenu" style="display:none; position:absolute; top:100%; right:0; min-width:260px; background:#e2e8f0; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); border:1px solid #e2e8f0; z-index:1050; margin-top:10px; overflow:hidden;">
                     
-                    <a href="{{ route('consumibles.index') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s; cursor: default;" onclick="if(window.showPreloader) window.showPreloader();" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                    <a href="{{ route('consumibles.index') }}" class="dropdown-item-custom hide-on-mobile" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s; cursor: default;" onclick="if(window.showPreloader) window.showPreloader();" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                         <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
                             <i class="material-icons" style="font-size: 18px; color: #0284c7;">list</i>
                         </div>
                         <span style="font-size:14px; font-weight:500;">Lista de Consumibles</span>
                     </a>
                     
-                    <a href="{{ route('consumibles.graficos') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s; cursor: default;" onclick="if(window.showPreloader) window.showPreloader();" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                    <a href="{{ route('consumibles.graficos') }}" class="dropdown-item-custom hide-on-mobile" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s; cursor: default;" onclick="if(window.showPreloader) window.showPreloader();" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                         <div style="background: #eff6ff; padding: 6px; border-radius: 6px; display: flex;">
                             <i class="material-icons" style="font-size: 18px; color: #3b82f6;">analytics</i>
                         </div>
