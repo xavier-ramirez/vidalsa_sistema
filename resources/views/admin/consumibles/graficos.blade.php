@@ -89,7 +89,8 @@
                 <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                     <i class="material-icons" style="font-size:18px;">search</i>
                 </div>
-                <input type="text" data-filter-search
+                <input type="text" id="graficos_frente_search" name="graficos_frente_search"
+                    data-filter-search
                     placeholder="Todos los frentes"
                     style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%;"
                     oninput="window.filterDropdownOptions(this)"
@@ -126,11 +127,13 @@
                 <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                     <i class="material-icons" style="font-size:18px;">local_gas_station</i>
                 </div>
-                <input type="text" data-filter-search
+                <input type="text" id="graficos_tipo_search" name="graficos_tipo_search"
+                    data-filter-search
                     readonly
                     value="Gasoil"
                     style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; cursor:pointer;"
-                    autocomplete="off">
+                    autocomplete="off"
+                    placeholder="Caucho">
                 <i class="material-icons" style="padding:0 10px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px;">arrow_drop_down</i>
             </div>
 
