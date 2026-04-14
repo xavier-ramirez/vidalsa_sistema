@@ -89,8 +89,7 @@
                 @else
                     <button
                         type="button"
-                        data-gestion-equipo="{{ $equipoId }}"
-                        data-gestion-type="{{ $docType }}"
+                        onclick="window.iniciarGestionCustom('{{ $equipoId }}', '{{ $docType }}', event)"
                         title="Iniciar gestión de este documento"
                         style="background: transparent; border: 1px solid #d1d5db; padding: 3px 10px; border-radius: 6px; color: #4b5563; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;"
                         onmouseover="this.style.borderColor='#3b82f6'; this.style.color='#2563eb'; this.style.background='#eff6ff';"
