@@ -1402,10 +1402,11 @@ function renderEspecFrente(datos, tipoActivo) {
         const badges = filas.map(f => {
             const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
             const v     = parseFloat(f.total).toLocaleString('es-VE', {maximumFractionDigits: 0});
-            return `<span style="display:inline-flex;align-items:center;gap:3px;
-                        background:${color}18;border:1px solid ${color}55;border-radius:20px;
-                        padding:2px 9px;font-size:10px;font-weight:700;color:${color};white-space:nowrap;">
-                        ${f.ESPECIFICACION}:&nbsp;<strong>${v}</strong>
+            return `<span style="display:inline-flex;align-items:center;gap:5px;
+                        background:${color};color:#ffffff;border-radius:20px;
+                        padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 1px 3px ${color}40;">
+                        ${f.ESPECIFICACION}
+                        <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 6px;font-size:10px;">${v}</span>
                     </span>`;
         }).join('');
 
