@@ -95,7 +95,7 @@
                 <div class="custom-dropdown" id="tipoDropdownCargar" data-default-label="— Seleccionar —">
                     <input type="hidden" name="tipo_consumible" id="tipoSelect" value="{{ old('tipo_consumible') }}" required>
                     <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:pointer; position:relative;">
-                        <input type="text" data-filter-search id="search_tipo_cargar" name="search_tipo_cargar" readonly value="{{ old('tipo_consumible') ? \App\Models\Consumible::tiposLabel()[old('tipo_consumible')] : '' }}" placeholder="Tipo de Consumible *" style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%; cursor:pointer;" autocomplete="off">
+                        <input type="text" data-filter-search id="search_tipo_cargar" name="search_tipo_cargar" readonly value="{{ old('tipo_consumible') ? \App\Models\Consumible::tiposLabel()[old('tipo_consumible')] : '' }}" placeholder="Tipo de Consumible *" style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; cursor:pointer;" autocomplete="off">
                         <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px;">arrow_drop_down</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
@@ -113,7 +113,7 @@
                 <div class="custom-dropdown" id="unidadDropdownCargar" data-default-label="Litros">
                     <input type="hidden" name="unidad" id="unidadSelect" value="{{ old('unidad', 'LITROS') }}" required>
                     <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:pointer; position:relative;">
-                        <input type="text" data-filter-search id="search_unidad_cargar" name="search_unidad_cargar" readonly value="{{ ['LITROS'=>'Litros', 'GALONES'=>'Galones', 'UNIDADES'=>'Unidades', 'KG'=>'Kg'][old('unidad', 'LITROS')] ?? 'Litros' }}" placeholder="Unidad *" style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%; cursor:pointer;" autocomplete="off">
+                        <input type="text" data-filter-search id="search_unidad_cargar" name="search_unidad_cargar" readonly value="{{ ['LITROS'=>'Litros', 'GALONES'=>'Galones', 'UNIDADES'=>'Unidades', 'KG'=>'Kg'][old('unidad', 'LITROS')] ?? 'Litros' }}" placeholder="Unidad *" style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; cursor:pointer;" autocomplete="off">
                         <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px;">arrow_drop_down</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
@@ -130,7 +130,7 @@
             <div style="flex: 1; min-width: 200px;">
                 <div style="position:relative;">
                     <div style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
-                        <input type="text" id="frenteSearch" name="search_frente_cargar" placeholder="Frente de Trabajo *" autocomplete="off" style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%;" oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
+                        <input type="text" id="frenteSearch" name="search_frente_cargar" placeholder="Frente de Trabajo *" autocomplete="off" style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%;" oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
                         <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer;" onclick="document.getElementById('frenteSearch').focus()">arrow_drop_down</i>
                     </div>
                     <input type="hidden" name="id_frente" id="idFrenteHidden" value="{{ old('id_frente') }}">
