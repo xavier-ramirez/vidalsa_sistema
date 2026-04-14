@@ -1481,18 +1481,14 @@ window.addEventListener("spa:contentLoaded", function () {
 // does NOT touch the main Frente/Tipo dropdowns so their X buttons stay visible.
 // ==========================================
 
-window.selectAdvancedFilter = function (type, value) {
-    // Generic setter if needed (mostly handled by inputs directly)
-    const input = document.querySelector(`input[name="${type}"]`);
-    if (input) input.value = value;
-};
-
-// NOTE: clearDropdownFilter and filterDropdownOptions are defined in uicomponents.js
-// (superior versions with accent normalization and scroll reset).
+// NOTE: selectAdvancedFilter, clearAdvancedFilters, clearDropdownFilter, clearFilter
+// are ALL defined in uicomponents.js (authoritative source) — do NOT duplicate here.
+// The uicomponents.js version handles all filter types and calls loadEquipos() correctly.
 
 // NOTE: selectOption is defined in uicomponents.js (global, supports 4-param legacy).
 // Equipos-specific visual side-effect (btnAdvancedFilter highlight) is applied via
 // the dropdown-selection event so it does NOT override the global function.
+
 window.addEventListener("dropdown-selection", function (e) {
     // Only apply Equipos advanced-filter button highlight when on the equipos page
     if (!document.getElementById("equiposTableBody")) return;

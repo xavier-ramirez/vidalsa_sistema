@@ -1421,6 +1421,24 @@ function renderEspecFrente(datos, tipoActivo) {
             ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;padding-left:22px;">${badges}</div>` : ''}
         </div>`;
     }).join('');
+
+    // ── Total global por modelo: badges sólidos (mismos colores del gráfico) ──
+    const totalBadges = especs.map((e, i) => {
+        const color = PALETA[i % PALETA.length];
+        const v     = mapEspec[e].toLocaleString('es-VE', {maximumFractionDigits: 0});
+        return `<span style="display:inline-flex;align-items:center;gap:6px;
+            background:${color};color:#fff;border-radius:20px;padding:5px 13px;
+            font-size:12px;font-weight:700;box-shadow:0 2px 6px ${color}55;white-space:nowrap;">
+            ${e}
+            <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 7px;font-size:11px;">${v} ${UNIDAD}</span>
+        </span>`;
+    }).join('');
+
+    body.insertAdjacentHTML('beforeend',
+        `<div style="margin-top:14px;padding-top:12px;border-top:2px dashed #e2e8f0;">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">${totalBadges}</div>
+        </div>`
+    );
 }
 
 // ── DESCARGA PANEL ESPCFRENTE ────────────────────────────────────
