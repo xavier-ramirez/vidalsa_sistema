@@ -169,7 +169,7 @@ window.openFleetDashboard = async function () {
 };
 
 /**
- * Export Fleet Statistics to Excel (CSV)
+ * Export Fleet Statistics to Excel (CSV/XLSX)
  */
 window.exportFleetStats = function () {
     const frenteId = window.currentFrenteId || document.getElementById('dashboardSelectedFrenteId')?.value;
@@ -177,7 +177,38 @@ window.exportFleetStats = function () {
     if (frenteId && frenteId !== 'all') {
         url.searchParams.set('frente_id', frenteId);
     }
-    window.location.href = url.toString();
+    
+    if (window.showPreloader) window.showPreloader();
+
+    fetch(url, { method: 'GET' })
+        .then(response => {
+            if (!response.ok) throw new Error('Error al generar el archivo');
+            return response.blob();
+        })
+        .then(blob => {
+            if (window.hidePreloader) window.hidePreloader();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = downloadUrl;
+            
+            // Generate filename based on actual local time or static string
+            const dateStr = new Date().toISOString().slice(0,16).replace(/T|:/g, '-');
+            a.download = `analisis_flota_${dateStr}.xlsx`;
+            
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+            
+            if (window.showToast) window.showToast('Descarga completada', 'success');
+        })
+        .catch(err => {
+            if (window.hidePreloader) window.hidePreloader();
+            console.error('Export Error:', err);
+            if (window.showToast) window.showToast('Ocurrió un error al generar el archivo.', 'error');
+            else alert('Ocurrió un error al generar el archivo.');
+        });
 };
 
 /**
