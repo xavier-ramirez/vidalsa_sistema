@@ -1431,18 +1431,18 @@ function renderEspecFrente(datos, tipoActivo) {
     const totalBadges = especs.map((e, i) => {
         const color = PALETA[i % PALETA.length];
         const v     = mapEspec[e].toLocaleString('es-VE', {maximumFractionDigits: 0});
-        return `<span style="display:inline-flex;align-items:center;gap:6px;
+        return `<div style="margin-bottom:6px;"><span style="display:inline-flex;align-items:center;gap:6px;
             background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:20px;padding:4px 13px;
             font-size:12px;font-weight:600;white-space:nowrap;">
             <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>
             ${e}
             <span style="background:#e2e8f0;color:#0f172a;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:2px;">${v} ${UNIDAD}</span>
-        </span>`;
+        </span></div>`;
     }).join('');
 
     body.insertAdjacentHTML('beforeend',
-        `<div style="margin-top:14px;padding-top:12px;border-top:2px dashed #e2e8f0;">
-            <div style="display:flex;flex-direction:column;gap:6px;width:fit-content;">${totalBadges}</div>
+        `<div style="margin-top:14px;padding-top:12px;border-top:2px dashed #e2e8f0; display:block;">
+            ${totalBadges}
         </div>`
     );
 }
