@@ -1442,7 +1442,7 @@ function renderEspecFrente(datos, tipoActivo) {
 
     body.insertAdjacentHTML('beforeend',
         `<div style="margin-top:14px;padding-top:12px;border-top:2px dashed #e2e8f0;">
-            <div style="display:flex;flex-wrap:wrap;gap:8px;">${totalBadges}</div>
+            <div style="display:flex;flex-direction:column;gap:6px;width:fit-content;">${totalBadges}</div>
         </div>`
     );
 }
