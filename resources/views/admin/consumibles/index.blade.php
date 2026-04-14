@@ -78,7 +78,7 @@
                     <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                         <i class="material-icons" style="font-size:18px;">search</i>
                     </div>
-                    <input type="text" data-filter-search
+                    <input type="text" data-filter-search id="search_frentes" name="search_frentes"
                         placeholder="{{ $currentFrente ? $currentFrente->NOMBRE_FRENTE : 'Todos los frentes' }}"
                         style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%;"
                         oninput="window.filterDropdownOptions(this)"
@@ -118,7 +118,7 @@
                     <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                         <i class="material-icons" style="font-size:18px;">category</i>
                     </div>
-                    <input type="text" data-filter-search
+                    <input type="text" data-filter-search id="search_tipos" name="search_tipos"
                         placeholder="{{ $currentTipo ? $tiposList[$currentTipo] : 'Tipos' }}"
                         style="width:100%; min-width:40px; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%;"
                         oninput="window.filterDropdownOptions(this)"
@@ -181,7 +181,7 @@
                                 <div style="padding:0 8px; display:flex; align-items:center; color:{{ $currentEstado ? '#0067b1' : '#94a3b8' }};">
                                     <i class="material-icons" style="font-size:16px;">flag</i>
                                 </div>
-                                <input type="text" data-filter-search
+                                <input type="text" data-filter-search id="search_estados" name="search_estados"
                                     readonly
                                     placeholder="{{ $currentEstado ? $estadosList[$currentEstado] : 'Todos los estados' }}"
                                     value="{{ $currentEstado ? $estadosList[$currentEstado] : 'Todos los estados' }}"

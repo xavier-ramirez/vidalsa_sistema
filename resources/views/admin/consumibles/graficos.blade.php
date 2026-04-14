@@ -1171,7 +1171,7 @@ function renderTodosEquipos(datos) {
     filtrarTablaEquipos();
 }
 
-const ITEMS_PER_PAGE = 15;
+var ITEMS_PER_PAGE = 15;
 
 function llenarTablaEquipos(datos, page = 1) {
     const body = document.getElementById('bodyTodosEq');

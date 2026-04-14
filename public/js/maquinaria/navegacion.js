@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const navInicioBtn = document.getElementById('nav-inicio-btn');
         if (navInicioBtn) {
             try {
-                const urlObj = new URL(url);
+                const urlObj = new URL(url, window.location.origin);
                 if (urlObj.pathname === '/menu' || urlObj.pathname.endsWith('/menu')) {
                     navInicioBtn.style.setProperty('display', 'none', 'important');
                 } else {

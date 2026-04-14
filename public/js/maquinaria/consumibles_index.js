@@ -74,8 +74,6 @@ if (typeof window.ModuleManager !== 'undefined') {
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    if (window.hidePreloader) window.hidePreloader();
-
                     var confirmados = data.confirmados || 0;
                     var sinMatch    = data.sin_match   || 0;
 
@@ -85,15 +83,16 @@ if (typeof window.ModuleManager !== 'undefined') {
 
                     var msg = confirmados + ' equipos confirmados';
                     if (sinMatch > 0) msg += ' · ' + sinMatch + ' sin match';
+                    // Show toast which will persist across SPA navigation
                     if (window.showToast) window.showToast(msg, 'success');
 
-                    setTimeout(function() {
-                        if (window.submitConsumiblesFilters) {
-                            window.submitConsumiblesFilters();
-                        } else {
-                            location.reload();
-                        }
-                    }, 1500);
+                    // Instantly reload without hiding the preloader, 
+                    // avoiding the double-spinner glitch.
+                    if (window.submitConsumiblesFilters) {
+                        window.submitConsumiblesFilters();
+                    } else {
+                        location.reload();
+                    }
                 })
                 .catch(function(err) {
                     if (window.hidePreloader) window.hidePreloader();
