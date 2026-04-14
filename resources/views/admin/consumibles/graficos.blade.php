@@ -1370,38 +1370,43 @@ function renderEspecFrente(datos, tipoActivo) {
             return `<div title="${f.ESPECIFICACION}: ${parseFloat(f.total).toFixed(0)} ${UNIDAD} (${pct.toFixed(0)}%)"
                          style="width:${pct}%;background:${color};height:100%;"></div>`;
         }).join('');
-        const chips = filas.sort((a, b) => parseFloat(b.total) - parseFloat(a.total)).map(f => {
-            const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
-            return `<span style="background:${color}18;border:1px solid ${color}55;color:${color};
-                                border-radius:20px;padding:1px 8px;font-weight:700;font-size:11px;
-                                margin:1px;display:inline-block;">
-                ${f.ESPECIFICACION} — ${parseFloat(f.total).toLocaleString('es-VE',{maximumFractionDigits:0})} ${UNIDAD}
-            </span>`;
-        }).join('');
         const wb = Math.round(tot / maxTotal * 100);
         return `<div class="frow">
             <span class="frow-num">#${i+1}</span>
             <span class="frow-name">${frente}</span>
             <span class="frow-bar-wrap"><div style="display:flex;height:100%;width:${wb}%;">${barSegs}</div></span>
             <span class="frow-val">${tot.toLocaleString('es-VE',{maximumFractionDigits:0})} ${UNIDAD}</span>
-        </div>
-        <div style="padding:2px 0 8px 32px;border-bottom:1px solid #f1f5f9;">${chips}</div>`;
+        </div>`;
     }).join('');
 
-    // Leyenda
-    const leg = especs.map((e, i) => {
+    // --- LEYENDA Y RESUMEN COMO BARRAS HORIZONTALES (Estilo Total de Frente) ---
+    const eqMaxTotal = Math.max(...Object.values(mapEspec)) || 1;
+    const legRows = especs.map((e, i) => {
         const c = PALETA[i % PALETA.length];
-        const val = mapEspec[e].toLocaleString('es-VE',{maximumFractionDigits:0});
+        const val = mapEspec[e];
+        const pct = (val / eqMaxTotal * 100).toFixed(1);
+        const valFmt = val.toLocaleString('es-VE', { maximumFractionDigits: 0 });
+
         return `
-        <span style="display:inline-flex;align-items:center;gap:6px;margin:4px 6px;padding:4px 10px;background:${c}15;border:1px solid ${c}40;border-radius:20px;font-size:12px;font-weight:700;color:${c};">
-            <span style="width:10px;height:10px;border-radius:50%;background:${c};display:inline-block;"></span>
-            ${e} <span style="opacity:0.6;font-weight:600;margin:0 2px;">—</span> <span style="font-weight:900;">${val} ${UNIDAD}</span>
-        </span>`;
+        <div class="frow" style="grid-template-columns: 24px 140px 1fr auto;">
+            <span class="frow-num" style="color:${c}">#${i+1}</span>
+            <span class="frow-name" title="${e}" style="font-size:11px;">${e}</span>
+            <div class="frow-bar-wrap">
+                <div class="frow-bar" style="width:${pct}%; background:${c};"></div>
+            </div>
+            <span class="frow-val" style="color:${c};">${valFmt} <span style="font-size:9px;color:#94a3b8;">${UNIDAD}</span></span>
+        </div>`;
     }).join('');
+
     body.insertAdjacentHTML('beforeend',
-        `<div style="margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;display:flex;flex-wrap:wrap;align-items:center;">
-            <span style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:6px;">${LABEL_ESPEC}:</span>${leg}
-        </div>`);
+        `<div style="margin-top:20px;padding-top:15px;border-top:2px dashed #e2e8f0;">
+            <p style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+               <i class="material-icons" style="font-size:16px;color:#64748b;">pie_chart</i>
+               RESUMEN TOTAL POR ${LABEL_ESPEC}
+            </p>
+            <div style="display:flex;flex-direction:column;gap:4px;">${legRows}</div>
+        </div>`
+    );
 }
 
 // ── DESCARGA PANEL ESPCFRENTE ────────────────────────────────────
