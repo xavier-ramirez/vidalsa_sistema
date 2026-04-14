@@ -333,8 +333,13 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         document.body.style.overflow = 'hidden';
 
         if (url) {
+            // Append theoretical map type parameters to try and force Google / Satellite view
+            const hasQuery = url.includes('?');
+            const glue = hasQuery ? '&' : '?';
+            const enhancedUrl = url + glue + 'map=2&mapType=2&satellite=1&layer=1';
+
             if (overlay) overlay.style.display = 'flex';
-            if (iframe)  { iframe.style.display = 'none'; iframe.src = url; }
+            if (iframe)  { iframe.style.display = 'none'; iframe.src = enhancedUrl; }
         }
     };
 
