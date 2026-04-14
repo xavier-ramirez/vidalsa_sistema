@@ -270,7 +270,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         {{-- Body GPS: iframe izquierda + panel datos derecha --}}
         <div class="gps-modal-body" style="flex:1; display:flex; min-height:540px; overflow:hidden;">
 
-            {{-- Panel Izquierdo: iframe GPS51 -- Ubicacion en tiempo real --}}
+            {{-- Panel Único: iframe GPS51 -- Ubicacion en tiempo real --}}
             <div class="gps-panel-map" id="map_container"
                 style="position:relative; flex:1; background:#f1f5f9; overflow:hidden; z-index:1;">
 
@@ -282,7 +282,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                     </div>
                 </div>
 
-                {{-- iframe GPS51 --}}
+                {{-- iframe GPS --}}
                 <iframe id="gps_iframe" src="about:blank"
                     style="width:100%; height:100%; border:none; display:none;"
                     allowfullscreen="true"
@@ -290,35 +290,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                     mozallowfullscreen="true"
                     allow="geolocation; microphone; camera; display-capture; fullscreen"
                     onload="document.getElementById('gps-loading-overlay').style.display='none'; this.style.display='block';"></iframe>
-            </div>
-
-            {{-- Panel Derecho: Placa/Serial del equipo --}}
-            <div class="gps-panel-data"
-                style="width:340px; background:#ffffff; border-left:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; flex-shrink:0;">
-
-                <div style="display:flex; align-items:center; gap:8px; color:#0f172a; font-weight:800; font-size:14px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
-                    <i class="material-icons" style="color:#10b981; font-size:20px;">agriculture</i> Datos del Equipo
-                </div>
-
-                {{-- Campos parecidos al popup real de GPS51 --}}
-                <div style="display:flex; flex-direction:column; gap:8px; font-size:12px; color:#1e293b; line-height:1.5;">
-                    <div id="scraped_device" style="color:#2563eb; font-weight:700;">Dispositivo: &mdash;</div>
-                    <div><span style="color:#64748b;">Ubicación:</span> <span id="d_gps_ubicacion">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Longitud y Latitud:</span> <span id="d_gps_latlng" style="font-family:monospace;">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Tiempo de actualización:</span> <span id="d_gps_tiempo_act">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Tiempo de posicionamiento:</span> <span id="d_gps_tiempo_pos">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Velocidad en tiempo real:</span> <span id="d_gps_velocidad">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Parada:</span> <span id="d_gps_parada">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Kilometraje total:</span> <span id="d_gps_km_total">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Km Total:</span> <span id="d_gps_km_hoy">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Combustible:</span> <span id="d_gps_gas">&mdash;</span></div>
-                    <div><span style="color:#64748b;">Estado:</span> <span id="d_gps_estado">&mdash;</span></div>
-                    
-                    <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0; color:#475569;">
-                        <span id="d_gps_direccion">&mdash;</span>
-                    </div>
-                </div>
-
             </div>
         </div>{{-- /Body GPS --}}
     </div>
@@ -335,8 +306,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         #gpsTrackerModal { padding: 12px !important; }
         .gps-modal-container { max-height: 96vh !important; }
         .gps-modal-body { flex-direction: column !important; min-height: auto !important; height: 100%; }
-        .gps-panel-map { flex: none !important; height: 55vh !important; min-height: 280px !important; }
-        .gps-panel-data { width: 100% !important; border-left: none !important; border-top: 1px solid #e2e8f0 !important; flex: 1 !important; max-height: calc(45vh - 60px) !important; padding: 15px !important; }
+        .gps-panel-map { height: 80vh !important; min-height: 350px !important; }
     }
 </style>
 
@@ -366,51 +336,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
             if (overlay) overlay.style.display = 'flex';
             if (iframe)  { iframe.style.display = 'none'; iframe.src = url; }
         }
-
-        // --- Generación de Datos GPS Alineados al formato GPS51 ---
-        const d_dispositivo = document.getElementById('scraped_device');
-        const d_ubicacion   = document.getElementById('d_gps_ubicacion');
-        const d_latlng      = document.getElementById('d_gps_latlng');
-        const d_tiempo_act  = document.getElementById('d_gps_tiempo_act');
-        const d_tiempo_pos  = document.getElementById('d_gps_tiempo_pos');
-        const d_velocidad   = document.getElementById('d_gps_velocidad');
-        const d_parada      = document.getElementById('d_gps_parada');
-        const d_km_total    = document.getElementById('d_gps_km_total');
-        const d_km_hoy      = document.getElementById('d_gps_km_hoy');
-        const d_gas         = document.getElementById('d_gps_gas');
-        const d_estado      = document.getElementById('d_gps_estado');
-        const d_direccion   = document.getElementById('d_gps_direccion');
-
-        const strHash = (dPlaca || dSerial || 'VIDALSA').length;
-        
-        if (d_dispositivo) d_dispositivo.innerText = `Dispositivo: GPS-${dTipo ? dTipo.split(' ')[0] : 'AMBULANCIA'} SF${132442 + strHash} S/S`;
-        if (d_ubicacion) d_ubicacion.innerText = `Satélite Beidou/RPM/Altitud${50 + strHash}m/Señal${40 + strHash}%`;
-        
-        const lat = (9.699045 + (strHash * 0.0001)).toFixed(6);
-        const lng = (-63.143913 - (strHash * 0.0001)).toFixed(6);
-        if (d_latlng) d_latlng.innerText = `${lng},${lat}`;
-        
-        // Setup Date formats: 'YYYY-MM-DD HH:mm:ss'
-        const actDate = new Date();
-        const posDate = new Date(actDate.getTime() - 1000 * 60 * 60 * 24); // -1 day approx
-        
-        const formatDt = (dt) => {
-            let m = dt.getMonth()+1; let d = dt.getDate();
-            let hh = dt.getHours(); let mm = dt.getMinutes(); let ss = dt.getSeconds();
-            return `${dt.getFullYear()}-${m<10?'0'+m:m}-${d<10?'0'+d:d} ${hh<10?'0'+hh:hh}:${mm<10?'0'+mm:mm}:${ss<10?'0'+ss:ss}`;
-        };
-
-        if (d_tiempo_act) d_tiempo_act.innerText = `${formatDt(actDate)}(Offline)`;
-        if (d_tiempo_pos) d_tiempo_pos.innerText = formatDt(posDate);
-        
-        if (d_velocidad) d_velocidad.innerText = `0km/h(Señal:${40 + strHash}%)`;
-        if (d_parada) d_parada.innerText = `1D${1+strHash}H${40+strHash}M`;
-        if (d_km_total) d_km_total.innerText = `${280 + (strHash*2.5)}.3km`;
-        if (d_km_hoy) d_km_hoy.innerText = `0km`;
-        if (d_gas) d_gas.innerText = `T:${18+strHash}L/A:${18+strHash}L`;
-        if (d_estado) d_estado.innerText = `ACC OFF 23M35S/Voltaje 23.0V`;
-        
-        if (d_direccion) d_direccion.innerText = `Vía a Rincón de Monagas, Maturín, Parroquia Las Cocuizas, Municipio Maturín`;
     };
 
     window.closeGpsModal = function () {
