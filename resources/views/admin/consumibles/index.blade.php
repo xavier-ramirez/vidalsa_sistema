@@ -15,15 +15,7 @@
     .tipo-caucho   { background:#f3e8ff; color:#6b21a8; }
     .tipo-otro     { background:#f1f5f9; color:#475569; }
 
-    .match-progress { display:none; margin-top:16px; margin-bottom:16px; }
-    .match-bar-wrap { background:#f1f5f9; border-radius:20px; height:8px; overflow:hidden; margin-top:8px; }
-    .match-bar { height:100%; background:linear-gradient(90deg,#34d399,#059669); border-radius:20px; width:0%; transition:width .6s; }
-    .match-results { display:none; margin-top:16px; margin-bottom:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; max-height:220px; overflow-y:auto; }
-    .match-result-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #e2e8f0; font-size:12px; }
-    .match-result-row:last-child { border:none; }
-    .mr-id    { font-family:monospace; color:#475569; font-weight:600; min-width:130px; }
-    .mr-match { color:#059669; font-weight: 600; }
-    .mr-none  { color:#ef4444; font-weight: 600; font-style:italic; }
+
 
     /* Encabezados tabla consumibles — mismo tono que tabla Equipos */
     .admin-table thead th {
@@ -259,14 +251,7 @@
     </div>
     </form>
 
-    <div class="match-progress" id="matchProgress">
-        <p style="margin:0 0 6px 0; font-size:13px; color:#94a3b8; font-weight:600;">Procesando registros...</p>
-        <div class="match-bar-wrap"><div class="match-bar" id="matchBar"></div></div>
-    </div>
-    <div class="match-results" id="matchResults">
-        <p style="margin:0 0 8px 0; font-size:11px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:.5px;">Detalle del proceso — ✓ coincidió · ✖ no encontrado</p>
-        <div id="matchResultsBody"></div>
-    </div>
+
     
     <script>
     window.toggleAccionesMenu = function(event) {
