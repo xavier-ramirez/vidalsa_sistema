@@ -3,7 +3,6 @@
 
 @section('content')
 <style>
-    .con-label   { font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; display:block; }
     .con-select, .con-input { width:100%; padding:10px 14px; border:1px solid #cbd5e0; border-radius:10px; font-size:13px; color:#1e293b; background:#fbfcfd; outline:none; transition:border .2s; }
     .con-select:focus, .con-input:focus { border-color:#0067b1; background:#fff; }
     .btn-green   { background:linear-gradient(135deg,#059669,#047857); }
@@ -97,7 +96,7 @@
                     <input type="hidden" name="tipo_consumible" id="tipoSelect" value="{{ old('tipo_consumible') }}" required>
                     <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:48px; cursor:pointer; position:relative;">
                         <label for="search_tipo_cargar" style="position:absolute; top: 5px; left: 14px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; pointer-events: none;">Tipo de Consumible *</label>
-                        <input type="text" data-filter-search id="search_tipo_cargar" name="search_tipo_cargar" readonly value="{{ old('tipo_consumible') ? \App\Models\Consumible::tiposLabel()[old('tipo_consumible')] : '— Seleccionar —' }}" style="width:100%; border:none; background:transparent; padding:16px 14px 4px 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%; cursor:pointer;" autocomplete="off">
+                        <input type="text" data-filter-search id="search_tipo_cargar" name="search_tipo_cargar" readonly value="{{ old('tipo_consumible') ? \App\Models\Consumible::tiposLabel()[old('tipo_consumible')] : '' }}" style="width:100%; border:none; background:transparent; padding:16px 14px 4px 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%; cursor:pointer;" autocomplete="off">
                         <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px;">arrow_drop_down</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
@@ -134,7 +133,7 @@
                 <div style="position:relative;">
                     <div style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:48px; position:relative;">
                         <label for="frenteSearch" style="position:absolute; top: 5px; left: 14px; font-size: 10px; font-weight: 700; color: #64748b; margin: 0; pointer-events: none;">Frente de Trabajo *</label>
-                        <input type="text" id="frenteSearch" name="search_frente_cargar" placeholder="Todos los frentes..." autocomplete="off" style="width:100%; border:none; background:transparent; padding:16px 14px 4px 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%;" oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
+                        <input type="text" id="frenteSearch" name="search_frente_cargar" placeholder="" autocomplete="off" style="width:100%; border:none; background:transparent; padding:16px 14px 4px 14px; font-size:13px; font-weight:600; color:#1e293b; outline:none; height:100%;" oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
                         <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer;" onclick="document.getElementById('frenteSearch').focus()">arrow_drop_down</i>
                     </div>
                     <input type="hidden" name="id_frente" id="idFrenteHidden" value="{{ old('id_frente') }}">
