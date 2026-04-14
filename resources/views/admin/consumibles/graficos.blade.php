@@ -345,7 +345,7 @@
     <div class="g-card">
         <p class="g-title" id="titleEspecFrente" style="justify-content:space-between;">
             <span style="display:flex;align-items:center;gap:8px;">
-                <i class="material-icons" id="iconEspecFrente" style="color:#0067b1;">opacity</i>
+                <i class="material-icons" id="iconEspecFrente" style="color:#1b5e20;">tire_repair</i>
                 <span><span id="txtEspecFrente">Consumo por Frente — Desglose por Especificación</span> <span class="g-subtitle">— todos los registros</span></span>
             </span>
             <button onclick="descargarPanelEspecFrente('desglose_especificacion')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
@@ -390,6 +390,7 @@
         <div id="loadingCauchoModelo" class="loading-overlay">
             <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
         </div>
+        <div id="cauchoModeloBadges" style="display:none; flex-wrap:wrap; gap:8px; margin-bottom:14px;"></div>
         <canvas id="chartCauchoModelo" style="display:none; max-height:340px;"></canvas>
     </div>
 </div>
@@ -578,7 +579,7 @@ function _cargarDatosLocal() {
                 renderCauchosPorModelo(data.cauchos_por_modelo);
             }
             renderTodosEquipos(data.todos_equipos);
-            renderEspecFrente(data.espec_frente,  data.tipo_activo);
+            renderEspecFrente(data.espec_frente, data.tipo_activo);
             renderEspecEquipo(data.espec_equipo, data.tipo_activo);
             if (window.hidePreloader) window.hidePreloader();
         })
@@ -747,29 +748,65 @@ function renderTotalFrente(datos) {
 
 
 
+// Paleta armoniosa para cauchos — misma en badges y gráfico de barras
+window.PALETA_CAUCHO_GLOBAL = [
+    '#1b5e20', // verde bosque
+    '#0d47a1', // azul marino
+    '#e65100', // naranja quemado
+    '#4a148c', // púrpura oscuro
+    '#006064', // teal oscuro
+    '#b71c1c', // rojo oscuro
+    '#37474f', // gris azulado
+    '#4e342e', // marrón cacao
+    '#1a237e', // azul índigo
+    '#827717', // oliva
+];
+
 // ── Cauchos por Tipo de Equipo y Medida ─────────────────────────────────────
 function renderCauchosPorModelo(datos) {
-    const loadEl = document.getElementById('loadingCauchoModelo');
-    const canvEl = document.getElementById('chartCauchoModelo');
-    const secEl  = document.getElementById('secCauchoModelo');
+    const loadEl   = document.getElementById('loadingCauchoModelo');
+    const canvEl   = document.getElementById('chartCauchoModelo');
+    const secEl    = document.getElementById('secCauchoModelo');
+    const badgesEl = document.getElementById('cauchoModeloBadges');
 
     if (!datos || datos.length === 0) {
-        secEl.style.display = 'none';   // oculta toda la sección si no hay cauchos
+        secEl.style.display = 'none';
         return;
     }
     secEl.style.display = '';
     loadEl.style.display = 'none';
-    canvEl.style.display = 'block';
 
     // Tipos de equipo únicos (eje X)
     const tipos   = [...new Set(datos.map(d => d.tipo_equipo))];
-    // Medidas únicas (un dataset/color por medida)
-    const medidas = [...new Set(datos.map(d => d.medida))];
+    // Medidas únicas (un dataset/color por medida) — ordenadas por total global desc
+    const totPorMedida = {};
+    datos.forEach(d => { totPorMedida[d.medida] = (totPorMedida[d.medida] || 0) + parseFloat(d.total); });
+    const medidas = [...new Set(datos.map(d => d.medida))]
+        .sort((a, b) => (totPorMedida[b] || 0) - (totPorMedida[a] || 0));
 
-    const PALETA_CAUCHO = [
-        '#1b5e20','#2e7d32','#388e3c','#43a047','#66bb6a',
-        '#a5d6a7','#004d40','#00695c','#00796b','#00897b',
-    ];
+    const PALETA = window.PALETA_CAUCHO_GLOBAL;
+
+    // ── Badges de total por medida encima del gráfico ─────────────
+    if (badgesEl) {
+        badgesEl.style.display = 'flex';
+        badgesEl.innerHTML = medidas.map((medida, mi) => {
+            const color = PALETA[mi % PALETA.length];
+            const tot   = (totPorMedida[medida] || 0).toLocaleString('es-VE', {maximumFractionDigits: 0});
+            return `<span style="
+                display:inline-flex; align-items:center; gap:6px;
+                background:${color}; color:#fff;
+                border-radius:20px; padding:5px 13px;
+                font-size:12px; font-weight:700;
+                box-shadow:0 2px 6px ${color}55;
+                white-space:nowrap;
+            ">
+                ${medida}
+                <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 7px;font-size:11px;">${tot} Un</span>
+            </span>`;
+        }).join('');
+    }
+
+    canvEl.style.display = 'block';
 
     const datasets = medidas.map((medida, mi) => ({
         label: medida,
@@ -777,7 +814,7 @@ function renderCauchosPorModelo(datos) {
             const row = datos.find(d => d.tipo_equipo === tipo && d.medida === medida);
             return row ? parseFloat(row.total) : 0;
         }),
-        backgroundColor: PALETA_CAUCHO[mi % PALETA_CAUCHO.length],
+        backgroundColor: PALETA[mi % PALETA.length],
         borderRadius: 0,
         borderSkipped: false,
     }));
@@ -793,7 +830,7 @@ function renderCauchosPorModelo(datos) {
         }
         try { if (window.chartCauchoModelo) { window.chartCauchoModelo.destroy(); window.chartCauchoModelo = null; } } catch(e) {}
         try { const existingC = Chart.getChart(canvEl); if (existingC) existingC.destroy(); } catch(e) {}
-        
+
         window.chartCauchoModelo = new Chart(canvEl, {
             type: 'bar',
             data: { labels: tipos, datasets },
@@ -806,8 +843,7 @@ function renderCauchosPorModelo(datos) {
                         labels: { font: { size: 11 }, boxWidth: 14, padding: 12 }
                     },
                     datalabels: {
-                        anchor: 'center',
-                        align: 'center',
+                        anchor: 'center', align: 'center',
                         color: '#fff',
                         font: { size: 10, weight: '700' },
                         formatter: v => v > 0 ? v.toLocaleString('es-VE', {maximumFractionDigits: 0}) : '',
@@ -831,17 +867,9 @@ function renderCauchosPorModelo(datos) {
                     }
                 },
                 scales: {
-                    x: {
-                        stacked: true,
-                        grid: { display: false },
-                        ticks: { font: { size: 11, weight: '600' } }
-                    },
-                    y: {
-                        stacked: true,
-                        beginAtZero: true,
-                        grid: { color: '#f1f5f9' },
-                        title: { display: true, text: 'Unidades', font: { size: 11 } }
-                    }
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' },
+                         title: { display: true, text: 'Unidades', font: { size: 11 } } }
                 }
             }
         });
@@ -1318,95 +1346,81 @@ function renderEspecFrente(datos, tipoActivo) {
     const body = document.getElementById('aceiteFrente-body');
     if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
 
-    // Configuración por tipo
     const esCaucho = tipoActivo === 'CAUCHO';
-    const COLOR_BASE = esCaucho ? '#059669' : '#0067b1';
-    const UNIDAD     = esCaucho ? 'Un' : 'L';
-    const LABEL_ESPEC = esCaucho ? 'MODELOS' : 'VISCOSIDADES';
-    const TITULO = esCaucho
+    const UNIDAD   = esCaucho ? 'Un' : 'L';
+    const TITULO   = esCaucho
         ? 'Caucho por Frente — Desglose por Modelo'
         : 'Aceite por Frente — Desglose por Viscosidad';
 
-    // Actualizar título dinámicamente
+    // Icono y color dinámicos según tipo
+    const iconEl = document.getElementById('iconEspecFrente');
+    if (iconEl) {
+        iconEl.textContent = esCaucho ? 'tire_repair' : 'opacity';
+        iconEl.style.color = esCaucho ? '#1b5e20' : '#0067b1';
+    }
     document.getElementById('txtEspecFrente').textContent = TITULO;
-    document.getElementById('iconEspecFrente').style.color = COLOR_BASE;
 
     sec.style.display  = '';
     load.style.display = 'none';
     body.style.display = 'block';
     body.innerHTML     = '';
 
+    // ── Mapas de totales ───────────────────────────────────────────────
     const mapaFrente = {};
-    const mapEspec = {};
+    const mapEspec   = {};
     datos.forEach(d => {
         const val = parseFloat(d.total) || 0;
-        mapaFrente[d.NOMBRE_FRENTE]  = (mapaFrente[d.NOMBRE_FRENTE] || 0) + val;
-        mapEspec[d.ESPECIFICACION] = (mapEspec[d.ESPECIFICACION] || 0) + val;
+        mapaFrente[d.NOMBRE_FRENTE] = (mapaFrente[d.NOMBRE_FRENTE] || 0) + val;
+        mapEspec[d.ESPECIFICACION]  = (mapEspec[d.ESPECIFICACION]  || 0) + val;
     });
     const frentes  = Object.keys(mapaFrente).sort((a, b) => mapaFrente[b] - mapaFrente[a]);
-    // Ordenar especificaciones por volumen de mayor a menor global
-    const especs   = Object.keys(mapEspec).sort((a,b) => mapEspec[b] - mapEspec[a]);
+    const especs   = Object.keys(mapEspec).sort((a, b) => mapEspec[b] - mapEspec[a]);
     const maxTotal = Math.max(...Object.values(mapaFrente));
 
-    // Paleta solicitada: 1° Rojo mayor consumo, 2° Azul intermedio, 3° Verde o Gris distinto, resto Grises
-    // (Aplica al grafico "Aceite por Frente" y "Caucho por Frente")
-    const PALETA = [
-        '#b91c1c', // [0] Rojo intenso (mayor consumo global)
-        '#0067b1', // [1] Azul corporativo (2do mayor consumo)
-        '#059669', // [2] Verde oscuro (3er mayor consumo)
-        '#475569', // [3] Gris slate oscuro
-        '#64748b', // [4] Gris slate medio
-        '#94a3b8', // [5] Gris slate claro
-        '#cbd5e1', // [6] Gris slate más claro
-        '#e2e8f0'  // [7] Gris base
-    ];
+    // Paleta armoniosa — misma que el gráfico de barras de cauchos
+    const PALETA = esCaucho
+        ? (window.PALETA_CAUCHO_GLOBAL || ['#1b5e20','#0d47a1','#e65100','#4a148c','#006064','#b71c1c','#37474f','#4e342e'])
+        : ['#0d47a1','#b71c1c','#1b5e20','#4a148c','#e65100','#006064','#37474f','#827717'];
 
+    // ── Fila por frente: barra segmentada + badges de modelo ─────────
     body.innerHTML = frentes.map((frente, i) => {
-        const filas = datos.filter(d => d.NOMBRE_FRENTE === frente);
-        const tot   = mapaFrente[frente];
-        const barSegs = filas.sort((a, b) => parseFloat(b.total) - parseFloat(a.total)).map(f => {
+        const filas = datos
+            .filter(d => d.NOMBRE_FRENTE === frente)
+            .sort((a, b) => parseFloat(b.total) - parseFloat(a.total));
+        const tot = mapaFrente[frente];
+
+        const barSegs = filas.map(f => {
             const pct   = parseFloat(f.total) / tot * 100;
             const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
             return `<div title="${f.ESPECIFICACION}: ${parseFloat(f.total).toFixed(0)} ${UNIDAD} (${pct.toFixed(0)}%)"
                          style="width:${pct}%;background:${color};height:100%;"></div>`;
         }).join('');
+
+        const badges = filas.map(f => {
+            const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
+            const v     = parseFloat(f.total).toLocaleString('es-VE', {maximumFractionDigits: 0});
+            return `<span style="display:inline-flex;align-items:center;gap:3px;
+                        background:${color}18;border:1px solid ${color}55;border-radius:20px;
+                        padding:2px 9px;font-size:10px;font-weight:700;color:${color};white-space:nowrap;">
+                        ${f.ESPECIFICACION}:&nbsp;<strong>${v}</strong>
+                    </span>`;
+        }).join('');
+
         const wb = Math.round(tot / maxTotal * 100);
-        return `<div class="frow">
-            <span class="frow-num">#${i+1}</span>
-            <span class="frow-name">${frente}</span>
-            <span class="frow-bar-wrap"><div style="display:flex;height:100%;width:${wb}%;">${barSegs}</div></span>
-            <span class="frow-val">${tot.toLocaleString('es-VE',{maximumFractionDigits:0})} ${UNIDAD}</span>
-        </div>`;
-    }).join('');
-
-    // --- LEYENDA Y RESUMEN COMO BARRAS HORIZONTALES (Estilo Total de Frente) ---
-    const eqMaxTotal = Math.max(...Object.values(mapEspec)) || 1;
-    const legRows = especs.map((e, i) => {
-        const c = PALETA[i % PALETA.length];
-        const val = mapEspec[e];
-        const pct = (val / eqMaxTotal * 100).toFixed(1);
-        const valFmt = val.toLocaleString('es-VE', { maximumFractionDigits: 0 });
-
-        return `
-        <div class="frow" style="grid-template-columns: 24px 140px 1fr auto;">
-            <span class="frow-num" style="color:${c}">#${i+1}</span>
-            <span class="frow-name" title="${e}" style="font-size:11px;">${e}</span>
-            <div class="frow-bar-wrap">
-                <div class="frow-bar" style="width:${pct}%; background:${c};"></div>
+        return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="display:grid;grid-template-columns:24px 190px 1fr auto;align-items:center;gap:8px;">
+                <span style="font-size:11px;color:#94a3b8;font-weight:700;text-align:center;">#${i+1}</span>
+                <span style="font-weight:700;font-size:12px;color:#1e293b;word-break:break-word;line-height:1.3;">${frente}</span>
+                <div style="background:#f1f5f9;border-radius:20px;height:10px;overflow:hidden;">
+                    <div style="display:flex;height:100%;width:${wb}%;">${barSegs}</div>
+                </div>
+                <span style="font-weight:800;font-size:13px;color:#003a70;white-space:nowrap;padding-left:4px;">
+                    ${tot.toLocaleString('es-VE',{maximumFractionDigits:0})} ${UNIDAD}
+                </span>
             </div>
-            <span class="frow-val" style="color:${c};">${valFmt} <span style="font-size:9px;color:#94a3b8;">${UNIDAD}</span></span>
+            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;padding-left:22px;">${badges}</div>` : ''}
         </div>`;
     }).join('');
-
-    body.insertAdjacentHTML('beforeend',
-        `<div style="margin-top:20px;padding-top:15px;border-top:2px dashed #e2e8f0;">
-            <p style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
-               <i class="material-icons" style="font-size:16px;color:#64748b;">pie_chart</i>
-               RESUMEN TOTAL POR ${LABEL_ESPEC}
-            </p>
-            <div style="display:flex;flex-direction:column;gap:4px;">${legRows}</div>
-        </div>`
-    );
 }
 
 // ── DESCARGA PANEL ESPCFRENTE ────────────────────────────────────

@@ -898,7 +898,7 @@ window.showDetailsImproved = function (target, event) {
             container.innerHTML = `
                 <div class="pdf-btn-container">
                     <button type="button"
-                        onclick="openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
+                        onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
                         style="background: none; border: none; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;"
                         title="Ver PDF: ${label}">
                         <i class="material-icons" style="font-size: 22px; color: #ef4444;">picture_as_pdf</i>
@@ -1097,8 +1097,6 @@ window.loadResponsables = function(equipoId) {
             const isCurrent = index === 0;
             const bg = isCurrent ? '#f0fdf4' : '#f8fafc';
             const border = isCurrent ? '#bbf7d0' : '#e2e8f0';
-            const tag = isCurrent ? `<span style="background: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Actual</span>` : `<span style="color: #94a3b8; font-size: 10px;">Anterior</span>`;
-            
             // Edit button on current user line
             const editBtnEl = isCurrent ? `
             <button type="button" onclick="document.getElementById('responsable_form_container').style.display='flex';" title="Editar Responsable" style="background: white; border: 1px solid #cbd5e1; color: #475569; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
@@ -1116,8 +1114,7 @@ window.loadResponsables = function(equipoId) {
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:13px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.PERSONA_ASIGNADA}</span>
-                        ${tag}
+                        <span style="font-size:13px;font-weight:700;color:#1e293b;word-wrap:break-word;overflow-wrap:break-word;line-height:1.2;">${r.PERSONA_ASIGNADA}</span>
                     </div>
                     <div style="font-size:11px;color:#64748b;margin-top:2px;">
                         C.I. ${r.CEDULA_RESPONSABLE} &nbsp;&bull;&nbsp; Asignado el ${dStr}
@@ -1200,6 +1197,9 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
 
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
+    
+    // IMPORTANTE: Limpiamos el input enseguida para permitir reelección del MISMO archivo en caso de fallo
+    input.value = ""; 
 
     if (window.showPreloader) window.showPreloader();
 
@@ -1216,9 +1216,6 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
     xhr.setRequestHeader("Accept", "application/json");
 
     xhr.onload = function () {
-        // Note: preloader is now hidden conditionally after PDF modal opens (see below)
-        // This prevents visual gap during transition
-
         if (xhr.status === 200) {
             try {
                 const data = JSON.parse(xhr.responseText);
@@ -1229,7 +1226,7 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                         container.innerHTML = `
                             <div class="pdf-btn-container">
                                 <button type="button" 
-                                    onclick="openPdfPreview('${data.link}', '${type}', '${label}', '${equipoId}')" 
+                                    onclick="event.stopPropagation(); openPdfPreview('${data.link}', '${type}', '${label}', '${equipoId}')" 
                                     style="width: 36px; height: 36px; border-radius: 8px; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer;"
                                     onmouseover="this.style.background='#e9ecef'" 
                                     onmouseout="this.style.background='#f8f9fa'"
@@ -1254,19 +1251,10 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                     }
 
                     if (typeof window.openPdfPreview === "function") {
-                        // Small delay to ensure DOM is ready and preloader has shown
                         setTimeout(() => {
-                            window.openPdfPreview(
-                                data.link,
-                                type,
-                                label,
-                                equipoId,
-                            );
-
-                            // Hide global preloader AFTER opening PDF modal (smooth transition)
+                            window.openPdfPreview(data.link, type, label, equipoId);
                             setTimeout(() => {
-                                if (window.hidePreloader)
-                                    window.hidePreloader();
+                                if (window.hidePreloader) window.hidePreloader();
                             }, 150);
                         }, 50);
                     } else {
@@ -1275,17 +1263,24 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                 } else {
                     if (window.hidePreloader) window.hidePreloader();
                     if (window.showToast) {
-                        window.showToast(data.message || "Error al cargar.", "error");
+                        window.showToast(data.message || "Error al procesar el archivo.", "error");
                     }
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Error interpetando respuesta del servidor:", e);
                 if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) {
+                    window.showToast("Error subiendo el PDF. El archivo podría ser demasiado pesado.", "error");
+                }
             }
         } else {
+            // Manejar errores como 413 Payload Too Large u otros
             if (window.hidePreloader) window.hidePreloader();
             if (window.showToast) {
-                window.showToast("Error de red.", "error");
+                let msgError = (xhr.status === 413) 
+                    ? "Error: El archivo pesa más del límite permitido." 
+                    : `Error del servidor (Código: ${xhr.status}). Verifique su archivo.`;
+                window.showToast(msgError, "error");
             }
         }
     };

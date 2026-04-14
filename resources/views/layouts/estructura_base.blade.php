@@ -448,7 +448,7 @@
     {{-- Core Scripts (Always Loaded) --}}
 
     <script src="{{ asset('js/maquinaria/module_manager.js') }}?v=2.2"></script>
-    <script src="{{ asset('js/maquinaria/uicomponents.js') }}?v=18.5"></script>
+    <script src="{{ asset('js/maquinaria/uicomponents.js') }}?v=18.7"></script>
     <script src="{{ asset('js/maquinaria/navegacion.js') }}?v=11.0"></script>
     <script src="{{ asset('js/maquinaria/form_logic.js') }}?v=4.2"></script>
     <script src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v=3.2"></script>
@@ -457,9 +457,9 @@
     {{-- NOTE: These MUST be loaded globally because the SPA navigation --}}
     {{-- calls functions like window.loadEquipos(), window.loadCatalogo(), etc. --}}
     {{-- from navegacion.js when switching between pages without reload --}}
-    <script src="{{ asset('js/maquinaria/menu.js') }}?v=5.2"></script>
+    <script src="{{ asset('js/maquinaria/menu.js') }}?v=5.5"></script>
     <script src="{{ asset('js/maquinaria/catalogo_create.js') }}?v=12.2"></script>
-    <script src="{{ asset('js/maquinaria/equipos_index.js') }}?v=22.0"></script>
+    <script src="{{ asset('js/maquinaria/equipos_index.js') }}?v=24.0"></script>
     <script src="{{ asset('js/maquinaria/catalogo_index.js') }}?v=4.0"></script>
     <script src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v=9.1"></script>
     <script src="{{ asset('js/maquinaria/usuarios_index.js') }}?v=10.2"></script>

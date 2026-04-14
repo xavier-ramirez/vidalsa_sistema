@@ -1235,6 +1235,12 @@ class EquipoController extends Controller
             return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.']);
         }
 
+        \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
+        \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
+        if (auth()->check()) {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
+        }
+
         return redirect()->route('equipos.index')->with('success', 'Equipo actualizado.');
     }
 
@@ -1372,9 +1378,12 @@ class EquipoController extends Controller
                 \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileIdToDelete);
             }
 
-            // Clear Dashboard Cache to update alerts immediately
+            // Clear Dashboard Caches to update alerts immediately
             \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
             \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
+            if (auth()->check()) {
+                \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
+            }
 
             if (ob_get_length())
                 ob_end_clean();
@@ -1643,18 +1652,23 @@ class EquipoController extends Controller
                 break;
         }
 
-        // Filter empty values
+        // Filter only empty strings (NOT nulls, because we need to save nulls to clear management)
         $updateData = array_filter($updateData, function ($value) {
-            return !is_null($value) && $value !== '';
+            return $value !== '';
         });
 
-        $equipo->documentacion->update($updateData);
+        if (!empty($updateData)) {
+            $equipo->documentacion->update($updateData);
+        }
 
         // Clear Dashboard Cache to update alerts immediately
         \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
         \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
+        if (auth()->check()) {
+            \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
+        }
 
-        return response()->json(['success' => true, 'message' => 'Datos actualizados correctamente']);
+        return response()->json(['success' => true, 'message' => 'Metadatos actualizados']);
     }
 
     /**
@@ -1919,7 +1933,7 @@ class EquipoController extends Controller
             $frentesPermitidos = $user ? $user->getFrentesIds() : [];
             $requestedFrenteId = $request->input('frente_id');
 
-            $frenteNombre = 'Todos los Frentes';
+            $frenteNombre = 'TODOS LOS FRENTES';
 
             // Base query builder for filtering
             $baseQuery = Equipo::query();
@@ -1928,19 +1942,18 @@ class EquipoController extends Controller
                 if ($requestedFrenteId && $requestedFrenteId !== 'all') {
                     $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
                     $baseQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-                    // Nombre del frente exportado
                     $frenteObj = FrenteTrabajo::find($requestedFrenteId);
-                    $frenteNombre = $frenteObj ? $frenteObj->NOMBRE_FRENTE : 'Frente Variante';
+                    $frenteNombre = $frenteObj ? mb_strtoupper($frenteObj->NOMBRE_FRENTE) : 'FRENTE VARIANTE';
                 } else {
                     $baseQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-                    $frenteNombre = 'Mis Frentes Asignados';
+                    $frenteNombre = 'MIS FRENTES ASIGNADOS';
                 }
             } elseif ($isLocal) {
                 $baseQuery->whereRaw('1 = 0');
             } elseif ($requestedFrenteId && $requestedFrenteId !== 'all') {
                 $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
                 $frenteObj = FrenteTrabajo::find($requestedFrenteId);
-                $frenteNombre = $frenteObj ? $frenteObj->NOMBRE_FRENTE : 'Frente Específico';
+                $frenteNombre = $frenteObj ? mb_strtoupper($frenteObj->NOMBRE_FRENTE) : 'FRENTE ESPECÍFICO';
             }
 
             // --- 1. DATA FOR "FLOTA NUEVA VS VIEJA" ---
@@ -1966,73 +1979,213 @@ class EquipoController extends Controller
                 ->groupBy('id_tipo_equipo')
                 ->get();
 
-            $headers = [
-                "Content-type" => "text/csv; charset=UTF-8",
-                "Content-Disposition" => "attachment; filename=reporte_flota_" . date('Y-m-d') . ".csv",
-                "Pragma" => "no-cache",
-                "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-                "Expires" => "0"
+            // --- 3. DATA FOR "ESTADO OPERATIVO" ---
+            $statusData = (clone $baseQuery)
+                ->select(
+                    'ESTADO_OPERATIVO',
+                    DB::raw('COUNT(*) as total_count')
+                )
+                ->groupBy('ESTADO_OPERATIVO')
+                ->get();
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Análisis de Flota');
+
+            // Document properties
+            $spreadsheet->getProperties()
+                ->setCreator('Sistema de Gestión de Equipos')
+                ->setLastModifiedBy('Sistema de Gestión de Equipos')
+                ->setTitle('Análisis de Flota Operacional')
+                ->setSubject('Reporte de Análisis de Flota')
+                ->setDescription('Generado automáticamente por el Sistema de Gestión de Equipos - C.VIDALSA 27, C.A.')
+                ->setCompany('Constructora Vidalsa 27, C.A.');
+
+            $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
+            // LOGO
+            $logoPath = public_path('img/imagen_uno.jpg');
+            if (file_exists($logoPath)) {
+                try {
+                    $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                    $drawing->setName('Logo CVIDALSA');
+                    $drawing->setDescription('Logo');
+                    $drawing->setPath($logoPath);
+                    $drawing->setCoordinates('A1');
+                    $drawing->setOffsetX(5);
+                    $drawing->setOffsetY(8);
+                    $drawing->setHeight(90);
+                    $drawing->setWorksheet($sheet);
+                } catch (\Exception $e) { }
+            }
+
+            // Headers & Metadata
+            $sheet->mergeCells('A1:A3');
+            $sheet->getStyle('A1:A3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+            
+            // Ajustar altura de cabecera para atrapar el logo
+            $sheet->getRowDimension(1)->setRowHeight(35);
+            $sheet->getRowDimension(2)->setRowHeight(35);
+            $sheet->getRowDimension(3)->setRowHeight(35);
+
+            $sheet->mergeCells('B1:E3');
+            $titleText = "ANÁLISIS ESTADÍSTICO DE FLOTA OPERACIONAL\nPROYECTO: \"{$frenteNombre}\"";
+            $sheet->setCellValue('B1', $titleText);
+            $sheet->getStyle('B1')->getAlignment()->setWrapText(true);
+            $sheet->getStyle('B1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('B1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $sheet->getStyle('B1')->getFont()->setBold(true)->setSize(13)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+            $sheet->getStyle('B1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+            
+            // Borde enmarcando toda la cabecera
+            $sheet->getStyle('A1:E3')->applyFromArray([
+                'borders' => ['outline' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
+            ]);
+            
+            $sheet->mergeCells('A4:E4');
+            $fechaEmision = 'Reporte emitido por el sistema en fecha: ' . date('d/m/Y h:i A');
+            $sheet->setCellValue('A4', $fechaEmision);
+            $sheet->getStyle('A4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle('A4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF555555');
+
+            // --- ESTILOS COMPARTIDOS PARA TABLAS ---
+            $headerStyle = [
+                'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FF004E8A']
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER
+                ],
+                'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
+            ];
+            $rowStyle = [
+                'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
             ];
 
-            $callback = function () use ($ageData, $categoryData, $frenteNombre) {
-                $file = fopen('php://output', 'w');
+            $currentRow = 7;
 
-                // Add BOM for Excel UTF-8 compatibility
-                fputs($file, "\xEF\xBB\xBF");
+            // --- TABLA 1: ESTADO OPERATIVO ---
+            $sheet->mergeCells("A{$currentRow}:E{$currentRow}");
+            $sheet->setCellValue("A{$currentRow}", 'RESUMEN: ESTADO OPERATIVO DE EQUIPOS');
+            $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray([
+                'borders' => ['outline' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
+            ]);
+            $currentRow++;
 
-                // Metadata Header
-                fputcsv($file, ['REPORTE DE FLOTA - SISTEMA SFS']);
-                fputcsv($file, ['Frente:', $frenteNombre]);
-                fputcsv($file, ['Fecha:', date('d/m/Y H:i')]);
-                fputcsv($file, []);
+            $sheet->mergeCells("A{$currentRow}:D{$currentRow}");
+            $sheet->setCellValue("A{$currentRow}", 'ESTADO OPERATIVO');
+            $sheet->setCellValue("E{$currentRow}", 'CANTIDAD');
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($headerStyle);
+            $sheet->getRowDimension($currentRow)->setRowHeight(25);
+            
+            foreach ($statusData as $row) {
+                $currentRow++;
+                $estadoName = $row->ESTADO_OPERATIVO ?: 'DESCONOCIDO';
+                
+                $sheet->mergeCells("A{$currentRow}:D{$currentRow}");
+                $sheet->setCellValue("A{$currentRow}", mb_strtoupper($estadoName));
+                $sheet->setCellValue("E{$currentRow}", $row->total_count);
+                
+                $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($rowStyle);
+                $sheet->getStyle("E{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
 
-                // SECTION 1: FLOTA NUEVA VS VIEJA
-                fputcsv($file, ['=== FLOTA NUEVA VS VIEJA ===']);
-                fputcsv($file, ['Tipo de Equipo', 'Nuevo', 'Viejo', 'Total']);
-                fputcsv($file, ['', '', '', '']); // Separator for table borders
+            // --- TABLA 2: FLOTA NUEVA VS VIEJA ---
+            $currentRow += 4; // Espacio entre tablas
 
-                foreach ($ageData as $row) {
-                    $tipoName = $row->tipo ? $row->tipo->nombre : 'Sin Tipo';
-                    $total = $row->new_count + $row->old_count;
-                    if ($total > 0) {
-                        fputcsv($file, [
-                            $tipoName,
-                            $row->new_count,
-                            $row->old_count,
-                            $total
-                        ]);
-                    }
-                }
-                fputcsv($file, []);
-                fputcsv($file, []);
+            $sheet->mergeCells("A{$currentRow}:E{$currentRow}");
+            $sheet->setCellValue("A{$currentRow}", 'RESUMEN: FLOTA NUEVA VS FLOTA VIEJA POR TIPO');
+            $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray([
+                'borders' => ['outline' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
+            ]);
+            $currentRow++;
 
-                // SECTION 2: PESADA VS LIVIANA
-                fputcsv($file, ['=== FLOTA PESADA VS LIVIANA ===']);
-                fputcsv($file, ['Tipo de Equipo', 'Pesada', 'Liviana', 'Sin Asignar', 'Total']); // Updated Header
-                fputcsv($file, ['', '', '', '', '']); // Separator
+            $sheet->mergeCells("A{$currentRow}:B{$currentRow}");
+            $sheet->setCellValue("A{$currentRow}", 'TIPO DE EQUIPO');
+            $sheet->setCellValue("C{$currentRow}", "NUEVO\n(≥ 2025)");
+            $sheet->setCellValue("D{$currentRow}", "VIEJO\n(< 2025)");
+            $sheet->setCellValue("E{$currentRow}", 'TOTAL');
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($headerStyle);
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->getAlignment()->setWrapText(true);
+            $sheet->getRowDimension($currentRow)->setRowHeight(30);
+            
+            foreach ($ageData as $row) {
+                $currentRow++;
+                $tipoName = $row->tipo ? mb_strtoupper($row->tipo->nombre) : 'SIN TIPO';
+                $total = $row->new_count + $row->old_count;
+                
+                $sheet->mergeCells("A{$currentRow}:B{$currentRow}");
+                $sheet->setCellValue("A{$currentRow}", $tipoName);
+                $sheet->setCellValue("C{$currentRow}", $row->new_count);
+                $sheet->setCellValue("D{$currentRow}", $row->old_count);
+                $sheet->setCellValue("E{$currentRow}", $total);
+                
+                $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($rowStyle);
+                $sheet->getStyle("C{$currentRow}:E{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
 
-                foreach ($categoryData as $row) {
-                    $tipoName = $row->tipo ? $row->tipo->nombre : 'Sin Tipo';
-                    $total = $row->pesada_count + $row->liviana_count + $row->sin_asignar_count; // Updated Total
-                    if ($total > 0) {
-                        fputcsv($file, [
-                            $tipoName,
-                            $row->pesada_count,
-                            $row->liviana_count,
-                            $row->sin_asignar_count, // Added Value
-                            $total
-                        ]);
-                    }
-                }
+            // --- TABLA 2: PESADA VS LIVIANA ---
+            $currentRow += 4; // Espacio entre tablas
 
-                fclose($file);
-            };
+            $sheet->mergeCells("A{$currentRow}:E{$currentRow}");
+            $sheet->setCellValue("A{$currentRow}", 'RESUMEN: CLASIFICACIÓN POR CATEGORÍA DE FLOTA (PESADA VS LIVIANA)');
+            $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
+            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray([
+                'borders' => ['outline' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
+            ]);
+            $currentRow++;
 
-            return response()->stream($callback, 200, $headers);
+            $sheet->setCellValue("A{$currentRow}", 'TIPO DE EQUIPO');
+            $sheet->setCellValue("B{$currentRow}", 'PESADA');
+            $sheet->setCellValue("C{$currentRow}", 'LIVIANA');
+            $sheet->setCellValue("D{$currentRow}", 'SIN ASIGNAR');
+            $sheet->setCellValue("E{$currentRow}", 'TOTAL');
+            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($headerStyle);
+            $sheet->getRowDimension($currentRow)->setRowHeight(20);
+
+            foreach ($categoryData as $row) {
+                $currentRow++;
+                $tipoName = $row->tipo ? mb_strtoupper($row->tipo->nombre) : 'SIN TIPO';
+                $total = $row->pesada_count + $row->liviana_count + $row->sin_asignar_count;
+                
+                $sheet->setCellValue("A{$currentRow}", $tipoName);
+                $sheet->setCellValue("B{$currentRow}", $row->pesada_count);
+                $sheet->setCellValue("C{$currentRow}", $row->liviana_count);
+                $sheet->setCellValue("D{$currentRow}", $row->sin_asignar_count);
+                $sheet->setCellValue("E{$currentRow}", $total);
+                
+                $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($rowStyle);
+                $sheet->getStyle("B{$currentRow}:E{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
+
+            // Auto-size columns for optimal mapping 
+            $sheet->getColumnDimension('A')->setWidth(35);
+            $sheet->getColumnDimension('B')->setWidth(20);
+            $sheet->getColumnDimension('C')->setWidth(15);
+            $sheet->getColumnDimension('D')->setWidth(15);
+            $sheet->getColumnDimension('E')->setWidth(15);
+
+            $fileName = 'analisis_flota_' . date('Y-m-d_H-i') . '.xlsx';
+            $tempFile = tempnam(sys_get_temp_dir(), 'export_cvidalsa_');
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save($tempFile);
+
+            return response()->download($tempFile, $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
 
         } catch (\Exception $e) {
-            Log::error('Fleet Export Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Error generating report'], 500);
+            Log::error('Fleet Export Excel Error: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Ocurrió un error al generar el archivo Excel de análisis.');
         }
     }
 

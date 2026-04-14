@@ -318,6 +318,8 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function graficosData(Request $request)
     {
+        set_time_limit(120); // queries pesadas — evita timeout de 60s
+
         $desde     = $request->get('desde');
         $hasta     = $request->get('hasta');
         $idFrente  = $request->get('id_frente');
@@ -617,6 +619,7 @@ class ConsumiblesController extends Controller
             ->orderByDesc('total')
             ->get();
 
+
         // ── 9. Equipos Inoperativos en el frente seleccionado ────────────
         $inoperativos = [];
         if ($idFrente) {
@@ -658,24 +661,26 @@ class ConsumiblesController extends Controller
         }
 
         return [
-            'por_frente'          => $porFrente,
-            'por_tipo_equipo'     => $porTipoEquipo,
-            'equipos_por_frente'  => $equiposPorFrente,
-            'top_equipos'         => $topEquipos,
-            'todos_equipos'       => $todosEquipos,
-            'resumen'             => $resumen,
-            'total_frentes'       => $totalFrentes,
-            'tipo_activo'         => $tipoEspec,
-            'espec_frente'        => $especFrente,
-            'espec_equipo'        => $especEquipo,
-            'equipos_asignados'   => $equiposAsignados,
-            'cauchos_por_modelo'  => $cauchosPorModelo,
-            'inoperativos'        => $inoperativos,
+            'por_frente'         => $porFrente,
+            'por_tipo_equipo'    => $porTipoEquipo,
+            'equipos_por_frente' => $equiposPorFrente,
+            'top_equipos'        => $topEquipos,
+            'todos_equipos'      => $todosEquipos,
+            'resumen'            => $resumen,
+            'total_frentes'      => $totalFrentes,
+            'tipo_activo'        => $tipoEspec,
+            'espec_frente'       => $especFrente,
+            'espec_equipo'       => $especEquipo,
+            'equipos_asignados'  => $equiposAsignados,
+            'cauchos_por_modelo' => $cauchosPorModelo,
+            'inoperativos'       => $inoperativos,
         ];
         }); // fin Cache::remember
 
+
         return response()->json($resultado);
     }
+
 
     // ══════════════════════════════════════════════════════════════
     // EXPORTAR CSV — Descarga directa de datos confirmados

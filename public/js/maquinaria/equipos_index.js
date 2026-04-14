@@ -256,107 +256,113 @@ function handleRowClick(e) {
 // NOTE: Event delegation to document allows these to work even after DOM changes
 document.addEventListener("click", handleRowClick);
 
-// Unanchoring Logic
+// ─── DESANCLAR EQUIPOS ──────────────────────────────────────────────────────
 window.unanchorEquipos = async function (e) {
-    if (e) e.preventDefault();
+    if (e) { e.preventDefault(); e.stopPropagation(); }
 
     const selections = Object.values(window.selectedEquipos || {});
-    let ids = [];
-    const isValidId = (val) => val && val !== "null" && val !== "";
 
-    if (selections.length === 1 && isValidId(selections[0].anchorId)) {
-        ids = [selections[0].id, selections[0].anchorId];
-    } else if (selections.length === 2) {
-        ids = [selections[0].id, selections[1].id];
-    } else {
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: "warning",
-                title: "Selección Incorrecta",
-                message: "Para desanclar, selecciona un equipo anclado o ambos equipos vinculados.",
-                confirmText: "Entendido",
-                hideCancel: true,
-            });
-        } else {
-            alert("Para desanclar, selecciona un equipo anclado o ambos equipos vinculados.");
-        }
+    if (selections.length === 0) {
+        window.showModal && window.showModal({
+            type: 'warning', title: 'Sin Selección',
+            message: 'Selecciona al menos un equipo anclado para desanclar.',
+            confirmText: 'Entendido', hideCancel: true
+        });
         return;
     }
 
-    const doUnanchor = async () => {
-        if (window.showPreloader) window.showPreloader();
-        try {
-            const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            const response = await fetch(`${baseUrl}/admin/equipos/clear-anchor`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": csrfToken,
-                    "X-Requested-With": "XMLHttpRequest",
-                },
-                body: JSON.stringify({ ids: ids }),
-            });
-
-            if (response.status === 419 || response.status === 401) {
-                window.location.reload();
-                return;
-            }
-
-            const data = await response.json();
-
-            if (data.success) {
-                if (window.clearSelection) window.clearSelection();
-                if (window.loadEquipos) window.loadEquipos(null, true);
-                if (window.hidePreloader) window.hidePreloader();
-                if (typeof window.showToast === 'function') {
-                    window.showToast('¡Desanclaje exitoso!', 'success');
-                }
-            } else {
-                if (window.hidePreloader) window.hidePreloader();
-                if (typeof window.showModal === 'function') {
-                    window.showModal({
-                        type: "error",
-                        title: "Error",
-                        message: data.error || "Ocurrió un error al desanclar.",
-                        confirmText: "Entendido",
-                        hideCancel: true,
-                    });
-                } else {
-                    alert(data.error || "Ocurrió un error al desanclar.");
-                }
-            }
-        } catch (error) {
-            console.error(error);
-            if (window.hidePreloader) window.hidePreloader();
-            if (typeof window.showModal === 'function') {
-                window.showModal({
-                    type: "error",
-                    title: "Error de Red",
-                    message: "Ocurrió un error de conexión al desanclar.",
-                    confirmText: "Entendido",
-                    hideCancel: true,
-                });
-            } else {
-                alert("Error de red al desanclar.");
-            }
+    // Collect IDs: self + anchorId partner
+    const idSet = new Set();
+    selections.forEach(item => {
+        if (item.id)       idSet.add(String(item.id));
+        if (item.anchorId && item.anchorId !== 'null' && item.anchorId !== '') {
+            idSet.add(String(item.anchorId));
         }
-    };
+    });
 
-    if (typeof window.showModal === 'function') {
-        window.showModal({
-            type: "warning",
-            title: "Desanclar Equipos",
-            message: "¿Estás seguro de que deseas eliminar el vínculo de anclaje de este equipo?",
-            confirmText: "Sí, Desanclar",
-            cancelText: "Cancelar",
-            onConfirm: doUnanchor,
+    const ids = [...idSet];
+    console.log('[Desanclar] IDs a limpiar:', ids);
+
+    if (ids.length === 0) {
+        window.showModal && window.showModal({
+            type: 'warning', title: 'Sin Anclaje',
+            message: 'Los equipos seleccionados no tienen anclaje registrado.',
+            confirmText: 'Entendido', hideCancel: true
         });
-    } else {
-        if (confirm("¿Deseas eliminar el vínculo de anclaje de este equipo?")) {
-            await doUnanchor();
+        return;
+    }
+
+    // Confirm
+    const confirmed = await new Promise(resolve => {
+        if (window.showModal) {
+            window.showModal({
+                type: 'warning',
+                title: 'Desanclar Equipos',
+                message: `¿Eliminar el vínculo de anclaje de ${ids.length > 1 ? 'estos ' + ids.length + ' equipos' : 'este equipo'}?`,
+                confirmText: 'Sí, Desanclar',
+                cancelText: 'Cancelar',
+                onConfirm: () => resolve(true),
+                onCancel: () => resolve(false),
+            });
+        } else {
+            resolve(confirm('¿Desanclar los equipos seleccionados?'));
         }
+    });
+
+    if (!confirmed) return;
+
+    if (window.showPreloader) window.showPreloader();
+
+    try {
+        const baseUrl  = document.querySelector('meta[name="base-url"]')?.content || '';
+        const csrf     = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        const response = await fetch(`${baseUrl}/admin/equipos/clear-anchor`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ ids }),
+        });
+
+        let data = {};
+        try { data = await response.json(); } catch (_) {}
+
+        console.log('[Desanclar] Response status:', response.status, '| body:', data);
+
+        if (response.status === 419 || response.status === 401) {
+            window.location.reload(); return;
+        }
+
+        if (response.status === 422) {
+            if (window.hidePreloader) window.hidePreloader();
+            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : (data.message || 'Validación fallida.');
+            window.showModal && window.showModal({ type: 'error', title: 'Error de Validación', message: firstError, confirmText: 'Entendido', hideCancel: true });
+            return;
+        }
+
+        if (!response.ok || !data.success) {
+            if (window.hidePreloader) window.hidePreloader();
+            window.showModal && window.showModal({ type: 'error', title: 'Error', message: data.error || data.message || 'No se pudo desanclar.', confirmText: 'Entendido', hideCancel: true });
+            return;
+        }
+
+        // SUCCESS
+        window.selectedEquipos = {};
+        document.querySelectorAll('.selected-row-maquinaria').forEach(r => r.classList.remove('selected-row-maquinaria'));
+        updateSelectionUI();
+
+        if (window.loadEquipos) window.loadEquipos(null, true);
+        if (window.hidePreloader) window.hidePreloader();
+        if (window.showToast) window.showToast('¡Desanclaje exitoso!', 'success');
+
+    } catch (err) {
+        console.error('[Desanclar] fetch error:', err);
+        if (window.hidePreloader) window.hidePreloader();
+        window.showModal && window.showModal({ type: 'error', title: 'Error de Red', message: 'No se pudo conectar con el servidor. Intenta de nuevo.', confirmText: 'Entendido', hideCancel: true });
     }
 };
 

@@ -21,7 +21,7 @@ class DashboardController extends Controller
         $cacheKey = "dashboard_user_data_{$userId}";
 
         // Cache the dashboard logic to improve speed
-        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(5), function () use ($isGlobal, $frenteIds) {
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($isGlobal, $frenteIds) {
             // 1. Mobilizations Today
             $movilizacionesHoyQuery = Movilizacion::whereDate('created_at', Carbon::today());
             if (count($frenteIds) > 0) {
@@ -270,37 +270,45 @@ class DashboardController extends Controller
     {
         $request->validate([
             'equipo_id' => 'required|exists:equipos,ID_EQUIPO',
-            'doc_type' => 'required|in:poliza,rotc,racda'
+            'doc_type'  => 'required|in:poliza,rotc,racda'
         ]);
 
         $user = auth()->user();
-        
-        // Solo usuarios con permiso de edición de equipos pueden iniciar gestión
+
+        // Permiso requerido: editar equipos o super.admin
         if (!$user->can('equipos.edit')) {
-            return response()->json(['success' => false, 'message' => 'No tiene permisos para realizar esta acción.'], 403);
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes permisos para realizar esta acción.'
+            ], 403);
         }
 
-        if (!$user->getFrentesIds()) {
-            return response()->json(['success' => false, 'message' => 'Debe pertenecer a un frente para iniciar gestión'], 403);
+        $frentes = $user->getFrentesIds();
+        if (empty($frentes)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Debes pertenecer a un frente de trabajo para iniciar gestión.'
+            ], 403);
         }
 
         $doc = \App\Models\Documentacion::where('ID_EQUIPO', $request->equipo_id)->first();
-        if (!$doc) return response()->json(['success' => false, 'message' => 'Documentación no encontrada'], 404);
+        if (!$doc) {
+            return response()->json(['success' => false, 'message' => 'Documentación no encontrada.'], 404);
+        }
 
         $frenteField = $request->doc_type . '_gestion_frente_id';
-        $fechaField = $request->doc_type . '_gestion_fecha';
+        $fechaField  = $request->doc_type . '_gestion_fecha';
 
-        // Usar el primer frente asignado como frente de gestión
-        $primerFrente = $user->getFrentesIds()[0] ?? null;
-        $doc->$frenteField = $primerFrente;
-        $doc->$fechaField = now();
+        $doc->$frenteField = $frentes[0];
+        $doc->$fechaField  = now();
         $doc->save();
 
-        // Clear Cache
+        // Limpiar toda la caché relevante del dashboard
         \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
         \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
+        \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . $user->ID_USUARIO);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'message' => 'Gestión iniciada correctamente.']);
     }
     
     /**

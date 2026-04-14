@@ -98,15 +98,15 @@
                                    onblur="this.style.borderColor='#d1d5db'"
                                    onkeyup="filterDashboardAlerts()"
                                    autocomplete="off">
-                            <a href="{{ route('dashboard.exportDocumentsPDF') }}"
-                               data-no-spa="true"
+                            <button type="button"
+                               onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
                                class="btn-export-pdf"
                                title="Descargar Reporte PDF"
-                               style="display: inline-flex; align-items: center; justify-content: center; padding: 8px; background: transparent; color: #94a3b8; border: none; text-decoration: none; transition: all 0.2s; cursor: default;"
-                               onmouseover="this.style.color='#0067b1'"
-                               onmouseout="this.style.color='#94a3b8'">
+                               style="display: inline-flex; align-items: center; justify-content: center; padding: 8px; background: transparent; color: #94a3b8; border: none; text-decoration: none; transition: all 0.2s; cursor: pointer; outline: none;"
+                               onmouseover="if(!this.disabled) this.style.color='#0067b1'"
+                               onmouseout="if(!this.disabled) this.style.color='#94a3b8'">
                                 <i class="material-icons" style="font-size: 20px;">file_download</i>
-                            </a>
+                            </button>
                         </div>
                         <div class="activity-list" style="max-height: 400px; overflow-y: auto;">
                             <div id="dashboardAlertsList">
@@ -202,7 +202,7 @@
                     </label>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="rdSearchInput"
-                            placeholder="Buscar por serial, placa, motor o #Número de etiqueta..."
+                            placeholder="Buscar seriales..."
                             style="flex: 1; padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 10px; font-size: 14px; background: #f8fafc; outline: none;"
                             autocomplete="off"
                             onfocus="this.style.borderColor='#1e293b'" onblur="this.style.borderColor='#cbd5e0'"
@@ -288,5 +288,47 @@
         const _styleRD = document.createElement('style');
         _styleRD.textContent = '@keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
         document.head.appendChild(_styleRD);
+
+        // PDF download for Alertas Documentos — usa el spinner global de la app
+        window.downloadDashboardPdf = async function(btn, url) {
+            if (btn && btn.disabled) return;
+            if (btn) btn.disabled = true;
+
+            if (window.showPreloader) window.showPreloader();
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/pdf', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) throw new Error('Error generando PDF');
+
+                const blob = await response.blob();
+                const objUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = objUrl;
+                let filename = 'Reporte_Vencimientos_Equipos.pdf';
+                const disposition = response.headers.get('Content-Disposition');
+                if (disposition && disposition.indexOf('filename=') !== -1) {
+                    const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                    if (m && m[1]) filename = m[1].replace(/['"]/g, '');
+                }
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(objUrl); }, 100);
+
+                if (window.showToast) window.showToast('Reporte descargado correctamente.', 'success');
+
+            } catch (err) {
+                console.error(err);
+                if (window.showToast) window.showToast('Error generando el PDF. Intente de nuevo.', 'error');
+            } finally {
+                if (window.hidePreloader) window.hidePreloader();
+                if (btn) btn.disabled = false;
+            }
+        };
     </script>
 @endsection

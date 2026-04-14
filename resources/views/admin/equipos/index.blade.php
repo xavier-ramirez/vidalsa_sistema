@@ -65,7 +65,7 @@
                         @foreach($frentesDropdown as $frente)
                             <div class="dropdown-item {{ $currentFrenteId == $frente->ID_FRENTE ? 'selected' : '' }}"
                                  data-value="{{ $frente->ID_FRENTE }}"
-                                 onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ $frente->NOMBRE_FRENTE }}'); loadEquipos();">
+                                 onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); loadEquipos();">
                                 {{ $frente->NOMBRE_FRENTE }}
                             </div>
                         @endforeach
@@ -104,7 +104,7 @@
                             TODOS LOS TIPOS
                         </div>
                         @foreach($allTipos as $tipo)
-                            <div class="dropdown-item {{ request('id_tipo') == $tipo->id ? 'selected' : '' }}" data-value="{{ $tipo->id }}" onclick="selectOption('tipoFilterSelect', '{{ $tipo->id }}', '{{ $tipo->nombre }}'); loadEquipos();">
+                            <div class="dropdown-item {{ request('id_tipo') == $tipo->id ? 'selected' : '' }}" data-value="{{ $tipo->id }}" onclick="selectOption('tipoFilterSelect', '{{ $tipo->id }}', '{{ addslashes(trim($tipo->nombre)) }}'); loadEquipos();">
                                 {{ $tipo->nombre }}
                             </div>
                         @endforeach
@@ -121,7 +121,7 @@
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search_query') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search_query') ? '#e1effa' : '#fff' }};">
                     <i class="material-icons search-icon">search</i>
                     <input type="text" id="searchInput" name="search_query" value="{{ request('search_query') }}" 
-                        placeholder="Buscar Seriales, Placa, Etiqueta..." 
+                        placeholder="Buscar Seriales..." 
                         aria-label="Buscar Seriales"
                         class="search-input-field"
                         autocomplete="off"
@@ -173,7 +173,7 @@
                                     @if(isset($availableModelos))
                                         @foreach($availableModelos as $mod)
                                             @if(trim($mod) !== '')
-                                                <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ $mod }}', '{{ $mod }}'); loadEquipos();">{{ $mod }}</div>
+                                                <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
                                             @endif
                                         @endforeach
                                     @endif
@@ -207,7 +207,7 @@
                                     @if(isset($availableMarcas))
                                         @foreach($availableMarcas as $marca)
                                             @if(trim($marca) !== '')
-                                                <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ $marca }}', '{{ $marca }}'); loadEquipos();">{{ $marca }}</div>
+                                                <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
                                             @endif
                                         @endforeach
                                     @endif
@@ -242,7 +242,7 @@
                                     @if(isset($availableAnios))
                                         @foreach($availableAnios as $anio)
                                             @if(trim($anio) !== '')
-                                                <div class="dropdown-item {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ $anio }}', '{{ $anio }}'); loadEquipos();">{{ $anio }}</div>
+                                                <div class="dropdown-item {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
                                             @endif
                                         @endforeach
                                     @endif
@@ -726,7 +726,7 @@
                                      <!-- Custom Dropdown List -->
                                      <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
                                          @foreach($frentesDropdown as $frente)
-                                             <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ $frente->NOMBRE_FRENTE }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                             <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
                                                  {{ $frente->NOMBRE_FRENTE }}
                                              </div>
                                          @endforeach

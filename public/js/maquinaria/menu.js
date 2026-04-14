@@ -36,6 +36,25 @@ window.togglePendingMovs = function () {
 
 console.log('✅ Menu Dashboard Functions Loaded (Global Scope)');
 
+// ── Event Delegation: Botón "Gestionar" en lista de alertas ──────────────
+// Usamos delegación en vez de onclick inline para evitar problemas con
+// AJAX content replacement y listeners preventivos de terceros.
+document.addEventListener('click', function (e) {
+    // Buscar si el clic fue sobre (o dentro de) un botón [data-gestion-equipo]
+    const btn = e.target.closest('[data-gestion-equipo]');
+    if (!btn) return;
+
+    e.stopPropagation(); // Evitar que el clic llegue a elementos debajo
+    e.preventDefault();
+
+    const equipoId = btn.getAttribute('data-gestion-equipo');
+    const docType  = btn.getAttribute('data-gestion-type');
+
+    if (equipoId && docType && typeof window.iniciarGestion === 'function') {
+        window.iniciarGestion(equipoId, docType);
+    }
+}, true); // <<< captura en fase de CAPTURA para máxima prioridad
+
 // Function to refresh alerts list via AJAX without page reload
 window.refreshDashboardAlerts = async function () {
     const listContainer = document.getElementById('dashboardAlertsList');
@@ -48,8 +67,8 @@ window.refreshDashboardAlerts = async function () {
 
         const data = await response.json();
 
-        // Update List HTML
-        if (data.html) {
+        // Update List HTML — use !== undefined to handle empty list (all docs up to date)
+        if (data.html !== undefined) {
             listContainer.innerHTML = data.html;
             // Re-apply fade-in effect if desired
             listContainer.style.opacity = '0';
