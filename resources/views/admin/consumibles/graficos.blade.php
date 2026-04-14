@@ -1403,10 +1403,11 @@ function renderEspecFrente(datos, tipoActivo) {
             const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
             const v     = parseFloat(f.total).toLocaleString('es-VE', {maximumFractionDigits: 0});
             return `<span style="display:inline-flex;align-items:center;gap:5px;
-                        background:${color};color:#ffffff;border-radius:20px;
-                        padding:3px 9px;font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 1px 3px ${color}40;">
+                        background:#f8fafc;color:#475569;border:1px solid #cbd5e1;border-radius:20px;
+                        padding:2px 8px;font-size:10px;font-weight:600;white-space:nowrap;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};"></span>
                         ${f.ESPECIFICACION}
-                        <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 6px;font-size:10px;">${v}</span>
+                        <span style="background:#e2e8f0;color:#1e293b;border-radius:20px;padding:1px 5px;font-size:10px;font-weight:700;">${v}</span>
                     </span>`;
         }).join('');
 
@@ -1426,15 +1427,16 @@ function renderEspecFrente(datos, tipoActivo) {
         </div>`;
     }).join('');
 
-    // ── Total global por modelo: badges sólidos (mismos colores del gráfico) ──
+    // ── Total global por modelo: badges sutiles (fondo gris con puntito de color) ──
     const totalBadges = especs.map((e, i) => {
         const color = PALETA[i % PALETA.length];
         const v     = mapEspec[e].toLocaleString('es-VE', {maximumFractionDigits: 0});
         return `<span style="display:inline-flex;align-items:center;gap:6px;
-            background:${color};color:#fff;border-radius:20px;padding:5px 13px;
-            font-size:12px;font-weight:700;box-shadow:0 2px 6px ${color}55;white-space:nowrap;">
+            background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:20px;padding:4px 13px;
+            font-size:12px;font-weight:600;white-space:nowrap;">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>
             ${e}
-            <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 7px;font-size:11px;">${v} ${UNIDAD}</span>
+            <span style="background:#e2e8f0;color:#0f172a;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:2px;">${v} ${UNIDAD}</span>
         </span>`;
     }).join('');
 
