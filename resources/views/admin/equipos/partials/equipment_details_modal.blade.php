@@ -336,7 +336,8 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
             // Append theoretical map type parameters to try and force Google / Satellite view
             const hasQuery = url.includes('?');
             const glue = hasQuery ? '&' : '?';
-            const enhancedUrl = url + glue + 'map=2&mapType=2&satellite=1&layer=1';
+            // Trying index 3 "Google 2" to see if it defaults to satellite
+            const enhancedUrl = url + glue + 'map=3&mapType=3&satellite=1&layer=1&mt=hybrid';
 
             if (overlay) overlay.style.display = 'flex';
             if (iframe)  { iframe.style.display = 'none'; iframe.src = enhancedUrl; }
