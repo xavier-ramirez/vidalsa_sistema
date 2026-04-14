@@ -96,6 +96,9 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     // CARGA DE LOTE — Formulario
     // ══════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
+    // CARGA DE LOTE — Formulario
+    // ══════════════════════════════════════════════════════════════
     public function cargar()
     {
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
@@ -115,39 +118,46 @@ class ConsumiblesController extends Controller
         abort_if(!auth()->user()->can('super.admin'), 403, 'No tienes permiso para cargar consumibles.');
 
         // ── 1. Filtrar filas vacías ANTES de validar ──────────────
-        // Las filas sin fecha ni cantidad (ej: rows iniciales vacíos) se descartan
-        // para que la validación no falle por ellas.
         $filasFiltradas = collect($request->input('filas', []))
             ->filter(fn($f) => !empty($f['fecha']) && !empty($f['cantidad']))
             ->values()
             ->all();
 
-        // Si no quedó ninguna, devolver error claro
         if (empty($filasFiltradas)) {
-            return back()
-                ->withErrors(['error' => 'No se enviaron filas con fecha y cantidad válidas.'])
-                ->withInput();
+            $msg = 'No se enviaron filas con fecha y cantidad válidas.';
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $msg, 'errors' => ['error' => [$msg]]], 422);
+            }
+            return back()->withErrors(['error' => $msg])->withInput();
         }
 
-        // Reemplazar el input filas por la versión filtrada
         $request->merge(['filas' => $filasFiltradas]);
 
         // ── 2. Validar solo filas con datos ──────────────────────
-        $request->validate([
-            'tipo_consumible'  => 'required|in:GASOIL,GASOLINA,ACEITE,CAUCHO,REFRIGERANTE,OTRO',
-            'unidad'           => 'required|in:LITROS,GALONES,UNIDADES,KG',
-            'id_frente'        => 'required|exists:frentes_trabajo,ID_FRENTE',
-            'filas'            => 'required|array|min:1',
-            'filas.*.fecha'    => 'required|date',
-            'filas.*.cantidad' => 'required|numeric|min:0.01',
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'tipo_consumible'        => 'required|in:GASOIL,GASOLINA,ACEITE,CAUCHO,REFRIGERANTE,OTRO',
+            'unidad'                 => 'required|in:LITROS,GALONES,UNIDADES,KG',
+            'id_frente'              => 'required|exists:frentes_trabajo,ID_FRENTE',
+            'filas'                  => 'required|array|min:1',
+            'filas.*.fecha'          => 'required|date',
+            'filas.*.cantidad'       => 'required|numeric|min:0.01',
             'filas.*.especificacion' => 'nullable|string|max:30',
         ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Error de validación.',
+                    'errors'  => $validator->errors(),
+                ], 422);
+            }
+            return back()->withErrors($validator)->withInput();
+        }
 
         $tipo   = $request->tipo_consumible;
         $unidad = $request->unidad;
         $frente = $request->id_frente;
 
-        // ESPECIFICACION: por fila (viscosidad de aceite / medida de caucho)
         $tiposConEspec = ['ACEITE', 'CAUCHO'];
         $insertados    = 0;
 
@@ -181,24 +191,28 @@ class ConsumiblesController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Error al guardar: ' . $e->getMessage()])->withInput();
+            $errMsg = 'Error al guardar: ' . $e->getMessage();
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $errMsg], 500);
+            }
+            return back()->withErrors(['error' => $errMsg])->withInput();
         }
 
         // Invalidar caché de gráficos — los datos cambiaron
         Cache::increment('consumibles_data_version');
 
-        $mensaje = "$insertados registros cargados exitosamente. Usa el botón 'Match Automático' para identificar los equipos.";
+        $mensaje = "$insertados registros cargados exitosamente.";
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => $mensaje,
+                'message'    => $mensaje,
                 'insertados' => $insertados,
-                'redirect' => route('consumibles.index'),
             ]);
         }
 
         return redirect()->route('consumibles.index')->with('success', $mensaje);
     }
+
 
     // ══════════════════════════════════════════════════════════════
     // ACTUALIZAR ESTADO individual (confirmar / marcar sin match)

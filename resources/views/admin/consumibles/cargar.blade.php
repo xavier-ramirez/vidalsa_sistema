@@ -505,7 +505,6 @@ if (document.getElementById('formLote')) {
             return;
         }
 
-        // Mostrar spinner
         if (window.showPreloader) window.showPreloader();
 
         const formData = new FormData(this);
@@ -520,36 +519,44 @@ if (document.getElementById('formLote')) {
             body: formData
         })
         .then(async response => {
-            // Detectar sesión expirada
-            if (response.status === 419 || response.status === 401 || (response.redirected && response.url.includes('/login'))) {
+            if (response.status === 419 || response.status === 401 ||
+                (response.redirected && response.url.includes('/login'))) {
                 window.location.href = '/login';
                 return Promise.reject(new Error('Sesión expirada.'));
             }
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                // Respuesta de redirección Laravel exitosa (forma clásica de back()->redirect())
-                // Redirigir al index de consumibles manualmente
-                window.location.href = '{{ route("consumibles.index") }}';
-                return Promise.reject(new Error('redirect'));
-            }
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             return { status: response.status, body: data };
         })
         .then(({ status, body }) => {
             if (window.hidePreloader) window.hidePreloader();
-            if (status === 200 || status === 201 || status === 302) {
-                if (window.showModal) {
+
+            if (status === 200 || status === 201) {
+                // ── Éxito: limpiar formulario y mostrar toast ────────
+                // 1. Vaciar tabla y poner 5 filas limpias
+                document.getElementById('cuerpoTabla').innerHTML = '';
+                filaCount = 0;
+                for (var i = 0; i < 5; i++) agregarFila();
+
+                // 2. Resetear frente
+                document.getElementById('idFrenteHidden').value = '';
+                document.getElementById('frenteSearch').value    = '';
+                const badge = document.getElementById('frenteSeleccionado');
+                if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
+
+                // 3. Toast de éxito (pequeño, no intrusivo)
+                const n = body.insertados || '?';
+                if (window.showToast) {
+                    window.showToast(`✓ ${n} registros guardados correctamente`, 'success');
+                } else if (window.showModal) {
                     window.showModal({
                         type: 'success',
                         title: '¡Lote guardado!',
-                        message: body.message || 'Los registros fueron guardados correctamente.',
-                        confirmText: 'Ver Consumibles',
+                        message: body.message || `${n} registros guardados.`,
+                        confirmText: 'Listo',
                         hideCancel: true,
-                        onConfirm: () => { window.location.href = '{{ route("consumibles.index") }}'; }
                     });
-                } else {
-                    window.location.href = '{{ route("consumibles.index") }}';
                 }
+
             } else if (status === 422 && body.errors) {
                 const msgs = Object.values(body.errors).flat().join('\n');
                 if (window.showModal) {
@@ -560,14 +567,15 @@ if (document.getElementById('formLote')) {
             }
         })
         .catch(err => {
-            if (err.message === 'redirect') return; // redirect ya iniciado, no mostrar error
             if (window.hidePreloader) window.hidePreloader();
+            if (err.message === 'Sesión expirada.') return;
             if (window.showModal) {
                 window.showModal({ type:'error', title:'Error', message: err.message || 'Ocurrió un error al guardar.', confirmText:'Cerrar', hideCancel:true });
             } else { alert(err.message); }
         });
     });
 }
+
 
 // ── Inicio: 5 filas vacías ────────────────────────────────────────
 function initCargarConsumibles() {
