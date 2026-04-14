@@ -267,7 +267,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
             </button>
         </div>
 
-        {{-- Body GPS: iframe izquierda + panel datos derecha --}}
+        {{-- Body GPS: iframe Único de mapa --}}
         <div class="gps-modal-body" style="flex:1; display:flex; min-height:540px; overflow:hidden;">
 
             {{-- Panel Único: iframe GPS51 -- Ubicacion en tiempo real --}}
