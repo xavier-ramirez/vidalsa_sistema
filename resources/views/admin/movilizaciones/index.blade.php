@@ -413,6 +413,50 @@
         reapplyStyles();
     });
 })();
+
+window.confirmDeleteMovilizacion = function(id) {
+    Swal.fire({
+        title: '¿Eliminar Registro?',
+        text: "Esta acción no se puede deshacer.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/admin/movilizaciones/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (window.showToast) {
+                        window.showToast(data.message, 'success');
+                    } else {
+                        Swal.fire('¡Eliminado!', data.message, 'success');
+                    }
+                    if (window.loadMovilizaciones) {
+                        window.loadMovilizaciones();
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    Swal.fire('Error', data.message || 'Hubo un problema al eliminar.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Error de red o del servidor.', 'error');
+            });
+        }
+    });
+};
 </script>
 
 @endsection

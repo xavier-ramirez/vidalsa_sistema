@@ -151,6 +151,32 @@ document.addEventListener('DOMContentLoaded', () => {
             // Extraer contenido del viewport
             const parser = new DOMParser();
             const doc    = parser.parseFromString(html, 'text/html');
+            
+            // Auto Cache-Busting: Detectar si el servidor sirvió versiones más nuevas de nuestros scripts
+            const newScripts = Array.from(doc.querySelectorAll('script[src]'));
+            const currentScripts = Array.from(document.querySelectorAll('script[src]'));
+            let versionChanged = false;
+            
+            for (let i = 0; i < newScripts.length; i++) {
+                const ns = newScripts[i];
+                // Ignorar librerías externas o CDN por si cambian de formato sin ser una nueva versión de la app
+                if (!ns.src.includes(window.location.origin)) continue;
+                
+                const basePath = ns.src.split('?')[0];
+                const matchingCurrent = currentScripts.find(cs => cs.src.split('?')[0] === basePath);
+                
+                if (matchingCurrent && matchingCurrent.src !== ns.src) {
+                    versionChanged = true;
+                    console.log(`Nueva versión detectada para: ${basePath}. Requiriendo recarga completa.`);
+                    break;
+                }
+            }
+
+            if (versionChanged) {
+                window.location.href = url; // Hard reload
+                return;
+            }
+
             const newContent = doc.querySelector('.main-viewport');
 
             if (!newContent) {

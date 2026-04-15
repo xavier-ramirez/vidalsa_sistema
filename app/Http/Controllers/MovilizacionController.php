@@ -722,6 +722,22 @@ class MovilizacionController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Despacho registrado correctamente.']);
     }
+
+    public function destroy($id)
+    {
+        if (!auth()->user()->can('super.admin')) {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acción.'], 403);
+        }
+
+        try {
+            $mov = Movilizacion::findOrFail($id);
+            $mov->delete();
+            return response()->json(['success' => true, 'message' => 'Registro de movilización eliminado con éxito.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error al eliminar el registro: ' . $e->getMessage()], 500);
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
 
 } // END MovilizacionController

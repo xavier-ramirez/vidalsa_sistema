@@ -91,6 +91,11 @@
                         <span>COMPLETADO</span>
                     </div>
                 @endif
+                @can('super.admin')
+                    <button class="btn btn-sm btn-danger p-1 mt-1 d-flex align-items-center justify-content-center" onclick="confirmDeleteMovilizacion({{ $mov->ID_MOVILIZACION }})" title="Eliminar Registro" style="border-radius: 4px; width: 28px; height: 28px;">
+                        <i class="material-icons" style="font-size: 16px;">delete</i>
+                    </button>
+                @endcan
             </div>
         </td>
     </tr>
