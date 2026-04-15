@@ -49,7 +49,7 @@ class ConsumiblesController extends Controller
         if ($request->filled('identificador'))
             $query->where('IDENTIFICADOR', 'LIKE', '%' . trim($request->identificador) . '%');
 
-        $consumibles = $query->paginate(50)->withQueryString();
+        $consumibles = $query->paginate(50)->onEachSide(3)->withQueryString();
 
         // ── Contadores de estado — 1 sola query en lugar de 3 ──────────────────
         $conteos     = DB::table('consumibles')

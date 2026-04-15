@@ -209,12 +209,10 @@
     <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary">
         Cancelar
     </a>
-    @can('super.admin')
     <button type="submit" class="btn-primary-maquinaria">
         <i class="material-icons">save</i>
         Guardar Lote
     </button>
-    @endcan
 </div>
 
 </form>

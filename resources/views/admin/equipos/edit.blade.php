@@ -35,24 +35,7 @@
 @endsection
 
 @section('extra_js')
-    <!-- Calendario Flatpickr Local -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
     <script>
-        const initCalendars = () => {
-            if (typeof flatpickr !== 'undefined') {
-                flatpickr('input[type="date"]:not(.native-date)', {
-                    dateFormat: "Y-m-d",
-                    locale: "es",
-                    allowInput: true
-                });
-            }
-        };
-
-        // Inicializar tanto al cargar la página como después de navegación SPA
-        document.addEventListener('DOMContentLoaded', initCalendars);
-        window.addEventListener('spa:contentLoaded', initCalendars);
-        setTimeout(initCalendars, 100);
+        // Use native browser date pickers to match UI consistency across the application.
     </script>
 @endsection

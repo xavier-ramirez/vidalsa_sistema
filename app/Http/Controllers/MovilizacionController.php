@@ -122,8 +122,8 @@ class MovilizacionController extends Controller
             $query->whereDate('movilizacion_historial.created_at', '<=', $request->fecha_hasta);
         }
 
-        // Fetch paginated results
-        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(12)->onEachSide(1);
+        // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 páginas continuas)
+        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(12);
 
         // ─── Stats: Total In Transit ──────────────────────────────────────────────
         // Uses the same shared filter closure to guarantee consistency with the table.
@@ -149,7 +149,7 @@ class MovilizacionController extends Controller
         // Check if JSON specifically requested (for filters)
         if ($request->wantsJson()) {
             $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
-            $paginationHtml = $movilizaciones->appends($request->all())->links()->toHtml();
+            $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
 
             $statsHtml = '<h4 style="margin: 0 0 15px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
                 <i class="material-icons" style="font-size: 18px; color: #8b5cf6;">local_shipping</i>

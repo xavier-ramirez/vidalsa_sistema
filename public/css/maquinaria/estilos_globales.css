@@ -2063,9 +2063,9 @@ input:-webkit-autofill:active {
 
 /* --- GLOBAL MODAL FIX (Force Resizing on Mobile for Equipos Page) --- */
 @media (max-width: 768px) {
-    /* El overlay del modal ocupa toda la pantalla con padding mínimo */
+    /* El overlay del modal ocupa toda la pantalla */
     #detailsModal {
-        padding: 8px !important;
+        box-sizing: border-box !important;
         align-items: center !important;
     }
 

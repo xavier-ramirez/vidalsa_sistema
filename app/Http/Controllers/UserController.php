@@ -79,7 +79,7 @@ class UserController extends Controller
         }
 
         // Execute query with pagination
-        $users = $query->paginate(10)->withQueryString();
+        $users = $query->paginate(10)->onEachSide(3)->withQueryString();
         
         // Frentes for dropdown
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->get();

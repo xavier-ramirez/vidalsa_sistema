@@ -249,7 +249,7 @@
 </div>
 
 {{-- TOTAL POR FRENTE --}}
-<div class="g-grid-1 hide-on-mobile" id="totalFrenteWrapper">
+<div class="g-grid-1" id="totalFrenteWrapper">
     <div class="g-card" id="panelTotalFrente">
         <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
             <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
@@ -1222,30 +1222,22 @@ function llenarTablaEquipos(datos, page = 1) {
 function renderPaginacion(totalItems, totalPages) {
     const container = document.getElementById('paginacionEquipos');
     if (!container) return;
-    
+
     if (totalPages <= 1) {
         container.innerHTML = '';
         return;
     }
-    
-    const from = ((window._currentPageEq - 1) * ITEMS_PER_PAGE) + 1;
-    const to = Math.min(window._currentPageEq * ITEMS_PER_PAGE, totalItems);
-    
-    // Contenedor principal
+
+    // Contenedor principal — sin texto 'Mostrando X de Y'
     let html = `
     <div style="display:flex; flex-direction:column; align-items:center; gap:15px; margin-top:20px; padding-top:10px; border-top:1px solid #e2e8f0;">
-        <div style="font-size:13px; color:#64748b; text-align:center;">
-            Mostrando <span style="font-weight:700; color:#1e293b;">${from}</span> a <span style="font-weight:700; color:#1e293b;">${to}</span> de <span style="font-weight:700; color:#1e293b;">${totalItems}</span> resultados
-        </div>
-        
-        <ul style="display:flex; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">
+        <ul style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">
     `;
-    
-    // Estilos base para los items
-    const baseBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #cbd5e1; background:#fff; text-decoration:none; transition:all 0.2s;";
-    const activeBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;";
+
+    // Estilos base
+    const baseBtn     = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #cbd5e1; background:#fff; transition:all 0.2s;";
+    const activeBtn   = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;";
     const disabledBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #e2e8f0; background:#f8fafc; color:#94a3b8; cursor:not-allowed;";
-    const hoverColor = "color:#0f172a; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.05);";
 
     // Botón Anterior
     if (window._currentPageEq === 1) {
@@ -1254,27 +1246,17 @@ function renderPaginacion(totalItems, totalPages) {
         html += `<li><button onclick="cambiarPaginaEq(${window._currentPageEq - 1})" style="${baseBtn} color:#475569;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">&laquo; Anterior</button></li>`;
     }
     
-    // Calcular rango de páginas visibles
-    let startPage = Math.max(1, window._currentPageEq - 2);
-    let endPage = Math.min(totalPages, window._currentPageEq + 2);
+    // Calcular rango de páginas visibles (5 a cada lado) sin mostrar puntos nunca
+    let startPage = Math.max(1, window._currentPageEq - 3);
+    let endPage = Math.min(totalPages, window._currentPageEq + 3);
 
-    if (startPage > 1) {
-        html += `<li><button onclick="cambiarPaginaEq(1)" style="${baseBtn} color:#0f172a;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">1</button></li>`;
-        if (startPage > 2) html += `<li><span style="${disabledBtn} border:none; background:transparent;">...</span></li>`;
-    }
-
-    // Números de página
+    // Números de página continuos dentro del rango
     for (let p = startPage; p <= endPage; p++) {
         if (p === window._currentPageEq) {
             html += `<li><span style="${activeBtn}">${p}</span></li>`;
         } else {
             html += `<li><button onclick="cambiarPaginaEq(${p})" style="${baseBtn} color:#0f172a;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">${p}</button></li>`;
         }
-    }
-
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) html += `<li><span style="${disabledBtn} border:none; background:transparent;">...</span></li>`;
-        html += `<li><button onclick="cambiarPaginaEq(${totalPages})" style="${baseBtn} color:#0f172a;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">${totalPages}</button></li>`;
     }
     
     // Botón Siguiente

@@ -2,7 +2,7 @@
     @php
     $equipoFoto = optional(optional($mov->equipo)->especificaciones)->FOTO_REFERENCIAL;
 @endphp
-    <tr class="mv-row-card">
+    <tr class="mv-row-card mv-selectable-row" data-mv-id="{{ $mov->ID_MOVILIZACION }}" data-equipo-codigo="{{ $mov->equipo->CODIGO_PATIO ?? '' }}">
         {{-- 1. Equipo --}}
         <td class="mv-td-equipo">
             <div style="display: flex; align-items: center; justify-content: flex-start; gap: 10px;">

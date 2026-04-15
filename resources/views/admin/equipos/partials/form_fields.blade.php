@@ -352,7 +352,7 @@
     <div style="position: relative;">
         <label for="venc_poliza" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Vencimiento Póliza</label>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="date" id="venc_poliza" name="documentacion[FECHA_VENC_POLIZA]" class="form-input-custom doc-meta" data-file-target="poliza_seguro" data-has-existing="{{ $hasPoliza ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_VENC_POLIZA', $equipo->documentacion->FECHA_VENC_POLIZA ?? '') }}" style="flex: 1;">
+            <input type="date" id="venc_poliza" name="documentacion[FECHA_VENC_POLIZA]" class="form-input-custom doc-meta" data-file-target="poliza_seguro" data-has-existing="{{ $hasPoliza ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_VENC_POLIZA', $equipo->documentacion->FECHA_VENC_POLIZA ?? '') }}" style="flex: 1; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
 
             <div id="wrapper_poliza" class="{{ $hasPoliza ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasPoliza ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
                  @if($hasPoliza)
@@ -381,7 +381,7 @@
     <div style="position: relative;">
         <label for="fecha_rotc" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Fecha ROTC</label>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="date" id="fecha_rotc" name="documentacion[FECHA_ROTC]" class="form-input-custom doc-meta" data-file-target="doc_rotc" data-has-existing="{{ $hasRotc ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_ROTC', $equipo->documentacion->FECHA_ROTC ?? '') }}" style="flex: 1;">
+            <input type="date" id="fecha_rotc" name="documentacion[FECHA_ROTC]" class="form-input-custom doc-meta" data-file-target="doc_rotc" data-has-existing="{{ $hasRotc ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_ROTC', $equipo->documentacion->FECHA_ROTC ?? '') }}" style="flex: 1; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
 
             <div id="wrapper_rotc" class="{{ $hasRotc ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasRotc ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
                  @if($hasRotc)
@@ -409,7 +409,7 @@
     <div style="position: relative;">
         <label for="fecha_racda" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Fecha RACDA</label>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="date" id="fecha_racda" name="documentacion[FECHA_RACDA]" class="form-input-custom doc-meta" data-file-target="doc_racda" data-has-existing="{{ $hasRacda ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_RACDA', $equipo->documentacion->FECHA_RACDA ?? '') }}" style="flex: 1;">
+            <input type="date" id="fecha_racda" name="documentacion[FECHA_RACDA]" class="form-input-custom doc-meta" data-file-target="doc_racda" data-has-existing="{{ $hasRacda ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_RACDA', $equipo->documentacion->FECHA_RACDA ?? '') }}" style="flex: 1; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
 
            <div id="wrapper_racda" class="{{ $hasRacda ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasRacda ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
                  @if($hasRacda)

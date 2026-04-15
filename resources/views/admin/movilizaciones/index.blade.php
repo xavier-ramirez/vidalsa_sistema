@@ -221,7 +221,7 @@
         
         <!-- Pagination -->
         <div id="movilizacionesPagination" style="margin-top: 5px; overflow-x: auto; max-width: 100%;">
-            {{ $movilizaciones->links() }}
+            {{ $movilizaciones->links('vendor.pagination.custom-sliding') }}
         </div>
 
     </div>
@@ -274,7 +274,146 @@
     <img id="enlargedImg" style="max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); transition: transform 0.3s ease;">
 </div>
 
+{{-- ─── CONTADOR FLOTANTE DE SELECCIÓN ───────────────────────────────────── --}}
+<div id="mv-selection-chip" class="selection-floating-bar">
+    <div class="selection-counter">
+        <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
+            <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
+        </div>
+        <span id="mv-selection-count">0</span>
+    </div>
+    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2);"></div>
+    <div style="display: flex; gap: 10px;">
+        <button type="button" onclick="window.mvClearSelection()" style="background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+            Limpiar
+        </button>
+    </div>
+</div>
 
+<style>
+    /* Hover en filas seleccionables */
+    #movilizacionesTable .mv-selectable-row:not(.selected-row-maquinaria):hover td {
+        background: #f8fafc !important;
+        transition: background 0.15s;
+    }
+
+    /* Corrección para que la selección mantenga el borde redondeado de los TDs */
+    #movilizacionesTable tr.selected-row-maquinaria {
+        background-color: transparent !important;
+        border-left: none !important;
+    }
+    #movilizacionesTable tr.selected-row-maquinaria td {
+        background-color: #e1effa !important;
+        color: #0067b1 !important;
+        border-top-color: #93c5fd !important;
+        border-bottom-color: #93c5fd !important;
+        transition: all 0.2s ease;
+    }
+    #movilizacionesTable tr.selected-row-maquinaria td:first-child {
+        border-left: 4px solid #0067b1 !important;
+        border-top-color: #93c5fd !important;
+        border-bottom-color: #93c5fd !important;
+    }
+    #movilizacionesTable tr.selected-row-maquinaria td:last-child {
+        border-right-color: #93c5fd !important;
+    }
+</style>
+
+<script>
+(function() {
+    // Set global de IDs seleccionados — persiste entre cambios de página AJAX
+    if (!window._mvSelectedIds) {
+        window._mvSelectedIds = new Set();
+    }
+
+    // ── Aplica/quita el estilo de selección en una fila ──
+    function applyRowStyle(tr, selected) {
+        if (selected) {
+            tr.classList.add('selected-row-maquinaria');
+        } else {
+            tr.classList.remove('selected-row-maquinaria');
+        }
+    }
+
+    // ── Actualiza el chip contador ──
+    function updateChip() {
+        const chip  = document.getElementById('mv-selection-chip');
+        const count = document.getElementById('mv-selection-count');
+        if (!chip || !count) return;
+
+        const n = window._mvSelectedIds.size;
+        count.textContent = n;
+        if (n > 0) {
+            chip.classList.add('active');
+        } else {
+            chip.classList.remove('active');
+        }
+    }
+
+    // ── Re-aplica estilos a todas las filas visibles tras carga AJAX ──
+    function reapplyStyles() {
+        document.querySelectorAll('.mv-selectable-row').forEach(tr => {
+            const id = tr.dataset.mvId;
+            applyRowStyle(tr, window._mvSelectedIds.has(id));
+        });
+        updateChip();
+    }
+
+    // ── Attacher de click (delegación, una sola vez) ──
+    if (!window._mvRowClickRegistered) {
+        window._mvRowClickRegistered = true;
+
+        document.addEventListener('click', function(e) {
+            // Ignorar clicks dentro de dropdowns de estatus o botones de acción
+            if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')) return;
+
+            const tr = e.target.closest('.mv-selectable-row');
+            if (!tr) return;
+
+            const id = tr.dataset.mvId;
+            if (!id) return;
+
+            if (window._mvSelectedIds.has(id)) {
+                window._mvSelectedIds.delete(id);
+                applyRowStyle(tr, false);
+            } else {
+                window._mvSelectedIds.add(id);
+                applyRowStyle(tr, true);
+            }
+            updateChip();
+        });
+    }
+
+    // ── Limpiar selección ──
+    window.mvClearSelection = function() {
+        window._mvSelectedIds.clear();
+        document.querySelectorAll('.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
+        updateChip();
+    };
+
+    // ── Hook post-AJAX: re-aplicar estilos cuando loadMovilizaciones actualiza el tbody ──
+    const _origLoad = window.loadMovilizaciones;
+    if (_origLoad && !window._mvLoadHooked) {
+        window._mvLoadHooked = true;
+        window.loadMovilizaciones = async function(...args) {
+            await _origLoad(...args);
+            reapplyStyles();
+        };
+    }
+
+    // ── Aplicar al cargar la página directamente ──
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', reapplyStyles);
+    } else {
+        reapplyStyles();
+    }
+    window.addEventListener('spa:contentLoaded', function() {
+        // Limpiar selección al cambiar de sección en SPA para evitar datos viejos
+        window._mvSelectedIds.clear();
+        reapplyStyles();
+    });
+})();
+</script>
 
 @endsection
 

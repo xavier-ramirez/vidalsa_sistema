@@ -301,6 +301,27 @@ function initEquiposForm() {
                         // 5. Clear Validation Visuals
                         form.querySelectorAll('.error-message-inline').forEach(el => el.remove());
                         form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                        
+                        // 6. Clear Flatpickr calendars
+                        form.querySelectorAll('.flatpickr-input').forEach(input => {
+                            if (input._flatpickr) input._flatpickr.clear();
+                        });
+
+                        // 7. Clear Previsualizations & File buttons natively
+                        form.querySelectorAll('[id^="file_"]').forEach(el => el.style.display = 'none');
+                        
+                        form.querySelectorAll('input[type="file"]').forEach(input => {
+                            if (window.updatePdfBtn && input.dataset.metaTarget) {
+                                // Trigger empty change to revert wrapper to Add button state
+                                input.dispatchEvent(new Event('change'));
+                            }
+                        });
+                        
+                        const imgPreview = document.getElementById('preview_equipo');
+                        if (imgPreview) {
+                            imgPreview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
+                            imgPreview.style.borderColor = '#cbd5e0';
+                        }
 
                         // 6. Reset button
                         if (submitBtn) {

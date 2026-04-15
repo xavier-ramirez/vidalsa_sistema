@@ -298,6 +298,8 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 
 <script>
     window.openGpsModal = function (url, equipoPlaca, equipoSerial, equipoTipo) {
+        if (window.showPreloader) window.showPreloader();
+
         const modal   = document.getElementById('gpsTrackerModal');
         const titleEl = document.getElementById('gps_equipo_title');
         const iframe  = document.getElementById('gps_iframe');
@@ -315,13 +317,16 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
             titleEl.innerHTML = parts.join('<span style="color:#cbd5e1;margin:0 6px;">|</span>') || '&mdash;';
         }
 
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-
         if (url && url !== 'null' && url !== '') {
             if (overlay) overlay.style.display = 'flex';
             if (iframe)  { iframe.style.display = 'none'; iframe.src = url; }
         }
+
+        setTimeout(() => {
+            if (window.hidePreloader) window.hidePreloader();
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }, 1200);
     };
 
     window.closeGpsModal = function () {

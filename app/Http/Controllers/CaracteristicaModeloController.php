@@ -45,7 +45,7 @@ class CaracteristicaModeloController extends Controller
             ->get();
 
         // Pagination
-        $catalogos = $query->orderBy('MODELO', 'asc')->paginate(10);
+        $catalogos = $query->orderBy('MODELO', 'asc')->paginate(10)->onEachSide(3);
 
         // --- Standardized Lists (Not Context-Aware to avoid confusion) ---
         // This matches Equipo logic: Load all available options regardless of current filter

@@ -5,12 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Sistema de Gestión')</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+    
+    <!-- Preload Fonts to prevent FOUT (text flashing before icons load) -->
+    <link rel="preload" as="font" href="{{ asset('fonts/MaterialIcons-Regular.ttf') }}" type="font/ttf" crossorigin="anonymous">
+
     <!-- CSS -->
     <link rel="stylesheet" href="{{ asset('css/maquinaria/estilos_globales.css') }}?v=20.4">
     <link rel="stylesheet" href="{{ asset('css/maquinaria/menu.css') }}?v=10.3">
     <link rel="stylesheet" href="{{ asset('css/maquinaria/catalogo.css') }}?v=4.1">
     <!-- Local Fonts Optimization -->
-    <link rel="stylesheet" href="{{ asset('css/fonts.css') }}?v=1.0">
+    <link rel="stylesheet" href="{{ asset('css/fonts.css') }}?v=1.1">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="base-url" content="{{ url('/') }}">
@@ -340,7 +344,7 @@
             <h3 id="modalTitle" class="modal-title">¿Confirmar Acción?</h3>
             <p id="modalMessage" class="modal-message">¿Estás seguro de que deseas realizar esta acción?</p>
             <div class="modal-footer">
-                <button id="modalCancelBtn" onclick="closeModal()" class="modal-btn modal-btn-cancel">Cancelar</button>
+                <button id="modalCancelBtn" onclick="cancelModal()" class="modal-btn modal-btn-cancel">Cancelar</button>
                 <button id="modalConfirmBtn" class="modal-btn modal-btn-confirm">Confirmar</button>
             </div>
         </div>
@@ -484,7 +488,7 @@
     {{-- from navegacion.js when switching between pages without reload --}}
     <script src="{{ asset('js/maquinaria/menu.js') }}?v=5.5"></script>
     <script src="{{ asset('js/maquinaria/catalogo_create.js') }}?v=12.2"></script>
-    <script src="{{ asset('js/maquinaria/equipos_index.js') }}?v=24.0"></script>
+    <script src="{{ asset('js/maquinaria/equipos_index.js') }}?v=25.0"></script>
     <script src="{{ asset('js/maquinaria/catalogo_index.js') }}?v=4.0"></script>
     <script src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v=9.1"></script>
     <script src="{{ asset('js/maquinaria/usuarios_index.js') }}?v=10.2"></script>
@@ -549,6 +553,7 @@
 
         // Modal Logic
         let modalCallback = null;
+        let modalCancelCallback = null;
 
         /**
          * Generic Modal System
@@ -637,12 +642,27 @@
                 if (modalCallback) modalCallback();
                 closeModal();
             };
+
+            // Handle cancel (wired here so onCancel callback fires)
+            cancelBtn.onclick = () => {
+                cancelModal();
+            };
+
+            // Store cancel callback
+            modalCancelCallback = config.onCancel || null;
         }
 
         window.closeModal = function() {
             const modalEl = document.getElementById('standardModal');
             if (modalEl) modalEl.classList.remove('active');
             modalCallback = null;
+            modalCancelCallback = null;
+        }
+
+        window.cancelModal = function() {
+            const cb = modalCancelCallback;
+            closeModal();
+            if (cb) cb();
         }
 
         // Legacy compatibility helper
