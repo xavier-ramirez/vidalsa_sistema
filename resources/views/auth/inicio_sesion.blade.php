@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <!-- Fonts (Local) -->
     <link href="{{ asset('css/fonts.css') }}" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/maquinaria/inicio_sesion.css') }}?v=3.0">
+    <link rel="stylesheet" href="{{ asset('css/maquinaria/inicio_sesion.css') }}?v={{ @filemtime(public_path('css/maquinaria/inicio_sesion.css')) }}">
     <style>
         /* Force hide browser default password reveal button - Inline Critical CSS */
         input[type='password']::-ms-reveal,

@@ -1638,7 +1638,7 @@ function descargarPanelResumen(nombre) {
 
 
 </script>
-<script src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v=2.0"></script>
+<script src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
 <script>
     console.log("🟢 [graficos.blade] Inline script final inyectado y ejecutándose.");
     

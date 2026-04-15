@@ -10,11 +10,11 @@
     <link rel="preload" as="font" href="{{ asset('fonts/MaterialIcons-Regular.ttf') }}" type="font/ttf" crossorigin="anonymous">
 
     <!-- CSS -->
-    <link rel="stylesheet" href="{{ asset('css/maquinaria/estilos_globales.css') }}?v=20.4">
-    <link rel="stylesheet" href="{{ asset('css/maquinaria/menu.css') }}?v=10.3">
-    <link rel="stylesheet" href="{{ asset('css/maquinaria/catalogo.css') }}?v=4.1">
+    <link rel="stylesheet" href="{{ asset('css/maquinaria/estilos_globales.css') }}?v={{ @filemtime(public_path('css/maquinaria/estilos_globales.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/maquinaria/menu.css') }}?v={{ @filemtime(public_path('css/maquinaria/menu.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/maquinaria/catalogo.css') }}?v={{ @filemtime(public_path('css/maquinaria/catalogo.css')) }}">
     <!-- Local Fonts Optimization -->
-    <link rel="stylesheet" href="{{ asset('css/fonts.css') }}?v=1.1">
+    <link rel="stylesheet" href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="base-url" content="{{ url('/') }}">
@@ -476,27 +476,27 @@
     
     {{-- Core Scripts (Always Loaded) --}}
 
-    <script src="{{ asset('js/maquinaria/module_manager.js') }}?v=2.2"></script>
-    <script src="{{ asset('js/maquinaria/uicomponents.js') }}?v=18.7"></script>
-    <script src="{{ asset('js/maquinaria/navegacion.js') }}?v=11.0"></script>
-    <script src="{{ asset('js/maquinaria/form_logic.js') }}?v=4.2"></script>
-    <script src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v=3.2"></script>
+    <script src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/uicomponents.js') }}?v={{ @filemtime(public_path('js/maquinaria/uicomponents.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/navegacion.js') }}?v={{ @filemtime(public_path('js/maquinaria/navegacion.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/form_logic.js') }}?v={{ @filemtime(public_path('js/maquinaria/form_logic.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipo_catalog_linking.js')) }}"></script>
     
     {{-- Module Scripts (Global Load for SPA Navigation) --}}
     {{-- NOTE: These MUST be loaded globally because the SPA navigation --}}
     {{-- calls functions like window.loadEquipos(), window.loadCatalogo(), etc. --}}
     {{-- from navegacion.js when switching between pages without reload --}}
-    <script src="{{ asset('js/maquinaria/menu.js') }}?v=5.5"></script>
-    <script src="{{ asset('js/maquinaria/catalogo_create.js') }}?v=12.2"></script>
-    <script src="{{ asset('js/maquinaria/equipos_index.js') }}?v=25.0"></script>
-    <script src="{{ asset('js/maquinaria/catalogo_index.js') }}?v=4.0"></script>
-    <script src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v=9.1"></script>
-    <script src="{{ asset('js/maquinaria/usuarios_index.js') }}?v=10.2"></script>
-    <script src="{{ asset('js/maquinaria/fleet_dashboard.js') }}?v=106.4"></script>
+    <script src="{{ asset('js/maquinaria/menu.js') }}?v={{ @filemtime(public_path('js/maquinaria/menu.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/catalogo_create.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_create.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/equipos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_index.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/catalogo_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/catalogo_index.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/usuarios_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/usuarios_index.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/fleet_dashboard.js') }}?v={{ @filemtime(public_path('js/maquinaria/fleet_dashboard.js')) }}"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
-    <script src="{{ asset('js/maquinaria/frentes_spa.js') }}?v=4.3"></script>
-    <script src="{{ asset('js/maquinaria/consumibles_index.js') }}?v=5.1"></script>
+    <script src="{{ asset('js/maquinaria/frentes_spa.js') }}?v={{ @filemtime(public_path('js/maquinaria/frentes_spa.js')) }}"></script>
+    <script src="{{ asset('js/maquinaria/consumibles_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_index.js')) }}"></script>
     <script>
         function toggleMobileMenu() {
             const menu = document.getElementById('mobileMenu');
@@ -1493,7 +1493,7 @@
     </script>
     {{-- Scripts de Formularios (Globales para soporte SPA) --}}
     {{-- NOTE: form_selects.js removed (deprecated, merged into form_logic.js) --}}
-    <script src="{{ asset('js/maquinaria/equipos_form.js') }}?v=5.0"></script>
+    <script src="{{ asset('js/maquinaria/equipos_form.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_form.js')) }}"></script>
     @yield('extra_js')
     @include('partials.session_timeout')
 
