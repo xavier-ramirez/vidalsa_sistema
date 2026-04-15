@@ -215,6 +215,7 @@ function initEquiposForm() {
 
         const invalidInputs = form.querySelectorAll('.is-invalid');
         if (hasEmpty || invalidInputs.length > 0) {
+            // Hide preloader — already shown on button click, now we cancel submission
             if (window.hidePreloader) window.hidePreloader();
             showGlobalSummary();
             return;
@@ -407,12 +408,15 @@ function initEquiposForm() {
         e.preventDefault();
         e.stopPropagation();
 
+        // Mostrar spinner SIEMPRE que se presione el botón guardar
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+
         // 0. Permission Check
         const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
         const canSubmit = isEdit ? window.CAN_UPDATE_INFO : window.CAN_CREATE_EQUIPOS;
 
-        // Safety: If permission flag is somehow undefined, assume false for security
         if (typeof canSubmit === 'undefined' || canSubmit === false) {
+            if (window.hidePreloader) window.hidePreloader();
             if (window.showModal) {
                 showModal({
                     type: 'error',
@@ -431,22 +435,19 @@ function initEquiposForm() {
         const pendingValidations = () => Array.from(form.querySelectorAll('.validation-loader')).filter(el => el.style.display !== 'none');
 
         if (pendingValidations().length > 0) {
-            // Show Preloader once
-            if (typeof window.showPreloader === 'function') window.showPreloader();
-
-            // Poll for completion
+            // Poll for completion (preloader ya está visible)
             const checkInterval = setInterval(() => {
                 if (pendingValidations().length === 0) {
                     clearInterval(checkInterval);
-                    // Proceed with skipPreloader=true to avoid double show
+                    // Proceed with skipPreloader=true para no mostrarlo de nuevo
                     executeSubmission(true);
                 }
             }, 100);
             return;
         }
 
-        // Proceed immediately if no checks pending
-        executeSubmission();
+        // Proceed immediately — skipPreloader=true porque ya lo mostramos arriba
+        executeSubmission(true);
     });
 
     form.dataset.handlerAttached = "true";
