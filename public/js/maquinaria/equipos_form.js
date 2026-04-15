@@ -260,21 +260,11 @@ function initEquiposForm() {
                     const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
 
                     if (isEdit) {
-                        // Show success message and redirect
-                        if (typeof window.showModal === 'function') {
-                            window.showModal({
-                                type: 'success',
-                                title: '¡Éxito!',
-                                message: body.message || 'Equipo actualizado correctamente.',
-                                confirmText: 'Aceptar',
-                                hideCancel: true,
-                                onConfirm: () => {
-                                    window.location.href = '/admin/equipos';
-                                }
-                            });
-                        } else {
-                            window.location.href = '/admin/equipos';
+                        // Notificación toast + redirección
+                        if (typeof window.showToast === 'function') {
+                            window.showToast(body.message || 'Equipo actualizado correctamente.', 'success');
                         }
+                        setTimeout(() => { window.location.href = '/admin/equipos'; }, 1200);
                     } else {
                         // CREATE MODE: Reset form immediately (before showing modal)
                         // 1. Standard Form Reset
@@ -345,15 +335,9 @@ function initEquiposForm() {
 
                         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-                        // Show success message AFTER reset
-                        if (typeof window.showModal === 'function') {
-                            window.showModal({
-                                type: 'success',
-                                title: '¡Éxito!',
-                                message: body.message || 'Equipo registrado correctamente.',
-                                confirmText: 'Aceptar',
-                                hideCancel: true
-                            });
+                        // Toast tradicional de éxito (igual que al anclar)
+                        if (typeof window.showToast === 'function') {
+                            window.showToast(body.message || '¡Equipo registrado correctamente!', 'success');
                         }
                     }
                 } else if (status === 422) {
