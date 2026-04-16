@@ -465,38 +465,41 @@ class EquipoController extends Controller
         $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
         $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
+        $sheet->mergeCells('F1:H1');
         $sheet->setCellValue('F1', 'EDICION: 1');
         $sheet->getStyle('F1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('F1')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('F1:H1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
+        $sheet->mergeCells('F2:H2');
         $sheet->setCellValue('F2', 'REVISION: 0');
         $sheet->getStyle('F2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F2')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('F2')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('F2:H2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
+        $sheet->mergeCells('F3:H3');
         $sheet->setCellValue('F3', 'FECHA: ' . $currentDate);
         $sheet->getStyle('F3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('F3')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('F3:H3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
         $sheet->getRowDimension(1)->setRowHeight(40); // 40*3 = 120 permite un logo gigante
         $sheet->getRowDimension(2)->setRowHeight(40);
         $sheet->getRowDimension(3)->setRowHeight(40);
 
         // Fila 4 - Texto Exportado por (movido a la parte superior)
-        $sheet->mergeCells('A4:F4');
+        $sheet->mergeCells('A4:H4');
         $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $sheet->getStyle('A4:F4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco para la descripcion tambien
-        $sheet->getStyle('A4:F4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('A4:F4')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A4:F4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
-        $sheet->getRowDimension(4)->setRowHeight(20); 
+        $sheet->getStyle('A4:H4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A4:H4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('A4:H4')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A4:H4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+        $sheet->getRowDimension(4)->setRowHeight(20);
 
-        // Bordes a toda la cuadricula de encabezado (A1 hasta F4)
+        // Bordes a toda la cuadricula de encabezado (A1 hasta H4)
         $headerBorders = [
             'borders' => [
                 'allBorders' => [
@@ -505,28 +508,30 @@ class EquipoController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:F4')->applyFromArray($headerBorders);
+        $sheet->getStyle('A1:H4')->applyFromArray($headerBorders);
 
-        // Fila 5 - Encabezados de tabla
-        $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'SERIAL DE CHASIS', 'PLACA'];
-        $colMap = ['A','B','C','D','E','F'];
+        // Fila 5 - Encabezados de tabla (ahora 8 columnas: A-H)
+        $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'SERIAL DE CHASIS', 'PLACA', 'AÑO', 'ESTADO'];
+        $colMap = ['A','B','C','D','E','F','G','H'];
         foreach($headers as $index => $hdr) {
             $sheet->setCellValue($colMap[$index] . '5', $hdr);
         }
-        $sheet->getStyle('A5:F5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A5:F5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A5:H5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A5:H5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         // AZUL MARINO ELEGANTE PARA EL ENCABEZADO
-        $sheet->getStyle('A5:F5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A5:F5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
+        $sheet->getStyle('A5:H5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A5:H5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
         $sheet->getRowDimension(5)->setRowHeight(35);
 
-        // Anchos de columna optimizados
+        // Anchos de columna optimizados (8 columnas)
         $sheet->getColumnDimension('A')->setWidth(8);
-        $sheet->getColumnDimension('B')->setWidth(35);
-        $sheet->getColumnDimension('C')->setWidth(20);
-        $sheet->getColumnDimension('D')->setWidth(25);
-        $sheet->getColumnDimension('E')->setWidth(30);
-        $sheet->getColumnDimension('F')->setWidth(20);
+        $sheet->getColumnDimension('B')->setWidth(32);
+        $sheet->getColumnDimension('C')->setWidth(18);
+        $sheet->getColumnDimension('D')->setWidth(22);
+        $sheet->getColumnDimension('E')->setWidth(28);
+        $sheet->getColumnDimension('F')->setWidth(18);
+        $sheet->getColumnDimension('G')->setWidth(10);
+        $sheet->getColumnDimension('H')->setWidth(20);
 
         // Filas de datos
         $rowNum = 6;
@@ -570,18 +575,32 @@ class EquipoController extends Controller
 
             $numeroItem = str_pad($counter, 2, '0', STR_PAD_LEFT);
 
+            // Columna G: AÑO (solo del equipo principal; si hay remolque, poner el del remolque también)
+            $anioArr = [mb_strtoupper($equipo->ANIO ?? '—')];
+            foreach($equipo->equiposAnclados as $anclado) {
+                $anioArr[] = mb_strtoupper($anclado->ANIO ?? '—');
+            }
+
+            // Columna H: ESTADO OPERATIVO (solo del equipo principal; si hay remolque, poner el del remolque también)
+            $estadoArr = [mb_strtoupper($equipo->ESTADO_OPERATIVO ?? '—')];
+            foreach($equipo->equiposAnclados as $anclado) {
+                $estadoArr[] = mb_strtoupper($anclado->ESTADO_OPERATIVO ?? '—');
+            }
+
             $sheet->setCellValue('A'.$rowNum, $numeroItem);
             $sheet->setCellValue('B'.$rowNum, implode("\n", $tipoArr));
             $sheet->setCellValue('C'.$rowNum, implode("\n", $marcaArr));
             $sheet->setCellValue('D'.$rowNum, implode("\n", $modeloArr));
             $sheet->setCellValue('E'.$rowNum, implode("\n", $chasisArr));
             $sheet->setCellValue('F'.$rowNum, implode("\n", $placaArr));
-            
-            // Alternancia de colores en las filas (Zebra Striping)
+            $sheet->setCellValue('G'.$rowNum, implode("\n", $anioArr));
+            $sheet->setCellValue('H'.$rowNum, implode("\n", $estadoArr));
+
+            // Alternancia de colores en las filas (Zebra Striping) - ahora 8 columnas
             if ($counter % 2 === 0) {
-                $sheet->getStyle('A'.$rowNum.':F'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF1F5F9'); 
+                $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF1F5F9');
             } else {
-                $sheet->getStyle('A'.$rowNum.':F'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+                $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
             }
 
             $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
@@ -589,35 +608,39 @@ class EquipoController extends Controller
             $sheet->getStyle('D'.$rowNum)->getAlignment()->setWrapText(true);
             $sheet->getStyle('E'.$rowNum)->getAlignment()->setWrapText(true);
             $sheet->getStyle('F'.$rowNum)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('G'.$rowNum)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('H'.$rowNum)->getAlignment()->setWrapText(true);
 
-            $sheet->getStyle('A'.$rowNum.':F'.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
             $sheet->getStyle('A'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('C'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('E'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('F'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            
+            $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
             $numItems = count($tipoArr);
             $rowHeight = $numItems === 1 ? 30 : ($numItems * 25);
             $sheet->getRowDimension($rowNum)->setRowHeight($rowHeight);
-            
+
             $rowNum++;
             $counter++;
         }
 
-        // Fila Total
+        // Fila Total (ahora 8 columnas)
         $sheet->setCellValue('A'.$rowNum, 'TOTAL');
         $sheet->mergeCells('B'.$rowNum.':C'.$rowNum);
         $sheet->setCellValue('B'.$rowNum, ($counter - 1) . " EQUIPOS LISTADOS");
-        $sheet->mergeCells('D'.$rowNum.':F'.$rowNum);
-        
-        $sheet->getStyle('A'.$rowNum.':F'.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->mergeCells('D'.$rowNum.':H'.$rowNum);
+
+        $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('A'.$rowNum.':B'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A'.$rowNum.':F'.$rowNum)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FF1E293B');
-        $sheet->getStyle('A'.$rowNum.':F'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFE2E8F0');
+        $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FF1E293B');
+        $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFE2E8F0');
         $sheet->getRowDimension($rowNum)->setRowHeight(28);
 
-        // Bordes a toda la tabla de datos
-        $sheet->getStyle('A5:F'.$rowNum)->applyFromArray($headerBorders);
+        // Bordes a toda la tabla de datos (ahora hasta la columna H)
+        $sheet->getStyle('A5:H'.$rowNum)->applyFromArray($headerBorders);
 
         // Limpiar TODOS los buffers de salida activos de forma segura.
         // ob_end_clean() simple puede fallar en php-fpm de producción (nginx) si hay

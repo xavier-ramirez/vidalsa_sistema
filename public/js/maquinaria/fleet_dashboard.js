@@ -354,37 +354,30 @@ async function loadChartJS() {
         script.src = baseUrl + '/js/chart.umd.min.js';
 
         script.onload = () => {
+            const loadCanvas = () => {
+                if (typeof html2canvas !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                const canvasScript = document.createElement('script');
+                canvasScript.src = baseUrl + '/js/html2canvas.min.js';
+                canvasScript.onload = () => resolve();
+                canvasScript.onerror = () => {
+                    console.warn('Failed to load html2canvas, downloads might fail.');
+                    resolve();
+                };
+                document.head.appendChild(canvasScript);
+            };
+
             const pluginScript = document.createElement('script');
             pluginScript.src = baseUrl + '/js/chartjs-plugin-datalabels.min.js';
             pluginScript.onload = () => {
                 Chart.register(ChartDataLabels);
-                
-                // Also load html2canvas for downloads
-                if (typeof html2canvas === 'undefined') {
-                    const canvasScript = document.createElement('script');
-                    canvasScript.src = baseUrl + '/js/html2canvas.min.js';
-                    canvasScript.onload = () => resolve();
-                    canvasScript.onerror = () => {
-                        console.warn('Failed to load html2canvas, downloads might fail.');
-                        resolve();
-                    };
-                    document.head.appendChild(canvasScript);
-                } else {
-                    resolve();
-                }
+                loadCanvas();
             };
             pluginScript.onerror = () => {
                 console.warn('Failed to load DataLabels plugin, charts will work without it.');
-                
-                if (typeof html2canvas === 'undefined') {
-                    const canvasScript = document.createElement('script');
-                    canvasScript.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-                    canvasScript.onload = () => resolve();
-                    canvasScript.onerror = () => resolve();
-                    document.head.appendChild(canvasScript);
-                } else {
-                    resolve();
-                }
+                loadCanvas();
             };
             document.head.appendChild(pluginScript);
         };
@@ -465,7 +458,7 @@ async function loadFleetDashboardData(frenteId) {
  */
 function createCharts(data) {
     if (typeof Chart === 'undefined') {
-        throw new Error('Chart.js no est├í disponible. Verifique su conexi├│n a internet.');
+        throw new Error('Chart.js no está disponible. Verifique que los archivos JS estén instalados en /public/js/.');
     }
 
     const canvasStatus = document.getElementById('chartStatusByFront');
