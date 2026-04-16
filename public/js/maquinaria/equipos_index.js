@@ -350,12 +350,30 @@ window.unanchorEquipos = async function (e) {
             return;
         }
 
-        // SUCCESS
+        // SUCCESS — limpiar selección y anchorId del DOM inmediatamente
+        // para evitar que el botón Desanclar reaparezca antes de que refresque el AJAX
         window.selectedEquipos = {};
         document.querySelectorAll('.selected-row-maquinaria').forEach(r => r.classList.remove('selected-row-maquinaria'));
+
+        // Borrar anchorId del DOM en los botones de las filas afectadas
+        // para que cualquier clic inmediato no lea datos stale
+        ids.forEach(id => {
+            const btn = document.querySelector(`.btn-details-mini[data-equipo-id="${id}"]`);
+            if (btn) {
+                btn.dataset.anchorId  = '';
+                btn.dataset.anchorCode = '';
+                btn.dataset.anchorPlaca = '';
+                btn.dataset.anchorSerial = '';
+                btn.dataset.anchorRol  = '';
+            }
+        });
+
         updateSelectionUI();
 
-        if (window.loadEquipos) window.loadEquipos(null, true);
+        // Esperar a que loadEquipos termine antes de mostrar toast y quitar preloader
+        if (window.loadEquipos) {
+            await window.loadEquipos(null, true);
+        }
         if (window.hidePreloader) window.hidePreloader();
         if (window.showToast) window.showToast('¡Desanclaje exitoso!', 'success');
 
