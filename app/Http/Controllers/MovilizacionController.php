@@ -256,7 +256,6 @@ class MovilizacionController extends Controller
                         'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? 1,
                         'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
                         'FECHA_DESPACHO' => $now,
-                        'FECHA_RECEPCION' => $now,
                         'ESTADO_MVO' => 'RECIBIDO',
                         'TIPO_MOVIMIENTO' => 'DESPACHO',
                         'USUARIO_REGISTRO' => $user,
@@ -271,7 +270,6 @@ class MovilizacionController extends Controller
                         'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? 1,
                         'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
                         'FECHA_DESPACHO' => null,
-                        'FECHA_RECEPCION' => $now,
                         'ESTADO_MVO' => 'RECIBIDO',
                         'TIPO_MOVIMIENTO' => 'ACT.',
                         'USUARIO_REGISTRO' => $user,
@@ -296,7 +294,7 @@ class MovilizacionController extends Controller
                     $movilizacionIds = Movilizacion::whereIn('ID_EQUIPO', $request->ids)
                         ->where('ID_FRENTE_DESTINO', $frente->ID_FRENTE)
                         ->where('ESTADO_MVO', 'RECIBIDO')
-                        ->where('FECHA_RECEPCION', $now)
+                        ->where('created_at', $now)
                         ->pluck('ID_MOVILIZACION')
                         ->toArray();
                 }
