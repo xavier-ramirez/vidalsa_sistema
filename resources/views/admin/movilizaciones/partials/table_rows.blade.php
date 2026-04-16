@@ -53,14 +53,10 @@
 
         {{-- 3. Fechas --}}
         <td class="mv-td-fechas mv-mobile-hidden">
-            <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 3px;">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <i class="material-icons" style="font-size: 14px; color: #ef4444;">logout</i>
-                    <span style="font-size: 13px; color: #334155; font-weight: 700;">{{ $mov->FECHA_DESPACHO ? $mov->FECHA_DESPACHO->format('d/m/Y') : '--' }}</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <i class="material-icons" style="font-size: 14px; color: #10b981;">login</i>
-                    <span style="font-size: 13px; color: #334155; font-weight: 700;">{{ $mov->FECHA_RECEPCION ? $mov->FECHA_RECEPCION->format('d/m/Y') : '--' }}</span>
+            <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; justify-content: center; height: 100%;">
+                <div style="display: flex; align-items: center; gap: 4px; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <i class="material-icons" style="font-size: 16px; color: #64748b;">event</i>
+                    <span style="font-size: 13px; color: #334155; font-weight: 700;">{{ $mov->created_at ? $mov->created_at->format('d/m/Y') : '--' }}</span>
                 </div>
             </div>
         </td>

@@ -19,7 +19,6 @@ class Movilizacion extends Model
         'ID_FRENTE_DESTINO',
         'DETALLE_UBICACION',       // Patio/Subdivisión específica de recepción
         'FECHA_DESPACHO',
-        'FECHA_RECEPCION',
         'ESTADO_MVO',              // TRANSITO, RECIBIDO
         'TIPO_MOVIMIENTO',         // DESPACHO, RECEPCION_DIRECTA
         'USUARIO_REGISTRO',
@@ -37,7 +36,6 @@ class Movilizacion extends Model
 
     protected $casts = [
         'FECHA_DESPACHO' => 'datetime',
-        'FECHA_RECEPCION' => 'datetime',
     ];
 
     public function equipo()

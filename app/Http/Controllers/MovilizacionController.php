@@ -455,7 +455,6 @@ class MovilizacionController extends Controller
                     'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
                     'DETALLE_UBICACION' => $request->DETALLE_UBICACION,
                     'FECHA_DESPACHO' => null, // No hubo despacho
-                    'FECHA_RECEPCION' => $now,
                     'ESTADO_MVO' => 'RECIBIDO',
                     'TIPO_MOVIMIENTO' => 'RECEPCION_DIRECTA',
                     'USUARIO_REGISTRO' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
@@ -706,7 +705,6 @@ class MovilizacionController extends Controller
             'ID_FRENTE_ORIGEN'  => $equipo->ID_FRENTE_ACTUAL ?? 1,
             'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
             'FECHA_DESPACHO'    => $now,
-            'FECHA_RECEPCION'   => $now,
             'ESTADO_MVO'        => 'RECIBIDO',
             'TIPO_MOVIMIENTO'   => 'DESPACHO',
             'USUARIO_REGISTRO'  => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
