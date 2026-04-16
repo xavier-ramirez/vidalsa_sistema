@@ -539,15 +539,7 @@ class EquipoController extends Controller
         $processedIds = [];
 
         foreach($equiposList as $equipo) {
-            if (isset($processedIds[$equipo->ID_EQUIPO])) {
-                continue;
-            }
-
-            // If it's a child and its parent is also in the list, skip and let the parent print it
-            if ($equipo->ID_ANCLAJE && isset($equiposMap[$equipo->ID_ANCLAJE])) {
-                continue;
-            }
-
+            
             $tipoArr = [$equipo->tipo ? mb_strtoupper($equipo->tipo->nombre) : '—'];
             $marcaArr = [mb_strtoupper($equipo->MARCA ?? '—')];
             $modeloArr = [mb_strtoupper($equipo->MODELO ?? '—')];
@@ -558,43 +550,19 @@ class EquipoController extends Controller
             $placa = $equipo->documentacion ? trim($equipo->documentacion->PLACA ?? '') : '';
             $placaArr = [$placa !== '' ? mb_strtoupper($placa) : '—'];
 
-            // Append children if any
-            foreach($equipo->equiposAnclados as $anclado) {
-                 $tipoArr[] = $anclado->tipo ? mb_strtoupper($anclado->tipo->nombre) : '—';
-                 $marcaArr[] = mb_strtoupper($anclado->MARCA ?? '—');
-                 $modeloArr[] = mb_strtoupper($anclado->MODELO ?? '—');
-                 
-                 $achasis = trim($anclado->SERIAL_CHASIS ?? '');
-                 $chasisArr[] = $achasis !== '' ? mb_strtoupper($achasis) : '—';
-                 
-                 $aplaca = $anclado->documentacion ? trim($anclado->documentacion->PLACA ?? '') : '';
-                 $placaArr[] = $aplaca !== '' ? mb_strtoupper($aplaca) : '—';
-
-                 $processedIds[$anclado->ID_EQUIPO] = true;
-            }
+            $anioArr = [mb_strtoupper($equipo->ANIO ?? '—')];
+            $estadoArr = [mb_strtoupper($equipo->ESTADO_OPERATIVO ?? '—')];
 
             $numeroItem = str_pad($counter, 2, '0', STR_PAD_LEFT);
 
-            // Columna G: AÑO (solo del equipo principal; si hay remolque, poner el del remolque también)
-            $anioArr = [mb_strtoupper($equipo->ANIO ?? '—')];
-            foreach($equipo->equiposAnclados as $anclado) {
-                $anioArr[] = mb_strtoupper($anclado->ANIO ?? '—');
-            }
-
-            // Columna H: ESTADO OPERATIVO (solo del equipo principal; si hay remolque, poner el del remolque también)
-            $estadoArr = [mb_strtoupper($equipo->ESTADO_OPERATIVO ?? '—')];
-            foreach($equipo->equiposAnclados as $anclado) {
-                $estadoArr[] = mb_strtoupper($anclado->ESTADO_OPERATIVO ?? '—');
-            }
-
             $sheet->setCellValue('A'.$rowNum, $numeroItem);
-            $sheet->setCellValue('B'.$rowNum, implode("\n", $tipoArr));
-            $sheet->setCellValue('C'.$rowNum, implode("\n", $marcaArr));
-            $sheet->setCellValue('D'.$rowNum, implode("\n", $modeloArr));
-            $sheet->setCellValue('E'.$rowNum, implode("\n", $chasisArr));
-            $sheet->setCellValue('F'.$rowNum, implode("\n", $placaArr));
-            $sheet->setCellValue('G'.$rowNum, implode("\n", $anioArr));
-            $sheet->setCellValue('H'.$rowNum, implode("\n", $estadoArr));
+            $sheet->setCellValue('B'.$rowNum, $tipoArr[0]);
+            $sheet->setCellValue('C'.$rowNum, $marcaArr[0]);
+            $sheet->setCellValue('D'.$rowNum, $modeloArr[0]);
+            $sheet->setCellValue('E'.$rowNum, $chasisArr[0]);
+            $sheet->setCellValue('F'.$rowNum, $placaArr[0]);
+            $sheet->setCellValue('G'.$rowNum, $anioArr[0]);
+            $sheet->setCellValue('H'.$rowNum, $estadoArr[0]);
 
             // Alternancia de colores en las filas (Zebra Striping) - ahora 8 columnas
             if ($counter % 2 === 0) {
@@ -603,6 +571,7 @@ class EquipoController extends Controller
                 $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
             }
 
+            // Ya no hay wrap con multiples lineas, pero se deja WrapText activado por textos largos
             $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
             $sheet->getStyle('C'.$rowNum)->getAlignment()->setWrapText(true);
             $sheet->getStyle('D'.$rowNum)->getAlignment()->setWrapText(true);
@@ -619,13 +588,13 @@ class EquipoController extends Controller
             $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-            $numItems = count($tipoArr);
-            $rowHeight = $numItems === 1 ? 30 : ($numItems * 25);
-            $sheet->getRowDimension($rowNum)->setRowHeight($rowHeight);
+            // Altura fija al ser 1 solo elemento por celda
+            $sheet->getRowDimension($rowNum)->setRowHeight(30);
 
             $rowNum++;
             $counter++;
         }
+
 
         // Fila Total (ahora 8 columnas)
         $sheet->setCellValue('A'.$rowNum, 'TOTAL');
