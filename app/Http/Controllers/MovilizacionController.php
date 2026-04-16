@@ -125,26 +125,8 @@ class MovilizacionController extends Controller
         // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 páginas continuas)
         $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(12);
 
-        // ─── Stats: Total In Transit ──────────────────────────────────────────────
-        // Uses the same shared filter closure to guarantee consistency with the table.
-        $statsQuery = Movilizacion::where('ESTADO_MVO', 'RECIBIDO');
-        $applyFrenteFilter($statsQuery);
-
-        if ($request->filled('id_tipo') && $request->id_tipo !== 'all') {
-            $statsQuery->whereHas('equipo', function ($q) use ($request) {
-                $q->where('id_tipo_equipo', $request->id_tipo);
-            });
-        }
-
-        if ($request->filled('fecha_desde')) {
-            $statsQuery->whereDate('FECHA_DESPACHO', '>=', $request->fecha_desde);
-        }
-        if ($request->filled('fecha_hasta')) {
-            $statsQuery->whereDate('FECHA_DESPACHO', '<=', $request->fecha_hasta);
-        }
-
-        $totalTransito    = 0; // Disabled stat
-        $transitoPorFrente = (clone $statsQuery)->whereRaw('1 = 0')->get(); // Empty collection
+        $totalTransito     = $movilizaciones->total(); // Total real de registros con los filtros activos
+        $transitoPorFrente = collect();               // Sidebar desactivado
 
         // Check if JSON specifically requested (for filters)
         if ($request->wantsJson()) {
@@ -174,7 +156,7 @@ class MovilizacionController extends Controller
                 'html' => $tableHtml,
                 'pagination' => $paginationHtml,
                 'statsHtml' => $statsHtml,
-                'totalTransito' => $totalTransito
+                'totalTransito' => $movilizaciones->total()
             ]);
         }
 

@@ -479,18 +479,9 @@ function createCharts(data) {
 
     destroyAllCharts();
 
-    // Expand panels to full-width when there are 6+ types (so labels are never cut)
     const chartsGrid = document.getElementById('fleetChartsGrid');
-    const agePanelEl  = document.getElementById('fdm-panel-age');
-    const catPanelEl  = document.getElementById('fdm-panel-category');
-    const inopPanelEl = document.getElementById('fdm-panel-inoperative');
-    const ageCount  = (data.ageByType  && data.ageByType.labels)  ? data.ageByType.labels.length  : 0;
-    const catCount  = (data.categoryByType && data.categoryByType.labels) ? data.categoryByType.labels.length : 0;
-    const inopCount = (data.inoperativeByType && data.inoperativeByType.labels) ? data.inoperativeByType.labels.length : 0;
-    // Only expand to full-width when ≥8 categories (more conservative than before)
-    if (agePanelEl)  agePanelEl.style.gridColumn  = ageCount  >= 8 ? '1 / -1' : '';
-    if (catPanelEl)  catPanelEl.style.gridColumn  = catCount  >= 8 ? '1 / -1' : '';
-    if (inopPanelEl) inopPanelEl.style.gridColumn = inopCount >= 8 ? '1 / -1' : '';
+    
+
 
     // Función auxiliar para mostrar mensaje de vacío
     const showEmptyState = (canvas, parentId, emptyText) => {
@@ -621,10 +612,10 @@ function createStackedBarChart(canvasId, config) {
     // - ≤5 labels: 44px each   → comfortable spacing
     // - 6-10 labels: 36px each → compact but readable
     // - >10 labels: 28px each  → dense but still visible
-    // Hard cap: 380px (never taller than a screen panel)
+    // Hard cap: 320px (never taller than a screen panel)
     const labelCount = config.labels ? config.labels.length : 1;
-    const pxPerLabel = labelCount <= 5 ? 44 : labelCount <= 10 ? 36 : 28;
-    const dynamicHeight = Math.min(380, Math.max(180, labelCount * pxPerLabel));
+    const pxPerLabel = labelCount <= 5 ? 36 : labelCount <= 10 ? 32 : 28;
+    const dynamicHeight = Math.min(320, Math.max(160, labelCount * pxPerLabel + 40));
     ctx.style.height = dynamicHeight + 'px';
     ctx.style.maxHeight = dynamicHeight + 'px';
 
@@ -632,7 +623,10 @@ function createStackedBarChart(canvasId, config) {
         type: 'bar',
         data: {
             labels: config.labels,
-            datasets: config.datasets
+            datasets: config.datasets.map(ds => ({
+                ...ds,
+                maxBarThickness: 28
+            }))
         },
         options: {
             indexAxis: 'y',
