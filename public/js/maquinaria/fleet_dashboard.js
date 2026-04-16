@@ -65,7 +65,7 @@ function updateStatCards(stats) {
 /**
  * Render Equipos Asignados por Frente panel (cajitas estilo consumibles)
  */
-function renderEquiposPorFrente(lista) {
+function renderFleetEquiposAsignados(lista) {
     const loading = document.getElementById('fleetEqAsigLoading');
     const body = document.getElementById('fleetEqAsigBody');
     if (!body) return;
@@ -436,7 +436,7 @@ async function loadFleetDashboardData(frenteId) {
         updateStatCards(data.stats);
 
         // Render equipos asignados por frente panel
-        renderEquiposPorFrente(data.equiposPorFrente || []);
+        renderFleetEquiposAsignados(data.equiposPorFrente || []);
 
         createCharts(data);
 
