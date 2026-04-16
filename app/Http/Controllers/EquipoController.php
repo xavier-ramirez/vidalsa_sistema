@@ -2335,6 +2335,10 @@ class EquipoController extends Controller
             // Clear anchors for provided IDs
             Equipo::whereIn('ID_EQUIPO', $request->ids)->update(['ID_ANCLAJE' => null]);
 
+            // También limpiar el recíproco: cualquier equipo que apunte DE VUELTA a estos IDs
+            // (garantiza consistencia si el partner no fue incluido en el arreglo)
+            Equipo::whereIn('ID_ANCLAJE', $request->ids)->update(['ID_ANCLAJE' => null]);
+
             DB::commit();
 
             return response()->json([

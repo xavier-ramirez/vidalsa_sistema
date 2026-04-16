@@ -257,8 +257,14 @@ function handleRowClick(e) {
 document.addEventListener("click", handleRowClick);
 
 // ─── DESANCLAR EQUIPOS ──────────────────────────────────────────────────────
-window.unanchorEquipos = async function (e) {
+
+window._unanchorRunning = false;
+
+window.unanchorEquipos = function (e) {
     if (e) { e.preventDefault(); e.stopPropagation(); }
+
+    // Evitar doble ejecución
+    if (window._unanchorRunning) return;
 
     const selections = Object.values(window.selectedEquipos || {});
 
@@ -271,10 +277,10 @@ window.unanchorEquipos = async function (e) {
         return;
     }
 
-    // Collect IDs: self + anchorId partner
+    // Recopilar IDs: el propio + su partner (anchorId)
     const idSet = new Set();
     selections.forEach(item => {
-        if (item.id)       idSet.add(String(item.id));
+        if (item.id) idSet.add(String(item.id));
         if (item.anchorId && item.anchorId !== 'null' && item.anchorId !== '') {
             idSet.add(String(item.anchorId));
         }
@@ -292,97 +298,99 @@ window.unanchorEquipos = async function (e) {
         return;
     }
 
-    // Confirm
-    const confirmed = await new Promise(resolve => {
-        if (window.showModal) {
-            window.showModal({
-                type: 'warning',
-                title: 'Desanclar Equipos',
-                message: `¿Eliminar el vínculo de anclaje de ${ids.length > 1 ? 'estos ' + ids.length + ' equipos' : 'este equipo'}?`,
-                confirmText: 'Sí, Desanclar',
-                cancelText: 'Cancelar',
-                onConfirm: () => resolve(true),
-                onCancel: () => resolve(false),
+    // Ejecutar el fetch después de confirmar — patrón onConfirm directo (sin Promise wrapper)
+    const ejecutarDesancle = async function () {
+        window._unanchorRunning = true;
+        if (window.showPreloader) window.showPreloader();
+
+        try {
+            const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
+            const csrf    = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+            const response = await fetch(`${baseUrl}/admin/equipos/clear-anchor`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ ids }),
             });
-        } else {
-            resolve(confirm('¿Desanclar los equipos seleccionados?'));
-        }
-    });
 
-    if (!confirmed) return;
+            let data = {};
+            try { data = await response.json(); } catch (_) {}
 
-    if (window.showPreloader) window.showPreloader();
+            console.log('[Desanclar] Response status:', response.status, '| body:', data);
 
-    try {
-        const baseUrl  = document.querySelector('meta[name="base-url"]')?.content || '';
-        const csrf     = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-        const response = await fetch(`${baseUrl}/admin/equipos/clear-anchor`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrf,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ ids }),
-        });
-
-        let data = {};
-        try { data = await response.json(); } catch (_) {}
-
-        console.log('[Desanclar] Response status:', response.status, '| body:', data);
-
-        if (response.status === 419 || response.status === 401) {
-            window.location.reload(); return;
-        }
-
-        if (response.status === 422) {
-            if (window.hidePreloader) window.hidePreloader();
-            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : (data.message || 'Validación fallida.');
-            window.showModal && window.showModal({ type: 'error', title: 'Error de Validación', message: firstError, confirmText: 'Entendido', hideCancel: true });
-            return;
-        }
-
-        if (!response.ok || !data.success) {
-            if (window.hidePreloader) window.hidePreloader();
-            window.showModal && window.showModal({ type: 'error', title: 'Error', message: data.error || data.message || 'No se pudo desanclar.', confirmText: 'Entendido', hideCancel: true });
-            return;
-        }
-
-        // SUCCESS — limpiar selección y anchorId del DOM inmediatamente
-        // para evitar que el botón Desanclar reaparezca antes de que refresque el AJAX
-        window.selectedEquipos = {};
-        document.querySelectorAll('.selected-row-maquinaria').forEach(r => r.classList.remove('selected-row-maquinaria'));
-
-        // Borrar anchorId del DOM en los botones de las filas afectadas
-        // para que cualquier clic inmediato no lea datos stale
-        ids.forEach(id => {
-            const btn = document.querySelector(`.btn-details-mini[data-equipo-id="${id}"]`);
-            if (btn) {
-                btn.dataset.anchorId  = '';
-                btn.dataset.anchorCode = '';
-                btn.dataset.anchorPlaca = '';
-                btn.dataset.anchorSerial = '';
-                btn.dataset.anchorRol  = '';
+            if (response.status === 419 || response.status === 401) {
+                window.location.reload(); return;
             }
-        });
 
-        updateSelectionUI();
+            if (response.status === 422) {
+                if (window.hidePreloader) window.hidePreloader();
+                const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : (data.message || 'Validación fallida.');
+                window.showModal && window.showModal({ type: 'error', title: 'Error de Validación', message: firstError, confirmText: 'Entendido', hideCancel: true });
+                return;
+            }
 
-        // Esperar a que loadEquipos termine antes de mostrar toast y quitar preloader
-        if (window.loadEquipos) {
-            await window.loadEquipos(null, true);
+            if (!response.ok || !data.success) {
+                if (window.hidePreloader) window.hidePreloader();
+                window.showModal && window.showModal({ type: 'error', title: 'Error', message: data.error || data.message || 'No se pudo desanclar.', confirmText: 'Entendido', hideCancel: true });
+                return;
+            }
+
+            // ÉXITO — limpiar selección y anchorId del DOM inmediatamente
+            window.selectedEquipos = {};
+            document.querySelectorAll('.selected-row-maquinaria').forEach(r => r.classList.remove('selected-row-maquinaria'));
+
+            // Borrar anchorId del DOM para evitar datos stale antes del AJAX
+            ids.forEach(id => {
+                const btn = document.querySelector(`.btn-details-mini[data-equipo-id="${id}"]`);
+                if (btn) {
+                    btn.dataset.anchorId    = '';
+                    btn.dataset.anchorCode  = '';
+                    btn.dataset.anchorPlaca = '';
+                    btn.dataset.anchorSerial = '';
+                    btn.dataset.anchorRol   = '';
+                }
+            });
+
+            updateSelectionUI();
+
+            // Recargar tabla y mostrar toast al finalizar
+            if (window.loadEquipos) await window.loadEquipos(null, true);
+            if (window.hidePreloader) window.hidePreloader();
+            if (window.showToast) window.showToast('¡Desanclaje exitoso!', 'success');
+
+        } catch (err) {
+            console.error('[Desanclar] fetch error:', err);
+            if (window.hidePreloader) window.hidePreloader();
+            window.showModal && window.showModal({ type: 'error', title: 'Error de Red', message: 'No se pudo conectar con el servidor. Intenta de nuevo.', confirmText: 'Entendido', hideCancel: true });
+        } finally {
+            window._unanchorRunning = false;
         }
-        if (window.hidePreloader) window.hidePreloader();
-        if (window.showToast) window.showToast('¡Desanclaje exitoso!', 'success');
+    };
 
-    } catch (err) {
-        console.error('[Desanclar] fetch error:', err);
-        if (window.hidePreloader) window.hidePreloader();
-        window.showModal && window.showModal({ type: 'error', title: 'Error de Red', message: 'No se pudo conectar con el servidor. Intenta de nuevo.', confirmText: 'Entendido', hideCancel: true });
+    // Mostrar modal de confirmación — ejecutarDesancle se llama solo si el usuario confirma
+    if (window.showModal) {
+        window.showModal({
+            type: 'warning',
+            title: 'Desanclar Equipos',
+            message: `¿Eliminar el vínculo de anclaje de ${ids.length > 1 ? 'estos ' + ids.length + ' equipos' : 'este equipo'}?`,
+            confirmText: 'Sí, Desanclar',
+            cancelText: 'Cancelar',
+            onConfirm: ejecutarDesancle,
+            onCancel: null,
+        });
+    } else {
+        // Fallback si el sistema modal no está disponible
+        if (confirm('¿Desanclar los equipos seleccionados?')) {
+            ejecutarDesancle();
+        }
     }
 };
+
 
 document.addEventListener("click", function (e) {
     // Close status dropdowns when clicking outside
@@ -532,6 +540,8 @@ window.loadEquipos = function (url = null, silent = false) {
         headers: {
             "X-Requested-With": "XMLHttpRequest",
             Accept: "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
         },
     })
         .then((response) => {
