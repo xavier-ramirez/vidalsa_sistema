@@ -787,8 +787,14 @@ window.showDetailsImproved = function (target, event) {
         console.error("showDetailsImproved called without valid target");
         return;
     }
-
     const d = target.dataset;
+    if (!d.equipoId) {
+        console.error("showDetailsImproved called without equipoId");
+        return;
+    }
+
+
+
     const modal = document.getElementById("detailsModal");
 
     // Reset Accordions (Close all sections so they are closed by default)
@@ -889,14 +895,24 @@ window.showDetailsImproved = function (target, event) {
     set("d_fecha_racda", formatDate(d.fechaRacda));
 
     // Document Action Buttons Generator
-    const createDocBtn = (containerId, type, link, label, equipoId) => {
+    const createDocBtn = (containerId, type, link, label, equipoId, autor = '', fecha = '') => {
         const container = document.getElementById(containerId);
         if (!container) return;
+
+        let metaHtml = '';
+        if (autor) {
+            const shortAutor = autor.includes('@') ? autor.split('@')[0] : autor;
+            metaHtml = `<div style="display:flex; flex-direction:column; align-items:flex-end; margin-right:8px; justify-content:center;">
+                            <span style="font-size:10px; color:#94a3b8; line-height: 1.1;">Por: <strong style="color:#64748b; font-weight:600;">${shortAutor}</strong></span>
+                            ${fecha ? `<span style="font-size:9px; color:#cbd5e1; font-weight:500;">${fecha}</span>` : ''}
+                        </div>`;
+        }
 
         if (isValid(link)) {
             // PDF existe — solo botón de Ver
             container.innerHTML = `
-                <div class="pdf-btn-container">
+                <div class="pdf-btn-container" style="display:flex; align-items:center;">
+                    ${metaHtml}
                     <button type="button"
                         onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
                         style="background: none; border: none; padding: 0; cursor: default; display: flex; align-items: center; justify-content: center;"
@@ -940,16 +956,18 @@ window.showDetailsImproved = function (target, event) {
         d.linkPropiedad,
         "Propiedad",
         eqId,
+        d.propiedadAutor,
+        d.propiedadFecha
     );
-    createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId);
-    createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId);
-    createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId);
+    createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId, d.polizaAutor, d.polizaFecha);
+    createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId, d.rotcAutor, d.rotcFecha);
+    createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId, d.racdaAutor, d.racdaFecha);
     createDocBtn(
         "d_btn_adicional",
         "adicional",
         d.linkAdicional,
         "Adicional",
-        eqId,
+        eqId
     );
 
     // Show Modal

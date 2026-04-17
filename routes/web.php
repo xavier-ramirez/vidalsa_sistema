@@ -96,19 +96,7 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('sub-activos/{id}',  [App\Http\Controllers\SubActivoController::class, 'update']) ->name('sub-activos.update');
             Route::delete('sub-activos/{id}', [App\Http\Controllers\SubActivoController::class, 'destroy'])->name('sub-activos.destroy');
 
-            // ── Herramientas Manuales ────────────────────────────────────────
-            Route::get('herramientas/consolidado-manual', function () {
-                return view('admin.herramientas.consolidado_manual');
-            })->name('herramientas.consolidadoManual');
 
-            Route::get('herramientas/calculadora-filtros', function () {
-                return view('admin.herramientas.calculadora_filtros');
-            })->name('herramientas.calculadoraFiltros');
-
-            Route::get('herramientas/calculadora-equipos-frentes', function () {
-                $frentes = \App\Models\FrenteTrabajo::orderBy('NOMBRE_FRENTE')->pluck('NOMBRE_FRENTE')->toArray();
-                return view('admin.herramientas.calculadora_frentes', compact('frentes'));
-            })->name('herramientas.calculadoraFrentes');
 
             // RUTA DE EMERGENCIA: REPARAR ESQUEMA BD
             // Requiere autenticación (heredada) + permiso explícito super.admin

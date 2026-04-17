@@ -1883,6 +1883,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Modal solo se cierra con botón X (no al hacer clic fuera)
 </script>
+
 @endsection
 @section('extra_js')
     {{-- Replaced by Global Load in Layout --}}

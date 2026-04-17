@@ -12,7 +12,8 @@ class GoogleDriveController extends Controller
     public function proxy($path)
     {
         try {
-            $fileId = $path;
+            // Protección contra Path Traversal limpiando el ID de Google
+            $fileId = basename($path);
             $cachePath = 'google_cache/' . $fileId;
 
             // 1. CHECK LOCAL CACHE (Fastest, Offline-capable)

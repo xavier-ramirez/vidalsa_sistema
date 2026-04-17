@@ -130,49 +130,14 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(\App\Http\Requests\UserRequest $request)
     {
-        $validated = $request->validate([
-            'NOMBRE_COMPLETO' => 'required|string|max:150',
-
-            'CORREO_ELECTRONICO' => [
-                'required',
-                'email',
-                'unique:usuarios,CORREO_ELECTRONICO',
-                'regex:/^.+@cvidalsa27\.com$/i'
-            ],
-            'password' => 'required|string|min:6',
-            'ID_ROL' => 'required|string|max:150',
-            'ID_FRENTE_ASIGNADO' => 'nullable|array',
-            'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
-            'NIVEL_ACCESO' => 'required|integer|in:1,2',
-            'ESTATUS' => 'required|in:ACTIVO,INACTIVO',
-            'PERMISOS' => 'required|array',
-            'PERMISOS.*' => 'in:user.create,user.edit,user.delete,equipos.create,equipos.edit,equipos.assign,super.admin',
-        ], [
-            'NOMBRE_COMPLETO.required' => 'El nombre completo es obligatorio.',
-            'CORREO_ELECTRONICO.required' => 'El correo electrónico es obligatorio.',
-            'CORREO_ELECTRONICO.email' => 'El formato del correo electrónico no es válido.',
-            'CORREO_ELECTRONICO.unique' => 'Este correo electrónico ya está registrado en el sistema.',
-            'CORREO_ELECTRONICO.regex' => 'Solo se permiten correos con el dominio @cvidalsa27.com',
-            'password.required' => 'La clave de acceso es obligatoria.',
-            'password.min' => 'La clave de acceso debe tener al menos 6 caracteres.',
-            'ID_ROL.required' => 'Debes asignar un rol al usuario.',
-            'ID_ROL.max' => 'El rol no puede tener más de 150 caracteres.',
-            'ID_FRENTE_ASIGNADO.required' => 'Debes asignar al menos un frente de trabajo.',
-            'ID_FRENTE_ASIGNADO.min' => 'Debes asignar al menos un frente de trabajo.',
-            'NIVEL_ACCESO.required' => 'El nivel de acceso es obligatorio.',
-            'NIVEL_ACCESO.in' => 'El nivel de acceso seleccionado no es válido.',
-            'ESTATUS.required' => 'El estatus es obligatorio.',
-            'ESTATUS.in' => 'El estatus seleccionado no es válido.',
-            'PERMISOS.required' => 'Debes seleccionar al menos un permiso.',
-        ]);
+        $validated = $request->validated();
 
         // Create user with mass assignment for validated data
         $user = new Usuario();
-        $user->NOMBRE_COMPLETO = mb_convert_case($request->NOMBRE_COMPLETO, MB_CASE_TITLE, 'UTF-8');
-
-        $user->CORREO_ELECTRONICO = strtolower($request->CORREO_ELECTRONICO);
+        $user->NOMBRE_COMPLETO = $validated['NOMBRE_COMPLETO'];
+        $user->CORREO_ELECTRONICO = $validated['CORREO_ELECTRONICO'];
         $user->PASSWORD_HASH = Hash::make($request->password);
         // Resolver el Rol (si lo escribieron nuevo, se crea. Si enviaron el nombre existente, se busca)
         $rolInput = trim($request->ID_ROL);
@@ -227,49 +192,14 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(\App\Http\Requests\UserRequest $request, string $id)
     {
         $user = Usuario::findOrFail($id);
-
-        $validated = $request->validate([
-            'NOMBRE_COMPLETO' => 'required|string|max:150',
-
-            'CORREO_ELECTRONICO' => [
-                'required',
-                'email',
-                Rule::unique('usuarios', 'CORREO_ELECTRONICO')->ignore($user->ID_USUARIO, 'ID_USUARIO'),
-                'regex:/^.+@cvidalsa27\.com$/i'
-            ],
-            'password' => 'nullable|string|min:6',
-            'ID_ROL' => 'required|string|max:150',
-            'ID_FRENTE_ASIGNADO' => 'nullable|array',
-            'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
-            'NIVEL_ACCESO' => 'required|integer|in:1,2',
-            'ESTATUS' => 'required|in:ACTIVO,INACTIVO',
-            'PERMISOS' => 'required|array',
-            'PERMISOS.*' => 'in:user.create,user.edit,user.delete,equipos.create,equipos.edit,equipos.assign,super.admin',
-        ], [
-            'NOMBRE_COMPLETO.required' => 'El nombre completo es obligatorio.',
-            'CORREO_ELECTRONICO.required' => 'El correo electrónico es obligatorio.',
-            'CORREO_ELECTRONICO.email' => 'El formato del correo electrónico no es válido.',
-            'CORREO_ELECTRONICO.unique' => 'Este correo electrónico ya está registrado en el sistema.',
-            'CORREO_ELECTRONICO.regex' => 'Solo se permiten correos con el dominio @cvidalsa27.com',
-            'password.min' => 'La clave de acceso debe tener al menos 6 caracteres.',
-            'ID_ROL.required' => 'Debes asignar un rol al usuario.',
-            'ID_ROL.max' => 'El rol no puede tener más de 150 caracteres.',
-            'ID_FRENTE_ASIGNADO.required' => 'Debes asignar al menos un frente de trabajo.',
-            'ID_FRENTE_ASIGNADO.min' => 'Debes asignar al menos un frente de trabajo.',
-            'NIVEL_ACCESO.required' => 'El nivel de acceso es obligatorio.',
-            'NIVEL_ACCESO.in' => 'El nivel de acceso seleccionado no es válido.',
-            'ESTATUS.required' => 'El estatus es obligatorio.',
-            'ESTATUS.in' => 'El estatus seleccionado no es válido.',
-            'PERMISOS.required' => 'Debes seleccionar al menos un permiso.',
-        ]);
+        $validated = $request->validated();
 
         // Update user attributes
-        $user->NOMBRE_COMPLETO = mb_convert_case($request->NOMBRE_COMPLETO, MB_CASE_TITLE, 'UTF-8');
-
-        $user->CORREO_ELECTRONICO = strtolower($request->CORREO_ELECTRONICO);
+        $user->NOMBRE_COMPLETO = $validated['NOMBRE_COMPLETO'];
+        $user->CORREO_ELECTRONICO = $validated['CORREO_ELECTRONICO'];
         // Resolver el Rol (si lo escribieron nuevo, se crea. Si enviaron el nombre existente, se busca)
         $rolInput = trim($request->ID_ROL);
         $roleObj = \App\Models\Role::find($rolInput);

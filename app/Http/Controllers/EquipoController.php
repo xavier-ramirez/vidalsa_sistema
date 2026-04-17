@@ -24,6 +24,27 @@ class EquipoController extends Controller
         // uploadDoc/deleteDoc/updateMetadata: permission handled inside methods (user.edit OR equipos.edit OR super.admin)
     }
 
+    /**
+     * Centralized lookup with IDOR horizontal protection
+     */
+    private function findAndAuthorizeEquipo($id, $with = [])
+    {
+        $query = \App\Models\Equipo::query();
+        if (!empty($with)) {
+            $query->with($with);
+        }
+        $equipo = $query->findOrFail($id);
+
+        $user = auth()->user();
+        if ($user && $user->NIVEL_ACCESO == 2) {
+            $frentesPermitidos = $user->getFrentesIds();
+            if (!in_array($equipo->ID_FRENTE_ACTUAL, $frentesPermitidos)) {
+                abort(403, 'Acceso Denegado: Este equipo pertenece a un Frente de Trabajo ajeno a su jurisdicción.');
+            }
+        }
+        return $equipo;
+    }
+
     public function index(Request $request)
     {
         $search = $request->input('search_query');
@@ -397,7 +418,7 @@ class EquipoController extends Controller
             }
         }
 
-        $equipos->with(['frenteActual', 'tipo', 'documentacion', 'especificaciones', 'equiposAnclados.tipo', 'equiposAnclados.documentacion']);
+        $equipos->with(['frenteActual', 'tipo', 'documentacion', 'especificaciones', 'equiposAnclados.tipo', 'equiposAnclados.documentacion', 'equiposAnclados.frenteActual', 'ancladoA.frenteActual', 'ancladoA.tipo']);
         $equiposList = $equipos->get();
 
         $equiposMap = [];
@@ -465,41 +486,44 @@ class EquipoController extends Controller
         $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
         $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
-        $sheet->mergeCells('F1:H1');
+        $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
+        $lastCol = $showFrenteCol ? 'J' : 'I';
+
+        $sheet->mergeCells('F1:'.$lastCol.'1');
         $sheet->setCellValue('F1', 'EDICION: 1');
         $sheet->getStyle('F1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('F1')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F1:H1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('F1:'.$lastCol.'1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
-        $sheet->mergeCells('F2:H2');
+        $sheet->mergeCells('F2:'.$lastCol.'2');
         $sheet->setCellValue('F2', 'REVISION: 0');
         $sheet->getStyle('F2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F2')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('F2')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F2:H2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('F2:'.$lastCol.'2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
-        $sheet->mergeCells('F3:H3');
+        $sheet->mergeCells('F3:'.$lastCol.'3');
         $sheet->setCellValue('F3', 'FECHA: ' . $currentDate);
         $sheet->getStyle('F3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('F3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('F3')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F3:H3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('F3:'.$lastCol.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
-        $sheet->getRowDimension(1)->setRowHeight(40); // 40*3 = 120 permite un logo gigante
+        $sheet->getRowDimension(1)->setRowHeight(40);
         $sheet->getRowDimension(2)->setRowHeight(40);
         $sheet->getRowDimension(3)->setRowHeight(40);
 
-        // Fila 4 - Texto Exportado por (movido a la parte superior)
-        $sheet->mergeCells('A4:H4');
+        // Fila 4 - Texto Exportado por
+        $sheet->mergeCells('A4:'.$lastCol.'4');
         $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
-        $sheet->getStyle('A4:H4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A4:H4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('A4:H4')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('A4:H4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+        $sheet->getStyle('A4:'.$lastCol.'4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A4:'.$lastCol.'4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('A4:'.$lastCol.'4')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A4:'.$lastCol.'4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
         $sheet->getRowDimension(4)->setRowHeight(20);
 
-        // Bordes a toda la cuadricula de encabezado (A1 hasta H4)
+        // Bordes a toda la cuadricula de encabezado
         $headerBorders = [
             'borders' => [
                 'allBorders' => [
@@ -508,108 +532,184 @@ class EquipoController extends Controller
                 ],
             ],
         ];
-        $sheet->getStyle('A1:H4')->applyFromArray($headerBorders);
+        $sheet->getStyle('A1:'.$lastCol.'4')->applyFromArray($headerBorders);
 
-        // Fila 5 - Encabezados de tabla (ahora 8 columnas: A-H)
-        $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'SERIAL DE CHASIS', 'PLACA', 'AÑO', 'ESTADO'];
-        $colMap = ['A','B','C','D','E','F','G','H'];
+        // Fila 5 - Encabezados de tabla
+        if ($showFrenteCol) {
+            $headers = ['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'PLACA', 'AÑO', 'ESTADO'];
+            $colMap = ['A','B','C','D','E','F','G','H','I','J'];
+        } else {
+            $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'PLACA', 'AÑO', 'ESTADO'];
+            $colMap = ['A','B','C','D','E','F','G','H','I'];
+        }
+
         foreach($headers as $index => $hdr) {
             $sheet->setCellValue($colMap[$index] . '5', $hdr);
         }
-        $sheet->getStyle('A5:H5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A5:H5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        // AZUL MARINO ELEGANTE PARA EL ENCABEZADO
-        $sheet->getStyle('A5:H5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A5:H5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
+        $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A5:'.$lastCol.'5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A5:'.$lastCol.'5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
         $sheet->getRowDimension(5)->setRowHeight(35);
 
-        // Anchos de columna optimizados (8 columnas)
-        $sheet->getColumnDimension('A')->setWidth(8);
-        $sheet->getColumnDimension('B')->setWidth(32);
-        $sheet->getColumnDimension('C')->setWidth(18);
-        $sheet->getColumnDimension('D')->setWidth(22);
-        $sheet->getColumnDimension('E')->setWidth(28);
-        $sheet->getColumnDimension('F')->setWidth(18);
-        $sheet->getColumnDimension('G')->setWidth(10);
-        $sheet->getColumnDimension('H')->setWidth(20);
+        // Anchos de columna dinámicos
+        if ($showFrenteCol) {
+            $sheet->getColumnDimension('A')->setWidth(8);
+            $sheet->getColumnDimension('B')->setWidth(25);
+            $sheet->getColumnDimension('C')->setWidth(30);
+            $sheet->getColumnDimension('D')->setWidth(18);
+            $sheet->getColumnDimension('E')->setWidth(22);
+            $sheet->getColumnDimension('F')->setWidth(22);
+            $sheet->getColumnDimension('G')->setWidth(28);
+            $sheet->getColumnDimension('H')->setWidth(18);
+            $sheet->getColumnDimension('I')->setWidth(10);
+            $sheet->getColumnDimension('J')->setWidth(20);
+        } else {
+            $sheet->getColumnDimension('A')->setWidth(8);
+            $sheet->getColumnDimension('B')->setWidth(32);
+            $sheet->getColumnDimension('C')->setWidth(18);
+            $sheet->getColumnDimension('D')->setWidth(22);
+            $sheet->getColumnDimension('E')->setWidth(22);
+            $sheet->getColumnDimension('F')->setWidth(28);
+            $sheet->getColumnDimension('G')->setWidth(18);
+            $sheet->getColumnDimension('H')->setWidth(10);
+            $sheet->getColumnDimension('I')->setWidth(20);
+        }
 
-        // Filas de datos
+        $printedIds = [];
         $rowNum = 6;
         $counter = 1;
-        $processedIds = [];
 
-        foreach($equiposList as $equipo) {
-            
-            $tipoArr = [$equipo->tipo ? mb_strtoupper($equipo->tipo->nombre) : '—'];
-            $marcaArr = [mb_strtoupper($equipo->MARCA ?? '—')];
-            $modeloArr = [mb_strtoupper($equipo->MODELO ?? '—')];
+        $printEquipoRow = function($equipo, $isAnclado = false) use (&$sheet, &$rowNum, &$counter, &$printedIds, $showFrenteCol, $colMap, $lastCol, &$printEquipoRow) {
+            if (isset($printedIds[$equipo->ID_EQUIPO])) {
+                return;
+            }
+            $printedIds[$equipo->ID_EQUIPO] = true;
+
+            $frenteVal = 'S/A';
+            if ($equipo->frenteActual) {
+                $frenteVal = mb_strtoupper($equipo->frenteActual->NOMBRE_FRENTE);
+            } elseif ($equipo->ancladoA && $equipo->ancladoA->frenteActual) {
+                $frenteVal = mb_strtoupper($equipo->ancladoA->frenteActual->NOMBRE_FRENTE);
+            }
+
+            $tipoVal = $equipo->tipo ? mb_strtoupper($equipo->tipo->nombre) : '—';
+            if ($isAnclado) {
+                $tipoVal = "  ↳ " . $tipoVal;
+            }
+
+            $marcaVal = mb_strtoupper($equipo->MARCA ?? '—');
+            $modeloVal = mb_strtoupper($equipo->MODELO ?? '—');
+            $categoriaVal = mb_strtoupper($equipo->CATEGORIA_FLOTA ?? '—');
             
             $chasis = trim($equipo->SERIAL_CHASIS ?? '');
-            $chasisArr = [$chasis !== '' ? mb_strtoupper($chasis) : '—'];
+            $chasisVal = $chasis !== '' ? mb_strtoupper($chasis) : '—';
             
             $placa = $equipo->documentacion ? trim($equipo->documentacion->PLACA ?? '') : '';
-            $placaArr = [$placa !== '' ? mb_strtoupper($placa) : '—'];
+            $placaVal = $placa !== '' ? mb_strtoupper($placa) : '—';
 
-            $anioArr = [mb_strtoupper($equipo->ANIO ?? '—')];
-            $estadoArr = [mb_strtoupper($equipo->ESTADO_OPERATIVO ?? '—')];
+            $anioVal = mb_strtoupper($equipo->ANIO ?? '—');
+            $estadoVal = mb_strtoupper($equipo->ESTADO_OPERATIVO ?? '—');
 
             $numeroItem = str_pad($counter, 2, '0', STR_PAD_LEFT);
 
             $sheet->setCellValue('A'.$rowNum, $numeroItem);
-            $sheet->setCellValue('B'.$rowNum, $tipoArr[0]);
-            $sheet->setCellValue('C'.$rowNum, $marcaArr[0]);
-            $sheet->setCellValue('D'.$rowNum, $modeloArr[0]);
-            $sheet->setCellValue('E'.$rowNum, $chasisArr[0]);
-            $sheet->setCellValue('F'.$rowNum, $placaArr[0]);
-            $sheet->setCellValue('G'.$rowNum, $anioArr[0]);
-            $sheet->setCellValue('H'.$rowNum, $estadoArr[0]);
+            
+            if ($showFrenteCol) {
+                $sheet->setCellValue('B'.$rowNum, $frenteVal);
+                $sheet->setCellValue('C'.$rowNum, $tipoVal);
+                $sheet->setCellValue('D'.$rowNum, $marcaVal);
+                $sheet->setCellValue('E'.$rowNum, $modeloVal);
+                $sheet->setCellValue('F'.$rowNum, $categoriaVal);
+                $sheet->setCellValue('G'.$rowNum, $chasisVal);
+                $sheet->setCellValue('H'.$rowNum, $placaVal);
+                $sheet->setCellValue('I'.$rowNum, $anioVal);
+                $sheet->setCellValue('J'.$rowNum, $estadoVal);
 
-            // Alternancia de colores en las filas (Zebra Striping) - ahora 8 columnas
-            if ($counter % 2 === 0) {
-                $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF1F5F9');
+                $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
+                $sheet->getStyle('J'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             } else {
-                $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+                $sheet->setCellValue('B'.$rowNum, $tipoVal);
+                $sheet->setCellValue('C'.$rowNum, $marcaVal);
+                $sheet->setCellValue('D'.$rowNum, $modeloVal);
+                $sheet->setCellValue('E'.$rowNum, $categoriaVal);
+                $sheet->setCellValue('F'.$rowNum, $chasisVal);
+                $sheet->setCellValue('G'.$rowNum, $placaVal);
+                $sheet->setCellValue('H'.$rowNum, $anioVal);
+                $sheet->setCellValue('I'.$rowNum, $estadoVal);
             }
 
-            // Ya no hay wrap con multiples lineas, pero se deja WrapText activado por textos largos
-            $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('C'.$rowNum)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('D'.$rowNum)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('E'.$rowNum)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('F'.$rowNum)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('G'.$rowNum)->getAlignment()->setWrapText(true);
-            $sheet->getStyle('H'.$rowNum)->getAlignment()->setWrapText(true);
+            // Alternancia de colores en las filas (Zebra Striping)
+            if ($counter % 2 === 0) {
+                $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFF1F5F9');
+            } else {
+                $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+            }
 
-            $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            if ($isAnclado) {
+                // Formatting for anchored items (like a subtle italic for type)
+                if ($showFrenteCol) {
+                    $sheet->getStyle('C'.$rowNum)->getFont()->setItalic(true)->getColor()->setARGB('FF475569');
+                } else {
+                    $sheet->getStyle('B'.$rowNum)->getFont()->setItalic(true)->getColor()->setARGB('FF475569');
+                }
+            }
+
+            // WrapText
+            foreach ($colMap as $col) {
+                $sheet->getStyle($col.$rowNum)->getAlignment()->setWrapText(true);
+            }
+
+            $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
             $sheet->getStyle('A'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('C'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('E'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('F'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            
+            // Centrados
+            if ($showFrenteCol) {
+                $sheet->getStyle('B'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('D'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            } else {
+                $sheet->getStyle('C'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('E'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('F'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
 
-            // Altura fija al ser 1 solo elemento por celda
+            // Altura fija
             $sheet->getRowDimension($rowNum)->setRowHeight(30);
 
             $rowNum++;
             $counter++;
+
+            // Anclados recursivos (solamente imprimimos debajo del padre si NO somos ya un anclado)
+            if (!$isAnclado && isset($equipo->equiposAnclados) && $equipo->equiposAnclados->count() > 0) {
+                foreach($equipo->equiposAnclados as $anclado) {
+                    $printEquipoRow($anclado, true);
+                }
+            }
+        };
+
+        foreach($equiposList as $equipo) {
+            $printEquipoRow($equipo, false);
         }
 
-
-        // Fila Total (ahora 8 columnas)
+        // Fila Total
         $sheet->setCellValue('A'.$rowNum, 'TOTAL');
         $sheet->mergeCells('B'.$rowNum.':C'.$rowNum);
         $sheet->setCellValue('B'.$rowNum, ($counter - 1) . " EQUIPOS LISTADOS");
-        $sheet->mergeCells('D'.$rowNum.':H'.$rowNum);
+        $sheet->mergeCells('D'.$rowNum.':'.$lastCol.$rowNum);
 
-        $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('A'.$rowNum.':B'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FF1E293B');
-        $sheet->getStyle('A'.$rowNum.':H'.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFE2E8F0');
+        $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FF1E293B');
+        $sheet->getStyle('A'.$rowNum.':'.$lastCol.$rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFE2E8F0');
         $sheet->getRowDimension($rowNum)->setRowHeight(28);
 
-        // Bordes a toda la tabla de datos (ahora hasta la columna H)
-        $sheet->getStyle('A5:H'.$rowNum)->applyFromArray($headerBorders);
+        // Bordes a toda la tabla de datos
+        $sheet->getStyle('A5:'.$lastCol.$rowNum)->applyFromArray($headerBorders);
 
         // Limpiar TODOS los buffers de salida activos de forma segura.
         // ob_end_clean() simple puede fallar en php-fpm de producción (nginx) si hay
@@ -980,13 +1080,13 @@ class EquipoController extends Controller
 
     public function show($id)
     {
-        $equipo = Equipo::with('frenteActual', 'especificaciones', 'documentacion.seguro', 'responsables')->findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion.seguro', 'responsables']);
         return view('admin.equipos.show', compact('equipo'));
     }
 
     public function edit($id)
     {
-        $equipo = Equipo::with('frenteActual', 'especificaciones', 'documentacion', 'responsables')->findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables']);
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc')->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
         $seguros = CatalogoSeguro::orderBy('NOMBRE_ASEGURADORA', 'asc')->pluck('NOMBRE_ASEGURADORA');
         $tipos_equipo = TipoEquipo::orderBy('nombre', 'asc')->pluck('nombre');
@@ -1007,7 +1107,7 @@ class EquipoController extends Controller
     public function update(Request $request, $id)
     {
         set_time_limit(300);
-        $equipo = Equipo::findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id);
 
         // Normalize inputs to uppercase before validation to avoid case-sensitivity issues with unique constraints
         $request->merge([
@@ -1225,14 +1325,14 @@ class EquipoController extends Controller
 
     public function destroy($id)
     {
-        $equipo = Equipo::findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id);
         $equipo->delete();
         return redirect()->route('equipos.index')->with('success', 'Equipo eliminado.');
     }
 
     public function changeStatus(Request $request, $id)
     {
-        $equipo = Equipo::findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id);
         $equipo->ESTADO_OPERATIVO = $request->input('status');
         $equipo->save();
         return back()->with('success', 'Estatus actualizado.');
@@ -1252,7 +1352,7 @@ class EquipoController extends Controller
             'expiration_date' => 'nullable|date'
         ]);
 
-        $equipo = Equipo::findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id);
         $type = $request->input('doc_type');
         $file = $request->file('file');
 
@@ -1449,7 +1549,7 @@ class EquipoController extends Controller
      */
     public function metadata(Request $request, $id)
     {
-        $equipo = Equipo::with(['documentacion.seguro'])->findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion.seguro']);
 
         $type = $request->input('type');
         $doc = $equipo->documentacion;
@@ -1511,7 +1611,7 @@ class EquipoController extends Controller
             'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional',
         ]);
 
-        $equipo = Equipo::with('documentacion')->findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
         $doc = $equipo->documentacion;
 
         if (!$doc) {
@@ -1555,7 +1655,7 @@ class EquipoController extends Controller
         if (!auth()->user()->can('user.edit') && !auth()->user()->can('equipos.edit') && !auth()->user()->can('super.admin')) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
-        $equipo = Equipo::with('documentacion')->findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
         $type = $request->input('doc_type');
 
         if (!$equipo->documentacion) {
@@ -2211,6 +2311,8 @@ class EquipoController extends Controller
         return response()->json($equipos);
     }
 
+
+
     /**
      * Get anchored equipment pairs for a specific frente (or all if not specified)
      */
@@ -2312,35 +2414,65 @@ class EquipoController extends Controller
     }
 
     /**
-     * Clear anchor links for specified equipos
+     * Reconstrucción total de la lógica de Desanclaje desde cero.
+     * Desvincula equipos asegurando integridad bidireccional.
      */
     public function clearAnchor(Request $request)
     {
+        // 1. Validación estricta
         $request->validate([
-            'ids'   => 'required|array',
+            'ids'   => 'required|array|min:1',
             'ids.*' => 'exists:equipos,ID_EQUIPO',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // Clear anchors for provided IDs
-            Equipo::whereIn('ID_EQUIPO', $request->ids)->update(['ID_ANCLAJE' => null]);
+            // 2. Obtener los equipos iniciales
+            $equiposSeleccionados = Equipo::whereIn('ID_EQUIPO', $request->ids)->get();
+            $idsAfectados = [];
 
-            // También limpiar el recíproco: cualquier equipo que apunte DE VUELTA a estos IDs
-            // (garantiza consistencia si el partner no fue incluido en el arreglo)
-            Equipo::whereIn('ID_ANCLAJE', $request->ids)->update(['ID_ANCLAJE' => null]);
+            // 3. Recopilar explícitamente a compañeros de anclaje para limpiar a todos
+            foreach ($equiposSeleccionados as $equipo) {
+                if (!empty($equipo->ID_ANCLAJE)) {
+                    $idsAfectados[] = $equipo->ID_EQUIPO; // Yo
+                    $idsAfectados[] = $equipo->ID_ANCLAJE; // Mi compañero
+                }
+            }
+
+            $idsAfectados = array_unique(array_filter($idsAfectados));
+
+            if (empty($idsAfectados)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Los equipos seleccionados ya se encontraban desanclados.',
+                ], 400);
+            }
+
+            // 4. Limpieza exhaustiva a nivel de Base de Datos para los IDs afectados
+            Equipo::whereIn('ID_EQUIPO', $idsAfectados)
+                  ->update(['ID_ANCLAJE' => null]);
+            
+            // 5. Garantía de integridad: eliminar huérfanos que apunten a los IDs afectados
+            Equipo::whereIn('ID_ANCLAJE', $idsAfectados)
+                  ->update(['ID_ANCLAJE' => null]);
 
             DB::commit();
 
+            // 6. Reportar éxito limpio
             return response()->json([
                 'success' => true,
-                'message' => 'Anclaje eliminado con éxito.',
+                'message' => 'Desanclaje completado con éxito de forma definitiva.',
             ]);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('clearAnchor error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            Log::error('[clearAnchor] Fallo crítico: ' . $e->getMessage());
+            return response()->json([
+                'success' => false, 
+                'error' => 'Fallo interno al intentar desanclar. ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -2352,7 +2484,7 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'error' => 'Sin permisos'], 403);
         }
 
-        $equipo = Equipo::findOrFail($id);
+        $equipo = $this->findAndAuthorizeEquipo($id);
 
         $request->validate([
             'DETALLE_UBICACION_ACTUAL' => 'nullable|string|max:150',
@@ -2420,7 +2552,7 @@ class EquipoController extends Controller
 
     public function mobileShow($id)
     {
-        $eq = Equipo::with(['tipo', 'frenteActual', 'documentacion'])->findOrFail($id);
+        $eq = $this->findAndAuthorizeEquipo($id, ['tipo', 'frenteActual', 'documentacion']);
         return response()->json([
             'ID_EQUIPO'       => $eq->ID_EQUIPO,
             'CODIGO_PATIO'    => $eq->CODIGO_PATIO,

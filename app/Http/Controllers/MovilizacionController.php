@@ -200,7 +200,6 @@ class MovilizacionController extends Controller
             'ID_FRENTE_ORIGEN' => $origen,
             'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
             'FECHA_DESPACHO' => $now,
-            'FECHA_RECEPCION' => $now,
             'ESTADO_MVO' => 'RECIBIDO',
             'TIPO_MOVIMIENTO' => 'DESPACHO',
             'USUARIO_REGISTRO' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
@@ -362,7 +361,6 @@ class MovilizacionController extends Controller
             // 1. Actualizar movilización
             $mov->update([
                 'ESTADO_MVO' => 'RECIBIDO',
-                'FECHA_RECEPCION' => now(),
                 'DETALLE_UBICACION' => $request->DETALLE_UBICACION,
                 'USUARIO_RECEPCION' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
             ]);

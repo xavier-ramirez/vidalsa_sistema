@@ -256,137 +256,100 @@ function handleRowClick(e) {
 // NOTE: Event delegation to document allows these to work even after DOM changes
 document.addEventListener("click", handleRowClick);
 
-// ─── DESANCLAR EQUIPOS ──────────────────────────────────────────────────────
-
-window._unanchorRunning = false;
-
-window.unanchorEquipos = function (e) {
+// ─── DESANCLAR EQUIPOS (NUEVA LÓGICA DESDE CERO) ──────────────────────────────
+window.unanchorEquipos = async function (e) {
     if (e) { e.preventDefault(); e.stopPropagation(); }
 
-    // Evitar doble ejecución
-    if (window._unanchorRunning) return;
-
     const selections = Object.values(window.selectedEquipos || {});
-
+    
+    // 1. Validar que hay un elemento seleccionado
     if (selections.length === 0) {
-        window.showModal && window.showModal({
-            type: 'warning', title: 'Sin Selección',
-            message: 'Selecciona al menos un equipo anclado para desanclar.',
-            confirmText: 'Entendido', hideCancel: true
-        });
+        if (window.showModal) window.showModal({ type: 'warning', title: 'Sin Selección', message: 'Selecciona al menos un equipo para desanclar.', confirmText: 'Ok', hideCancel: true });
         return;
     }
 
-    // Recopilar IDs: el propio + su partner (anchorId)
-    const idSet = new Set();
-    selections.forEach(item => {
-        if (item.id) idSet.add(String(item.id));
-        if (item.anchorId && item.anchorId !== 'null' && item.anchorId !== '') {
-            idSet.add(String(item.anchorId));
-        }
+    // 2. Extraer equipos que tengan anclaje (ignorar los que no)
+    const equiposConAnclaje = selections.filter(item => item.anchorId && item.anchorId !== 'null' && String(item.anchorId).trim() !== '');
+
+    if (equiposConAnclaje.length === 0) {
+        if (window.showModal) window.showModal({ type: 'warning', title: 'Atención', message: 'Los equipos seleccionados no están anclados a nada.', confirmText: 'Ok', hideCancel: true });
+        return;
+    }
+
+    // 3. Recopilar IDs únicos (el propio equipo anclado y el destino del anclaje)
+    const idsToClear = new Set();
+    equiposConAnclaje.forEach(eq => {
+        if(eq.id) idsToClear.add(String(eq.id));
+        if(eq.anchorId) idsToClear.add(String(eq.anchorId));
     });
 
-    const ids = [...idSet];
-    console.log('[Desanclar] IDs a limpiar:', ids);
+    const idsArray = Array.from(idsToClear);
 
-    if (ids.length === 0) {
-        window.showModal && window.showModal({
-            type: 'warning', title: 'Sin Anclaje',
-            message: 'Los equipos seleccionados no tienen anclaje registrado.',
-            confirmText: 'Entendido', hideCancel: true
-        });
-        return;
-    }
-
-    // Ejecutar el fetch después de confirmar — patrón onConfirm directo (sin Promise wrapper)
-    const ejecutarDesancle = async function () {
-        window._unanchorRunning = true;
+    // 4. Función de ejecución
+    const executeUnanchor = async () => {
         if (window.showPreloader) window.showPreloader();
-
         try {
+            const token = document.querySelector('meta[name="csrf-token"]').content;
             const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
-            const csrf    = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const url = `${baseUrl}/admin/equipos/clear-anchor`;
 
-            const response = await fetch(`${baseUrl}/admin/equipos/clear-anchor`, {
+            const resp = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrf,
+                    'X-CSRF-TOKEN': token,
                     'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify({ ids }),
+                body: JSON.stringify({ ids: idsArray })
             });
 
             let data = {};
-            try { data = await response.json(); } catch (_) {}
+            try { data = await resp.json(); } catch(jsonError) {}
 
-            console.log('[Desanclar] Response status:', response.status, '| body:', data);
-
-            if (response.status === 419 || response.status === 401) {
-                window.location.reload(); return;
-            }
-
-            if (response.status === 422) {
-                if (window.hidePreloader) window.hidePreloader();
-                const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : (data.message || 'Validación fallida.');
-                window.showModal && window.showModal({ type: 'error', title: 'Error de Validación', message: firstError, confirmText: 'Entendido', hideCancel: true });
+            if (resp.status === 419 || resp.status === 401) {
+                window.location.reload();
                 return;
             }
 
-            if (!response.ok || !data.success) {
-                if (window.hidePreloader) window.hidePreloader();
-                window.showModal && window.showModal({ type: 'error', title: 'Error', message: data.error || data.message || 'No se pudo desanclar.', confirmText: 'Entendido', hideCancel: true });
-                return;
-            }
-
-            // ÉXITO — limpiar selección y anchorId del DOM inmediatamente
-            window.selectedEquipos = {};
-            document.querySelectorAll('.selected-row-maquinaria').forEach(r => r.classList.remove('selected-row-maquinaria'));
-
-            // Borrar anchorId del DOM para evitar datos stale antes del AJAX
-            ids.forEach(id => {
-                const btn = document.querySelector(`.btn-details-mini[data-equipo-id="${id}"]`);
-                if (btn) {
-                    btn.dataset.anchorId    = '';
-                    btn.dataset.anchorCode  = '';
-                    btn.dataset.anchorPlaca = '';
-                    btn.dataset.anchorSerial = '';
-                    btn.dataset.anchorRol   = '';
+            if (resp.ok && data.success) {
+                // EXITO: Limpieza absoluta
+                window.selectedEquipos = {};
+                
+                // Actualizar interfaz
+                document.querySelectorAll('.selected-row-maquinaria').forEach(el => el.classList.remove('selected-row-maquinaria'));
+                if (typeof updateSelectionUI === 'function') updateSelectionUI();
+                
+                // Refrescar tabla silenciosamente
+                if (typeof window.loadEquipos === 'function') {
+                    await window.loadEquipos(null, true); 
                 }
-            });
 
-            updateSelectionUI();
-
-            // Recargar tabla y mostrar toast al finalizar
-            if (window.loadEquipos) await window.loadEquipos(null, true);
-            if (window.hidePreloader) window.hidePreloader();
-            if (window.showToast) window.showToast('¡Desanclaje exitoso!', 'success');
-
-        } catch (err) {
-            console.error('[Desanclar] fetch error:', err);
-            if (window.hidePreloader) window.hidePreloader();
-            window.showModal && window.showModal({ type: 'error', title: 'Error de Red', message: 'No se pudo conectar con el servidor. Intenta de nuevo.', confirmText: 'Entendido', hideCancel: true });
+                if (window.showToast) window.showToast('Desanclaje completado con éxito', 'success');
+            } else {
+                throw new Error(data.message || data.error || 'Ocurrió un error en el servidor al intentar desanclar.');
+            }
+        } catch (error) {
+            console.error('[Desanclaje Error]:', error);
+            if (window.showModal) window.showModal({ type: 'error', title: 'Fallo al desanclar', message: error.message, confirmText: 'Ok', hideCancel: true });
         } finally {
-            window._unanchorRunning = false;
+            if (window.hidePreloader) window.hidePreloader();
         }
     };
 
-    // Mostrar modal de confirmación — ejecutarDesancle se llama solo si el usuario confirma
+    // 5. Confirmación con el UI que esté disponible
     if (window.showModal) {
         window.showModal({
             type: 'warning',
-            title: 'Desanclar Equipos',
-            message: `¿Eliminar el vínculo de anclaje de ${ids.length > 1 ? 'estos ' + ids.length + ' equipos' : 'este equipo'}?`,
-            confirmText: 'Sí, Desanclar',
+            title: 'Confirmar Acción',
+            message: '¿Estás seguro que deseas desanclar los equipos seleccionados? Se separarán de forma permanente.',
+            confirmText: 'Sí, desanclar',
             cancelText: 'Cancelar',
-            onConfirm: ejecutarDesancle,
-            onCancel: null,
+            onConfirm: executeUnanchor
         });
     } else {
-        // Fallback si el sistema modal no está disponible
-        if (confirm('¿Desanclar los equipos seleccionados?')) {
-            ejecutarDesancle();
+        if (confirm('¿Estás seguro que deseas desanclar los equipos seleccionados?')) {
+            executeUnanchor();
         }
     }
 };

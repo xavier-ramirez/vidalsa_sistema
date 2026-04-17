@@ -26,6 +26,8 @@ Estructura: overlay > modal-content > header + sub-header + body
                             <i class="material-icons" style="font-size: 15px; vertical-align: middle;">gps_fixed</i>
                             <span style="vertical-align: middle;">VER GPS EN VIVO</span>
                         </button>
+                        
+
                     </div>
                 </div>
                 <button type="button" onclick="closeDetailsModal(event)"
@@ -199,13 +201,13 @@ Estructura: overlay > modal-content > header + sub-header + body
                         <div id="responsable_form_container"
                             style="display: none; flex-direction: column; gap: 8px; font-size: 13px; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; max-width: 340px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">C&eacute;dula:</span>
-                                <input type="text" id="resp_cedula" placeholder="Ej: V-12345678" autocomplete="off"
+                                <span style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">Nombre:</span>
+                                <input type="text" id="resp_nombre" placeholder="Nombre completo" autocomplete="off"
                                     style="flex: 1; padding: 5px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 12px; outline: none; background: white; color: #0f172a;">
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">Nombre:</span>
-                                <input type="text" id="resp_nombre" placeholder="Nombre completo" autocomplete="off"
+                                <span style="color: #475569; font-weight: 600; white-space: nowrap; min-width: 90px;">C&eacute;dula:</span>
+                                <input type="text" id="resp_cedula" placeholder="Ej: V-12345678" autocomplete="off"
                                     style="flex: 1; padding: 5px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 12px; outline: none; background: white; color: #0f172a;">
                             </div>
                         </div>
