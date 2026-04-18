@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('viewport-content')
+@section('content')
 <style>
     .audit-table {
         width: 100%;
