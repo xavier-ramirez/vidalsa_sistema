@@ -1496,7 +1496,20 @@
     <script src="{{ asset('js/maquinaria/equipos_form.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_form.js')) }}"></script>
     @yield('extra_js')
     @include('partials.session_timeout')
-
-
+    <script>
+        // iOS / Android WebKit Font memory drop workaround
+        document.addEventListener("visibilitychange", function() {
+            if (document.visibilityState === 'visible' && document.fonts) {
+                document.fonts.load('1em "Material Icons"').then(() => {
+                    document.querySelectorAll('.material-icons').forEach(el => {
+                        const temp = el.style.display;
+                        el.style.display = 'none';
+                        el.offsetHeight; // trigger reflow
+                        el.style.display = temp;
+                    });
+                });
+            }
+        });
+    </script>
 </body>
 </html>
