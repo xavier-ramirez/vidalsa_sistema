@@ -153,7 +153,7 @@
             <a href="{{ route('consumibles.graficos') }}" class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}" style="display:flex; align-items:center;">
                 <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
             </a>
-            <a href="#" class="nav-link">Sección 6</a>
+            <a href="{{ route('historial-documentos.index') }}" class="nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">Auditoría PDFs</a>
         </nav>
 
         <div class="header-actions desktop-only">
@@ -217,8 +217,8 @@
         <a href="#" class="mobile-nav-link">
             <i class="material-icons">dashboard</i> Sección 5
         </a>
-        <a href="#" class="mobile-nav-link">
-            <i class="material-icons">analytics</i> Sección 6
+        <a href="{{ route('historial-documentos.index') }}" class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active-mobile' : '' }}">
+            <i class="material-icons">history</i> Auditoría PDFs
         </a>
         <a href="#" class="mobile-nav-link">
             <i class="material-icons">inventory</i> Sección 7

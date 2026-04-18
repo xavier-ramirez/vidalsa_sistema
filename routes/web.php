@@ -98,6 +98,9 @@ Route::middleware(['auth'])->group(function () {
 
 
 
+            // ── Auditoría Documental ─────────────────────────────────────────
+            Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
+
             // RUTA DE EMERGENCIA: REPARAR ESQUEMA BD
             // Requiere autenticación (heredada) + permiso explícito super.admin
             Route::get('system/force-fix-db/vidalsa123', function () {
