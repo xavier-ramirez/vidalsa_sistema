@@ -209,11 +209,11 @@
         <td colspan="6" class="table-empty-state">
             @if(request('search_query') || request('id_frente') || request('id_tipo'))
                 <i class="material-icons"
-                    style="font-size: 48px; display: block; margin-bottom: 10px; color: #cbd5e0;">search_off</i>
+                    style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">search_off</i>
                 No se encontraron equipos con los filtros aplicados.
             @else
                 <i class="material-icons"
-                    style="font-size: 48px; display: block; margin-bottom: 10px; color: #cbd5e0;">filter_alt</i>
+                    style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">filter_alt</i>
                 Seleccione un filtro para ver los equipos.
             @endif
         </td>
