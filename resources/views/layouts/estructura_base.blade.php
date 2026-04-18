@@ -1135,8 +1135,18 @@
 
                             const btnContainer = document.getElementById(containerId);
                             if (btnContainer) {
+                                let metaHtml = '';
+                                if (data.autor) {
+                                    const shortAutor = data.autor.includes('@') ? data.autor.split('@')[0] : data.autor;
+                                    metaHtml = `<div style="display:flex; flex-direction:column; align-items:flex-end; margin-right:8px; justify-content:center;">
+                                                    <span style="font-size:10px; color:#94a3b8; line-height: 1.1;">Por: <strong style="color:#64748b; font-weight:600;">${shortAutor}</strong></span>
+                                                    ${data.fecha ? `<span style="font-size:9px; color:#cbd5e1; font-weight:500;">${data.fecha}</span>` : ''}
+                                                </div>`;
+                                }
+
                                 btnContainer.innerHTML = `
-                                    <div class="pdf-btn-container">
+                                    <div class="pdf-btn-container" style="display:flex; align-items:center;">
+                                        ${metaHtml}
                                         <button type="button" 
                                             onclick="openPdfPreview('${data.link}', '${type}', '${label}', '${equipoId}')" 
                                             style="width: 36px; height: 36px; border-radius: 8px; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
@@ -1148,8 +1158,6 @@
                                     </div>
                                 `;
                             }
-
-
                             if (window.showToast) window.showToast('Documento actualizado exitosamente', 'success');
                             
                             // Refresh Dashboard Alerts if function exists

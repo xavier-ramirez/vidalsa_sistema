@@ -1467,7 +1467,13 @@ class EquipoController extends Controller
             if (ob_get_length())
                 ob_end_clean();
 
-            return response()->json(['success' => true, 'link' => $fullUrl, 'message' => 'Documento actualizado correctamente']);
+            return response()->json([
+                'success' => true, 
+                'link' => $fullUrl, 
+                'autor' => $uploadedBy,
+                'fecha' => \Carbon\Carbon::parse($uploadedAt)->format('d/m/y'),
+                'message' => 'Documento actualizado correctamente'
+            ]);
 
         } catch (\Exception $e) {
             Log::error('Error subiendo archivo a Google Drive: ' . $e->getMessage());
