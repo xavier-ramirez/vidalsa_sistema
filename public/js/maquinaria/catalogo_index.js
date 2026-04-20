@@ -362,7 +362,15 @@ if (!window.catalogoPaginationAttached) {
 }
 
 // Register with Module Manager for SPA compatibility
-ModuleManager.register('catalogo',
-    () => document.getElementById('catalogoTableBody') !== null,
-    initCatalogo
-);
+if (typeof ModuleManager !== 'undefined') {
+    ModuleManager.register('catalogo',
+        () => document.getElementById('catalogoTableBody') !== null,
+        initCatalogo
+    );
+} else {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCatalogo);
+    } else {
+        initCatalogo();
+    }
+}

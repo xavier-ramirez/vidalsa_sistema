@@ -184,13 +184,14 @@ if (typeof ModuleManager !== 'undefined') {
         () => document.getElementById('usuariosTableBody') !== null,
         initUsuarios
     );
-}
-
-// Listen for SPA navigation to reinitialize module
-window.addEventListener('spa:contentLoaded', function () {
-    if (document.getElementById('usuariosTableBody')) {
+} else {
+    // Fallback if ModuleManager is not present
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initUsuarios);
+    } else {
         initUsuarios();
     }
-});
+}
 
 // confirmDelete and closeDeleteModal removed - using global versions in uicomponents.js
+

@@ -1454,15 +1454,12 @@ function initEquipos() {
     updateSelectionUI();
 }
 
-// Listen for SPA navigation to reinitialize module and clear selections if leaving
+// Listen for SPA navigation to clear selections if leaving
 window.addEventListener("spa:contentLoaded", function () {
     const isOnEquiposPage =
         document.getElementById("equiposTableBody") !== null;
 
-    if (isOnEquiposPage) {
-        // Reinitialize module when navigating TO equipos
-        initEquipos();
-    } else if (
+    if (!isOnEquiposPage &&
         window.selectedEquipos &&
         Object.keys(window.selectedEquipos).length > 0
     ) {
@@ -1548,8 +1545,16 @@ window.handleCreateCheck = function (event) {
 // [End of dashboard cleanup]
 
 // Register with Module Manager for SPA compatibility
-ModuleManager.register(
-    "equipos",
-    () => document.getElementById("equiposTableBody") !== null,
-    initEquipos,
-);
+if (typeof ModuleManager !== 'undefined') {
+    ModuleManager.register(
+        "equipos",
+        () => document.getElementById("equiposTableBody") !== null,
+        initEquipos,
+    );
+} else {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initEquipos);
+    } else {
+        initEquipos();
+    }
+}

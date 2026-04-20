@@ -658,11 +658,13 @@ window.clearFilter = function (filterName) {
 // Register with Module Manager
 // Since we use Event Delegation now, we don't need to re-attach listeners on navigation!
 // This makes the app much lighter and faster.
-ModuleManager.register(
-    "uicomponents",
-    () => false, // Return false prevents re-initialization since it's now globally handled
-    () => { }, // No-op initializer
-);
+if (typeof ModuleManager !== 'undefined') {
+    ModuleManager.register(
+        "uicomponents",
+        () => false, // Return false prevents re-initialization since it's now globally handled
+        () => { }, // No-op initializer
+    );
+}
 
 // Global Frentes Search Function (Called via inline attributes for SPA robustness)
 window.searchFrentes = function (input) {

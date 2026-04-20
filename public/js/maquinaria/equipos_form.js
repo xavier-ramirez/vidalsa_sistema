@@ -447,21 +447,11 @@ if (typeof ModuleManager !== 'undefined') {
         () => document.getElementById('createEquipoForm') !== null || document.getElementById('editEquipoForm') !== null,
         initEquiposForm
     );
-}
-
-// Standard Init (Fallback/Primary)
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initEquiposForm);
 } else {
-    initEquiposForm();
-}
-
-// Listen for SPA navigation to reset handler flag
-window.addEventListener('spa:contentLoaded', function () {
-    const form = document.getElementById('createEquipoForm') || document.getElementById('editEquipoForm');
-    if (form) {
-        // Reset flag to allow reinitialization
-        form.dataset.handlerAttached = null;
+    // Fallback if ModuleManager is not present
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initEquiposForm);
+    } else {
         initEquiposForm();
     }
-});
+}
