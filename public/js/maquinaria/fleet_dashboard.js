@@ -684,7 +684,22 @@ window.descargarPanelHtmlFDM = function(panelId, nombre) {
         alert('El panel no est├í visible.'); return;
     }
     if (typeof html2canvas === 'undefined') {
-        alert('La librer├¡a de captura a├║n est├í cargando. Int├®ntalo en unos segundos.'); return;
+        // Guard: avoid injecting the script more than once (rapid clicks protection)
+        const existingSrc = (document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '') + '/js/html2canvas.min.js';
+        if (document.querySelector(`script[src="${existingSrc}"]`)) return; // already loading, wait
+        if (window.showPreloader) window.showPreloader();
+        const script = document.createElement('script');
+        script.src = existingSrc;
+        script.onload = () => {
+            if (window.hidePreloader) window.hidePreloader();
+            window.descargarPanelHtmlFDM(panelId, nombre);
+        };
+        script.onerror = () => {
+            if (window.hidePreloader) window.hidePreloader();
+            alert('Error al cargar la librería de captura.');
+        };
+        document.head.appendChild(script);
+        return;
     }
     const fecha = new Date().toISOString().slice(0, 10);
     html2canvas(el, {

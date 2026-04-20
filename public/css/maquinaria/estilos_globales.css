@@ -1949,6 +1949,18 @@ input:-webkit-autofill:active {
     font-size: 14px;
 }
 
+.btn-bulk-clear {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+}
+
 .btn-bulk-action {
     background: #0067b1;
     color: white;
@@ -1965,6 +1977,49 @@ input:-webkit-autofill:active {
 .btn-bulk-action:hover {
     background: #005a9c;
     transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+    .selection-floating-bar {
+        width: 92%;
+        padding: 8px 12px;
+        gap: 8px;
+        border-radius: 12px;
+        justify-content: space-between;
+    }
+    
+    .selection-floating-bar .selection-counter {
+        gap: 4px;
+        font-size: 12px;
+    }
+
+    .selection-floating-bar .selection-counter .material-icons {
+        font-size: 14px !important;
+    }
+
+    .selection-floating-bar > div:last-child {
+        gap: 4px !important;
+    }
+    
+    .btn-bulk-action {
+        padding: 8px 12px;
+        font-size: 11px;
+        gap: 0;
+        border-radius: 8px;
+    }
+
+    .btn-bulk-action i.material-icons {
+        font-size: 18px !important;
+    }
+
+    /* Ocultar texto en móviles, dejar solo íconos */
+    .selection-floating-bar .desktop-text {
+        display: none !important;
+    }
+
+    .btn-bulk-clear {
+        padding: 8px 12px !important;
+    }
 }
 
 /* --- RESPONSIVE DETAILS MODAL GRID --- */

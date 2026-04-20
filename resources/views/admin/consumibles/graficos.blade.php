@@ -457,17 +457,6 @@
     </script>
 
     {{-- TARJETAS RESUMEN --}}
-    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
-        <span style="font-size:14px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
-            <i class="material-icons" style="color:#0067b1; font-size:18px;">analytics</i>
-            Resumen General
-        </span>
-        <button onclick="descargarPanelResumen('resumen_general')" title="Descargar imagen"
-            style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
-            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-            <i class="material-icons" style="font-size:17px;">photo_camera</i>
-        </button>
-    </div>
     <div class="resumen-grid" id="resumenGrid">
         <div class="loading-overlay" style="width:100%;">
             <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...
@@ -918,7 +907,12 @@
             }
             grid.innerHTML = datos.map(d => {
                 return `
-            <div class="resumen-card">
+            <div class="resumen-card" style="position:relative; padding-right:40px;">
+                <button onclick="descargarPanelResumen('resumen_general')" title="Descargar imagen"
+                    style="position:absolute; top:8px; right:8px; border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px;border-radius:8px;transition:background .2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
                 <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.2;">
                     <span style="font-size:28px; font-weight:800; color:#fff;">
                         ${parseFloat(d.total).toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
@@ -1800,7 +1794,19 @@
                 alert('El panel no está visible. Aplica los filtros primero.'); return;
             }
             if (typeof html2canvas === 'undefined') {
-                alert('La librería de captura aún está cargando. Inténtalo en unos segundos.'); return;
+                if (window.showPreloader) window.showPreloader();
+                const script = document.createElement('script');
+                script.src = "{{ asset('js/html2canvas.min.js') }}";
+                script.onload = () => {
+                    if (window.hidePreloader) window.hidePreloader();
+                    capturaPanelHtml(panelId, nombre, callbackClone);
+                };
+                script.onerror = () => {
+                    if (window.hidePreloader) window.hidePreloader();
+                    alert('Error al cargar la librería de captura. Revisa tu conexión.');
+                };
+                document.head.appendChild(script);
+                return;
             }
             const fecha = new Date().toISOString().slice(0, 10);
             html2canvas(el, {

@@ -182,6 +182,20 @@ function initEquiposForm() {
         const summary = document.getElementById('errorSummary');
         if (summary) summary.style.display = 'none';
 
+        // Resolve button references from dataset (set by the submit listener before calling us)
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnContent = form.dataset.originalBtnContent || '';
+
+        /** Restore the submit button to its original state */
+        const restoreBtn = () => {
+            if (submitBtn && originalBtnContent) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnContent;
+                submitBtn.style.width = '';
+            }
+            form.dataset.isSubmitting = 'false';
+        };
+
         // C. Client Validation
         let hasEmpty = false;
 
@@ -215,29 +229,15 @@ function initEquiposForm() {
 
         const invalidInputs = form.querySelectorAll('.is-invalid');
         if (hasEmpty || invalidInputs.length > 0) {
-            // Hide preloader — already shown on button click, now we cancel submission
             if (window.hidePreloader) window.hidePreloader();
             showGlobalSummary();
+            restoreBtn();
             return;
         }
 
-        // D. Submit - Only show preloader if not already shown
+        // D. Submit — preloader was already shown by the submit listener
         if (!skipPreloader && typeof window.showPreloader === 'function') {
             window.showPreloader();
-        }
-
-        // Lock submit button & Add Spinner
-        const submitBtn = form.querySelector('button[type="submit"]');
-        let originalBtnContent = '';
-
-        if (submitBtn) {
-            originalBtnContent = submitBtn.innerHTML;
-            submitBtn.style.width = submitBtn.offsetWidth + 'px'; // Maintain width
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `
-                <i class="material-icons" style="font-size: 18px; animation: spin 1s infinite linear; display: inline-block; vertical-align: middle; margin-right: 5px;">sync</i>
-                Procesando...
-            `;
         }
 
         const formData = new FormData(form);
@@ -247,7 +247,7 @@ function initEquiposForm() {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token\"]').getAttribute('content')
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
             body: formData
         })
@@ -256,21 +256,20 @@ function initEquiposForm() {
                 if (window.hidePreloader) window.hidePreloader();
 
                 if (status === 200 || status === 201) {
-                    // DETECT MODE: If editing, redirect to index. If creating, reset form.
                     const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
 
                     if (isEdit) {
-                        // Notificación toast + redirección
                         if (typeof window.showToast === 'function') {
                             window.showToast(body.message || 'Equipo actualizado correctamente.', 'success');
                         }
-                        setTimeout(() => { window.location.href = '/admin/equipos'; }, 1200);
+                        const referrer = document.referrer;
+                        const isFromEquipos = referrer && referrer.includes('/admin/equipos');
+                        const backUrl = isFromEquipos ? referrer : '/admin/equipos';
+                        setTimeout(() => { window.location.href = backUrl; }, 1200);
                     } else {
-                        // CREATE MODE: Reset form immediately (before showing modal)
-                        // 1. Standard Form Reset
+                        // CREATE MODE: Reset form
                         form.reset();
 
-                        // 2. Clear Visual Elements (Custom Dropdowns)
                         form.querySelectorAll('.custom-dropdown').forEach(dropdown => {
                             const input = dropdown.querySelector('input[type="hidden"]');
                             const label = dropdown.querySelector('[data-filter-label]');
@@ -279,54 +278,43 @@ function initEquiposForm() {
                             dropdown.classList.remove('active', 'is-invalid');
                         });
 
-                        // 3. Clear autocomplete inputs (Marca/Modelo)
                         form.querySelectorAll('.custom-form-autocomplete input[type="text"]').forEach(input => {
                             input.value = '';
                         });
 
-                        // 4. Ensure Text Inputs are Empty (Browser consistency)
                         form.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(input => {
                             input.value = '';
                         });
 
-                        // 5. Clear Validation Visuals
                         form.querySelectorAll('.error-message-inline').forEach(el => el.remove());
                         form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                        
-                        // 6. Clear Flatpickr calendars
+
                         form.querySelectorAll('.flatpickr-input').forEach(input => {
                             if (input._flatpickr) input._flatpickr.clear();
                         });
 
-                        // 7. Clear Previsualizations & File buttons natively
                         form.querySelectorAll('[id^="file_"]').forEach(el => el.style.display = 'none');
-                        
+
                         form.querySelectorAll('input[type="file"]').forEach(input => {
                             if (window.updatePdfBtn && input.dataset.metaTarget) {
-                                // Trigger empty change to revert wrapper to Add button state
                                 input.dispatchEvent(new Event('change'));
                             }
                         });
-                        
+
                         const imgPreview = document.getElementById('preview_equipo');
                         if (imgPreview) {
                             imgPreview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
                             imgPreview.style.borderColor = '#cbd5e0';
                         }
 
-                        // 6. Reset button
-                        if (submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = originalBtnContent;
-                        }
+                        // Restore button after successful create
+                        restoreBtn();
 
-                        // 7. Reset lastChecked data (for uniqueness validation)
                         form.querySelectorAll('[data-last-checked]').forEach(input => {
                             delete input.dataset.lastChecked;
                             delete input.dataset.isDuplicate;
                         });
 
-                        // 8. Reset Catalog Linking Widget
                         if (typeof window.catalogReset === 'function') {
                             window.catalogReset();
                         } else if (typeof window.ignoreCatalogSuggestion === 'function') {
@@ -335,19 +323,13 @@ function initEquiposForm() {
 
                         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-                        // Toast tradicional de éxito (igual que al anclar)
                         if (typeof window.showToast === 'function') {
                             window.showToast(body.message || '¡Equipo registrado correctamente!', 'success');
                         }
                     }
                 } else if (status === 422) {
+                    restoreBtn();
 
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalBtnContent;
-                    }
-
-                    // FIX 3: Server-to-Client error mapping (handle dropdown prefixes)
                     const serverToClientMap = {
                         'TIPO_EQUIPO': 'input_tipo_equipo',
                         'CATEGORIA_FLOTA': 'input_categoria_flota',
@@ -355,7 +337,6 @@ function initEquiposForm() {
                         'ESTADO_OPERATIVO': 'input_estatus'
                     };
 
-                    let errorsDisplayed = 0;
                     Object.entries(body.errors).forEach(([field, msgs]) => {
                         const inputId = serverToClientMap[field] || field;
                         let input = document.getElementById(inputId) || form.querySelector(`[name="${field}"]`);
@@ -366,10 +347,7 @@ function initEquiposForm() {
                             input = form.querySelector(`[name="${bracketName}"]`);
                         }
 
-                        if (input) {
-                            showFieldError(input, msgs[0]);
-                            errorsDisplayed++;
-                        }
+                        if (input) showFieldError(input, msgs[0]);
                     });
 
                     showGlobalSummary();
@@ -379,10 +357,7 @@ function initEquiposForm() {
             })
             .catch(err => {
                 if (window.hidePreloader) window.hidePreloader();
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnContent;
-                }
+                restoreBtn();
                 console.error(err);
                 if (typeof window.showModal === 'function') window.showModal({ type: 'error', title: 'Error', message: 'Ocurrió un error inesperado.', confirmText: 'Cerrar', hideCancel: true });
             });
@@ -392,7 +367,23 @@ function initEquiposForm() {
         e.preventDefault();
         e.stopPropagation();
 
-        // Mostrar spinner SIEMPRE que se presione el botón guardar
+        if (form.dataset.isSubmitting === 'true') return;
+        form.dataset.isSubmitting = 'true';
+
+        // Lock submit button & Add Spinner IMMEDIATELY so the user sees it reacting
+        const submitBtn = form.querySelector('button[type="submit"]');
+        let originalBtnContent = '';
+        if (submitBtn) {
+            originalBtnContent = submitBtn.innerHTML;
+            submitBtn.style.width = submitBtn.offsetWidth + 'px';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <i class="material-icons" style="font-size: 18px; animation: spin 1s infinite linear; display: inline-block; vertical-align: middle; margin-right: 5px;">sync</i>
+                Procesando...
+            `;
+        }
+
+        // Mostrar preloader de pantalla completa
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
         // 0. Permission Check
@@ -401,6 +392,11 @@ function initEquiposForm() {
 
         if (typeof canSubmit === 'undefined' || canSubmit === false) {
             if (window.hidePreloader) window.hidePreloader();
+            form.dataset.isSubmitting = 'false';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnContent;
+            }
             if (window.showModal) {
                 showModal({
                     type: 'error',
@@ -415,23 +411,31 @@ function initEquiposForm() {
             return;
         }
 
+        // Helper to run executeSubmission but restore button if validation fails inside it
+        const safeExecute = (skipPreloader) => {
+            // We pass originalBtnContent to executeSubmission so it can restore it
+            form.dataset.originalBtnContent = originalBtnContent;
+            executeSubmission(skipPreloader);
+        };
+
         // A. Pending Validation Check (Wait Mode)
         const pendingValidations = () => Array.from(form.querySelectorAll('.validation-loader')).filter(el => el.style.display !== 'none');
 
         if (pendingValidations().length > 0) {
-            // Poll for completion (preloader ya está visible)
             const checkInterval = setInterval(() => {
                 if (pendingValidations().length === 0) {
                     clearInterval(checkInterval);
-                    // Proceed with skipPreloader=true para no mostrarlo de nuevo
-                    executeSubmission(true);
+                    safeExecute(true);
                 }
             }, 100);
             return;
         }
 
-        // Proceed immediately — skipPreloader=true porque ya lo mostramos arriba
-        executeSubmission(true);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                safeExecute(true);
+            });
+        });
     });
 
     form.dataset.handlerAttached = "true";

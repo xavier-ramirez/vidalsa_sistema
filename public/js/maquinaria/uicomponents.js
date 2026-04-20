@@ -899,20 +899,10 @@ window.showDetailsImproved = function (target, event) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        let metaHtml = '';
-        if (autor) {
-            const shortAutor = autor.includes('@') ? autor.split('@')[0] : autor;
-            metaHtml = `<div style="display:flex; flex-direction:column; align-items:flex-end; margin-right:8px; justify-content:center;">
-                            <span style="font-size:10px; color:#94a3b8; line-height: 1.1;">Por: <strong style="color:#64748b; font-weight:600;">${shortAutor}</strong></span>
-                            ${fecha ? `<span style="font-size:9px; color:#cbd5e1; font-weight:500;">${fecha}</span>` : ''}
-                        </div>`;
-        }
-
         if (isValid(link)) {
             // PDF existe — solo botón de Ver
             container.innerHTML = `
                 <div class="pdf-btn-container" style="display:flex; align-items:center;">
-                    ${metaHtml}
                     <button type="button"
                         onclick="event.stopPropagation(); openPdfPreview('${link}', '${type}', '${label}', '${equipoId}')"
                         style="background: none; border: none; padding: 0; cursor: default; display: flex; align-items: center; justify-content: center;"

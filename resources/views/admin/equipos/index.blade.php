@@ -567,20 +567,21 @@
     </div>
     <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2);"></div>
     <div style="display: flex; gap: 10px;">
-        <button type="button" onclick="clearSelection(event)" style="background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
-            Limpiar
+        <button type="button" onclick="clearSelection(event)" class="btn-bulk-clear" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+            <i class="material-icons" style="font-size: 18px;">clear_all</i>
+            <span class="desktop-text">Limpiar</span>
         </button>
         <button type="button" id="btnAnclar" onclick="openAnchorModal(event)" class="btn-bulk-action" style="background: #10b981;">
             <i class="material-icons" style="font-size: 18px;">anchor</i>
-            Anclar
+            <span class="desktop-text">Anclar</span>
         </button>
         <button type="button" id="btnUnanchor" onclick="unanchorEquipos(event)" class="btn-bulk-action" style="background: #ef4444; display: none;">
             <i class="material-icons" style="font-size: 18px;">link_off</i>
-            Desanclar
+            <span class="desktop-text">Desanclar</span>
         </button>
         <button type="button" onclick="openBulkModal(event)" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
-            Asignar
+            <span class="desktop-text">Asignar</span>
         </button>
     </div>
 </div>
