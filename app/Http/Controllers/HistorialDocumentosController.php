@@ -145,6 +145,13 @@ class HistorialDocumentosController extends Controller
 
     public function unlockIp($id)
     {
+        if (!auth()->user()->can('super.admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tienes permiso para realizar esta acción.'
+            ], 403);
+        }
+
         try {
             $bloqueo = BloqueoIp::findOrFail($id);
             $ip = $bloqueo->DIRECCION_IP;

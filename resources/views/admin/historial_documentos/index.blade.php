@@ -182,7 +182,7 @@
         </div>
 
         <!-- IPs Bloqueadas Card -->
-        @if(isset($blockedIps) && $blockedIps->count() > 0)
+        @if(isset($blockedIps) && $blockedIps->count() > 0 && auth()->check() && auth()->user()->can('super.admin'))
         <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" id="blocked-ips-container">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -199,7 +199,7 @@
                         <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
                         <span style="font-size: 11px; color: #64748b;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
                     </div>
-                    <button onclick="unlockIp({{ $ip->ID_BLOQUEO }}, '{{ $ip->DIRECCION_IP }}')" 
+                    <button onclick="window.unlockIp({{ $ip->ID_BLOQUEO }}, '{{ $ip->DIRECCION_IP }}')" 
                             style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center;" 
                             onmouseover="this.style.background='#fee2e2'" 
                             onmouseout="this.style.background='transparent'" 
@@ -260,7 +260,12 @@
 </style>
 
 <script>
-    function unlockIp(id, ipAddress) {
+    window.unlockIp = function(id, ipAddress) {
+        if (typeof window.showModal !== 'function') {
+            console.error("showModal no está definido");
+            return;
+        }
+        
         window.showModal({
             type: 'warning',
             title: 'Desbloquear IP',
@@ -318,7 +323,7 @@
                 }
             }
         });
-    }
+    };
 </script>
 
 @endsection
