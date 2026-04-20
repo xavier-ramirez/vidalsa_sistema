@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Documentacion;
+use App\Models\BloqueoIp;
 use Carbon\Carbon;
 
 class HistorialDocumentosController extends Controller
@@ -124,6 +125,9 @@ class HistorialDocumentosController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        // Fetch blocked IPs
+        $blockedIps = BloqueoIp::orderBy('ULTIMO_INTENTO', 'desc')->get();
+
         if ($request->wantsJson()) {
             return response()->json([
                 'html' => view('admin.historial_documentos.partials.table_rows', ['events' => $paginatedEvents])->render(),
@@ -132,6 +136,29 @@ class HistorialDocumentosController extends Controller
             ]);
         }
 
-        return view('admin.historial_documentos.index', ['events' => $paginatedEvents, 'total' => $total]);
+        return view('admin.historial_documentos.index', [
+            'events' => $paginatedEvents, 
+            'total' => $total,
+            'blockedIps' => $blockedIps
+        ]);
+    }
+
+    public function unlockIp($id)
+    {
+        try {
+            $bloqueo = BloqueoIp::findOrFail($id);
+            $ip = $bloqueo->DIRECCION_IP;
+            $bloqueo->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => "La IP {$ip} ha sido desbloqueada exitosamente."
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al desbloquear la IP.'
+            ], 500);
+        }
     }
 }

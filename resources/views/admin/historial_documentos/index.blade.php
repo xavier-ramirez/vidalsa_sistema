@@ -180,6 +180,37 @@
                 </div>
             </div>
         </div>
+
+        <!-- IPs Bloqueadas Card -->
+        @if(isset($blockedIps) && $blockedIps->count() > 0)
+        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" id="blocked-ips-container">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="color: #ef4444; font-size: 20px;">gpp_bad</i>
+                    <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
+                </div>
+                <span class="badge" style="background: #fee2e2; color: #ef4444; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $blockedIps->count() }}</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                @foreach($blockedIps as $ip)
+                <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
+                        <span style="font-size: 11px; color: #64748b;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
+                    </div>
+                    <button onclick="unlockIp({{ $ip->ID_BLOQUEO }}, '{{ $ip->DIRECCION_IP }}')" 
+                            style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center;" 
+                            onmouseover="this.style.background='#fee2e2'" 
+                            onmouseout="this.style.background='transparent'" 
+                            title="Desbloquear IP">
+                        <i class="material-icons" style="font-size: 18px;">delete_outline</i>
+                    </button>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
     </div>
 </div>
 
@@ -227,5 +258,67 @@
         border-right-color: #93c5fd !important;
     }
 </style>
+
+<script>
+    function unlockIp(id, ipAddress) {
+        window.showModal({
+            type: 'warning',
+            title: 'Desbloquear IP',
+            message: `¿Estás seguro de que deseas desbloquear la IP <strong>${ipAddress}</strong>?`,
+            confirmText: 'Sí, Desbloquear',
+            cancelText: 'Cancelar',
+            onConfirm: async () => {
+                if (window.showPreloader) window.showPreloader();
+                
+                try {
+                    const response = await fetch(`/admin/historial-documentos/unlock-ip/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (window.hidePreloader) window.hidePreloader();
+                    
+                    if (data.success) {
+                        window.showToast(data.message, 'success');
+                        
+                        // Remover el elemento del DOM con animación
+                        const ipElement = document.getElementById(`blocked-ip-${id}`);
+                        if (ipElement) {
+                            ipElement.style.opacity = '0';
+                            ipElement.style.transform = 'translateX(10px)';
+                            setTimeout(() => {
+                                ipElement.remove();
+                                
+                                // Actualizar contador
+                                const countElement = document.getElementById('blocked-ip-count');
+                                if (countElement) {
+                                    let currentCount = parseInt(countElement.innerText);
+                                    if (currentCount > 1) {
+                                        countElement.innerText = currentCount - 1;
+                                    } else {
+                                        // Si era la última IP, ocultar todo el contenedor
+                                        const container = document.getElementById('blocked-ips-container');
+                                        if (container) container.style.display = 'none';
+                                    }
+                                }
+                            }, 300);
+                        }
+                    } else {
+                        window.showToast(data.message || 'Error al desbloquear la IP', 'error');
+                    }
+                } catch (error) {
+                    if (window.hidePreloader) window.hidePreloader();
+                    console.error('Error unlocking IP:', error);
+                    window.showToast('Error de red al intentar desbloquear la IP', 'error');
+                }
+            }
+        });
+    }
+</script>
 
 @endsection
