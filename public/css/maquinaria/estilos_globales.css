@@ -1934,11 +1934,13 @@ input:-webkit-autofill:active {
     z-index: 1000;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     opacity: 0;
+    pointer-events: none;
 }
 
 .selection-floating-bar.active {
     transform: translateX(-50%) translateY(0);
     opacity: 1;
+    pointer-events: all;
 }
 
 .selection-counter {

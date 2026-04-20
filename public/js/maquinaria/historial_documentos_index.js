@@ -302,18 +302,17 @@ window.unlockIp = function(id, ipAddress) {
     });
 };
 
-// Delegado de eventos para botones .btn-unlock-ip (evita problemas con onclick inline + SPA)
+// Delegado de eventos para botones .btn-unlock-ip
 if (!window._hdIpClickRegistered) {
     window._hdIpClickRegistered = true;
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('.btn-unlock-ip');
         if (!btn) return;
-        e.stopPropagation();
         var id = btn.dataset.ipId;
         var ip = btn.dataset.ipAddress;
         if (id && ip) {
             window.unlockIp(id, ip);
         }
-    }, true); // useCapture=true para interceptar ANTES que cualquier otro listener
+    });
 }
 
