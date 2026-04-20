@@ -171,7 +171,10 @@
                         class="nav-dropdown-link {{ request()->is('admin/catalogo*') ? 'active' : '' }}">
                         <i class="material-icons">menu_book</i> Catálogo de Modelos
                     </a>
-
+                    <a href="{{ route('historial-documentos.index') }}"
+                        class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
+                        <i class="material-icons">fact_check</i> Control de Auditoría
+                    </a>
                 </div>
             </div>
 
@@ -180,9 +183,6 @@
                 style="display:flex; align-items:center;">
                 <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
             </a>
-            <a href="{{ route('historial-documentos.index') }}"
-                class="nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">Control de
-                Auditoría</a>
         </nav>
 
         <div class="header-actions desktop-only">

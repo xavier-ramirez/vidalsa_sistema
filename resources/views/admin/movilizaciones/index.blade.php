@@ -341,8 +341,8 @@ window._eliminarSeleccionados = function () {
     }
 
     const msg = ids.length === 1
-        ? 'Se eliminará 1 registro de movilización de forma permanente.'
-        : 'Se eliminarán ' + ids.length + ' registros de movilización de forma permanente.';
+        ? 'Se eliminará 1 registro de movilización.'
+        : 'Se eliminarán ' + ids.length + ' registros de movilización.';
 
     const doDelete = function () {
         const csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
@@ -362,30 +362,54 @@ window._eliminarSeleccionados = function () {
 
                 if (failed.length === 0) {
                     if (window.showToast) window.showToast('Registros eliminados correctamente.', 'success');
-                    else if (window.showModal) window.showModal({ type: 'success', title: '¡Eliminados!', message: 'Todos los registros fueron eliminados.', hideCancel: true });
+                    else alert('Todos los registros fueron eliminados correctamente.');
                 } else {
-                    if (window.showModal) window.showModal({ type: 'warning', title: 'Parcialmente eliminado', message: (ids.length - failed.length) + ' eliminados. ' + failed.length + ' no se pudo(ron) eliminar.', hideCancel: true });
+                    alert('Parcialmente eliminado: ' + (ids.length - failed.length) + ' eliminados. ' + failed.length + ' fallaron.');
                 }
             })
             .catch(function (err) {
                 console.error('[Movilizaciones] Error batch delete:', err);
-                if (window.showModal) window.showModal({ type: 'error', title: 'Error de Red', message: 'No se pudo conectar con el servidor.', hideCancel: true });
-                else alert('Error de red al eliminar.');
+                alert('Error de red al intentar eliminar los registros.');
             });
     };
 
-    if (window.showModal) {
-        window.showModal({
-            type: 'warning',
-            title: '¿Eliminar registros seleccionados?',
-            message: msg + ' Esta acción no se puede deshacer.',
-            confirmText: 'Sí, eliminar',
-            cancelText: 'Cancelar',
-            onConfirm: doDelete
-        });
-    } else {
-        if (confirm(msg + ' ¿Deseas continuar?')) doDelete();
-    }
+    // UI Anti-Bloqueo: Limpiar cualquier modal previo para no duplicar en el DOM
+    const oldModal = document.getElementById('bulkDeleteConfirmModal');
+    if (oldModal) oldModal.remove();
+
+    const modalHtml = `
+        <div id="bulkDeleteConfirmModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:99999; display:flex; justify-content:center; align-items:center; opacity:0; transition:opacity 0.2s;">
+            <div style="background:white; padding:25px; border-radius:12px; width:90%; max-width:400px; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.2); transform:translateY(-20px); transition:transform 0.2s;">
+                <div style="background:#fee2e2; width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin:0 auto 15px auto;">
+                    <i class="material-icons" style="color:#ef4444; font-size:28px;">warning</i>
+                </div>
+                <h3 style="margin:0 0 10px 0; font-size:18px; color:#1e293b; font-weight:700;">¿Eliminar registros?</h3>
+                <p style="margin:0 0 20px 0; color:#64748b; font-size:14px; line-height:1.4;">${msg}<br><strong>Esta acción no se puede deshacer.</strong></p>
+                <div style="display:flex; justify-content:center; gap:10px;">
+                    <button type="button" onclick="const m = document.getElementById('bulkDeleteConfirmModal'); if(m) m.remove();" style="padding:10px 20px; border-radius:8px; border:1px solid #cbd5e1; background:white; color:#64748b; font-weight:600; cursor:pointer;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">Cancelar</button>
+                    <button type="button" id="btnConfirmBulkDelete" style="padding:10px 20px; border-radius:8px; border:none; background:#ef4444; color:white; font-weight:600; cursor:pointer;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Iniciar animación de entrada
+    setTimeout(() => {
+        const m = document.getElementById('bulkDeleteConfirmModal');
+        if(m) { m.style.opacity = '1'; m.children[0].style.transform = 'translateY(0)'; }
+    }, 10);
+
+    // Bind event del botón Eliminar
+    document.getElementById('btnConfirmBulkDelete').onclick = function() {
+        const preloader = document.getElementById('preloader');
+        if (preloader) preloader.style.display = 'flex';
+        
+        doDelete();
+        
+        setTimeout(() => { const m = document.getElementById('bulkDeleteConfirmModal'); if(m) m.remove(); }, 100);
+    };
 };
 </script>
 @endcan
