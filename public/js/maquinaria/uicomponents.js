@@ -1311,37 +1311,11 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
 
 /**
  * Global Preloader Management
- * Reuses the existing #preloader element from estructura_base.blade.php
- * to avoid DOM duplication and maintain consistency.
+ * NOTE: showPreloader / hidePreloader are defined authoritatively in
+ * estructura_base.blade.php and wrapped by navegacion.js anti-freeze guard.
+ * Do NOT redefine them here — that would break the guard.
  */
-window.showPreloader = function () {
-    const preloader = document.getElementById("preloader");
-    if (preloader) {
-        // Remove fade-out class if present
-        preloader.classList.remove("fade-out");
-
-        // Make visible immediately
-        preloader.style.display = "flex";
-        preloader.style.opacity = "1";
-        preloader.style.visibility = "visible";
-        preloader.style.zIndex = "99999";
-    }
-};
-
-window.hidePreloader = function () {
-    const preloader = document.getElementById("preloader");
-    if (preloader) {
-        // Add fade-out class for smooth transition
-        preloader.classList.add("fade-out");
-
-        // Hide after transition completes (500ms as defined in CSS)
-        setTimeout(() => {
-            if (preloader.classList.contains("fade-out")) {
-                preloader.style.display = "none";
-            }
-        }, 500);
-    }
-};
+// (showPreloader and hidePreloader intentionally NOT redefined here)
 
 /**
  * showToast - Lightweight notification system

@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cuando el usuario regresa a la pestaña después de tenerla en segundo plano,
     // el browser puede haber "pausado" las animaciones y el spinner puede quedar
     // visualmente atascado. Este handler lo limpia automáticamente si el preloader
-    // lleva más de 15 segundos visible al momento de regresar a la pestaña.
+    // lleva más de 8 segundos visible al momento de regresar a la pestaña.
     let _preloaderShownAt = 0;
     const _origShow = window.showPreloader;
     const _origHide = window.hidePreloader;
@@ -268,13 +268,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
-            // Si el spinner lleva más de 15s visible al regresar a la pestaña → forzar ocultar
-            if (_preloaderShownAt > 0 && (Date.now() - _preloaderShownAt) > 15000) {
+            // Si el spinner lleva más de 8s visible al regresar a la pestaña → forzar ocultar
+            if (_preloaderShownAt > 0 && (Date.now() - _preloaderShownAt) > 8000) {
                 console.warn('SPA: Spinner detectado como posiblemente congelado al volver a la pestaña. Ocultando.');
                 if (window.hidePreloader) window.hidePreloader();
+                _preloaderShownAt = 0;
             }
+
+            // Safety net adicional: si el preloader tiene display:flex pero NO hay
+            // una navegación activa (no hay flag de loadPage en progreso), forzar ocultar.
+            // Cubre el caso donde el fetch quedó cancelado pero el spinner no se limpió.
+            setTimeout(function () {
+                const preloader = document.getElementById('preloader');
+                if (preloader &&
+                    preloader.style.display === 'flex' &&
+                    _preloaderShownAt === 0) {
+                    console.warn('SPA: Safety net — preloader visible sin navegación activa. Ocultando.');
+                    if (window.hidePreloader) window.hidePreloader();
+                }
+            }, 500);
         }
     });
+
 
     function updateActiveLinks(url) {
         document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
