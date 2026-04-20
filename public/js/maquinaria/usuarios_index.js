@@ -155,7 +155,9 @@ function initUsuarios() {
     if (!document.getElementById('usuariosTableBody')) return;
 
     const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
+    // Guard: only attach listener once per DOM instance
+    if (searchInput && !searchInput.dataset.usuariosInitialized) {
+        searchInput.dataset.usuariosInitialized = 'true';
         searchInput.addEventListener('keyup', function () {
             const val = this.value;
             const clearBtn = document.getElementById('btn_clear_search');
@@ -178,20 +180,28 @@ function initUsuarios() {
     }
 }
 
+
 // Register with Module Manager for SPA compatibility
 if (typeof ModuleManager !== 'undefined') {
     ModuleManager.register('usuarios',
         () => document.getElementById('usuariosTableBody') !== null,
         initUsuarios
     );
+}
+
+// Direct init fallback (ModuleManager may init before modules register)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initUsuarios);
 } else {
-    // Fallback if ModuleManager is not present
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initUsuarios);
-    } else {
+    initUsuarios();
+}
+
+// SPA navigation listener
+window.addEventListener('spa:contentLoaded', function () {
+    if (document.getElementById('usuariosTableBody')) {
         initUsuarios();
     }
-}
+});
 
 // confirmDelete and closeDeleteModal removed - using global versions in uicomponents.js
 

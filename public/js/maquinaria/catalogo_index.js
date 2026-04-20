@@ -367,10 +367,11 @@ if (typeof ModuleManager !== 'undefined') {
         () => document.getElementById('catalogoTableBody') !== null,
         initCatalogo
     );
+}
+
+// Direct init fallback (ModuleManager may init before modules register)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCatalogo);
 } else {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initCatalogo);
-    } else {
-        initCatalogo();
-    }
+    initCatalogo();
 }

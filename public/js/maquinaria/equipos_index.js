@@ -1425,7 +1425,9 @@ function initEquipos() {
     if (!document.getElementById("equiposTableBody")) return;
 
     const searchInput = document.getElementById("searchInput");
-    if (searchInput) {
+    // Guard: only attach listener once per DOM instance
+    if (searchInput && !searchInput.dataset.equiposInitialized) {
+        searchInput.dataset.equiposInitialized = 'true';
         searchInput.addEventListener("keyup", function () {
             const val = this.value;
             const clearBtn = document.getElementById("btn_clear_search");
@@ -1454,12 +1456,15 @@ function initEquipos() {
     updateSelectionUI();
 }
 
-// Listen for SPA navigation to clear selections if leaving
+// Listen for SPA navigation
 window.addEventListener("spa:contentLoaded", function () {
     const isOnEquiposPage =
         document.getElementById("equiposTableBody") !== null;
 
-    if (!isOnEquiposPage &&
+    if (isOnEquiposPage) {
+        // Reinitialize module when navigating TO equipos
+        initEquipos();
+    } else if (
         window.selectedEquipos &&
         Object.keys(window.selectedEquipos).length > 0
     ) {
@@ -1544,17 +1549,18 @@ window.handleCreateCheck = function (event) {
 
 // [End of dashboard cleanup]
 
-// Register with Module Manager for SPA compatibility
+// Register with Module Manager (records module, no-op if already initialized)
 if (typeof ModuleManager !== 'undefined') {
     ModuleManager.register(
         "equipos",
         () => document.getElementById("equiposTableBody") !== null,
         initEquipos,
     );
+}
+
+// Direct init on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initEquipos);
 } else {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initEquipos);
-    } else {
-        initEquipos();
-    }
+    initEquipos();
 }
