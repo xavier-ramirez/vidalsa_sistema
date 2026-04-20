@@ -112,9 +112,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadPage(url, pushHistory = true) {
-        // ── Timeout de 60s (1 minuto): evita el spinner eterno si el internet falla ──
+        // ── Timeout de 12s: si el servidor no responde, no dejamos el spinner eternamente ──
         const controller = new AbortController();
-        const timeoutId  = setTimeout(() => controller.abort(), 60000);
+        const timeoutId  = setTimeout(() => controller.abort(), 12000);
+
+        // Flag para evitar que el bloque finally oculte el preloader
+        // si el bloque try ya lo manejó correctamente.
+        let handledCleanup = false;
 
         try {
             if (window.showPreloader) window.showPreloader();
@@ -122,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Deshabilitar caché para garantizar que SIEMPRE se obtenga el HTML
             // actualizado y nunca el código viejo roto en la navegación SPA.
             const response = await fetch(url, {
-                signal: controller.signal,          // ← conectado al timeout
+                signal: controller.signal,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -131,10 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cache: 'no-store'
             });
 
-            clearTimeout(timeoutId); // cargó bien → cancelar el timeout
+            clearTimeout(timeoutId);
 
             // Respuesta HTTP con error → navegación normal
             if (!response.ok) {
+                handledCleanup = true;
                 window.location.href = url;
                 return;
             }
@@ -142,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Si la respuesta no es HTML (PDF, JSON, archivo) → navegación normal
             const contentType = response.headers.get('Content-Type') || '';
             if (!contentType.includes('text/html')) {
+                handledCleanup = true;
                 window.location.href = url;
                 return;
             }
@@ -151,20 +157,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // Extraer contenido del viewport
             const parser = new DOMParser();
             const doc    = parser.parseFromString(html, 'text/html');
-            
+
             // Auto Cache-Busting: Detectar si el servidor sirvió versiones más nuevas de nuestros scripts
-            const newScripts = Array.from(doc.querySelectorAll('script[src]'));
+            const newScripts     = Array.from(doc.querySelectorAll('script[src]'));
             const currentScripts = Array.from(document.querySelectorAll('script[src]'));
-            let versionChanged = false;
-            
+            let versionChanged   = false;
+
             for (let i = 0; i < newScripts.length; i++) {
                 const ns = newScripts[i];
-                // Ignorar librerías externas o CDN por si cambian de formato sin ser una nueva versión de la app
+                // Ignorar librerías externas o CDN
                 if (!ns.src.includes(window.location.origin)) continue;
-                
-                const basePath = ns.src.split('?')[0];
+
+                const basePath        = ns.src.split('?')[0];
                 const matchingCurrent = currentScripts.find(cs => cs.src.split('?')[0] === basePath);
-                
+
                 if (matchingCurrent && matchingCurrent.src !== ns.src) {
                     versionChanged = true;
                     console.log(`Nueva versión detectada para: ${basePath}. Requiriendo recarga completa.`);
@@ -173,13 +179,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (versionChanged) {
-                window.location.href = url; // Hard reload
+                handledCleanup = true;
+                window.location.href = url;
                 return;
             }
 
             const newContent = doc.querySelector('.main-viewport');
 
             if (!newContent) {
+                handledCleanup = true;
                 window.location.href = url;
                 return;
             }
@@ -200,10 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
             updateActiveLinks(url);
             window.dispatchEvent(new CustomEvent('spa:contentLoaded'));
 
-            setTimeout(() => {
-                if (window.hidePreloader) window.hidePreloader();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 100);
+            // Marcar como manejado ANTES de ocultar, para que el bloque finally
+            // no ejecute un segundo hidePreloader (race condition fix).
+            handledCleanup = true;
+            if (window.hidePreloader) window.hidePreloader();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
             // Cerrar menú mobile si está abierto
             const mobileMenu = document.getElementById('mobileMenu');
@@ -215,20 +224,57 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(timeoutId);
 
             if (error.name === 'AbortError') {
-                // Timeout de 60s agotado o conexión caída
-                console.warn('SPA: tiempo de espera agotado (1 min), recargando normalmente.');
+                console.warn('SPA: tiempo de espera agotado (12s), recargando normalmente.');
             } else {
-                console.error('Error loading page:', error);
+                console.error('SPA: Error cargando página:', error);
             }
 
             // En cualquier caso, intentar carga normal del navegador
+            handledCleanup = true;
+            if (window.hidePreloader) window.hidePreloader();
             window.location.href = url;
 
         } finally {
-            // SIEMPRE ocultar el spinner, pase lo que pase
-            if (window.hidePreloader) window.hidePreloader();
+            // Solo ocultar el spinner aquí si el try/catch NO lo manejó.
+            // Previene el race condition donde finally ejecuta antes
+            // de que el bloque try termine su limpieza.
+            if (!handledCleanup) {
+                if (window.hidePreloader) window.hidePreloader();
+            }
         }
     }
+
+    // ── GUARD ANTI-SPINNER-CONGELADO ─────────────────────────────────────────
+    // Cuando el usuario regresa a la pestaña después de tenerla en segundo plano,
+    // el browser puede haber "pausado" las animaciones y el spinner puede quedar
+    // visualmente atascado. Este handler lo limpia automáticamente si el preloader
+    // lleva más de 15 segundos visible al momento de regresar a la pestaña.
+    let _preloaderShownAt = 0;
+    const _origShow = window.showPreloader;
+    const _origHide = window.hidePreloader;
+
+    if (_origShow) {
+        window.showPreloader = function () {
+            _preloaderShownAt = Date.now();
+            _origShow.apply(this, arguments);
+        };
+    }
+    if (_origHide) {
+        window.hidePreloader = function () {
+            _preloaderShownAt = 0;
+            _origHide.apply(this, arguments);
+        };
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            // Si el spinner lleva más de 15s visible al regresar a la pestaña → forzar ocultar
+            if (_preloaderShownAt > 0 && (Date.now() - _preloaderShownAt) > 15000) {
+                console.warn('SPA: Spinner detectado como posiblemente congelado al volver a la pestaña. Ocultando.');
+                if (window.hidePreloader) window.hidePreloader();
+            }
+        }
+    });
 
     function updateActiveLinks(url) {
         document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
