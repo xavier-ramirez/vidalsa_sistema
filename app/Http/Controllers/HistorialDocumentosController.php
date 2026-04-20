@@ -45,7 +45,8 @@ class HistorialDocumentosController extends Controller
                     'fecha' => Carbon::parse($doc->PROPIEDAD_FECHA_SUBIDA),
                     'link' => $doc->LINK_DOC_PROPIEDAD,
                     'equipo_nombre' => $eName,
-                    'equipo_id' => $eId
+                    'equipo_id' => $eId,
+                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
                 ]);
             }
             if ($doc->POLIZA_FECHA_SUBIDA && $doc->POLIZA_SUBIDO_POR) {
@@ -57,7 +58,8 @@ class HistorialDocumentosController extends Controller
                     'fecha' => Carbon::parse($doc->POLIZA_FECHA_SUBIDA),
                     'link' => $doc->LINK_POLIZA_SEGURO,
                     'equipo_nombre' => $eName,
-                    'equipo_id' => $eId
+                    'equipo_id' => $eId,
+                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
                 ]);
             }
             if ($doc->ROTC_FECHA_SUBIDA && $doc->ROTC_SUBIDO_POR) {
@@ -69,7 +71,8 @@ class HistorialDocumentosController extends Controller
                     'fecha' => Carbon::parse($doc->ROTC_FECHA_SUBIDA),
                     'link' => $doc->LINK_ROTC,
                     'equipo_nombre' => $eName,
-                    'equipo_id' => $eId
+                    'equipo_id' => $eId,
+                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
                 ]);
             }
             if ($doc->RACDA_FECHA_SUBIDA && $doc->RACDA_SUBIDO_POR) {
@@ -81,7 +84,8 @@ class HistorialDocumentosController extends Controller
                     'fecha' => Carbon::parse($doc->RACDA_FECHA_SUBIDA),
                     'link' => $doc->LINK_RACDA,
                     'equipo_nombre' => $eName,
-                    'equipo_id' => $eId
+                    'equipo_id' => $eId,
+                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
                 ]);
             }
         }

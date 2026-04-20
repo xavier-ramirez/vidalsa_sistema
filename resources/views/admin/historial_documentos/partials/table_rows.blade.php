@@ -24,7 +24,7 @@
         </td>
         <td style="text-align: center;">
             @if($event->link)
-                <button type="button" class="btn-view-pdf" onclick="openPdfPreview('{{ $event->link }}', '{{ strtolower(str_replace(' ', '_', $event->tipo)) }}', '{{ $event->tipo }}', '{{ $event->equipo_id }}')" title="Visualizar Documento">
+                <button type="button" class="btn-view-pdf" onclick="openPdfPreview('{{ $event->link }}', '{{ strtolower(str_replace(' ', '_', $event->tipo)) }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Visualizar Documento">
                     <i class="material-icons" style="font-size: 20px;">picture_as_pdf</i>
                 </button>
             @else
