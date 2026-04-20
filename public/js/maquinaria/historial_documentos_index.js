@@ -235,3 +235,69 @@ window.addEventListener('spa:contentLoaded', function() {
     }
     setTimeout(window.reapplyStylesHd, 50);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GESTIÓN DE IPS BLOQUEADAS
+// ═══════════════════════════════════════════════════════════════════════════════
+window.unlockIp = function(id, ipAddress) {
+    if (typeof window.showModal !== 'function') {
+        console.error("showModal no está definido");
+        return;
+    }
+    
+    window.showModal({
+        type: 'warning',
+        title: 'Desbloquear IP',
+        message: `¿Estás seguro de que deseas desbloquear la IP <strong>${ipAddress}</strong>?`,
+        confirmText: 'Sí, Desbloquear',
+        cancelText: 'Cancelar',
+        onConfirm: async () => {
+            if (window.showPreloader) window.showPreloader();
+            
+            try {
+                const token = document.querySelector('meta[name="csrf-token"]');
+                const response = await fetch(`/admin/historial-documentos/unlock-ip/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': token ? token.content : '',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (window.hidePreloader) window.hidePreloader();
+                
+                if (data.success) {
+                    if (window.showToast) window.showToast(data.message, 'success');
+                    
+                    const ipElement = document.getElementById(`blocked-ip-${id}`);
+                    if (ipElement) {
+                        ipElement.style.opacity = '0';
+                        ipElement.style.transform = 'translateX(10px)';
+                        setTimeout(() => {
+                            ipElement.remove();
+                            
+                            const countElement = document.getElementById('blocked-ip-count');
+                            if (countElement) {
+                                let currentCount = parseInt(countElement.innerText);
+                                if (currentCount > 1) {
+                                    countElement.innerText = currentCount - 1;
+                                } else {
+                                    const container = document.getElementById('blocked-ips-container');
+                                    if (container) container.style.display = 'none';
+                                }
+                            }
+                        }, 300);
+                    }
+                } else {
+                    if (window.showToast) window.showToast(data.message || 'Error al desbloquear la IP', 'error');
+                }
+            } catch (error) {
+                if (window.hidePreloader) window.hidePreloader();
+                console.error('Error unlocking IP:', error);
+                if (window.showToast) window.showToast('Error de red al intentar desbloquear la IP', 'error');
+            }
+        }
+    });
+};
