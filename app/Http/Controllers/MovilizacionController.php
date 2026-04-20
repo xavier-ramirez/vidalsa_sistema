@@ -125,45 +125,24 @@ class MovilizacionController extends Controller
         // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 páginas continuas)
         $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(12);
 
-        $totalTransito     = $movilizaciones->total(); // Total real de registros con los filtros activos
-        $transitoPorFrente = collect();               // Sidebar desactivado
-
-        // Check if JSON specifically requested (for filters)
-        if ($request->wantsJson()) {
-            $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
-            $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
-
-            $statsHtml = '<h4 style="margin: 0 0 15px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                <i class="material-icons" style="font-size: 18px; color: #8b5cf6;">local_shipping</i>
-                En Tránsito por Frente
-            </h4>
-            <div class="custom-scrollbar-container" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
-            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;">';
-
-            if ($transitoPorFrente->isNotEmpty()) {
-                foreach ($transitoPorFrente as $stat) {
-                    $statsHtml .= '<li style="padding: 6px 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 12px; color: #64748b; font-weight: 600;">' . $stat->NOMBRE_FRENTE . '</span>
-                            <span style="background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 700;">' . $stat->total . '</span>
-                        </li>';
-                }
-            } else {
-                $statsHtml .= '<li style="padding: 15px; text-align: center; color: #94a3b8; font-style: italic; font-size: 13px;">No hay equipos en tránsito</li>';
-            }
-            $statsHtml .= '</ul></div>';
-
-            return response()->json([
-                'html' => $tableHtml,
-                'pagination' => $paginationHtml,
-                'statsHtml' => $statsHtml,
-                'totalTransito' => $movilizaciones->total()
-            ]);
-        }
+        $totalTransito = $movilizaciones->total();
 
         $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
         $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
 
-        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'transitoPorFrente', 'frentes', 'allTipos'));
+        if ($request->wantsJson()) {
+            $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
+            $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
+
+            return response()->json([
+                'html' => $tableHtml,
+                'pagination' => $paginationHtml,
+                'statsHtml' => '',
+                'totalTransito' => $totalTransito
+            ]);
+        }
+
+        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos'));
     }
 
     public function create()
@@ -185,35 +164,37 @@ class MovilizacionController extends Controller
             'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE',
         ]);
 
-        $equipo = \App\Models\Equipo::findOrFail($request->ID_EQUIPO);
+        DB::beginTransaction();
+        try {
+            $equipo = \App\Models\Equipo::findOrFail($request->ID_EQUIPO);
 
-        // Lock para evitar race condition si dos usuarios despachan al mismo tiempo
-        $lastLog = Movilizacion::latest('ID_MOVILIZACION')->lockForUpdate()->first();
-        $nextId = $lastLog ? ($lastLog->ID_MOVILIZACION + 1) : 1;
+            $nextId = $this->generateNextCodigoControl();
 
-        $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
+            $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
+            $now = now();
+            
+            Movilizacion::create([
+                'CODIGO_CONTROL' => $nextId,
+                'ID_EQUIPO' => $request->ID_EQUIPO,
+                'ID_FRENTE_ORIGEN' => $origen,
+                'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
+                'FECHA_DESPACHO' => $now,
+                'TIPO_MOVIMIENTO' => 'DESPACHO',
+                'USUARIO_REGISTRO' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
+            ]);
 
-        $now = now();
-        Movilizacion::create([
-            'CODIGO_CONTROL' => $nextId,
-            'ID_EQUIPO' => $request->ID_EQUIPO,
-            'ID_FRENTE_ORIGEN' => $origen,
-            'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
-            'FECHA_DESPACHO' => $now,
-            'ESTADO_MVO' => 'RECIBIDO',
-            'TIPO_MOVIMIENTO' => 'DESPACHO',
-            'USUARIO_REGISTRO' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
-            'USUARIO_RECEPCION' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
-        ]);
+            $equipo->update([
+                'ID_FRENTE_ACTUAL' => $request->ID_FRENTE_DESTINO,
+                'DETALLE_UBICACION_ACTUAL' => null,
+                'CONFIRMADO_EN_SITIO' => 1
+            ]);
 
-        // Al despachar a otro frente, llega instantaneamente
-        $equipo->update([
-            'ID_FRENTE_ACTUAL' => $request->ID_FRENTE_DESTINO,
-            'DETALLE_UBICACION_ACTUAL' => null,
-            'CONFIRMADO_EN_SITIO' => 1
-        ]);
-
-        return redirect()->route('movilizaciones.index')->with('success', 'Movilización registrada correctamente.');
+            DB::commit();
+            return redirect()->route('movilizaciones.index')->with('success', 'Movilización registrada correctamente.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error al registrar: ' . $e->getMessage()]);
+        }
     }
 
     public function bulkStore(Request $request)
@@ -237,11 +218,9 @@ class MovilizacionController extends Controller
             $now = now();
             $generarPdf = $request->input('generar_pdf', true);
 
-            $lastLog = Movilizacion::latest('ID_MOVILIZACION')->lockForUpdate()->first();
             $nextId = null;
             if ($generarPdf) {
-                // Generar CODIGO_CONTROL solo si se requiere acta de traslado
-                $nextId = $lastLog && $lastLog->CODIGO_CONTROL ? ((int)$lastLog->CODIGO_CONTROL + 1) : ($lastLog ? ($lastLog->ID_MOVILIZACION + 1) : 1);
+                $nextId = $this->generateNextCodigoControl();
             }
 
             $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
@@ -255,10 +234,8 @@ class MovilizacionController extends Controller
                         'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? 1,
                         'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
                         'FECHA_DESPACHO' => $now,
-                        'ESTADO_MVO' => 'RECIBIDO',
                         'TIPO_MOVIMIENTO' => 'DESPACHO',
                         'USUARIO_REGISTRO' => $user,
-                        'USUARIO_RECEPCION' => $user,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -269,10 +246,8 @@ class MovilizacionController extends Controller
                         'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? 1,
                         'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
                         'FECHA_DESPACHO' => null,
-                        'ESTADO_MVO' => 'RECIBIDO',
                         'TIPO_MOVIMIENTO' => 'ACT.',
                         'USUARIO_REGISTRO' => $user,
-                        'USUARIO_RECEPCION' => $user,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -306,6 +281,7 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
+            $this->triggerDashboardCacheRefresh();
 
             return response()->json([
                 'success' => true,
@@ -320,78 +296,7 @@ class MovilizacionController extends Controller
         }
     }
 
-    /**
-     * Confirmar recepción de una movilización en tránsito (RECIBIR)
-     */
-    public function updateStatus(Request $request, $id)
-    {
-        DB::beginTransaction();
-        try {
-            $mov = Movilizacion::with('equipo', 'frenteOrigen', 'frenteDestino')->findOrFail($id);
-            $usuario = auth()->user();
 
-            $request->validate([
-                'status' => 'required|in:RECIBIDO,RECHAZADO,RETORNADO',
-                'DETALLE_UBICACION' => 'nullable|string|max:150'
-            ]);
-
-            // Validar autorización
-            $esGlobal = ($usuario->NIVEL_ACCESO == 1);
-            $frentesPermitidos = $usuario->getFrentesIds();
-
-            if (!$esGlobal) {
-                if ($request->status == 'RECIBIDO' && !in_array($mov->ID_FRENTE_DESTINO, $frentesPermitidos)) {
-                    $errorMsg = 'Solo el frente destino puede confirmar la recepción';
-                    if ($request->ajax()) {
-                        return response()->json(['success' => false, 'error' => $errorMsg], 403);
-                    }
-                    abort(403, $errorMsg);
-                }
-            }
-
-            // Validar que esté en tránsito
-            if ($mov->ESTADO_MVO != 'TRANSITO') {
-                $errorMsg = 'Esta movilización ya fue procesada';
-                if ($request->ajax()) {
-                    return response()->json(['success' => false, 'error' => $errorMsg], 422);
-                }
-                return back()->withErrors(['error' => $errorMsg]);
-            }
-
-            // 1. Actualizar movilización
-            $mov->update([
-                'ESTADO_MVO' => 'RECIBIDO',
-                'DETALLE_UBICACION' => $request->DETALLE_UBICACION,
-                'USUARIO_RECEPCION' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
-            ]);
-
-            // 2. Actualizar equipo: confirmar en el frente destino
-            if ($mov->equipo) {
-                $mov->equipo->update([
-                    'ID_FRENTE_ACTUAL' => $mov->ID_FRENTE_DESTINO,
-                    'DETALLE_UBICACION_ACTUAL' => $request->DETALLE_UBICACION,
-                    'CONFIRMADO_EN_SITIO' => 1
-                ]);
-            }
-
-            DB::commit();
-
-            $message = 'Equipo recibido exitosamente en ' . ($mov->frenteDestino->NOMBRE_FRENTE ?? 'Destino');
-
-            if ($request->ajax()) {
-                return response()->json(['success' => true, 'message' => $message]);
-            }
-            return back()->with('success', $message);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Error en updateStatus: ' . $e->getMessage());
-            if ($request->ajax()) {
-                return response()->json(['success' => false, 'error' => 'Error al actualizar: ' . $e->getMessage()], 500);
-            }
-            return back()->withErrors(['error' => 'Error al actualizar: ' . $e->getMessage()]);
-        }
-    }
 
     /**
      * RECEPCIÓN DIRECTA: Registrar equipos que llegan sin movilización previa
@@ -433,10 +338,8 @@ class MovilizacionController extends Controller
                     'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
                     'DETALLE_UBICACION' => $request->DETALLE_UBICACION,
                     'FECHA_DESPACHO' => null, // No hubo despacho
-                    'ESTADO_MVO' => 'RECIBIDO',
                     'TIPO_MOVIMIENTO' => 'RECEPCION_DIRECTA',
                     'USUARIO_REGISTRO' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
-                    'USUARIO_RECEPCION' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -454,6 +357,7 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
+            $this->triggerDashboardCacheRefresh();
 
             $ubicacionTexto = $frenteDestino->NOMBRE_FRENTE;
             if ($request->filled('DETALLE_UBICACION')) {
@@ -639,10 +543,8 @@ class MovilizacionController extends Controller
             return [
                 'ID_MOVILIZACION'  => $m->ID_MOVILIZACION,
                 'CODIGO_CONTROL'   => $m->CODIGO_CONTROL,
-                'ESTADO_MVO'       => $m->ESTADO_MVO,
                 'TIPO_MOVIMIENTO'  => $m->TIPO_MOVIMIENTO,
                 'FECHA_DESPACHO'   => $m->FECHA_DESPACHO,
-                'FECHA_RECEPCION'  => $m->FECHA_RECEPCION,
                 'equipo' => $m->equipo ? [
                     'ID_EQUIPO'     => $m->equipo->ID_EQUIPO,
                     'CODIGO_PATIO'  => $m->equipo->CODIGO_PATIO,
@@ -672,31 +574,34 @@ class MovilizacionController extends Controller
             'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE',
         ]);
 
-        $equipo  = \App\Models\Equipo::findOrFail($request->ID_EQUIPO);
-        $lastLog = Movilizacion::latest('ID_MOVILIZACION')->first();
-        $nextId  = $lastLog ? ($lastLog->ID_MOVILIZACION + 1) : 1;
+        DB::beginTransaction();
+        try {
+            $equipo  = \App\Models\Equipo::findOrFail($request->ID_EQUIPO);
+            $nextId = $this->generateNextCodigoControl();
 
-        $now = now();
-        Movilizacion::create([
-            'CODIGO_CONTROL'    => $nextId,
-            'ID_EQUIPO'         => $request->ID_EQUIPO,
-            'ID_FRENTE_ORIGEN'  => $equipo->ID_FRENTE_ACTUAL ?? 1,
-            'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
-            'FECHA_DESPACHO'    => $now,
-            'ESTADO_MVO'        => 'RECIBIDO',
-            'TIPO_MOVIMIENTO'   => 'DESPACHO',
-            'USUARIO_REGISTRO'  => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
-            'USUARIO_RECEPCION' => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
-        ]);
+            $now = now();
+            Movilizacion::create([
+                'CODIGO_CONTROL'    => $nextId,
+                'ID_EQUIPO'         => $request->ID_EQUIPO,
+                'ID_FRENTE_ORIGEN'  => $equipo->ID_FRENTE_ACTUAL ?? 1,
+                'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
+                'FECHA_DESPACHO'    => $now,
+                'TIPO_MOVIMIENTO'   => 'DESPACHO',
+                'USUARIO_REGISTRO'  => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
+            ]);
 
-        // Al despachar a otro frente, llega instantaneamente
-        $equipo->update([
-            'ID_FRENTE_ACTUAL'         => $request->ID_FRENTE_DESTINO,
-            'DETALLE_UBICACION_ACTUAL' => null,
-            'CONFIRMADO_EN_SITIO'      => 1,
-        ]);
+            $equipo->update([
+                'ID_FRENTE_ACTUAL'         => $request->ID_FRENTE_DESTINO,
+                'DETALLE_UBICACION_ACTUAL' => null,
+                'CONFIRMADO_EN_SITIO'      => 1,
+            ]);
 
-        return response()->json(['success' => true, 'message' => 'Despacho registrado correctamente.']);
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Despacho registrado correctamente.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
     }
 
     public function destroy($id)
@@ -714,7 +619,30 @@ class MovilizacionController extends Controller
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
+    // ─── HELPERS ────────────────────────────────────────────────────────────
+
+    /**
+     * Genera el siguiente CODIGO_CONTROL de forma atómica.
+     * DEBE ser llamado dentro de una transacción activa (DB::beginTransaction()).
+     */
+    private function generateNextCodigoControl()
+    {
+        $maxControl = DB::table('movilizacion_historial')->lockForUpdate()->max('CODIGO_CONTROL');
+        return $maxControl ? ((int)$maxControl + 1) : 1;
+    }
+
+    /**
+     * Fuerza la actualización del cache (útil cuando se usa Movilizacion::insert que no dispara eventos Eloquent).
+     */
+    private function triggerDashboardCacheRefresh()
+    {
+        try {
+            $observer = new \App\Observers\MovilizacionObserver();
+            $observer->created(new Movilizacion());
+        } catch (\Exception $e) {
+            \Log::error('Error refrescando cache de dashboard en inserciones masivas: ' . $e->getMessage());
+        }
+    }
 
 } // END MovilizacionController
 

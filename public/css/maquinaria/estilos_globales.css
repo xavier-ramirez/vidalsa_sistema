@@ -46,6 +46,7 @@
 }
 
 @keyframes pulse {
+
     0%,
     100% {
         transform: scale(1);
@@ -863,8 +864,8 @@ body {
     }
 
     /* Evitar que hijos con span 2 desborden en grids de 1 columna */
-    .form-grid > [style*="grid-column: span 2"],
-    .form-grid > .resp-grid {
+    .form-grid>[style*="grid-column: span 2"],
+    .form-grid>.resp-grid {
         grid-column: span 1 !important;
     }
 }
@@ -893,6 +894,7 @@ body {
 }
 
 @media (max-width: 768px) {
+
     .grid-responsive-5,
     .grid-responsive-3 {
         grid-template-columns: 1fr;
@@ -1171,6 +1173,7 @@ nav[role="navigation"] {
 
 /* --- Responsive Table (Card View transformation) --- */
 @media (max-width: 768px) {
+
     /* Filter responsive adjustments */
     .filter-toolbar-container {
         flex-direction: column;
@@ -1379,18 +1382,12 @@ nav[role="navigation"] {
     }
 
     /* Add labels to buttons for mobile */
-    .table-usuarios-mobile
-        tr
-        td:nth-child(7)
-        .btn-action-maquinaria[title="Editar"]::after {
+    .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria[title="Editar"]::after {
         content: "Editar";
         font-weight: 600;
     }
 
-    .table-usuarios-mobile
-        tr
-        td:nth-child(7)
-        .btn-action-maquinaria[title="Eliminar"]::after {
+    .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria[title="Eliminar"]::after {
         content: "Eliminar";
         font-weight: 600;
     }
@@ -1416,7 +1413,7 @@ nav[role="navigation"] {
         gap: 15px;
     }
 
-    .search-stats-container > div:first-child {
+    .search-stats-container>div:first-child {
         width: 100%;
     }
 }
@@ -1515,6 +1512,7 @@ input[type="password"]::-ms-clear {
 
 /* --- Responsive Page Titles --- */
 @media (max-width: 768px) {
+
     .page-title,
     .page-title .page-title-line2,
     .page-title span {
@@ -1860,6 +1858,7 @@ input:-webkit-autofill:active {
    MOBILE RESPONSIVE - DASHBOARD BUTTONS
    ============================================ */
 @media (max-width: 768px) {
+
     /* Botón RECIBIR - solo icono en móvil */
     .btn-recibir-dashboard {
         padding: 6px;
@@ -1988,6 +1987,7 @@ input:-webkit-autofill:active {
 }
 
 @media (max-width: 768px) {
+
     /* Basic Rows: Stack vertically */
     .detail-row-basic {
         display: flex !important;
@@ -2008,7 +2008,7 @@ input:-webkit-autofill:active {
     }
 
     /* Label: Spans full width on first row */
-    .detail-row-doc > :nth-child(1) {
+    .detail-row-doc> :nth-child(1) {
         grid-column: 1 / -1;
         grid-row: 1;
         width: 100%;
@@ -2018,7 +2018,7 @@ input:-webkit-autofill:active {
     }
 
     /* Value: Second row, first column */
-    .detail-row-doc > :nth-child(2) {
+    .detail-row-doc> :nth-child(2) {
         grid-column: 1 / 2;
         grid-row: 2;
         width: 100%;
@@ -2029,7 +2029,7 @@ input:-webkit-autofill:active {
     }
 
     /* Button: Second row, second column (Right aligned) */
-    .detail-row-doc > :last-child {
+    .detail-row-doc> :last-child {
         grid-column: 2 / 3;
         grid-row: 2;
         margin-top: 0 !important;
@@ -2056,13 +2056,14 @@ input:-webkit-autofill:active {
     }
 
     /* Reduce header padding */
-    #pdfPreviewModal .modal-content > div:first-child {
+    #pdfPreviewModal .modal-content>div:first-child {
         padding: 8px 10px !important;
     }
 }
 
 /* --- GLOBAL MODAL FIX (Force Resizing on Mobile for Equipos Page) --- */
 @media (max-width: 768px) {
+
     /* El overlay del modal ocupa toda la pantalla */
     #detailsModal {
         box-sizing: border-box !important;
@@ -2087,27 +2088,28 @@ input:-webkit-autofill:active {
     }
 
     /* Accordions: reducir padding de las cabeceras y los cuerpos */
-    #detailsModal details > summary {
+    #detailsModal details>summary {
         padding: 10px 14px !important;
         font-size: 13px !important;
     }
 
-    #detailsModal details > summary i.material-icons {
+    #detailsModal details>summary i.material-icons {
         font-size: 17px !important;
     }
 
-    #detailsModal details > div {
+    #detailsModal details>div {
         padding: 10px 14px !important;
     }
 
     /* Fix long serials breaking the header on mobile */
-    #modal_equipo_title, #modal_equipo_subtitle {
+    #modal_equipo_title,
+    #modal_equipo_subtitle {
         word-break: break-word;
         white-space: normal;
     }
 
     /* Header del modal más compacto */
-    #detailsModal .modal-content > div:first-child > div:first-child {
+    #detailsModal .modal-content>div:first-child>div:first-child {
         padding: 10px 14px !important;
     }
 }
@@ -2317,6 +2319,7 @@ input:-webkit-autofill:active {
 }
 
 @media (max-width: 1024px) {
+
     /* Layout colapsa a 1 columna */
     .movilizaciones-layout {
         grid-template-columns: 1fr;
@@ -2453,9 +2456,10 @@ input:-webkit-autofill:active {
     /* ── Cada Fila(TR) convertida rigurosamente en Tarjeta GRID ── */
     #movilizacionesTable tr.mv-row-card {
         display: grid !important;
-        grid-template-columns: 1fr !important; /* Stack vertical perfecto */
+        grid-template-columns: 1fr !important;
+        /* Stack vertical perfecto */
         gap: 0 !important;
-        
+
         background: #ffffff !important;
         border-radius: 12px !important;
         border: 1px solid #cbd5e1 !important;
@@ -2469,7 +2473,8 @@ input:-webkit-autofill:active {
     #movilizacionesTable tr.mv-row-card td {
         display: block !important;
         width: 100% !important;
-        padding: 6px 12px !important; /* Compresión vertical estricta */
+        padding: 6px 12px !important;
+        /* Compresión vertical estricta */
         border: none !important;
         box-sizing: border-box !important;
     }
@@ -2489,16 +2494,16 @@ input:-webkit-autofill:active {
     #movilizacionesTable td.mv-td-equipo {
         border-bottom: none !important;
         padding-top: 12px !important;
-        padding-bottom: 0px !important; 
+        padding-bottom: 0px !important;
     }
 
-    #movilizacionesTable td.mv-td-equipo > div {
+    #movilizacionesTable td.mv-td-equipo>div {
         display: flex !important;
         align-items: center !important;
         gap: 12px !important;
     }
 
-    #movilizacionesTable td.mv-td-equipo > div > div:first-child {
+    #movilizacionesTable td.mv-td-equipo>div>div:first-child {
         width: 48px !important;
         height: 48px !important;
         flex-shrink: 0 !important;
@@ -2508,7 +2513,8 @@ input:-webkit-autofill:active {
     }
 
     #movilizacionesTable td.mv-td-equipo .mv-id-field {
-        display: none !important; /* Esconde ID interno */
+        display: none !important;
+        /* Esconde ID interno */
     }
 
     /* ── 2. TRAYECTO (Fila 2 de la tarjeta) ── */
@@ -2517,8 +2523,8 @@ input:-webkit-autofill:active {
         text-align: center !important;
         padding-top: 2px !important;
         padding-bottom: 2px !important;
-        padding-left: 12px !important; 
-        padding-right: 12px !important; 
+        padding-left: 12px !important;
+        padding-right: 12px !important;
     }
 
     .mv-trayecto-container {
@@ -2560,7 +2566,7 @@ input:-webkit-autofill:active {
         display: block !important;
     }
 
-    #movilizacionesTable td.mv-td-estado > div,
+    #movilizacionesTable td.mv-td-estado>div,
     #movilizacionesTable td.mv-td-estado .badge {
         display: inline-block !important;
         margin: 0 auto !important;
@@ -2574,7 +2580,8 @@ input:-webkit-autofill:active {
 /* Toast Notifications */
 .toast-container {
     position: fixed;
-    top: 85px; /* Below fixed header */
+    top: 85px;
+    /* Below fixed header */
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000002;
@@ -2629,6 +2636,7 @@ input:-webkit-autofill:active {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -2695,7 +2703,8 @@ input:-webkit-autofill:active {
 
 /* ── Equipos Mobile Stats (Consolidado compacto para móvil) ── */
 .equipos-mobile-stats {
-    display: none; /* Oculto en desktop — el sidebar ya lo muestra */
+    display: none;
+    /* Oculto en desktop — el sidebar ya lo muestra */
 }
 
 .eq-mobile-stat-pill {
@@ -2735,6 +2744,7 @@ input:-webkit-autofill:active {
 }
 
 @media (max-width: 900px) {
+
     /* El sidebar desaparece — mostramos el bloque compacto en su lugar */
     .equipos-mobile-stats {
         display: block;
@@ -2764,36 +2774,28 @@ input:-webkit-autofill:active {
         display: none !important;
     }
 
-    /* El admin-card ocupa todo el ancho sin dejar fondo gris */
-    .page-layout-grid {
-        gap: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-
-    .page-layout-grid > .admin-card {
-        margin: 0 !important;
-        border-radius: 0 !important;  /* Sin bordes redondeados en mobile para ocupar todo el ancho */
-        min-height: 100% !important;
-    }
-
-    /* La viewport principal elimina su padding lateral en mobile cuando tiene grid,
-       pero mantiene el top para el h1 y filtros */
+    /* Reducir los márgenes laterales excesivos para dejar solo un marco minimalista 8px */
     body:has(.page-layout-grid) .main-viewport {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
         width: 100% !important;
-        max-width: 100% !important;
         padding-top: 12px !important;
     }
 
-    /* El h1 y el bloque de filtros sobre la tabla sí necesitan padding lateral */
-    body:has(.page-layout-grid) .main-viewport > div:first-child,
-    body:has(.page-layout-grid) .main-viewport > h1,
-    body:has(.page-layout-grid) .main-viewport .page-title {
-        padding-left: 14px !important;
-        padding-right: 14px !important;
+    .page-layout-grid>.admin-card {
+        margin: 0 !important;
+        border-radius: 12px !important;
+        /* Bordes redondeados más sutiles en teléfono */
     }
+
+    body:has(.page-layout-grid) .main-viewport>div:first-child,
+    body:has(.page-layout-grid) .main-viewport>h1,
+    body:has(.page-layout-grid) .main-viewport .page-title {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+
 }
 
 /* --- Movilidad Modal PDF: Overlay Panel en lugar de Grid en teléfonos --- */
@@ -2804,6 +2806,6 @@ input:-webkit-autofill:active {
         top: 0;
         height: 100vh;
         z-index: 100;
-        box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+        box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
     }
 }

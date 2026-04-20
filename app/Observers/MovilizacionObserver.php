@@ -51,7 +51,6 @@ class MovilizacionObserver
         
         // Cache recent activity (ALL pending mobilizations for dashboard list)
         $recentActivity = Movilizacion::with(['equipo', 'frenteDestino'])
-            ->where('ESTADO_MVO', 'RECIBIDO')
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();

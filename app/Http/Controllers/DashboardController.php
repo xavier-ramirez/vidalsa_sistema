@@ -49,7 +49,6 @@ class DashboardController extends Controller
 
             // 4. Recent Activity (list) — LOCAL users see only their frentes
             $recentActivityQuery = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino'])
-                ->where('ESTADO_MVO', 'RECIBIDO')
                 ->orderBy('created_at', 'desc')
                 ->limit(50);
             if (count($frenteIds) > 0) {
@@ -122,8 +121,7 @@ class DashboardController extends Controller
         $isGlobal = $user && $user->NIVEL_ACCESO == 1;
         $frenteIds = $user ? $user->getFrentesIds() : [];
 
-        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino'])
-            ->where('ESTADO_MVO', 'RECIBIDO');
+        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino']);
 
         if (count($frenteIds) > 0) {
             $query->whereIn('ID_FRENTE_DESTINO', $frenteIds);

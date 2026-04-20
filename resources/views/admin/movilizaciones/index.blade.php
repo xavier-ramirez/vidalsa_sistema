@@ -19,7 +19,7 @@
         <div class="movilizaciones-mobile-stats">
             <div class="stat-pill">
                 <i class="material-icons">local_shipping</i>
-                <span id="mobileTransitoCount">{{ $totalTransito }}</span> En Tránsito
+                <span id="mobileTransitoCount">{{ $totalTransito }}</span> Operaciones
             </div>
         </div>
 
@@ -135,8 +135,11 @@
 
                 <!-- Botón Filtro Avanzado (Fechas) -->
                 <div class="mv-adv-filter-wrap" style="position: relative; flex-shrink: 0;">
+                    @php
+                        $hasAnyAdv = request('fecha_desde') || request('fecha_hasta') || request('direccion_frente');
+                    @endphp
                     <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
-                        style="height: 45px; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ request('fecha_desde') || request('fecha_hasta') || request('direccion_frente') ? '#e1effa' : 'white' }}; border: 1px solid {{ request('fecha_desde') || request('fecha_hasta') || request('direccion_frente') ? '#0067b1' : '#cbd5e0' }}; color: {{ request('fecha_desde') || request('fecha_hasta') || request('direccion_frente') ? '#0067b1' : '#64748b' }}; box-shadow: none; border-radius: 12px; cursor: default; transition: all 0.2s;"
+                        style="height: 45px; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none; border-radius: 12px; cursor: default; transition: all 0.2s;"
                         onclick="toggleAdvancedFilter(event)">
                         <i class="material-icons">filter_list</i>
                     </button>
@@ -197,6 +200,24 @@
 
             </div>{{-- /mv-search-adv-row --}}
 
+            <!-- Botón Acciones -->
+            <div class="filter-item aligned-filter mv-acciones-btn-container" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
+                
+                <!-- Main Trigger Button -->
+                <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" onclick="const d = document.getElementById('splitDropdownMenuMov'); d.style.display = d.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                    <i class="material-icons">settings</i>
+                    <span>Acciones</span>
+                    <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: 100%; right: 0; width: 220px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; z-index: 50; margin-top: 5px; overflow: hidden; animation: slideDown 0.2s ease-out;">
+                    <!-- Placeholder futuro -->
+                    <div style="padding: 15px; text-align: center; font-size: 12px; color: #64748b; font-weight: 600;">
+                        Opciones futuras...
+                    </div>
+                </div>
+            </div>
 
         </div>
 
@@ -231,9 +252,9 @@
         
         <!-- Total Card -->
         <div style="background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
-            <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">agriculture</i>
+            <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">history</i>
             <div style="position: relative; z-index: 2;">
-                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; margin-bottom: 5px;">Equipos en Tránsito</div>
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; margin-bottom: 5px;">Total Operaciones</div>
                 <div style="display: flex; align-items: baseline; gap: 5px;">
                     <span id="totalTransitoCount" style="font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px;">
                         {{ $totalTransito }}
@@ -242,27 +263,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Status Stats -->
-        <div id="statusStatsContainer" style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-             <h4 style="margin: 0 0 15px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                <i class="material-icons" style="font-size: 18px; color: #8b5cf6;">local_shipping</i>
-                En Tránsito por Frente
-            </h4>
-            <div class="custom-scrollbar-container" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
-                <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;">
-                    @forelse($transitoPorFrente as $stat)
-                        <li style="padding: 6px 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 12px; color: #64748b; font-weight: 600;">{{ $stat->NOMBRE_FRENTE }}</span>
-                            <span style="background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 700;">{{ $stat->total }}</span>
-                        </li>
-                    @empty
-                        <li style="padding: 15px; text-align: center; color: #94a3b8; font-style: italic; font-size: 13px;">No hay equipos en tránsito</li>
-                    @endforelse
-                </ul>
-            </div>
-        </div>
-
 
     </div>
 
@@ -283,10 +283,19 @@
         <span id="mv-selection-count">0</span>
     </div>
     <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2);"></div>
-    <div style="display: flex; gap: 10px;">
-        <button type="button" onclick="window.mvClearSelection()" style="background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button type="button" onclick="window.mvClearSelection()" style="background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
             Limpiar
         </button>
+        @can('super.admin')
+        <button type="button" id="btnEliminarSeleccionados"
+            onclick="window._eliminarSeleccionados()"
+            style="background: #ef4444; border: none; color: white; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 8px; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: background 0.2s;"
+            onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+            <i class="material-icons" style="font-size: 16px;">delete</i>
+            Eliminar
+        </button>
+        @endcan
     </div>
 </div>
 
@@ -319,145 +328,66 @@
     }
 </style>
 
+@can('super.admin')
 <script>
-(function() {
-    // Set global de IDs seleccionados — persiste entre cambios de página AJAX
-    if (!window._mvSelectedIds) {
-        window._mvSelectedIds = new Set();
+// ── Eliminar Seleccionados (Batch Delete) ──
+// Se define directamente en la vista para evadir caché del .js externo
+window._eliminarSeleccionados = function () {
+    const ids = Array.from(window._mvSelectedIds || []);
+    if (!ids.length) {
+        if (window.showModal) window.showModal({ type: 'warning', title: 'Sin selección', message: 'Selecciona al menos un registro resaltado en azul antes de eliminar.', hideCancel: true });
+        else alert('Selecciona al menos un registro.');
+        return;
     }
 
-    // ── Aplica/quita el estilo de selección en una fila ──
-    function applyRowStyle(tr, selected) {
-        if (selected) {
-            tr.classList.add('selected-row-maquinaria');
-        } else {
-            tr.classList.remove('selected-row-maquinaria');
-        }
-    }
+    const msg = ids.length === 1
+        ? 'Se eliminará 1 registro de movilización de forma permanente.'
+        : 'Se eliminarán ' + ids.length + ' registros de movilización de forma permanente.';
 
-    // ── Actualiza el chip contador ──
-    function updateChip() {
-        const chip  = document.getElementById('mv-selection-chip');
-        const count = document.getElementById('mv-selection-count');
-        if (!chip || !count) return;
-
-        const n = window._mvSelectedIds.size;
-        count.textContent = n;
-        if (n > 0) {
-            chip.classList.add('active');
-        } else {
-            chip.classList.remove('active');
-        }
-    }
-
-    // ── Re-aplica estilos a todas las filas visibles tras carga AJAX ──
-    function reapplyStyles() {
-        document.querySelectorAll('.mv-selectable-row').forEach(tr => {
-            const id = tr.dataset.mvId;
-            applyRowStyle(tr, window._mvSelectedIds.has(id));
+    const doDelete = function () {
+        const csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
+        const promises = ids.map(function (id) {
+            return fetch('/admin/movilizaciones/' + id, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }
+            }).then(function (r) { return r.json(); });
         });
-        updateChip();
-    }
 
-    // ── Attacher de click (delegación, una sola vez) ──
-    if (!window._mvRowClickRegistered) {
-        window._mvRowClickRegistered = true;
+        Promise.all(promises)
+            .then(function (results) {
+                const failed = results.filter(function (r) { return !r.success; });
+                window._mvSelectedIds.clear();
+                if (window.loadMovilizaciones) window.loadMovilizaciones();
+                else window.location.reload();
 
-        document.addEventListener('click', function(e) {
-            // Ignorar clicks dentro de dropdowns de estatus o botones de acción
-            if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')) return;
-
-            const tr = e.target.closest('.mv-selectable-row');
-            if (!tr) return;
-
-            const id = tr.dataset.mvId;
-            if (!id) return;
-
-            if (window._mvSelectedIds.has(id)) {
-                window._mvSelectedIds.delete(id);
-                applyRowStyle(tr, false);
-            } else {
-                window._mvSelectedIds.add(id);
-                applyRowStyle(tr, true);
-            }
-            updateChip();
-        });
-    }
-
-    // ── Limpiar selección ──
-    window.mvClearSelection = function() {
-        window._mvSelectedIds.clear();
-        document.querySelectorAll('.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
-        updateChip();
+                if (failed.length === 0) {
+                    if (window.showToast) window.showToast('Registros eliminados correctamente.', 'success');
+                    else if (window.showModal) window.showModal({ type: 'success', title: '¡Eliminados!', message: 'Todos los registros fueron eliminados.', hideCancel: true });
+                } else {
+                    if (window.showModal) window.showModal({ type: 'warning', title: 'Parcialmente eliminado', message: (ids.length - failed.length) + ' eliminados. ' + failed.length + ' no se pudo(ron) eliminar.', hideCancel: true });
+                }
+            })
+            .catch(function (err) {
+                console.error('[Movilizaciones] Error batch delete:', err);
+                if (window.showModal) window.showModal({ type: 'error', title: 'Error de Red', message: 'No se pudo conectar con el servidor.', hideCancel: true });
+                else alert('Error de red al eliminar.');
+            });
     };
 
-    // ── Hook post-AJAX: re-aplicar estilos cuando loadMovilizaciones actualiza el tbody ──
-    const _origLoad = window.loadMovilizaciones;
-    if (_origLoad && !window._mvLoadHooked) {
-        window._mvLoadHooked = true;
-        window.loadMovilizaciones = async function(...args) {
-            await _origLoad(...args);
-            reapplyStyles();
-        };
-    }
-
-    // ── Aplicar al cargar la página directamente ──
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', reapplyStyles);
+    if (window.showModal) {
+        window.showModal({
+            type: 'warning',
+            title: '¿Eliminar registros seleccionados?',
+            message: msg + ' Esta acción no se puede deshacer.',
+            confirmText: 'Sí, eliminar',
+            cancelText: 'Cancelar',
+            onConfirm: doDelete
+        });
     } else {
-        reapplyStyles();
+        if (confirm(msg + ' ¿Deseas continuar?')) doDelete();
     }
-    window.addEventListener('spa:contentLoaded', function() {
-        // Limpiar selección al cambiar de sección en SPA para evitar datos viejos
-        window._mvSelectedIds.clear();
-        reapplyStyles();
-    });
-})();
-
-window.confirmDeleteMovilizacion = function(id) {
-    Swal.fire({
-        title: '¿Eliminar Registro?',
-        text: "Esta acción no se puede deshacer.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            fetch(`/admin/movilizaciones/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if (window.showToast) {
-                        window.showToast(data.message, 'success');
-                    } else {
-                        Swal.fire('¡Eliminado!', data.message, 'success');
-                    }
-                    if (window.loadMovilizaciones) {
-                        window.loadMovilizaciones();
-                    } else {
-                        window.location.reload();
-                    }
-                } else {
-                    Swal.fire('Error', data.message || 'Hubo un problema al eliminar.', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Error', 'Error de red o del servidor.', 'error');
-            });
-        }
-    });
 };
 </script>
+@endcan
 
 @endsection
-

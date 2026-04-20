@@ -246,9 +246,9 @@ window.buscarEquiposRD = function (fromEnter = false) {
                            <span class="material-icons" style="font-size:32px;color:#cbd5e0;">directions_car</span>
                        </div>`;
 
-                const tipo    = eq.TIPO   || '';
-                const serial  = eq.SERIAL_CHASIS || null;
-                const placa   = eq.PLACA && eq.PLACA !== 'S/P' ? eq.PLACA : null;
+                const tipo = eq.TIPO || '';
+                const serial = eq.SERIAL_CHASIS || null;
+                const placa = eq.PLACA && eq.PLACA !== 'S/P' ? eq.PLACA : null;
                 const marcaModeloAnio = [eq.MARCA, eq.MODELO, eq.ANIO ? String(eq.ANIO) : ''].filter(Boolean).join(' · ');
 
                 const warningFinalizado = eq.FRENTE_ACTUAL_ESTATUS === 'FINALIZADO'
@@ -262,7 +262,7 @@ window.buscarEquiposRD = function (fromEnter = false) {
                             <div style="font-weight:900;font-size:14px;color:#000;line-height:1.2;text-transform:uppercase;">${tipo}${warningFinalizado}</div>
                             <div style="font-size:13px;color:#000;font-weight:700;margin-bottom:4px;">${marcaModeloAnio || '<span style="color:#94a3b8;font-weight:400;font-style:italic;">Sin detalles</span>'}</div>
                             ${serial ? `<div style="font-size:12px;color:#000;font-weight:600;">${serial}</div>` : ''}
-                            ${placa  ? `<div style="font-size:12px;color:#000;font-weight:600;">P: ${placa}</div>` : ''}
+                            ${placa ? `<div style="font-size:12px;color:#000;font-weight:600;">P: ${placa}</div>` : ''}
                             <div style="font-size:11px;color:#94a3b8;margin-top:4px;display:flex;align-items:center;gap:4px;">
                                 <i class="material-icons" style="font-size:12px;">place</i>${eq.FRENTE_ACTUAL}
                             </div>
@@ -284,7 +284,7 @@ window.buscarEquiposRD = function (fromEnter = false) {
 
                 if (!isSelected) {
                     item.onmouseover = () => { item.style.background = '#f8fafc'; };
-                    item.onmouseout  = () => { item.style.background = 'white'; };
+                    item.onmouseout = () => { item.style.background = 'white'; };
                 }
 
                 list.appendChild(item);
@@ -314,53 +314,53 @@ function rdToggleVisual(card, isSelected) {
 
     if (isSelected) {
         card.style.cssText = card.style.cssText.replace(/border-bottom.*?;/, '');
-        card.style.background    = '#f0f9ff';
-        card.style.border        = '2px solid #0067b1';
-        card.style.borderRadius  = '12px';
-        card.style.transform     = 'scale(0.99)';
-        card.style.marginBottom  = '8px';
-        card.style.boxShadow     = '0 4px 6px -1px rgba(0,103,177,0.1)';
+        card.style.background = '#f0f9ff';
+        card.style.border = '2px solid #0067b1';
+        card.style.borderRadius = '12px';
+        card.style.transform = 'scale(0.99)';
+        card.style.marginBottom = '8px';
+        card.style.boxShadow = '0 4px 6px -1px rgba(0,103,177,0.1)';
 
         const fotoDiv = card.querySelector('div[style*="min-width:85px"]');
         if (fotoDiv) {
-            fotoDiv.style.borderTopLeftRadius    = '10px';
+            fotoDiv.style.borderTopLeftRadius = '10px';
             fotoDiv.style.borderBottomLeftRadius = '10px';
         }
 
         if (!checkDiv) {
             checkDiv = document.createElement('div');
-            checkDiv.className  = 'rd-check-indicator';
+            checkDiv.className = 'rd-check-indicator';
             checkDiv.style.cssText = 'display:flex;align-items:center;padding-right:15px;';
             checkDiv.innerHTML = `<div style="width:28px;height:28px;background:#0067b1;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.1);"><i class="material-icons" style="color:white;font-size:18px;">check</i></div>`;
             card.firstElementChild.appendChild(checkDiv);
         }
 
         card.onmouseover = null;
-        card.onmouseout  = null;
+        card.onmouseout = null;
     } else {
-        card.style.background   = 'white';
-        card.style.border       = '';
+        card.style.background = 'white';
+        card.style.border = '';
         card.style.borderBottom = '1px solid #f1f5f9';
         card.style.borderRadius = '';
-        card.style.transform    = '';
+        card.style.transform = '';
         card.style.marginBottom = '';
-        card.style.boxShadow    = '';
+        card.style.boxShadow = '';
 
         const fotoDiv = card.querySelector('div[style*="min-width:85px"]');
         if (fotoDiv) {
-            fotoDiv.style.borderTopLeftRadius    = '0';
+            fotoDiv.style.borderTopLeftRadius = '0';
             fotoDiv.style.borderBottomLeftRadius = '0';
         }
 
         if (checkDiv) checkDiv.remove();
 
         card.onmouseover = () => { card.style.background = '#f8fafc'; };
-        card.onmouseout  = () => { card.style.background = 'white'; };
+        card.onmouseout = () => { card.style.background = 'white'; };
     }
 }
 
 window.confirmarRecepcionDirecta = function () {
-    const ids      = rdEquiposSeleccionados.map(s => s.ID_EQUIPO);
+    const ids = rdEquiposSeleccionados.map(s => s.ID_EQUIPO);
     const idFrente = document.getElementById('rdFrenteInput').value;
     const ubicacion = document.getElementById('rdUbicacionInput').value;
 
@@ -437,21 +437,21 @@ window.advancedFilterOpen = false;
 window.toggleAdvancedFilter = function (e) {
     if (e) e.stopPropagation();
     const panel = document.getElementById('advancedFilterPanel');
-    const btn   = document.getElementById('btnAdvancedFilter');
+    const btn = document.getElementById('btnAdvancedFilter');
     if (!panel) return;
 
     window.advancedFilterOpen = !window.advancedFilterOpen;
 
     if (window.advancedFilterOpen) {
-        panel.style.display  = 'block';
+        panel.style.display = 'block';
         btn.style.background = '#e1effa';
-        btn.style.borderColor= '#0067b1';
-        btn.style.color      = '#0067b1';
+        btn.style.borderColor = '#0067b1';
+        btn.style.color = '#0067b1';
     } else {
-        panel.style.display  = 'none';
+        panel.style.display = 'none';
         btn.style.background = 'white';
-        btn.style.borderColor= '#cbd5e0';
-        btn.style.color      = '#64748b';
+        btn.style.borderColor = '#cbd5e0';
+        btn.style.color = '#64748b';
     }
 };
 
@@ -460,13 +460,13 @@ if (!window._mvPanelClickListenerRegistered) {
     window._mvPanelClickListenerRegistered = true;
     document.addEventListener('click', function (e) {
         const panel = document.getElementById('advancedFilterPanel');
-        const btn   = document.getElementById('btnAdvancedFilter');
+        const btn = document.getElementById('btnAdvancedFilter');
         if (!panel || !window.advancedFilterOpen) return;
         if (!panel.contains(e.target) && btn && !btn.contains(e.target)) {
-            panel.style.display  = 'none';
+            panel.style.display = 'none';
             btn.style.background = 'white';
-            btn.style.borderColor= '#cbd5e0';
-            btn.style.color      = '#64748b';
+            btn.style.borderColor = '#cbd5e0';
+            btn.style.color = '#64748b';
             window.advancedFilterOpen = false;
         }
     });
@@ -474,9 +474,9 @@ if (!window._mvPanelClickListenerRegistered) {
 
 window.clearDateFilters = function () {
     const desde = document.getElementById('filterFechaDesde');
-    const hasta  = document.getElementById('filterFechaHasta');
+    const hasta = document.getElementById('filterFechaHasta');
     if (desde) desde.value = '';
-    if (hasta)  hasta.value  = '';
+    if (hasta) hasta.value = '';
     window.setDireccionFilter('', false);
     window.loadMovilizaciones();
 };
@@ -486,28 +486,28 @@ window.setDireccionFilter = function (value, reload = true) {
     if (input) input.value = value;
 
     const styles = {
-        filterDireccionTodas:   { active: !value,             border: '#0067b1', bg: '#e1effa', color: '#0067b1' },
+        filterDireccionTodas: { active: !value, border: '#0067b1', bg: '#e1effa', color: '#0067b1' },
         filterDireccionEntrada: { active: value === 'entrada', border: '#16a34a', bg: '#dcfce7', color: '#16a34a' },
-        filterDireccionSalida:  { active: value === 'salida',  border: '#dc2626', bg: '#fee2e2', color: '#dc2626' }
+        filterDireccionSalida: { active: value === 'salida', border: '#dc2626', bg: '#fee2e2', color: '#dc2626' }
     };
 
     Object.entries(styles).forEach(([id, s]) => {
         const btn = document.getElementById(id);
         if (!btn) return;
-        btn.style.border     = `1px solid ${s.active ? s.border : '#e2e8f0'}`;
+        btn.style.border = `1px solid ${s.active ? s.border : '#e2e8f0'}`;
         btn.style.background = s.active ? s.bg : 'white';
-        btn.style.color      = s.active ? s.color : '#64748b';
+        btn.style.color = s.active ? s.color : '#64748b';
     });
 
     // Indicador en el botón principal
-    const btnAdv    = document.getElementById('btnAdvancedFilter');
+    const btnAdv = document.getElementById('btnAdvancedFilter');
     const fechaDesde = document.getElementById('filterFechaDesde');
-    const fechaHasta  = document.getElementById('filterFechaHasta');
+    const fechaHasta = document.getElementById('filterFechaHasta');
     if (btnAdv) {
         const anyActive = value || fechaDesde?.value || fechaHasta?.value;
-        btnAdv.style.background  = anyActive ? '#e1effa' : 'white';
+        btnAdv.style.background = anyActive ? '#e1effa' : 'white';
         btnAdv.style.borderColor = anyActive ? '#0067b1' : '#cbd5e0';
-        btnAdv.style.color       = anyActive ? '#0067b1' : '#64748b';
+        btnAdv.style.color = anyActive ? '#0067b1' : '#64748b';
     }
 
     if (reload) window.loadMovilizaciones();
@@ -532,11 +532,11 @@ function _renderUbicacionSuggestions(box, items) {
     const input = box.closest('div').querySelector('input[type="text"]');
     items.forEach(item => {
         const d = document.createElement('div');
-        d.textContent   = item;
+        d.textContent = item;
         d.style.cssText = 'padding:9px 14px;font-size:13px;color:#1e293b;cursor:default;border-bottom:1px solid #f1f5f9;transition:background 0.15s;';
-        d.onmouseover   = () => d.style.background = '#f0f9ff';
-        d.onmouseout    = () => d.style.background = 'white';
-        d.onmousedown   = (e) => {
+        d.onmouseover = () => d.style.background = '#f0f9ff';
+        d.onmouseout = () => d.style.background = 'white';
+        d.onmousedown = (e) => {
             e.preventDefault();
             if (input) input.value = item;
             box.style.display = 'none';
@@ -548,8 +548,8 @@ function _renderUbicacionSuggestions(box, items) {
 window.showUbicacionSuggestions = function (containerId) {
     const box = document.getElementById(containerId);
     if (!box || !box._allItems || !box._allItems.length) return;
-    const input  = box.parentElement.querySelector('input[type="text"]');
-    const typed  = input ? input.value.trim().toUpperCase() : '';
+    const input = box.parentElement.querySelector('input[type="text"]');
+    const typed = input ? input.value.trim().toUpperCase() : '';
     const filtered = typed ? box._allItems.filter(i => i.toUpperCase().includes(typed)) : box._allItems;
     if (!filtered.length) { box.style.display = 'none'; return; }
     _renderUbicacionSuggestions(box, filtered);
@@ -564,9 +564,112 @@ window.hideUbicacionSuggestions = function (containerId) {
 window.filterUbicacionSuggestions = function (input, containerId) {
     const box = document.getElementById(containerId);
     if (!box || !box._allItems) return;
-    const typed    = input.value.trim().toUpperCase();
+    const typed = input.value.trim().toUpperCase();
     const filtered = typed ? box._allItems.filter(i => i.toUpperCase().includes(typed)) : box._allItems;
     if (!filtered.length) { box.style.display = 'none'; return; }
     _renderUbicacionSuggestions(box, filtered);
     box.style.display = 'block';
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SELECCIÓN Y ELIMINACIÓN (SPA COMPATIBLE)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Set global de IDs seleccionados — persiste entre cambios de página AJAX
+if (!window._mvSelectedIds) {
+    window._mvSelectedIds = new Set();
+}
+
+// Cerrar dropdown de Acciones si se hace clic fuera
+document.addEventListener('click', function (e) {
+    const menuMov = document.getElementById('splitDropdownMenuMov');
+    const btnMov = document.getElementById('btnAccionesMov');
+    if (menuMov && btnMov && !menuMov.contains(e.target) && !btnMov.contains(e.target)) {
+        menuMov.style.display = 'none';
+    }
+});
+
+// ── Aplica/quita el estilo de selección en una fila ──
+window.applyRowStyleMv = function (tr, selected) {
+    if (selected) {
+        tr.classList.add('selected-row-maquinaria');
+    } else {
+        tr.classList.remove('selected-row-maquinaria');
+    }
+}
+
+// ── Actualiza el chip contador ──
+window.updateChipMv = function () {
+    const chip = document.getElementById('mv-selection-chip');
+    const count = document.getElementById('mv-selection-count');
+    if (!chip || !count) return;
+
+    const n = window._mvSelectedIds.size;
+    count.textContent = n;
+    if (n > 0) {
+        chip.classList.add('active');
+    } else {
+        chip.classList.remove('active');
+    }
+}
+
+// ── Re-aplica estilos a todas las filas visibles tras carga AJAX ──
+window.reapplyStylesMv = function () {
+    document.querySelectorAll('.mv-selectable-row').forEach(tr => {
+        const id = tr.dataset.mvId;
+        window.applyRowStyleMv(tr, window._mvSelectedIds.has(id));
+    });
+    window.updateChipMv();
+}
+
+// ── Delegación global de clicks (registrada UNA sola vez por sesión) ──
+if (!window._mvRowClickRegistered) {
+    window._mvRowClickRegistered = true;
+
+    document.addEventListener('click', function (e) {
+        // --- Manejo de la Selección de Fila ---
+        // Ignorar cualquier botón, enlace o dropdown
+        if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')) return;
+
+        const tr = e.target.closest('.mv-selectable-row');
+        if (!tr) return;
+
+        const rowId = tr.dataset.mvId;
+        if (!rowId) return;
+
+        if (window._mvSelectedIds.has(rowId)) {
+            window._mvSelectedIds.delete(rowId);
+            window.applyRowStyleMv(tr, false);
+        } else {
+            window._mvSelectedIds.add(rowId);
+            window.applyRowStyleMv(tr, true);
+        }
+        window.updateChipMv();
+    });
+}
+
+// ── Limpiar selección ──
+window.mvClearSelection = function () {
+    window._mvSelectedIds.clear();
+    document.querySelectorAll('.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
+    window.updateChipMv();
+};
+
+// ── Hook post-AJAX: re-aplicar estilos cuando loadMovilizaciones actualiza el tbody ──
+if (!window._mvLoadHooked) {
+    window._mvLoadHooked = true;
+    const _origLoad = window.loadMovilizaciones;
+    window.loadMovilizaciones = async function (...args) {
+        await _origLoad(...args);
+        window.reapplyStylesMv();
+    };
+}
+
+
+// ── Aplicar al cargar la página en SPA
+window.addEventListener('spa:contentLoaded', function () {
+    if (window._mvSelectedIds) {
+        window._mvSelectedIds.clear();
+    }
+    window.reapplyStylesMv();
+});

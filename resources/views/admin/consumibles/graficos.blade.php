@@ -2,1655 +2,1901 @@
 @section('title', 'Gráficos de Consumibles')
 
 @section('content')
-<style>
+    <style>
+        .g-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
 
-    .g-grid-2  { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
-    .g-grid-1  { margin-bottom:20px; }
-    .g-card    { background:#fff; border-radius:16px; padding:25px;
-                 box-shadow:0 2px 8px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06); }
-    .g-title   { font-size:14px; font-weight:700; color:#1e293b; margin:0 0 16px 0; display:flex; align-items:center; gap:8px; }
-    .g-title i { font-size:18px; color:#0067b1; }
-    .g-subtitle{ font-size:11px; color:#94a3b8; font-weight:400; margin-left:4px; }
+        .g-grid-1 {
+            margin-bottom: 20px;
+        }
 
-    .btn-green     { background:linear-gradient(135deg,#059669,#047857); }
+        .g-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .06);
+        }
 
-    @media (max-width: 900px) {
-        .g-grid-2 { grid-template-columns: 1fr; }
-        .acciones-wrapper { flex: 1 1 100%; min-width: 100%; }
-        #btnAcciones { width: 100%; justify-content: center; }
-        #splitDropdownMenu { width: 100%; min-width: 100%; }
-        
-        .hide-on-mobile { display: none !important; }
-    }
+        .g-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-    /* Tarjetas resumen */
-    .resumen-grid { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
-    .resumen-card { flex:1; min-width:150px; background:linear-gradient(135deg,#1e293b,#0f172a);
-                    border-radius:14px; padding:16px 18px; color:#fff; }
-    /* Tarjetas resumen — estilos internos manejados por JS */
+        .g-title i {
+            font-size: 18px;
+            color: #0067b1;
+        }
 
-    /* Ranking frentes — grid de 4 columnas, valor auto-ancho para alinear */
-    .frow { display:grid;
+        .g-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 400;
+            margin-left: 4px;
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+
+        @media (max-width: 900px) {
+            .g-grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .acciones-wrapper {
+                flex: 1 1 100%;
+                min-width: 100%;
+            }
+
+            #btnAcciones {
+                width: 100%;
+                justify-content: center;
+            }
+
+            #splitDropdownMenu {
+                width: 100%;
+                min-width: 100%;
+            }
+
+            .hide-on-mobile {
+                display: none !important;
+            }
+        }
+
+        /* Tarjetas resumen */
+        .resumen-grid {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .resumen-card {
+            flex: 1;
+            min-width: 150px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border-radius: 14px;
+            padding: 16px 18px;
+            color: #fff;
+        }
+
+        /* Tarjetas resumen — estilos internos manejados por JS */
+
+        /* Ranking frentes — grid de 4 columnas, valor auto-ancho para alinear */
+        .frow {
+            display: grid;
             grid-template-columns: 24px 190px 1fr auto;
-            align-items:center;
-            gap:8px;
-            padding:7px 0;
-            border-bottom:1px solid #f1f5f9; }
-    .frow:last-child { border:none; }
-    .frow-num  { font-size:11px; color:#94a3b8; font-weight:700;
-                 text-align:center; }
-    .frow-name { font-weight:700; font-size:12px; color:#1e293b;
-                 word-break:break-word; line-height:1.3; }
-    .frow-bar-wrap { background:#f1f5f9; border-radius:20px;
-                     height:10px; overflow:hidden; }
-    .frow-bar  { height:100%; border-radius:20px; transition:width .6s; }
-    .frow-val  { text-align:left; font-weight:800; font-size:13px;
-                 color:#003a70; white-space:nowrap; padding-left:4px; }
-    .frow-dep  { display:block; font-size:11px; font-weight:700;
-                 color:#0077cc; margin-top:1px; }
+            align-items: center;
+            gap: 8px;
+            padding: 7px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
 
-    /* Grid de tarjetas de equipos */
-    .eq-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px; }
-    .eq-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
-               padding:12px 14px; transition:box-shadow .2s; }
-    .eq-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
-    .eq-tipo { font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase;
-               letter-spacing:.4px; margin-bottom:2px; }
-    .eq-modelo { font-size:12px; font-weight:700; color:#1e293b; margin-bottom:8px;
-                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .eq-total { font-size:20px; font-weight:800; color:#003a70; line-height:1; }
-    .eq-unidad{ font-size:10px; color:#94a3b8; }
-    .eq-desp  { font-size:12px; font-weight:700; color:#0077cc; margin-top:5px; }
-    .eq-bar   { margin-top:8px; background:#e2e8f0; border-radius:20px; height:4px; overflow:hidden; }
-    .eq-bar-fill { height:100%; border-radius:20px; transition:width .6s; }
-    .eq-frente { font-size:11px; color:#475569; font-weight:600; margin-bottom:6px;
-                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .frow:last-child {
+            border: none;
+        }
 
-    .loading-overlay { display:flex; align-items:center; justify-content:center; height:180px;
-                       color:#94a3b8; font-size:13px; gap:8px; }
-    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .frow-num {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 700;
+            text-align: center;
+        }
 
-    /* Tabla de todos los equipos */
-    .eq-desp-badge { display:inline-flex; align-items:center; gap:4px; background:#003a70;
-                     color:#fff; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
-    .eq-search { width:100%; padding:9px 12px; border:1px solid #cbd5e0; border-radius:10px;
-                 font-size:13px; margin-bottom:14px; outline:none; }
-    .eq-search:focus { border-color:#0067b1; }
-</style>
+        .frow-name {
+            font-weight: 700;
+            font-size: 12px;
+            color: #1e293b;
+            word-break: break-word;
+            line-height: 1.3;
+        }
 
-{{-- HEADER --}}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-    <div>
-        <h1 class="page-title" style="margin-bottom:4px;">
-            <span class="page-title-line2" style="color:#000;">Análisis de Consumibles</span>
-        </h1>
+        .frow-bar-wrap {
+            background: #f1f5f9;
+            border-radius: 20px;
+            height: 10px;
+            overflow: hidden;
+        }
+
+        .frow-bar {
+            height: 100%;
+            border-radius: 20px;
+            transition: width .6s;
+        }
+
+        .frow-val {
+            text-align: left;
+            font-weight: 800;
+            font-size: 13px;
+            color: #003a70;
+            white-space: nowrap;
+            padding-left: 4px;
+        }
+
+        .frow-dep {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #0077cc;
+            margin-top: 1px;
+        }
+
+        /* Grid de tarjetas de equipos */
+        .eq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+            gap: 10px;
+        }
+
+        .eq-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 14px;
+            transition: box-shadow .2s;
+        }
+
+        .eq-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+        }
+
+        .eq-tipo {
+            font-size: 10px;
+            font-weight: 700;
+            color: #0067b1;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            margin-bottom: 2px;
+        }
+
+        .eq-modelo {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .eq-total {
+            font-size: 20px;
+            font-weight: 800;
+            color: #003a70;
+            line-height: 1;
+        }
+
+        .eq-unidad {
+            font-size: 10px;
+            color: #94a3b8;
+        }
+
+        .eq-desp {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0077cc;
+            margin-top: 5px;
+        }
+
+        .eq-bar {
+            margin-top: 8px;
+            background: #e2e8f0;
+            border-radius: 20px;
+            height: 4px;
+            overflow: hidden;
+        }
+
+        .eq-bar-fill {
+            height: 100%;
+            border-radius: 20px;
+            transition: width .6s;
+        }
+
+        .eq-frente {
+            font-size: 11px;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .loading-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 180px;
+            color: #94a3b8;
+            font-size: 13px;
+            gap: 8px;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg)
+            }
+
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        /* Tabla de todos los equipos */
+        .eq-desp-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #003a70;
+            color: #fff;
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .eq-search {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 14px;
+            outline: none;
+        }
+
+        .eq-search:focus {
+            border-color: #0067b1;
+        }
+    </style>
+
+    {{-- HEADER --}}
+    <div
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div>
+            <h1 class="page-title" style="margin-bottom:4px;">
+                <span class="page-title-line2" style="color:#000;">Análisis de Consumibles</span>
+            </h1>
+        </div>
     </div>
-</div>
 
-<div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 20px 25px; margin-bottom: 20px;">
-{{-- FILTROS --}}
-<div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-    <div style="flex: 1; min-width: 180px;">
-        <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente" data-default-label="Todos los frentes">
-            <input type="hidden" id="fFrente" data-filter-value value="">
+    <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 20px 25px; margin-bottom: 20px;">
+        {{-- FILTROS --}}
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <div style="flex: 1; min-width: 180px;">
+                <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente"
+                    data-default-label="Todos los frentes">
+                    <input type="hidden" id="fFrente" data-filter-value value="">
 
-            <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px;">
-                <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
-                    <i class="material-icons" style="font-size:18px;">search</i>
-                </div>
-                <input type="text" id="graficos_frente_search" name="graficos_frente_search"
-                    data-filter-search
-                    placeholder="Todos los frentes"
-                    style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%;"
-                    oninput="window.filterDropdownOptions(this)"
-                    autocomplete="off">
-                <i class="material-icons" data-clear-btn
-                   style="padding:0 5px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px; display:none; cursor:pointer;"
-                   onclick="event.stopPropagation(); window.clearDropdownFilter('frenteFilterSelect'); setTimeout(window.cargarDatos, 50);">close</i>
-            </div>
-
-            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
-                <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
-                    <div class="dropdown-item selected"
-                         data-value=""
-                         onclick="window.selectOption('frenteFilterSelect', '', 'Todos los frentes'); window.cargarDatos();">
-                        Todos los frentes
-                    </div>
-                    @foreach($frentes as $f)
-                        <div class="dropdown-item"
-                             data-value="{{ $f->ID_FRENTE }}"
-                             onclick="window.selectOption('frenteFilterSelect', '{{ $f->ID_FRENTE }}', '{{ $f->NOMBRE_FRENTE }}'); window.cargarDatos();">
-                            {{ $f->NOMBRE_FRENTE }}
+                    <div class="dropdown-trigger"
+                        style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px;">
+                        <div
+                            style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
+                            <i class="material-icons" style="font-size:18px;">search</i>
                         </div>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-    </div>
+                        <input type="text" id="graficos_frente_search" name="graficos_frente_search" data-filter-search
+                            placeholder="Todos los frentes"
+                            style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%;"
+                            oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                        <i class="material-icons" data-clear-btn
+                            style="padding:0 5px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px; display:none; cursor:pointer;"
+                            onclick="event.stopPropagation(); window.clearDropdownFilter('frenteFilterSelect'); setTimeout(window.cargarDatos, 50);">close</i>
+                    </div>
 
-    <div style="flex: 1; min-width: 140px;">
-        <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="tipo" data-default-label="Gasoil">
-            <input type="hidden" id="fTipo" data-filter-value value="GASOIL">
-
-            <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:pointer;">
-                <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
-                    <i class="material-icons" style="font-size:18px;">local_gas_station</i>
-                </div>
-                <input type="text" id="graficos_tipo_search" name="graficos_tipo_search"
-                    data-filter-search
-                    readonly
-                    value="Gasoil"
-                    style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; cursor:pointer;"
-                    autocomplete="off"
-                    placeholder="Caucho">
-                <i class="material-icons" style="padding:0 10px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px;">arrow_drop_down</i>
-            </div>
-
-            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
-                <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
-                    @foreach(\App\Models\Consumible::tiposLabel() as $v => $l)
-                        @if(!in_array($v, ['REFRIGERANTE', 'OTRO']))
-                            <div class="dropdown-item {{ $v == 'GASOIL' ? 'selected' : '' }}"
-                                 data-value="{{ $v }}"
-                                 onclick="window.selectOption('tipoFilterSelect', '{{ $v }}', '{{ $l }}'); window.cargarDatos();">
-                                {{ $l }}
+                    <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                        <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
+                            <div class="dropdown-item selected" data-value=""
+                                onclick="window.selectOption('frenteFilterSelect', '', 'Todos los frentes'); window.cargarDatos();">
+                                Todos los frentes
                             </div>
-                        @endif
-                    @endforeach
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div style="position: relative;">
-        <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: white; border: 1px solid #cbd5e0; color: #64748b; box-shadow: none;" onclick="document.getElementById('advancedFilterPanel').style.display = document.getElementById('advancedFilterPanel').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
-            <i class="material-icons">filter_list</i>
-        </button>
-        
-        <div id="advancedFilterPanel" class="no-close-on-click" style="display: none; position: absolute; top: 100%; right: 0; width: 300px; background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 1000; margin-top: 10px; padding: 15px;">
-            <h4 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
-                Filtros Avanzados
-                <button type="button" onclick="window.clearAdvancedFilters(); window.cargarDatos();" style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer; border: none; background: transparent;">Limpiar Todo</button>
-            </h4>
-
-            <div style="margin-bottom: 15px;">
-                <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Rango de Fechas</span>
-                <div style="display: flex; gap: 8px;">
-                    <input type="date" id="fDesde" class="native-date" onchange="window.cargarDatos()" title="Desde" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
-                    <input type="date" id="fHasta" class="native-date" onchange="window.cargarDatos()" title="Hasta" style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
+                            @foreach($frentes as $f)
+                                <div class="dropdown-item" data-value="{{ $f->ID_FRENTE }}"
+                                    onclick="window.selectOption('frenteFilterSelect', '{{ $f->ID_FRENTE }}', '{{ $f->NOMBRE_FRENTE }}'); window.cargarDatos();">
+                                    {{ $f->NOMBRE_FRENTE }}
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
             </div>
 
-        </div>
-    </div>
+            <div style="flex: 1; min-width: 140px;">
+                <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="tipo" data-default-label="Gasoil">
+                    <input type="hidden" id="fTipo" data-filter-value value="GASOIL">
+
+                    <div class="dropdown-trigger"
+                        style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:pointer;">
+                        <div
+                            style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
+                            <i class="material-icons" style="font-size:18px;">local_gas_station</i>
+                        </div>
+                        <input type="text" id="graficos_tipo_search" name="graficos_tipo_search" data-filter-search readonly
+                            value="Gasoil"
+                            style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; cursor:pointer;"
+                            autocomplete="off" placeholder="Caucho">
+                        <i class="material-icons"
+                            style="padding:0 10px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px;">arrow_drop_down</i>
+                    </div>
+
+                    <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                        <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
+                            @foreach(\App\Models\Consumible::tiposLabel() as $v => $l)
+                                @if(!in_array($v, ['REFRIGERANTE', 'OTRO']))
+                                    <div class="dropdown-item {{ $v == 'GASOIL' ? 'selected' : '' }}" data-value="{{ $v }}"
+                                        onclick="window.selectOption('tipoFilterSelect', '{{ $v }}', '{{ $l }}'); window.cargarDatos();">
+                                        {{ $l }}
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="position: relative;">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
+                    style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: white; border: 1px solid #cbd5e0; color: #64748b; box-shadow: none;"
+                    onclick="document.getElementById('advancedFilterPanel').style.display = document.getElementById('advancedFilterPanel').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                    <i class="material-icons">filter_list</i>
+                </button>
+
+                <div id="advancedFilterPanel" class="no-close-on-click"
+                    style="display: none; position: absolute; top: 100%; right: 0; width: 300px; background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 1000; margin-top: 10px; padding: 15px;">
+                    <h4
+                        style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
+                        Filtros Avanzados
+                        <button type="button" onclick="window.clearAdvancedFilters(); window.cargarDatos();"
+                            style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer; border: none; background: transparent;">Limpiar
+                            Todo</button>
+                    </h4>
+
+                    <div style="margin-bottom: 15px;">
+                        <span
+                            style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Rango
+                            de Fechas</span>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="date" id="fDesde" class="native-date" onchange="window.cargarDatos()" title="Desde"
+                                style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
+                                onclick="try{this.showPicker()}catch(e){}">
+                            <input type="date" id="fHasta" class="native-date" onchange="window.cargarDatos()" title="Hasta"
+                                style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
+                                onclick="try{this.showPicker()}catch(e){}">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
             <!-- Botón Acciones -->
-    <div class="acciones-wrapper" style="position: relative; flex-shrink: 0;">
-        <button type="button" id="btnAcciones" onclick="document.getElementById('splitDropdownMenu').style.display = document.getElementById('splitDropdownMenu').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <i class="material-icons">settings</i>
-            <span>Acciones</span>
-            <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
-        </button>
-        <div id="splitDropdownMenu" style="display: none; position: absolute; top: 100%; right: 0; min-width: 260px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; z-index: 1050; margin-top: 10px; overflow: hidden;">
-            
-            {{-- Navegación Estándar --}}
-            <a href="{{ route('consumibles.index') }}" class="dropdown-item-custom hide-on-mobile" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                <div style="background: #eff6ff; padding: 6px; border-radius: 6px; display: flex;">
-                    <i class="material-icons" style="font-size: 18px; color: #3b82f6;">list_alt</i>
+            <div class="acciones-wrapper" style="position: relative; flex-shrink: 0;">
+                <button type="button" id="btnAcciones"
+                    onclick="document.getElementById('splitDropdownMenu').style.display = document.getElementById('splitDropdownMenu').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();"
+                    class="btn-primary-maquinaria"
+                    style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                    <i class="material-icons">settings</i>
+                    <span>Acciones</span>
+                    <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
+                </button>
+                <div id="splitDropdownMenu"
+                    style="display: none; position: absolute; top: 100%; right: 0; min-width: 260px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; z-index: 1050; margin-top: 10px; overflow: hidden;">
+
+                    {{-- Navegación Estándar --}}
+                    <a href="{{ route('consumibles.index') }}" class="dropdown-item-custom hide-on-mobile"
+                        style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #f1f5f9; background: transparent; transition: all 0.2s;"
+                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                        <div style="background: #eff6ff; padding: 6px; border-radius: 6px; display: flex;">
+                            <i class="material-icons" style="font-size: 18px; color: #3b82f6;">list_alt</i>
+                        </div>
+                        <span style="font-size:14px; font-weight:500;">Lista de Consumibles</span>
+                    </a>
+
+                    <a href="{{ route('consumibles.cargar') }}" class="dropdown-item-custom hide-on-mobile"
+                        style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;"
+                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                        <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
+                            <i class="material-icons" style="font-size: 18px; color: #ea580c;">note_add</i>
+                        </div>
+                        <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
+                    </a>
+
+                    {{-- Acciones Locales --}}
+                    <a href="#"
+                        onclick="document.getElementById('splitDropdownMenu').style.display='none'; descargarExcel(); return false;"
+                        class="dropdown-item-custom"
+                        style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;"
+                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                        <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
+                            <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
+                        </div>
+                        <span style="font-size: 14px; font-weight: 500;">Exportación de Excel</span>
+                    </a>
                 </div>
-                <span style="font-size:14px; font-weight:500;">Lista de Consumibles</span>
-            </a>
-            
-            <a href="{{ route('consumibles.cargar') }}" class="dropdown-item-custom hide-on-mobile" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
-                    <i class="material-icons" style="font-size: 18px; color: #ea580c;">note_add</i>
-                </div>
-                <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
-            </a>
+            </div>
 
-            {{-- Acciones Locales --}}
-            <a href="#" onclick="document.getElementById('splitDropdownMenu').style.display='none'; descargarCsv(); return false;" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
-                    <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
-                </div>
-                <span style="font-size: 14px; font-weight: 500;">Exportación de Data</span>
-            </a>
         </div>
     </div>
-
-</div>
-</div>
-<script>
-    document.addEventListener('click', function(e) {
-        let accMenu = document.getElementById('splitDropdownMenu');
-        if (accMenu && accMenu.style.display === 'block' && !e.target.closest('#btnAcciones') && !e.target.closest('#splitDropdownMenu')) {
-            accMenu.style.display = 'none';
-        }
-        let advMenu = document.getElementById('advancedFilterPanel');
-        if (advMenu && advMenu.style.display === 'block' && !e.target.closest('#btnAdvancedFilter') && !e.target.closest('#advancedFilterPanel')) {
-            advMenu.style.display = 'none';
-        }
-    });
-</script>
-
-{{-- TARJETAS RESUMEN --}}
-<div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
-    <span style="font-size:14px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
-        <i class="material-icons" style="color:#0067b1; font-size:18px;">analytics</i>
-        Resumen General
-    </span>
-    <button onclick="descargarPanelResumen('resumen_general')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-        <i class="material-icons" style="font-size:17px;">photo_camera</i>
-    </button>
-</div>
-<div class="resumen-grid" id="resumenGrid">
-    <div class="loading-overlay" style="width:100%;">
-        <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...
-    </div>
-</div>
-
-{{-- TOTAL POR FRENTE --}}
-<div class="g-grid-1" id="totalFrenteWrapper">
-    <div class="g-card" id="panelTotalFrente">
-        <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
-            <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
-                <i class="material-icons">bar_chart</i>
-                <span id="tituloTotalFrente" style="word-break: break-word;">Total de Consumo por Frente</span>
-            </span>
-            <button onclick="descargarPanelHtml('panelTotalFrente','consumo_por_frente')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingTotalFrente" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="totalFrenteBody" style="display:none;"></div>
-    </div>
-</div>
-
-{{-- EQUIPOS ASIGNADOS POR FRENTE --}}
-<div class="g-grid-1">
-    <div class="g-card" id="panelEqAsig">
-        <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
-            <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
-                <i class="material-icons" style="color:#64748b; flex-shrink: 0;">directions_bus</i>
-                <span style="word-break: break-word;">Equipos Asignados por Frente <span class="g-subtitle" style="display:inline-block;">— flota actual en cada frente</span></span>
-            </span>
-            <button onclick="descargarPanelEquipos('equipos_asignados')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingEqAsig" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="eqAsigBody" style="display:none;"></div>
-    </div>
-</div>
-
-
-
-
-{{-- EQUIPOS QUE SURTIERON POR FRENTE (solo con frente seleccionado) --}}
-<div class="g-grid-1" id="secEqFrente" style="display:none;">
-    <div class="g-card" id="panelEqFrente">
-        <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
-            <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
-                <i class="material-icons" style="color:#0067b1; flex-shrink: 0;">local_shipping</i>
-                <span style="word-break: break-word;">Equipos que Surtieron <span class="g-subtitle" id="subtitleEqFrente" style="display:inline-block;">— selecciona un frente</span></span>
-            </span>
-            <button onclick="descargarGrafico('chartEqFrente','equipos_surtieron')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingEqFrente" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div style="position: relative; height:320px; width:100%;">
-            <canvas id="chartEqFrente" style="display:none;"></canvas>
-        </div>
-    </div>
-</div>
-
-{{-- TOP EQUIPOS — GRID DE TARJETAS --}}
-<div class="g-grid-1" id="panelRankingEquipos">
-    <div class="g-card">
-        <p class="g-title" style="justify-content:space-between;">
-            <span style="display:flex;align-items:center;gap:8px;">
-                <i class="material-icons">emoji_events</i>
-                Top 15 Equipos Mayor Consumo
-                <span class="g-subtitle">— total · nº de despachos</span>
-            </span>
-            <button onclick="descargarRanking()" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingRanking" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="rankingBody" style="display:none;"></div>
-    </div>
-</div>
-
-{{-- EQUIPOS INOPERATIVOS EN FRENTE --}}
-<div class="g-grid-1" id="secInoperativos" style="display:none;">
-    <div class="g-card">
-        <p class="g-title" style="justify-content:space-between;">
-            <span style="display:flex;align-items:center;gap:8px;">
-                <i class="material-icons" style="color:#ef4444;">build_circle</i>
-                Equipos Inoperativos — Frente Seleccionado
-                <span class="g-subtitle">— registra la causa de inoperatividad</span>
-            </span>
-            <button onclick="descargarPanelInoperativos()" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingInoperativos" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="inoperativosBody" style="display:none;"></div>
-    </div>
-</div>
-
-
-{{-- ESPECIFICACION POR FRENTE --}}
-<div class="g-grid-1" id="secEspecFrente" style="display:none;">
-    <div class="g-card">
-        <p class="g-title" id="titleEspecFrente" style="justify-content:space-between;">
-            <span style="display:flex;align-items:center;gap:8px;">
-                <i class="material-icons" id="iconEspecFrente" style="color:#1b5e20;">tire_repair</i>
-                <span><span id="txtEspecFrente">Consumo por Frente — Desglose por Especificación</span> <span class="g-subtitle">— todos los registros</span></span>
-            </span>
-            <button onclick="descargarPanelEspecFrente('desglose_especificacion')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingAceiteFrente" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="aceiteFrente-body" style="display:none;"></div>
-    </div>
-</div>
-
-{{-- ESPECIFICACION POR EQUIPO --}}
-<div class="g-grid-1" id="secEspecEquipo" style="display:none;">
-    <div class="g-card">
-        <p class="g-title" id="titleEspecEquipo">
-            <i class="material-icons" id="iconEspecEquipo" style="color:#0067b1;">settings</i>
-            <span id="txtEspecEquipo">Consumo por Equipo — Desglose por Especificación</span>
-            <span class="g-subtitle">— solo equipos identificados</span>
-        </p>
-        <div id="loadingAceiteEquipo" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="aceiteEquipoBody" style="display:none; overflow-x:auto;"></div>
-    </div>
-</div>
-
-{{-- CAUCHOS POR TIPO DE EQUIPO Y MEDIDA --}}
-<div class="g-grid-1" id="secCauchoModelo">
-    <div class="g-card">
-        <p class="g-title" style="justify-content:space-between;">
-            <span style="display:flex;align-items:center;gap:8px;">
-                <i class="material-icons" style="color:#1b5e20;">tire_repair</i>
-                Cauchos por Tipo de Equipo y Medida
-                <span class="g-subtitle">— unidades reemplazadas · solo equipos identificados</span>
-            </span>
-            <button onclick="descargarGrafico('chartCauchoModelo','cauchos_por_modelo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-            </button>
-        </p>
-        <div id="loadingCauchoModelo" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div id="cauchoModeloBadges" style="display:none; flex-wrap:wrap; gap:8px; margin-bottom:14px;"></div>
-        <canvas id="chartCauchoModelo" style="display:none; max-height:340px;"></canvas>
-    </div>
-</div>
-
-{{-- TODOS LOS EQUIPOS — TABLA COMPLETA --}}
-<div class="g-grid-1">
-    <div class="g-card">
-        <p class="g-title">
-            <i class="material-icons">table_chart</i>
-            Despachos por Equipo — Todos
-            <span class="g-subtitle" id="subtotalEquipos"></span>
-        </p>
-        <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
-            <input class="eq-search" id="eqSearch" type="text" placeholder="Buscar placa, marca o modelo..." oninput="filtrarTablaEquipos()" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-            <select id="eqFilterTipo" class="eq-search" onchange="filtrarTablaEquipos()" style="margin-bottom: 0; width: auto; flex: 0 1 auto; min-width: 150px; background-color: #fbfcfd;">
-                <option value="">Todos los Tipos</option>
-            </select>
-            <select id="eqFilterFrente" class="eq-search" onchange="filtrarTablaEquipos()" style="margin-bottom: 0; width: auto; flex: 0 1 auto; min-width: 150px; background-color: #fbfcfd;">
-                <option value="">Todos los Frentes</option>
-            </select>
-        </div>
-        <div id="loadingTodosEq" class="loading-overlay">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-        </div>
-        <div style="overflow-x:auto; display:none;" id="wrapTodosEq">
-            <table class="admin-table" id="tablaEquipos">
-                <thead>
-                    <tr>
-                        <th class="sortable" onclick="sortTabla(0)">Tipo ▵</th>
-                        <th class="sortable" onclick="sortTabla(1)">Identificador(es)</th>
-                        <th class="sortable" onclick="sortTabla(2)">Marca / Modelo</th>
-                        <th class="sortable" onclick="sortTabla(3)">Frente</th>
-                        <th class="sortable" onclick="sortTabla(4)" style="text-align:right;">Despachos ▾</th>
-                        <th class="sortable" onclick="sortTabla(5)" style="text-align:right;">Total</th>
-                    </tr>
-                </thead>
-                <tbody id="bodyTodosEq"></tbody>
-            </table>
-        </div>
-        <div id="paginacionEquipos"></div>
-    </div>
-</div>
-
-<script src="{{ asset('js/chart.umd.min.js') }}"></script>
-<script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
-<script src="{{ asset('js/html2canvas.min.js') }}"></script>
-<script>
-// Paleta corporativa: variada y profunda
-window.COLORES = window.COLORES || {
-    'GASOIL':       '#003a70',   // azul marino
-    'GASOLINA':     '#c41c00',   // rojo intenso
-    'ACEITE':       '#0077cc',   // azul eléctrico
-    'CAUCHO':       '#1b5e20',   // verde oscuro
-    'REFRIGERANTE': '#00838f',   // teal
-    'OTRO':         '#546e7a',   // gris azulado
-};
-window.TIPO_LABEL = window.TIPO_LABEL || {
-    'GASOIL':'Gasoil','GASOLINA':'Gasolina','ACEITE':'Aceite',
-    'CAUCHO':'Caucho','REFRIGERANTE':'Refrigerante','OTRO':'Otro'
-};
-
-window.chartTipoEq = window.chartTipoEq || null;
-window.chartEqFrente = window.chartEqFrente || null;
-window.chartCauchoModelo = window.chartCauchoModelo || null;
-
-if (window.chartCheckInterval) clearInterval(window.chartCheckInterval);
-window.chartCheckInterval = setInterval(() => {
-    if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
-        Chart.register(ChartDataLabels);
-        clearInterval(window.chartCheckInterval);
-    }
-}, 100);
-setTimeout(() => clearInterval(window.chartCheckInterval), 5000);
-
-var COLORES = window.COLORES;
-var TIPO_LABEL = window.TIPO_LABEL;
-var chartTipoEq = window.chartTipoEq;
-var chartEqFrente = window.chartEqFrente;
-var chartCauchoModelo = window.chartCauchoModelo;
-
-function getParams() {
-    var p = new URLSearchParams();
-    var frente = document.getElementById('fFrente') ? document.getElementById('fFrente').value : '';
-    var tipo   = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
-    var desde  = document.getElementById('fDesde') ? document.getElementById('fDesde').value : '';
-    var hasta  = document.getElementById('fHasta') ? document.getElementById('fHasta').value : '';
-    if (frente) p.set('id_frente', frente);
-    if (tipo)   p.set('tipo', tipo);
-    if (desde)  p.set('desde', desde);
-    if (hasta)  p.set('hasta', hasta);
-    return p;
-}
-
-window.clearAdvancedFilters = function() {
-    if(document.getElementById('fDesde')) document.getElementById('fDesde').value = '';
-    if(document.getElementById('fHasta')) document.getElementById('fHasta').value = '';
-};
-
-function show(id)   { document.getElementById(id).style.display = ''; }
-function hide(id)   { document.getElementById(id).style.display = 'none'; }
-function canvas(id) { document.getElementById(id).style.display = 'block'; }
-
-window.cargarDatos = function() {
-    if (window._cargarDatosTimer) clearTimeout(window._cargarDatosTimer);
-    window._cargarDatosTimer = setTimeout(_cargarDatosLocal, 250);
-};
-
-function _cargarDatosLocal() {
-    if (window.showPreloader) window.showPreloader();
-    const params = getParams();
-
-    const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
-
-    // ── Loading: mostrar spinners de las secciones siempre visibles ──
-    ['loadingTotalFrente','loadingEqAsig',
-     'loadingRanking','loadingTodosEq','loadingInoperativos'].forEach(show);
-
-    if (tipoFiltroPre === 'CAUCHO') {
-        show('secCauchoModelo');
-        show('loadingCauchoModelo');
-    } else {
-        hide('secCauchoModelo');
-    }
-
-    // ── Ocultar contenido previo (prev carga) ────────────────────────
-    ['totalFrenteBody','eqAsigBody',
-     'rankingBody','wrapTodosEq','chartCauchoModelo', 'inoperativosBody'].forEach(hide);
-
-    // ── Secciones de especificación: ocultar antes de cada carga ─────
-    // Evita que queden datos viejos visibles durante la nueva carga.
-    hide('secEspecFrente');
-    hide('secEspecEquipo');
-    hide('secInoperativos');
-    hide('aceiteFrente-body');
-    hide('aceiteEquipoBody');
-
-    document.getElementById('resumenGrid').innerHTML =
-        '<div class="loading-overlay" style="width:100%;"><i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...</div>';
-
-    fetch(`{{ route('consumibles.graficosData') }}?${params}`)
-        .then(r => r.json())
-        .then(data => {
-            const frenteSeleccionado = document.getElementById('fFrente').value;
-            const tipoFiltro = document.getElementById('fTipo').value;
-
-            renderResumen(data.resumen);
-            
-            if (tipoFiltro === 'GASOIL') {
-                document.getElementById('totalFrenteWrapper').style.display = 'block';
-                renderTotalFrente(data.por_frente);
-            } else {
-                document.getElementById('totalFrenteWrapper').style.display = 'none';
+    <script>
+        document.addEventListener('click', function (e) {
+            let accMenu = document.getElementById('splitDropdownMenu');
+            if (accMenu && accMenu.style.display === 'block' && !e.target.closest('#btnAcciones') && !e.target.closest('#splitDropdownMenu')) {
+                accMenu.style.display = 'none';
             }
-            // ── Orden de frentes según gráfico de consumo (mayor a menor) ────────
-            // 'let' porque luego insertamos AMBIENTE en la posición que le corresponde.
-            let ordenFrente = (data.por_frente || [])
-                .map(d => d.NOMBRE_FRENTE)
-                .filter((v, i, a) => a.indexOf(v) === i);  // únicos, en orden consumo
-
-            // ── AMBIENTE en posición #3, excepto cuando se filtra por CAUCHO o ACEITE ──
-            const tiposSinAmbiente = ['CAUCHO', 'ACEITE'];
-            if (data.equipos_asignados && data.equipos_asignados['AMBIENTE']
-                && !tiposSinAmbiente.includes(tipoFiltro)) {
-                ordenFrente.splice(2, 0, 'AMBIENTE');
-            }
-
-            window.renderEquiposAsignados(data.equipos_asignados || {}, ordenFrente);
-            // Solo mostrar equipos×frente cuando hay un frente específico seleccionado
-            if (frenteSeleccionado) {
-                document.getElementById('secEqFrente').style.display = '';
-                renderEquiposPorFrente(data.equipos_por_frente, frenteSeleccionado);
-            } else {
-                document.getElementById('secEqFrente').style.display = 'none';
-            }
-            if (frenteSeleccionado) {
-                document.getElementById('secInoperativos').style.display = '';
-                const fname = (data.inoperativos && data.inoperativos.length > 0) 
-                              ? data.inoperativos[0].frente_nombre 
-                              : document.querySelector('#frenteFilterSelect [data-filter-search]')?.placeholder;
-                renderInoperativos(data.inoperativos || [], fname || 'Frente Seleccionado');
-            } else {
-                document.getElementById('secInoperativos').style.display = 'none';
-            }
-            renderRanking(data.top_equipos);
-            if (tipoFiltro === 'CAUCHO') {
-                renderCauchosPorModelo(data.cauchos_por_modelo);
-            }
-            renderTodosEquipos(data.todos_equipos);
-            renderEspecFrente(data.espec_frente, data.tipo_activo);
-            renderEspecEquipo(data.espec_equipo, data.tipo_activo);
-            if (window.hidePreloader) window.hidePreloader();
-        })
-        .catch(err => {
-            if (window.hidePreloader) window.hidePreloader();
-            console.error('Error cargando datos de gráficos:', err);
-            ['loadingTotalFrente','loadingEqAsig',
-             'loadingRanking','loadingTodosEq','loadingInoperativos'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
-            });
-            if (tipoFiltroPre === 'CAUCHO') {
-                const elCaucho = document.getElementById('loadingCauchoModelo');
-                if (elCaucho) elCaucho.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
+            let advMenu = document.getElementById('advancedFilterPanel');
+            if (advMenu && advMenu.style.display === 'block' && !e.target.closest('#btnAdvancedFilter') && !e.target.closest('#advancedFilterPanel')) {
+                advMenu.style.display = 'none';
             }
         });
-}
+    </script>
 
-// ── Equipos asignados por frente — cajitas numeradas en orden de consumo ───
-window.renderEquiposAsignados = function(eqAsig, ordenFrente) {
-    hide('loadingEqAsig');
-    const body = document.getElementById('eqAsigBody');
-    body.style.display = 'block';
+    {{-- TARJETAS RESUMEN --}}
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
+        <span style="font-size:14px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px;">
+            <i class="material-icons" style="color:#0067b1; font-size:18px;">analytics</i>
+            Resumen General
+        </span>
+        <button onclick="descargarPanelResumen('resumen_general')" title="Descargar imagen"
+            style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
+            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+            <i class="material-icons" style="font-size:17px;">photo_camera</i>
+        </button>
+    </div>
+    <div class="resumen-grid" id="resumenGrid">
+        <div class="loading-overlay" style="width:100%;">
+            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...
+        </div>
+    </div>
 
-    // Filtrar solo los frentes que tienen equipos asignados, manteniendo el orden de consumo.
-    // AMBIENTE ya viene inserado en la pos correcta por cargarDatos().
-    const lista = (ordenFrente || [])
-        .filter(frente => eqAsig[frente])          // solo frentes con equipos asignados
-        .map(frente => ({
-            frente,
-            total: parseInt(eqAsig[frente]?.total_asignados || 0),
-        }));
-
-    if (!lista.length) {
-        body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos de equipos asignados.</p>';
-        return;
-    }
-
-    const GRIS_FIJO = '#475569';
-
-    // i+1 sobre la lista YA FILTRADA → siempre secuencial sin saltos
-    body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;">${
-        lista.map((row, i) => `
-            <div style="
-                background:${GRIS_FIJO};
-                color:#fff;
-                border-radius:12px;
-                padding:12px 16px;
-                min-width:200px;
-                flex:1;
-                display:flex;
-                flex-direction:column;
-                align-items:flex-start;
-                justify-content:center;
-                gap:8px;
-                box-shadow:0 2px 8px rgba(0,0,0,.15);
-            ">
-                <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                    <span style="font-size:13px;font-weight:700;color:#94a3b8;">#${i + 1}</span>
-                    <span style="font-size:12px;font-weight:700;line-height:1.2;word-break:break-word;" title="${row.frente}">${row.frente}</span>
-                </div>
-                <div style="display:flex;align-items:baseline;gap:5px;">
-                    <span style="font-size:26px;font-weight:900;line-height:1;">${row.total}</span>
-                    <span style="font-size:13px;font-weight:600;opacity:.9;">equipo${row.total!==1?'s':''}</span>
-                </div>
-            </div>`
-        ).join('')
-    }</div>`;
-};
-
-// Exponer cargarDatos globalmente para el ModuleManager SPA
-// window.cargarDatos = window.cargarDatos; (Ya asignado arriba)
-
-// ── Tarjetas resumen ───────────────────────────────────────────────
-function renderResumen(datos) {
-    const grid = document.getElementById('resumenGrid');
-    if (!datos || datos.length === 0) {
-        grid.innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:10px;">Sin datos con los filtros aplicados.</p>';
-        return;
-    }
-    grid.innerHTML = datos.map(d => {
-        return `
-        <div class="resumen-card">
-            <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.2;">
-                <span style="font-size:28px; font-weight:800; color:#fff;">
-                    ${parseFloat(d.total).toLocaleString('es-VE',{minimumFractionDigits:0,maximumFractionDigits:1})}
+    {{-- TOTAL POR FRENTE --}}
+    <div class="g-grid-1" id="totalFrenteWrapper">
+        <div class="g-card" id="panelTotalFrente">
+            <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
+                <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
+                    <i class="material-icons">bar_chart</i>
+                    <span id="tituloTotalFrente" style="word-break: break-word;">Total de Consumo por Frente</span>
                 </span>
-                <span style="font-size:12px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.5px;">
-                    ${d.unidad} · ${TIPO_LABEL[d.TIPO_CONSUMIBLE] || d.TIPO_CONSUMIBLE}
+                <button onclick="descargarPanelHtml('panelTotalFrente','consumo_por_frente')" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingTotalFrente" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="totalFrenteBody" style="display:none;"></div>
+        </div>
+    </div>
+
+    {{-- EQUIPOS ASIGNADOS POR FRENTE --}}
+    <div class="g-grid-1">
+        <div class="g-card" id="panelEqAsig">
+            <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
+                <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
+                    <i class="material-icons" style="color:#64748b; flex-shrink: 0;">directions_bus</i>
+                    <span style="word-break: break-word;">Equipos Asignados por Frente <span class="g-subtitle"
+                            style="display:inline-block;">— flota actual en cada frente</span></span>
                 </span>
+                <button onclick="descargarPanelEquipos('equipos_asignados')" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingEqAsig" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
             </div>
-            <div style="font-size:11px; color:#64748b; margin-top:6px;">
-                ${d.registros} despachos · ${d.equipos_distintos} eq
+            <div id="eqAsigBody" style="display:none;"></div>
+        </div>
+    </div>
+
+
+
+
+    {{-- EQUIPOS QUE SURTIERON POR FRENTE (solo con frente seleccionado) --}}
+    <div class="g-grid-1" id="secEqFrente" style="display:none;">
+        <div class="g-card" id="panelEqFrente">
+            <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
+                <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
+                    <i class="material-icons" style="color:#0067b1; flex-shrink: 0;">local_shipping</i>
+                    <span style="word-break: break-word;">Equipos que Surtieron <span class="g-subtitle"
+                            id="subtitleEqFrente" style="display:inline-block;">— selecciona un frente</span></span>
+                </span>
+                <button onclick="descargarGrafico('chartEqFrente','equipos_surtieron')" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingEqFrente" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
             </div>
-        </div>`;
-    }).join('');
-}
+            <div style="position: relative; height:320px; width:100%;">
+                <canvas id="chartEqFrente" style="display:none;"></canvas>
+            </div>
+        </div>
+    </div>
 
-// ── Total por frente (barras horizontales) ───────────────────────────────
-function renderTotalFrente(datos) {
-    const searchInput = document.querySelector('#frenteFilterSelect [data-filter-search]');
-    const nombreFrente = searchInput ? searchInput.placeholder : '';
-    const hayFrenteSeleccionado = !!document.getElementById('fFrente').value;
-    const tituloEl = document.getElementById('tituloTotalFrente');
-    if (tituloEl) {
-        tituloEl.textContent = hayFrenteSeleccionado
-            ? `Consumo — ${nombreFrente}`
-            : 'Total de Consumo por Frente';
-    }
-    hide('loadingTotalFrente');
-    const body = document.getElementById('totalFrenteBody');
-    body.style.display = 'block';
-    if (!datos || datos.length === 0) {
-        body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos.</p>';
-        return;
-    }
+    {{-- TOP EQUIPOS — GRID DE TARJETAS --}}
+    <div class="g-grid-1" id="panelRankingEquipos">
+        <div class="g-card">
+            <p class="g-title" style="justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <i class="material-icons">emoji_events</i>
+                    Top 15 Equipos Mayor Consumo
+                    <span class="g-subtitle">— total · nº de despachos</span>
+                </span>
+                <button onclick="descargarRanking()" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingRanking" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="rankingBody" style="display:none;"></div>
+        </div>
+    </div>
+
+    {{-- EQUIPOS INOPERATIVOS EN FRENTE --}}
+    <div class="g-grid-1" id="secInoperativos" style="display:none;">
+        <div class="g-card">
+            <p class="g-title" style="justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <i class="material-icons" style="color:#ef4444;">build_circle</i>
+                    Equipos Inoperativos — Frente Seleccionado
+                    <span class="g-subtitle">— registra la causa de inoperatividad</span>
+                </span>
+                <button onclick="descargarPanelInoperativos()" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingInoperativos" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="inoperativosBody" style="display:none;"></div>
+        </div>
+    </div>
 
 
-    const mapaTotal     = {};
-    const mapaDespachos = {};
-    const mapaUnidad    = {};
-    datos.forEach(d => {
-        mapaTotal[d.NOMBRE_FRENTE]     = (mapaTotal[d.NOMBRE_FRENTE]     || 0) + parseFloat(d.total);
-        mapaDespachos[d.NOMBRE_FRENTE] = (mapaDespachos[d.NOMBRE_FRENTE] || 0) + parseInt(d.despachos || 0);
-        if (!mapaUnidad[d.NOMBRE_FRENTE]) mapaUnidad[d.NOMBRE_FRENTE] = d.unidad || '';
-    });
-    const ordenado = Object.entries(mapaTotal).sort((a, b) => b[1] - a[1]);
-    const maxVal   = ordenado[0]?.[1] || 1;
-    const n = ordenado.length;
+    {{-- ESPECIFICACION POR FRENTE --}}
+    <div class="g-grid-1" id="secEspecFrente" style="display:none;">
+        <div class="g-card">
+            <p class="g-title" id="titleEspecFrente" style="justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <i class="material-icons" id="iconEspecFrente" style="color:#1b5e20;">tire_repair</i>
+                    <span><span id="txtEspecFrente">Consumo por Frente — Desglose por Especificación</span> <span
+                            class="g-subtitle">— todos los registros</span></span>
+                </span>
+                <button onclick="descargarPanelEspecFrente('desglose_especificacion')" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingAceiteFrente" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="aceiteFrente-body" style="display:none;"></div>
+        </div>
+    </div>
 
-    body.innerHTML = ordenado.map(([frente, total], i) => {
-        const pct    = (total / maxVal * 100).toFixed(1);
-        const dep    = mapaDespachos[frente] || 0;
-        const unidad = mapaUnidad[frente] || '';
-        let color;
-        if (i === 0) {
-            color = 'linear-gradient(90deg,#7f1d1d,#b91c1c)';
-        } else if (i === 1) {
-            color = 'linear-gradient(90deg,#b91c1c,#ef4444)';
-        } else {
-            const blueIdx = i - 2;
-            const blueN   = Math.max(n - 2, 1);
-            const lightA  = Math.round(22 + (28 * blueIdx / blueN));
-            const lightB  = Math.round(32 + (22 * blueIdx / blueN));
-            const satA    = Math.round(82 - (18 * blueIdx / blueN));
-            color = `linear-gradient(90deg,hsl(213,${satA}%,${lightA}%),hsl(213,${satA-5}%,${lightB}%))`;
+    {{-- ESPECIFICACION POR EQUIPO --}}
+    <div class="g-grid-1" id="secEspecEquipo" style="display:none;">
+        <div class="g-card">
+            <p class="g-title" id="titleEspecEquipo">
+                <i class="material-icons" id="iconEspecEquipo" style="color:#0067b1;">settings</i>
+                <span id="txtEspecEquipo">Consumo por Equipo — Desglose por Especificación</span>
+                <span class="g-subtitle">— solo equipos identificados</span>
+            </p>
+            <div id="loadingAceiteEquipo" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="aceiteEquipoBody" style="display:none; overflow-x:auto;"></div>
+        </div>
+    </div>
+
+    {{-- CAUCHOS POR TIPO DE EQUIPO Y MEDIDA --}}
+    <div class="g-grid-1" id="secCauchoModelo">
+        <div class="g-card">
+            <p class="g-title" style="justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:8px;">
+                    <i class="material-icons" style="color:#1b5e20;">tire_repair</i>
+                    Cauchos por Tipo de Equipo y Medida
+                    <span class="g-subtitle">— unidades reemplazadas · solo equipos identificados</span>
+                </span>
+                <button onclick="descargarGrafico('chartCauchoModelo','cauchos_por_modelo')" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
+            </p>
+            <div id="loadingCauchoModelo" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="cauchoModeloBadges" style="display:none; flex-wrap:wrap; gap:8px; margin-bottom:14px;"></div>
+            <canvas id="chartCauchoModelo" style="display:none; max-height:340px;"></canvas>
+        </div>
+    </div>
+
+    {{-- TODOS LOS EQUIPOS — TABLA COMPLETA --}}
+    <div class="g-grid-1">
+        <div class="g-card">
+            <p class="g-title">
+                <i class="material-icons">table_chart</i>
+                Despachos por Equipo — Todos
+                <span class="g-subtitle" id="subtotalEquipos"></span>
+            </p>
+            <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
+                <input class="eq-search" id="eqSearch" type="text" placeholder="Buscar placa, marca o modelo..."
+                    oninput="filtrarTablaEquipos()" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                <select id="eqFilterTipo" class="eq-search" onchange="filtrarTablaEquipos()"
+                    style="margin-bottom: 0; width: auto; flex: 0 1 auto; min-width: 150px; background-color: #fbfcfd;">
+                    <option value="">Todos los Tipos</option>
+                </select>
+                <select id="eqFilterFrente" class="eq-search" onchange="filtrarTablaEquipos()"
+                    style="margin-bottom: 0; width: auto; flex: 0 1 auto; min-width: 150px; background-color: #fbfcfd;">
+                    <option value="">Todos los Frentes</option>
+                </select>
+            </div>
+            <div id="loadingTodosEq" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div style="overflow-x:auto; display:none;" id="wrapTodosEq">
+                <table class="admin-table" id="tablaEquipos">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortTabla(0)">Tipo ▵</th>
+                            <th class="sortable" onclick="sortTabla(1)">Identificador(es)</th>
+                            <th class="sortable" onclick="sortTabla(2)">Marca / Modelo</th>
+                            <th class="sortable" onclick="sortTabla(3)">Frente</th>
+                            <th class="sortable" onclick="sortTabla(4)" style="text-align:right;">Despachos ▾</th>
+                            <th class="sortable" onclick="sortTabla(5)" style="text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyTodosEq"></tbody>
+                </table>
+            </div>
+            <div id="paginacionEquipos"></div>
+        </div>
+    </div>
+
+    <script src="{{ asset('js/chart.umd.min.js') }}"></script>
+    <script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
+    <script src="{{ asset('js/html2canvas.min.js') }}"></script>
+    <script>
+        // Paleta corporativa: variada y profunda
+        window.COLORES = window.COLORES || {
+            'GASOIL': '#003a70',   // azul marino
+            'GASOLINA': '#c41c00',   // rojo intenso
+            'ACEITE': '#0077cc',   // azul eléctrico
+            'CAUCHO': '#1b5e20',   // verde oscuro
+            'REFRIGERANTE': '#00838f',   // teal
+            'OTRO': '#546e7a',   // gris azulado
+        };
+        window.TIPO_LABEL = window.TIPO_LABEL || {
+            'GASOIL': 'Gasoil', 'GASOLINA': 'Gasolina', 'ACEITE': 'Aceite',
+            'CAUCHO': 'Caucho', 'REFRIGERANTE': 'Refrigerante', 'OTRO': 'Otro'
+        };
+
+        window.chartTipoEq = window.chartTipoEq || null;
+        window.chartEqFrente = window.chartEqFrente || null;
+        window.chartCauchoModelo = window.chartCauchoModelo || null;
+
+        if (window.chartCheckInterval) clearInterval(window.chartCheckInterval);
+        window.chartCheckInterval = setInterval(() => {
+            if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+                Chart.register(ChartDataLabels);
+                clearInterval(window.chartCheckInterval);
+            }
+        }, 100);
+        setTimeout(() => clearInterval(window.chartCheckInterval), 5000);
+
+        var COLORES = window.COLORES;
+        var TIPO_LABEL = window.TIPO_LABEL;
+        var chartTipoEq = window.chartTipoEq;
+        var chartEqFrente = window.chartEqFrente;
+        var chartCauchoModelo = window.chartCauchoModelo;
+
+        function getParams() {
+            var p = new URLSearchParams();
+            var frente = document.getElementById('fFrente') ? document.getElementById('fFrente').value : '';
+            var tipo = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
+            var desde = document.getElementById('fDesde') ? document.getElementById('fDesde').value : '';
+            var hasta = document.getElementById('fHasta') ? document.getElementById('fHasta').value : '';
+            if (frente) p.set('id_frente', frente);
+            if (tipo) p.set('tipo', tipo);
+            if (desde) p.set('desde', desde);
+            if (hasta) p.set('hasta', hasta);
+            return p;
         }
-        return `
-        <div class="frow">
-            <span class="frow-num">#${i+1}</span>
-            <span class="frow-name" title="${frente}">${frente}</span>
-            <div class="frow-bar-wrap">
-                <div class="frow-bar" style="width:${pct}%; background:${color};"></div>
-            </div>
-            <span class="frow-val">
-                ${total.toLocaleString('es-VE',{minimumFractionDigits:0,maximumFractionDigits:1})} ${unidad}
-                <span class="frow-dep">&#9981; ${dep} llenado${dep!==1?'s':''}</span>
-            </span>
-        </div>`;
-    }).join('');
-}
 
+        window.clearAdvancedFilters = function () {
+            if (document.getElementById('fDesde')) document.getElementById('fDesde').value = '';
+            if (document.getElementById('fHasta')) document.getElementById('fHasta').value = '';
+        };
 
+        function show(id) { document.getElementById(id).style.display = ''; }
+        function hide(id) { document.getElementById(id).style.display = 'none'; }
+        function canvas(id) { document.getElementById(id).style.display = 'block'; }
 
+        window.cargarDatos = function () {
+            if (window._cargarDatosTimer) clearTimeout(window._cargarDatosTimer);
+            window._cargarDatosTimer = setTimeout(_cargarDatosLocal, 250);
+        };
 
+        function _cargarDatosLocal() {
+            if (window.showPreloader) window.showPreloader();
+            const params = getParams();
 
+            const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
 
+            // ── Loading: mostrar spinners de las secciones siempre visibles ──
+            ['loadingTotalFrente', 'loadingEqAsig',
+                'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(show);
 
-// Paleta armoniosa para cauchos — misma en badges y gráfico de barras
-window.PALETA_CAUCHO_GLOBAL = [
-    '#1b5e20', // verde bosque
-    '#0d47a1', // azul marino
-    '#e65100', // naranja quemado
-    '#4a148c', // púrpura oscuro
-    '#006064', // teal oscuro
-    '#b71c1c', // rojo oscuro
-    '#37474f', // gris azulado
-    '#4e342e', // marrón cacao
-    '#1a237e', // azul índigo
-    '#827717', // oliva
-];
+            if (tipoFiltroPre === 'CAUCHO') {
+                show('secCauchoModelo');
+                show('loadingCauchoModelo');
+            } else {
+                hide('secCauchoModelo');
+            }
 
-// ── Cauchos por Tipo de Equipo y Medida ─────────────────────────────────────
-function renderCauchosPorModelo(datos) {
-    const loadEl   = document.getElementById('loadingCauchoModelo');
-    const canvEl   = document.getElementById('chartCauchoModelo');
-    const secEl    = document.getElementById('secCauchoModelo');
-    const badgesEl = document.getElementById('cauchoModeloBadges');
+            // ── Ocultar contenido previo (prev carga) ────────────────────────
+            ['totalFrenteBody', 'eqAsigBody',
+                'rankingBody', 'wrapTodosEq', 'chartCauchoModelo', 'inoperativosBody'].forEach(hide);
 
-    if (!datos || datos.length === 0) {
-        secEl.style.display = 'none';
-        return;
-    }
-    secEl.style.display = '';
-    loadEl.style.display = 'none';
+            // ── Secciones de especificación: ocultar antes de cada carga ─────
+            // Evita que queden datos viejos visibles durante la nueva carga.
+            hide('secEspecFrente');
+            hide('secEspecEquipo');
+            hide('secInoperativos');
+            hide('aceiteFrente-body');
+            hide('aceiteEquipoBody');
 
-    // Tipos de equipo únicos (eje X)
-    const tipos   = [...new Set(datos.map(d => d.tipo_equipo))];
-    // Medidas únicas (un dataset/color por medida) — ordenadas por total global desc
-    const totPorMedida = {};
-    datos.forEach(d => { totPorMedida[d.medida] = (totPorMedida[d.medida] || 0) + parseFloat(d.total); });
-    const medidas = [...new Set(datos.map(d => d.medida))]
-        .sort((a, b) => (totPorMedida[b] || 0) - (totPorMedida[a] || 0));
+            document.getElementById('resumenGrid').innerHTML =
+                '<div class="loading-overlay" style="width:100%;"><i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...</div>';
 
-    const PALETA = window.PALETA_CAUCHO_GLOBAL;
+            fetch(`{{ route('consumibles.graficosData') }}?${params}`)
+                .then(r => r.json())
+                .then(data => {
+                    const frenteSeleccionado = document.getElementById('fFrente').value;
+                    const tipoFiltro = document.getElementById('fTipo').value;
 
-    // ── Badges de total por medida encima del gráfico ─────────────
-    if (badgesEl) {
-        badgesEl.style.display = 'flex';
-        badgesEl.innerHTML = medidas.map((medida, mi) => {
-            const color = PALETA[mi % PALETA.length];
-            const tot   = (totPorMedida[medida] || 0).toLocaleString('es-VE', {maximumFractionDigits: 0});
-            return `<span style="
-                display:inline-flex; align-items:center; gap:6px;
-                background:${color}; color:#fff;
-                border-radius:20px; padding:5px 13px;
-                font-size:12px; font-weight:700;
-                box-shadow:0 2px 6px ${color}55;
-                white-space:nowrap;
-            ">
-                ${medida}
-                <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 7px;font-size:11px;">${tot} Un</span>
-            </span>`;
-        }).join('');
-    }
+                    renderResumen(data.resumen);
 
-    canvEl.style.display = 'block';
+                    if (tipoFiltro === 'GASOIL') {
+                        document.getElementById('totalFrenteWrapper').style.display = 'block';
+                        renderTotalFrente(data.por_frente);
+                    } else {
+                        document.getElementById('totalFrenteWrapper').style.display = 'none';
+                    }
+                    // ── Orden de frentes según gráfico de consumo (mayor a menor) ────────
+                    // 'let' porque luego insertamos AMBIENTE en la posición que le corresponde.
+                    let ordenFrente = (data.por_frente || [])
+                        .map(d => d.NOMBRE_FRENTE)
+                        .filter((v, i, a) => a.indexOf(v) === i);  // únicos, en orden consumo
 
-    const datasets = medidas.map((medida, mi) => ({
-        label: medida,
-        data: tipos.map(tipo => {
-            const row = datos.find(d => d.tipo_equipo === tipo && d.medida === medida);
-            return row ? parseFloat(row.total) : 0;
-        }),
-        backgroundColor: PALETA[mi % PALETA.length],
-        borderRadius: 0,
-        borderSkipped: false,
-    }));
+                    // ── AMBIENTE en posición #3, excepto cuando se filtra por CAUCHO o ACEITE ──
+                    const tiposSinAmbiente = ['CAUCHO', 'ACEITE'];
+                    if (data.equipos_asignados && data.equipos_asignados['AMBIENTE']
+                        && !tiposSinAmbiente.includes(tipoFiltro)) {
+                        ordenFrente.splice(2, 0, 'AMBIENTE');
+                    }
 
-    const mapaInfo = {};
-    datos.forEach(d => { mapaInfo[`${d.tipo_equipo}||${d.medida}`] = d; });
-
-    let retriesC = 0;
-    const drawC = () => {
-        if (typeof Chart === 'undefined') {
-            if (retriesC++ < 50) setTimeout(drawC, 100);
-            return;
+                    window.renderEquiposAsignados(data.equipos_asignados || {}, ordenFrente);
+                    // Solo mostrar equipos×frente cuando hay un frente específico seleccionado
+                    if (frenteSeleccionado) {
+                        document.getElementById('secEqFrente').style.display = '';
+                        renderEquiposPorFrente(data.equipos_por_frente, frenteSeleccionado);
+                    } else {
+                        document.getElementById('secEqFrente').style.display = 'none';
+                    }
+                    if (frenteSeleccionado) {
+                        document.getElementById('secInoperativos').style.display = '';
+                        const fname = (data.inoperativos && data.inoperativos.length > 0)
+                            ? data.inoperativos[0].frente_nombre
+                            : document.querySelector('#frenteFilterSelect [data-filter-search]')?.placeholder;
+                        renderInoperativos(data.inoperativos || [], fname || 'Frente Seleccionado');
+                    } else {
+                        document.getElementById('secInoperativos').style.display = 'none';
+                    }
+                    renderRanking(data.top_equipos);
+                    if (tipoFiltro === 'CAUCHO') {
+                        renderCauchosPorModelo(data.cauchos_por_modelo);
+                    }
+                    renderTodosEquipos(data.todos_equipos);
+                    renderEspecFrente(data.espec_frente, data.tipo_activo);
+                    renderEspecEquipo(data.espec_equipo, data.tipo_activo);
+                    if (window.hidePreloader) window.hidePreloader();
+                })
+                .catch(err => {
+                    if (window.hidePreloader) window.hidePreloader();
+                    console.error('Error cargando datos de gráficos:', err);
+                    ['loadingTotalFrente', 'loadingEqAsig',
+                        'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) el.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
+                        });
+                    if (tipoFiltroPre === 'CAUCHO') {
+                        const elCaucho = document.getElementById('loadingCauchoModelo');
+                        if (elCaucho) elCaucho.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
+                    }
+                });
         }
-        try { if (window.chartCauchoModelo) { window.chartCauchoModelo.destroy(); window.chartCauchoModelo = null; } } catch(e) {}
-        try { const existingC = Chart.getChart(canvEl); if (existingC) existingC.destroy(); } catch(e) {}
 
-        window.chartCauchoModelo = new Chart(canvEl, {
-            type: 'bar',
-            data: { labels: tipos, datasets },
-            options: {
-                responsive: true,
-                layout: { padding: { top: 10 } },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { font: { size: 11 }, boxWidth: 14, padding: 12 }
-                    },
-                    datalabels: {
-                        anchor: 'center', align: 'center',
-                        color: '#fff',
-                        font: { size: 10, weight: '700' },
-                        formatter: v => v > 0 ? v.toLocaleString('es-VE', {maximumFractionDigits: 0}) : '',
-                        display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: ctx => {
-                                const medida = medidas[ctx.datasetIndex];
-                                const tipo   = tipos[ctx.dataIndex];
-                                const info   = mapaInfo[`${tipo}||${medida}`];
-                                const dep    = info?.despachos || 0;
-                                const u      = info?.unidad    || 'Un';
-                                return [
-                                    ` Medida: ${medida}`,
-                                    ` ${ctx.parsed.y.toLocaleString('es-VE')} ${u}`,
-                                    ` 🔧 ${dep} reemplazo${dep !== 1 ? 's' : ''}`,
-                                ];
+        // ── Equipos asignados por frente — cajitas numeradas en orden de consumo ───
+        window.renderEquiposAsignados = function (eqAsig, ordenFrente) {
+            hide('loadingEqAsig');
+            const body = document.getElementById('eqAsigBody');
+            body.style.display = 'block';
+
+            // Filtrar solo los frentes que tienen equipos asignados, manteniendo el orden de consumo.
+            // AMBIENTE ya viene inserado en la pos correcta por cargarDatos().
+            const lista = (ordenFrente || [])
+                .filter(frente => eqAsig[frente])          // solo frentes con equipos asignados
+                .map(frente => ({
+                    frente,
+                    total: parseInt(eqAsig[frente]?.total_asignados || 0),
+                }));
+
+            if (!lista.length) {
+                body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos de equipos asignados.</p>';
+                return;
+            }
+
+            const GRIS_FIJO = '#475569';
+
+            // i+1 sobre la lista YA FILTRADA → siempre secuencial sin saltos
+            body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;">${lista.map((row, i) => `
+                <div style="
+                    background:${GRIS_FIJO};
+                    color:#fff;
+                    border-radius:12px;
+                    padding:12px 16px;
+                    min-width:200px;
+                    flex:1;
+                    display:flex;
+                    flex-direction:column;
+                    align-items:flex-start;
+                    justify-content:center;
+                    gap:8px;
+                    box-shadow:0 2px 8px rgba(0,0,0,.15);
+                ">
+                    <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                        <span style="font-size:13px;font-weight:700;color:#94a3b8;">#${i + 1}</span>
+                        <span style="font-size:12px;font-weight:700;line-height:1.2;word-break:break-word;" title="${row.frente}">${row.frente}</span>
+                    </div>
+                    <div style="display:flex;align-items:baseline;gap:5px;">
+                        <span style="font-size:26px;font-weight:900;line-height:1;">${row.total}</span>
+                        <span style="font-size:13px;font-weight:600;opacity:.9;">equipo${row.total !== 1 ? 's' : ''}</span>
+                    </div>
+                </div>`
+            ).join('')
+                }</div>`;
+        };
+
+        // Exponer cargarDatos globalmente para el ModuleManager SPA
+        // window.cargarDatos = window.cargarDatos; (Ya asignado arriba)
+
+        // ── Tarjetas resumen ───────────────────────────────────────────────
+        function renderResumen(datos) {
+            const grid = document.getElementById('resumenGrid');
+            if (!datos || datos.length === 0) {
+                grid.innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:10px;">Sin datos con los filtros aplicados.</p>';
+                return;
+            }
+            grid.innerHTML = datos.map(d => {
+                return `
+            <div class="resumen-card">
+                <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.2;">
+                    <span style="font-size:28px; font-weight:800; color:#fff;">
+                        ${parseFloat(d.total).toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+                    </span>
+                    <span style="font-size:12px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.5px;">
+                        ${d.unidad} · ${TIPO_LABEL[d.TIPO_CONSUMIBLE] || d.TIPO_CONSUMIBLE}
+                    </span>
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-top:6px;">
+                    ${d.registros} despachos · ${d.equipos_distintos} eq
+                </div>
+            </div>`;
+            }).join('');
+        }
+
+        // ── Total por frente (barras horizontales) ───────────────────────────────
+        function renderTotalFrente(datos) {
+            const searchInput = document.querySelector('#frenteFilterSelect [data-filter-search]');
+            const nombreFrente = searchInput ? searchInput.placeholder : '';
+            const hayFrenteSeleccionado = !!document.getElementById('fFrente').value;
+            const tituloEl = document.getElementById('tituloTotalFrente');
+            if (tituloEl) {
+                tituloEl.textContent = hayFrenteSeleccionado
+                    ? `Consumo — ${nombreFrente}`
+                    : 'Total de Consumo por Frente';
+            }
+            hide('loadingTotalFrente');
+            const body = document.getElementById('totalFrenteBody');
+            body.style.display = 'block';
+            if (!datos || datos.length === 0) {
+                body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos.</p>';
+                return;
+            }
+
+
+            const mapaTotal = {};
+            const mapaDespachos = {};
+            const mapaUnidad = {};
+            datos.forEach(d => {
+                mapaTotal[d.NOMBRE_FRENTE] = (mapaTotal[d.NOMBRE_FRENTE] || 0) + parseFloat(d.total);
+                mapaDespachos[d.NOMBRE_FRENTE] = (mapaDespachos[d.NOMBRE_FRENTE] || 0) + parseInt(d.despachos || 0);
+                if (!mapaUnidad[d.NOMBRE_FRENTE]) mapaUnidad[d.NOMBRE_FRENTE] = d.unidad || '';
+            });
+            const ordenado = Object.entries(mapaTotal).sort((a, b) => b[1] - a[1]);
+            const maxVal = ordenado[0]?.[1] || 1;
+            const n = ordenado.length;
+
+            body.innerHTML = ordenado.map(([frente, total], i) => {
+                const pct = (total / maxVal * 100).toFixed(1);
+                const dep = mapaDespachos[frente] || 0;
+                const unidad = mapaUnidad[frente] || '';
+                let color;
+                if (i === 0) {
+                    color = 'linear-gradient(90deg,#7f1d1d,#b91c1c)';
+                } else if (i === 1) {
+                    color = 'linear-gradient(90deg,#b91c1c,#ef4444)';
+                } else {
+                    const blueIdx = i - 2;
+                    const blueN = Math.max(n - 2, 1);
+                    const lightA = Math.round(22 + (28 * blueIdx / blueN));
+                    const lightB = Math.round(32 + (22 * blueIdx / blueN));
+                    const satA = Math.round(82 - (18 * blueIdx / blueN));
+                    color = `linear-gradient(90deg,hsl(213,${satA}%,${lightA}%),hsl(213,${satA - 5}%,${lightB}%))`;
+                }
+                return `
+            <div class="frow">
+                <span class="frow-num">#${i + 1}</span>
+                <span class="frow-name" title="${frente}">${frente}</span>
+                <div class="frow-bar-wrap">
+                    <div class="frow-bar" style="width:${pct}%; background:${color};"></div>
+                </div>
+                <span class="frow-val">
+                    ${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ${unidad}
+                    <span class="frow-dep">&#9981; ${dep} llenado${dep !== 1 ? 's' : ''}</span>
+                </span>
+            </div>`;
+            }).join('');
+        }
+
+
+
+
+
+
+
+        // Paleta armoniosa para cauchos — misma en badges y gráfico de barras
+        window.PALETA_CAUCHO_GLOBAL = [
+            '#1b5e20', // verde bosque
+            '#0d47a1', // azul marino
+            '#e65100', // naranja quemado
+            '#4a148c', // púrpura oscuro
+            '#006064', // teal oscuro
+            '#b71c1c', // rojo oscuro
+            '#37474f', // gris azulado
+            '#4e342e', // marrón cacao
+            '#1a237e', // azul índigo
+            '#827717', // oliva
+        ];
+
+        // ── Cauchos por Tipo de Equipo y Medida ─────────────────────────────────────
+        function renderCauchosPorModelo(datos) {
+            const loadEl = document.getElementById('loadingCauchoModelo');
+            const canvEl = document.getElementById('chartCauchoModelo');
+            const secEl = document.getElementById('secCauchoModelo');
+            const badgesEl = document.getElementById('cauchoModeloBadges');
+
+            if (!datos || datos.length === 0) {
+                secEl.style.display = 'none';
+                return;
+            }
+            secEl.style.display = '';
+            loadEl.style.display = 'none';
+
+            // Tipos de equipo únicos (eje X)
+            const tipos = [...new Set(datos.map(d => d.tipo_equipo))];
+            // Medidas únicas (un dataset/color por medida) — ordenadas por total global desc
+            const totPorMedida = {};
+            datos.forEach(d => { totPorMedida[d.medida] = (totPorMedida[d.medida] || 0) + parseFloat(d.total); });
+            const medidas = [...new Set(datos.map(d => d.medida))]
+                .sort((a, b) => (totPorMedida[b] || 0) - (totPorMedida[a] || 0));
+
+            const PALETA = window.PALETA_CAUCHO_GLOBAL;
+
+            // ── Badges de total por medida encima del gráfico ─────────────
+            if (badgesEl) {
+                badgesEl.style.display = 'flex';
+                badgesEl.innerHTML = medidas.map((medida, mi) => {
+                    const color = PALETA[mi % PALETA.length];
+                    const tot = (totPorMedida[medida] || 0).toLocaleString('es-VE', { maximumFractionDigits: 0 });
+                    return `<span style="
+                    display:inline-flex; align-items:center; gap:6px;
+                    background:${color}; color:#fff;
+                    border-radius:20px; padding:5px 13px;
+                    font-size:12px; font-weight:700;
+                    box-shadow:0 2px 6px ${color}55;
+                    white-space:nowrap;
+                ">
+                    ${medida}
+                    <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 7px;font-size:11px;">${tot} Un</span>
+                </span>`;
+                }).join('');
+            }
+
+            canvEl.style.display = 'block';
+
+            const datasets = medidas.map((medida, mi) => ({
+                label: medida,
+                data: tipos.map(tipo => {
+                    const row = datos.find(d => d.tipo_equipo === tipo && d.medida === medida);
+                    return row ? parseFloat(row.total) : 0;
+                }),
+                backgroundColor: PALETA[mi % PALETA.length],
+                borderRadius: 0,
+                borderSkipped: false,
+            }));
+
+            const mapaInfo = {};
+            datos.forEach(d => { mapaInfo[`${d.tipo_equipo}||${d.medida}`] = d; });
+
+            let retriesC = 0;
+            const drawC = () => {
+                if (typeof Chart === 'undefined') {
+                    if (retriesC++ < 50) setTimeout(drawC, 100);
+                    return;
+                }
+                try { if (window.chartCauchoModelo) { window.chartCauchoModelo.destroy(); window.chartCauchoModelo = null; } } catch (e) { }
+                try { const existingC = Chart.getChart(canvEl); if (existingC) existingC.destroy(); } catch (e) { }
+
+                window.chartCauchoModelo = new Chart(canvEl, {
+                    type: 'bar',
+                    data: { labels: tipos, datasets },
+                    options: {
+                        responsive: true,
+                        layout: { padding: { top: 10 } },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { font: { size: 11 }, boxWidth: 14, padding: 12 }
+                            },
+                            datalabels: {
+                                anchor: 'center', align: 'center',
+                                color: '#fff',
+                                font: { size: 10, weight: '700' },
+                                formatter: v => v > 0 ? v.toLocaleString('es-VE', { maximumFractionDigits: 0 }) : '',
+                                display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => {
+                                        const medida = medidas[ctx.datasetIndex];
+                                        const tipo = tipos[ctx.dataIndex];
+                                        const info = mapaInfo[`${tipo}||${medida}`];
+                                        const dep = info?.despachos || 0;
+                                        const u = info?.unidad || 'Un';
+                                        return [
+                                            ` Medida: ${medida}`,
+                                            ` ${ctx.parsed.y.toLocaleString('es-VE')} ${u}`,
+                                            ` 🔧 ${dep} reemplazo${dep !== 1 ? 's' : ''}`,
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+                            y: {
+                                stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' },
+                                title: { display: true, text: 'Unidades', font: { size: 11 } }
                             }
                         }
                     }
-                },
-                scales: {
-                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
-                    y: { stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' },
-                         title: { display: true, text: 'Unidades', font: { size: 11 } } }
-                }
+                });
+            };
+            drawC();
+        }
+
+        // ── Equipos individuales que surtieron en el frente seleccionado ────
+        function renderEquiposPorFrente(datos, frenteId) {
+            const loadEl = document.getElementById('loadingEqFrente');
+            const canvEl = document.getElementById('chartEqFrente');
+
+            // Actualizar subtítulo
+            const searchInput = document.querySelector('#frenteFilterSelect [data-filter-search]');
+            const nombre = searchInput ? searchInput.placeholder : 'Frente';
+            document.getElementById('subtitleEqFrente').textContent = `— equipos en: ${nombre}`;
+
+            // Siempre reset: mostrar spinner, ocultar canvas
+            loadEl.innerHTML = '<i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>';
+            loadEl.style.display = 'flex';
+            canvEl.style.display = 'none';
+            try { if (window.chartEqFrente) { window.chartEqFrente.destroy(); window.chartEqFrente = null; } } catch (e) { }
+
+            if (!datos || datos.length === 0) {
+                loadEl.innerHTML = '<span style="color:#94a3b8;font-size:13px;">Sin equipos identificados en este frente.</span>';
+                return;
             }
-        });
-    };
-    drawC();
-}
 
-// ── Equipos individuales que surtieron en el frente seleccionado ────
-function renderEquiposPorFrente(datos, frenteId) {
-    const loadEl  = document.getElementById('loadingEqFrente');
-    const canvEl  = document.getElementById('chartEqFrente');
+            const PALETA_EQ = ['#003a70', '#c41c00', '#0077cc', '#7b1fa2', '#e65100', '#1b5e20', '#00838f', '#546e7a', '#f57f17', '#4a148c'];
 
-    // Actualizar subtítulo
-    const searchInput = document.querySelector('#frenteFilterSelect [data-filter-search]');
-    const nombre = searchInput ? searchInput.placeholder : 'Frente';
-    document.getElementById('subtitleEqFrente').textContent = `— equipos en: ${nombre}`;
-
-    // Siempre reset: mostrar spinner, ocultar canvas
-    loadEl.innerHTML = '<i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>';
-    loadEl.style.display = 'flex';
-    canvEl.style.display = 'none';
-    try { if (window.chartEqFrente) { window.chartEqFrente.destroy(); window.chartEqFrente = null; } } catch(e) {}
-
-    if (!datos || datos.length === 0) {
-        loadEl.innerHTML = '<span style="color:#94a3b8;font-size:13px;">Sin equipos identificados en este frente.</span>';
-        return;
-    }
-
-    const PALETA_EQ = ['#003a70','#c41c00','#0077cc','#7b1fa2','#e65100','#1b5e20','#00838f','#546e7a','#f57f17','#4a148c'];
-
-    // Agrupar por equipo individual — key: ID_EQUIPO para no mezclar equipos del mismo tipo
-    const equiposMap = new Map();
-    datos.forEach(d => {
-        // Identificador para el tooltip: placa preferida, sino serial
-        const idTooltip = (d.CODIGO_PATIO  && d.CODIGO_PATIO.trim())
-                        ? d.CODIGO_PATIO.trim()
-                        : (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim())
+            // Agrupar por equipo individual — key: ID_EQUIPO para no mezclar equipos del mismo tipo
+            const equiposMap = new Map();
+            datos.forEach(d => {
+                // Identificador para el tooltip: placa preferida, sino serial
+                const idTooltip = (d.CODIGO_PATIO && d.CODIGO_PATIO.trim())
+                    ? d.CODIGO_PATIO.trim()
+                    : (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim())
                         ? d.SERIAL_CHASIS.trim()
                         : '—';
-        const key = d.ID_EQUIPO || idTooltip;
-        if (!equiposMap.has(key)) {
-            equiposMap.set(key, {
-                tipo:      d.tipo_equipo || 'S/T',   // ← label en el eje X
-                idLabel:   idTooltip,                 // ← placa o serial (tooltip)
-                modelo:    d.MODELO || '',            // ← modelo (tooltip)
-                total:     0,
-                desp:      0,
-                unidad:    d.unidad,
+                const key = d.ID_EQUIPO || idTooltip;
+                if (!equiposMap.has(key)) {
+                    equiposMap.set(key, {
+                        tipo: d.tipo_equipo || 'S/T',   // ← label en el eje X
+                        idLabel: idTooltip,                 // ← placa o serial (tooltip)
+                        modelo: d.MODELO || '',            // ← modelo (tooltip)
+                        total: 0,
+                        desp: 0,
+                        unidad: d.unidad,
+                    });
+                }
+                const eq = equiposMap.get(key);
+                eq.total += parseFloat(d.total);
+                eq.desp += parseInt(d.despachos || 0);
             });
-        }
-        const eq = equiposMap.get(key);
-        eq.total += parseFloat(d.total);
-        eq.desp  += parseInt(d.despachos || 0);
-    });
 
-    const equipos = [...equiposMap.values()];
-    // Ordenar de mayor a menor consumo
-    equipos.sort((a, b) => b.total - a.total);
+            const equipos = [...equiposMap.values()];
+            // Ordenar de mayor a menor consumo
+            equipos.sort((a, b) => b.total - a.total);
 
-    // Color consistente por tipo de equipo
-    const tiposUnicos  = [...new Set(equipos.map(e => e.tipo))];
-    const colorPorTipo = {};
-    tiposUnicos.forEach((t, i) => { colorPorTipo[t] = PALETA_EQ[i % PALETA_EQ.length]; });
+            // Color consistente por tipo de equipo
+            const tiposUnicos = [...new Set(equipos.map(e => e.tipo))];
+            const colorPorTipo = {};
+            tiposUnicos.forEach((t, i) => { colorPorTipo[t] = PALETA_EQ[i % PALETA_EQ.length]; });
 
-    // Si hay tipos repetidos, añadir sufijo ordinal (Camión #1, Camión #2…)
-    const countPorTipo = {};
-    equipos.forEach(e => countPorTipo[e.tipo] = (countPorTipo[e.tipo] || 0) + 1);
+            // Si hay tipos repetidos, añadir sufijo ordinal (Camión #1, Camión #2…)
+            const countPorTipo = {};
+            equipos.forEach(e => countPorTipo[e.tipo] = (countPorTipo[e.tipo] || 0) + 1);
 
-    const contadorIdx = {};
-    const labelsFinal = equipos.map(e => {
-        if (countPorTipo[e.tipo] === 1) return e.tipo;
-        contadorIdx[e.tipo] = (contadorIdx[e.tipo] || 0) + 1;
-        return `${e.tipo} #${contadorIdx[e.tipo]}`;
-    });
+            const contadorIdx = {};
+            const labelsFinal = equipos.map(e => {
+                if (countPorTipo[e.tipo] === 1) return e.tipo;
+                contadorIdx[e.tipo] = (contadorIdx[e.tipo] || 0) + 1;
+                return `${e.tipo} #${contadorIdx[e.tipo]}`;
+            });
 
-    const values = equipos.map(e => e.total);
-    const colors = equipos.map(e => colorPorTipo[e.tipo] || '#94a3b8');
+            const values = equipos.map(e => e.total);
+            const colors = equipos.map(e => colorPorTipo[e.tipo] || '#94a3b8');
 
-    // Mostrar canvas y ocultar spinner
-    loadEl.style.display = 'none';
-    canvEl.style.display = 'block';
+            // Mostrar canvas y ocultar spinner
+            loadEl.style.display = 'none';
+            canvEl.style.display = 'block';
 
-    let retriesE = 0;
-    const drawE = () => {
-        if (typeof Chart === 'undefined') {
-            if (retriesE++ < 50) setTimeout(drawE, 100);
-            return;
-        }
-        try { if (window.chartEqFrente) { window.chartEqFrente.destroy(); window.chartEqFrente = null; } } catch(e) {}
-        try { const existingE = Chart.getChart(canvEl); if (existingE) existingE.destroy(); } catch(e) {}
-        
-        try {
-            window.chartEqFrente = new Chart(canvEl, {
-                type: 'bar',
-                data: {
-                    labels: labelsFinal,
-                    datasets: [{
-                        label: nombre,
-                        data:  values,
-                        backgroundColor: colors,
-                        borderRadius: 6,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: { top: 22 } },
-                    plugins: {
-                        legend: { display: false },
-                        datalabels: {
-                            anchor: 'end', align: 'end',
-                            color:  '#1e293b',
-                            font:   { size: 10, weight: '700' },
-                            formatter: v => v > 0 ? v.toLocaleString('es-VE', {maximumFractionDigits:1}) : '',
-                            clip: false,
+            let retriesE = 0;
+            const drawE = () => {
+                if (typeof Chart === 'undefined') {
+                    if (retriesE++ < 50) setTimeout(drawE, 100);
+                    return;
+                }
+                try { if (window.chartEqFrente) { window.chartEqFrente.destroy(); window.chartEqFrente = null; } } catch (e) { }
+                try { const existingE = Chart.getChart(canvEl); if (existingE) existingE.destroy(); } catch (e) { }
+
+                try {
+                    window.chartEqFrente = new Chart(canvEl, {
+                        type: 'bar',
+                        data: {
+                            labels: labelsFinal,
+                            datasets: [{
+                                label: nombre,
+                                data: values,
+                                backgroundColor: colors,
+                                borderRadius: 6,
+                                borderSkipped: false,
+                            }]
                         },
-                        tooltip: {
-                            callbacks: {
-                                title: ctx => {
-                                    const eq = equipos[ctx[0].dataIndex];
-                                    return `🎦 ${eq.idLabel}`;
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            layout: { padding: { top: 22 } },
+                            plugins: {
+                                legend: { display: false },
+                                datalabels: {
+                                    anchor: 'end', align: 'end',
+                                    color: '#1e293b',
+                                    font: { size: 10, weight: '700' },
+                                    formatter: v => v > 0 ? v.toLocaleString('es-VE', { maximumFractionDigits: 1 }) : '',
+                                    clip: false,
                                 },
-                                label: ctx => {
-                                    const eq = equipos[ctx.dataIndex];
-                                    return ` ⛽ ${eq.desp} despacho${eq.desp !== 1 ? 's' : ''}`;
+                                tooltip: {
+                                    callbacks: {
+                                        title: ctx => {
+                                            const eq = equipos[ctx[0].dataIndex];
+                                            return `🎦 ${eq.idLabel}`;
+                                        },
+                                        label: ctx => {
+                                            const eq = equipos[ctx.dataIndex];
+                                            return ` ⛽ ${eq.desp} despacho${eq.desp !== 1 ? 's' : ''}`;
+                                        },
+                                        afterLabel: () => undefined,
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { font: { size: 11, weight: '600' } }
                                 },
-                                afterLabel: () => undefined,
+                                y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
                             }
                         }
-                    },
-                    scales: {
-                        x: {
-                            grid:  { display: false },
-                            ticks: { font: { size: 11, weight: '600' } }
-                        },
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
-                    }
-                }
-            });
-        } catch(e) { console.error(e); }
-    };
-    drawE();
-}
+                    });
+                } catch (e) { console.error(e); }
+            };
+            drawE();
+        }
 
-// ── Equipos Inoperativos ────────────────────────────────────────────────
-window.renderInoperativos = function(datos, frente) {
-    const loadEl = document.getElementById('loadingInoperativos');
-    if (loadEl) loadEl.style.display = 'none';
+        // ── Equipos Inoperativos ────────────────────────────────────────────────
+        window.renderInoperativos = function (datos, frente) {
+            const loadEl = document.getElementById('loadingInoperativos');
+            if (loadEl) loadEl.style.display = 'none';
 
-    const box = document.getElementById('inoperativosBody');
-    box.style.display = 'block';
+            const box = document.getElementById('inoperativosBody');
+            box.style.display = 'block';
 
-    if (!datos || datos.length === 0) {
-        box.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;">No hay equipos inoperativos registrados en este frente.</p>';
-        return;
-    }
-
-    box.innerHTML = `<div class="eq-grid">${
-        datos.map(d => {
-            const placa = (d.PLACA && d.PLACA !== 'S/P' && d.PLACA !== '') ? d.PLACA : d.SERIAL_CHASIS;
-            const fotoRow = d.FOTO_REFERENCIAL || d.FOTO_EQUIPO;
-            let fotoHtml = '';
-            if (fotoRow) {
-                const driveId = fotoRow.replace(/^.*\/storage\/google\//, '').split('?')[0];
-                fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%;height:100%;object-fit:cover;">`;
-            } else {
-                fotoHtml = `<i class="material-icons" style="color:#cbd5e0;font-size:32px;">directions_car</i>`;
+            if (!datos || datos.length === 0) {
+                box.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;">No hay equipos inoperativos registrados en este frente.</p>';
+                return;
             }
 
-            const total = d.total ? parseFloat(d.total).toLocaleString('es-VE') : '0';
-            const despachos = d.despachos || 0;
-            const unidad = d.unidad || 'LITROS';
+            box.innerHTML = `<div class="eq-grid">${datos.map(d => {
+                const placa = (d.PLACA && d.PLACA !== 'S/P' && d.PLACA !== '') ? d.PLACA : d.SERIAL_CHASIS;
+                const fotoRow = d.FOTO_REFERENCIAL || d.FOTO_EQUIPO;
+                let fotoHtml = '';
+                if (fotoRow) {
+                    const driveId = fotoRow.replace(/^.*\/storage\/google\//, '').split('?')[0];
+                    fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%;height:100%;object-fit:cover;">`;
+                } else {
+                    fotoHtml = `<i class="material-icons" style="color:#cbd5e0;font-size:32px;">directions_car</i>`;
+                }
 
-            return `
-            <div class="eq-card" style="border-left:4px solid #ef4444; background-color:#f2f2f2; display:flex; flex-direction:column; gap:6px; padding:10px 12px;">
-                <div style="display:flex; gap:10px; align-items:flex-start;">
-                    <div style="width:40px; height:40px; border-radius:6px; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        ${fotoHtml}
-                    </div>
-                    <div style="overflow:hidden; flex:1; min-width:0;">
-                        <div class="eq-tipo" style="font-size:11px;">${d.tipo}</div>
-                        <div class="eq-modelo" style="font-size:12px;">${placa}</div>
-                        <div style="font-size:10px; color:#475569; font-weight:600; margin-top:2px; display:flex; align-items:flex-start; gap:2px;">
-                            <i class="material-icons" style="font-size:11px; flex-shrink:0; margin-top:1px;">place</i>
-                            <span style="word-break:break-word; line-height:1.3;">${d.frente_nombre || frente}</span>
+                const total = d.total ? parseFloat(d.total).toLocaleString('es-VE') : '0';
+                const despachos = d.despachos || 0;
+                const unidad = d.unidad || 'LITROS';
+
+                return `
+                <div class="eq-card" style="border-left:4px solid #ef4444; background-color:#f2f2f2; display:flex; flex-direction:column; gap:6px; padding:10px 12px;">
+                    <div style="display:flex; gap:10px; align-items:flex-start;">
+                        <div style="width:40px; height:40px; border-radius:6px; background:#e2e8f0; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            ${fotoHtml}
+                        </div>
+                        <div style="overflow:hidden; flex:1; min-width:0;">
+                            <div class="eq-tipo" style="font-size:11px;">${d.tipo}</div>
+                            <div class="eq-modelo" style="font-size:12px;">${placa}</div>
+                            <div style="font-size:10px; color:#475569; font-weight:600; margin-top:2px; display:flex; align-items:flex-start; gap:2px;">
+                                <i class="material-icons" style="font-size:11px; flex-shrink:0; margin-top:1px;">place</i>
+                                <span style="word-break:break-word; line-height:1.3;">${d.frente_nombre || frente}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div style="margin-top:2px; border-top:1px dashed #cbd5e0; padding-top:6px; text-align:left;">
-                    <div style="font-size:10px; color:#94a3b8; font-weight:700;">CAUSA DE INOPERATIVIDAD:</div>
-                    <div style="width:100%; height:20px; border-bottom:1px solid #94a3b8;"></div>
-                    <div style="width:100%; height:20px; border-bottom:1px solid #94a3b8;"></div>
-                </div>
-            </div>`;
-        }).join('')
-    }</div>`;
-};
 
-window.descargarPanelInoperativos = function() {
-    capturaPanelHtml('secInoperativos', 'equipos_inoperativos');
-};
+                    <div style="margin-top:2px; border-top:1px dashed #cbd5e0; padding-top:6px; text-align:left;">
+                        <div style="font-size:10px; color:#94a3b8; font-weight:700;">CAUSA DE INOPERATIVIDAD:</div>
+                        <div style="width:100%; height:20px; border-bottom:1px solid #94a3b8;"></div>
+                        <div style="width:100%; height:20px; border-bottom:1px solid #94a3b8;"></div>
+                    </div>
+                </div>`;
+            }).join('')
+                }</div>`;
+        };
+
+        window.descargarPanelInoperativos = function () {
+            capturaPanelHtml('secInoperativos', 'equipos_inoperativos');
+        };
 
 
-// ── TOP EQUIPOS — Grid de tarjetas compactas ───────────────────────
-window._rankingData = window._rankingData || [];
-var _rankingData = window._rankingData;
-function renderRanking(datos) {
-    hide('loadingRanking');
-    window._rankingData = datos || [];
-    _rankingData = window._rankingData;
-    const body = document.getElementById('rankingBody');
-    body.style.display = 'block';
-    if (!_rankingData.length) {
-        body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos.</p>';
-        return;
-    }
-    const maxVal = Math.max(..._rankingData.map(d => parseFloat(d.total)));
-    body.innerHTML = `<div class="eq-grid">${
-        _rankingData.map((d, i) => {
-            const total = parseFloat(d.total);
-            const pct   = maxVal > 0 ? (total / maxVal * 100).toFixed(1) : 0;
-            const desp  = d.despachos || 0;
-            const barColor = i === 0 ? '#003a70'
-                           : i <= 2  ? '#0077cc'
-                           : i <= 5  ? '#546e7a'
-                           : '#9ca3af';
+        // ── TOP EQUIPOS — Grid de tarjetas compactas ───────────────────────
+        window._rankingData = window._rankingData || [];
+        var _rankingData = window._rankingData;
+        function renderRanking(datos) {
+            hide('loadingRanking');
+            window._rankingData = datos || [];
+            _rankingData = window._rankingData;
+            const body = document.getElementById('rankingBody');
+            body.style.display = 'block';
+            if (!_rankingData.length) {
+                body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos.</p>';
+                return;
+            }
+            const maxVal = Math.max(..._rankingData.map(d => parseFloat(d.total)));
+            body.innerHTML = `<div class="eq-grid">${_rankingData.map((d, i) => {
+                const total = parseFloat(d.total);
+                const pct = maxVal > 0 ? (total / maxVal * 100).toFixed(1) : 0;
+                const desp = d.despachos || 0;
+                const barColor = i === 0 ? '#003a70'
+                    : i <= 2 ? '#0077cc'
+                        : i <= 5 ? '#546e7a'
+                            : '#9ca3af';
 
-            // Identificador: Placa primero, sino Serial, sino Codigo, sino Modelo
-            const idTexto = (d.PLACA && d.PLACA.trim()) ? d.PLACA :
-                            (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim()) ? d.SERIAL_CHASIS :
-                            (d.CODIGO_PATIO && d.CODIGO_PATIO.trim()) ? d.CODIGO_PATIO :
+                // Identificador: Placa primero, sino Serial, sino Codigo, sino Modelo
+                const idTexto = (d.PLACA && d.PLACA.trim()) ? d.PLACA :
+                    (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim()) ? d.SERIAL_CHASIS :
+                        (d.CODIGO_PATIO && d.CODIGO_PATIO.trim()) ? d.CODIGO_PATIO :
                             (d.MODELO || 'S/ID');
 
-            const frenteTxt = d.frente ? `<div class="eq-frente">📍 ${d.frente}</div>` : '';
+                const frenteTxt = d.frente ? `<div class="eq-frente">📍 ${d.frente}</div>` : '';
 
-            return `
-            <div class="eq-card">
-                <div class="eq-tipo">${d.tipo || 'S/T'}</div>
-                <div class="eq-modelo" title="${idTexto}" style="font-family:monospace; font-size:13px; letter-spacing:0.5px; color:#1e293b;">${idTexto}</div>
-                ${frenteTxt}
-                <div class="eq-total">
-                    ${total.toLocaleString('es-VE',{minimumFractionDigits:0,maximumFractionDigits:1})}
-                    <span class="eq-unidad">${d.unidad}</span>
-                </div>
-                <div class="eq-desp">⛽ ${desp} despacho${desp !== 1 ? 's' : ''}</div>
-                <div class="eq-bar">
-                    <div class="eq-bar-fill" style="width:${pct}%; background:${barColor};"></div>
-                </div>
-            </div>`;
-        }).join('')
-    }</div>`;
-}
-
-function descargarRanking() {
-    if (!_rankingData || !_rankingData.length) {
-        alert('No hay datos para descargar. Carga los gráficos primero.');
-        return;
-    }
-    capturaPanelHtml('panelRankingEquipos', 'top_equipos_consumo');
-}
-
-window._todosData = window._todosData || [];
-window._currentFilteredData = null;
-window._currentPageEq = 1;
-
-function renderTodosEquipos(datos) {
-    hide('loadingTodosEq');
-    document.getElementById('wrapTodosEq').style.display = 'block';
-    window._todosData = datos || [];
-    window._currentFilteredData = window._todosData;
-    window._currentPageEq = 1;
-    document.getElementById('subtotalEquipos').textContent =
-        `— ${window._todosData.length} equipo${window._todosData.length !== 1 ? 's' : ''} registrados`;
-        
-    // Populate filter dropdowns
-    const tipos = [...new Set(window._todosData.map(d => d.tipo))].filter(Boolean).sort();
-    const frentes = [...new Set(window._todosData.map(d => d.frente))].filter(Boolean).sort();
-    
-    const tipoSelect = document.getElementById('eqFilterTipo');
-    const frentesSelect = document.getElementById('eqFilterFrente');
-    
-    // Save current values to restore them after repopulating
-    const currTipo = tipoSelect.value;
-    const currFrente = frentesSelect.value;
-    
-    tipoSelect.innerHTML = '<option value="">Todos los Tipos</option>' + 
-        tipos.map(t => `<option value="${t}">${t}</option>`).join('');
-    frentesSelect.innerHTML = '<option value="">Todos los Frentes</option>' + 
-        frentes.map(f => `<option value="${f}">${f}</option>`).join('');
-        
-    tipoSelect.value = tipos.includes(currTipo) ? currTipo : '';
-    frentesSelect.value = frentes.includes(currFrente) ? currFrente : '';
-
-    filtrarTablaEquipos();
-}
-
-var ITEMS_PER_PAGE = 15;
-
-function llenarTablaEquipos(datos, page = 1) {
-    const body = document.getElementById('bodyTodosEq');
-    const containerPag = document.getElementById('paginacionEquipos');
-    
-    if (!datos || datos.length === 0) {
-        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8;">Sin datos disponibles.</td></tr>`;
-        if (containerPag) containerPag.innerHTML = '';
-        return;
-    }
-
-    const totalPages = Math.ceil(datos.length / ITEMS_PER_PAGE);
-    window._currentPageEq = Math.min(Math.max(1, page), totalPages);
-
-    const start = (window._currentPageEq - 1) * ITEMS_PER_PAGE;
-    const paginated = datos.slice(start, start + ITEMS_PER_PAGE);
-
-    body.innerHTML = paginated.map((d, i) => {
-        const total = parseFloat(d.total);
-        const ids   = (d.identificadores || d.CODIGO_PATIO || '—');
-        const front = d.frente || '—';
-        return `<tr>
-            <td style="font-size:11px;font-weight:700;color:#0067b1;text-transform:uppercase;">${d.tipo}</td>
-            <td>
-                <span style="font-family:monospace;font-weight:700;color:#1e293b;font-size:12px;">${ids}</span>
-            </td>
-            <td style="font-size:12px;">${d.MARCA} ${d.MODELO}</td>
-            <td style="font-size:12px; color:#475569;">${front}</td>
-            <td style="text-align:right;"><span class="eq-desp-badge">⛽ ${d.despachos}</span></td>
-            <td style="text-align:right;font-weight:800;color:#0067b1;">
-                ${total.toLocaleString('es-VE',{minimumFractionDigits:0,maximumFractionDigits:1})}
-                <span style="font-size:10px;color:#94a3b8;font-weight:400;">${d.unidad}</span>
-            </td>
-        </tr>`;
-    }).join('');
-
-    renderPaginacion(datos.length, totalPages);
-}
-
-function renderPaginacion(totalItems, totalPages) {
-    const container = document.getElementById('paginacionEquipos');
-    if (!container) return;
-
-    if (totalPages <= 1) {
-        container.innerHTML = '';
-        return;
-    }
-
-    // Contenedor principal — sin texto 'Mostrando X de Y'
-    let html = `
-    <div style="display:flex; flex-direction:column; align-items:center; gap:15px; margin-top:20px; padding-top:10px; border-top:1px solid #e2e8f0;">
-        <ul style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">
-    `;
-
-    // Estilos base
-    const baseBtn     = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #cbd5e1; background:#fff; transition:all 0.2s;";
-    const activeBtn   = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;";
-    const disabledBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #e2e8f0; background:#f8fafc; color:#94a3b8; cursor:not-allowed;";
-
-    // Botón Anterior
-    if (window._currentPageEq === 1) {
-        html += `<li><span style="${disabledBtn}">&laquo; Anterior</span></li>`;
-    } else {
-        html += `<li><button onclick="cambiarPaginaEq(${window._currentPageEq - 1})" style="${baseBtn} color:#475569;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">&laquo; Anterior</button></li>`;
-    }
-    
-    // Calcular rango de páginas visibles (5 a cada lado) sin mostrar puntos nunca
-    let startPage = Math.max(1, window._currentPageEq - 3);
-    let endPage = Math.min(totalPages, window._currentPageEq + 3);
-
-    // Números de página continuos dentro del rango
-    for (let p = startPage; p <= endPage; p++) {
-        if (p === window._currentPageEq) {
-            html += `<li><span style="${activeBtn}">${p}</span></li>`;
-        } else {
-            html += `<li><button onclick="cambiarPaginaEq(${p})" style="${baseBtn} color:#0f172a;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">${p}</button></li>`;
+                return `
+                <div class="eq-card">
+                    <div class="eq-tipo">${d.tipo || 'S/T'}</div>
+                    <div class="eq-modelo" title="${idTexto}" style="font-family:monospace; font-size:13px; letter-spacing:0.5px; color:#1e293b;">${idTexto}</div>
+                    ${frenteTxt}
+                    <div class="eq-total">
+                        ${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+                        <span class="eq-unidad">${d.unidad}</span>
+                    </div>
+                    <div class="eq-desp">⛽ ${desp} despacho${desp !== 1 ? 's' : ''}</div>
+                    <div class="eq-bar">
+                        <div class="eq-bar-fill" style="width:${pct}%; background:${barColor};"></div>
+                    </div>
+                </div>`;
+            }).join('')
+                }</div>`;
         }
-    }
-    
-    // Botón Siguiente
-    if (window._currentPageEq === totalPages) {
-        html += `<li><span style="${disabledBtn}">Siguiente &raquo;</span></li>`;
-    } else {
-        html += `<li><button onclick="cambiarPaginaEq(${window._currentPageEq + 1})" style="${baseBtn} color:#475569;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Siguiente &raquo;</button></li>`;
-    }
-    
-    html += `
-        </ul>
-    </div>`;
-    
-    container.innerHTML = html;
-}
 
-window.cambiarPaginaEq = function(newPage) {
-    const datos = window._currentFilteredData || window._todosData;
-    const totalPages = Math.ceil(datos.length / ITEMS_PER_PAGE);
-    if (newPage < 1 || newPage > totalPages) return;
-    llenarTablaEquipos(datos, newPage);
-};
-
-function filtrarTablaEquipos() {
-    const q = (document.getElementById('eqSearch').value || '').toLowerCase();
-    const fTipo = document.getElementById('eqFilterTipo').value;
-    const fFrente = document.getElementById('eqFilterFrente').value;
-    
-    window._currentFilteredData = window._todosData.filter(d => {
-        const matchesText = !q || (
-            (d.identificadores||'').toLowerCase().includes(q) ||
-            (d.CODIGO_PATIO||'').toLowerCase().includes(q)    ||
-            (d.MARCA||'').toLowerCase().includes(q)           ||
-            (d.MODELO||'').toLowerCase().includes(q)
-        );
-        const matchesTipo = !fTipo || d.tipo === fTipo;
-        const matchesFrente = !fFrente || d.frente === fFrente;
-        return matchesText && matchesTipo && matchesFrente;
-    });
-    
-    window._currentPageEq = 1;
-    llenarTablaEquipos(window._currentFilteredData, 1);
-}
-
-window._sortDir = window._sortDir || -1; // -1=desc, 1=asc
-
-function sortTabla(col) {
-    window._sortDir *= -1;
-    const keys = ['tipo', 'identificadores', 'MARCA', 'frente', 'despachos', 'total'];
-    const key  = keys[col];
-    
-    const currData = window._currentFilteredData || window._todosData;
-    
-    window._currentFilteredData = [...currData].sort((a, b) => {
-        const aRaw = a[key] || '';
-        const bRaw = b[key] || '';
-        
-        // Handle numeric sorting for despachos and total
-        if (key === 'despachos' || key === 'total') {
-            const numA = parseFloat(aRaw) || 0;
-            const numB = parseFloat(bRaw) || 0;
-            return numA > numB ? window._sortDir : numA < numB ? -window._sortDir : 0;
+        function descargarRanking() {
+            if (!_rankingData || !_rankingData.length) {
+                alert('No hay datos para descargar. Carga los gráficos primero.');
+                return;
+            }
+            capturaPanelHtml('panelRankingEquipos', 'top_equipos_consumo');
         }
-        
-        // Handle string sorting (case insensitive)
-        const strA = String(aRaw).toLowerCase();
-        const strB = String(bRaw).toLowerCase();
-        return strA > strB ? window._sortDir : strA < strB ? -window._sortDir : 0;
-    });
-    
-    window._currentPageEq = 1;
-    llenarTablaEquipos(window._currentFilteredData, 1);
-}
 
+        window._todosData = window._todosData || [];
+        window._currentFilteredData = null;
+        window._currentPageEq = 1;
 
-// ── Especificación por frente (Aceite × Viscosidad ó Caucho × Modelo) ──────
-function renderEspecFrente(datos, tipoActivo) {
-    const sec  = document.getElementById('secEspecFrente');
-    const load = document.getElementById('loadingAceiteFrente');
-    const body = document.getElementById('aceiteFrente-body');
-    if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
+        function renderTodosEquipos(datos) {
+            hide('loadingTodosEq');
+            document.getElementById('wrapTodosEq').style.display = 'block';
+            window._todosData = datos || [];
+            window._currentFilteredData = window._todosData;
+            window._currentPageEq = 1;
+            document.getElementById('subtotalEquipos').textContent =
+                `— ${window._todosData.length} equipo${window._todosData.length !== 1 ? 's' : ''} registrados`;
 
-    const esCaucho = tipoActivo === 'CAUCHO';
-    const UNIDAD   = esCaucho ? 'Un' : 'L';
-    const TITULO   = esCaucho
-        ? 'Caucho por Frente — Desglose por Modelo'
-        : 'Aceite por Frente — Desglose por Viscosidad';
+            // Populate filter dropdowns
+            const tipos = [...new Set(window._todosData.map(d => d.tipo))].filter(Boolean).sort();
+            const frentes = [...new Set(window._todosData.map(d => d.frente))].filter(Boolean).sort();
 
-    // Icono y color dinámicos según tipo
-    const iconEl = document.getElementById('iconEspecFrente');
-    if (iconEl) {
-        iconEl.textContent = esCaucho ? 'tire_repair' : 'opacity';
-        iconEl.style.color = esCaucho ? '#1b5e20' : '#0067b1';
-    }
-    document.getElementById('txtEspecFrente').textContent = TITULO;
+            const tipoSelect = document.getElementById('eqFilterTipo');
+            const frentesSelect = document.getElementById('eqFilterFrente');
 
-    sec.style.display  = '';
-    load.style.display = 'none';
-    body.style.display = 'block';
-    body.innerHTML     = '';
+            // Save current values to restore them after repopulating
+            const currTipo = tipoSelect.value;
+            const currFrente = frentesSelect.value;
 
-    // ── Mapas de totales ───────────────────────────────────────────────
-    const mapaFrente = {};
-    const mapEspec   = {};
-    datos.forEach(d => {
-        const val = parseFloat(d.total) || 0;
-        mapaFrente[d.NOMBRE_FRENTE] = (mapaFrente[d.NOMBRE_FRENTE] || 0) + val;
-        mapEspec[d.ESPECIFICACION]  = (mapEspec[d.ESPECIFICACION]  || 0) + val;
-    });
-    const frentes  = Object.keys(mapaFrente).sort((a, b) => mapaFrente[b] - mapaFrente[a]);
-    const especs   = Object.keys(mapEspec).sort((a, b) => mapEspec[b] - mapEspec[a]);
-    const maxTotal = Math.max(...Object.values(mapaFrente));
+            tipoSelect.innerHTML = '<option value="">Todos los Tipos</option>' +
+                tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+            frentesSelect.innerHTML = '<option value="">Todos los Frentes</option>' +
+                frentes.map(f => `<option value="${f}">${f}</option>`).join('');
 
-    // Paleta armoniosa — misma que el gráfico de barras de cauchos
-    const PALETA = esCaucho
-        ? (window.PALETA_CAUCHO_GLOBAL || ['#1b5e20','#0d47a1','#e65100','#4a148c','#006064','#b71c1c','#37474f','#4e342e'])
-        : ['#0d47a1','#b71c1c','#1b5e20','#4a148c','#e65100','#006064','#37474f','#827717'];
+            tipoSelect.value = tipos.includes(currTipo) ? currTipo : '';
+            frentesSelect.value = frentes.includes(currFrente) ? currFrente : '';
 
-    // ── Fila por frente: barra segmentada + badges de modelo ─────────
-    body.innerHTML = frentes.map((frente, i) => {
-        const filas = datos
-            .filter(d => d.NOMBRE_FRENTE === frente)
-            .sort((a, b) => parseFloat(b.total) - parseFloat(a.total));
-        const tot = mapaFrente[frente];
+            filtrarTablaEquipos();
+        }
 
-        const barSegs = filas.map(f => {
-            const pct   = parseFloat(f.total) / tot * 100;
-            const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
-            return `<div title="${f.ESPECIFICACION}: ${parseFloat(f.total).toFixed(0)} ${UNIDAD} (${pct.toFixed(0)}%)"
-                         style="width:${pct}%;background:${color};height:100%;"></div>`;
-        }).join('');
+        var ITEMS_PER_PAGE = 15;
 
-        const badges = filas.map(f => {
-            const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
-            const v     = parseFloat(f.total).toLocaleString('es-VE', {maximumFractionDigits: 0});
-            return `<span style="display:inline-flex;align-items:center;gap:5px;
-                        background:#f8fafc;color:#475569;border:1px solid #cbd5e1;border-radius:20px;
-                        padding:2px 8px;font-size:10px;font-weight:600;white-space:nowrap;">
-                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};"></span>
-                        ${f.ESPECIFICACION}
-                        <span style="background:#e2e8f0;color:#1e293b;border-radius:20px;padding:1px 5px;font-size:10px;font-weight:700;">${v}</span>
-                    </span>`;
-        }).join('');
+        function llenarTablaEquipos(datos, page = 1) {
+            const body = document.getElementById('bodyTodosEq');
+            const containerPag = document.getElementById('paginacionEquipos');
 
-        const wb = Math.round(tot / maxTotal * 100);
-        return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
-            <div style="display:grid;grid-template-columns:24px 190px 1fr auto;align-items:center;gap:8px;">
-                <span style="font-size:11px;color:#94a3b8;font-weight:700;text-align:center;">#${i+1}</span>
-                <span style="font-weight:700;font-size:12px;color:#1e293b;word-break:break-word;line-height:1.3;">${frente}</span>
-                <div style="background:#f1f5f9;border-radius:20px;height:10px;overflow:hidden;">
-                    <div style="display:flex;height:100%;width:${wb}%;">${barSegs}</div>
-                </div>
-                <span style="font-weight:800;font-size:13px;color:#003a70;white-space:nowrap;padding-left:4px;">
-                    ${tot.toLocaleString('es-VE',{maximumFractionDigits:0})} ${UNIDAD}
-                </span>
-            </div>
-            ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;padding-left:22px;">${badges}</div>` : ''}
+            if (!datos || datos.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8;">Sin datos disponibles.</td></tr>`;
+                if (containerPag) containerPag.innerHTML = '';
+                return;
+            }
+
+            const totalPages = Math.ceil(datos.length / ITEMS_PER_PAGE);
+            window._currentPageEq = Math.min(Math.max(1, page), totalPages);
+
+            const start = (window._currentPageEq - 1) * ITEMS_PER_PAGE;
+            const paginated = datos.slice(start, start + ITEMS_PER_PAGE);
+
+            body.innerHTML = paginated.map((d, i) => {
+                const total = parseFloat(d.total);
+                const ids = (d.identificadores || d.CODIGO_PATIO || '—');
+                const front = d.frente || '—';
+                return `<tr>
+                <td style="font-size:11px;font-weight:700;color:#0067b1;text-transform:uppercase;">${d.tipo}</td>
+                <td>
+                    <span style="font-family:monospace;font-weight:700;color:#1e293b;font-size:12px;">${ids}</span>
+                </td>
+                <td style="font-size:12px;">${d.MARCA} ${d.MODELO}</td>
+                <td style="font-size:12px; color:#475569;">${front}</td>
+                <td style="text-align:right;"><span class="eq-desp-badge">⛽ ${d.despachos}</span></td>
+                <td style="text-align:right;font-weight:800;color:#0067b1;">
+                    ${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+                    <span style="font-size:10px;color:#94a3b8;font-weight:400;">${d.unidad}</span>
+                </td>
+            </tr>`;
+            }).join('');
+
+            renderPaginacion(datos.length, totalPages);
+        }
+
+        function renderPaginacion(totalItems, totalPages) {
+            const container = document.getElementById('paginacionEquipos');
+            if (!container) return;
+
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            // Contenedor principal — sin texto 'Mostrando X de Y'
+            let html = `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:15px; margin-top:20px; padding-top:10px; border-top:1px solid #e2e8f0;">
+            <ul style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">
+        `;
+
+            // Estilos base
+            const baseBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #cbd5e1; background:#fff; transition:all 0.2s;";
+            const activeBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;";
+            const disabledBtn = "display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; border:1px solid #e2e8f0; background:#f8fafc; color:#94a3b8; cursor:not-allowed;";
+
+            // Botón Anterior
+            if (window._currentPageEq === 1) {
+                html += `<li><span style="${disabledBtn}">&laquo; Anterior</span></li>`;
+            } else {
+                html += `<li><button onclick="cambiarPaginaEq(${window._currentPageEq - 1})" style="${baseBtn} color:#475569;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">&laquo; Anterior</button></li>`;
+            }
+
+            // Calcular rango de páginas visibles (5 a cada lado) sin mostrar puntos nunca
+            let startPage = Math.max(1, window._currentPageEq - 3);
+            let endPage = Math.min(totalPages, window._currentPageEq + 3);
+
+            // Números de página continuos dentro del rango
+            for (let p = startPage; p <= endPage; p++) {
+                if (p === window._currentPageEq) {
+                    html += `<li><span style="${activeBtn}">${p}</span></li>`;
+                } else {
+                    html += `<li><button onclick="cambiarPaginaEq(${p})" style="${baseBtn} color:#0f172a;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">${p}</button></li>`;
+                }
+            }
+
+            // Botón Siguiente
+            if (window._currentPageEq === totalPages) {
+                html += `<li><span style="${disabledBtn}">Siguiente &raquo;</span></li>`;
+            } else {
+                html += `<li><button onclick="cambiarPaginaEq(${window._currentPageEq + 1})" style="${baseBtn} color:#475569;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#fff'">Siguiente &raquo;</button></li>`;
+            }
+
+            html += `
+            </ul>
         </div>`;
-    }).join('');
 
-    // ── Total global por modelo: badges sutiles (fondo gris con puntito de color) ──
-    const totalBadges = especs.map((e, i) => {
-        const color = PALETA[i % PALETA.length];
-        const v     = mapEspec[e].toLocaleString('es-VE', {maximumFractionDigits: 0});
-        return `<div style="margin-bottom:6px;"><span style="display:inline-flex;align-items:center;gap:6px;
-            background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:20px;padding:4px 13px;
-            font-size:12px;font-weight:600;white-space:nowrap;">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>
-            ${e}
-            <span style="background:#e2e8f0;color:#0f172a;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:2px;">${v} ${UNIDAD}</span>
-        </span></div>`;
-    }).join('');
+            container.innerHTML = html;
+        }
 
-    body.insertAdjacentHTML('beforeend',
-        `<div style="margin-top:14px;padding-top:12px;border-top:2px dashed #e2e8f0; display:block;">
-            ${totalBadges}
-        </div>`
-    );
-}
+        window.cambiarPaginaEq = function (newPage) {
+            const datos = window._currentFilteredData || window._todosData;
+            const totalPages = Math.ceil(datos.length / ITEMS_PER_PAGE);
+            if (newPage < 1 || newPage > totalPages) return;
+            llenarTablaEquipos(datos, newPage);
+        };
 
-// ── DESCARGA PANEL ESPCFRENTE ────────────────────────────────────
-function descargarPanelEspecFrente(nombre) {
-    const body = document.getElementById('aceiteFrente-body');
-    if (!body || !body.innerHTML) {
-        alert('No hay datos para descargar.'); return;
-    }
-    const card = body.closest('.g-card') || body.parentElement;
-    capturaPanelHtml(card?.id || 'secEspecFrente', nombre);
-}
+        function filtrarTablaEquipos() {
+            const q = (document.getElementById('eqSearch').value || '').toLowerCase();
+            const fTipo = document.getElementById('eqFilterTipo').value;
+            const fFrente = document.getElementById('eqFilterFrente').value;
 
-// ── Especificación por equipo (tabla) ────────────────────────────────
-function renderEspecEquipo(datos, tipoActivo) {
-    const sec  = document.getElementById('secEspecEquipo');
-    const load = document.getElementById('loadingAceiteEquipo');
-    const body = document.getElementById('aceiteEquipoBody');
-    if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
+            window._currentFilteredData = window._todosData.filter(d => {
+                const matchesText = !q || (
+                    (d.identificadores || '').toLowerCase().includes(q) ||
+                    (d.CODIGO_PATIO || '').toLowerCase().includes(q) ||
+                    (d.MARCA || '').toLowerCase().includes(q) ||
+                    (d.MODELO || '').toLowerCase().includes(q)
+                );
+                const matchesTipo = !fTipo || d.tipo === fTipo;
+                const matchesFrente = !fFrente || d.frente === fFrente;
+                return matchesText && matchesTipo && matchesFrente;
+            });
 
-    const esCaucho   = tipoActivo === 'CAUCHO';
-    const COLOR_BASE = esCaucho ? '#059669' : '#0067b1';
-    const UNIDAD     = esCaucho ? 'Un' : 'L';
-    const TITULO     = esCaucho
-        ? 'Caucho por Equipo — Desglose por Modelo'
-        : 'Aceite por Equipo — Desglose por Viscosidad';
+            window._currentPageEq = 1;
+            llenarTablaEquipos(window._currentFilteredData, 1);
+        }
 
-    document.getElementById('txtEspecEquipo').textContent = TITULO;
-    document.getElementById('iconEspecEquipo').style.color = COLOR_BASE;
+        window._sortDir = window._sortDir || -1; // -1=desc, 1=asc
 
-    sec.style.display  = '';
-    load.style.display = 'none';
-    body.style.display = 'block';
+        function sortTabla(col) {
+            window._sortDir *= -1;
+            const keys = ['tipo', 'identificadores', 'MARCA', 'frente', 'despachos', 'total'];
+            const key = keys[col];
 
-    // Calcular volumen total por especificación de nuevo (misma lógica)
-    const mapEspec = {};
-    datos.forEach(d => {
-        mapEspec[d.ESPECIFICACION] = (mapEspec[d.ESPECIFICACION] || 0) + (parseFloat(d.total) || 0);
-    });
-    const especs = Object.keys(mapEspec).sort((a,b) => mapEspec[b] - mapEspec[a]);
+            const currData = window._currentFilteredData || window._todosData;
 
-    const PALETA = [
-        '#b91c1c', // [0] Rojo intenso
-        '#0067b1', // [1] Azul corporativo
-        '#059669', // [2] Verde oscuro
-        '#475569', // [3] Gris slate oscuro
-        '#64748b', // [4] Gris slate medio
-        '#94a3b8', // [5] Gris slate claro
-        '#cbd5e1', // [6] Gris slate más claro
-        '#e2e8f0'  // [7] Gris base
-    ];
+            window._currentFilteredData = [...currData].sort((a, b) => {
+                const aRaw = a[key] || '';
+                const bRaw = b[key] || '';
 
-    const eq = {};
-    datos.forEach(d => {
-        // Prioridad: PLACA → SERIAL_CHASIS → CODIGO_PATIO → IDENTIFICADOR (código de referencia)
-        const idTexto = (d.PLACA && d.PLACA.trim())          ? d.PLACA.trim()
-                      : (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim()) ? d.SERIAL_CHASIS.trim()
-                      : (d.CODIGO_PATIO && d.CODIGO_PATIO.trim())   ? d.CODIGO_PATIO.trim()
-                      : (d.identificador || 'S/ID');
+                // Handle numeric sorting for despachos and total
+                if (key === 'despachos' || key === 'total') {
+                    const numA = parseFloat(aRaw) || 0;
+                    const numB = parseFloat(bRaw) || 0;
+                    return numA > numB ? window._sortDir : numA < numB ? -window._sortDir : 0;
+                }
 
-        // Agrupar por ID_EQUIPO para no mezclar equipos distintos con el mismo modelo
-        const k = d.ID_EQUIPO || idTexto;
-        if (!eq[k]) eq[k] = { idTexto, modelo: d.MODELO, tipo: d.tipo_equipo, especs: {} };
-        eq[k].especs[d.ESPECIFICACION] = (eq[k].especs[d.ESPECIFICACION] || 0) + parseFloat(d.total);
-    });
-    const filas = Object.values(eq).sort((a, b) =>
-        Object.values(b.especs).reduce((s, v) => s + v, 0) -
-        Object.values(a.especs).reduce((s, v) => s + v, 0)
-    );
+                // Handle string sorting (case insensitive)
+                const strA = String(aRaw).toLowerCase();
+                const strB = String(bRaw).toLowerCase();
+                return strA > strB ? window._sortDir : strA < strB ? -window._sortDir : 0;
+            });
 
-    const thead = `<tr>
-        <th>Equipo / Código</th><th>Tipo</th>
-        ${especs.map((e, i) => `<th style="text-align:right;color:${PALETA[i % PALETA.length]};">${e}</th>`).join('')}
-        <th style="text-align:right;">Total</th>
-    </tr>`;
-    const tbody = filas.map(f => {
-        const tot = Object.values(f.especs).reduce((s, v) => s + v, 0);
-        const cells = especs.map((e, i) => {
-            const v = f.especs[e];
-            return v
-                ? `<td style="text-align:right;font-weight:700;color:${PALETA[i % PALETA.length]};">${v.toLocaleString('es-VE',{maximumFractionDigits:0})}</td>`
-                : `<td style="text-align:right;color:#cbd5e0;">—</td>`;
-        }).join('');
-        return `<tr>
-            <td style="font-weight:700;font-family:monospace;font-size:12px;">${f.idTexto}
-                <span style="display:block;color:#64748b;font-weight:400;font-size:10px;font-family:sans-serif;">${f.modelo || ''}</span>
-            </td>
-            <td style="font-size:11px;color:#64748b;">${f.tipo}</td>
-            ${cells}
-            <td style="text-align:right;font-weight:800;color:${COLOR_BASE};">${tot.toLocaleString('es-VE',{maximumFractionDigits:0})} ${UNIDAD}</td>
+            window._currentPageEq = 1;
+            llenarTablaEquipos(window._currentFilteredData, 1);
+        }
+
+
+        // ── Especificación por frente (Aceite × Viscosidad ó Caucho × Modelo) ──────
+        function renderEspecFrente(datos, tipoActivo) {
+            const sec = document.getElementById('secEspecFrente');
+            const load = document.getElementById('loadingAceiteFrente');
+            const body = document.getElementById('aceiteFrente-body');
+            if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
+
+            const esCaucho = tipoActivo === 'CAUCHO';
+            const UNIDAD = esCaucho ? 'Un' : 'L';
+            const TITULO = esCaucho
+                ? 'Caucho por Frente — Desglose por Modelo'
+                : 'Aceite por Frente — Desglose por Viscosidad';
+
+            // Icono y color dinámicos según tipo
+            const iconEl = document.getElementById('iconEspecFrente');
+            if (iconEl) {
+                iconEl.textContent = esCaucho ? 'tire_repair' : 'opacity';
+                iconEl.style.color = esCaucho ? '#1b5e20' : '#0067b1';
+            }
+            document.getElementById('txtEspecFrente').textContent = TITULO;
+
+            sec.style.display = '';
+            load.style.display = 'none';
+            body.style.display = 'block';
+            body.innerHTML = '';
+
+            // ── Mapas de totales ───────────────────────────────────────────────
+            const mapaFrente = {};
+            const mapEspec = {};
+            datos.forEach(d => {
+                const val = parseFloat(d.total) || 0;
+                mapaFrente[d.NOMBRE_FRENTE] = (mapaFrente[d.NOMBRE_FRENTE] || 0) + val;
+                mapEspec[d.ESPECIFICACION] = (mapEspec[d.ESPECIFICACION] || 0) + val;
+            });
+            const frentes = Object.keys(mapaFrente).sort((a, b) => mapaFrente[b] - mapaFrente[a]);
+            const especs = Object.keys(mapEspec).sort((a, b) => mapEspec[b] - mapEspec[a]);
+            const maxTotal = Math.max(...Object.values(mapaFrente));
+
+            // Paleta armoniosa — misma que el gráfico de barras de cauchos
+            const PALETA = esCaucho
+                ? (window.PALETA_CAUCHO_GLOBAL || ['#1b5e20', '#0d47a1', '#e65100', '#4a148c', '#006064', '#b71c1c', '#37474f', '#4e342e'])
+                : ['#0d47a1', '#b71c1c', '#1b5e20', '#4a148c', '#e65100', '#006064', '#37474f', '#827717'];
+
+            // ── Fila por frente: barra segmentada + badges de modelo ─────────
+            body.innerHTML = frentes.map((frente, i) => {
+                const filas = datos
+                    .filter(d => d.NOMBRE_FRENTE === frente)
+                    .sort((a, b) => parseFloat(b.total) - parseFloat(a.total));
+                const tot = mapaFrente[frente];
+
+                const barSegs = filas.map(f => {
+                    const pct = parseFloat(f.total) / tot * 100;
+                    const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
+                    return `<div title="${f.ESPECIFICACION}: ${parseFloat(f.total).toFixed(0)} ${UNIDAD} (${pct.toFixed(0)}%)"
+                             style="width:${pct}%;background:${color};height:100%;"></div>`;
+                }).join('');
+
+                const badges = filas.map(f => {
+                    const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
+                    const v = parseFloat(f.total).toLocaleString('es-VE', { maximumFractionDigits: 0 });
+                    return `<span style="display:inline-flex;align-items:center;gap:5px;
+                            background:#f8fafc;color:#475569;border:1px solid #cbd5e1;border-radius:20px;
+                            padding:2px 8px;font-size:10px;font-weight:600;white-space:nowrap;">
+                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};"></span>
+                            ${f.ESPECIFICACION}
+                            <span style="background:#e2e8f0;color:#1e293b;border-radius:20px;padding:1px 5px;font-size:10px;font-weight:700;">${v}</span>
+                        </span>`;
+                }).join('');
+
+                const wb = Math.round(tot / maxTotal * 100);
+                return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
+                <div style="display:grid;grid-template-columns:24px 190px 1fr auto;align-items:center;gap:8px;">
+                    <span style="font-size:11px;color:#94a3b8;font-weight:700;text-align:center;">#${i + 1}</span>
+                    <span style="font-weight:700;font-size:12px;color:#1e293b;word-break:break-word;line-height:1.3;">${frente}</span>
+                    <div style="background:#f1f5f9;border-radius:20px;height:10px;overflow:hidden;">
+                        <div style="display:flex;height:100%;width:${wb}%;">${barSegs}</div>
+                    </div>
+                    <span style="font-weight:800;font-size:13px;color:#003a70;white-space:nowrap;padding-left:4px;">
+                        ${tot.toLocaleString('es-VE', { maximumFractionDigits: 0 })} ${UNIDAD}
+                    </span>
+                </div>
+                ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;padding-left:22px;">${badges}</div>` : ''}
+            </div>`;
+            }).join('');
+
+            // ── Total global por modelo: badges sutiles (fondo gris con puntito de color) ──
+            const totalBadges = especs.map((e, i) => {
+                const color = PALETA[i % PALETA.length];
+                const v = mapEspec[e].toLocaleString('es-VE', { maximumFractionDigits: 0 });
+                return `<div style="margin-bottom:6px;"><span style="display:inline-flex;align-items:center;gap:6px;
+                background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:20px;padding:4px 13px;
+                font-size:12px;font-weight:600;white-space:nowrap;">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>
+                ${e}
+                <span style="background:#e2e8f0;color:#0f172a;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:2px;">${v} ${UNIDAD}</span>
+            </span></div>`;
+            }).join('');
+
+            body.insertAdjacentHTML('beforeend',
+                `<div style="margin-top:14px;padding-top:12px;border-top:2px dashed #e2e8f0; display:block;">
+                ${totalBadges}
+            </div>`
+            );
+        }
+
+        // ── DESCARGA PANEL ESPCFRENTE ────────────────────────────────────
+        function descargarPanelEspecFrente(nombre) {
+            const body = document.getElementById('aceiteFrente-body');
+            if (!body || !body.innerHTML) {
+                alert('No hay datos para descargar.'); return;
+            }
+            const card = body.closest('.g-card') || body.parentElement;
+            capturaPanelHtml(card?.id || 'secEspecFrente', nombre);
+        }
+
+        // ── Especificación por equipo (tabla) ────────────────────────────────
+        function renderEspecEquipo(datos, tipoActivo) {
+            const sec = document.getElementById('secEspecEquipo');
+            const load = document.getElementById('loadingAceiteEquipo');
+            const body = document.getElementById('aceiteEquipoBody');
+            if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
+
+            const esCaucho = tipoActivo === 'CAUCHO';
+            const COLOR_BASE = esCaucho ? '#059669' : '#0067b1';
+            const UNIDAD = esCaucho ? 'Un' : 'L';
+            const TITULO = esCaucho
+                ? 'Caucho por Equipo — Desglose por Modelo'
+                : 'Aceite por Equipo — Desglose por Viscosidad';
+
+            document.getElementById('txtEspecEquipo').textContent = TITULO;
+            document.getElementById('iconEspecEquipo').style.color = COLOR_BASE;
+
+            sec.style.display = '';
+            load.style.display = 'none';
+            body.style.display = 'block';
+
+            // Calcular volumen total por especificación de nuevo (misma lógica)
+            const mapEspec = {};
+            datos.forEach(d => {
+                mapEspec[d.ESPECIFICACION] = (mapEspec[d.ESPECIFICACION] || 0) + (parseFloat(d.total) || 0);
+            });
+            const especs = Object.keys(mapEspec).sort((a, b) => mapEspec[b] - mapEspec[a]);
+
+            const PALETA = [
+                '#b91c1c', // [0] Rojo intenso
+                '#0067b1', // [1] Azul corporativo
+                '#059669', // [2] Verde oscuro
+                '#475569', // [3] Gris slate oscuro
+                '#64748b', // [4] Gris slate medio
+                '#94a3b8', // [5] Gris slate claro
+                '#cbd5e1', // [6] Gris slate más claro
+                '#e2e8f0'  // [7] Gris base
+            ];
+
+            const eq = {};
+            datos.forEach(d => {
+                // Prioridad: PLACA → SERIAL_CHASIS → CODIGO_PATIO → IDENTIFICADOR (código de referencia)
+                const idTexto = (d.PLACA && d.PLACA.trim()) ? d.PLACA.trim()
+                    : (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim()) ? d.SERIAL_CHASIS.trim()
+                        : (d.CODIGO_PATIO && d.CODIGO_PATIO.trim()) ? d.CODIGO_PATIO.trim()
+                            : (d.identificador || 'S/ID');
+
+                // Agrupar por ID_EQUIPO para no mezclar equipos distintos con el mismo modelo
+                const k = d.ID_EQUIPO || idTexto;
+                if (!eq[k]) eq[k] = { idTexto, modelo: d.MODELO, tipo: d.tipo_equipo, especs: {} };
+                eq[k].especs[d.ESPECIFICACION] = (eq[k].especs[d.ESPECIFICACION] || 0) + parseFloat(d.total);
+            });
+            const filas = Object.values(eq).sort((a, b) =>
+                Object.values(b.especs).reduce((s, v) => s + v, 0) -
+                Object.values(a.especs).reduce((s, v) => s + v, 0)
+            );
+
+            const thead = `<tr>
+            <th>Equipo / Código</th><th>Tipo</th>
+            ${especs.map((e, i) => `<th style="text-align:right;color:${PALETA[i % PALETA.length]};">${e}</th>`).join('')}
+            <th style="text-align:right;">Total</th>
         </tr>`;
-    }).join('');
-    body.innerHTML = `<table class="admin-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
-}
-
-// ── CSV ────────────────────────────────────────────────────────────
-function descargarCsv() {
-    window.location.href = `{{ route('consumibles.exportarCsv') }}?${getParams()}`;
-}
-
-// ── Descargar gráfico como imagen PNG ─────────────────────────────
-function descargarGrafico(canvasId, nombre) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas || canvas.style.display === 'none') {
-        alert('El gráfico no está visible aún. Aplica los filtros primero.');
-        return;
-    }
-    const fecha = new Date().toISOString().slice(0,10);
-    const link  = document.createElement('a');
-    link.download = `${nombre}_${fecha}.png`;
-    link.href     = canvas.toDataURL('image/png');
-    link.click();
-}
-
-// ── Helper: capturar cualquier panel del DOM tal como se ve en pantalla ──────
-function capturaPanelHtml(panelId, nombre, callbackClone) {
-    const el = document.getElementById(panelId);
-    if (!el || el.style.display === 'none') {
-        alert('El panel no está visible. Aplica los filtros primero.'); return;
-    }
-    if (typeof html2canvas === 'undefined') {
-        alert('La librería de captura aún está cargando. Inténtalo en unos segundos.'); return;
-    }
-    const fecha = new Date().toISOString().slice(0, 10);
-    html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: function(clonedDoc) {
-            if (callbackClone) callbackClone(clonedDoc);
+            const tbody = filas.map(f => {
+                const tot = Object.values(f.especs).reduce((s, v) => s + v, 0);
+                const cells = especs.map((e, i) => {
+                    const v = f.especs[e];
+                    return v
+                        ? `<td style="text-align:right;font-weight:700;color:${PALETA[i % PALETA.length]};">${v.toLocaleString('es-VE', { maximumFractionDigits: 0 })}</td>`
+                        : `<td style="text-align:right;color:#cbd5e0;">—</td>`;
+                }).join('');
+                return `<tr>
+                <td style="font-weight:700;font-family:monospace;font-size:12px;">${f.idTexto}
+                    <span style="display:block;color:#64748b;font-weight:400;font-size:10px;font-family:sans-serif;">${f.modelo || ''}</span>
+                </td>
+                <td style="font-size:11px;color:#64748b;">${f.tipo}</td>
+                ${cells}
+                <td style="text-align:right;font-weight:800;color:${COLOR_BASE};">${tot.toLocaleString('es-VE', { maximumFractionDigits: 0 })} ${UNIDAD}</td>
+            </tr>`;
+            }).join('');
+            body.innerHTML = `<table class="admin-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
         }
-    }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = nombre + '_' + fecha + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    });
-}
 
-// ── Descargar "Total por Frente" — captura del DOM real ───────────────────────
-function descargarPanelHtml(panelId, nombre) {
-    const body = document.getElementById('totalFrenteBody');
-    if (!body || !body.querySelector('.frow')) {
-        alert('No hay datos para descargar.'); return;
-    }
-    // Captura el panel completo (g-card padre)
-    const card = body.closest('.g-card') || body.parentElement;
-    capturaPanelHtml(card?.id || 'panelTotalFrente', nombre);
-    if (!card?.id) {
-        // Si no tiene id, asignar temporalmente
-        card.id = '__tmp_panel_frente';
-        capturaPanelHtml('__tmp_panel_frente', nombre);
-        setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
-    }
-}
-
-// ── Descargar "Equipos Asignados" — captura del DOM real en 1 COLUMNA ──────────
-function descargarPanelEquipos(nombre) {
-    const body = document.getElementById('eqAsigBody');
-    if (!body || !body.firstElementChild?.children?.length) {
-        alert('No hay datos para descargar.'); return;
-    }
-    const card = body.closest('.g-card') || body.parentElement;
-    
-    // Función para forzar que el panel se dibuje como lista de 1 columna solo para la foto
-    const forceOneColumn = (clonedDoc) => {
-        const clonedBody = clonedDoc.getElementById('eqAsigBody');
-        if (clonedBody && clonedBody.firstElementChild) {
-            const container = clonedBody.firstElementChild;
-            container.style.flexDirection = 'column';
-            container.style.flexWrap = 'nowrap';
+        // ── EXCEL ────────────────────────────────────────────────────────────
+        function descargarExcel() {
+            window.location.href = `{{ route('consumibles.exportarCsv') }}?${getParams()}`;
         }
-        // Reducimos el ancho de la tarjeta para que la lista no quede alargada a todo el ancho de la pantalla original
-        const clonedCardId = card?.id || '__tmp_panel_equipos';
-        const clonedCard = clonedDoc.getElementById(clonedCardId);
-        if (clonedCard) {
-            clonedCard.style.width = '350px';
-            clonedCard.style.margin = '0 auto';
+
+        // ── Descargar gráfico como imagen PNG ─────────────────────────────
+        function descargarGrafico(canvasId, nombre) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || canvas.style.display === 'none') {
+                alert('El gráfico no está visible aún. Aplica los filtros primero.');
+                return;
+            }
+            const fecha = new Date().toISOString().slice(0, 10);
+            const link = document.createElement('a');
+            link.download = `${nombre}_${fecha}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         }
-    };
 
-    if (card && !card.id) {
-        card.id = '__tmp_panel_equipos';
-        capturaPanelHtml('__tmp_panel_equipos', nombre, forceOneColumn);
-        setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
-    } else if (card) {
-        capturaPanelHtml(card.id, nombre, forceOneColumn);
-    }
-}
+        // ── Helper: capturar cualquier panel del DOM tal como se ve en pantalla ──────
+        function capturaPanelHtml(panelId, nombre, callbackClone) {
+            const el = document.getElementById(panelId);
+            if (!el || el.style.display === 'none') {
+                alert('El panel no está visible. Aplica los filtros primero.'); return;
+            }
+            if (typeof html2canvas === 'undefined') {
+                alert('La librería de captura aún está cargando. Inténtalo en unos segundos.'); return;
+            }
+            const fecha = new Date().toISOString().slice(0, 10);
+            html2canvas(el, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                onclone: function (clonedDoc) {
+                    if (callbackClone) callbackClone(clonedDoc);
+                }
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = nombre + '_' + fecha + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // ── Descargar "Total por Frente" — captura del DOM real ───────────────────────
+        function descargarPanelHtml(panelId, nombre) {
+            const body = document.getElementById('totalFrenteBody');
+            if (!body || !body.querySelector('.frow')) {
+                alert('No hay datos para descargar.'); return;
+            }
+            // Captura el panel completo (g-card padre)
+            const card = body.closest('.g-card') || body.parentElement;
+            capturaPanelHtml(card?.id || 'panelTotalFrente', nombre);
+            if (!card?.id) {
+                // Si no tiene id, asignar temporalmente
+                card.id = '__tmp_panel_frente';
+                capturaPanelHtml('__tmp_panel_frente', nombre);
+                setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
+            }
+        }
+
+        // ── Descargar "Equipos Asignados" — captura del DOM real en 1 COLUMNA ──────────
+        function descargarPanelEquipos(nombre) {
+            const body = document.getElementById('eqAsigBody');
+            if (!body || !body.firstElementChild?.children?.length) {
+                alert('No hay datos para descargar.'); return;
+            }
+            const card = body.closest('.g-card') || body.parentElement;
+
+            // Función para forzar que el panel se dibuje como lista de 1 columna solo para la foto
+            const forceOneColumn = (clonedDoc) => {
+                const clonedBody = clonedDoc.getElementById('eqAsigBody');
+                if (clonedBody && clonedBody.firstElementChild) {
+                    const container = clonedBody.firstElementChild;
+                    container.style.flexDirection = 'column';
+                    container.style.flexWrap = 'nowrap';
+                }
+                // Reducimos el ancho de la tarjeta para que la lista no quede alargada a todo el ancho de la pantalla original
+                const clonedCardId = card?.id || '__tmp_panel_equipos';
+                const clonedCard = clonedDoc.getElementById(clonedCardId);
+                if (clonedCard) {
+                    clonedCard.style.width = '350px';
+                    clonedCard.style.margin = '0 auto';
+                }
+            };
+
+            if (card && !card.id) {
+                card.id = '__tmp_panel_equipos';
+                capturaPanelHtml('__tmp_panel_equipos', nombre, forceOneColumn);
+                setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
+            } else if (card) {
+                capturaPanelHtml(card.id, nombre, forceOneColumn);
+            }
+        }
 
 
 
 
-// ── Descargar "Tarjetas Resumen" como PNG ─────────────────
-function descargarPanelResumen(nombre) {
-    capturaPanelHtml('resumenGrid', nombre || 'resumen_general');
-}
+        // ── Descargar "Tarjetas Resumen" como PNG ─────────────────
+        function descargarPanelResumen(nombre) {
+            capturaPanelHtml('resumenGrid', nombre || 'resumen_general');
+        }
 
 
 
 
 
-</script>
-<script src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
-<script>
-    console.log("🟢 [graficos.blade] Inline script final inyectado y ejecutándose.");
-    
-    // Carga inicial de datos — se ejecuta tras cargar todos los scripts
-    if (typeof window.cargarDatos === 'function') {
-        console.log("🟢 [graficos.blade] window.cargarDatos existe. Llamando ahora...");
-        window.cargarDatos();
-    } else if (typeof cargarDatos === 'function') {
-        console.log("🟢 [graficos.blade] cargarDatos (local) existe. Llamando ahora...");
-        cargarDatos();
-    } else {
-        console.error("🔴 [graficos.blade] ERROR: cargarDatos NO existe.");
-    }
-</script>
+    </script>
+    <script
+        src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
+    <script>
+        console.log("🟢 [graficos.blade] Inline script final inyectado y ejecutándose.");
+
+        // Carga inicial de datos — se ejecuta tras cargar todos los scripts
+        if (typeof window.cargarDatos === 'function') {
+            console.log("🟢 [graficos.blade] window.cargarDatos existe. Llamando ahora...");
+            window.cargarDatos();
+        } else if (typeof cargarDatos === 'function') {
+            console.log("🟢 [graficos.blade] cargarDatos (local) existe. Llamando ahora...");
+            cargarDatos();
+        } else {
+            console.error("🔴 [graficos.blade] ERROR: cargarDatos NO existe.");
+        }
+    </script>
 @endsection

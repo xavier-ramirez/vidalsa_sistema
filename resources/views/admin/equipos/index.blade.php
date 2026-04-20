@@ -133,11 +133,11 @@
             </form>
 
             <!-- Advanced Filter Trigger -->
-            <div style="position: relative;">
+            <div style="position: relative; flex-shrink: 0;">
                 @php
                     $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda');
                 @endphp
-                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;">
                     <i class="material-icons">filter_list</i>
                 </button>
                 
@@ -661,7 +661,6 @@
                             </div>
                             <div>
                                 <h2 style="margin: 0; color: white; font-size: 18px; font-weight: 700; white-space: nowrap;">Dashboard de Flota</h2>
-                                <p style="margin: 0; color: rgba(255,255,255,0.8); font-size: 11px; white-space: nowrap;">Análisis en tiempo real</p>
                             </div>
                         </div>
                         

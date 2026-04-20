@@ -19,10 +19,8 @@ class Movilizacion extends Model
         'ID_FRENTE_DESTINO',
         'DETALLE_UBICACION',       // Patio/Subdivisión específica de recepción
         'FECHA_DESPACHO',
-        'ESTADO_MVO',              // TRANSITO, RECIBIDO
         'TIPO_MOVIMIENTO',         // DESPACHO, RECEPCION_DIRECTA
         'USUARIO_REGISTRO',
-        'USUARIO_RECEPCION',       // Quién confirmó la recepción
     ];
 
     // Accessor for formatted CODIGO_CONTROL (MV-0000X)

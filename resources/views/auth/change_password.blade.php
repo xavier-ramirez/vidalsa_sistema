@@ -7,6 +7,39 @@
     <!-- Fonts -->
     <link href="{{ asset('css/fonts.css') }}" rel="stylesheet">
     <style>
+        /* --- PRELOADER STYLES --- */
+        .preloader {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out, visibility 0.5s;
+        }
+        .preloader.fade-out { opacity: 0; visibility: hidden; }
+        .preloader-content { text-align: center; }
+        .preloader-logo {
+            max-height: 80px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .spinner-circle {
+            width: 60px; height: 60px;
+            border: 5px solid rgba(0, 0, 77, 0.1);
+            border-top-color: #00004d;
+            border-radius: 50%;
+            animation: spin-circular 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin-circular { to { transform: rotate(360deg); } }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: #dddcdcee;
@@ -152,6 +185,13 @@
     </style>
 </head>
 <body>
+    <!-- Preloader / Splash Screen -->
+    <div id="loginPreloader" class="preloader fade-out" style="display: none;">
+        <div class="preloader-content">
+            <img class="preloader-logo" src="{{ asset('images/maquinaria/logo.webp') }}" alt="Logo Vidalsa">
+            <div class="spinner-circle"></div>
+        </div>
+    </div>
 
     <div class="login-card">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -173,7 +213,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('password.update') }}">
+        <form id="updatePasswordForm" method="POST" action="{{ route('password.update') }}">
             @csrf
 
             <div class="form-group">
@@ -205,7 +245,7 @@
 
         <div style="margin-top: 25px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
             <p style="font-size: 13px; color: #6b7280; margin-bottom: 10px;">¿Necesita salir?</p>
-            <form action="{{ route('logout') }}" method="POST">
+            <form id="logoutForm" action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="btn-link">
                     Cerrar Sesión
@@ -215,6 +255,49 @@
     </div>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const updateForm = document.getElementById('updatePasswordForm');
+            if (updateForm) {
+                updateForm.addEventListener('submit', function() {
+                    const preloader = document.getElementById('loginPreloader');
+                    if (preloader) {
+                        preloader.style.display = 'flex';
+                        preloader.offsetHeight; // Force reflow
+                        preloader.classList.remove('fade-out');
+                    }
+                });
+            }
+
+            const logoutForm = document.getElementById('logoutForm');
+            if (logoutForm) {
+                logoutForm.addEventListener('submit', function(e) {
+                    e.preventDefault(); // Prevent default early to stabilize
+                    
+                    const preloader = document.getElementById('loginPreloader');
+                    if (preloader) {
+                        preloader.style.display = 'flex';
+                        preloader.offsetHeight; // Force reflow
+                        preloader.classList.remove('fade-out');
+                    }
+
+                    // Handshake: Request fresh security token to blindly avoid 419 errors
+                    fetch('/refresh-csrf')
+                        .then(response => response.text())
+                        .then(newToken => {
+                            const tokenInput = logoutForm.querySelector('input[name="_token"]');
+                            if (tokenInput) {
+                                tokenInput.value = newToken;
+                            }
+                            HTMLFormElement.prototype.submit.call(logoutForm);
+                        })
+                        .catch(error => {
+                            console.error('Handshake failed:', error);
+                            HTMLFormElement.prototype.submit.call(logoutForm); // Fallback
+                        });
+                });
+            }
+        });
+
         function togglePassword(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
