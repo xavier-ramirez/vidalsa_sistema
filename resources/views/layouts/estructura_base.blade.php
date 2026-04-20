@@ -403,9 +403,10 @@
                 </div>
             </div>
         </div>
+    </div> <!-- Cierra pdfPreviewModal -->
 
-        <!-- Standardized Reusable Modal (Moved to End for stacking context) -->
-        <div id="standardModal" class="modal-overlay" style="z-index: 1000001 !important;">
+    <!-- Standardized Reusable Modal (Moved to End for stacking context) -->
+    <div id="standardModal" class="modal-overlay" style="z-index: 1000001 !important;">
             <div class="modal-card">
                 <i id="modalIcon" class="material-icons modal-icon"
                     style="color: var(--maquinaria-blue);">help_outline</i>
