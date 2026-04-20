@@ -248,7 +248,7 @@ window.unlockIp = function(id, ipAddress) {
     window.showModal({
         type: 'warning',
         title: 'Desbloquear IP',
-        message: `¿Estás seguro de que deseas desbloquear la IP <strong>${ipAddress}</strong>?`,
+        message: 'Esta acción eliminará el bloqueo de la IP ' + ipAddress + '. ¿Continuar?',
         confirmText: 'Sí, Desbloquear',
         cancelText: 'Cancelar',
         onConfirm: async () => {
@@ -256,7 +256,7 @@ window.unlockIp = function(id, ipAddress) {
             
             try {
                 const token = document.querySelector('meta[name="csrf-token"]');
-                const response = await fetch(`/admin/historial-documentos/unlock-ip/${id}`, {
+                const response = await fetch('/admin/historial-documentos/unlock-ip/' + id, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': token ? token.content : '',
@@ -271,20 +271,20 @@ window.unlockIp = function(id, ipAddress) {
                 if (data.success) {
                     if (window.showToast) window.showToast(data.message, 'success');
                     
-                    const ipElement = document.getElementById(`blocked-ip-${id}`);
+                    const ipElement = document.getElementById('blocked-ip-' + id);
                     if (ipElement) {
+                        ipElement.style.transition = 'all 0.3s ease';
                         ipElement.style.opacity = '0';
                         ipElement.style.transform = 'translateX(10px)';
-                        setTimeout(() => {
+                        setTimeout(function() {
                             ipElement.remove();
-                            
-                            const countElement = document.getElementById('blocked-ip-count');
+                            var countElement = document.getElementById('blocked-ip-count');
                             if (countElement) {
-                                let currentCount = parseInt(countElement.innerText);
+                                var currentCount = parseInt(countElement.innerText);
                                 if (currentCount > 1) {
                                     countElement.innerText = currentCount - 1;
                                 } else {
-                                    const container = document.getElementById('blocked-ips-container');
+                                    var container = document.getElementById('blocked-ips-container');
                                     if (container) container.style.display = 'none';
                                 }
                             }
@@ -301,3 +301,19 @@ window.unlockIp = function(id, ipAddress) {
         }
     });
 };
+
+// Delegado de eventos para botones .btn-unlock-ip (evita problemas con onclick inline + SPA)
+if (!window._hdIpClickRegistered) {
+    window._hdIpClickRegistered = true;
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-unlock-ip');
+        if (!btn) return;
+        e.stopPropagation();
+        var id = btn.dataset.ipId;
+        var ip = btn.dataset.ipAddress;
+        if (id && ip) {
+            window.unlockIp(id, ip);
+        }
+    }, true); // useCapture=true para interceptar ANTES que cualquier otro listener
+}
+

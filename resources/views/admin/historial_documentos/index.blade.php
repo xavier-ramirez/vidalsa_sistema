@@ -166,7 +166,7 @@
     </div>
     
     <!-- Right Sidebar -->
-    <div class="counter-sidebar historial-sidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px;">
+    <div class="counter-sidebar historial-sidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10;">
         <!-- Total Card -->
         <div style="background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
             <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">history</i>
@@ -183,7 +183,7 @@
 
         <!-- IPs Bloqueadas Card -->
         @if(isset($blockedIps) && $blockedIps->count() > 0 && auth()->check() && auth()->user()->can('super.admin'))
-        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" id="blocked-ips-container">
+        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; z-index: 20;" id="blocked-ips-container">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="material-icons" style="color: #ef4444; font-size: 20px;">gpp_bad</i>
@@ -199,12 +199,15 @@
                         <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
                         <span style="font-size: 11px; color: #64748b;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
                     </div>
-                    <button onclick="window.unlockIp({{ $ip->ID_BLOQUEO }}, '{{ $ip->DIRECCION_IP }}')" 
-                            style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center;" 
+                    <button 
+                            class="btn-unlock-ip"
+                            data-ip-id="{{ $ip->ID_BLOQUEO }}"
+                            data-ip-address="{{ $ip->DIRECCION_IP }}"
+                            style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30;" 
                             onmouseover="this.style.background='#fee2e2'" 
                             onmouseout="this.style.background='transparent'" 
                             title="Desbloquear IP">
-                        <i class="material-icons" style="font-size: 18px;">delete_outline</i>
+                        <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
                     </button>
                 </div>
                 @endforeach
