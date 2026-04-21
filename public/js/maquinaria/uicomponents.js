@@ -958,9 +958,9 @@ window.showDetailsImproved = function (target, event) {
     const catFlota = (d.categoria || '').toUpperCase().trim();
     let labelAdicional = 'Adicional';
     if (catFlota.includes('LIVIANA')) {
-        labelAdicional = 'Certificado';
+        labelAdicional = 'Certificado Asociado';
     } else if (catFlota.includes('PESADA')) {
-        labelAdicional = 'Compraventa del Equipo';
+        labelAdicional = 'Compraventa';
     }
     const labelAdicionalEl = document.getElementById('d_label_adicional');
     if (labelAdicionalEl) labelAdicionalEl.textContent = labelAdicional;
