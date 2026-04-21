@@ -109,6 +109,38 @@ class HistorialDocumentosController extends Controller
             }
         }
 
+        // Add equipment creation events
+        $equiposCreados = \App\Models\Equipo::with(['tipo', 'creador'])
+            ->whereNotNull('CREADO_POR')
+            ->get();
+
+        foreach ($equiposCreados as $equipo) {
+            $eName = ($equipo->tipo->nombre ?? 'Equipo') . ' ' . $equipo->MARCA . ' ' . $equipo->MODELO;
+            
+            $eId = '#';
+            if (!empty($equipo->documentacion->PLACA)) {
+                $eId = 'Placa: ' . $equipo->documentacion->PLACA;
+            } elseif (!empty($equipo->SERIAL_CHASIS)) {
+                $eId = 'Serial Chasis: ' . $equipo->SERIAL_CHASIS;
+            } else {
+                $eId = 'ID: ' . $equipo->ID_EQUIPO;
+            }
+
+            $autor = $equipo->creador ? $equipo->creador->CORREO_ELECTRONICO : 'Usuario Desconocido';
+            
+            $events->push((object)[
+                'doc_key' => 'creacion',
+                'tipo' => 'Registro de Vehículo',
+                'autor' => $autor,
+                'fecha_raw' => $equipo->created_at,
+                'fecha' => Carbon::parse($equipo->created_at),
+                'link' => null, // No document link for just creation
+                'equipo_nombre' => $eName,
+                'equipo_id' => $eId,
+                'equipo_db_id' => $equipo->ID_EQUIPO
+            ]);
+        }
+
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha_raw')->values();
 

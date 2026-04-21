@@ -135,6 +135,9 @@
                                 <div class="dropdown-item" data-value="doc. adicional" onclick="selectOption('tipoDocFilterSelect', 'doc. adicional', 'Doc. Adicional'); window.loadHistorialDocumentos();">
                                     Doc. Adicional
                                 </div>
+                                <div class="dropdown-item" data-value="registro de vehículo" onclick="selectOption('tipoDocFilterSelect', 'registro de vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">
+                                    Registro de Vehículo
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -26,7 +26,8 @@ class Equipo extends Model
         'DETALLE_UBICACION_ACTUAL',  // Patio/Subdivisión específica
         'CONFIRMADO_EN_SITIO',
         'ESTADO_OPERATIVO',
-        'ID_ANCLAJE'
+        'ID_ANCLAJE',
+        'CREADO_POR'
     ];
 
     /**
@@ -108,6 +109,11 @@ class Equipo extends Model
     public function subActivos()
     {
         return $this->hasMany(\App\Models\SubActivo::class, 'ID_EQUIPO_HOST', 'ID_EQUIPO');
+    }
+
+    public function creador()
+    {
+        return $this->belongsTo(Usuario::class, 'CREADO_POR', 'ID_USUARIO');
     }
 }
 

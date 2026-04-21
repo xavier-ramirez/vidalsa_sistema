@@ -939,6 +939,8 @@ class EquipoController extends Controller
             $data['MODELO'] = strtoupper($data['MODELO'] ?? '');
             $data['SERIAL_CHASIS'] = strtoupper($data['SERIAL_CHASIS'] ?? '');
             $data['SERIAL_DE_MOTOR'] = (trim($data['SERIAL_DE_MOTOR'] ?? '') === '') ? null : strtoupper(trim($data['SERIAL_DE_MOTOR']));
+            
+            $data['CREADO_POR'] = auth()->id();
 
             $equipo = Equipo::create($data);
 
