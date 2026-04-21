@@ -143,12 +143,15 @@
 
     <div class="admin-card" style="max-width: 680px; margin: 0 auto; padding: 20px 30px;">
 
-        {{-- Success Alert --}}
+        {{-- Alertas Globales (Fallback si no usa AJAX) --}}
         @if(session('success_perfil'))
-            <div class="alert-success-perfil">
-                <i class="material-icons" style="font-size: 22px; color: #059669;">check_circle</i>
-                {{ session('success_perfil') }}
-            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast("{{ session('success_perfil') }}", 'success');
+                    }
+                });
+            </script>
         @endif
 
         {{-- ── Información del Usuario (solo lectura) ── --}}
@@ -208,11 +211,13 @@
         </div>
 
         @if($errors->any())
-            <div
-                style="background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 10px; padding: 12px 18px; margin-bottom: 16px; font-size: 14px; font-weight: 600;">
-                <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">error_outline</i>
-                {{ $errors->first() }}
-            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast("{{ $errors->first() }}", 'error');
+                    }
+                });
+            </script>
         @endif
 
         <form method="POST" action="{{ route('usuarios.actualizarMiClave') }}" id="frmMiClave" autocomplete="off">
@@ -327,15 +332,7 @@
                         const msgEl = document.getElementById('pw-strength-msg');
                         if (msgEl) { msgEl.textContent = ''; }
                         
-                        if (typeof window.showModal === 'function') {
-                            window.showModal({
-                                type: 'success',
-                                title: '¡Operación Exitosa!',
-                                message: data.message,
-                                confirmText: 'Aceptar',
-                                hideCancel: true
-                            });
-                        } else if (typeof window.showToast === 'function') {
+                        if (typeof window.showToast === 'function') {
                             window.showToast(data.message, 'success');
                         } else {
                             alert(data.message);
@@ -348,15 +345,7 @@
                             errorMsg = data.errors[firstKey][0];
                         }
                         
-                        if (typeof window.showModal === 'function') {
-                            window.showModal({
-                                type: 'error',
-                                title: 'Error',
-                                message: errorMsg,
-                                confirmText: 'Entendido',
-                                hideCancel: true
-                            });
-                        } else if (typeof window.showToast === 'function') {
+                        if (typeof window.showToast === 'function') {
                             window.showToast(errorMsg, 'error');
                         } else {
                             alert(errorMsg);
