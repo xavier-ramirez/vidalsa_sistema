@@ -1252,13 +1252,9 @@ window.openAnchorModal = async function (event) {
                 overlay.remove();
                 window.clearSelection();
                 window.loadEquipos();
-                window.showModal({
-                    type: "success",
-                    title: "¡Operación Exitosa!",
-                    message: data.message,
-                    confirmText: "Aceptar",
-                    hideCancel: true,
-                });
+                if (typeof window.showToast === 'function') {
+                    window.showToast(data.message || 'Equipos anclados mutuamente con éxito', 'success');
+                }
             } else {
                 window.showModal({ type: 'error', title: 'Error', message: data.error || 'Error al anclar equipos.', confirmText: 'Cerrar', hideCancel: true });
             }

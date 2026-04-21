@@ -27,7 +27,9 @@ window.confirmDeleteCatalogo = function (id, modelName) {
                 try { data = await response.json(); } catch (e) {}
 
                 if (response.ok) {
-                    if (window.showModal) {
+                    if (window.showToast) {
+                        window.showToast(data.message || 'Registro eliminado correctamente.', 'success');
+                    } else if (window.showModal) {
                         window.showModal({
                             type: 'success',
                             title: 'Eliminado',

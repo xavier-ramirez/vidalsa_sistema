@@ -397,7 +397,9 @@ window.confirmarRecepcionDirecta = function () {
         })
         .then(data => {
             if (data.success) {
-                if (typeof window.showModal === 'function') {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(data.message || 'Recepción directa registrada correctamente.', 'success');
+                } else if (typeof window.showModal === 'function') {
                     window.showModal({
                         type: 'success',
                         title: '¡Recepción Exitosa!',

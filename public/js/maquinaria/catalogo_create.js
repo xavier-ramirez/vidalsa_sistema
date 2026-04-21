@@ -63,7 +63,16 @@
                 // Success
                 if (window.hidePreloader) window.hidePreloader(); // Hide immediately on success
 
-                if (window.showModal) {
+                if (window.showToast) {
+                    window.showToast(data.message || 'Modelo registrado correctamente.', 'success');
+                    form.reset();
+                    const preview = document.getElementById('preview_referencial');
+                    if (preview) {
+                        preview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
+                        preview.style.borderColor = '#cbd5e0';
+                    }
+                    if (data.redirect) setTimeout(() => window.location.href = data.redirect, 1000);
+                } else if (window.showModal) {
                     window.showModal({
                         type: 'success',
                         title: 'Éxito',
@@ -77,7 +86,6 @@
                                 preview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
                                 preview.style.borderColor = '#cbd5e0';
                             }
-                            // Redirect if provided
                             if (data.redirect) window.location.href = data.redirect;
                         }
                     });
