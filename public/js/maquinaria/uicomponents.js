@@ -954,12 +954,25 @@ window.showDetailsImproved = function (target, event) {
     createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId, d.polizaAutor, d.polizaFecha);
     createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId, d.rotcAutor, d.rotcFecha);
     createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId, d.racdaAutor, d.racdaFecha);
+    // Etiqueta del documento adicional según categoría de flota
+    const catFlota = (d.categoria || '').toUpperCase().trim();
+    let labelAdicional = 'Adicional';
+    if (catFlota.includes('LIVIANA')) {
+        labelAdicional = 'Certificado';
+    } else if (catFlota.includes('PESADA')) {
+        labelAdicional = 'Compraventa del Equipo';
+    }
+    const labelAdicionalEl = document.getElementById('d_label_adicional');
+    if (labelAdicionalEl) labelAdicionalEl.textContent = labelAdicional;
+
     createDocBtn(
         "d_btn_adicional",
         "adicional",
         d.linkAdicional,
-        "Adicional",
-        eqId
+        labelAdicional,
+        eqId,
+        d.adicionalAutor,
+        d.adicionalFecha
     );
 
     // Show Modal

@@ -1437,6 +1437,10 @@ class EquipoController extends Controller
                     $updateData['RACDA_SUBIDO_POR'] = $uploadedBy;
                     $updateData['RACDA_FECHA_SUBIDA'] = $uploadedAt;
                     break;
+                case 'adicional':
+                    $updateData['ADICIONAL_SUBIDO_POR'] = $uploadedBy;
+                    $updateData['ADICIONAL_FECHA_SUBIDA'] = $uploadedAt;
+                    break;
             }
 
             Log::info('UploadDoc - Update Data', ['data' => $updateData]);

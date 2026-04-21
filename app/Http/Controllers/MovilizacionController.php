@@ -166,7 +166,7 @@ class MovilizacionController extends Controller
 
         DB::beginTransaction();
         try {
-            $equipo = \App\Models\Equipo::findOrFail($request->ID_EQUIPO);
+            $equipo = \App\Models\Equipo::lockForUpdate()->findOrFail($request->ID_EQUIPO);
 
             $nextId = $this->generateNextCodigoControl();
 
@@ -223,7 +223,7 @@ class MovilizacionController extends Controller
                 $nextId = $this->generateNextCodigoControl();
             }
 
-            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->lockForUpdate()->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
             $insertData = [];
             foreach ($equipos as $equipo) {
@@ -267,7 +267,7 @@ class MovilizacionController extends Controller
                     // aunque no se va a generar acta
                     $movilizacionIds = Movilizacion::whereIn('ID_EQUIPO', $request->ids)
                         ->where('ID_FRENTE_DESTINO', $frente->ID_FRENTE)
-                        ->where('ESTADO_MVO', 'RECIBIDO')
+                        ->where('TIPO_MOVIMIENTO', 'ACT.')
                         ->where('created_at', $now)
                         ->pluck('ID_MOVILIZACION')
                         ->toArray();
@@ -327,6 +327,7 @@ class MovilizacionController extends Controller
 
             $equipos = \App\Models\Equipo::with('frenteActual')
                 ->whereIn('ID_EQUIPO', $request->ids)
+                ->lockForUpdate()
                 ->get();
 
             $insertData = [];
@@ -576,7 +577,7 @@ class MovilizacionController extends Controller
 
         DB::beginTransaction();
         try {
-            $equipo  = \App\Models\Equipo::findOrFail($request->ID_EQUIPO);
+            $equipo  = \App\Models\Equipo::lockForUpdate()->findOrFail($request->ID_EQUIPO);
             $nextId = $this->generateNextCodigoControl();
 
             $now = now();

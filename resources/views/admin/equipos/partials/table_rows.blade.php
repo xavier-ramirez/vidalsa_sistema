@@ -186,6 +186,8 @@
                     data-racda-autor="{{ optional($equipo->documentacion)->RACDA_SUBIDO_POR ?? '' }}"
                     data-racda-fecha="{{ optional($equipo->documentacion)->RACDA_FECHA_SUBIDA ? \Carbon\Carbon::parse($equipo->documentacion->RACDA_FECHA_SUBIDA)->format('d/m/y') : '' }}"
                     data-link-adicional="{{ optional($equipo->documentacion)->LINK_DOC_ADICIONAL ?? '' }}"
+                    data-adicional-autor="{{ optional($equipo->documentacion)->ADICIONAL_SUBIDO_POR ?? '' }}"
+                    data-adicional-fecha="{{ optional($equipo->documentacion)->ADICIONAL_FECHA_SUBIDA ? \Carbon\Carbon::parse($equipo->documentacion->ADICIONAL_FECHA_SUBIDA)->format('d/m/y') : '' }}"
                     data-link-gps="{{ $equipo->LINK_GPS ?? '' }}" data-frente-id="{{ $equipo->ID_FRENTE_ACTUAL }}"
                     data-foto="{{ $fotoToShow }}"
                     data-rol-anclaje="{{ $equipo->tipo->ROL_ANCLAJE ?? 'NEUTRO' }}"

@@ -12,11 +12,12 @@ class HistorialDocumentosController extends Controller
     public function index(Request $request)
     {
         // 1. Fetch all documentation that has at least one upload
-        $docs = Documentacion::with(['equipo.tipo', 'equipo.frenteActual', 'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc', 'usuarioRacda'])
+        $docs = Documentacion::with(['equipo.tipo', 'equipo.frenteActual', 'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc', 'usuarioRacda', 'usuarioAdicional'])
             ->whereNotNull('PROPIEDAD_FECHA_SUBIDA')
             ->orWhereNotNull('POLIZA_FECHA_SUBIDA')
             ->orWhereNotNull('ROTC_FECHA_SUBIDA')
             ->orWhereNotNull('RACDA_FECHA_SUBIDA')
+            ->orWhereNotNull('ADICIONAL_FECHA_SUBIDA')
             ->get();
 
         // 2. Parse them into a flat array of "upload events"
@@ -83,6 +84,19 @@ class HistorialDocumentosController extends Controller
                     'fecha_raw' => $doc->RACDA_FECHA_SUBIDA,
                     'fecha' => Carbon::parse($doc->RACDA_FECHA_SUBIDA),
                     'link' => $doc->LINK_RACDA,
+                    'equipo_nombre' => $eName,
+                    'equipo_id' => $eId,
+                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
+                ]);
+            }
+            if ($doc->ADICIONAL_FECHA_SUBIDA && $doc->ADICIONAL_SUBIDO_POR) {
+                $autor = $doc->usuarioAdicional ? $doc->usuarioAdicional->CORREO_ELECTRONICO : $doc->ADICIONAL_SUBIDO_POR;
+                $events->push((object)[
+                    'tipo' => 'Doc. Adicional',
+                    'autor' => $autor,
+                    'fecha_raw' => $doc->ADICIONAL_FECHA_SUBIDA,
+                    'fecha' => Carbon::parse($doc->ADICIONAL_FECHA_SUBIDA),
+                    'link' => $doc->LINK_DOC_ADICIONAL,
                     'equipo_nombre' => $eName,
                     'equipo_id' => $eId,
                     'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null

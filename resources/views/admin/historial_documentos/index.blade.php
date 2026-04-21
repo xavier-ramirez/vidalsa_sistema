@@ -132,6 +132,9 @@
                                 <div class="dropdown-item" data-value="racda" onclick="selectOption('tipoDocFilterSelect', 'racda', 'RACDA'); window.loadHistorialDocumentos();">
                                     RACDA
                                 </div>
+                                <div class="dropdown-item" data-value="doc. adicional" onclick="selectOption('tipoDocFilterSelect', 'doc. adicional', 'Doc. Adicional'); window.loadHistorialDocumentos();">
+                                    Doc. Adicional
+                                </div>
                             </div>
                         </div>
                     </div>
