@@ -177,7 +177,7 @@ function initEquiposForm() {
     if (form.dataset.handlerAttached) return;
 
     // --- SUBMIT CORE LOGIC ---
-    const executeSubmission = (skipPreloader = false) => {
+    const executeSubmission = () => {
         // B. Clear Errors
         const summary = document.getElementById('errorSummary');
         if (summary) summary.style.display = 'none';
@@ -422,11 +422,9 @@ function initEquiposForm() {
             return;
         }
 
-        // Helper to run executeSubmission but restore button if validation fails inside it
-        const safeExecute = (skipPreloader) => {
-            // We pass originalBtnContent to executeSubmission so it can restore it
+        const safeExecute = () => {
             form.dataset.originalBtnContent = originalBtnContent;
-            executeSubmission(skipPreloader);
+            executeSubmission();
         };
 
         // A. Pending Validation Check (Wait Mode)
@@ -436,7 +434,7 @@ function initEquiposForm() {
             const checkInterval = setInterval(() => {
                 if (pendingValidations().length === 0) {
                     clearInterval(checkInterval);
-                    safeExecute(true);
+                    safeExecute();
                 }
             }, 100);
             return;
@@ -444,7 +442,7 @@ function initEquiposForm() {
 
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                safeExecute(true);
+                safeExecute();
             });
         });
     });
