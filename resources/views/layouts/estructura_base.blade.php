@@ -144,6 +144,12 @@
             </a>
 
             <!-- Configuraciones Dropdown -->
+            <a href="{{ route('consumibles.graficos') }}"
+                class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
+                style="display:flex; align-items:center;">
+                <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
+            </a>
+
             <div class="nav-dropdown">
                 <a href="#"
                     class="nav-link {{ (request()->is('admin/usuarios*') || request()->is('admin/frentes*')) ? 'active' : '' }}"
@@ -177,12 +183,6 @@
                     </a>
                 </div>
             </div>
-
-            <a href="{{ route('consumibles.graficos') }}"
-                class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
-                style="display:flex; align-items:center;">
-                <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
-            </a>
         </nav>
 
         <div class="header-actions desktop-only">
