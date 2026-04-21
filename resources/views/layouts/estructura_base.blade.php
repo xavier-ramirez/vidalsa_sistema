@@ -252,12 +252,6 @@
                     class="mobile-nav-link {{ request()->is('admin/catalogo*') ? 'active' : '' }}">
                     <i class="material-icons">menu_book</i> Catálogo de Modelos
                 </a>
-                @can('super.admin')
-                <a href="{{ route('historial-documentos.index') }}"
-                    class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
-                    <i class="material-icons">fact_check</i> Control de Auditoría
-                </a>
-                @endcan
             </div>
         </div>
 
