@@ -221,7 +221,8 @@ function initEquiposForm() {
 
         Object.entries(criticalFields).forEach(([inputId, label]) => {
             const input = document.getElementById(inputId);
-            if (input && !input.value.trim()) {
+            if (!input) return; // campo no existe en este formulario, saltar
+            if (!input.value.trim()) {
                 showFieldError(input, `El campo ${label} es obligatorio.`);
                 hasEmpty = true;
             }
@@ -235,8 +236,8 @@ function initEquiposForm() {
             return;
         }
 
-        // D. Submit — preloader was already shown by the submit listener
-        if (!skipPreloader && typeof window.showPreloader === 'function') {
+        // D. Submit — mostrar preloader SOLO después de pasar validación cliente
+        if (typeof window.showPreloader === 'function') {
             window.showPreloader();
         }
 
@@ -331,10 +332,17 @@ function initEquiposForm() {
                     restoreBtn();
 
                     const serverToClientMap = {
-                        'TIPO_EQUIPO': 'input_tipo_equipo',
-                        'CATEGORIA_FLOTA': 'input_categoria_flota',
-                        'FRENTE_TRABAJO': 'input_frente_trabajo',
-                        'ESTADO_OPERATIVO': 'input_estatus'
+                        'TIPO_EQUIPO':        'input_tipo_equipo',
+                        'CATEGORIA_FLOTA':    'input_categoria_flota',
+                        'ID_FRENTE_ACTUAL':   'input_frente_trabajo',
+                        'FRENTE_TRABAJO':     'input_frente_trabajo',
+                        'ESTADO_OPERATIVO':   'input_estatus',
+                        'CODIGO_PATIO':       'codigo_patio',
+                        'SERIAL_CHASIS':      'serial_chasis',
+                        'SERIAL_DE_MOTOR':    'serial_motor',
+                        'MARCA':              'marca',
+                        'MODELO':             'modelo',
+                        'ANIO':               'anio',
                     };
 
                     Object.entries(body.errors).forEach(([field, msgs]) => {
@@ -358,8 +366,11 @@ function initEquiposForm() {
             .catch(err => {
                 if (window.hidePreloader) window.hidePreloader();
                 restoreBtn();
-                console.error(err);
-                if (typeof window.showModal === 'function') window.showModal({ type: 'error', title: 'Error', message: 'Ocurrió un error inesperado.', confirmText: 'Cerrar', hideCancel: true });
+                console.error('Form submit error:', err);
+                const msg = (err && err.message && err.message !== 'Failed to fetch')
+                    ? err.message
+                    : 'Ocurrió un error de red. Verifique su conexión e intente de nuevo.';
+                if (typeof window.showModal === 'function') window.showModal({ type: 'error', title: 'Error', message: msg, confirmText: 'Cerrar', hideCancel: true });
             });
     };
 
@@ -383,8 +394,8 @@ function initEquiposForm() {
             `;
         }
 
-        // Mostrar preloader de pantalla completa
-        if (typeof window.showPreloader === 'function') window.showPreloader();
+        // Mostrar preloader SOLO si pasa la validación (se mueve a executeSubmission)
+        // No mostrar aquí para evitar spinner cuando hay errores de validación cliente
 
         // 0. Permission Check
         const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
