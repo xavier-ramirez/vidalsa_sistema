@@ -398,6 +398,28 @@
     </div> <!-- Cierra pdfPreviewModal -->
 
     <!-- Standardized Reusable Modal (Moved to End for stacking context) -->
+    <style>
+        #standardModal .modal-card {
+            padding: 20px !important;
+            max-width: 320px !important;
+        }
+        #standardModal .modal-title {
+            font-size: 1.1rem !important;
+            margin-bottom: 5px !important;
+        }
+        #standardModal .modal-message {
+            font-size: 0.85rem !important;
+            margin-bottom: 15px !important;
+        }
+        #standardModal .modal-icon {
+            font-size: 40px !important;
+            margin-bottom: 10px !important;
+        }
+        #standardModal .modal-btn {
+            padding: 8px 16px !important;
+            font-size: 0.85rem !important;
+        }
+    </style>
     <div id="standardModal" class="modal-overlay" style="z-index: 1000001 !important;">
             <div class="modal-card">
                 <i id="modalIcon" class="material-icons modal-icon"
@@ -685,26 +707,25 @@
                 iconEl.className = 'material-icons modal-icon';
                 confirmBtn.className = 'modal-btn modal-btn-confirm';
 
+                // Compress modal and force blue buttons
+                confirmBtn.style.backgroundColor = 'var(--maquinaria-blue, #1e293b)';
+                confirmBtn.style.color = 'white';
+                confirmBtn.style.border = 'none';
+
                 switch (config.type) {
                     case 'success':
                         iconEl.innerText = 'check_circle';
                         iconEl.classList.add('modal-icon-success');
-                        confirmBtn.classList.add('btn-success');
                         break;
                     case 'error':
+                    case 'danger':
                         iconEl.innerText = 'error';
                         iconEl.classList.add('modal-icon-error');
-                        confirmBtn.classList.add('btn-danger');
-                        break;
-                    case 'danger':
-                        iconEl.innerText = 'warning';
-                        iconEl.classList.add('modal-icon-error');
-                        confirmBtn.classList.add('btn-danger');
+                        confirmBtn.style.backgroundColor = '#dc2626'; // Keep red for errors
                         break;
                     case 'warning':
                         iconEl.innerText = 'warning';
                         iconEl.classList.add('modal-icon-warning');
-                        confirmBtn.classList.add('btn-warning');
                         break;
                     default:
                         iconEl.innerText = 'help_outline';

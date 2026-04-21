@@ -342,7 +342,7 @@ window.unanchorEquipos = async function (e) {
         window.showModal({
             type: 'warning',
             title: 'Confirmar Acción',
-            message: '¿Estás seguro que deseas desanclar los equipos seleccionados? Se separarán de forma permanente.',
+            message: '¿Estás seguro que deseas desanclar los equipos seleccionados?',
             confirmText: 'Sí, desanclar',
             cancelText: 'Cancelar',
             onConfirm: executeUnanchor
