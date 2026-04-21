@@ -6,7 +6,7 @@ window.confirmDeleteCatalogo = function (id, modelName) {
     }
 
     window.showModal({
-        type: 'error',
+        type: 'warning',
         title: '¿Eliminar registro?',
         message: `¿Estás seguro de que deseas eliminar "<strong>${modelName}</strong>"?<br>Esta acción no se puede deshacer.`,
         confirmText: 'Eliminar',

@@ -287,7 +287,7 @@ window.confirmDelete = function (id, name) {
     const form = document.getElementById('delete-form-global');
 
     window.showModal({
-        type: 'error',
+        type: 'warning',
         title: '¿Eliminar registro?',
         message: `¿Estás seguro de que deseas eliminar a "<strong>${name}</strong>"?<br>Esta acción no se puede deshacer.`,
         confirmText: 'Eliminar',
