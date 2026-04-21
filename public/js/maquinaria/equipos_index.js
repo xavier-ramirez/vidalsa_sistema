@@ -342,13 +342,13 @@ window.unanchorEquipos = async function (e) {
         window.showModal({
             type: 'warning',
             title: 'Confirmar Acción',
-            message: '¿Estás seguro que deseas desanclar los equipos seleccionados?',
-            confirmText: 'Sí, desanclar',
+            message: '¿Estás seguro que deseas desanclar<br>los equipos seleccionados?',
+            confirmText: 'Desanclar',
             cancelText: 'Cancelar',
             onConfirm: executeUnanchor
         });
     } else {
-        if (confirm('¿Estás seguro que deseas desanclar los equipos seleccionados?')) {
+        if (confirm('¿Estás seguro que deseas desanclar\nlos equipos seleccionados?')) {
             executeUnanchor();
         }
     }
