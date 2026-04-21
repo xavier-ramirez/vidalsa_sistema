@@ -704,6 +704,11 @@
                         iconEl.classList.add('modal-icon-error');
                         confirmBtn.classList.add('btn-danger');
                         break;
+                    case 'danger':
+                        iconEl.innerText = 'warning';
+                        iconEl.classList.add('modal-icon-error');
+                        confirmBtn.classList.add('btn-danger');
+                        break;
                     case 'warning':
                         iconEl.innerText = 'warning';
                         iconEl.classList.add('modal-icon-warning');

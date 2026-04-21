@@ -246,9 +246,9 @@ window.unlockIp = function(id, ipAddress) {
     }
     
     window.showModal({
-        type: 'warning',
+        type: 'danger',
         title: 'Desbloquear IP',
-        message: 'Esta acción eliminará el bloqueo de la IP ' + ipAddress + '. ¿Continuar?',
+        message: 'Esta acción eliminará el bloqueo de la IP ' + ipAddress + '.<br>¿Continuar?',
         confirmText: 'Sí, Desbloquear',
         cancelText: 'Cancelar',
         onConfirm: async () => {

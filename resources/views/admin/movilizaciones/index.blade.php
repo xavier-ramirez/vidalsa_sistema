@@ -391,9 +391,9 @@ window._eliminarSeleccionados = function () {
     // Usar el sistema de modales global (standardModal)
     if (window.showModal) {
         window.showModal({
-            type: 'warning',
+            type: 'danger',
             title: '¿Eliminar registros?',
-            message: `${msg}<br><strong>Esta acción no se puede deshacer.</strong>`,
+            message: `${msg}<br><strong>¿Continuar? Esta acción no se puede deshacer.</strong>`,
             confirmText: 'Eliminar',
             cancelText: 'Cancelar',
             onConfirm: function () {
