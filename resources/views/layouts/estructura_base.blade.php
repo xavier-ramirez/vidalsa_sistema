@@ -1014,9 +1014,19 @@
             window.loadMetadata = async function () {
                 const ctx = window.currentPdfContext;
                 if (!ctx) return;
+                
                 const container = document.getElementById('metaFieldsContainer');
                 const loader = document.getElementById('metaPanelLoader');
                 const form = document.getElementById('pdfMetadataForm');
+                
+                if (!ctx.equipoId) {
+                    if (loader) loader.style.display = 'none';
+                    if (container) {
+                        container.innerHTML = '<div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed #4a5568;"><p style="color: #cbd5e0; font-size: 13px; text-align: center; margin: 0;">El vehículo asociado a este documento fue eliminado de la base de datos.</p></div>';
+                    }
+                    return;
+                }
+                
                 if (loader) loader.style.display = 'flex';
                 if (form) form.style.opacity = '0.5';
                 try {

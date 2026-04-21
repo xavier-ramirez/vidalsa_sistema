@@ -40,6 +40,7 @@ class HistorialDocumentosController extends Controller
             if ($doc->PROPIEDAD_FECHA_SUBIDA && $doc->PROPIEDAD_SUBIDO_POR) {
                 $autor = $doc->usuarioPropiedad ? $doc->usuarioPropiedad->CORREO_ELECTRONICO : $doc->PROPIEDAD_SUBIDO_POR;
                 $events->push((object)[
+                    'doc_key' => 'propiedad',
                     'tipo' => 'Título de Propiedad',
                     'autor' => $autor,
                     'fecha_raw' => $doc->PROPIEDAD_FECHA_SUBIDA,
@@ -53,6 +54,7 @@ class HistorialDocumentosController extends Controller
             if ($doc->POLIZA_FECHA_SUBIDA && $doc->POLIZA_SUBIDO_POR) {
                 $autor = $doc->usuarioPoliza ? $doc->usuarioPoliza->CORREO_ELECTRONICO : $doc->POLIZA_SUBIDO_POR;
                 $events->push((object)[
+                    'doc_key' => 'poliza',
                     'tipo' => 'Póliza de Seguro',
                     'autor' => $autor,
                     'fecha_raw' => $doc->POLIZA_FECHA_SUBIDA,
@@ -66,6 +68,7 @@ class HistorialDocumentosController extends Controller
             if ($doc->ROTC_FECHA_SUBIDA && $doc->ROTC_SUBIDO_POR) {
                 $autor = $doc->usuarioRotc ? $doc->usuarioRotc->CORREO_ELECTRONICO : $doc->ROTC_SUBIDO_POR;
                 $events->push((object)[
+                    'doc_key' => 'rotc',
                     'tipo' => 'ROTC',
                     'autor' => $autor,
                     'fecha_raw' => $doc->ROTC_FECHA_SUBIDA,
@@ -79,6 +82,7 @@ class HistorialDocumentosController extends Controller
             if ($doc->RACDA_FECHA_SUBIDA && $doc->RACDA_SUBIDO_POR) {
                 $autor = $doc->usuarioRacda ? $doc->usuarioRacda->CORREO_ELECTRONICO : $doc->RACDA_SUBIDO_POR;
                 $events->push((object)[
+                    'doc_key' => 'racda',
                     'tipo' => 'RACDA',
                     'autor' => $autor,
                     'fecha_raw' => $doc->RACDA_FECHA_SUBIDA,
@@ -92,6 +96,7 @@ class HistorialDocumentosController extends Controller
             if ($doc->ADICIONAL_FECHA_SUBIDA && $doc->ADICIONAL_SUBIDO_POR) {
                 $autor = $doc->usuarioAdicional ? $doc->usuarioAdicional->CORREO_ELECTRONICO : $doc->ADICIONAL_SUBIDO_POR;
                 $events->push((object)[
+                    'doc_key' => 'adicional',
                     'tipo' => 'Doc. Adicional',
                     'autor' => $autor,
                     'fecha_raw' => $doc->ADICIONAL_FECHA_SUBIDA,
