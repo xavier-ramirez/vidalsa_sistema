@@ -295,11 +295,14 @@
         // Prevenir doble submit + mostrar preloader global
         const frmClave = document.getElementById('frmMiClave');
         if (frmClave) {
-            frmClave.addEventListener('submit', function () {
+            frmClave.addEventListener('submit', function (e) {
                 const btn = document.getElementById('btnGuardarClave');
                 if (btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = '<span class="material-icons" style="animation: spin 1s linear infinite; font-size:18px;">sync</span> Guardando...';
+                    // setTimeout is crucial here: disabling the button synchronously can prevent the form from submitting
+                    setTimeout(() => {
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="material-icons" style="animation: spin 1s linear infinite; font-size:18px;">sync</span> Guardando...';
+                    }, 10);
                 }
                 // Mostrar preloader global (consistente con el resto del sistema)
                 if (typeof window.showPreloader === 'function') window.showPreloader();
