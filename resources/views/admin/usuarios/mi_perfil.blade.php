@@ -263,6 +263,7 @@
     </div>
 
     <script>
+    (function() {
         // Indicador de fortaleza de contraseña
         const pwNueva = document.getElementById('pw_nueva');
         const pwConfirm = document.getElementById('pw_confirm');
@@ -378,5 +379,6 @@
                 }
             });
         }
+    })();
     </script>
 @endsection
