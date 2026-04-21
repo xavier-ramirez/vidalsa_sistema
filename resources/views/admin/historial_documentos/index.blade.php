@@ -202,6 +202,7 @@
                         <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
                         <span style="font-size: 11px; color: #64748b;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
                     </div>
+                    @can('super.admin')
                     <button 
                             class="btn-unlock-ip"
                             data-ip-id="{{ $ip->ID_BLOQUEO }}"
@@ -212,6 +213,7 @@
                             title="Desbloquear IP">
                         <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
                     </button>
+                    @endcan
                 </div>
                 @endforeach
             </div>
