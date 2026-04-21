@@ -292,7 +292,7 @@
             });
         }
 
-        // Prevenir doble submit
+        // Prevenir doble submit + mostrar preloader global
         const frmClave = document.getElementById('frmMiClave');
         if (frmClave) {
             frmClave.addEventListener('submit', function () {
@@ -301,6 +301,8 @@
                     btn.disabled = true;
                     btn.innerHTML = '<span class="material-icons" style="animation: spin 1s linear infinite; font-size:18px;">sync</span> Guardando...';
                 }
+                // Mostrar preloader global (consistente con el resto del sistema)
+                if (typeof window.showPreloader === 'function') window.showPreloader();
             });
         }
     </script>
