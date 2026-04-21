@@ -282,98 +282,33 @@ window.updateSelectedCount = function () {
     }
 };
 
-// Confirm Delete (Hybrid: Custom Modal if available, fallback to Native)
+// Confirm Delete — uses standardModal system (unified)
 window.confirmDelete = function (id, name) {
-    // Try to find custom modal elements (used in Usuarios, etc.)
-    const modal = document.getElementById("deleteModal");
-    const nameSpan = document.getElementById("deleteModalUserName");
-    const confirmBtn = document.getElementById("confirmDeleteBtn");
-    const form = document.getElementById("delete-form-global"); // Global form preferred
+    const form = document.getElementById('delete-form-global');
 
-    if (modal && nameSpan && confirmBtn && form) {
-        // UI: Use Custom Modal
-        nameSpan.innerText = name;
-
-        // Handle routes dynamically based on context if needed, but standard is /admin/usuarios/id
-        // If we need to support multiple modules, we might need a type argument, or use the form's data-action-base
-        // For now, defaulting to standard global form behavior or dynamic path setting
-
-        // Check if form has a specific base action or default to usuarios
-        // To be safe and generic: We assume the caller or the form setup knows the route,
-        // OR we infer it.
-        // Given existing code used /admin/usuarios/, let's support that default but be flexible.
-
-        // Strategy: If form has 'action', use it? No, we need to append ID.
-        // Let's assume this is mostly for Usuarios as per previous code.
-        // If we want it generic, we should pass the URL.
-        // But for now, let's keep the previous behavior:
-
-        // If we are functioning globally, we need to know the Model.
-        // But confirmDelete(id, name) signature lacks Model.
-        // Falls back to Usuarios logic for now as it was the only one using it.
-        // OR checks if we are on a specific page.
-
-        if (window.location.pathname.includes("usuarios")) {
-            form.action = `/admin/usuarios/${id}`;
-        } else {
-            // Fallback for other modules if they introduce this modal
-            form.action =
-                window.location.pathname.replace(/\/create|\/edit/, "") +
-                "/" +
-                id;
-        }
-
-        confirmBtn.onclick = function () {
-            window.closeDeleteModal();
+    window.showModal({
+        type: 'error',
+        title: '¿Eliminar registro?',
+        message: `¿Estás seguro de que deseas eliminar a "<strong>${name}</strong>"?<br>Esta acción no se puede deshacer.`,
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        onConfirm: function () {
             if (window.showPreloader) window.showPreloader();
-            form.submit();
-        };
-
-        modal.style.display = "flex";
-        requestAnimationFrame(() => {
-            modal.classList.add("active");
-            modal.style.opacity = "1";
-        });
-    } else {
-        // Fallback: Use native confirm
-        if (
-            confirm(
-                `¿Estás seguro de que deseas eliminar a "${name}"?\n\nEsta acción no se puede deshacer.`,
-            )
-        ) {
-            // Check for specific form pattern (delete-form-ID) or global form
-            let specificForm = document.getElementById("delete-form-" + id);
-            if (specificForm) {
-                specificForm.submit();
-            } else if (form) {
-                if (window.location.pathname.includes("usuarios")) {
+            if (form) {
+                if (window.location.pathname.includes('usuarios')) {
                     form.action = `/admin/usuarios/${id}`;
                 } else {
-                    form.action =
-                        window.location.pathname.replace(
-                            /\/create|\/edit/,
-                            "",
-                        ) +
-                        "/" +
-                        id;
+                    form.action = window.location.pathname.replace(/\/create|\/edit/, '') + '/' + id;
                 }
                 form.submit();
-            } else {
-                console.error("Delete form not found");
             }
         }
-    }
+    });
 };
 
+// No-op kept for backward compatibility (catalogo_index.js calls this)
 window.closeDeleteModal = function () {
-    const modal = document.getElementById("deleteModal");
-    if (modal) {
-        modal.classList.remove("active");
-        modal.style.opacity = "0";
-        setTimeout(() => {
-            modal.style.display = "none";
-        }, 300);
-    }
+    // standardModal is closed via its own cancel/confirm buttons
 };
 
 // Manual toggle function for inline handlers (forms, etc.) - CONSOLIDATED & ROBUST

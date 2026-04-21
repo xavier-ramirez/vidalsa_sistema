@@ -719,6 +719,7 @@ body {
 .modal-icon {
     font-size: 80px;
     margin-bottom: 20px;
+    display: inline-block;
 }
 
 .modal-icon-success {

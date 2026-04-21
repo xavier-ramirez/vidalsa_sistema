@@ -120,21 +120,5 @@
 
 </div> <!-- End page-layout-grid -->
 
-
-
-    <!-- Custom Delete Modal -->
-    <div id="deleteModal" class="modal-overlay" style="display: none; align-items: center; justify-content: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999;">
-        <div class="modal-card" style="background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-            <i class="material-icons modal-icon modal-icon-warning" style="font-size: 48px; color: #e53e3e; margin-bottom: 15px; display: block;">warning</i>
-            <h3 class="modal-title" style="margin: 0 0 10px 0; font-size: 20px; font-weight: 700; color: #2d3748;">¿Eliminar registro?</h3>
-            <p class="modal-message" style="margin-bottom: 25px; color: #718096; line-height: 1.5;">
-                ¿Estás seguro de que deseas eliminar el modelo "<strong id="deleteModalUserName" style="color: #2d3748;"></strong>"? Esta acción no se puede deshacer.
-            </p>
-            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: center;">
-                <button type="button" onclick="closeDeleteModal()" class="modal-btn modal-btn-cancel" style="padding: 10px 20px; border-radius: 6px; border: 1px solid #cbd5e0; background: white; color: #4a5568; font-weight: 600;">Cancelar</button>
-                <button id="confirmDeleteBtn" type="button" class="modal-btn modal-btn-confirm" style="padding: 10px 20px; border-radius: 6px; border: none; background: #e53e3e; color: white; font-weight: 600;">Eliminar</button>
-            </div>
-        </div>
-    </div>
-
 @endsection
+

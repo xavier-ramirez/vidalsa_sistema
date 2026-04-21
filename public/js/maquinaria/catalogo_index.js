@@ -1,36 +1,20 @@
-// catalogo_index.js - Catalogo Module Logic
-// Version: 1.0 - SPA Compatible Architecture
-
-// --- Delete Modal Logic (Optimized - AJAX) ---
+// --- Delete Modal Logic (AJAX via standardModal) ---
 window.confirmDeleteCatalogo = function (id, modelName) {
     if (!id || String(id).trim() === '') {
-        alert('Error: ID del registro no válido. Por favor recarga la página.');
         console.error('ID missing for confirmDeleteCatalogo');
         return;
     }
 
-    const modal = document.getElementById('deleteModal');
-    const nameSpan = document.getElementById('deleteModalUserName');
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
-
-    if (modal && nameSpan && confirmBtn) {
-        nameSpan.innerText = modelName;
-
-        // Clean previous event listeners
-        const newBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
-
-        // Handle confirm click (AJAX)
-        newBtn.onclick = async function () {
-            // UI Feedback - Show Global Preloader
+    window.showModal({
+        type: 'error',
+        title: '¿Eliminar registro?',
+        message: `¿Estás seguro de que deseas eliminar "<strong>${modelName}</strong>"?<br>Esta acción no se puede deshacer.`,
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        onConfirm: async function () {
             if (typeof window.showPreloader === 'function') window.showPreloader();
-            newBtn.disabled = true;
-
-            let targetUrl = '';
             try {
-                targetUrl = `/admin/catalogo/${id}`;
-
-                const response = await fetch(targetUrl, {
+                const response = await fetch(`/admin/catalogo/${id}`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -39,17 +23,10 @@ window.confirmDeleteCatalogo = function (id, modelName) {
                     }
                 });
 
-                // Parse JSON Safely
                 let data = {};
-                try {
-                    data = await response.json();
-                } catch (e) { }
+                try { data = await response.json(); } catch (e) {}
 
                 if (response.ok) {
-                    // Success: Close modal and Refresh Table
-                    window.closeDeleteModal();
-
-                    // Show Success Message
                     if (window.showModal) {
                         window.showModal({
                             type: 'success',
@@ -58,37 +35,23 @@ window.confirmDeleteCatalogo = function (id, modelName) {
                             hideCancel: true
                         });
                     }
-
                     window.loadCatalogo();
                 } else {
                     throw new Error(data.message || 'Error al eliminar');
                 }
-
             } catch (error) {
                 console.error('Delete Error:', error);
-                alert('Error al eliminar: ' + error.message);
+                if (window.showModal) {
+                    window.showModal({ type: 'error', title: 'Error', message: error.message, hideCancel: true });
+                }
             } finally {
-                // Reset Button State & Hide Preloader
                 if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                newBtn.disabled = false;
-                // newBtn.innerText = 'Eliminar';
             }
-        };
-
-        // Show Modal
-        modal.style.display = 'flex';
-        setTimeout(() => modal.style.opacity = '1', 10);
-    } else {
-        console.error('Modal elements not found for delete');
-    }
+        }
+    });
 };
 
-window.closeDeleteModal = function () {
-    const modal = document.getElementById('deleteModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-};
+
 
 // --- Specific Catalog Logic (Standardized) ---
 // NOTE: selectAdvancedOption is now consolidated in uicomponents.js (global version)
