@@ -35,6 +35,7 @@ class Documentacion extends Model
         'LINK_DOC_ADICIONAL',
         'ADICIONAL_SUBIDO_POR',
         'ADICIONAL_FECHA_SUBIDA',
+        'FECHA_ADICIONAL',
         
         // Management Tracking
         'poliza_gestion_frente_id',
@@ -54,6 +55,7 @@ class Documentacion extends Model
         'RACDA_FECHA_SUBIDA' => 'datetime',
         'PROPIEDAD_FECHA_SUBIDA' => 'datetime',
         'ADICIONAL_FECHA_SUBIDA' => 'datetime',
+        'FECHA_ADICIONAL' => 'date',
         'poliza_gestion_fecha' => 'datetime',
         'rotc_gestion_fecha' => 'datetime',
         'racda_gestion_fecha' => 'datetime',

@@ -140,7 +140,10 @@ Estructura: overlay > modal-content > header + sub-header + body
                             <div class="detail-row-doc"
                                 style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;">
                                 <span id="d_label_adicional" style="color:#64748b;font-size:12px;font-weight:500;">Documento Adicional</span>
-                                <div id="d_btn_adicional"></div>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span id="d_fecha_adicional" style="color:#333;font-size:13px;"></span>
+                                    <div id="d_btn_adicional"></div>
+                                </div>
                             </div>
 
                         </div>

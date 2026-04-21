@@ -830,6 +830,7 @@ window.showDetailsImproved = function (target, event) {
 
     set("d_fecha_rotc", formatDate(d.fechaRotc));
     set("d_fecha_racda", formatDate(d.fechaRacda));
+    set("d_fecha_adicional", formatDate(d.fechaAdicional));
 
     // Document Action Buttons Generator
     const createDocBtn = (containerId, type, link, label, equipoId, autor = '', fecha = '') => {

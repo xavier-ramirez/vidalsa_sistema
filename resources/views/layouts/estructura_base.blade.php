@@ -1072,6 +1072,8 @@
                         `;
                         } else if (ctx.docType === 'rotc' || ctx.docType === 'racda') {
                             html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
+                        } else if (ctx.docType === 'adicional' && info.categoria === 'FLOTA LIVIANA') {
+                            html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
                         }
                         container.innerHTML = html;
                     }
@@ -1117,6 +1119,7 @@
                                 d.vencSeguro = formData.get('fecha_vencimiento'); d.seguro = formData.get('nombre_aseguradora');
                             } else if (ctx.docType === 'rotc') { d.fechaRotc = formData.get('fecha_vencimiento'); }
                             else if (ctx.docType === 'racda') { d.fechaRacda = formData.get('fecha_vencimiento'); }
+                            else if (ctx.docType === 'adicional') { d.fechaAdicional = formData.get('fecha_vencimiento'); }
                             showDetailsImproved(window.activeEquipoButton);
                         }
                         if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();

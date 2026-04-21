@@ -1600,7 +1600,10 @@ class EquipoController extends Controller
                     break;
 
                 case 'adicional':
-                    $data = [];
+                    $data = [
+                        'fecha_vencimiento' => $doc->FECHA_ADICIONAL ?? '',
+                        'categoria' => $equipo->CATEGORIA_FLOTA
+                    ];
                     break;
             }
         }
@@ -1738,6 +1741,12 @@ class EquipoController extends Controller
                         $updateData['racda_gestion_fecha'] = null;
                     }
                 }
+                break;
+
+            case 'adicional':
+                $updateData = [
+                    'FECHA_ADICIONAL' => $request->input('fecha_vencimiento'),
+                ];
                 break;
         }
 
