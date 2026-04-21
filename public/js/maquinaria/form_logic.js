@@ -658,7 +658,7 @@ window.addEventListener('spa:contentLoaded', function () {
         if (Object.keys(clientErrors).length > 0) {
             if (window.hidePreloader) window.hidePreloader();
             handleValidationErrors(clientErrors);
-            showModal({
+            window.showModal({
                 type: 'warning',
                 title: 'Atención',
                 message: 'Por favor complete todos los campos obligatorios marcados en rojo.',
@@ -737,7 +737,7 @@ window.addEventListener('spa:contentLoaded', function () {
                         if (window.showToast) {
                             window.showToast(body.message || 'Usuario creado correctamente.', 'success');
                         } else {
-                            showModal({
+                            window.showModal({
                                 type: 'success',
                                 title: '¡Éxito!',
                                 message: body.message || 'Usuario creado correctamente.',
@@ -753,7 +753,7 @@ window.addEventListener('spa:contentLoaded', function () {
                         if (window.showToast) {
                             window.showToast(body.message || 'Usuario actualizado correctamente.', 'success');
                         } else {
-                            showModal({
+                            window.showModal({
                                 type: 'success',
                                 title: '¡Éxito!',
                                 message: body.message || 'Usuario actualizado correctamente.',
@@ -778,7 +778,7 @@ window.addEventListener('spa:contentLoaded', function () {
                 } else if (status === 422) {
                     if (window.hidePreloader) window.hidePreloader();
                     handleValidationErrors(body.errors);
-                    showModal({
+                    window.showModal({
                         type: 'warning',
                         title: 'Atención',
                         message: 'El formulario contiene errores. Por favor revise los campos marcados.',
@@ -792,7 +792,7 @@ window.addEventListener('spa:contentLoaded', function () {
             .catch(error => {
                 if (window.hidePreloader) window.hidePreloader();
                 console.error('Submission error:', error);
-                showModal({
+                window.showModal({
                     type: 'error',
                     title: 'Error',
                     message: error.message || 'Ocurrió un error al procesar la solicitud.',

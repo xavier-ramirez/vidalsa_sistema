@@ -401,8 +401,8 @@ function initEquiposForm() {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalBtnContent;
             }
-            if (window.showModal) {
-                showModal({
+            if (typeof window.showModal === 'function') {
+                window.showModal({
                     type: 'error',
                     title: 'Acceso Denegado',
                     message: isEdit ? 'No tienes permisos para actualizar esta información.' : 'No tienes permisos para registrar equipos.',
