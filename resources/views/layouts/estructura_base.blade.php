@@ -277,13 +277,9 @@
         @if(session('success'))
             <script>
                 window.addEventListener('load', () => {
-                    showModal({
-                        type: 'success',
-                        title: '¡Operación Exitosa!',
-                        message: @json(session('success')),
-                        confirmText: 'Aceptar',
-                        hideCancel: true
-                    });
+                    if (window.showToast) {
+                        window.showToast(@json(session('success')), 'success');
+                    }
                 });
             </script>
         @endif
@@ -1070,9 +1066,7 @@
                                 <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
                             </div>
                         `;
-                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda') {
-                            html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
-                        } else if (ctx.docType === 'adicional' && info.categoria === 'FLOTA LIVIANA') {
+                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || (ctx.docType === 'adicional' && info.categoria === 'FLOTA LIVIANA')) {
                             html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
                         }
                         container.innerHTML = html;
@@ -1115,11 +1109,11 @@
                                 d.placa = formData.get('placa'); d.marca = formData.get('marca');
                                 d.modelo = formData.get('modelo'); d.chasis = formData.get('serial_chasis');
                                 d.motorSerial = formData.get('serial_motor');
-                            } else if (ctx.docType === 'poliza') {
-                                d.vencSeguro = formData.get('fecha_vencimiento'); d.seguro = formData.get('nombre_aseguradora');
-                            } else if (ctx.docType === 'rotc') { d.fechaRotc = formData.get('fecha_vencimiento'); }
-                            else if (ctx.docType === 'racda') { d.fechaRacda = formData.get('fecha_vencimiento'); }
-                            else if (ctx.docType === 'adicional') { d.fechaAdicional = formData.get('fecha_vencimiento'); }
+                            } else {
+                                const dateMap = { 'poliza': 'vencSeguro', 'rotc': 'fechaRotc', 'racda': 'fechaRacda', 'adicional': 'fechaAdicional' };
+                                if (dateMap[ctx.docType]) d[dateMap[ctx.docType]] = formData.get('fecha_vencimiento');
+                                if (ctx.docType === 'poliza') d.seguro = formData.get('nombre_aseguradora');
+                            }
                             showDetailsImproved(window.activeEquipoButton);
                         }
                         if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();

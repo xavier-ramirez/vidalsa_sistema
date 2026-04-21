@@ -734,25 +734,33 @@ window.addEventListener('spa:contentLoaded', function () {
                         const activeItem = document.querySelector(`[onclick*="'ACTIVO', 'ACTIVO'"]`);
                         if (activeItem) activeItem.classList.add('selected');
 
-                        showModal({
-                            type: 'success',
-                            title: '¡Éxito!',
-                            message: body.message || 'Usuario creado correctamente.',
-                            confirmText: 'Aceptar',
-                            hideCancel: true
-                        });
+                        if (window.showToast) {
+                            window.showToast(body.message || 'Usuario creado correctamente.', 'success');
+                        } else {
+                            showModal({
+                                type: 'success',
+                                title: '¡Éxito!',
+                                message: body.message || 'Usuario creado correctamente.',
+                                confirmText: 'Aceptar',
+                                hideCancel: true
+                            });
+                        }
 
                         // No reload needed. User can register another immediately.
 
                     } else {
                         // EDIT MODE: Redirect to index
-                        showModal({
-                            type: 'success',
-                            title: '¡Éxito!',
-                            message: body.message || 'Usuario actualizado correctamente.',
-                            confirmText: 'Aceptar',
-                            hideCancel: true
-                        });
+                        if (window.showToast) {
+                            window.showToast(body.message || 'Usuario actualizado correctamente.', 'success');
+                        } else {
+                            showModal({
+                                type: 'success',
+                                title: '¡Éxito!',
+                                message: body.message || 'Usuario actualizado correctamente.',
+                                confirmText: 'Aceptar',
+                                hideCancel: true
+                            });
+                        }
 
                         setTimeout(() => {
                             if (body.redirect) {

@@ -1718,27 +1718,19 @@ class EquipoController extends Controller
                 break;
 
             case 'rotc':
-                $updateData = [
-                    'FECHA_ROTC' => $request->input('fecha_vencimiento'),
-                ];
-                if ($request->filled('fecha_vencimiento')) {
-                    $newDate = \Carbon\Carbon::parse($request->input('fecha_vencimiento'));
-                    if ($newDate->isFuture()) {
-                        $updateData['rotc_gestion_frente_id'] = null;
-                        $updateData['rotc_gestion_fecha'] = null;
-                    }
-                }
-                break;
-
             case 'racda':
+                $fechaKey = $type === 'rotc' ? 'FECHA_ROTC' : 'FECHA_RACDA';
+                $frenteKey = $type === 'rotc' ? 'rotc_gestion_frente_id' : 'racda_gestion_frente_id';
+                $fechaMgtKey = $type === 'rotc' ? 'rotc_gestion_fecha' : 'racda_gestion_fecha';
+
                 $updateData = [
-                    'FECHA_RACDA' => $request->input('fecha_vencimiento'),
+                    $fechaKey => $request->input('fecha_vencimiento'),
                 ];
                 if ($request->filled('fecha_vencimiento')) {
                     $newDate = \Carbon\Carbon::parse($request->input('fecha_vencimiento'));
                     if ($newDate->isFuture()) {
-                        $updateData['racda_gestion_frente_id'] = null;
-                        $updateData['racda_gestion_fecha'] = null;
+                        $updateData[$frenteKey] = null;
+                        $updateData[$fechaMgtKey] = null;
                     }
                 }
                 break;
