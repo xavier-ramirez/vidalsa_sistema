@@ -262,9 +262,6 @@
         </form>
     </div>
 
-@endsection
-
-@section('extra_js')
     <script>
         // Indicador de fortaleza de contraseña
         const pwNueva = document.getElementById('pw_nueva');
