@@ -292,20 +292,93 @@
             });
         }
 
-        // Prevenir doble submit + mostrar preloader global
+        // Manejo de envío por AJAX para evitar recarga de página y mostrar preloader
         const frmClave = document.getElementById('frmMiClave');
         if (frmClave) {
-            frmClave.addEventListener('submit', function (e) {
+            frmClave.addEventListener('submit', async function (e) {
+                e.preventDefault(); // Evita la recarga de la página
+
                 const btn = document.getElementById('btnGuardarClave');
+                const originalHtml = btn ? btn.innerHTML : 'Actualizar Contraseña';
+
                 if (btn) {
-                    // setTimeout is crucial here: disabling the button synchronously can prevent the form from submitting
-                    setTimeout(() => {
-                        btn.disabled = true;
-                        btn.innerHTML = '<span class="material-icons" style="animation: spin 1s linear infinite; font-size:18px;">sync</span> Guardando...';
-                    }, 10);
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="material-icons" style="animation: spin 1s linear infinite; font-size:18px;">sync</span> Guardando...';
                 }
-                // Mostrar preloader global (consistente con el resto del sistema)
+
+                // Mostrar preloader global (el de fondo blanco)
                 if (typeof window.showPreloader === 'function') window.showPreloader();
+
+                try {
+                    const formData = new FormData(frmClave);
+                    const response = await fetch(frmClave.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
+
+                    if (response.ok && data.success) {
+                        frmClave.reset();
+                        const msgEl = document.getElementById('pw-strength-msg');
+                        if (msgEl) { msgEl.textContent = ''; }
+                        
+                        if (typeof window.showModal === 'function') {
+                            window.showModal({
+                                type: 'success',
+                                title: '¡Operación Exitosa!',
+                                message: data.message,
+                                confirmText: 'Aceptar',
+                                hideCancel: true
+                            });
+                        } else if (typeof window.showToast === 'function') {
+                            window.showToast(data.message, 'success');
+                        } else {
+                            alert(data.message);
+                        }
+                    } else {
+                        // Errores de validación (422) u otros errores
+                        let errorMsg = data.message || 'Ocurrió un error al actualizar la contraseña.';
+                        if (data.errors) {
+                            const firstKey = Object.keys(data.errors)[0];
+                            errorMsg = data.errors[firstKey][0];
+                        }
+                        
+                        if (typeof window.showModal === 'function') {
+                            window.showModal({
+                                type: 'error',
+                                title: 'Error',
+                                message: errorMsg,
+                                confirmText: 'Entendido',
+                                hideCancel: true
+                            });
+                        } else if (typeof window.showToast === 'function') {
+                            window.showToast(errorMsg, 'error');
+                        } else {
+                            alert(errorMsg);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                    if (typeof window.showToast === 'function') {
+                        window.showToast('Error de conexión con el servidor.', 'error');
+                    } else {
+                        alert('Error de conexión con el servidor.');
+                    }
+                } finally {
+                    // Restaurar el botón
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                }
             });
         }
     </script>

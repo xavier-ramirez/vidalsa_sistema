@@ -48,6 +48,13 @@ class UserController extends Controller
         $user->REQUIERE_CAMBIO_CLAVE = 0;
         $user->save();
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => '¡Contraseña actualizada correctamente!'
+            ]);
+        }
+
         return back()->with('success_perfil', '¡Contraseña actualizada correctamente!');
     }
 
