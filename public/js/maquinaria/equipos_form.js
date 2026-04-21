@@ -236,11 +236,7 @@ function initEquiposForm() {
             return;
         }
 
-        // D. Submit — mostrar preloader SOLO después de pasar validación cliente
-        if (typeof window.showPreloader === 'function') {
-            window.showPreloader();
-        }
-
+        // D. Submit
         const formData = new FormData(form);
 
         fetch(form.action, {
@@ -381,21 +377,18 @@ function initEquiposForm() {
         if (form.dataset.isSubmitting === 'true') return;
         form.dataset.isSubmitting = 'true';
 
-        // Lock submit button & Add Spinner IMMEDIATELY so the user sees it reacting
+        // Disparar espiner global blanco INMEDIATAMENTE
+        if (typeof window.showPreloader === 'function') {
+            window.showPreloader();
+        }
+
+        // Lock submit button
         const submitBtn = form.querySelector('button[type="submit"]');
         let originalBtnContent = '';
         if (submitBtn) {
             originalBtnContent = submitBtn.innerHTML;
-            submitBtn.style.width = submitBtn.offsetWidth + 'px';
             submitBtn.disabled = true;
-            submitBtn.innerHTML = `
-                <i class="material-icons" style="font-size: 18px; animation: spin 1s infinite linear; display: inline-block; vertical-align: middle; margin-right: 5px;">sync</i>
-                Procesando...
-            `;
         }
-
-        // Mostrar preloader SOLO si pasa la validación (se mueve a executeSubmission)
-        // No mostrar aquí para evitar spinner cuando hay errores de validación cliente
 
         // 0. Permission Check
         const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
