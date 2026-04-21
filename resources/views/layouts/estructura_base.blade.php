@@ -177,10 +177,12 @@
                         class="nav-dropdown-link {{ request()->is('admin/catalogo*') ? 'active' : '' }}">
                         <i class="material-icons">menu_book</i> Catálogo de Modelos
                     </a>
+                    @can('super.admin')
                     <a href="{{ route('historial-documentos.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
                         <i class="material-icons">fact_check</i> Control de Auditoría
                     </a>
+                    @endcan
                 </div>
             </div>
         </nav>
@@ -252,10 +254,12 @@
         <a href="#" class="mobile-nav-link">
             <i class="material-icons">dashboard</i> Sección 5
         </a>
+        @can('super.admin')
         <a href="{{ route('historial-documentos.index') }}"
             class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active-mobile' : '' }}">
             <i class="material-icons">history</i> Auditoría PDFs
         </a>
+        @endcan
         <a href="#" class="mobile-nav-link">
             <i class="material-icons">inventory</i> Sección 7
         </a>

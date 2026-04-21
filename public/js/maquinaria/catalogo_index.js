@@ -53,50 +53,6 @@ window.confirmDeleteCatalogo = function (id, modelName) {
 
 
 
-// --- Specific Catalog Logic (Standardized) ---
-// NOTE: selectAdvancedOption is now consolidated in uicomponents.js (global version)
-// This module-specific version is kept for backwards compatibility but can be removed
-window.selectAdvancedOption = function (type, value, event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
-    if (type === 'modelo') {
-        const input = document.getElementById('searchModeloInput');
-        if (input) {
-            input.value = value;
-            input.placeholder = value ? value : 'Buscar Modelo...'; // Update placeholder if selected
-        }
-        const hidden = document.getElementById('input_modelo_filter');
-        if (hidden) hidden.value = value;
-
-        const clearBtn = document.getElementById('btn_clear_modelo');
-        if (clearBtn) clearBtn.style.display = value ? 'block' : 'none';
-
-        const dropdown = document.getElementById('modeloFilterSelect');
-        if (dropdown) dropdown.classList.remove('active');
-    }
-
-    if (type === 'anio') {
-        const input = document.getElementById('searchAnioInput');
-        if (input) {
-            input.value = value;
-            input.placeholder = value ? value : 'Buscar Año...';
-        }
-        const hidden = document.getElementById('input_anio_filter');
-        if (hidden) hidden.value = value;
-
-        const clearBtn = document.getElementById('btn_clear_anio');
-        if (clearBtn) clearBtn.style.display = value ? 'block' : 'none';
-
-        const dropdown = document.getElementById('anioFilterSelect');
-        if (dropdown) dropdown.classList.remove('active');
-    }
-
-    // Trigger Load
-    window.loadCatalogo();
-};
 
 window.debounceTimer = null;
 window.debounceLoadCatalogo = function () {

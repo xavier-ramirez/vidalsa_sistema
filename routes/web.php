@@ -97,8 +97,10 @@ Route::middleware(['auth'])->group(function () {
 
 
             // ── Auditoría Documental ─────────────────────────────────────────
-            Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
-            Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
+            Route::middleware('can:super.admin')->group(function () {
+                Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
+                Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
+            });
 
             // RUTA DE EMERGENCIA: REPARAR ESQUEMA BD
             // Requiere autenticación (heredada) + permiso explícito super.admin
