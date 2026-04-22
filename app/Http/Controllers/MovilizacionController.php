@@ -206,8 +206,8 @@ class MovilizacionController extends Controller
             'generar_pdf' => 'boolean'
         ]);
 
+        DB::beginTransaction();
         try {
-            DB::beginTransaction();
 
             $frente = FrenteTrabajo::firstOrCreate(
                 ['NOMBRE_FRENTE' => strtoupper($request->destination)],
