@@ -316,3 +316,33 @@ if (!window._hdIpClickRegistered) {
     });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// FILTRO EN TIEMPO REAL — IPs BLOQUEADAS
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Filtra los ítems del listado de IPs bloqueadas en tiempo real.
+ * Solo opera sobre el DOM — no hace ninguna petición al servidor.
+ * @param {string} query - Texto ingresado por el usuario
+ */
+window.filterBlockedIps = function(query) {
+    var list  = document.getElementById('blocked-ips-list');
+    var empty = document.getElementById('ip-filter-empty');
+    if (!list) return;
+
+    var term    = (query || '').trim().toLowerCase();
+    var items   = list.querySelectorAll('[data-ip-text]');
+    var visible = 0;
+
+    items.forEach(function(item) {
+        var ipText = (item.dataset.ipText || '').toLowerCase();
+        var match  = !term || ipText.indexOf(term) !== -1;
+        item.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    // Mostrar/ocultar mensaje de sin resultados
+    if (empty) {
+        empty.style.display = (term && visible === 0) ? 'block' : 'none';
+    }
+};
+

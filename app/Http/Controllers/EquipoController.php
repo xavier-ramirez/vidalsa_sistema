@@ -195,32 +195,23 @@ class EquipoController extends Controller
             $hasFilter = true;
         }
 
+        // Virtual scroll: el JS renderiza de 30 en 30 filas usando IntersectionObserver.
+        // No se necesita paginación server-side; se devuelven TODOS los resultados de
+        // una vez y el cliente gestiona el progresivo.
         if ($hasFilter) {
-            // Get ALL records matching filters (no pagination limit)
             $allResults = $equipos->get();
-
-            // Wrap in Paginator to keep view compatibility, but page size is total count
-            $equipos = new \Illuminate\Pagination\LengthAwarePaginator(
-                $allResults,
-                $allResults->count(),
-                $allResults->count() > 0 ? $allResults->count() : 1, // perPage = total items
-                1 // current page always 1
-            );
-            $equipos->withPath($request->url())->appends($request->all());
-
+            $equipos    = $allResults;           // Colección plana → iterable en Blade
         } else {
-            // Return empty paginator to open the interface without showing any records initially
-            $equipos = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
+            $allResults = collect([]);            // Sin filtro: tabla vacía
+            $equipos    = collect([]);
         }
 
         $stats = ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'mantenimiento' => 0];
-        $tiposStats = collect([]);
-        $frentesStats = []; // Ensure array or collection
+        $tiposStats  = collect([]);
+        $frentesStats = [];
 
-        // Calculate stats only when a filter is active
+        // Calcular stats SOLO cuando hay filtro activo (optimización: usa la colección ya cargada)
         if ($hasFilter) {
-            // OPTIMIZATION: Calculate stats from the already loaded collection instead of hitting DB again
-            // This reduces DB queries from ~5 to 1.
             $stats['total'] = $allResults->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
             $stats['activos'] = $allResults->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
             $stats['inactivos'] = $allResults->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();

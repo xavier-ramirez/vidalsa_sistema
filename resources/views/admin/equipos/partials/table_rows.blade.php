@@ -60,11 +60,14 @@
                 $fotoToShow = ($equipo->especificaciones && $equipo->especificaciones->FOTO_REFERENCIAL) 
                               ? $equipo->especificaciones->FOTO_REFERENCIAL 
                               : $equipo->FOTO_EQUIPO;
+                // Extraer solo el ID de Google Drive (eliminar el prefijo de ruta si existe)
+                $driveFileId = $fotoToShow ? basename(str_replace('/storage/google/', '', $fotoToShow)) : null;
             @endphp
-            @if($fotoToShow)
+            @if($driveFileId)
                 <div class="table-image-wrapper" style="cursor: default;">
-                    {{-- data-src: cargada por _registerLazyImages (IntersectionObserver + semáforo máx 3 concurrentes) --}}
-                    <img data-src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $fotoToShow)]) }}"
+                    {{-- Carga directa desde servidores de Google (sin proxy Laravel). --}}
+                    {{-- sz=w300: miniatura de 300px de ancho, suficiente para la tabla. --}}
+                    <img data-src="https://drive.google.com/thumbnail?id={{ $driveFileId }}&sz=w300"
                         alt="Foto Modelo"
                         style="width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 0.4s;">
                 </div>
@@ -145,6 +148,12 @@
                     data-placa="{{ optional($equipo->documentacion)->PLACA ?? 'N/A' }}"
                     data-anchor-id="{{ $equipo->ID_ANCLAJE ?? '' }}"
                     data-frente-id="{{ $equipo->ID_FRENTE_ACTUAL }}"
+                    data-rol-anclaje="{{ optional($equipo->tipo)->ROL_ANCLAJE ?? 'NEUTRO' }}"
+                    data-anchor-code="{{ optional($equipo->ancladoA)->CODIGO_PATIO ?? '' }}"
+                    data-anchor-placa="{{ optional(optional($equipo->ancladoA)->documentacion)->PLACA ?? '' }}"
+                    data-anchor-serial="{{ optional($equipo->ancladoA)->SERIAL_CHASIS ?? '' }}"
+                    data-anchor-rol="{{ optional(optional($equipo->ancladoA)->tipo)->ROL_ANCLAJE ?? '' }}"
+                    data-anchor-tipo-nombre="{{ optional(optional($equipo->ancladoA)->tipo)->nombre ?? 'Equipo' }}"
                     onclick="showDetailsImproved(this, event)"
                     class="btn-details-mini" title="Ver Detalles">
                     <i class="material-icons">visibility</i>

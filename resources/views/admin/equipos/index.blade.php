@@ -490,10 +490,9 @@
 
 
 
-    <!-- Pagination removed as requested (Single list on filter) -->
-    <div id="equiposPagination" style="margin-top: 25px;">
-        {{ $equipos->links('pagination::bootstrap-4') }}
-    </div>
+    {{-- Sin paginación server-side: el virtual scroll (IntersectionObserver) gestiona
+         el renderizado progresivo de todas las filas en el cliente. --}}
+    <div id="equiposPagination"></div>
 </div> <!-- End admin-card -->
 
 <!-- Right Column: Simple Counter -->

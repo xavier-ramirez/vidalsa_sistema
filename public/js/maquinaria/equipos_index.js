@@ -12,7 +12,7 @@ window.equiposData     = window.equiposData     || {};
 // y el browser intenta cargar decenas de imágenes al mismo tiempo contra el
 // servidor de un solo hilo (php artisan serve).
 (function () {
-    const MAX_CONCURRENT = 3;
+    const MAX_CONCURRENT = 20; // Incrementado: Google CDN maneja alta concurrencia
     let _active = 0;
     let _queue  = [];
     let _observer = null;
@@ -247,35 +247,27 @@ function updateSelectionUI() {
 
             const selections = Object.values(window.selectedEquipos);
 
-            // ── Anclar button ──
+            const isValidId = (val) => val && val !== "null" && val !== "";
+
+            // Determinar si alguno de los seleccionados YA está anclado
+            const someAnchored = selections.some(s => isValidId(s.anchorId));
+
+            // Determinar si alguno puede anclar (rol válido Y sin ancla activa)
+            const canAnchor = !someAnchored && selections.some(s =>
+                (s.rolAnclaje === 'REMOLCADOR' || s.rolAnclaje === 'REMOLCABLE') &&
+                !isValidId(s.anchorId)
+            );
+
+            // ── Anclar: solo si nadie está anclado y alguno puede anclarse ──
             const anchorBtn = document.getElementById('btnAnclar');
             if (anchorBtn) {
-                const canAnchor =
-                    selections.length === 1 &&
-                    (selections[0].rolAnclaje === 'REMOLCADOR' ||
-                        selections[0].rolAnclaje === 'REMOLCABLE');
                 anchorBtn.style.display = canAnchor ? 'flex' : 'none';
             }
 
-            // ── Desanclar button ──
+            // ── Desanclar: solo si alguno YA está anclado ──
             const unanchorBtn = document.getElementById('btnUnanchor');
             if (unanchorBtn) {
-                let canUnanchor = false;
-                const isValidId = (val) => val && val !== "null" && val !== "";
-                
-                if (selections.length === 1 && isValidId(selections[0].anchorId)) {
-                    canUnanchor = true;
-                } else if (selections.length === 2) {
-                    const s1 = selections[0];
-                    const s2 = selections[1];
-                    if (
-                        (isValidId(s1.anchorId) && String(s1.anchorId) === String(s2.id)) || 
-                        (isValidId(s2.anchorId) && String(s2.anchorId) === String(s1.id))
-                    ) {
-                        canUnanchor = true;
-                    }
-                }
-                unanchorBtn.style.display = canUnanchor ? 'flex' : 'none';
+                unanchorBtn.style.display = someAnchored ? 'flex' : 'none';
             }
 
         } else {
@@ -382,6 +374,7 @@ function handleRowClick(e) {
                 rolAnclaje: targetRol,
                 anchorId: targetAnchorId,
             };
+            window.lastSelectedEquipoId = targetId; // Guardar el más reciente para anclaje
             if (targetRow) targetRow.classList.add("selected-row-maquinaria");
         } else {
             delete window.selectedEquipos[targetId];
@@ -744,9 +737,6 @@ window.loadEquipos = function (url = null, silent = false) {
             const distroContainer = document.getElementById('distributionStatsContainer');
             if (distroContainer) distroContainer.innerHTML = data.distribution;
 
-            const paginationContainer = document.getElementById('equiposPagination');
-            if (paginationContainer) paginationContainer.innerHTML = '';
-
             window.history.pushState(null, '', finalUrl);
 
             // ── RENDERIZADO PROGRESIVO ───────────────────────────────────────
@@ -1051,7 +1041,7 @@ window.openBulkModal = function (event) {
     overlay.onclick = (e) => { if (e.target === overlay) _closeModal(); };
 
     // ── Submit ──
-    overlay.querySelector("#bm-submit-btn").onclick = function () {
+    overlay.querySelector("#bm-submit-btn").onclick = async function () {
         const dest = (hiddenInput.value || searchInput.value).trim();
         const generarPdfBox = overlay.querySelector("#bm-generar-pdf");
         const generarPdf = generarPdfBox ? generarPdfBox.checked : true;
@@ -1070,114 +1060,117 @@ window.openBulkModal = function (event) {
         const ids = Object.keys(window.selectedEquipos);
         if (window.showPreloader) window.showPreloader();
 
-        fetch("/admin/equipos/bulk-mobilize", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN":
-                    document
-                        .querySelector('meta[name="csrf-token"]')
-                        ?.getAttribute("content") || "",
-                Accept: "application/json",
-            },
-            body: JSON.stringify({ ids: ids, destination: dest, generar_pdf: generarPdf }),
-        })
-            .then(function (res) {
-                if (res.status === 419) {
-                    if (window.hidePreloader) window.hidePreloader();
+        try {
+            const res = await fetch("/admin/equipos/bulk-mobilize", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN":
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute("content") || "",
+                    Accept: "application/json",
+                },
+                body: JSON.stringify({ ids: ids, destination: dest, generar_pdf: generarPdf }),
+            });
+
+            // Sesión expirada
+            if (res.status === 419) {
+                if (window.hidePreloader) window.hidePreloader();
+                if (typeof window.showModal === 'function') {
                     window.showModal({
                         type: "error",
                         title: "Sesión Expirada",
-                        message:
-                            "Su sesión ha expirado. La página se recargará.",
+                        message: "Su sesión ha expirado. La página se recargará.",
                         confirmText: "Recargar",
                         hideCancel: true,
                         onConfirm: () => window.location.reload(),
                     });
-                    return;
+                } else {
+                    window.location.reload();
                 }
-                if (!res.ok) throw new Error("Error en la respuesta");
-                return res.json();
-            })
-            .then(function (data) {
-                if (!data) return; // Session expired case
+                return;
+            }
 
-                // Hide preloader
-                if (window.hidePreloader) window.hidePreloader();
+            // Cualquier otro error HTTP: leer el body para mostrar el mensaje real
+            if (!res.ok) {
+                let errMsg = `Error del servidor (${res.status})`;
+                try {
+                    const errData = await res.json();
+                    errMsg = errData?.message || errData?.error || errMsg;
+                } catch (_) { /* ignorar si el body no es JSON */ }
+                throw new Error(errMsg);
+            }
 
-                removePortal();
-                overlay.remove();
-                window.clearSelection();
+            const data = await res.json();
 
-                // CRITICAL: Wait for table to fully reload before showing success
-                return window.loadEquipos().then(() => data); // Pasar data al siguiente then
-            })
-            .then(function (data) {
-                if (!data) return;
+            // Ocultar preloader, cerrar modal y limpiar selección
+            if (window.hidePreloader) window.hidePreloader();
+            removePortal();
+            overlay.remove();
+            window.clearSelection();
 
-                // 1. Iniciar Descarga Automática (Si hay ID)
+            // Refrescar tabla y esperar a que termine
+            await window.loadEquipos();
+
+            // Descarga del acta si aplica
+            if (data.generar_pdf) {
+                const firstId =
+                    data.movilizacion_ids && data.movilizacion_ids.length > 0
+                        ? data.movilizacion_ids[0]
+                        : null;
+
+                if (firstId) {
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = `/admin/movilizaciones/${firstId}/acta-traslado`;
+                    downloadLink.style.display = "none";
+                    document.body.appendChild(downloadLink);
+                    setTimeout(() => {
+                        downloadLink.click();
+                        setTimeout(() => document.body.removeChild(downloadLink), 1000);
+                    }, 100);
+                }
+            }
+
+            // Toast de éxito
+            if (typeof window.showToast === 'function') {
                 if (data.generar_pdf) {
-                    const firstId =
-                        data.movilizacion_ids && data.movilizacion_ids.length > 0
-                            ? data.movilizacion_ids[0]
-                            : null;
-
-                    if (firstId) {
-                        const downloadLink = document.createElement("a");
-                        downloadLink.href = `/admin/movilizaciones/${firstId}/acta-traslado`;
-                        downloadLink.style.display = "none";
-                        document.body.appendChild(downloadLink);
-
-                        // Pequeño delay para asegurar que el DOM lo procese
-                        setTimeout(() => {
-                            downloadLink.click();
-                            setTimeout(
-                                () => document.body.removeChild(downloadLink),
-                                1000,
-                            );
-                        }, 100);
-                    }
+                    window.showToast(`¡Movilización exitosa! Descargando acta de ${data.count} traslado(s)...`, 'success');
+                } else {
+                    window.showToast('Actualización de ubicación exitosa', 'success');
                 }
+            }
 
-                // 2. Notificación rápida de éxito
-                if (typeof window.showToast === 'function') {
-                    if (data.generar_pdf) {
-                        window.showToast(`¡Movilización exitosa! Descargando acta de ${data.count} traslado(s)...`, 'success');
-                    } else {
-                        window.showToast('Actualización de ubicación exitosa', 'success');
-                    }
-                }
+            if (document.activeElement) document.activeElement.blur();
+            document
+                .querySelectorAll(".custom-dropdown.active")
+                .forEach((el) => el.classList.remove("active"));
 
-                if (document.activeElement) document.activeElement.blur();
-                document
-                    .querySelectorAll(".custom-dropdown.active")
-                    .forEach((el) => el.classList.remove("active"));
-            })
-            .catch(function (err) {
-                console.error(err);
+        } catch (err) {
+            console.error('[Movilización Error]:', err);
 
-                // Hide preloader
-                if (window.hidePreloader) window.hidePreloader();
+            if (window.hidePreloader) window.hidePreloader();
 
-                // Remove overlay and portal to prevent UI blocking
-                removePortal();
-                overlay.remove();
-
-                // Restore button state (though overlay is gone, this variable reference persists)
+            // Restaurar el botón solo si el overlay aún existe
+            if (document.body.contains(overlay)) {
                 btn.innerHTML = '<i class="material-icons" style="font-size:18px;">send</i> Confirmar Movilización';
                 btn.disabled = false;
                 btn.style.opacity = "1";
                 btn.style.cursor = "pointer";
+            }
 
+            if (typeof window.showModal === 'function') {
                 window.showModal({
                     type: "error",
-                    title: "Error",
-                    message:
-                        "Hubo un error al procesar la movilización. Por favor intente nuevamente.",
+                    title: "Error en Movilización",
+                    message: err.message || "Hubo un error al procesar la movilización. Por favor intente nuevamente.",
                     confirmText: "Entendido",
                     hideCancel: true,
                 });
-            });
+            } else {
+                alert('Error: ' + (err.message || 'Error al procesar la movilización.'));
+            }
+        }
     };
 };
 
@@ -1188,10 +1181,21 @@ window.openAnchorModal = async function (event) {
     }
 
     const selections = Object.entries(window.selectedEquipos);
-    if (selections.length !== 1) return; // Only 1-to-1
+    if (selections.length === 0) return;
 
-    const sourceId = selections[0][0];
-    const sourceData = selections[0][1];
+    // Tomar el último seleccionado, o fallback al primero válido
+    let sourceId = window.lastSelectedEquipoId;
+    let sourceData = window.selectedEquipos[sourceId];
+
+    if (!sourceData || (sourceData.rolAnclaje !== 'REMOLCADOR' && sourceData.rolAnclaje !== 'REMOLCABLE')) {
+        const valid = selections.find(([id, data]) => data.rolAnclaje === 'REMOLCADOR' || data.rolAnclaje === 'REMOLCABLE');
+        if (valid) {
+            sourceId = valid[0];
+            sourceData = valid[1];
+        } else {
+            return;
+        }
+    }
     const firstFrenteId = sourceData.frenteId;
     const sourceRole = sourceData.rolAnclaje;
 
