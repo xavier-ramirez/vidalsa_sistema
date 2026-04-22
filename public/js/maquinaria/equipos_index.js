@@ -754,15 +754,22 @@ window.loadEquipos = function (url = null, silent = false) {
             // (sin esto el navegador no calcula layout → no bloquea)
             const temp = document.createElement('tbody');
             temp.innerHTML = data.html;
-            const allRows = Array.from(temp.childNodes);
+            const allRows = Array.from(temp.children);
 
             tableBody.innerHTML = '';
             tableBody.style.opacity = '1';
 
             const CHUNK_SIZE = 30; // filas por lote
             let index = 0;
+            let scrollObserver = null;
 
-            function renderNextChunk() {
+            function renderNextChunk(entries, observer) {
+                // Si es invocado por el IntersectionObserver, asegurar que está intersectando
+                if (entries && entries[0] && !entries[0].isIntersecting) return;
+                
+                // Desconectar el observador viejo para evitar fugas de memoria
+                if (observer) observer.disconnect();
+
                 // Guard #1: nueva petición canceló esta → no insertar filas obsoletas
                 if (abortController.signal.aborted) return;
                 // Guard #2: tabla quitada del DOM (nav SPA) → cancelar loop
@@ -782,12 +789,30 @@ window.loadEquipos = function (url = null, silent = false) {
                 if (window._registerLazyImages) window._registerLazyImages(tableBody);
 
                 index += CHUNK_SIZE;
-                // Usar setTimeout en lugar de requestAnimationFrame permite que el renderizado
-                // continúe en segundo plano si el usuario cambia de pestaña.
-                setTimeout(renderNextChunk, 10);
+
+                // Crear un sensor en la antepenúltima fila del chunk para cargar el siguiente
+                if (index < allRows.length) {
+                    const triggerIndex = Math.max(0, chunk.length - 5);
+                    const triggerRow = chunk[triggerIndex];
+                    
+                    if (triggerRow) {
+                        scrollObserver = new IntersectionObserver((obsEntries, obs) => {
+                            renderNextChunk(obsEntries, obs);
+                        }, {
+                            root: null,
+                            rootMargin: "300px", // Detectar 300px antes de llegar a la fila
+                            threshold: 0
+                        });
+                        scrollObserver.observe(triggerRow);
+                    }
+                } else {
+                    // Terminamos de inyectar todo
+                    reApplySelections();
+                }
             }
 
-            setTimeout(renderNextChunk, 10);
+            // Iniciar la inyección del primer chunk
+            renderNextChunk();
         })
         .catch((error) => {
             // AbortError es normal (nueva búsqueda canceló la anterior) — no loguear como error

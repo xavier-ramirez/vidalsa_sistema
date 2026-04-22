@@ -12,7 +12,7 @@
                 @if($equipo->frenteActual && $equipo->frenteActual->ESTATUS_FRENTE === 'FINALIZADO')
                     <div style="display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: 2px;">
                         <span
-                            style="background: #fef2f2; color: #dc2626; padding: 1px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; border: 1px solid #fecaca; animation: pulse-alert 2s infinite;">
+                            style="background: #fef2f2; color: #dc2626; padding: 1px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; border: 1px solid #fecaca;">
                             <i class="material-icons" style="font-size: 10px;">warning</i>
                             PROYECTO FINALIZADO
                         </span>
