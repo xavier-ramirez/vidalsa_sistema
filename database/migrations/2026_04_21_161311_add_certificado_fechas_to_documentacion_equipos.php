@@ -12,7 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('documentacion', function (Blueprint $table) {
-            $table->date('FECHA_ADICIONAL')->nullable()->after('ADICIONAL_FECHA_SUBIDA');
+            if (!Schema::hasColumn('documentacion', 'FECHA_ADICIONAL')) {
+                $table->date('FECHA_ADICIONAL')->nullable();
+            }
+            if (!Schema::hasColumn('documentacion', 'ADICIONAL_FECHA_SUBIDA')) {
+                $table->timestamp('ADICIONAL_FECHA_SUBIDA')->nullable();
+            }
+            if (!Schema::hasColumn('documentacion', 'ADICIONAL_SUBIDO_POR')) {
+                $table->unsignedBigInteger('ADICIONAL_SUBIDO_POR')->nullable();
+            }
         });
     }
 
