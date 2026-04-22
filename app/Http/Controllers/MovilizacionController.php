@@ -26,10 +26,6 @@ class MovilizacionController extends Controller
         $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
         $frentesPermitidos = $user ? $user->getFrentesIds() : [];
 
-        if (!$isLocalUser && $user && count($frentesPermitidos) > 0) {
-            // GLOBALES (Nivel!=2) resuelven su scope nativo en consulta,
-            // no forzamos `id_frente` en request para mantener el Dropdown Visual HTML limpio.
-        }
 
         $query = Movilizacion::with([
             'equipo.tipo',
@@ -257,11 +253,8 @@ class MovilizacionController extends Controller
             $movilizacionIds = [];
             if (!empty($insertData)) {
                 // ── Obtener IDs recién insertados de forma precisa ──────────────
-                // Usamos el ID del último registro antes del INSERT (lastInsertId
-                // no sirve para inserciones masivas en MySQL). La estrategia es
-                // filtrar por CODIGO_CONTROL + ID_FRENTE_DESTINO + created_at exacto
-                // para aislar SOLO los registros de esta tanda, sin traer históricos
-                // que puedan compartir el mismo CODIGO_CONTROL por colisiones pasadas.
+                // Filtramos por los equipos seleccionados + frente + timestamp exacto
+                // de esta tanda. Así evitamos traer históricos con el mismo CODIGO_CONTROL.
                 Movilizacion::insert($insertData);
 
                 $movilizacionIds = Movilizacion::whereIn('ID_EQUIPO', $request->ids)
@@ -484,7 +477,8 @@ class MovilizacionController extends Controller
             ])
                 ->where('CODIGO_CONTROL', $baseMov->CODIGO_CONTROL)
                 ->where('ID_FRENTE_DESTINO', $baseMov->ID_FRENTE_DESTINO)
-                ->where('created_at', $baseMov->created_at) // timestamp exacto = misma tanda
+                // UNIX_TIMESTAMP evita la diferencia de precisión entre Carbon (µs) y MySQL TIMESTAMP (s)
+                ->whereRaw('UNIX_TIMESTAMP(created_at) = UNIX_TIMESTAMP(?)', [$baseMov->created_at])
                 ->get();
 
             if ($movilizaciones->isEmpty()) {
