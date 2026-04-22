@@ -486,6 +486,8 @@ class MovilizacionController extends Controller
                 'usuario'
             ])
                 ->where('CODIGO_CONTROL', $baseMov->CODIGO_CONTROL)
+                ->where('ID_FRENTE_DESTINO', $baseMov->ID_FRENTE_DESTINO)
+                ->whereDate('created_at', $baseMov->created_at->toDateString())
                 ->get();
 
             if ($movilizaciones->isEmpty()) {
@@ -640,7 +642,8 @@ class MovilizacionController extends Controller
 
         if (!$seq) {
             // Fallback de seguridad: si la fila no existe (ej: BD nueva sin migrar)
-            $maxExistente = (int) DB::table('movilizacion_historial')->max('CODIGO_CONTROL') ?: 0;
+            // Usamos CAST para evitar MAX lexicográfico en columna varchar.
+            $maxExistente = (int) DB::selectOne("SELECT MAX(CAST(CODIGO_CONTROL AS UNSIGNED)) as m FROM movilizacion_historial")->m ?: 0;
             DB::table('secuencias')->insert([
                 'nombre'     => 'CODIGO_CONTROL',
                 'valor'      => $maxExistente,

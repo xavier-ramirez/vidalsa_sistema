@@ -15,11 +15,11 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Inicializar con el MAX real que ya existe en la tabla,
-        // para no reiniciar la numeración si ya hay datos.
+        // Inicializar con el MAX numérico real (CAST evita el orden lexicográfico del varchar).
+        // Ejemplo sin CAST: MAX('99','100') = '99' (alfabético). Con CAST: MAX = 100 (correcto).
         DB::table('secuencias')->insert([
             'nombre'     => 'CODIGO_CONTROL',
-            'valor'      => (int) DB::table('movilizacion_historial')->max('CODIGO_CONTROL') ?: 0,
+            'valor'      => (int) DB::selectOne("SELECT MAX(CAST(CODIGO_CONTROL AS UNSIGNED)) as m FROM movilizacion_historial")->m ?: 0,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
