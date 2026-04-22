@@ -1,42 +1,236 @@
 // equipos_index.js - Equipos Module Logic
-// Version: 2.2 - Global Selection & CSP Fixes
+// Version: 2.5 - IntersectionObserver Image Loader (Concurrency-Safe)
 
 // Use window to ensure persistent state across SPA reloads if the script is re-executed
 window.selectedEquipos = window.selectedEquipos || {};
+window.equiposData     = window.equiposData     || {};
 
-// Global Status Dropdown Logic
-window.toggleStatusDropdown = function (trigger) {
-    if (!trigger) return;
+// ── CONTROLLED IMAGE LOADER ───────────────────────────────────────────────
+// Usa IntersectionObserver para diferir la carga hasta que la imagen es visible,
+// más un semáforo que limita a MAX_CONCURRENT peticiones simultáneas.
+// Esto evita el congelamiento del browser cuando el usuario vuelve a la pestaña
+// y el browser intenta cargar decenas de imágenes al mismo tiempo contra el
+// servidor de un solo hilo (php artisan serve).
+(function () {
+    const MAX_CONCURRENT = 3;
+    let _active = 0;
+    let _queue  = [];
+    let _observer = null;
 
-    // PERMISSION CHECK
-    if (
-        typeof window.CAN_CHANGE_STATUS !== "undefined" &&
-        window.CAN_CHANGE_STATUS === false
-    ) {
-        if (window.showModal) {
-            window.showModal({
-                type: "error",
-                title: "Acceso Denegado",
-                message: "No tienes permisos para cambiar el estatus.",
-                confirmText: "Entendido",
-                hideCancel: true,
+    function _doLoad(img) {
+        _active++;
+        const src = img.dataset.src;
+        img.removeAttribute('data-src'); // impide doble-encola miento
+
+        img.onload = function () {
+            img.style.opacity = '1';
+            _active--;
+            _processQueue();
+        };
+        img.onerror = function () {
+            const w = img.closest('.table-image-wrapper');
+            if (w) {
+                w.innerHTML = '<span class="material-icons" style="color:#cbd5e0;font-size:24px;">image_not_supported</span>';
+                w.classList.add('placeholder');
+            }
+            _active--;
+            _processQueue();
+        };
+        img.src = src;
+    }
+
+    function _processQueue() {
+        while (_active < MAX_CONCURRENT && _queue.length > 0) {
+            const img = _queue.shift();
+            // Saltar si fue removido del DOM (filtro cambiado) o ya cargó
+            if (img && document.contains(img) && img.dataset.src) {
+                _doLoad(img);
+            }
+        }
+    }
+
+    function _getObserver() {
+        if (!_observer) {
+            _observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        var img = entry.target;
+                        _observer.unobserve(img);
+                        if (img.dataset.src) { // puede ya haber sido cargada
+                            _queue.push(img);
+                            _processQueue();
+                        }
+                    }
+                });
+            }, { rootMargin: '300px' });
+        }
+        return _observer;
+    }
+
+    // Registra las imágenes de un contenedor para observación.
+    // Llamar después de insertar filas en el DOM.
+    window._registerLazyImages = function (container) {
+        var obs = _getObserver();
+        container.querySelectorAll('img[data-src]').forEach(function (img) {
+            obs.observe(img);
+        });
+    };
+
+    // Limpia la cola al cambiar de filtro.
+    // Las imágenes activas terminan normalmente (no cancelar mid-flight).
+    window._resetImageLoader = function () {
+        _queue = [];
+        // Desconectar el observer y recrearlo en el siguiente registerLazyImages.
+        // Esto evita que el observer antiguo observe nodos de la búsqueda anterior.
+        if (_observer) {
+            _observer.disconnect();
+            _observer = null;
+        }
+    };
+})();
+
+// STATUS_CONFIG compartido (evita redeclaración duplicada)
+const STATUS_CONFIG = {
+    'OPERATIVO':        { color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle',  label: 'Operativo' },
+    'INOPERATIVO':      { color: '#dc2626', bg: '#fef2f2', icon: 'cancel',        label: 'Inoperativo' },
+    'EN MANTENIMIENTO': { color: '#d97706', bg: '#fffbeb', icon: 'engineering',   label: 'Mantenimiento' },
+    'DESINCORPORADO':   { color: '#475569', bg: '#f1f5f9', icon: 'archive',       label: 'Desincorp.' },
+};
+
+// ── SHARED STATUS MENU ──────────────────────────────────────────────────────
+// Un único menú flotante reutilizado para todos los equipos.
+// Elimina los 1,620+ nodos y 3,240+ event listeners que congelaban el navegador.
+(function () {
+    let _activeTrigger = null;
+
+    function getOrCreateMenu() {
+        let menu = document.getElementById('sharedStatusMenu');
+        if (menu) return menu;
+
+        menu = document.createElement('div');
+        menu.id = 'sharedStatusMenu';
+        menu.style.cssText = 'display:none; position:fixed; min-width:180px; background:white; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.15); border:1px solid #e2e8f0; z-index:9999; overflow:hidden;';
+
+        Object.entries(STATUS_CONFIG).forEach(([key, cfg]) => {
+            const item = document.createElement('div');
+            item.dataset.statusKey = key;
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; border-bottom:1px solid #f8fafc;';
+            item.innerHTML = `
+                <div style="background:${cfg.bg}; padding:4px; border-radius:4px; display:flex;">
+                    <i class="material-icons" style="font-size:16px; color:${cfg.color};">${cfg.icon}</i>
+                </div>
+                <span style="font-size:12px; font-weight:600; color:#334155;">${cfg.label}</span>
+                <i class="material-icons check-icon" style="font-size:14px; color:${cfg.color}; margin-left:auto; display:none;">check</i>
+            `;
+            item.addEventListener('mouseover', () => item.style.background = '#f8fafc');
+            item.addEventListener('mouseout',  () => item.style.background = 'white');
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!_activeTrigger) return;
+                const id  = _activeTrigger.dataset.equipoId;
+                const url = _activeTrigger.dataset.statusUrl;
+                closeSharedMenu();
+                window.changeStatusLite(id, key, url, _activeTrigger);
             });
-        }
-        return;
+            menu.appendChild(item);
+        });
+
+        document.body.appendChild(menu);
+        return menu;
     }
 
-    document.querySelectorAll(".status-dropdown-menu").forEach((menu) => {
-        if (menu.previousElementSibling !== trigger) {
-            menu.style.display = "none";
+    function closeSharedMenu() {
+        const menu = document.getElementById('sharedStatusMenu');
+        if (menu) menu.style.display = 'none';
+        _activeTrigger = null;
+    }
+
+    window.openSharedStatusMenu = function (trigger) {
+        if (window.CAN_CHANGE_STATUS === false || window.CAN_CHANGE_STATUS === 'false') {
+            if (window.showModal) window.showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para cambiar el estatus.', confirmText: 'Entendido', hideCancel: true });
+            return;
         }
+
+        const menu = getOrCreateMenu();
+        const currentStatus = trigger.dataset.status;
+
+        // Toggle: cerrar si ya está abierto para este trigger
+        if (_activeTrigger === trigger && menu.style.display !== 'none') {
+            closeSharedMenu(); return;
+        }
+
+        // Marcar el item activo con un check
+        menu.querySelectorAll('[data-status-key]').forEach(item => {
+            item.querySelector('.check-icon').style.display = (item.dataset.statusKey === currentStatus) ? 'inline' : 'none';
+        });
+
+        // Posicionar el menú justo debajo del trigger
+        const rect = trigger.getBoundingClientRect();
+        menu.style.display = 'block';
+        const menuH = menu.offsetHeight;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const top = spaceBelow >= menuH ? rect.bottom + 4 : rect.top - menuH - 4;
+        menu.style.top  = top + window.scrollY + 'px';
+        menu.style.left = rect.left + 'px';
+
+        _activeTrigger = trigger;
+    };
+
+    // Estos listeners son globales — registrar UNA sola vez aunque el script
+    // se re-ejecute en cada navegación SPA
+    if (!window._sharedMenuListenersReady) {
+        window._sharedMenuListenersReady = true;
+        // Cerrar al hacer click fuera
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('sharedStatusMenu');
+            if (menu && !menu.contains(e.target)) closeSharedMenu();
+        });
+        // Cerrar al hacer scroll
+        document.addEventListener('scroll', closeSharedMenu, true);
+    }
+})();
+
+// Manejador de cambio de estatus para el menú compartido
+window.changeStatusLite = function (id, newStatus, url, triggerEl) {
+    // Usa STATUS_CONFIG del ámbito de módulo (definido al inicio del archivo)
+    const oldStatus = triggerEl.dataset.status;
+    if (oldStatus === newStatus) return;
+
+    const cfg    = STATUS_CONFIG[newStatus] ?? STATUS_CONFIG['DESINCORPORADO'];
+    const oldCfg = STATUS_CONFIG[oldStatus] ?? STATUS_CONFIG['DESINCORPORADO'];
+    const iconEl = triggerEl.querySelector('.material-icons');
+    const spanEl = triggerEl.querySelector('span');
+
+    // Actualizar visualmente el trigger de inmediato (optimistic UI)
+    if (iconEl) { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
+    if (spanEl) spanEl.textContent = cfg.label;
+    triggerEl.dataset.status = newStatus;
+
+    fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data && data.success) {
+            if (window.updateLocalStats) window.updateLocalStats(oldStatus, newStatus);
+            if (window.showToast) window.showToast('Estatus actualizado correctamente.', 'success');
+        } else {
+            throw new Error(data.message ?? 'Error desconocido');
+        }
+    })
+    .catch(err => {
+        // Revertir cambio visual si falla
+        if (iconEl) { iconEl.textContent = oldCfg.icon; iconEl.style.color = oldCfg.color; }
+        if (spanEl) spanEl.textContent = oldCfg.label;
+        triggerEl.dataset.status = oldStatus;
+        if (window.showToast) window.showToast('Error al cambiar el estatus: ' + err.message, 'error');
     });
-
-    const menu = trigger.nextElementSibling;
-    if (menu) {
-        const isHidden =
-            menu.style.display === "none" || menu.style.display === "";
-        menu.style.display = isHidden ? "block" : "none";
-    }
 };
 
 // Selection UI Update Tracker
@@ -252,9 +446,34 @@ function handleRowClick(e) {
     updateSelectionUI();
 }
 
-// Global Event Listeners (Always attach via delegation - safe to re-run)
-// NOTE: Event delegation to document allows these to work even after DOM changes
-document.addEventListener("click", handleRowClick);
+// Global Event Listeners — registrar UNA sola vez aunque el script se re-ejecute
+// en cada navegación SPA. Sin este guard, cada visita a /equipos acumula un
+// listener adicional, causando procesamiento exponencial en clicks.
+if (!window._equiposClickListenersReady) {
+    window._equiposClickListenersReady = true;
+
+    document.addEventListener("click", handleRowClick);
+
+    document.addEventListener("click", function (e) {
+        // Clear Advanced Filters Button
+        const clearBtn = e.target.closest('[data-action="clear-advanced-filters"]');
+        if (clearBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.clearAdvancedFilters();
+            return;
+        }
+
+        // Clear Specific Filter (Generic)
+        const clearSpecific = e.target.closest("[data-clear-target]");
+        if (clearSpecific) {
+            e.preventDefault();
+            e.stopPropagation();
+            const target = clearSpecific.dataset.clearTarget;
+            window.selectAdvancedFilter(target, "");
+        }
+    });
+}
 
 // ─── DESANCLAR EQUIPOS (NUEVA LÓGICA DESDE CERO) ──────────────────────────────
 window.unanchorEquipos = async function (e) {
@@ -355,37 +574,6 @@ window.unanchorEquipos = async function (e) {
 };
 
 
-document.addEventListener("click", function (e) {
-    // Close status dropdowns when clicking outside
-    if (!e.target.closest(".custom-dropdown")) {
-        document.querySelectorAll(".status-dropdown-menu").forEach((menu) => {
-            menu.style.display = "none";
-        });
-    }
-
-    // 1. Identify specific clear actions
-    // (Search, Filter etc are handled by global selectors or inline)
-
-    // 2. Clear Advanced Filters Button
-    const clearBtn = e.target.closest('[data-action="clear-advanced-filters"]');
-    if (clearBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        window.clearAdvancedFilters();
-        return;
-    }
-
-    // 3. Clear Specific Filter (Generic)
-    const clearSpecific = e.target.closest("[data-clear-target]");
-    if (clearSpecific) {
-        e.preventDefault();
-        e.stopPropagation();
-        const target = clearSpecific.dataset.clearTarget; // 'id_frente' or 'modelo' etc
-
-        // All filters now use selectAdvancedFilter
-        window.selectAdvancedFilter(target, "");
-    }
-});
 
 window.enlargeImage = function (src) {
     const overlay = document.getElementById("imageOverlay");
@@ -422,6 +610,16 @@ window.filterByStatus = function (status) {
 window.loadEquipos = function (url = null, silent = false) {
     const tableBody = document.getElementById("equiposTableBody");
     if (!tableBody) return Promise.resolve();
+
+    // Cancelar cualquier petición anterior en vuelo antes de iniciar una nueva.
+    if (window._loadEquiposAbortController) {
+        window._loadEquiposAbortController.abort();
+    }
+    const abortController = new AbortController();
+    window._loadEquiposAbortController = abortController;
+
+    // Limpiar la cola de imágenes: los nodos viejos serán reemplazados por los nuevos.
+    if (window._resetImageLoader) window._resetImageLoader();
 
     let baseUrl = url || window.location.pathname;
     const searchInput = document.getElementById("searchInput");
@@ -500,6 +698,7 @@ window.loadEquipos = function (url = null, silent = false) {
     if (!silent && window.showPreloader) window.showPreloader();
 
     return fetch(finalUrl, {
+        signal: abortController.signal,
         headers: {
             "X-Requested-With": "XMLHttpRequest",
             Accept: "application/json",
@@ -508,6 +707,8 @@ window.loadEquipos = function (url = null, silent = false) {
         },
     })
         .then((response) => {
+            // Si fue abortada por una nueva petición, ignorar silenciosamente
+            if (abortController.signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
             if (response.status === 419 || response.status === 401 || (response.redirected && response.url.includes('/login'))) {
                 window.location.href = '/login';
                 return Promise.reject(new Error('Sesión expirada.'));
@@ -523,49 +724,77 @@ window.loadEquipos = function (url = null, silent = false) {
         .then((data) => {
             if (!data) return;
 
-            tableBody.innerHTML = data.html;
-            tableBody.style.opacity = "1";
+            // Cargar datos en memoria ANTES de tocar el DOM
+            if (data.equiposData) {
+                window.equiposData = { ...window.equiposData, ...data.equiposData };
+            }
 
-            // Re-apply blue highlight to all previously selected rows
-            // Uses dedicated function with String() cast to avoid int/string key mismatches
-            reApplySelections();
-
-            const paginationContainer =
-                document.getElementById("equiposPagination");
-            if (paginationContainer) paginationContainer.innerHTML = "";
-
-            // Elementos del DOM para stats (desktop + móvil)
-            const statsTotal        = document.getElementById('stats_total');
-            const statsInactivos    = document.getElementById('stats_inactivos');
-            const statsMantenimiento = document.getElementById('stats_mantenimiento');
-
-            // Show '--' when there are no active filters
+            // Actualizar stats y distribución (ligero, sin bloqueo)
+            // id_frente=all cuenta como filtro activo (carga todos los frentes)
             const hasActiveFilters = !!paramStr;
             const displayStat = (val) => hasActiveFilters ? val : '--';
+            const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            setEl('stats_total',          displayStat(data.stats.total));
+            setEl('stats_inactivos',      displayStat(data.stats.inactivos));
+            setEl('stats_mantenimiento',  displayStat(data.stats.mantenimiento));
+            setEl('mobile_stats_total',        displayStat(data.stats.total));
+            setEl('mobile_stats_inactivos',    displayStat(data.stats.inactivos));
+            setEl('mobile_stats_mantenimiento',displayStat(data.stats.mantenimiento));
 
-            if (statsTotal)         statsTotal.textContent         = displayStat(data.stats.total);
-            if (statsInactivos)     statsInactivos.textContent     = displayStat(data.stats.inactivos);
-            if (statsMantenimiento) statsMantenimiento.textContent = displayStat(data.stats.mantenimiento);
-
-            // Sincronizar pills móviles
-            const mTotal = document.getElementById("mobile_stats_total");
-            const mInop  = document.getElementById("mobile_stats_inactivos");
-            const mMant  = document.getElementById("mobile_stats_mantenimiento");
-            
-            if (mTotal) mTotal.textContent = displayStat(data.stats.total);
-            if (mInop)  mInop.textContent  = displayStat(data.stats.inactivos);
-            if (mMant)  mMant.textContent  = displayStat(data.stats.mantenimiento);
-
-            const distroContainer = document.getElementById(
-                "distributionStatsContainer",
-            );
+            const distroContainer = document.getElementById('distributionStatsContainer');
             if (distroContainer) distroContainer.innerHTML = data.distribution;
 
-            window.history.pushState(null, "", finalUrl);
+            const paginationContainer = document.getElementById('equiposPagination');
+            if (paginationContainer) paginationContainer.innerHTML = '';
+
+            window.history.pushState(null, '', finalUrl);
+
+            // ── RENDERIZADO PROGRESIVO ───────────────────────────────────────
+            // Parseamos el HTML en un contenedor temporal FUERA del DOM
+            // (sin esto el navegador no calcula layout → no bloquea)
+            const temp = document.createElement('tbody');
+            temp.innerHTML = data.html;
+            const allRows = Array.from(temp.childNodes);
+
+            tableBody.innerHTML = '';
+            tableBody.style.opacity = '1';
+
+            const CHUNK_SIZE = 30; // filas por lote
+            let index = 0;
+
+            function renderNextChunk() {
+                // Guard #1: nueva petición canceló esta → no insertar filas obsoletas
+                if (abortController.signal.aborted) return;
+                // Guard #2: tabla quitada del DOM (nav SPA) → cancelar loop
+                if (!document.contains(tableBody)) return;
+
+                const chunk = allRows.slice(index, index + CHUNK_SIZE);
+                if (chunk.length === 0) {
+                    reApplySelections();
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+                chunk.forEach(node => fragment.appendChild(node));
+                tableBody.appendChild(fragment);
+
+                // Registrar imágenes del chunk recién insertado con el loader controlado
+                if (window._registerLazyImages) window._registerLazyImages(tableBody);
+
+                index += CHUNK_SIZE;
+                // Usar setTimeout en lugar de requestAnimationFrame permite que el renderizado
+                // continúe en segundo plano si el usuario cambia de pestaña.
+                setTimeout(renderNextChunk, 10);
+            }
+
+            setTimeout(renderNextChunk, 10);
         })
         .catch((error) => {
-            console.error("Error loading equipos:", error);
-            tableBody.style.opacity = "1";
+            // AbortError es normal (nueva búsqueda canceló la anterior) — no loguear como error
+            if (error.name !== 'AbortError') {
+                console.error('Error loading equipos:', error);
+            }
+            tableBody.style.opacity = '1';
         })
         .finally(() => {
             if (window.hidePreloader) window.hidePreloader();
@@ -596,89 +825,6 @@ window.filterList = function (inputArg, listArg) {
     list.style.display = "block";
 };
 
-window.changeStatus = function (id, newStatus, url, element) {
-    // PERMISSION CHECK
-    if (window.CAN_CHANGE_STATUS === false || window.CAN_CHANGE_STATUS === 'false') {
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: "error",
-                title: "Acceso Denegado",
-                message: "No tienes permisos para cambiar el estado de los equipos.",
-                confirmText: "Entendido",
-                hideCancel: true
-            });
-        }
-        return;
-    }
-
-    if (!element) return;
-    const dropdown = element.closest(".custom-dropdown");
-    if (!dropdown) return;
-
-    const oldStatus = dropdown.getAttribute("data-current-status");
-    if (oldStatus === newStatus) {
-        window.toggleStatusDropdown(dropdown.querySelector(".status-trigger"));
-        return;
-    }
-
-    const trigger = dropdown.querySelector(".status-trigger");
-    const menu = dropdown.querySelector(".status-dropdown-menu");
-
-    const statusConfig = {
-        OPERATIVO: {
-            color: "#16a34a",
-            icon: "check_circle",
-            label: "Operativo",
-        },
-        INOPERATIVO: { color: "#dc2626", icon: "cancel", label: "Inoperativo" },
-        "EN MANTENIMIENTO": {
-            color: "#d97706",
-            icon: "engineering",
-            label: "Mantenimiento",
-        },
-        DESINCORPORADO: {
-            color: "#475569",
-            icon: "archive",
-            label: "Desincorp.",
-        },
-    };
-
-    const config = statusConfig[newStatus] || statusConfig["DESINCORPORADO"];
-    if (trigger) {
-        trigger.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 6px; color: ${config.color};">
-                <i class="material-icons" style="font-size: 16px;">${config.icon}</i>
-                <span style="color: #334155;">${config.label}</span>
-            </div>
-            <i class="material-icons" style="font-size: 16px; color: #94a3b8;">expand_more</i>
-        `;
-    }
-    if (menu) menu.style.display = "none";
-
-    window.updateLocalStats(oldStatus, newStatus);
-    dropdown.setAttribute("data-current-status", newStatus);
-
-    fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": document
-                .querySelector('meta[name="csrf-token"]')
-                .getAttribute("content"),
-            "X-HTTP-Method-Override": "PATCH",
-        },
-        body: JSON.stringify({ status: newStatus }),
-    })
-        .then((response) => {
-            if (response.status === 419 || response.status === 401) {
-                window.location.reload();
-            }
-        })
-        .catch((error) => {
-            console.error("Update failed:", error);
-            window.loadEquipos();
-        });
-};
 
 window.openBulkModal = function (event) {
     if (event) {
@@ -1452,49 +1598,32 @@ function initEquipos() {
     updateSelectionUI();
 }
 
-// Listen for SPA navigation
-window.addEventListener("spa:contentLoaded", function () {
-    const isOnEquiposPage =
-        document.getElementById("equiposTableBody") !== null;
+// window-level listeners — UNA sola vez aunque el script se re-ejecute en SPA
+if (!window._equiposWindowListenersReady) {
+    window._equiposWindowListenersReady = true;
 
-    if (isOnEquiposPage) {
-        // Reinitialize module when navigating TO equipos
-        initEquipos();
-    } else if (
-        window.selectedEquipos &&
-        Object.keys(window.selectedEquipos).length > 0
-    ) {
-        // Clear selections when navigating AWAY from equipos
-        window.selectedEquipos = {};
-        updateSelectionUI();
-    }
-});
+    // Reinicializar módulo al navegar A equipos, limpiar al salir
+    window.addEventListener("spa:contentLoaded", function () {
+        const isOnEquiposPage = document.getElementById("equiposTableBody") !== null;
+        if (isOnEquiposPage) {
+            initEquipos();
+        } else if (window.selectedEquipos && Object.keys(window.selectedEquipos).length > 0) {
+            window.selectedEquipos = {};
+            updateSelectionUI();
+        }
+    });
 
-// ==========================================
-// ADVANCED FILTER LOGIC
-// NOTE: clearAdvancedFilters is defined in uicomponents.js (authoritative source).
-// It only clears advanced filters (modelo/marca/año/checkboxes) — intentionally
-// does NOT touch the main Frente/Tipo dropdowns so their X buttons stay visible.
-// ==========================================
-
-// NOTE: selectAdvancedFilter, clearAdvancedFilters, clearDropdownFilter, clearFilter
-// are ALL defined in uicomponents.js (authoritative source) — do NOT duplicate here.
-// The uicomponents.js version handles all filter types and calls loadEquipos() correctly.
-
-// NOTE: selectOption is defined in uicomponents.js (global, supports 4-param legacy).
-// Equipos-specific visual side-effect (btnAdvancedFilter highlight) is applied via
-// the dropdown-selection event so it does NOT override the global function.
-
-window.addEventListener("dropdown-selection", function (e) {
-    // Only apply Equipos advanced-filter button highlight when on the equipos page
-    if (!document.getElementById("equiposTableBody")) return;
-    const advBtn = document.getElementById("btnAdvancedFilter");
-    if (advBtn && e.detail.value) {
-        advBtn.style.background = "#e1effa";
-        advBtn.style.color = "#0067b1";
-        advBtn.style.border = "1px solid #0067b1";
-    }
-});
+    // Destacar botón de filtros avanzados al seleccionar un valor de dropdown
+    window.addEventListener("dropdown-selection", function (e) {
+        if (!document.getElementById("equiposTableBody")) return;
+        const advBtn = document.getElementById("btnAdvancedFilter");
+        if (advBtn && e.detail.value) {
+            advBtn.style.background = "#e1effa";
+            advBtn.style.color = "#0067b1";
+            advBtn.style.border = "1px solid #0067b1";
+        }
+    });
+}
 
 // ==========================================
 // FLEET DASHBOARD LOGIC
@@ -1545,18 +1674,22 @@ window.handleCreateCheck = function (event) {
 
 // [End of dashboard cleanup]
 
-// Register with Module Manager (records module, no-op if already initialized)
-if (typeof ModuleManager !== 'undefined') {
-    ModuleManager.register(
-        "equipos",
-        () => document.getElementById("equiposTableBody") !== null,
-        initEquipos,
-    );
-}
+// NOTA: NO registramos 'equipos' con ModuleManager.
+// El módulo tiene su PROPIO listener 'spa:contentLoaded' (línea ~1579)
+// protegido con _equiposWindowListenersReady. Si además se registrara en
+// ModuleManager (que también escucha spa:contentLoaded), initEquipos() se
+// llamaría DOBLE en cada navegación SPA → doble fetch + doble updateSelectionUI.
 
-// Direct init on page load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initEquipos);
-} else {
-    initEquipos();
+// Direct init en carga inicial (hard-refresh).
+// En SPA nav, el listener spa:contentLoaded (línea ~1579) se encarga → no duplicar.
+// Usamos _equiposSpaReady para distinguir: si ya se registró el listener SPA,
+// significa que el script ya corrió una vez y esta re-ejecución es por SPA → omitir.
+if (!window._equiposSpaReady) {
+    // Primera ejecución real (hard-refresh o carga directa)
+    window._equiposSpaReady = true;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initEquipos);
+    } else {
+        initEquipos();
+    }
 }

@@ -181,6 +181,7 @@ class EquipoController extends Controller
                 'frenteActual',
                 'ancladoA.tipo',
                 'ancladoA.documentacion',
+                'ancladoA.frenteActual',
             ])
             ->withCount('subActivos')
             ->orderBy('tipo_equipos.nombre', 'asc')
@@ -250,12 +251,72 @@ class EquipoController extends Controller
         }
         // else: $stats queda en ceros => la vista muestra '--' (comportamiento original)
 
+        // Build JSON payload (needed for AJAX response AND initial page load script tag)
+        $jsonPayload = [];
+        if ($hasFilter) {
+            foreach ($equipos as $eq) {
+                $foto = ($eq->especificaciones && $eq->especificaciones->FOTO_REFERENCIAL)
+                        ? $eq->especificaciones->FOTO_REFERENCIAL
+                        : $eq->FOTO_EQUIPO;
+                $jsonPayload[$eq->ID_EQUIPO] = [
+                    'equipoId'        => $eq->ID_EQUIPO,
+                    'codigo'          => $eq->CODIGO_PATIO,
+                    'marca'           => $eq->MARCA,
+                    'modelo'          => $eq->MODELO,
+                    'anio'            => $eq->ANIO,
+                    'tipo'            => $eq->tipo->nombre ?? 'N/A',
+                    'categoria'       => $eq->CATEGORIA_FLOTA,
+                    'ubicacion'       => optional($eq->frenteActual)->NOMBRE_FRENTE ?? 'Sin Asignar',
+                    'motorSerial'     => $eq->SERIAL_DE_MOTOR,
+                    'chasis'          => $eq->SERIAL_CHASIS,
+                    'combustible'     => optional($eq->especificaciones)->COMBUSTIBLE ?? 'N/A',
+                    'consumo'         => optional($eq->especificaciones)->CONSUMO_PROMEDIO ?? 'N/A',
+                    'placa'           => optional($eq->documentacion)->PLACA ?? 'N/A',
+                    'titular'         => optional($eq->documentacion)->NOMBRE_DEL_TITULAR ?? 'N/A',
+                    'nroDoc'          => optional($eq->documentacion)->NRO_DE_DOCUMENTO ?? 'N/A',
+                    'vencSeguro'      => optional($eq->documentacion)->FECHA_VENC_POLIZA ?? 'N/A',
+                    'seguro'          => optional(optional($eq->documentacion)->seguro)->NOMBRE_ASEGURADORA ?? 'N/A',
+                    'linkPropiedad'   => optional($eq->documentacion)->LINK_DOC_PROPIEDAD ?? '',
+                    'propiedadAutor'  => optional($eq->documentacion)->PROPIEDAD_SUBIDO_POR ?? '',
+                    'propiedadFecha'  => optional($eq->documentacion)->PROPIEDAD_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->PROPIEDAD_FECHA_SUBIDA)->format('d/m/y') : '',
+                    'linkSeguro'      => optional($eq->documentacion)->LINK_POLIZA_SEGURO ?? '',
+                    'polizaAutor'     => optional($eq->documentacion)->POLIZA_SUBIDO_POR ?? '',
+                    'polizaFecha'     => optional($eq->documentacion)->POLIZA_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->POLIZA_FECHA_SUBIDA)->format('d/m/y') : '',
+                    'linkRotc'        => optional($eq->documentacion)->LINK_ROTC ?? '',
+                    'fechaRotc'       => optional($eq->documentacion)->FECHA_ROTC ?? '',
+                    'rotcAutor'       => optional($eq->documentacion)->ROTC_SUBIDO_POR ?? '',
+                    'rotcFecha'       => optional($eq->documentacion)->ROTC_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ROTC_FECHA_SUBIDA)->format('d/m/y') : '',
+                    'linkRacda'       => optional($eq->documentacion)->LINK_RACDA ?? '',
+                    'fechaRacda'      => optional($eq->documentacion)->FECHA_RACDA ?? '',
+                    'racdaAutor'      => optional($eq->documentacion)->RACDA_SUBIDO_POR ?? '',
+                    'racdaFecha'      => optional($eq->documentacion)->RACDA_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->RACDA_FECHA_SUBIDA)->format('d/m/y') : '',
+                    'linkAdicional'   => optional($eq->documentacion)->LINK_DOC_ADICIONAL ?? '',
+                    'fechaAdicional'  => optional($eq->documentacion)->FECHA_ADICIONAL ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ADICIONAL)->format('Y-m-d') : '',
+                    'adicionalAutor'  => optional($eq->documentacion)->ADICIONAL_SUBIDO_POR ?? '',
+                    'adicionalFecha'  => optional($eq->documentacion)->ADICIONAL_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ADICIONAL_FECHA_SUBIDA)->format('d/m/y') : '',
+                    'linkGps'         => $eq->LINK_GPS ?? '',
+                    'frenteId'        => $eq->ID_FRENTE_ACTUAL,
+                    'foto'            => $foto,
+                    'rolAnclaje'      => optional($eq->tipo)->ROL_ANCLAJE ?? 'NEUTRO',
+                    'anchorId'        => $eq->ID_ANCLAJE ?? '',
+                    'anchorCode'      => optional($eq->ancladoA)->CODIGO_PATIO ?? '',
+                    'anchorRol'       => optional(optional($eq->ancladoA)->tipo)->ROL_ANCLAJE ?? '',
+                    'anchorTipoNombre'=> optional(optional($eq->ancladoA)->tipo)->nombre ?? 'Equipo',
+                    'anchorPlaca'     => optional(optional($eq->ancladoA)->documentacion)->PLACA ?? '',
+                    'anchorSerial'    => optional($eq->ancladoA)->SERIAL_CHASIS ?? '',
+                    'subCount'        => $eq->sub_activos_count ?? 0,
+                    'detalleUbicacion'=> $eq->DETALLE_UBICACION_ACTUAL ?? '',
+                ];
+            }
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
-                'html' => view('admin.equipos.partials.table_rows', compact('equipos'))->render(),
-                'pagination' => '',
-                'stats' => $stats,
-                'distribution' => view('admin.equipos.partials.distribution_stats', compact('frentesStats', 'tiposStats', 'hasFilter'))->render(), // Pass hasFilter explicitly
+                'html'         => view('admin.equipos.partials.table_rows', compact('equipos'))->render(),
+                'equiposData'  => $jsonPayload,
+                'pagination'   => '',
+                'stats'        => $stats,
+                'distribution' => view('admin.equipos.partials.distribution_stats', compact('frentesStats', 'tiposStats', 'hasFilter'))->render(),
             ]);
         }
 
@@ -266,32 +327,23 @@ class EquipoController extends Controller
             $frentesQuery->whereRaw('1 = 0');
         }
         $frentes = $frentesQuery->get();
-        
+
         $allTipos = TipoEquipo::orderBy('nombre', 'asc')->get();
 
         // Advanced Filter Lists (Optimized with cache: Only needed for initial page load, not AJAX)
-        // Cache these lists for 1 hour to avoid repeated DB queries
         $availableModelos = \Illuminate\Support\Facades\Cache::remember('equipos_modelos_dropdown', 3600, function () {
-            return Equipo::distinct()
-                ->whereNotNull('MODELO')
-                ->where('MODELO', '!=', '')
-                ->orderBy('MODELO', 'asc')
-                ->pluck('MODELO');
+            return Equipo::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')->orderBy('MODELO', 'asc')->pluck('MODELO');
         });
 
         $availableMarcas = \Illuminate\Support\Facades\Cache::remember('equipos_marcas_dropdown', 3600, function () {
-            return Equipo::distinct()
-                ->whereNotNull('MARCA')
-                ->where('MARCA', '!=', '')
-                ->orderBy('MARCA', 'asc')
-                ->pluck('MARCA');
+            return Equipo::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
         });
 
         $availableAnios = \Illuminate\Support\Facades\Cache::remember('equipos_anios_dropdown', 3600, function () {
             return Equipo::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposStats', 'frentesStats', 'availableModelos', 'availableMarcas', 'availableAnios'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposStats', 'frentesStats', 'availableModelos', 'availableMarcas', 'availableAnios', 'jsonPayload'));
     }
 
     public function export(Request $request)
@@ -1334,10 +1386,13 @@ class EquipoController extends Controller
 
     public function changeStatus(Request $request, $id)
     {
+        $request->validate([
+            'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
+        ]);
         $equipo = $this->findAndAuthorizeEquipo($id);
         $equipo->ESTADO_OPERATIVO = $request->input('status');
         $equipo->save();
-        return back()->with('success', 'Estatus actualizado.');
+        return response()->json(['success' => true, 'message' => 'Estatus actualizado.']);
     }
 
 

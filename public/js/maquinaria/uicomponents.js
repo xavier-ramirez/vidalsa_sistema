@@ -724,10 +724,15 @@ window.showDetailsImproved = function (target, event) {
         console.error("showDetailsImproved called without valid target");
         return;
     }
-    const d = target.dataset;
+    
+    let d = { ...target.dataset };
     if (!d.equipoId) {
         console.error("showDetailsImproved called without equipoId");
         return;
+    }
+
+    if (window.equiposData && window.equiposData[d.equipoId]) {
+        d = { ...d, ...window.equiposData[d.equipoId] };
     }
 
 
@@ -1018,79 +1023,83 @@ window.closeDetailsModal = function (event) {
     }
 };
 
-window.loadResponsables = function(equipoId) {
-    const list = document.getElementById('responsable_list');
-    
-    // Al cargar historial, aseguremos que el formulario de edición esté cerrado y limpio
-    const formContainer = document.getElementById('responsable_form_container');
-    const inputCed = document.getElementById('resp_cedula');
-    const inputNom = document.getElementById('resp_nombre');
-    
-    if (formContainer && inputCed && inputNom) {
-        // En lugar de ocultar siempre con display='none', lo ocultamos DENTRO del fetch SI hay responsables.
-        // Mientras carga, lo dejamos visible provisionalmente para dar respuesta inmediata al usuario.
-        formContainer.style.display = 'flex'; 
-        inputCed.value = '';
-        inputNom.value = '';
-    }
+window.loadResponsables = (function () {
+    // Guard: evita llamadas simultáneas al mismo equipo
+    // (el SPA puede registrar el listener varias veces al recargar scripts)
+    let _inFlight = null;
 
-    if (!list) return;
+    return function loadResponsables(equipoId) {
+        // Si ya hay una petición activa para este mismo equipo, ignorar
+        if (_inFlight === String(equipoId)) return;
+        _inFlight = String(equipoId);
 
-    list.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Cargando responsables...</p>';
+        const list = document.getElementById('responsable_list');
 
-    fetch(`/admin/equipos/${equipoId}/responsables`, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (!res.success || res.data.length === 0) {
-            list.innerHTML = '';
-            // Si no hay responsables nunca, abrir el formulario para que asigne uno
-            if (formContainer) {
-                formContainer.style.display = 'flex';
+        const formContainer = document.getElementById('responsable_form_container');
+        const inputCed = document.getElementById('resp_cedula');
+        const inputNom = document.getElementById('resp_nombre');
+
+        if (formContainer && inputCed && inputNom) {
+            formContainer.style.display = 'flex';
+            inputCed.value = '';
+            inputNom.value = '';
+        }
+
+        if (!list) { _inFlight = null; return; }
+
+        list.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Cargando responsables...</p>';
+
+        fetch(`/admin/equipos/${equipoId}/responsables`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || res.data.length === 0) {
+                list.innerHTML = '';
+                if (formContainer) formContainer.style.display = 'flex';
+                return;
             }
-            return;
-        }
 
-        if (formContainer) {
-            formContainer.style.display = 'none';
-        }
+            if (formContainer) formContainer.style.display = 'none';
 
-        list.innerHTML = res.data.map((r, index) => {
-            const isCurrent = index === 0;
-            const bg = isCurrent ? '#f0fdf4' : '#f8fafc';
-            const border = isCurrent ? '#bbf7d0' : '#e2e8f0';
-            // Edit button on current user line
-            const editBtnEl = isCurrent ? `
-            <button type="button" onclick="document.getElementById('responsable_form_container').style.display='flex';" title="Editar Responsable" style="background: white; border: 1px solid #cbd5e1; color: #475569; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
-                <i class="material-icons" style="font-size: 14px;">edit</i>
-            </button>` : '';
+            list.innerHTML = res.data.map((r, index) => {
+                const isCurrent = index === 0;
+                const bg     = isCurrent ? '#f0fdf4' : '#f8fafc';
+                const border = isCurrent ? '#bbf7d0' : '#e2e8f0';
+                const editBtnEl = isCurrent ? `
+                <button type="button" onclick="document.getElementById('responsable_form_container').style.display='flex';" title="Editar Responsable" style="background: white; border: 1px solid #cbd5e1; color: #475569; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
+                    <i class="material-icons" style="font-size: 14px;">edit</i>
+                </button>` : '';
 
-            // Format fecha
-            const f = new Date(r.FECHA_ASIGNACION);
-            const dStr = isNaN(f.getTime()) ? r.FECHA_ASIGNACION : f.toLocaleDateString('es-VE');
+                const f = new Date(r.FECHA_ASIGNACION);
+                const dStr = isNaN(f.getTime()) ? r.FECHA_ASIGNACION : f.toLocaleDateString('es-VE');
 
-            return `
-            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${bg};border-radius:10px;border:1px solid ${border};transition:background .15s;">
-                <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;font-size:14px;">
-                    ${r.PERSONA_ASIGNADA.charAt(0).toUpperCase()}
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:13px;font-weight:700;color:#1e293b;word-wrap:break-word;overflow-wrap:break-word;line-height:1.2;">${r.PERSONA_ASIGNADA}</span>
+                return `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${bg};border-radius:10px;border:1px solid ${border};transition:background .15s;">
+                    <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;font-size:14px;">
+                        ${r.PERSONA_ASIGNADA.charAt(0).toUpperCase()}
                     </div>
-                    <div style="font-size:11px;color:#64748b;margin-top:2px;">
-                        C.I. ${r.CEDULA_RESPONSABLE} &nbsp;&bull;&nbsp; Asignado el ${dStr}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span style="font-size:13px;font-weight:700;color:#1e293b;word-wrap:break-word;overflow-wrap:break-word;line-height:1.2;">${r.PERSONA_ASIGNADA}</span>
+                        </div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">
+                            C.I. ${r.CEDULA_RESPONSABLE} &nbsp;&bull;&nbsp; Asignado el ${dStr}
+                        </div>
                     </div>
-                </div>
-                ${editBtnEl}
-            </div>`;
-        }).join('');
-    })
-    .catch(() => {
-        list.innerHTML = '<p style="color:#dc2626;font-size:12px;text-align:center;padding:8px;">Error al cargar responsables.</p>';
-    });
-};
+                    ${editBtnEl}
+                </div>`;
+            }).join('');
+        })
+        .catch(() => {
+            list.innerHTML = '<p style="color:#dc2626;font-size:12px;text-align:center;padding:8px;">Error al cargar responsables.</p>';
+        })
+        .finally(() => {
+            // Liberar el guard cuando la petición termina
+            _inFlight = null;
+        });
+    };
+})();
 
 window.saveResponsable = function(isAutoSave = false) {
     const equipoId = window._quickEditEquipoId;

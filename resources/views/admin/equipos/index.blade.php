@@ -100,7 +100,7 @@
 
                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                     <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
-                        <div class="dropdown-item {{ !request('id_tipo') ? 'selected' : '' }}" data-value="" onclick="selectOption('tipoFilterSelect', '', 'Filtrar Tipo...'); loadEquipos();">
+                        <div class="dropdown-item {{ !request('id_tipo') || request('id_tipo') === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectOption('tipoFilterSelect', 'all', 'TODOS LOS TIPOS'); loadEquipos();">
                             TODOS LOS TIPOS
                         </div>
                         @foreach($allTipos as $tipo)
@@ -1483,15 +1483,20 @@ window.toggleSubActivosMenu = function(event) {
     }
 };
 
-document.addEventListener('click', function(event) {
-    const menu = document.getElementById('splitDropdownMenuSubActivos');
-    const b = document.getElementById('btnAccionesSubActivos');
-    if (menu && menu.style.display === 'block') {
-        if (b && !b.contains(event.target) && !menu.contains(event.target)) {
-            menu.style.display = 'none';
+// Guard: este listener está en un <script> INLINE que se re-ejecuta en cada SPA nav.
+// Sin el guard, cada visita al módulo acumula un listener extra en document.
+if (!window._subActivosClickListenerReady) {
+    window._subActivosClickListenerReady = true;
+    document.addEventListener('click', function(event) {
+        const menu = document.getElementById('splitDropdownMenuSubActivos');
+        const b = document.getElementById('btnAccionesSubActivos');
+        if (menu && menu.style.display === 'block') {
+            if (b && !b.contains(event.target) && !menu.contains(event.target)) {
+                menu.style.display = 'none';
+            }
         }
-    }
-});
+    });
+}
 
 // Iconos y colores por tipo
 var SA_TIPO_CONFIG = {
@@ -1874,14 +1879,38 @@ function descargarExcelSubActivos() {
     document.body.removeChild(link);
 }
 
-// Cargar el badge al iniciar la página
-document.addEventListener('DOMContentLoaded', () => {
+// Cargar el badge al iniciar: funciona en hard-refresh Y en SPA nav.
+// DOMContentLoaded no dispara en SPA (ya se disparó en la carga inicial),
+// por eso usamos también el evento spa:contentLoaded.
+function _fetchSubActivosBadge() {
+    if (!document.getElementById('badgeSubActivos')) return; // No estamos en esta página
     fetch(SA_COUNT_URL, { headers:{'X-Requested-With':'XMLHttpRequest'} })
         .then(r => r.json()).then(j => actualizarBadge(j.total)).catch(()=>{});
-});
+}
+// Hard-refresh: DOMContentLoaded todavía puede disparar si el script carga antes que el DOM
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _fetchSubActivosBadge);
+} else {
+    _fetchSubActivosBadge();
+}
+// SPA nav: escuchar spa:contentLoaded (guard para no acumular listeners)
+if (!window._subActivosBadgeSpaReady) {
+    window._subActivosBadgeSpaReady = true;
+    window.addEventListener('spa:contentLoaded', _fetchSubActivosBadge);
+}
 
 // Modal solo se cierra con botón X (no al hacer clic fuera)
 </script>
+
+{{-- Seed window.equiposData en carga inicial (hard-refresh / primera visita).
+     En cargas AJAX, loadEquipos() lo rellena desde data.equiposData.
+     Aquí lo hacemos para que el modal del ojo funcione sin necesitar hacer
+     una búsqueda primero. --}}
+@if(!empty($jsonPayload))
+<script>
+    window.equiposData = Object.assign(window.equiposData || {}, @json($jsonPayload));
+</script>
+@endif
 
 @endsection
 @section('extra_js')
