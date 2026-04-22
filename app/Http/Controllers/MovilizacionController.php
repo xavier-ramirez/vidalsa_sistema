@@ -256,22 +256,19 @@ class MovilizacionController extends Controller
 
             $movilizacionIds = [];
             if (!empty($insertData)) {
+                // ── Obtener IDs recién insertados de forma precisa ──────────────
+                // Usamos el ID del último registro antes del INSERT (lastInsertId
+                // no sirve para inserciones masivas en MySQL). La estrategia es
+                // filtrar por CODIGO_CONTROL + ID_FRENTE_DESTINO + created_at exacto
+                // para aislar SOLO los registros de esta tanda, sin traer históricos
+                // que puedan compartir el mismo CODIGO_CONTROL por colisiones pasadas.
                 Movilizacion::insert($insertData);
 
-                if ($nextId !== null) {
-                    $movilizacionIds = Movilizacion::where('CODIGO_CONTROL', $nextId)
-                        ->pluck('ID_MOVILIZACION')
-                        ->toArray();
-                } else {
-                    // Si no hay CODIGO_CONTROL igual trataremos de retornar los ids 
-                    // aunque no se va a generar acta
-                    $movilizacionIds = Movilizacion::whereIn('ID_EQUIPO', $request->ids)
-                        ->where('ID_FRENTE_DESTINO', $frente->ID_FRENTE)
-                        ->where('TIPO_MOVIMIENTO', 'ACT.')
-                        ->where('created_at', $now)
-                        ->pluck('ID_MOVILIZACION')
-                        ->toArray();
-                }
+                $movilizacionIds = Movilizacion::whereIn('ID_EQUIPO', $request->ids)
+                    ->where('ID_FRENTE_DESTINO', $frente->ID_FRENTE)
+                    ->where('created_at', $now)  // timestamp exacto = esta tanda
+                    ->pluck('ID_MOVILIZACION')
+                    ->toArray();
             }
 
             \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
@@ -487,7 +484,7 @@ class MovilizacionController extends Controller
             ])
                 ->where('CODIGO_CONTROL', $baseMov->CODIGO_CONTROL)
                 ->where('ID_FRENTE_DESTINO', $baseMov->ID_FRENTE_DESTINO)
-                ->whereDate('created_at', $baseMov->created_at->toDateString())
+                ->where('created_at', $baseMov->created_at) // timestamp exacto = misma tanda
                 ->get();
 
             if ($movilizaciones->isEmpty()) {
