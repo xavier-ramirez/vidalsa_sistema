@@ -626,10 +626,37 @@ class MovilizacionController extends Controller
      * Genera el siguiente CODIGO_CONTROL de forma atómica.
      * DEBE ser llamado dentro de una transacción activa (DB::beginTransaction()).
      */
-    private function generateNextCodigoControl()
+    private function generateNextCodigoControl(): int
     {
-        $maxControl = DB::table('movilizacion_historial')->lockForUpdate()->max('CODIGO_CONTROL');
-        return $maxControl ? ((int)$maxControl + 1) : 1;
+        // ── BLOQUEO ATÓMICO DE FILA ──────────────────────────────────────────────
+        // lockForUpdate() sobre una PRIMARY KEY específica bloquea exactamente esa
+        // fila en InnoDB. Si dos transacciones llegan al mismo tiempo, la segunda
+        // espera hasta que la primera haga commit/rollback. Así NUNCA se repite un
+        // CODIGO_CONTROL, sin importar cuántos usuarios operen en simultáneo.
+        $seq = DB::table('secuencias')
+            ->where('nombre', 'CODIGO_CONTROL')
+            ->lockForUpdate()
+            ->first();
+
+        if (!$seq) {
+            // Fallback de seguridad: si la fila no existe (ej: BD nueva sin migrar)
+            $maxExistente = (int) DB::table('movilizacion_historial')->max('CODIGO_CONTROL') ?: 0;
+            DB::table('secuencias')->insert([
+                'nombre'     => 'CODIGO_CONTROL',
+                'valor'      => $maxExistente,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $nuevoValor = $maxExistente + 1;
+        } else {
+            $nuevoValor = (int) $seq->valor + 1;
+        }
+
+        DB::table('secuencias')
+            ->where('nombre', 'CODIGO_CONTROL')
+            ->update(['valor' => $nuevoValor, 'updated_at' => now()]);
+
+        return $nuevoValor;
     }
 
     /**
