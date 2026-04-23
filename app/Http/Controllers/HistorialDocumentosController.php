@@ -12,13 +12,19 @@ class HistorialDocumentosController extends Controller
     public function index(Request $request)
     {
         // 1. Fetch all documentation that has at least one upload
+        // whereNotNull/orWhereNotNull agrupados en closure para que la precedencia
+        // AND/OR se mantenga si en el futuro se anaden filtros previos (frente,
+        // rango de fechas, etc). Sin el closure, un where('algo',…) antes se
+        // perderia por la "OR chain" siguiente.
         $docs = Documentacion::with(['equipo.tipo', 'equipo.frenteActual', 'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc', 'usuarioRacda', 'usuarioAdicional', 'usuarioAdicional2'])
-            ->whereNotNull('PROPIEDAD_FECHA_SUBIDA')
-            ->orWhereNotNull('POLIZA_FECHA_SUBIDA')
-            ->orWhereNotNull('ROTC_FECHA_SUBIDA')
-            ->orWhereNotNull('RACDA_FECHA_SUBIDA')
-            ->orWhereNotNull('ADICIONAL_FECHA_SUBIDA')
-            ->orWhereNotNull('ADICIONAL_2_FECHA_SUBIDA')
+            ->where(function ($q) {
+                $q->whereNotNull('PROPIEDAD_FECHA_SUBIDA')
+                  ->orWhereNotNull('POLIZA_FECHA_SUBIDA')
+                  ->orWhereNotNull('ROTC_FECHA_SUBIDA')
+                  ->orWhereNotNull('RACDA_FECHA_SUBIDA')
+                  ->orWhereNotNull('ADICIONAL_FECHA_SUBIDA')
+                  ->orWhereNotNull('ADICIONAL_2_FECHA_SUBIDA');
+            })
             ->get();
 
         // 2. Parse them into a flat array of "upload events"
@@ -239,10 +245,12 @@ class HistorialDocumentosController extends Controller
                 ->values();
         } catch (\Illuminate\Database\QueryException $e) {
             // Solo atrapamos errores de query (tabla/col inexistente, driver distinto).
-            // Errores de logica siguen burbujeando. Log::error con stack trace para observabilidad.
+            // Errores de logica siguen burbujeando. Log::error con info real para observabilidad.
             \Illuminate\Support\Facades\Log::error('active users read failed', [
-                'error' => $e->getMessage(),
-                'sql'   => $e->getSql() ?? null,
+                'error'    => $e->getMessage(),
+                'sql'      => method_exists($e, 'getRawSql') ? $e->getRawSql() : null,
+                'bindings' => $e->getBindings(),
+                'code'     => $e->getCode(),
             ]);
         }
 

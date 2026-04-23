@@ -387,10 +387,10 @@ class MovilizacionController extends Controller
             $now = now();
             $frenteDestino = FrenteTrabajo::findOrFail($request->ID_FRENTE_DESTINO);
 
-            $equipos = \App\Models\Equipo::with('frenteActual')
-                ->whereIn('ID_EQUIPO', $request->ids)
+            // Sin `with('frenteActual')` — solo usamos ID_FRENTE_ACTUAL directo, no la relacion.
+            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
                 ->lockForUpdate()
-                ->get();
+                ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
             $insertData = [];
             foreach ($equipos as $equipo) {
