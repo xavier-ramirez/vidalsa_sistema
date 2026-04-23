@@ -1024,6 +1024,21 @@ window.openBulkModal = function (event) {
                 </div>
                 <input type="hidden" id="bm-frente-value">
             </div>
+            <!-- Ubicacion del frente NUEVO: se muestra solo si el frente escrito no existe -->
+            <div id="bm-ubicacion-wrapper" style="display:none; margin-top: 14px;">
+                <label style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:8px;">
+                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#f59e0b;">explore</i>
+                    Ubicación del nuevo frente <span style="color:#ef4444;">*</span>
+                    <small style="display:block;font-size:11px;font-weight:500;color:#94a3b8;margin-top:2px;">Zona, municipio o estado (obligatorio para informes)</small>
+                </label>
+                <div style="display:flex;align-items:center;border:2px solid #fde68a;border-radius:10px;background:#fffbeb;overflow:hidden;transition:border-color 0.2s;" id="bm-ubicacion-box">
+                    <i class="material-icons" style="padding:0 10px;color:#f59e0b;font-size:20px;flex-shrink:0;">location_on</i>
+                    <input type="text" id="bm-ubicacion-input"
+                        placeholder="Ej: PUERTO ORDAZ, BOLIVAR"
+                        maxlength="150" autocomplete="off"
+                        style="flex:1;border:none;outline:none;padding:11px 6px;font-size:14px;background:transparent;text-transform:uppercase;">
+                </div>
+            </div>
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <input type="checkbox" id="bm-generar-pdf" style="width: 16px; height: 16px; cursor: pointer; accent-color: #1e293b;">
                 <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; margin: 0;">
@@ -1092,6 +1107,17 @@ window.openBulkModal = function (event) {
     const clearBtn = overlay.querySelector('#bm-frente-clear');
     const inputBox = overlay.querySelector('#bm-input-box');
 
+    // Helper: muestra/oculta el campo de UBICACION cuando el frente escrito NO existe aun.
+    // `frentesData` contiene { nombre, ... } con los frentes ya registrados.
+    const ubicacionWrapper = overlay.querySelector('#bm-ubicacion-wrapper');
+    const ubicacionInput   = overlay.querySelector('#bm-ubicacion-input');
+    function toggleUbicacionPicker() {
+        const typed = (searchInput.value || '').trim().toUpperCase();
+        if (!typed) { ubicacionWrapper.style.display = 'none'; return; }
+        const match = frentesData.some(f => (f.nombre || '').toUpperCase() === typed);
+        ubicacionWrapper.style.display = match ? 'none' : 'block';
+    }
+
     searchInput.addEventListener('focus', () => {
         inputBox.style.borderColor = '#0067b1';
         renderFrenteList(searchInput.value);
@@ -1100,6 +1126,7 @@ window.openBulkModal = function (event) {
         hiddenInput.value = searchInput.value.trim();
         clearBtn.style.display = searchInput.value ? 'flex' : 'none';
         renderFrenteList(searchInput.value);
+        toggleUbicacionPicker();
     });
     searchInput.addEventListener('blur', () => {
         setTimeout(() => { listBox.style.display = 'none'; inputBox.style.borderColor = '#e2e8f0'; }, 150);
@@ -1108,6 +1135,8 @@ window.openBulkModal = function (event) {
         searchInput.value = '';
         hiddenInput.value = '';
         clearBtn.style.display = 'none';
+        ubicacionWrapper.style.display = 'none';
+        ubicacionInput.value = '';
         searchInput.focus();
     });
 
@@ -1126,6 +1155,21 @@ window.openBulkModal = function (event) {
             inputBox.style.borderColor = "#ef4444";
             searchInput.focus();
             return;
+        }
+
+        // Si el frente escrito NO existe, obligar a capturar su ubicacion (zona/municipio/estado).
+        const destUpper = dest.toUpperCase();
+        const isNewFrente = !frentesData.some(f => (f.nombre || '').toUpperCase() === destUpper);
+        let destUbicacion = '';
+        if (isNewFrente) {
+            destUbicacion = (ubicacionInput.value || '').trim();
+            if (!destUbicacion) {
+                const box = overlay.querySelector('#bm-ubicacion-box');
+                if (box) box.style.borderColor = '#ef4444';
+                ubicacionInput.focus();
+                if (window.showToast) window.showToast('Ingresa la ubicación del nuevo frente (zona, municipio o estado).', 'error');
+                return;
+            }
         }
 
         const btn = this;
@@ -1147,7 +1191,12 @@ window.openBulkModal = function (event) {
                             ?.getAttribute("content") || "",
                     Accept: "application/json",
                 },
-                body: JSON.stringify({ ids: ids, destination: dest, generar_pdf: generarPdf }),
+                body: JSON.stringify({
+                    ids: ids,
+                    destination: dest,
+                    destination_ubicacion: destUbicacion, // requerido solo si el frente es NUEVO
+                    generar_pdf: generarPdf
+                }),
             });
 
             // Sesión expirada

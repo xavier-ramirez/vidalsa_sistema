@@ -196,10 +196,11 @@ class MovilizacionController extends Controller
     public function bulkStore(Request $request)
     {
         $request->validate([
-            'ids'         => 'required|array|min:1',
-            'ids.*'       => 'exists:equipos,ID_EQUIPO',
-            'destination' => 'required|string|max:255',
-            'generar_pdf' => 'boolean',
+            'ids'                  => 'required|array|min:1',
+            'ids.*'                => 'exists:equipos,ID_EQUIPO',
+            'destination'          => 'required|string|max:255',
+            'destination_ubicacion'=> 'nullable|string|max:150',
+            'generar_pdf'          => 'boolean',
         ]);
 
         $authUser = auth()->user();
@@ -208,9 +209,27 @@ class MovilizacionController extends Controller
 
         DB::beginTransaction();
         try {
+            $destNombre    = strtoupper(trim($request->destination));
+            $destUbicacion = trim((string) $request->input('destination_ubicacion', ''));
+
+            // Si el frente NO existe, exigir la ubicacion (zona/municipio/estado). Es un
+            // dato critico para los informes. El frontend ya lo valida, este guard
+            // previene llamadas directas al endpoint que intenten saltarse la regla.
+            $frenteExistente = FrenteTrabajo::where('NOMBRE_FRENTE', $destNombre)->first();
+            if (!$frenteExistente && $destUbicacion === '') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El frente "' . $destNombre . '" no existe. Debes indicar su ubicación (zona, municipio o estado) para crearlo.',
+                ], 422);
+            }
+
             $frente = FrenteTrabajo::firstOrCreate(
-                ['NOMBRE_FRENTE'  => strtoupper($request->destination)],
-                ['ESTATUS_FRENTE' => 'ACTIVO']
+                ['NOMBRE_FRENTE' => $destNombre],
+                [
+                    'ESTATUS_FRENTE' => 'ACTIVO',
+                    'UBICACION'      => $destUbicacion !== '' ? strtoupper($destUbicacion) : null,
+                ]
             );
 
             // Scope LOCAL: el destino debe estar en la jurisdicción del usuario
