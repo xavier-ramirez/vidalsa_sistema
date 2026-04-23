@@ -1679,6 +1679,13 @@ class EquipoController extends Controller
                 ?? $u->NOMBRE_COMPLETO
                 ?? ('Usuario #' . $u->ID_USUARIO);
 
+            // Auditoria: registra la subida de documento.
+            \App\Models\EquipoAuditLog::registrar(
+                $equipo->ID_EQUIPO,
+                'upload_' . $type,
+                ['archivo' => basename($fullUrl)]
+            );
+
             return response()->json([
                 'success' => true,
                 'link'    => $fullUrl,
@@ -1870,6 +1877,9 @@ class EquipoController extends Controller
         \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
         \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
 
+        // Auditoria: registra el borrado del documento.
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete_' . $type, []);
+
         Log::info("Documento '{$type}' eliminado del equipo ID {$id} por usuario " . auth()->id());
 
         return response()->json(['success' => true, 'message' => 'Documento eliminado correctamente.']);
@@ -1971,6 +1981,13 @@ class EquipoController extends Controller
         if (!empty($updateData)) {
             $equipo->documentacion->update($updateData);
         }
+
+        // Auditoria: registra la edicion de metadata por tipo de documento.
+        \App\Models\EquipoAuditLog::registrar(
+            $equipo->ID_EQUIPO,
+            'metadata_' . $type,
+            !empty($updateData) ? $updateData : []
+        );
 
         // Clear Dashboard Cache to update alerts immediately
         \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');

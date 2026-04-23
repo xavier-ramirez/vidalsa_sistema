@@ -162,6 +162,66 @@ class HistorialDocumentosController extends Controller
             ]);
         }
 
+        // Eventos de AUDITORIA de equipos (ediciones, cambios de metadata, ubicacion).
+        // Se cargan desde la tabla `equipo_audit_log` con eager loading de equipo+usuario
+        // para evitar N+1. Limite alto para no agotar memoria en instalaciones grandes.
+        try {
+            $auditLogs = \App\Models\EquipoAuditLog::with(['equipo.tipo', 'usuario'])
+                ->orderByDesc('created_at')
+                ->limit(5000)
+                ->get();
+            foreach ($auditLogs as $log) {
+                $eq = $log->equipo;
+                $eName = $eq ? (($eq->tipo->nombre ?? 'Equipo') . ' ' . $eq->MARCA . ' ' . $eq->MODELO) : 'Equipo Eliminado';
+                $eId   = '#';
+                if ($eq) {
+                    if (!empty($eq->SERIAL_CHASIS)) {
+                        $eId = 'Serial Chasis: ' . $eq->SERIAL_CHASIS;
+                    } else {
+                        $eId = 'ID: ' . $eq->ID_EQUIPO;
+                    }
+                }
+                $tipoLabel = [
+                    'edit'                 => 'Edición de Datos',
+                    'metadata_propiedad'   => 'Edición Metadata Propiedad',
+                    'metadata_poliza'      => 'Edición Metadata Póliza',
+                    'metadata_rotc'        => 'Edición Metadata ROTC',
+                    'metadata_racda'       => 'Edición Metadata RACDA',
+                    'metadata_adicional'   => 'Edición Metadata Certificado',
+                    'metadata_adicional_2' => 'Edición Metadata Compraventa',
+                    'upload_propiedad'     => 'Subida Propiedad',
+                    'upload_poliza'        => 'Subida Póliza',
+                    'upload_rotc'          => 'Subida ROTC',
+                    'upload_racda'         => 'Subida RACDA',
+                    'upload_adicional'     => 'Subida Certificado',
+                    'upload_adicional_2'   => 'Subida Compraventa',
+                    'delete_propiedad'     => 'Borrado Propiedad',
+                    'delete_poliza'        => 'Borrado Póliza',
+                    'delete_rotc'          => 'Borrado ROTC',
+                    'delete_racda'         => 'Borrado RACDA',
+                    'delete_adicional'     => 'Borrado Certificado',
+                    'delete_adicional_2'   => 'Borrado Compraventa',
+                    'ubicacion'            => 'Cambio de Ubicación',
+                    'bulk_ubicacion'       => 'Ubicación Masiva',
+                ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
+
+                $events->push((object)[
+                    'doc_key'       => $log->ACCION,
+                    'tipo'          => $tipoLabel,
+                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'fecha_raw'     => $log->created_at,
+                    'fecha'         => $log->created_at,
+                    'link'          => null,
+                    'equipo_nombre' => $eName,
+                    'equipo_id'     => $eId,
+                    'equipo_db_id'  => $eq ? $eq->ID_EQUIPO : null,
+                ]);
+            }
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Tabla no existente / driver distinto → no rompe la vista, solo skip.
+            \Illuminate\Support\Facades\Log::warning('audit log read failed: ' . $e->getMessage());
+        }
+
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha_raw')->values();
 
