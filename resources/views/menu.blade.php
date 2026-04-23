@@ -130,20 +130,21 @@
         .menu-hero-title { font-size: 22px; }
     }
 
-    /* ── Wrapper grid: Salud Operacional + Alertas Documentos, 2 columnas en desktop, stack en mobile ── */
+    /* ── Wrapper grid: Salud Operacional + Alertas Documentos, responsive auto-fit ── */
     .cards-wrapper {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
         gap: 20px;
         align-items: stretch;
+        width: 100%;
     }
-    /* Los hijos directos ocupan toda la celda del grid para igualar alturas */
-    .cards-wrapper > * { display: flex; }
+    /* Los hijos directos ocupan toda la celda del grid para igualar alturas y evitar overflow */
+    .cards-wrapper > * { display: flex; min-width: 0; }
     .cards-wrapper > * > .salud-card,
     .cards-wrapper > * > .alertas-card,
     .cards-wrapper > .salud-card,
-    .cards-wrapper > .alertas-card { width: 100%; height: 100%; }
-    @media (max-width: 900px) {
+    .cards-wrapper > .alertas-card { width: 100%; height: 100%; min-width: 0; }
+    @media (max-width: 1100px) {
         .cards-wrapper { grid-template-columns: 1fr; gap: 16px; }
     }
 
