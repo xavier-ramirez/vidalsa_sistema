@@ -1024,19 +1024,26 @@ window.openBulkModal = function (event) {
                 </div>
                 <input type="hidden" id="bm-frente-value">
             </div>
-            <!-- Ubicacion del frente NUEVO: se muestra solo si el frente escrito no existe -->
-            <div id="bm-ubicacion-wrapper" style="display:none; margin-top: 14px;">
-                <label style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:8px;">
-                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#f59e0b;">explore</i>
-                    Ubicación del nuevo frente <span style="color:#ef4444;">*</span>
-                    <small style="display:block;font-size:11px;font-weight:500;color:#94a3b8;margin-top:2px;">Zona, municipio o estado (obligatorio para informes)</small>
-                </label>
-                <div style="display:flex;align-items:center;border:2px solid #fde68a;border-radius:10px;background:#fffbeb;overflow:hidden;transition:border-color 0.2s;" id="bm-ubicacion-box">
-                    <i class="material-icons" style="padding:0 10px;color:#f59e0b;font-size:20px;flex-shrink:0;">location_on</i>
-                    <input type="text" id="bm-ubicacion-input"
-                        placeholder="Ej: PUERTO ORDAZ, BOLIVAR"
-                        maxlength="150" autocomplete="off"
-                        style="flex:1;border:none;outline:none;padding:11px 6px;font-size:14px;background:transparent;text-transform:uppercase;">
+            <!-- Ubicacion del frente NUEVO: aparece solo si el frente no existe. Animacion slide-in. -->
+            <div id="bm-ubicacion-wrapper"
+                 style="display:none; margin-top: 14px; overflow:hidden;">
+                <div style="background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%); border:1px solid #bfdbfe; border-left:4px solid #0067b1; border-radius:10px; padding:14px 14px; animation:bmSlideIn 0.28s cubic-bezier(0.16,1,0.3,1);">
+                    <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px;">
+                        <div style="width:32px; height:32px; border-radius:8px; background:#0067b1; color:white; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <i class="material-icons" style="font-size:18px;">add_location_alt</i>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;">Frente nuevo detectado</p>
+                            <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa su ubicación (zona, municipio o estado) para incluirla en los informes.</p>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;" id="bm-ubicacion-box">
+                        <i class="material-icons" style="padding:0 10px; color:#0067b1; font-size:18px; flex-shrink:0;">location_on</i>
+                        <input type="text" id="bm-ubicacion-input"
+                            placeholder="Ej: PUERTO ORDAZ, BOLÍVAR"
+                            maxlength="150" autocomplete="off"
+                            style="flex:1; border:none; outline:none; padding:10px 6px; font-size:13.5px; background:transparent; text-transform:uppercase; color:#0f172a; letter-spacing:0.3px;">
+                    </div>
                 </div>
             </div>
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -1055,6 +1062,15 @@ window.openBulkModal = function (event) {
     content.appendChild(header);
     content.appendChild(body);
     overlay.appendChild(content);
+
+    // Keyframe para el slide-in del campo ubicacion (inyectado una sola vez).
+    if (!document.getElementById('bm-slidein-keyframes')) {
+        const st = document.createElement('style');
+        st.id = 'bm-slidein-keyframes';
+        st.textContent = '@keyframes bmSlideIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } } #bm-ubicacion-box:focus-within { border-color: #0067b1 !important; box-shadow: 0 0 0 3px rgba(0,103,177,0.15) !important; }';
+        document.head.appendChild(st);
+    }
+
     document.body.appendChild(overlay);
 
     // ── Dropdown portal: renderizado en document.body para escapar del overflow modal ──
