@@ -72,6 +72,36 @@
             }
         }
 
+        /* Ranking "Total de Consumo por Frente" — compactar en pantallas chicas */
+        @media (max-width: 640px) {
+            .g-card { padding: 16px; }
+            .g-title { font-size: 13px; }
+            .g-title i { font-size: 16px; }
+            .frow {
+                grid-template-columns: 20px minmax(0, 1fr) 60px auto;
+                gap: 6px;
+                padding: 6px 0;
+            }
+            .frow-num  { font-size: 10px; }
+            .frow-name { font-size: 11px; line-height: 1.2; }
+            .frow-val  { font-size: 11px; padding-left: 2px; }
+            .frow-dep  { font-size: 10px; }
+            .frow-bar-wrap { height: 8px; }
+        }
+
+        @media (max-width: 420px) {
+            .g-card { padding: 12px; }
+            .g-title { font-size: 12px; }
+            .frow {
+                grid-template-columns: 18px minmax(0, 1fr) 40px auto;
+                gap: 5px;
+            }
+            .frow-num  { font-size: 9px; }
+            .frow-name { font-size: 10px; }
+            .frow-val  { font-size: 10px; }
+            .frow-dep  { font-size: 9px; }
+        }
+
         /* Tarjetas resumen */
         .resumen-grid {
             display: flex;

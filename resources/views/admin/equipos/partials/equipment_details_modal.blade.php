@@ -38,38 +38,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                 </button>
             </div>
 
-            {{-- Fila secundaria: Ubicacion Especifica (Quick Edit) --}}
-            <div style="background: #1e293b; padding: 6px 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <i class="material-icons" style="font-size: 14px; opacity: 0.65;">place</i>
-                <span style="font-size: 10px; opacity: 0.65; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;">Ubicaci&oacute;n:</span>
-
-                {{-- Modo lectura --}}
-                <div id="ubicacion_display_wrapper" style="display: flex; align-items: center; gap: 6px;">
-                    <span id="d_detalle_ubicacion"
-                        style="color: #ffffff; font-size: 13px; font-weight: 700; opacity: 0.95;">&mdash;</span>
-                    <button type="button" id="btn_edit_ubicacion" title="Editar ubicaci&oacute;n"
-                        style="background: rgba(255,255,255,0.1); border: none; padding: 3px 6px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; color: rgba(255,255,255,0.6); transition: all 0.2s;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.2)';this.style.color='white'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.1)';this.style.color='rgba(255,255,255,0.6)'"
-                        onclick="startEditUbicacion()">
-                        <i class="material-icons" style="font-size: 14px;">edit</i>
-                    </button>
-                </div>
-
-                {{-- Modo edicion --}}
-                <div id="ubicacion_edit_wrapper" style="display: none; align-items: center; gap: 6px; flex: 1;">
-                    <input type="text" id="input_ubicacion" maxlength="150"
-                        style="flex: 1; min-width: 140px; padding: 2px 8px; border: 1px solid rgba(255,255,255,0.35); border-radius: 6px; font-size: 12px; color: #1e293b; outline: none; background: white;"
-                        placeholder="Ej: Fase 2, Estacionamiento..."
-                        onkeydown="if(event.key==='Enter') saveUbicacion(); if(event.key==='Escape') saveUbicacion();">
-                    <button type="button" onclick="saveUbicacion()"
-                        style="background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: background 0.2s;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.3)'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.15)'" title="Guardar y cerrar">
-                        &#x2715;
-                    </button>
-                </div>
-            </div>
+            {{-- Bloque "Ubicación Específica (Quick Edit)" removido por solicitud del usuario. --}}
 
         </div>{{-- /HEADER --}}
 

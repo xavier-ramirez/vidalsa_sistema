@@ -40,7 +40,29 @@ class DashboardController extends Controller
                 ->orderBy('NOMBRE_FRENTE')
                 ->get();
 
-            return compact('movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity', 'expiredList', 'frentes');
+            // 6. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
+            $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
+                ->where(function ($q) {
+                    $q->whereNull('ID_FRENTE_ACTUAL')
+                      ->orWhereNotIn('ID_FRENTE_ACTUAL', function ($sub) {
+                          $sub->select('ID_FRENTE')
+                              ->from('frentes_trabajo')
+                              ->where('TIPO_FRENTE', 'ESPECIAL');
+                      });
+                });
+
+            $totalFlotaActiva     = (clone $saludBase)->count();
+            $equiposOperativos    = (clone $saludBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
+            // En mantenimiento agrupa "MANTENIMIENTO" y "EN MANTENIMIENTO" (hay inconsistencia en BD)
+            $equiposMantenimiento = (clone $saludBase)->where('ESTADO_OPERATIVO', 'like', '%MANTENIMIENTO%')->count();
+            // Inoperativos = resto (INOPERATIVO + DESCONOCIDO + otros) para que los 3 chips sumen exacto
+            $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
+
+            return compact(
+                'movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity',
+                'expiredList', 'frentes', 'totalFlotaActiva',
+                'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento'
+            );
         });
 
         return view('menu', $data);

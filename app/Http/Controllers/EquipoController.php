@@ -64,8 +64,24 @@ class EquipoController extends Controller
             }
         }
 
-        if (!in_array('id_frente', $exclude) && $request->filled('id_frente') && trim($request->id_frente) !== '' && $request->id_frente !== 'all') {
-            $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        if (!in_array('id_frente', $exclude)) {
+            $raw = trim((string) $request->input('id_frente', ''));
+            if ($raw !== '' && $raw !== 'all') {
+                // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL)
+                $query->where('ID_FRENTE_ACTUAL', $raw);
+            } else {
+                // "TODOS LOS FRENTES" o sin filtro explícito: excluir equipos en frentes
+                // tipo ESPECIAL (asignaciones especiales — equipos que controlamos pero no son de Vidalsa).
+                // Solo deben contar OPERACION y RESGUARDO.
+                $query->where(function ($q) {
+                    $q->whereNull('ID_FRENTE_ACTUAL')
+                      ->orWhereNotIn('ID_FRENTE_ACTUAL', function ($sub) {
+                          $sub->select('ID_FRENTE')
+                              ->from('frentes_trabajo')
+                              ->where('TIPO_FRENTE', 'ESPECIAL');
+                      });
+                });
+            }
         }
 
         if (!in_array('id_tipo', $exclude) && $request->filled('id_tipo') && trim($request->id_tipo) !== '' && $request->id_tipo !== 'all') {
@@ -212,14 +228,25 @@ class EquipoController extends Controller
             $hasFilter = true;
         }
 
-        // Virtual scroll: el JS renderiza de 30 en 30 filas usando IntersectionObserver.
-        // No se necesita paginación server-side; se devuelven TODOS los resultados de
-        // una vez y el cliente gestiona el progresivo.
+        // Paginación server-side con cap por página.
+        // La tabla carga 150 filas por request; al final el frontend pide el siguiente lote
+        // (offset += 150) con IntersectionObserver para scroll infinito.
+        $PAGE_SIZE = 150;
+        $offset    = max(0, (int) $request->input('offset', 0));
+        $totalFound = 0;
+        $truncated  = false;
+        $nextOffset = 0;
+        $hasMore    = false;
         if ($hasFilter) {
+            $totalFound = (clone $equipos)->count();
+            $equipos->offset($offset)->limit($PAGE_SIZE);
             $allResults = $equipos->get();
-            $equipos    = $allResults;           // Colección plana → iterable en Blade
+            $equipos    = $allResults;
+            $nextOffset = $offset + $allResults->count();
+            $hasMore    = $nextOffset < $totalFound;
+            $truncated  = $totalFound > $PAGE_SIZE; // legacy flag para compatibilidad
         } else {
-            $allResults = collect([]);            // Sin filtro: tabla vacía
+            $allResults = collect([]);
             $equipos    = collect([]);
         }
 
@@ -229,13 +256,17 @@ class EquipoController extends Controller
         $ubicacionesStats = collect([]);
         $frenteEspecial = null;
 
-        // Calcular stats SOLO cuando hay filtro activo (optimización: usa la colección ya cargada)
+        // Stats, tiposStats, frentesStats, ubicacionesStats usan queries independientes del
+        // cap de la tabla: siempre muestran los TOTALES completos según los filtros activos.
         if ($hasFilter) {
-            $stats['total'] = $allResults->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
-            $stats['activos'] = $allResults->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
-            $stats['inactivos'] = $allResults->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
-            $stats['mantenimiento'] = $allResults->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
-            $stats['desincorporados'] = $allResults->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
+            // Stats: count directo con los mismos filtros, sin offset/limit
+            $statsBase = Equipo::query();
+            $this->applyEquipoFilters($statsBase, $request);
+            $stats['total']           = (clone $statsBase)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
+            $stats['activos']         = (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
+            $stats['inactivos']       = (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
+            $stats['mantenimiento']   = (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
+            $stats['desincorporados'] = (clone $statsBase)->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
 
             // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
             $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
@@ -349,6 +380,14 @@ class EquipoController extends Controller
                 'equiposData'  => $jsonPayload,
                 'pagination'   => '',
                 'stats'        => $stats,
+                'truncated'         => $truncated,
+                'totalFound'        => $totalFound,
+                'shownCount'        => $allResults->count(),
+                'hardCap'           => $PAGE_SIZE,
+                'pageSize'          => $PAGE_SIZE,
+                'offset'            => $offset,
+                'nextOffset'        => $nextOffset,
+                'hasMore'           => $hasMore,
                 'distribution'      => view('admin.equipos.partials.distribution_stats', [
                     'frentesStats' => $frentesStats,
                     'tiposStats'   => $tiposStats,

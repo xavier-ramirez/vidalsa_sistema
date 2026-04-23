@@ -476,8 +476,11 @@ if (document.readyState === 'loading') {
 window.addEventListener('spa:contentLoaded', function () {
     const form = document.getElementById('createEquipoForm') || document.getElementById('editEquipoForm');
     if (form) {
-        // Reset flag to allow reinitialization
-        form.dataset.handlerAttached = null;
+        // Reset flag para permitir reinicialización.
+        // Usar delete (no = null): el setter de dataset convierte null a la string "null", que es truthy
+        // y bloquea el early-return en initEquiposForm (línea ~177), dejando al form sin handler de submit.
+        delete form.dataset.handlerAttached;
+        delete form.dataset.isSubmitting;
         initEquiposForm();
     }
 });

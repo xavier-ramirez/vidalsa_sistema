@@ -600,7 +600,13 @@ window.filterByStatus = function (status) {
     window.loadEquipos();
 };
 
-window.loadEquipos = function (url = null, silent = false) {
+window.loadEquipos = function (url = null, silent = false, opts = {}) {
+    // Defensa: si el primer argumento es boolean (caller antiguo que usaba loadEquipos(true)),
+    // interpretarlo como el flag silent para no romper con "baseUrl.includes is not a function".
+    if (typeof url === 'boolean') { silent = url; url = null; }
+    if (url !== null && typeof url !== 'string') { url = null; }
+    const offset = Math.max(0, parseInt(opts.offset, 10) || 0);
+    const append = !!opts.append;
     const tableBody = document.getElementById("equiposTableBody");
     if (!tableBody) return Promise.resolve();
 
@@ -680,6 +686,9 @@ window.loadEquipos = function (url = null, silent = false) {
         }
     });
 
+    // Paginación server-side: enviar offset para lotes subsiguientes (infinite scroll)
+    if (offset > 0) params.append('offset', String(offset));
+
     // NOTE: reApplySelections() is NOT called here because the table
     // shows a "no filters" message with no real rows to highlight.
 
@@ -723,50 +732,51 @@ window.loadEquipos = function (url = null, silent = false) {
                 window.equiposData = { ...window.equiposData, ...data.equiposData };
             }
 
-            // Actualizar stats y distribución (ligero, sin bloqueo)
-            // id_frente=all cuenta como filtro activo (carga todos los frentes)
-            const hasActiveFilters = !!paramStr;
-            const displayStat = (val) => hasActiveFilters ? val : '--';
-            const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-            setEl('stats_total',          displayStat(data.stats.total));
-            setEl('stats_inactivos',      displayStat(data.stats.inactivos));
-            setEl('stats_mantenimiento',  displayStat(data.stats.mantenimiento));
-            setEl('mobile_stats_total',        displayStat(data.stats.total));
-            setEl('mobile_stats_inactivos',    displayStat(data.stats.inactivos));
-            setEl('mobile_stats_mantenimiento',displayStat(data.stats.mantenimiento));
+            // Stats / distribución / URL: solo en la primera página (offset=0).
+            // En lotes subsiguientes (append) los totales ya están correctos y no se tocan.
+            if (!append) {
+                const hasActiveFilters = !!paramStr;
+                const displayStat = (val) => hasActiveFilters ? val : '--';
+                const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                setEl('stats_total',               displayStat(data.stats.total));
+                setEl('stats_inactivos',           displayStat(data.stats.inactivos));
+                setEl('stats_mantenimiento',       displayStat(data.stats.mantenimiento));
+                setEl('mobile_stats_total',        displayStat(data.stats.total));
+                setEl('mobile_stats_inactivos',    displayStat(data.stats.inactivos));
+                setEl('mobile_stats_mantenimiento',displayStat(data.stats.mantenimiento));
 
-            const distroContainer = document.getElementById('distributionStatsContainer');
-            if (distroContainer) distroContainer.innerHTML = data.distribution;
+                const distroContainer = document.getElementById('distributionStatsContainer');
+                if (distroContainer) distroContainer.innerHTML = data.distribution;
 
-            // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL
-            const ubicacionesCard      = document.getElementById('ubicacionesStatsCard');
-            const ubicacionesContainer = document.getElementById('ubicacionesStatsContainer');
-            const ubicacionFilterWrap  = document.getElementById('ubicacionAdvFilterWrapper');
-            const ubicacionFilterEl    = document.getElementById('ubicacionAdvFilter');
-            const showUbi = !!(data && data.showUbicaciones);
+                // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL
+                const ubicacionesCard      = document.getElementById('ubicacionesStatsCard');
+                const ubicacionesContainer = document.getElementById('ubicacionesStatsContainer');
+                const ubicacionFilterWrap  = document.getElementById('ubicacionAdvFilterWrapper');
+                const ubicacionFilterEl    = document.getElementById('ubicacionAdvFilter');
+                const showUbi = !!(data && data.showUbicaciones);
 
-            if (ubicacionesCard && ubicacionesContainer) {
-                if (showUbi && data.ubicaciones) {
-                    ubicacionesContainer.innerHTML = data.ubicaciones;
-                    ubicacionesCard.style.display = '';
-                } else {
-                    ubicacionesCard.style.display = 'none';
-                    ubicacionesContainer.innerHTML = '';
-                }
-            }
-
-            if (ubicacionFilterWrap) {
-                ubicacionFilterWrap.style.display = showUbi ? '' : 'none';
-                // Si ya no aplica el filtro de ubicación, limpiar valor y lista
-                if (!showUbi && ubicacionFilterEl && typeof window.clearDropdownFilter === 'function') {
-                    const hidden = ubicacionFilterEl.querySelector('input[data-filter-value]');
-                    if (hidden && hidden.value !== '') {
-                        window.clearDropdownFilter('ubicacionAdvFilter');
+                if (ubicacionesCard && ubicacionesContainer) {
+                    if (showUbi && data.ubicaciones) {
+                        ubicacionesContainer.innerHTML = data.ubicaciones;
+                        ubicacionesCard.style.display = '';
+                    } else {
+                        ubicacionesCard.style.display = 'none';
+                        ubicacionesContainer.innerHTML = '';
                     }
                 }
-            }
 
-            window.history.pushState(null, '', finalUrl);
+                if (ubicacionFilterWrap) {
+                    ubicacionFilterWrap.style.display = showUbi ? '' : 'none';
+                    if (!showUbi && ubicacionFilterEl && typeof window.clearDropdownFilter === 'function') {
+                        const hidden = ubicacionFilterEl.querySelector('input[data-filter-value]');
+                        if (hidden && hidden.value !== '') {
+                            window.clearDropdownFilter('ubicacionAdvFilter');
+                        }
+                    }
+                }
+
+                window.history.pushState(null, '', finalUrl);
+            }
 
             // ── RENDERIZADO PROGRESIVO ───────────────────────────────────────
             // Parseamos el HTML en un contenedor temporal FUERA del DOM
@@ -775,17 +785,20 @@ window.loadEquipos = function (url = null, silent = false) {
             temp.innerHTML = data.html;
             const allRows = Array.from(temp.children);
 
-            tableBody.innerHTML = '';
+            if (!append) {
+                tableBody.innerHTML = '';
+            }
             tableBody.style.opacity = '1';
 
             const CHUNK_SIZE = 30; // filas por lote
             let index = 0;
             let scrollObserver = null;
+            let pausedResumeHandler = null;
 
             function renderNextChunk(entries, observer) {
                 // Si es invocado por el IntersectionObserver, asegurar que está intersectando
                 if (entries && entries[0] && !entries[0].isIntersecting) return;
-                
+
                 // Desconectar el observador viejo para evitar fugas de memoria
                 if (observer) observer.disconnect();
 
@@ -794,9 +807,41 @@ window.loadEquipos = function (url = null, silent = false) {
                 // Guard #2: tabla quitada del DOM (nav SPA) → cancelar loop
                 if (!document.contains(tableBody)) return;
 
+                // Guard #3: tab oculto → pausar rendering y reanudar cuando vuelva visible.
+                // Evita que al volver al navegador el main thread procese N chunks colapsados
+                // en un solo frame (síntoma: pantalla "congelada" tras alt-tab).
+                if (document.hidden) {
+                    if (!pausedResumeHandler) {
+                        pausedResumeHandler = () => {
+                            if (!document.hidden) {
+                                document.removeEventListener('visibilitychange', pausedResumeHandler);
+                                pausedResumeHandler = null;
+                                renderNextChunk();
+                            }
+                        };
+                        document.addEventListener('visibilitychange', pausedResumeHandler);
+                    }
+                    return;
+                }
+
                 const chunk = allRows.slice(index, index + CHUNK_SIZE);
                 if (chunk.length === 0) {
                     reApplySelections();
+                    // Infinite scroll: si el backend dice que hay más, observar la última fila
+                    // del conjunto actual y disparar nuevo fetch con offset = nextOffset.
+                    if (data && data.hasMore && typeof data.nextOffset === 'number') {
+                        const lastRow = tableBody.lastElementChild;
+                        if (lastRow && !lastRow.dataset.infiniteObserved) {
+                            lastRow.dataset.infiniteObserved = '1';
+                            const infObs = new IntersectionObserver((entries, obs) => {
+                                if (entries[0] && entries[0].isIntersecting) {
+                                    obs.disconnect();
+                                    window.loadEquipos(null, true, { offset: data.nextOffset, append: true });
+                                }
+                            }, { root: null, rootMargin: '400px', threshold: 0 });
+                            infObs.observe(lastRow);
+                        }
+                    }
                     return;
                 }
 
@@ -813,7 +858,7 @@ window.loadEquipos = function (url = null, silent = false) {
                 if (index < allRows.length) {
                     const triggerIndex = Math.max(0, chunk.length - 5);
                     const triggerRow = chunk[triggerIndex];
-                    
+
                     if (triggerRow) {
                         scrollObserver = new IntersectionObserver((obsEntries, obs) => {
                             renderNextChunk(obsEntries, obs);
@@ -829,6 +874,8 @@ window.loadEquipos = function (url = null, silent = false) {
                     reApplySelections();
                 }
             }
+
+            // Nota: ya no mostramos toast de truncado — ahora hay infinite scroll real.
 
             // Iniciar la inyección del primer chunk
             renderNextChunk();
@@ -1139,8 +1186,8 @@ window.openBulkModal = function (event) {
             overlay.remove();
             window.clearSelection();
 
-            // Refrescar tabla silenciosamente en el fondo
-            window.loadEquipos(true);
+            // Refrescar tabla silenciosamente en el fondo (silent=true)
+            window.loadEquipos(null, true);
 
             // Descarga del acta si aplica
             if (data.generar_pdf) {

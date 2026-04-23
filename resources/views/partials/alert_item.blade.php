@@ -33,7 +33,7 @@
             <span style="font-size: 13px; font-weight: 700; color: #1e293b;">
                 {{ $alert->equipo->tipo->nombre ?? 'Equipo' }}
             </span>
-            <span style="font-size: 11px; font-weight: 800; color: #0067b1; background: #eff6ff; border-radius: 4px; padding: 1px 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; display: inline-block;">
+            <span style="font-size: 12px; font-weight: 600; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; display: inline-block;">
                 {{ $alert->equipo->MARCA }} {{ $alert->equipo->MODELO }}
             </span>
         </div>

@@ -812,15 +812,8 @@ window.showDetailsImproved = function (target, event) {
     set("d_combustible", d.combustible);
     set("d_consumo", d.consumo);
 
-    // Sección / Ubicación específica
-    const detalleUbi = d.detalleUbicacion || '';
-    const detalleEl = document.getElementById('d_detalle_ubicacion');
-    if (detalleEl) detalleEl.innerText = detalleUbi || '—';
-    // Guardar id y valor del equipo activo para el Quick Edit
-    window._quickEditEquipoId   = d.equipoId || '';
-    window._quickEditUbicacion  = detalleUbi;
-    // Ocultar modo edición al abrir nuevo equipo
-    cancelEditUbicacion();
+    // ID del equipo activo: usado por saveResponsable y otros flujos del modal
+    window._quickEditEquipoId = d.equipoId || '';
 
     // Docs
     set("d_titular", d.titular);
@@ -996,14 +989,6 @@ window.showDetailsImproved = function (target, event) {
 
 window.closeDetailsModal = function (event) {
     if (event) event.preventDefault();
-    
-    // Auto-save quick edit if it's currently open
-    const editWrapper = document.getElementById("ubicacion_edit_wrapper");
-    if (editWrapper && editWrapper.style.display !== "none") {
-        if (typeof window.saveUbicacion === "function") {
-            window.saveUbicacion();
-        }
-    }
 
     // Auto-save responsable si hay texto en los campos
     const respCedula = document.getElementById('resp_cedula');
@@ -1322,33 +1307,13 @@ window.showToast = function (message, type = "info") {
     }, 4000);
 };
 /**
- * ════════════════════════════════════════════════════════
- * QUICK EDIT: SECCIÓN / UBICACIÓN EN FRENTE
- * ════════════════════════════════════════════════════════
+ * Quick Edit de Ubicación en el modal de detalles: REMOVIDO por solicitud del usuario.
+ * El endpoint PATCH /admin/equipos/{id}/ubicacion sigue vivo (lo usa el centro de
+ * notificaciones al confirmar recepción).
  */
-window.startEditUbicacion = function () {
-    const displayWrapper = document.getElementById('ubicacion_display_wrapper');
-    const editWrapper    = document.getElementById('ubicacion_edit_wrapper');
-    const input          = document.getElementById('input_ubicacion');
-    if (!displayWrapper || !editWrapper || !input) return;
-
-    // Rellenar input con valor actual
-    input.value = window._quickEditUbicacion || '';
-    displayWrapper.style.display = 'none';
-    editWrapper.style.display    = 'flex';
-    input.focus();
-    input.select();
-};
-
-window.cancelEditUbicacion = function () {
-    const displayWrapper = document.getElementById('ubicacion_display_wrapper');
-    const editWrapper    = document.getElementById('ubicacion_edit_wrapper');
-    if (!displayWrapper || !editWrapper) return;
-    displayWrapper.style.display = 'flex';
-    editWrapper.style.display    = 'none';
-};
-
-window.saveUbicacion = async function () {
+// (bloque removido)
+/*
+window.__deprecatedSaveUbicacion__ = async function () {
     const input    = document.getElementById('input_ubicacion');
     const detalleEl = document.getElementById('d_detalle_ubicacion');
     const equipoId  = window._quickEditEquipoId;
@@ -1416,3 +1381,4 @@ window.saveUbicacion = async function () {
         if (btn) { btn.textContent = originalText; btn.disabled = false; }
     }
 };
+*/

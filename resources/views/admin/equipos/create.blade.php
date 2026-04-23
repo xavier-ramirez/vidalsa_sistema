@@ -25,7 +25,9 @@
             <a href="{{ route('equipos.bulkTemplate') }}"
                id="btnDescargarPlantilla"
                class="btn-primary-maquinaria btn-secondary"
-               download>
+               data-no-spa
+               download
+               onclick="if(window.showPreloader) window.showPreloader(); setTimeout(() => { if(window.hidePreloader) window.hidePreloader(); }, 2500);">
                 <i class="material-icons">download</i> Descargar Plantilla
             </a>
             <button type="button" id="btnCargarExcel" class="btn-primary-maquinaria">
@@ -78,5 +80,6 @@
 @endsection
 
 @section('extra_js')
-    <script src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}" defer></script>
+    {{-- equipos_bulk.js se carga globalmente desde layouts/estructura_base.blade.php
+         para garantizar compatibilidad SPA (el @yield('extra_js') queda fuera del .main-viewport). --}}
 @endsection

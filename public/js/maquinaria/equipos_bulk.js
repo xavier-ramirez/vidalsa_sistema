@@ -282,8 +282,7 @@ if (document.readyState === 'loading') {
     initEquiposBulk();
 }
 
-// SPA navigation listener
-window.addEventListener('spa:contentLoaded', () => {
-    const btn = document.getElementById('btnCargarExcel');
-    if (btn) { btn.dataset.bulkInit = ''; initEquiposBulk(); }
-});
+// La reinicialización tras nav SPA la maneja ModuleManager (ver register arriba).
+// No registrar aquí un segundo listener spa:contentLoaded: causaría que
+// initEquiposBulk() corra dos veces con reset del guard entre medio, attachando
+// handlers duplicados al botón (efecto: file picker se abre/cierra y no funciona).

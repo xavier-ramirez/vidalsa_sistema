@@ -76,6 +76,334 @@
             z-index: 1000;
         }
     </style>
+    {{-- ── Estilos del centro de notificaciones ── --}}
+    <style>
+        .notif-center {
+            position: relative;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        /* Coincide visualmente con .btn-logout-header para mantener consistencia del navbar */
+        .notif-bell-btn {
+            position: relative;
+            background-color: transparent;
+            border: none;
+            color: var(--maquinaria-gray-text);
+            width: auto;
+            height: 40px;
+            padding: 0 10px;
+            border-radius: 8px;
+            cursor: default;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .notif-bell-btn:hover {
+            color: var(--maquinaria-blue);
+            background-color: #f1f5f9;
+        }
+        .notif-bell-btn .material-icons {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        /* Cuando hay notificaciones: mantiene color base pero aplica la animación del icono */
+        .notif-bell-btn.has-notifs .material-icons {
+            animation: notifShake 2s ease-in-out infinite;
+        }
+        @keyframes notifShake {
+            0%, 90%, 100% { transform: rotate(0); }
+            92% { transform: rotate(-15deg); }
+            94% { transform: rotate(15deg); }
+            96% { transform: rotate(-10deg); }
+            98% { transform: rotate(10deg); }
+        }
+        .notif-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(220, 38, 38, 0.45), 0 0 0 2px #fff;
+            letter-spacing: -0.3px;
+        }
+        .notif-badge[hidden] { display: none; }
+        .notif-dropdown {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: 380px;
+            max-width: calc(100vw - 24px);
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25), 0 8px 16px -4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            z-index: 2000;
+            animation: notifSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            transform-origin: top right;
+        }
+        .notif-dropdown[hidden] { display: none; }
+        @keyframes notifSlideIn {
+            from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .notif-dropdown-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: linear-gradient(135deg, #0067b1 0%, #00004d 100%);
+            color: #fff;
+            position: relative;
+            z-index: 1;
+        }
+        .notif-dropdown-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.2px;
+        }
+        .notif-dropdown-title .material-icons { font-size: 20px; }
+        .notif-refresh-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .notif-refresh-btn:hover { background: rgba(255, 255, 255, 0.22); }
+        .notif-refresh-btn.rotating .material-icons { animation: spin 0.8s linear infinite; }
+        .notif-refresh-btn .material-icons { font-size: 16px; }
+        @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+        .notif-dropdown-body {
+            max-height: 420px;
+            overflow-y: auto;
+            background: #fff;
+        }
+        .notif-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .notif-loading .material-icons { font-size: 36px; animation: spin 1.5s linear infinite; }
+
+        /* ── Encabezado compacto del usuario en el drawer mobile (una sola fila) ── */
+        .mobile-user-header-compact {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            margin: 0 -8px 8px -8px;
+            background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
+            color: #fff;
+            border-radius: 10px;
+            line-height: 1.15;
+        }
+        .mobile-user-header-compact .muhc-avatar {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.18);
+            border: 1.5px solid rgba(255,255,255,0.3);
+            color: #fff;
+            font-weight: 800;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mobile-user-header-compact .muhc-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1;
+        }
+        .mobile-user-header-compact .muhc-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .mobile-user-header-compact .muhc-role {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.78);
+        }
+
+        /* (Legacy — panel grande removido) Encabezado original del drawer, ya no se usa */
+        .mobile-user-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 20px;
+            margin: 0 -16px 12px -16px;
+            background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
+            color: #fff;
+            border-radius: 14px;
+            box-shadow: 0 6px 18px -8px rgba(0, 0, 77, 0.55);
+        }
+        .mobile-user-header .mobile-user-avatar {
+            flex-shrink: 0;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.18);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+        }
+        .mobile-user-header .mobile-user-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1;
+        }
+        .mobile-user-header .mobile-user-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.15;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .mobile-user-header .mobile-user-role {
+            margin-top: 3px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            padding: 2px 10px;
+            align-self: flex-start;
+        }
+
+        /* ── Panel de usuario en el navbar (solo desktop) ── */
+        .header-user-panel {
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 10px;
+            padding: 4px 14px 4px 4px;
+            margin-right: 4px;
+            background: rgba(15, 23, 42, 0.03);
+            border: 1px solid rgba(15, 23, 42, 0.07);
+            border-radius: 999px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .header-user-panel:hover {
+            background: rgba(15, 23, 42, 0.06);
+            border-color: rgba(15, 23, 42, 0.12);
+        }
+        .header-user-panel .hup-avatar {
+            position: relative;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            /* Azul general del proyecto (matches #00004d usado en el fondo del menú) */
+            background: #00004d;
+            color: #fff;
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px -2px rgba(0, 0, 77, 0.35);
+            flex-shrink: 0;
+        }
+        .header-user-panel .hup-info {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.1;
+            min-width: 0;
+        }
+        .header-user-panel .hup-name {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+            max-width: 180px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .header-user-panel .hup-role {
+            display: block;
+            margin-top: 1px;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #00004d;
+        }
+
+        /* Responsive: breakpoint 900px (matches con el layout base donde se activa mobile) */
+        @media (max-width: 900px) {
+            /* El panel de usuario se oculta; la utility .desktop-only ya lo oculta,
+               mantenemos la regla explícita para evitar conflictos con reglas inline posteriores. */
+            .header-user-panel { display: none !important; }
+            /* Acercar el notif al hamburger (logout está oculto) */
+            .notif-center { margin: 0; }
+            .header-actions { margin-left: 0; gap: 0; }
+            .notif-bell-btn { height: 38px; padding: 0 4px; }
+            .notif-bell-btn .material-icons { font-size: 19px; }
+            .notif-badge {
+                min-width: 16px;
+                height: 16px;
+                font-size: 9px;
+                top: 2px;
+                right: 2px;
+            }
+            .menu-toggle.mobile-only { padding: 4px 6px; }
+        }
+        @media (max-width: 520px) {
+            .notif-dropdown {
+                width: calc(100vw - 20px);
+                right: -10px;
+            }
+        }
+    </style>
     <!-- Custom UI Components (SPA Friendly) -->
     <!-- Scripts moved to footer for performance -->
 
@@ -186,8 +514,47 @@
             </div>
         </nav>
 
-        <div class="header-actions desktop-only">
-            <form action="{{ route('logout') }}" method="POST" style="margin: 0; display: inline;">
+        <div class="header-actions">
+            {{-- ── Panel de usuario (avatar + nombre + rol) — estilo moderno en el navbar ── --}}
+            @auth
+                <div class="header-user-panel desktop-only" title="{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}">
+                    <div class="hup-avatar">
+                        {{ strtoupper(substr(auth()->user()->NOMBRE_COMPLETO ?? 'U', 0, 1)) }}
+                    </div>
+                    <div class="hup-info">
+                        <span class="hup-name">{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}</span>
+                        <span class="hup-role">{{ auth()->user()->rol->NOMBRE_ROL ?? 'Sin Rol' }}</span>
+                    </div>
+                </div>
+            @endauth
+
+            {{-- ── Centro de Notificaciones (entre nav y logout en desktop; al lado del hamburger en mobile) ── --}}
+            <div class="notif-center" id="notifCenter">
+                <button type="button" id="notifToggleBtn" class="notif-bell-btn" title="Notificaciones" aria-label="Notificaciones" aria-expanded="false">
+                    <i class="material-icons">notifications</i>
+                    <span id="notifBadge" class="notif-badge" hidden>0</span>
+                </button>
+                <div id="notifDropdown" class="notif-dropdown" role="dialog" aria-label="Equipos por confirmar recepción" hidden>
+                    <div class="notif-dropdown-header">
+                        <div class="notif-dropdown-title">
+                            <i class="material-icons">local_shipping</i>
+                            <span>Equipos Por Confirmar</span>
+                        </div>
+                        <button type="button" id="notifRefreshBtn" class="notif-refresh-btn" title="Actualizar">
+                            <i class="material-icons">refresh</i>
+                        </button>
+                    </div>
+                    <div class="notif-dropdown-body" id="notifDropdownBody">
+                        <div class="notif-loading">
+                            <i class="material-icons">hourglass_empty</i>
+                            <span>Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Logout solo visible en desktop (en mobile se usa el menú hamburguesa) --}}
+            <form action="{{ route('logout') }}" method="POST" class="desktop-only" style="margin: 0; display: inline;">
                 @csrf
                 <button type="submit" class="btn-logout-header" data-no-spa title="Salir del sistema">
                     <i class="material-icons">logout</i>
@@ -205,6 +572,19 @@
 
     <!-- Mobile Menu -->
     <div class="mobile-menu" id="mobileMenu">
+        {{-- Encabezado compacto del usuario (una sola fila: avatar + nombre + rol pequeño) --}}
+        @auth
+            <div class="mobile-user-header-compact">
+                <div class="muhc-avatar">
+                    {{ strtoupper(substr(auth()->user()->NOMBRE_COMPLETO ?? 'U', 0, 1)) }}
+                </div>
+                <div class="muhc-text">
+                    <span class="muhc-name">{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}</span>
+                    <span class="muhc-role">{{ auth()->user()->rol->NOMBRE_ROL ?? 'Sin Rol' }}</span>
+                </div>
+            </div>
+        @endauth
+
         <a href="{{ route('menu') }}" class="mobile-nav-link {{ request()->is('menu') ? 'active' : '' }}">
             <i class="material-icons">home</i> Inicio
         </a>
@@ -1631,6 +2011,231 @@
         {{-- NOTE: form_selects.js removed (deprecated, merged into form_logic.js) --}}
         <script
             src="{{ asset('js/maquinaria/equipos_form.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_form.js')) }}"></script>
+        {{-- Bulk upload de equipos (Global: @yield('extra_js') queda fuera del .main-viewport → SPA no lo re-ejecutaría) --}}
+        <script
+            src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}"></script>
+
+        {{-- ── Centro de notificaciones (Equipos por confirmar) ── --}}
+        <script>
+            (function () {
+                if (window._notifCenterReady) return;
+                window._notifCenterReady = true;
+
+                const bellBtn    = document.getElementById('notifToggleBtn');
+                const dropdown   = document.getElementById('notifDropdown');
+                const body       = document.getElementById('notifDropdownBody');
+                const badge      = document.getElementById('notifBadge');
+                const refreshBtn = document.getElementById('notifRefreshBtn');
+                if (!bellBtn || !dropdown || !body) return;
+
+                let isOpen = false;
+                let lastFetchedAt = 0;
+
+                const ENDPOINT = @json(route('dashboard.pendingMovsHtml'));
+                const POLL_INTERVAL_MS = 60000; // refrescar badge cada 60s
+                const STALE_MS = 20000;         // si se abre el dropdown y los datos tienen <20s, no refetchea
+
+                function updateBadge(count) {
+                    const n = parseInt(count, 10) || 0;
+                    if (n > 0) {
+                        badge.textContent = n > 99 ? '99+' : String(n);
+                        badge.hidden = false;
+                        bellBtn.classList.add('has-notifs');
+                    } else {
+                        badge.hidden = true;
+                        bellBtn.classList.remove('has-notifs');
+                    }
+                }
+
+                function renderEmpty(message) {
+                    body.innerHTML = '<div class="mov-empty-state" style="padding:30px 20px;"><i class="material-icons">inbox</i><p>' + message + '</p></div>';
+                }
+
+                async function fetchNotifs(forceSpin) {
+                    if (forceSpin) refreshBtn.classList.add('rotating');
+                    try {
+                        const res = await fetch(ENDPOINT, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const data = await res.json();
+                        if (typeof data.pendientes !== 'undefined') updateBadge(data.pendientes);
+                        if (typeof data.html === 'string') {
+                            // El partial ya incluye su propio empty state cuando no hay items.
+                            // Solo si el backend mandó HTML completamente vacío, renderizamos fallback.
+                            const clean = data.html.trim();
+                            if (clean) body.innerHTML = clean;
+                            else renderEmpty('No hay equipos por confirmar recepción.');
+                        }
+                        lastFetchedAt = Date.now();
+                    } catch (err) {
+                        console.warn('[Notif] error cargando:', err);
+                        renderEmpty('No se pudo cargar la información.');
+                    } finally {
+                        if (forceSpin) refreshBtn.classList.remove('rotating');
+                    }
+                }
+
+                function openDropdown() {
+                    dropdown.hidden = false;
+                    isOpen = true;
+                    bellBtn.setAttribute('aria-expanded', 'true');
+                    if (Date.now() - lastFetchedAt > STALE_MS) fetchNotifs(false);
+                }
+                function closeDropdown() {
+                    dropdown.hidden = true;
+                    isOpen = false;
+                    bellBtn.setAttribute('aria-expanded', 'false');
+                }
+
+                bellBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    isOpen ? closeDropdown() : openDropdown();
+                });
+                refreshBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    fetchNotifs(true);
+                });
+                document.addEventListener('click', (e) => {
+                    if (!isOpen) return;
+                    if (!dropdown.contains(e.target) && !bellBtn.contains(e.target)) closeDropdown();
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (isOpen && e.key === 'Escape') closeDropdown();
+                });
+
+                // Refresco del badge tras acciones que pueden cambiar los pendientes.
+                window.addEventListener('notif:refresh', () => fetchNotifs(false));
+                // Polling silencioso del badge.
+                setInterval(() => fetchNotifs(false), POLL_INTERVAL_MS);
+                // Primer fetch (no bloqueante).
+                setTimeout(() => fetchNotifs(false), 300);
+
+                // Handler del botón "Confirmar" del partial.
+                // Abre un mini-modal inline con campo de ubicación (autocompleta las subdivisiones del
+                // frente destino) y hace PATCH /admin/equipos/{id}/ubicacion para marcar el equipo en su
+                // sección física. No toca el modelo de movilización (el tránsito ya se persistió al
+                // crear la movilización — aquí solo ubicamos el equipo dentro del frente).
+                window.iniciarRecepcionDesdeDashboard = function (movilizacionId, frenteNombre, subdivisiones, frenteId, equipoId) {
+                    closeDropdown();
+                    if (!equipoId) {
+                        if (typeof window.showModal === 'function') {
+                            window.showModal({ type:'error', title:'Error', message:'No se pudo identificar el equipo.', confirmText:'Cerrar', hideCancel:true });
+                        }
+                        return;
+                    }
+                    const subs = (subdivisiones && subdivisiones.trim() !== '')
+                        ? subdivisiones.split(',').map(s => s.trim()).filter(Boolean)
+                        : [];
+
+                    // Limpieza de modal existente
+                    const existing = document.getElementById('dashboardRecepcionModal');
+                    if (existing) existing.remove();
+
+                    const overlay = document.createElement('div');
+                    overlay.id = 'dashboardRecepcionModal';
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:20000;display:flex;justify-content:center;align-items:center;';
+                    overlay.innerHTML = `
+                        <div style="background:#fff;width:95%;max-width:420px;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.3);">
+                            <div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:14px 18px;color:#fff;display:flex;justify-content:space-between;align-items:center;">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <i class="material-icons" style="font-size:20px;">check_circle</i>
+                                    <div>
+                                        <h3 style="margin:0;font-size:14px;font-weight:800;">Confirmar Recepción</h3>
+                                        <p style="margin:0;font-size:11px;opacity:0.85;">El equipo ha llegado a ${frenteNombre}</p>
+                                    </div>
+                                </div>
+                                <button type="button" data-cancel style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                                    <i class="material-icons" style="font-size:16px;">close</i>
+                                </button>
+                            </div>
+                            <div style="padding:20px;">
+                                <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">
+                                    <i class="material-icons" style="font-size:14px;vertical-align:middle;color:#64748b;">place</i>
+                                    Ubicación Específica (Opcional)
+                                </label>
+                                <div style="position:relative;">
+                                    <input type="text" id="dashRdUbicacion" autocomplete="off"
+                                        placeholder="Patio, sección, subdivisión…"
+                                        style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:10px;font-size:13px;background:#f8fafc;outline:none;box-sizing:border-box;"
+                                        onfocus="this.style.borderColor='#1e293b'" onblur="this.style.borderColor='#cbd5e0'">
+                                    <div id="dashRdSuggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #cbd5e0;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:500;max-height:140px;overflow-y:auto;margin-top:4px;"></div>
+                                </div>
+                            </div>
+                            <div style="padding:0 20px 20px;display:flex;gap:10px;">
+                                <button type="button" data-cancel
+                                    style="flex:1;padding:10px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;font-weight:600;color:#64748b;cursor:pointer;">
+                                    Cancelar
+                                </button>
+                                <button type="button" id="dashBtnConfirmarRecep"
+                                    style="flex:1;padding:10px;background:#1e293b;border:none;border-radius:10px;font-weight:700;color:#fff;cursor:pointer;transition:background 0.2s;"
+                                    onmouseover="this.style.background='#0f172a'" onmouseout="this.style.background='#1e293b'">
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>`;
+                    document.body.appendChild(overlay);
+
+                    const removeModal = () => overlay.remove();
+                    overlay.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', removeModal));
+                    overlay.addEventListener('click', (e) => { if (e.target === overlay) removeModal(); });
+
+                    // Sugerencias de subdivisiones
+                    if (subs.length > 0) {
+                        const input  = overlay.querySelector('#dashRdUbicacion');
+                        const sugBox = overlay.querySelector('#dashRdSuggestions');
+                        subs.forEach(s => {
+                            const opt = document.createElement('div');
+                            opt.textContent = s;
+                            opt.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f9;';
+                            opt.addEventListener('mouseover', () => opt.style.background = '#f1f5f9');
+                            opt.addEventListener('mouseout',  () => opt.style.background = '');
+                            opt.addEventListener('mousedown', () => { input.value = s; sugBox.style.display = 'none'; });
+                            sugBox.appendChild(opt);
+                        });
+                        input.addEventListener('focus', () => { sugBox.style.display = 'block'; });
+                        input.addEventListener('blur',  () => { setTimeout(() => sugBox.style.display = 'none', 150); });
+                    }
+
+                    overlay.querySelector('#dashBtnConfirmarRecep').addEventListener('click', async function () {
+                        const ubicacion = overlay.querySelector('#dashRdUbicacion').value.trim();
+                        this.disabled = true;
+                        this.innerHTML = '<i class="material-icons" style="font-size:14px;vertical-align:middle;animation:spin 1s linear infinite;">sync</i> Procesando...';
+                        try {
+                            const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                            const res  = await fetch('/admin/equipos/' + equipoId + '/ubicacion', {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': csrf,
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json',
+                                },
+                                body: JSON.stringify({ DETALLE_UBICACION_ACTUAL: ubicacion || null }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok || !data.success) throw new Error(data.error || 'Error al confirmar.');
+                            removeModal();
+                            // Retirar visualmente el item de la lista abierta
+                            const itemEl = document.getElementById('mov-item-' + movilizacionId);
+                            if (itemEl) itemEl.remove();
+                            // Refrescar lista + badge
+                            window.dispatchEvent(new Event('notif:refresh'));
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('Recepción confirmada' + (ubicacion ? ' en ' + ubicacion : ''), 'success');
+                            }
+                        } catch (err) {
+                            removeModal();
+                            console.error('[iniciarRecepcion]', err);
+                            if (typeof window.showModal === 'function') {
+                                window.showModal({ type:'error', title:'Error', message: err.message || 'No se pudo confirmar.', confirmText:'Cerrar', hideCancel:true });
+                            }
+                        }
+                    });
+                };
+            })();
+        </script>
         @yield('extra_js')
         @include('partials.session_timeout')
         <script>

@@ -54,7 +54,7 @@
         {{-- Botón confirmar --}}
         <div class="mov-action-col">
             <button type="button"
-                onclick="iniciarRecepcionDesdeDashboard({{ $activity->ID_MOVILIZACION }}, '{{ addslashes($activity->frenteDestino->NOMBRE_FRENTE ?? '') }}', '{{ addslashes($activity->frenteDestino->SUBDIVISIONES ?? '') }}', {{ $activity->ID_FRENTE_DESTINO }})"
+                onclick="iniciarRecepcionDesdeDashboard({{ $activity->ID_MOVILIZACION }}, '{{ addslashes($activity->frenteDestino->NOMBRE_FRENTE ?? '') }}', '{{ addslashes($activity->frenteDestino->SUBDIVISIONES ?? '') }}', {{ $activity->ID_FRENTE_DESTINO }}, {{ $activity->ID_EQUIPO }})"
                 class="mov-confirm-btn"
                 title="Confirmar recepción en {{ $nombreFrente }}">
                 <i class="material-icons">check_circle</i>

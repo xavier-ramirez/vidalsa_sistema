@@ -14,101 +14,619 @@
 <!-- SVG Background unificado -->
 @include('partials.background_svg')
 
+<style>
+    /* ── Hero del dashboard (estilo FLEETARCHITECT) ── */
+    .menu-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 16px;
+        height: 320px;
+        box-shadow: 0 18px 40px -16px rgba(15, 23, 42, 0.35);
+        margin: 0 0 24px 0;
+        background: #0b1c30;
+    }
+    .menu-hero-stripes {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        gap: 6px;
+        background: #0b1c30;
+        z-index: 0;
+    }
+    .menu-hero-stripes > div {
+        flex: 1 1 0;
+        height: 100%;
+        overflow: hidden;
+    }
+    .menu-hero-stripes img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), filter 0.5s ease;
+        /* Previene badges flotantes tipo "Visual Search" que ponen algunos browsers/extensiones */
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-drag: none;
+    }
+    .menu-hero-stripes > div:hover img {
+        transform: scale(1.08);
+        filter: brightness(1.1);
+    }
+    .menu-hero-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            to right,
+            rgba(0, 8, 44, 0.92) 0%,
+            rgba(0, 8, 44, 0.65) 45%,
+            rgba(0, 8, 44, 0.35) 100%
+        );
+        pointer-events: none;
+        z-index: 1;
+    }
+    .menu-hero-content {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+        padding: 36px 44px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        max-width: 820px;
+    }
+    .menu-hero-title {
+        color: #fff;
+        font-weight: 900;
+        font-size: 44px;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        margin: 0 0 12px 0;
+        text-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .menu-hero-title .accent {
+        color: #dce1ff;
+        display: inline-block;
+    }
+    /* Stat a la derecha (solo desktop) */
+    .menu-hero-stat {
+        position: absolute;
+        right: 44px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 2;
+        text-align: right;
+        color: rgba(255,255,255,0.9);
+    }
+    .menu-hero-stat-label {
+        font-size: 10px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        opacity: 0.65;
+        margin-bottom: 4px;
+    }
+    .menu-hero-stat-value {
+        font-size: 48px;
+        font-weight: 900;
+        line-height: 1;
+        color: #fff;
+    }
+    .menu-hero-stat-caption {
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        opacity: 0.7;
+        margin-top: 4px;
+    }
+
+    @media (max-width: 900px) {
+        .menu-hero { height: 240px; }
+        .menu-hero-content { padding: 24px 28px; }
+        .menu-hero-title { font-size: 28px; }
+        .menu-hero-stat { display: none; }
+    }
+    @media (max-width: 520px) {
+        .menu-hero { height: 200px; border-radius: 12px; }
+        .menu-hero-content { padding: 20px; }
+        .menu-hero-title { font-size: 22px; }
+    }
+
+    /* ── Card "Salud Operacional" — ancho completo con grid horizontal espacioso ── */
+    .salud-card {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 28px;
+        padding: 22px 28px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #fff 0%, #f0f9ff 100%);
+        border: 1px solid #bfdbfe;
+        box-shadow: 0 10px 24px -14px rgba(0, 103, 177, 0.3), 0 2px 6px -2px rgba(0,0,0,0.04);
+        overflow: hidden;
+    }
+    .salud-card::before {
+        content: '';
+        position: absolute;
+        right: -40px;
+        top: -40px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, rgba(0, 103, 177, 0.12), transparent 70%);
+        pointer-events: none;
+    }
+    .salud-main-block {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-right: 24px;
+        border-right: 1px solid #cfe4f9;
+        min-width: 240px;
+    }
+    .salud-icon {
+        flex-shrink: 0;
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #00004d, #0067b1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        box-shadow: 0 8px 20px -6px rgba(0, 0, 77, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
+    }
+    .salud-icon .material-icons { font-size: 28px; }
+    .salud-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+    .salud-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #1e3a8a;
+    }
+    .salud-main {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .salud-percent {
+        font-size: 28px;
+        font-weight: 900;
+        color: #0b1c30;
+        letter-spacing: -0.02em;
+        line-height: 1;
+    }
+    .salud-percent-sub {
+        font-size: 10.5px;
+        font-weight: 800;
+        color: #1e40af;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    /* Columna central: barra + leyenda horizontal — usa todo el ancho disponible */
+    .salud-bar-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+    }
+    .salud-bar {
+        display: flex;
+        height: 10px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #e2e8f0;
+        box-shadow: inset 0 1px 2px rgba(15,23,42,0.05);
+    }
+    .salud-bar span { display: block; height: 100%; transition: width 0.4s ease; }
+    .salud-bar-ok    { background: linear-gradient(90deg, #10b981, #059669); }
+    .salud-bar-maint { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .salud-bar-bad   { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .salud-bar-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 22px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+    }
+    .salud-bar-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .salud-bar-legend span::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+    .salud-bar-legend .leg-ok::before    { background: #10b981; }
+    .salud-bar-legend .leg-maint::before { background: #f59e0b; }
+    .salud-bar-legend .leg-bad::before   { background: #ef4444; }
+
+    /* Columna derecha: 3 stats horizontales */
+    .salud-stats-group {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, auto);
+        gap: 18px;
+        padding-left: 24px;
+        border-left: 1px solid #cfe4f9;
+    }
+    .salud-stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 58px;
+    }
+    .salud-stat-value {
+        font-size: 20px;
+        font-weight: 900;
+        color: #0b1c30;
+        letter-spacing: -0.02em;
+        line-height: 1;
+    }
+    .salud-stat-name {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 4px;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475569;
+        white-space: nowrap;
+    }
+    .salud-stat-name::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+    .salud-stat.ok    .salud-stat-name::before { background: #10b981; }
+    .salud-stat.maint .salud-stat-name::before { background: #f59e0b; }
+    .salud-stat.bad   .salud-stat-name::before { background: #ef4444; }
+
+    @media (max-width: 900px) {
+        .salud-card {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding: 18px 18px;
+        }
+        .salud-main-block {
+            padding-right: 0;
+            border-right: none;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #cfe4f9;
+            min-width: 0;
+        }
+        .salud-stats-group {
+            padding-left: 0;
+            padding-top: 14px;
+            border-left: none;
+            border-top: 1px solid #cfe4f9;
+            justify-content: space-around;
+        }
+    }
+
+    /* ── Card "Alertas Documentos" rediseñada ── */
+    .alertas-card {
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 20px 22px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #fff 0%, #fffbeb 100%);
+        border: 1px solid #fde68a;
+        box-shadow: 0 10px 24px -14px rgba(217, 119, 6, 0.35), 0 2px 6px -2px rgba(0,0,0,0.04);
+        cursor: pointer;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    }
+    .alertas-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 34px -14px rgba(217, 119, 6, 0.45), 0 4px 10px -2px rgba(0,0,0,0.06);
+    }
+    .alertas-card::before {
+        content: '';
+        position: absolute;
+        right: -40px;
+        top: -40px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, rgba(245, 158, 11, 0.15), transparent 70%);
+        pointer-events: none;
+    }
+    .alertas-card-icon {
+        position: relative;
+        flex-shrink: 0;
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        box-shadow: 0 8px 20px -6px rgba(217, 119, 6, 0.6), inset 0 1px 0 rgba(255,255,255,0.25);
+    }
+    .alertas-card-icon .material-icons { font-size: 28px; }
+    .alertas-card-body {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+    }
+    .alertas-card-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #92400e;
+        margin-bottom: 2px;
+    }
+    .alertas-card-main {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .alertas-card-value {
+        font-size: 36px;
+        font-weight: 900;
+        color: #0b1c30;
+        letter-spacing: -0.02em;
+        line-height: 1;
+    }
+    .alertas-card-sub {
+        font-size: 12px;
+        font-weight: 700;
+        color: #78350f;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    .alertas-card-chev {
+        position: relative;
+        color: #d97706;
+        transition: transform 0.2s ease;
+    }
+    .alertas-card:hover .alertas-card-chev { transform: translateX(3px); }
+
+    /* ── Panel desplegable "Alertas de Documentos" (dropup FLOTANTE: no empuja layout) ── */
+    .alertas-panel {
+        position: absolute;
+        bottom: calc(100% + 12px); /* 12px arriba de la card trigger */
+        left: 0;
+        right: 0;
+        z-index: 120;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 -18px 48px -12px rgba(15, 23, 42, 0.22), 0 -6px 14px -4px rgba(15, 23, 42, 0.08);
+        animation: alertasPanelIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        transform-origin: bottom left;
+    }
+    @keyframes alertasPanelIn {
+        from { opacity: 0; transform: translateY(8px) scale(0.98); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .alertas-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, #0067b1 0%, #00004d 100%);
+        color: #fff;
+    }
+    .alertas-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+    }
+    .alertas-panel-title .material-icons { font-size: 20px; color: #ffffff; }
+    .alertas-panel-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .alertas-search-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+    }
+    .alertas-search-wrap .material-icons {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 18px;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+    .alertas-search-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 12px 8px 34px;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        font-size: 13px;
+        background: #fff;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .alertas-search-input:focus {
+        border-color: #0067b1;
+        box-shadow: 0 0 0 3px rgba(0, 103, 177, 0.14);
+    }
+    .alertas-export-btn {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+    .alertas-export-btn:hover:not(:disabled) {
+        color: #0067b1;
+        border-color: #0067b1;
+        background: #eff6ff;
+    }
+    .alertas-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .alertas-export-btn .material-icons { font-size: 18px; }
+    .alertas-panel-body {
+        max-height: 420px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: #fff;
+    }
+    .alertas-panel-body::-webkit-scrollbar { width: 6px; }
+    .alertas-panel-body::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+    }
+</style>
+
 <div class="dashboard-container" style="padding: 10px 20px; position: relative; z-index: 1;">
-    
-    <!-- Header -->
-    <section class="page-title-card" style="text-align: left; margin: 0 0 10px 0;">
-        <h1 class="page-title">
-            <span class="page-title-line2" style="color: #000;">Sistema de Gestión de Equipos Operacionales</span>
-        </h1>
+
+    {{-- ── Hero moderno: 3 imágenes con overlay oscuro y título blanco ── --}}
+    <section class="menu-hero">
+        <div class="menu-hero-stripes">
+            @php
+                $heroImg = asset('images/maquinaria_login_new.webp');
+            @endphp
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: right center;"></div>
+        </div>
+        <div class="menu-hero-overlay"></div>
+        <div class="menu-hero-content">
+            <h1 class="menu-hero-title">
+                Sistema de Gestión<br>
+                de <span class="accent">Equipos Operacionales</span>
+            </h1>
+        </div>
+        <div class="menu-hero-stat">
+            <div class="menu-hero-stat-label">Flota activa</div>
+            <div class="menu-hero-stat-value">{{ $totalFlotaActiva ?? 0 }}</div>
+            <div class="menu-hero-stat-caption">Equipos en operación</div>
+        </div>
     </section>
 
     <!-- Main Grid -->
     <div class="dashboard-grid">
-        
+
         <!-- Column 1: Resumen Rápido (Cards) -->
         <div class="card-section" style="grid-column: span 12;">
             <div class="cards-wrapper">
-                
-                <!-- MOVILIZACIONES SECTION -->
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <!-- Card 3: Movilizaciones -->
-                    <div class="dashboard-card card-blue" onclick="togglePendingMovs()">
-                        <div class="icon-wrapper">
-                            <i class="material-icons">local_shipping</i>
+
+                {{-- MOVILIZACIONES SECTION: removido. La lista "Equipos Por Confirmar Recepción"
+                     ahora vive en el centro de notificaciones del navbar (layouts/estructura_base). --}}
+
+                {{-- ── Card "Salud Operacional" (al lado de Alertas, 1 col del cards-wrapper) ── --}}
+                @php
+                    $_flotaTotal = $totalFlotaActiva ?? 0;
+                    $_ok  = $equiposOperativos ?? 0;
+                    $_mt  = $equiposMantenimiento ?? 0;
+                    $_bad = $equiposInoperativos ?? 0;
+                    $_pctOk  = $_flotaTotal > 0 ? round(($_ok  / $_flotaTotal) * 100, 1) : 0;
+                    $_pctMt  = $_flotaTotal > 0 ? round(($_mt  / $_flotaTotal) * 100, 1) : 0;
+                    $_pctBad = $_flotaTotal > 0 ? round(($_bad / $_flotaTotal) * 100, 1) : 0;
+                @endphp
+                <div class="salud-card">
+                    <div class="salud-main-block">
+                        <div class="salud-icon">
+                            <i class="material-icons">monitoring</i>
                         </div>
-                        <div class="card-content">
-                            <span class="card-label">Por Confirmar</span>
-                            <div class="card-value-row">
-                                <span class="card-value">{{ $pendientes }}</span>
-                                <span class="card-subtext-inline">| {{ $movilizacionesHoy }} Moviliz. Hoy</span>
+                        <div class="salud-body">
+                            <span class="salud-label">Salud Operacional</span>
+                            <div class="salud-main">
+                                <span class="salud-percent">{{ $_pctOk }}%</span>
+                                <span class="salud-percent-sub">Operativos</span>
+                            </div>
+                            <div class="salud-bar" title="Operativos {{ $_pctOk }}% · Mantenimiento {{ $_pctMt }}% · Inoperativos {{ $_pctBad }}%">
+                                <span class="salud-bar-ok"    style="width: {{ $_pctOk }}%"></span>
+                                <span class="salud-bar-maint" style="width: {{ $_pctMt }}%"></span>
+                                <span class="salud-bar-bad"   style="width: {{ $_pctBad }}%"></span>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Movilizaciones Pendientes List -->
-                    <div class="content-card activity-card" id="pendingMovsContainer" style="display: none;">
-                        <h3 class="card-title">Equipos Por Confirmar Recepción</h3>
-                        <div style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; background: white; display: flex; gap: 6px; align-items: center;">
-                            <input type="text" id="pendingMovSearch" placeholder="Buscar..." 
-                                   style="flex: 1; min-width: 0; box-sizing: border-box; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.815rem; outline: none; transition: border 0.2s;"
-                                   onfocus="this.style.borderColor='#3b82f6'"
-                                   onblur="this.style.borderColor='#d1d5db'"
-                                   onkeyup="filterPendingMovs()"
-                                   autocomplete="off">
-                            <button type="button"
-                               onclick="abrirRecepcionDirecta()"
-                               class="btn-recibir-dashboard"
-                               title="Recepción Directa (sin movilización previa)"
-                               style="background: #1e293b; border: none; color: white; padding: 0 8px; height: 28px; border-radius: 6px; font-weight: 700; display: flex; align-items: center; gap: 3px; text-decoration: none; flex-shrink: 0; cursor: default; transition: background 0.2s;"
-                               onmouseover="this.style.background='#0f172a'" onmouseout="this.style.background='#1e293b'">
-                                <i class="material-icons" style="font-size: 15px;">input</i>
-                                <span class="desktop-only" style="font-size: 9px; font-weight: 800;">DIRECTA</span>
-                            </button>
+                    <div class="salud-stats-group">
+                        <div class="salud-stat ok">
+                            <div class="salud-stat-value">{{ $_ok }}</div>
+                            <div class="salud-stat-name">Operativos</div>
                         </div>
-                        <div class="activity-list" id="pendingMovsList">
-                            @include('partials.pending_movs_list', ['recentActivity' => $recentActivity])
+                        <div class="salud-stat maint">
+                            <div class="salud-stat-value">{{ $_mt }}</div>
+                            <div class="salud-stat-name">Mantenim.</div>
+                        </div>
+                        <div class="salud-stat bad">
+                            <div class="salud-stat-value">{{ $_bad }}</div>
+                            <div class="salud-stat-name">Inoperat.</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ALERTAS SECTION -->
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <!-- Card 4: Alertas -->
-                    <div class="dashboard-card card-yellow" onclick="toggleExpiredDocs()">
-                        <div class="icon-wrapper">
-                            <i class="material-icons {{ $totalAlerts > 0 ? 'bell-shake' : '' }}">notifications</i>
+                <!-- ALERTAS SECTION (rediseñada) — dropup flotante: el panel se superpone arriba sin empujar el layout -->
+                <div style="position: relative;">
+                    <!-- Card trigger -->
+                    <div class="alertas-card" onclick="toggleExpiredDocs()" role="button" tabindex="0"
+                         onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); toggleExpiredDocs(); }">
+                        <div class="alertas-card-icon">
+                            <i class="material-icons {{ $totalAlerts > 0 ? 'bell-shake' : '' }}">notifications_active</i>
                         </div>
-                        <div class="card-content">
-                            <span class="card-label">Alertas Documentos</span>
-                            <div class="card-value-row">
-                                <span class="card-value">{{ $totalAlerts }}</span>
-                                <span class="card-subtext-inline" style="font-weight: 800; color: #000000;">| Por Renovar</span>
+                        <div class="alertas-card-body">
+                            <span class="alertas-card-label">Alertas Documentos</span>
+                            <div class="alertas-card-main">
+                                <span class="alertas-card-value">{{ $totalAlerts }}</span>
+                                <span class="alertas-card-sub">Por Renovar</span>
                             </div>
+                        </div>
+                        <div class="alertas-card-chev">
+                            <i class="material-icons">chevron_right</i>
                         </div>
                     </div>
 
-                    <!-- Documentos Vencidos y Por Vencer List -->
-                    <div class="content-card policies-card" id="expiredDocsContainer" style="display: none;">
-                        <h3 class="card-title" style="color: #000;">Alertas de Documentos</h3>
-                        <div style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; background: white; display: flex; align-items: center; gap: 6px;">
-                            <input type="text" id="alertSearch" placeholder="Buscar..." 
-                                   style="flex: 1; box-sizing: border-box; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.815rem; outline: none; transition: border 0.2s;"
-                                   onfocus="this.style.borderColor='#3b82f6'"
-                                   onblur="this.style.borderColor='#d1d5db'"
-                                   onkeyup="filterDashboardAlerts()"
-                                   autocomplete="off">
+                    <!-- Panel desplegable -->
+                    <div class="alertas-panel" id="expiredDocsContainer" style="display: none;">
+                        <div class="alertas-panel-header">
+                            <div class="alertas-panel-title">
+                                <i class="material-icons">description</i>
+                                <span>Alertas de Documentos</span>
+                            </div>
                             <button type="button"
-                               onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
-                               class="btn-export-pdf"
-                               title="Descargar Reporte PDF"
-                               style="display: inline-flex; align-items: center; justify-content: center; padding: 8px; background: transparent; color: #94a3b8; border: none; text-decoration: none; transition: all 0.2s; cursor: pointer; outline: none;"
-                               onmouseover="if(!this.disabled) this.style.color='#0067b1'"
-                               onmouseout="if(!this.disabled) this.style.color='#94a3b8'">
-                                <i class="material-icons" style="font-size: 20px;">file_download</i>
+                                    onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
+                                    class="alertas-export-btn"
+                                    title="Descargar Reporte PDF"
+                                    style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); color: #fff;">
+                                <i class="material-icons">file_download</i>
                             </button>
                         </div>
-                        <div class="activity-list" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+                        <div class="alertas-panel-toolbar">
+                            <div class="alertas-search-wrap">
+                                <i class="material-icons">search</i>
+                                <input type="text" id="alertSearch" class="alertas-search-input"
+                                       placeholder="Buscar por placa, chasis, modelo…"
+                                       onkeyup="filterDashboardAlerts()"
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="alertas-panel-body">
                             <div id="dashboardAlertsList">
                                 @include('partials.dashboard_alerts')
                             </div>
@@ -116,50 +634,13 @@
                     </div>
                 </div>
 
+
             </div>
         </div>
     </div>
 </div>
 
-    <!-- User Floating Panel (Bottom Left) -->
-    <style>
-        @media (max-width: 768px) {
-            #userFloatingPanel {
-                display: none !important;
-            }
-        }
-    </style>
-    <div id="userFloatingPanel" style="position: fixed; bottom: 20px; left: 20px; z-index: 0; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 12px; transition: transform 0.3s ease;">
-        <div style="width: 35px; height: 35px; background: var(--maquinaria-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
-            {{ substr(auth()->user()->NOMBRE_COMPLETO ?? 'U', 0, 1) }}
-        </div>
-        <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 14px; color: #1e293b; font-weight: 700;">{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}</span>
-            <span style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">{{ auth()->user()->rol->NOMBRE_ROL ?? 'Sin Rol' }}</span>
-        </div>
-    </div>
-    <!-- Feature Cards (Above Machinery) -->
-    <div class="features-floating-wrapper">
-        <div class="features-container">
-            <div class="feature-card">
-                <i class="material-icons feature-card-icon">description</i>
-                <span class="feature-text">Acceso a Documentación</span>
-            </div>
-            <div class="feature-card">
-                <i class="material-icons feature-card-icon">location_on</i>
-                <span class="feature-text">Estado y Ubicación</span>
-            </div>
-            <div class="feature-card">
-                <i class="material-icons feature-card-icon">engineering</i>
-                <span class="feature-text">Control de Mantenimiento</span>
-            </div>
-        </div>
-    </div>
-    <div class="machinery-fixed-bottom">
-        <div class="machinery-wrapper" style="width: 100%; height: auto;">
-            <img src="{{ asset('images/maquinaria_login_new.webp') }}" alt="Maquinaria Vidalsa" style="width: 100%; height: auto; display: block; filter: drop-shadow(-10px -10px 20px rgba(0, 0, 0, 0.15));">
-        </div>
-    </div>
+    {{-- El panel del usuario se movió al header (ver layouts/estructura_base.blade.php) --}}
 
     <!-- Partial Modal for Equipment Details (Used by Alerts) -->
     @include('admin.equipos.partials.equipment_details_modal')

@@ -196,92 +196,90 @@ class MovilizacionController extends Controller
     public function bulkStore(Request $request)
     {
         $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'exists:equipos,ID_EQUIPO',
+            'ids'         => 'required|array|min:1',
+            'ids.*'       => 'exists:equipos,ID_EQUIPO',
             'destination' => 'required|string|max:255',
-            'generar_pdf' => 'boolean'
+            'generar_pdf' => 'boolean',
         ]);
+
+        $authUser = auth()->user();
+        $isLocal  = $authUser && $authUser->NIVEL_ACCESO == 2;
+        $frentesPermitidos = $isLocal ? $authUser->getFrentesIds() : [];
 
         DB::beginTransaction();
         try {
-
             $frente = FrenteTrabajo::firstOrCreate(
-                ['NOMBRE_FRENTE' => strtoupper($request->destination)],
+                ['NOMBRE_FRENTE'  => strtoupper($request->destination)],
                 ['ESTATUS_FRENTE' => 'ACTIVO']
             );
 
-            $user = auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA';
-            $now = now();
-            $generarPdf = $request->input('generar_pdf', true);
-
-            $nextId = null;
-            if ($generarPdf) {
-                $nextId = $this->generateNextCodigoControl();
+            // Scope LOCAL: el destino debe estar en la jurisdicción del usuario
+            if ($isLocal && !in_array($frente->ID_FRENTE, $frentesPermitidos)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes permiso para mover equipos al frente destino.',
+                ], 403);
             }
 
-            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->lockForUpdate()->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+            $userEmail  = $authUser->CORREO_ELECTRONICO ?? 'SISTEMA';
+            $now        = now();
+            $generarPdf = (bool) $request->input('generar_pdf', true);
 
-            $insertData = [];
-            foreach ($equipos as $equipo) {
-                if ($generarPdf) {
-                    $insertData[] = [
-                        'CODIGO_CONTROL' => $nextId,
-                        'ID_EQUIPO' => $equipo->ID_EQUIPO,
-                        'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? 1,
-                        'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
-                        'FECHA_DESPACHO' => $now,
-                        'TIPO_MOVIMIENTO' => 'DESPACHO',
-                        'USUARIO_REGISTRO' => $user,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                } else {
-                    $insertData[] = [
-                        'CODIGO_CONTROL' => null,
-                        'ID_EQUIPO' => $equipo->ID_EQUIPO,
-                        'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? 1,
-                        'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
-                        'FECHA_DESPACHO' => null,
-                        'TIPO_MOVIMIENTO' => 'ACT.',
-                        'USUARIO_REGISTRO' => $user,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
+            $nextId = $generarPdf ? $this->generateNextCodigoControl() : null;
+
+            $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
+                ->lockForUpdate()
+                ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+
+            // Scope LOCAL: todos los orígenes deben estar en la jurisdicción
+            if ($isLocal) {
+                foreach ($equipos as $eq) {
+                    if ($eq->ID_FRENTE_ACTUAL && !in_array($eq->ID_FRENTE_ACTUAL, $frentesPermitidos)) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'No tienes permiso sobre al menos un equipo seleccionado (frente origen fuera de tu jurisdicción).',
+                        ], 403);
+                    }
                 }
             }
 
+            // Crear movilizaciones una por una (dispara MovilizacionObserver, devuelve IDs exactos
+            // sin depender de timestamp match entre Carbon µs y MySQL TIMESTAMP sin fracción).
             $movilizacionIds = [];
-            if (!empty($insertData)) {
-                // ── Obtener IDs recién insertados de forma precisa ──────────────
-                // Filtramos por los equipos seleccionados + frente + timestamp exacto
-                // de esta tanda. Así evitamos traer históricos con el mismo CODIGO_CONTROL.
-                Movilizacion::insert($insertData);
-
-                $movilizacionIds = Movilizacion::whereIn('ID_EQUIPO', $request->ids)
-                    ->where('ID_FRENTE_DESTINO', $frente->ID_FRENTE)
-                    ->where('created_at', $now)  // timestamp exacto = esta tanda
-                    ->pluck('ID_MOVILIZACION')
-                    ->toArray();
+            foreach ($equipos as $equipo) {
+                $mov = Movilizacion::create([
+                    'CODIGO_CONTROL'    => $generarPdf ? $nextId : null,
+                    'ID_EQUIPO'         => $equipo->ID_EQUIPO,
+                    'ID_FRENTE_ORIGEN'  => $equipo->ID_FRENTE_ACTUAL ?? 1,
+                    'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
+                    'FECHA_DESPACHO'    => $generarPdf ? $now : null,
+                    'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
+                    'USUARIO_REGISTRO'  => $userEmail,
+                ]);
+                $movilizacionIds[] = $mov->ID_MOVILIZACION;
             }
 
             \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
-                'ID_FRENTE_ACTUAL'          => $frente->ID_FRENTE,
-                'CONFIRMADO_EN_SITIO'       => 1,
-                'DETALLE_UBICACION_ACTUAL'  => null, // Se borra al salir del frente
+                'ID_FRENTE_ACTUAL'         => $frente->ID_FRENTE,
+                'CONFIRMADO_EN_SITIO'      => 1,
+                'DETALLE_UBICACION_ACTUAL' => null,
             ]);
 
             DB::commit();
             $this->triggerDashboardCacheRefresh();
 
             return response()->json([
-                'success' => true,
+                'success'          => true,
                 'movilizacion_ids' => $movilizacionIds,
-                'count' => count($movilizacionIds),
-                'generar_pdf' => $generarPdf
+                'count'            => count($movilizacionIds),
+                'generar_pdf'      => $generarPdf,
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('bulkStore movilizacion error: ' . $e->getMessage());
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
@@ -464,8 +462,29 @@ class MovilizacionController extends Controller
      */
     public function generarActaTraslado($id)
     {
+        // PDFs grandes (muchos equipos) pueden tardar más del default de 30s
+        @set_time_limit(300);
+        @ini_set('memory_limit', '512M');
+
         try {
             $baseMov = Movilizacion::findOrFail($id);
+
+            // Scope LOCAL: el usuario debe tener acceso al frente origen o destino
+            $authUser = auth()->user();
+            if ($authUser && $authUser->NIVEL_ACCESO == 2) {
+                $frentesPermitidos = $authUser->getFrentesIds();
+                $origenOk  = in_array($baseMov->ID_FRENTE_ORIGEN, $frentesPermitidos);
+                $destinoOk = in_array($baseMov->ID_FRENTE_DESTINO, $frentesPermitidos);
+                if (!$origenOk && !$destinoOk) {
+                    abort(403, 'No tienes permiso para descargar esta acta.');
+                }
+            }
+
+            // Para tandas sin CODIGO_CONTROL (recepciones directas / actualizaciones)
+            // no tiene sentido generar acta agrupada.
+            if (empty($baseMov->CODIGO_CONTROL)) {
+                return back()->withErrors(['error' => 'Esta movilización no tiene acta asociada (actualización o recepción directa).']);
+            }
 
             $movilizaciones = Movilizacion::with([
                 'equipo.tipo',

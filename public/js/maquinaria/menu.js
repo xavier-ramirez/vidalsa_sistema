@@ -6,33 +6,13 @@
 
 window.toggleExpiredDocs = function () {
     const expiredContainer = document.getElementById('expiredDocsContainer');
-    const pendingContainer = document.getElementById('pendingMovsContainer');
-
     if (!expiredContainer) return;
-
-    if (expiredContainer.style.display === 'none') {
-        expiredContainer.style.display = 'flex';
-        // Close the other list if it exists
-        if (pendingContainer) pendingContainer.style.display = 'none';
-    } else {
-        expiredContainer.style.display = 'none';
-    }
+    // block porque .alertas-panel usa layout de bloque (no flex en el contenedor raíz)
+    expiredContainer.style.display = (expiredContainer.style.display === 'none') ? 'block' : 'none';
 };
 
-window.togglePendingMovs = function () {
-    const pendingContainer = document.getElementById('pendingMovsContainer');
-    const expiredContainer = document.getElementById('expiredDocsContainer');
-
-    if (!pendingContainer) return;
-
-    if (pendingContainer.style.display === 'none') {
-        pendingContainer.style.display = 'flex';
-        // Close the other list if it exists
-        if (expiredContainer) expiredContainer.style.display = 'none';
-    } else {
-        pendingContainer.style.display = 'none';
-    }
-};
+// togglePendingMovs removido: la lista de "Equipos Por Confirmar" ahora vive en el
+// centro de notificaciones del navbar (layouts/estructura_base.blade.php).
 
 console.log('✅ Menu Dashboard Functions Loaded (Global Scope)');
 
@@ -123,61 +103,8 @@ window.filterDashboardAlerts = function () {
     }
 };
 
-window.filterPendingMovs = function () {
-    const input = document.getElementById('pendingMovSearch');
-    if (!input) return;
-
-    const normalizeStr = str => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
-    let val = input.value.trim();
-    const isTagSearch = val.startsWith('#');
-    const filter = normalizeStr(isTagSearch ? val.substring(1) : val);
-
-    const container = document.getElementById('pendingMovsContainer');
-    if (!container) return;
-
-    const items = container.querySelectorAll('.activity-item');
-    let hasVisibleItems = false;
-
-    items.forEach(item => {
-        const placa = normalizeStr(item.getAttribute('data-placa'));
-        const chasis = normalizeStr(item.getAttribute('data-chasis'));
-        const etiqueta = normalizeStr(item.getAttribute('data-etiqueta'));
-        const fullText = normalizeStr(item.innerText);
-
-        let match = false;
-        if (isTagSearch) {
-            match = etiqueta.indexOf(filter) > -1;
-        } else {
-            match = placa.indexOf(filter) > -1 || chasis.indexOf(filter) > -1 || fullText.indexOf(filter) > -1 || etiqueta.indexOf(filter) > -1;
-        }
-
-        if (match) {
-            item.style.display = "flex";
-            hasVisibleItems = true;
-        } else {
-            item.style.display = "none";
-        }
-    });
-
-    let emptyState = document.getElementById('movs-search-empty-state');
-    const list = container.querySelector('.activity-list');
-
-    if (!hasVisibleItems && val.length > 0) {
-        if (!emptyState) {
-            emptyState = document.createElement('div');
-            emptyState.id = 'movs-search-empty-state';
-            emptyState.style.padding = '20px';
-            emptyState.style.textAlign = 'center';
-            emptyState.style.color = '#64748b';
-            emptyState.innerHTML = `<p>No se encontraron equipos pendientes con ese criterio.</p>`;
-            list.appendChild(emptyState);
-        } else {
-            emptyState.style.display = 'block';
-        }
-    } else if (emptyState) {
-        emptyState.style.display = 'none';
-    }
-};
+// filterPendingMovs removido: la b\u00fasqueda ya no aplica, la lista vive en el dropdown
+// de notificaciones del navbar, que muestra un set acotado sin filtro UI.
 
 // Modal compacto para iniciar gestión
 window.iniciarGestionCustom = function (equipoId, docType, event) {
@@ -302,52 +229,6 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
     };
 };
 
-// ─────────────────────────────────────────────────────────
-// RECIBIR MOVILIZACIÓN — AJAX (sin recarga de página)
-// ─────────────────────────────────────────────────────────
-
-/**
- * Refresca la lista de movilizaciones pendientes vía AJAX
- * y actualiza los contadores de las cards.
- */
-window.refreshPendingMovs = async function (silent = false) {
-    const listContainer = document.getElementById('pendingMovsList');
-    if (!listContainer) return;
-
-    try {
-        const response = await fetch(`/dashboard/pending-movs-html?t=${Date.now()}`);
-        if (!response.ok) throw new Error('Network error');
-
-        const data = await response.json();
-
-        // Actualizar lista
-        if (data.html !== undefined) {
-            if (silent) {
-                // Actualización silenciosa sin "titileo"
-                listContainer.innerHTML = data.html;
-            } else {
-                listContainer.style.opacity = '0';
-                setTimeout(() => {
-                    listContainer.innerHTML = data.html;
-                    listContainer.style.transition = 'opacity 0.3s ease';
-                    listContainer.style.opacity = '1';
-                }, 100);
-            }
-        }
-
-        // Actualizar contador "Por Confirmar" (x|N Por Confirmar — card-subtext-inline)
-        if (data.pendientes !== undefined) {
-            const subtextEl = document.querySelector('.card-blue .card-subtext-inline');
-            if (subtextEl) subtextEl.innerText = `| ${data.pendientes} Por Confirmar`;
-        }
-
-        // Actualizar contador "Movilizaciones Hoy" (card-value dentro de card-blue)
-        if (data.movilizacionesHoy !== undefined) {
-            const hoyEl = document.querySelector('.card-blue .card-value');
-            if (hoyEl) hoyEl.innerText = data.movilizacionesHoy;
-        }
-
-    } catch (error) {
-        console.error('refreshPendingMovs error:', error);
-    }
-};
+// refreshPendingMovs removido: la lista de pendientes vive en el dropdown de notificaciones
+// del navbar (ver layouts/estructura_base.blade.php). Si necesitas forzar refresh desde otra
+// parte del código, dispatcha: window.dispatchEvent(new Event('notif:refresh')).
