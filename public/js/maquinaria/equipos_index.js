@@ -1137,21 +1137,17 @@ window.openBulkModal = function (event) {
     const content = document.createElement("div");
     content.style.cssText = "background:white;border-radius:16px;width:90%;max-width:480px;max-height:92vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.30);animation:slideDown 0.2s ease-out;display:flex;flex-direction:column;";
 
-    // 7. Header
+    // 7. Header — mismo patron que Anclaje/Ubicacion: fondo #1e293b solido,
+    // titulo centrado con icono de acento, close button absoluto arriba-derecha.
     const header = document.createElement("div");
-    header.style.cssText = "background:linear-gradient(135deg,#1e293b,#0f172a);padding:18px 22px;color:white;display:flex;justify-content:space-between;align-items:center;";
+    header.style.cssText = "background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;";
     header.innerHTML = `
-        <div style="display:flex;align-items:center;gap:12px;">
-            <div style="background:rgba(255,255,255,0.15);border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;">
-                <i class="material-icons" style="font-size:22px;">local_shipping</i>
-            </div>
-            <div>
-                <h2 style="margin:0;font-size:17px;font-weight:800;">Movilización</h2>
-                <p style="margin:0;font-size:12px;opacity:0.8;">${count} equipo${count !== 1 ? 's' : ''} seleccionado${count !== 1 ? 's' : ''}</p>
-            </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <i class="material-icons" style="color:#0067b1;font-size:20px;">local_shipping</i>
+            <h2 style="margin:0;font-size:16px;font-weight:700;">Movilización</h2>
         </div>
-        <button type="button" id="btnCloseDynamic" style="background:rgba(255,255,255,0.15);border:none;color:white;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-            <i class="material-icons" style="font-size:20px;">close</i>
+        <button type="button" id="btnCloseDynamic" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+            <i class="material-icons">close</i>
         </button>
     `;
 
