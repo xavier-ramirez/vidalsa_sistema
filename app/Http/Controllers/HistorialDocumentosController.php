@@ -208,9 +208,21 @@ class HistorialDocumentosController extends Controller
         $activeUsers = collect();
         try {
             $cutoff = now()->subMinutes(30)->timestamp;
-            $activeUsers = \Illuminate\Support\Facades\DB::table('sessions')
+
+            // Subquery: la sesion MAS RECIENTE por cada user_id (evita que el mismo
+            // usuario aparezca N veces si tiene varias sessions vivas: navegadores
+            // distintos, sesiones de laptop + telefono, etc).
+            $latestPerUser = \Illuminate\Support\Facades\DB::table('sessions')
+                ->selectRaw('user_id, MAX(last_activity) as last_activity')
                 ->whereNotNull('user_id')
                 ->where('last_activity', '>=', $cutoff)
+                ->groupBy('user_id');
+
+            $activeUsers = \Illuminate\Support\Facades\DB::table('sessions')
+                ->joinSub($latestPerUser, 'latest', function ($j) {
+                    $j->on('sessions.user_id', '=', 'latest.user_id')
+                      ->on('sessions.last_activity', '=', 'latest.last_activity');
+                })
                 ->join('usuarios', 'usuarios.ID_USUARIO', '=', 'sessions.user_id')
                 ->select(
                     'usuarios.ID_USUARIO',
@@ -220,7 +232,11 @@ class HistorialDocumentosController extends Controller
                     'sessions.last_activity'
                 )
                 ->orderByDesc('sessions.last_activity')
-                ->get();
+                // Defensivo: si por carrera quedaran 2 filas con mismo last_activity,
+                // elegimos solo 1 por usuario.
+                ->get()
+                ->unique('ID_USUARIO')
+                ->values();
         } catch (\Illuminate\Database\QueryException $e) {
             // Solo atrapamos errores de query (tabla/col inexistente, driver distinto).
             // Errores de logica siguen burbujeando. Log::error con stack trace para observabilidad.
