@@ -24,6 +24,8 @@
 /storage/*.key
 /storage/pail
 /vendor
+/database/sql_export
+/database/*.sql
 Homestead.json
 Homestead.yaml
 Thumbs.db
