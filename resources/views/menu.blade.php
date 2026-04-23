@@ -213,10 +213,15 @@
         gap: 28px;
         padding: 22px 28px;
         border-radius: 18px;
-        background: linear-gradient(135deg, #fff 0%, #f0f9ff 100%);
-        border: 1px solid #bfdbfe;
-        box-shadow: 0 10px 24px -14px rgba(0, 103, 177, 0.3), 0 2px 6px -2px rgba(0,0,0,0.04);
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -16px rgba(15, 23, 42, 0.18);
         overflow: hidden;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    }
+    .salud-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 18px 36px -18px rgba(15, 23, 42, 0.25);
     }
     .salud-card::before {
         content: '';
@@ -384,7 +389,7 @@
         }
     }
 
-    /* ── Card "Alertas Documentos" — paleta azul-gris suave que combina con el hero ── */
+    /* ── Card "Alertas Documentos" — misma superficie blanca limpia que Salud ── */
     .alertas-card {
         position: relative;
         overflow: hidden;
@@ -393,15 +398,15 @@
         gap: 18px;
         padding: 20px 22px;
         border-radius: 18px;
-        background: linear-gradient(135deg, #fff 0%, #eef2f7 100%);
-        border: 1px solid #cbd5e1;
-        box-shadow: 0 10px 24px -14px rgba(30, 41, 59, 0.25), 0 2px 6px -2px rgba(0,0,0,0.04);
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -16px rgba(15, 23, 42, 0.18);
         cursor: pointer;
         transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
     }
     .alertas-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 18px 34px -14px rgba(30, 41, 59, 0.32), 0 4px 10px -2px rgba(0,0,0,0.06);
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 18px 36px -18px rgba(15, 23, 42, 0.25);
     }
     .alertas-card::before {
         content: '';
