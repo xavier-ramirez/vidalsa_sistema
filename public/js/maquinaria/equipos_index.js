@@ -1058,10 +1058,10 @@ window.openUbicacionBulkModal = function (event) {
             showFb('error', 'Ingresa el detalle de ubicación.');
             return;
         }
-        const original = submitBtn.innerHTML;
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Aplicando...';
-        showFb('info', 'Guardando ubicación en ' + selections.length + ' equipo(s)…');
+        // Spinner GLOBAL tradicional (fondo blanco sobre toda la pagina) en vez
+        // del micro-spinner inline dentro del boton.
+        if (typeof window.showPreloader === 'function') window.showPreloader();
         try {
             const res = await fetch('/admin/equipos/bulk-ubicacion', {
                 method: 'POST',
@@ -1077,16 +1077,16 @@ window.openUbicacionBulkModal = function (event) {
                 throw new Error(err.message || ('Error ' + res.status));
             }
             const data = await res.json();
-            showFb('success', 'Actualizados ' + (data.count || selections.length) + ' equipo(s).');
-            if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada correctamente.', 'success');
+            if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada en ' + (data.count || selections.length) + ' equipo(s).', 'success');
             if (typeof window.clearSelection === 'function') window.clearSelection();
             if (typeof window.loadEquipos === 'function') window.loadEquipos(null, true);
-            setTimeout(closeModal, 700);
+            closeModal();
         } catch (err) {
             console.error('[Ubicacion bulk]', err);
             showFb('error', err.message || 'No se pudo actualizar.');
             submitBtn.disabled = false;
-            submitBtn.innerHTML = original;
+        } finally {
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
         }
     }
     overlay.querySelector('#ub-submit').onclick = doSubmit;
