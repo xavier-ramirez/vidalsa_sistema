@@ -384,7 +384,7 @@
         }
     }
 
-    /* ── Card "Alertas Documentos" rediseñada ── */
+    /* ── Card "Alertas Documentos" — paleta azul-gris suave que combina con el hero ── */
     .alertas-card {
         position: relative;
         overflow: hidden;
@@ -393,15 +393,15 @@
         gap: 18px;
         padding: 20px 22px;
         border-radius: 18px;
-        background: linear-gradient(135deg, #fff 0%, #fffbeb 100%);
-        border: 1px solid #fde68a;
-        box-shadow: 0 10px 24px -14px rgba(217, 119, 6, 0.35), 0 2px 6px -2px rgba(0,0,0,0.04);
+        background: linear-gradient(135deg, #fff 0%, #eef2f7 100%);
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 10px 24px -14px rgba(30, 41, 59, 0.25), 0 2px 6px -2px rgba(0,0,0,0.04);
         cursor: pointer;
         transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
     }
     .alertas-card:hover {
         transform: translateY(-3px);
-        box-shadow: 0 18px 34px -14px rgba(217, 119, 6, 0.45), 0 4px 10px -2px rgba(0,0,0,0.06);
+        box-shadow: 0 18px 34px -14px rgba(30, 41, 59, 0.32), 0 4px 10px -2px rgba(0,0,0,0.06);
     }
     .alertas-card::before {
         content: '';
@@ -411,7 +411,7 @@
         width: 160px;
         height: 160px;
         border-radius: 50%;
-        background: radial-gradient(circle at center, rgba(245, 158, 11, 0.15), transparent 70%);
+        background: radial-gradient(circle at center, rgba(30, 41, 59, 0.10), transparent 70%);
         pointer-events: none;
     }
     .alertas-card-icon {
@@ -420,12 +420,13 @@
         width: 54px;
         height: 54px;
         border-radius: 16px;
-        background: linear-gradient(135deg, #f59e0b, #d97706);
+        /* Azul corporativo -> slate oscuro: armoniza con el hero y el header del modal (#1e293b) */
+        background: linear-gradient(135deg, #0067b1, #1e293b);
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
-        box-shadow: 0 8px 20px -6px rgba(217, 119, 6, 0.6), inset 0 1px 0 rgba(255,255,255,0.25);
+        box-shadow: 0 8px 20px -6px rgba(0, 103, 177, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
     }
     .alertas-card-icon .material-icons { font-size: 28px; }
     .alertas-card-body {
@@ -439,7 +440,7 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: #92400e;
+        color: #1e293b;
         margin-bottom: 2px;
     }
     .alertas-card-main {
@@ -458,7 +459,7 @@
     .alertas-card-sub {
         font-size: 12px;
         font-weight: 700;
-        color: #78350f;
+        color: #475569;
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
@@ -478,7 +479,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 14px 18px;
-        background: linear-gradient(135deg, #0067b1 0%, #00004d 100%);
+        background: #1e293b;
         color: #fff;
     }
     .alertas-panel-title {

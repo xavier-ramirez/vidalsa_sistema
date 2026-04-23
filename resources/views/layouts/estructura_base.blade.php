@@ -177,7 +177,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 14px 18px;
-            background: linear-gradient(135deg, #0067b1 0%, #00004d 100%);
+            background: #1e293b;
             color: #fff;
             position: relative;
             z-index: 1;
@@ -1010,6 +1010,18 @@
             function toggleMobileMenu() {
                 const menu = document.getElementById('mobileMenu');
                 if (menu) menu.classList.toggle('active');
+            }
+
+            // Cerrar el menu movil al hacer click fuera (ni en el menu ni en el hamburger).
+            // Guard _mobileMenuOutsideReady evita duplicar listener en SPA re-ejecuciones.
+            if (!window._mobileMenuOutsideReady) {
+                window._mobileMenuOutsideReady = true;
+                document.addEventListener('click', function (e) {
+                    const menu = document.getElementById('mobileMenu');
+                    if (!menu || !menu.classList.contains('active')) return;
+                    if (e.target.closest('.mobile-menu') || e.target.closest('.menu-toggle')) return;
+                    menu.classList.remove('active');
+                });
             }
 
             // Toggle Mobile Group
