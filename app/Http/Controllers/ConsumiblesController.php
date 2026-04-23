@@ -727,8 +727,8 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function exportarCsv(Request $request)
     {
-        $desde = $request->get('fecha_desde');
-        $hasta = $request->get('fecha_hasta');
+        $desde = $request->get('fecha_desde') ?: $request->get('desde');
+        $hasta = $request->get('fecha_hasta') ?: $request->get('hasta');
         $idFrente = $request->get('id_frente');
         $tipo = $request->get('tipo');
         $identificador = $request->get('identificador');

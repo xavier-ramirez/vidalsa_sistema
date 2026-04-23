@@ -107,10 +107,9 @@
 </head>
 
 <body class="modern-app">
-    <!-- Global Preloader (Bars animation) - Solo para navegación interna -->
-    <div id="preloader" class="preloader" style="display: none;">
+    <!-- Global Preloader (Bars animation) - Para carga inicial y navegación SPA -->
+    <div id="preloader" class="preloader">
         <div class="preloader-content">
-
             <div class="spinner-circle"></div>
         </div>
     </div>
@@ -460,6 +459,13 @@
                     }, 100);
                 }
             };
+
+            // Asegurar que el preloader inicial se oculte solo cuando todo (incluyendo imágenes/iconos) haya cargado.
+            window.addEventListener('load', function() {
+                if (typeof window.hidePreloader === 'function') {
+                    window.hidePreloader();
+                }
+            });
 
             // Utilidad Global para Mostrar/Ocultar Contraseñas
             window.togglePw = function (inputId, icon) {

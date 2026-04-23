@@ -44,6 +44,8 @@
 
             // ── Inicialización ──────────────────────────────────────────
             function initSession() {
+                // Sincronizar actividad inicial a localStorage para múltiples pestañas
+                localStorage.setItem('vidalsa_last_activity', Date.now());
                 updateExpirationTime();
                 startCheckInterval();
                 startServerPing();
@@ -53,8 +55,22 @@
 
             // ── Timer Frontend ──────────────────────────────────────────
             function updateExpirationTime() {
-                sessionExpirationTime = Date.now() + SESSION_LIFETIME_MS;
-                lastActivityReset = Date.now();
+                const now = Date.now();
+                lastActivityReset = now;
+                localStorage.setItem('vidalsa_last_activity', now);
+                sessionExpirationTime = now + SESSION_LIFETIME_MS;
+            }
+
+            function syncWithOtherTabs() {
+                // Leer la última actividad registrada por CUALQUIER pestaña
+                const globalLastActivity = parseInt(localStorage.getItem('vidalsa_last_activity')) || 0;
+                // Si otra pestaña registró actividad más reciente, actualizar la nuestra
+                if (globalLastActivity > lastActivityReset) {
+                    lastActivityReset = globalLastActivity;
+                    sessionExpirationTime = globalLastActivity + SESSION_LIFETIME_MS;
+                    // Si el modal estaba visible por error, ocultarlo
+                    if (isModalVisible) hideWarning();
+                }
             }
 
             function startCheckInterval() {
@@ -64,6 +80,8 @@
 
             // ── Verificación de estado cada segundo ─────────────────────
             function checkSessionStatus() {
+                syncWithOtherTabs(); // Sincronizar antes de calcular el tiempo restante
+
                 const msRemaining  = sessionExpirationTime - Date.now();
                 const secRemaining = Math.ceil(msRemaining / 1000);
 
@@ -89,12 +107,10 @@
             function pingServer() {
                 if (isModalVisible) return; // El usuario debe decidir, no renovar
 
-                const inactiveSinceMs = Date.now() - lastActivityReset;
-                if (inactiveSinceMs >= RECENT_ACTIVITY_MS) {
-                    // Inactivo: no tocar el servidor para que la sesión expire naturalmente
-                    console.log('💤 Ping omitido: ' + Math.round(inactiveSinceMs/60000) + 'min sin actividad');
-                    return;
-                }
+                // Se eliminó la restricción de 2 minutos. Si el frontend aún considera que la sesión 
+                // está viva (no ha llegado a cero), DEBEMOS hacer ping al backend para que no expire
+                // prematuramente, ya que el usuario pudo haber estado activo hace 5 minutos (lo cual
+                // extendió el timer del frontend pero requiere ping para extender el backend).
 
                 // Usuario activo: renovar CSRF y mantener sesión backend viva
                 fetch('/refresh-csrf', { method: 'GET' })

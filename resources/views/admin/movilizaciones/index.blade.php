@@ -359,34 +359,34 @@ window._eliminarSeleccionados = function () {
         ? 'Se eliminará 1 registro de movilización.'
         : 'Se eliminarán ' + ids.length + ' registros de movilización.';
 
-    const doDelete = function () {
-        const csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
-        const promises = ids.map(function (id) {
-            return fetch('/admin/movilizaciones/' + id, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }
-            }).then(function (r) { return r.json(); });
-        });
-
-        Promise.all(promises)
-            .then(function (results) {
-                const failed = results.filter(function (r) { return !r.success; });
-                window._mvSelectedIds.clear();
-                if (window.loadMovilizaciones) window.loadMovilizaciones();
-                else window.location.reload();
-
-                if (failed.length === 0) {
-                    if (window.showToast) window.showToast('Registros eliminados correctamente.', 'success');
-                    else alert('Todos los registros fueron eliminados correctamente.');
+        const doDelete = function () {
+            const csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
+            
+            fetch('/admin/movilizaciones/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                body: JSON.stringify({ ids: ids })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) {
+                    window._mvSelectedIds.clear();
+                    if (window.showToast) window.showToast(res.message || 'Registros eliminados correctamente.', 'success');
+                    else alert(res.message || 'Todos los registros fueron eliminados correctamente.');
+                    
+                    if (window.loadMovilizaciones) window.loadMovilizaciones();
+                    else window.location.reload();
                 } else {
-                    alert('Parcialmente eliminado: ' + (ids.length - failed.length) + ' eliminados. ' + failed.length + ' fallaron.');
+                    if (window.hidePreloader) window.hidePreloader();
+                    alert('Error: ' + (res.message || 'Hubo un problema al eliminar los registros.'));
                 }
             })
             .catch(function (err) {
+                if (window.hidePreloader) window.hidePreloader();
                 console.error('[Movilizaciones] Error batch delete:', err);
                 alert('Error de red al intentar eliminar los registros.');
             });
-    };
+        };
 
     // Usar el sistema de modales global (standardModal)
     if (window.showModal) {

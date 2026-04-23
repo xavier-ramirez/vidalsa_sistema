@@ -148,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const contentType = response.headers.get('Content-Type') || '';
             if (!contentType.includes('text/html')) {
                 handledCleanup = true;
+                if (window.hidePreloader) window.hidePreloader();
                 window.location.href = url;
                 return;
             }

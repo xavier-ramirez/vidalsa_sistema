@@ -23,40 +23,17 @@ class DashboardController extends Controller
         // Cache the dashboard logic to improve speed
         $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($isGlobal, $frenteIds) {
             // 1. Mobilizations Today
-            $movilizacionesHoyQuery = Movilizacion::whereDate('created_at', Carbon::today());
-            if (count($frenteIds) > 0) {
-                $movilizacionesHoyQuery->where(function($q) use ($frenteIds) {
-                    $q->whereIn('ID_FRENTE_ORIGEN', $frenteIds)
-                      ->orWhereIn('ID_FRENTE_DESTINO', $frenteIds);
-                });
-            } elseif (!$isGlobal) {
-                $movilizacionesHoyQuery->whereRaw('1 = 0');
-            }
-            $movilizacionesHoy = $movilizacionesHoyQuery->count();
+            $movilizacionesHoy = $this->getMovilizacionesHoyCount($isGlobal, $frenteIds);
 
             // 2. Pending Mobilizations (disabled since transit is instant)
-            $pendientesQuery = Movilizacion::whereRaw('1 = 0');
-            if (count($frenteIds) > 0) {
-                $pendientesQuery->whereIn('ID_FRENTE_DESTINO', $frenteIds);
-            } elseif (!$isGlobal) {
-                $pendientesQuery->whereRaw('1 = 0');
-            }
-            $pendientes = $pendientesQuery->count();
+            $pendientes = 0;
 
             // 3. Alerts List — LOCAL users see only their frentes' equipment
             $expiredList = $this->generateAlertsList(!$isGlobal ? $frenteIds : null);
             $totalAlerts  = $expiredList->count();
 
             // 4. Recent Activity (list) — LOCAL users see only their frentes
-            $recentActivityQuery = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino'])
-                ->orderBy('created_at', 'desc')
-                ->limit(50);
-            if (count($frenteIds) > 0) {
-                $recentActivityQuery->whereIn('ID_FRENTE_DESTINO', $frenteIds);
-            } elseif (!$isGlobal) {
-                $recentActivityQuery->whereRaw('1 = 0');
-            }
-            $recentActivity = $recentActivityQuery->get();
+            $recentActivity = $this->getRecentActivity($isGlobal, $frenteIds);
 
             // 5. Frentes activos (necesarios para el modal de Recepción Directa)
             $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
@@ -121,7 +98,42 @@ class DashboardController extends Controller
         $isGlobal = $user && $user->NIVEL_ACCESO == 1;
         $frenteIds = $user ? $user->getFrentesIds() : [];
 
-        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino']);
+        $pendientes = 0;
+        $recentActivity = $this->getRecentActivity($isGlobal, $frenteIds);
+        $movilizacionesHoy = $this->getMovilizacionesHoyCount($isGlobal, $frenteIds);
+
+        return response()->json([
+            'html'              => view('partials.pending_movs_list', compact('recentActivity'))->render(),
+            'pendientes'        => $pendientes,
+            'movilizacionesHoy' => $movilizacionesHoy,
+        ]);
+    }
+
+    /**
+     * Reusable query for counting today's mobilizations
+     */
+    private function getMovilizacionesHoyCount($isGlobal, $frenteIds)
+    {
+        $query = Movilizacion::whereDate('created_at', \Carbon\Carbon::today());
+        if (count($frenteIds) > 0) {
+            $query->where(function ($q) use ($frenteIds) {
+                $q->whereIn('ID_FRENTE_ORIGEN', $frenteIds)
+                  ->orWhereIn('ID_FRENTE_DESTINO', $frenteIds);
+            });
+        } elseif (!$isGlobal) {
+            $query->whereRaw('1 = 0');
+        }
+        return $query->count();
+    }
+
+    /**
+     * Reusable query for getting recent activity
+     */
+    private function getRecentActivity($isGlobal, $frenteIds)
+    {
+        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino'])
+            ->orderBy('created_at', 'desc')
+            ->limit(50);
 
         if (count($frenteIds) > 0) {
             $query->whereIn('ID_FRENTE_DESTINO', $frenteIds);
@@ -129,25 +141,7 @@ class DashboardController extends Controller
             $query->whereRaw('1 = 0');
         }
 
-        $pendientes = 0;
-        $recentActivity = $query->orderBy('created_at', 'desc')->limit(50)->get();
-
-        $hoyQuery = Movilizacion::whereDate('created_at', \Carbon\Carbon::today());
-        if (count($frenteIds) > 0) {
-            $hoyQuery->where(function ($q) use ($frenteIds) {
-                $q->whereIn('ID_FRENTE_ORIGEN', $frenteIds)
-                  ->orWhereIn('ID_FRENTE_DESTINO', $frenteIds);
-            });
-        } elseif (!$isGlobal) {
-            $hoyQuery->whereRaw('1 = 0');
-        }
-        $movilizacionesHoy = $hoyQuery->count();
-
-        return response()->json([
-            'html'              => view('partials.pending_movs_list', compact('recentActivity'))->render(),
-            'pendientes'        => $pendientes,
-            'movilizacionesHoy' => $movilizacionesHoy,
-        ]);
+        return $query->get();
     }
 
     /**

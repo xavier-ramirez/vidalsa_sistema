@@ -613,6 +613,25 @@ class MovilizacionController extends Controller
         }
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        if (!auth()->user()->can('super.admin')) {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acción.'], 403);
+        }
+
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:movilizacion_historial,ID_MOVILIZACION',
+        ]);
+
+        try {
+            Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
+            return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con éxito.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error al eliminar registros: ' . $e->getMessage()], 500);
+        }
+    }
+
     // ─── HELPERS ────────────────────────────────────────────────────────────
 
     /**
