@@ -129,6 +129,14 @@
         .menu-hero-content { padding: 20px; }
         .menu-hero-title { font-size: 22px; }
     }
+    /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del contenedor ── */
+    @media (max-width: 768px) {
+        .dashboard-container { padding: 8px 10px !important; }
+    }
+    @media (max-width: 480px) {
+        .dashboard-container { padding: 6px 6px !important; }
+        .menu-hero { border-radius: 10px; }
+    }
 
     /* ── Wrapper grid: Salud Operacional + Alertas Documentos, responsive auto-fit ── */
     .cards-wrapper {
@@ -248,12 +256,12 @@
         width: 54px;
         height: 54px;
         border-radius: 16px;
-        background: linear-gradient(135deg, #00004d, #0067b1);
+        background: #1e293b;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
-        box-shadow: 0 8px 20px -6px rgba(0, 0, 77, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
+        box-shadow: 0 8px 20px -6px rgba(30, 41, 59, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
     }
     .salud-icon .material-icons { font-size: 28px; }
     .salud-body {
@@ -369,24 +377,57 @@
 
     @media (max-width: 900px) {
         .salud-card {
-            grid-template-columns: 1fr;
-            gap: 16px;
-            padding: 18px 18px;
+            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 8px 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
         }
         .salud-main-block {
+            grid-column: 1 / -1;
             padding-right: 0;
             border-right: none;
-            padding-bottom: 14px;
+            padding-bottom: 8px;
             border-bottom: 1px solid #cfe4f9;
             min-width: 0;
+            gap: 10px;
         }
+        .salud-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+        }
+        .salud-icon .material-icons { font-size: 20px; }
+        .salud-label { font-size: 10px; letter-spacing: 0.08em; }
+        .salud-body { gap: 3px; }
+        .salud-main { gap: 6px; }
+        .salud-percent { font-size: 22px; }
+        .salud-percent-sub { font-size: 9.5px; }
+        .salud-bar { height: 6px; }
+        .salud-bar-wrap { gap: 6px; }
         .salud-stats-group {
+            grid-column: 1 / -1;
             padding-left: 0;
-            padding-top: 14px;
+            padding-top: 6px;
             border-left: none;
-            border-top: 1px solid #cfe4f9;
-            justify-content: space-around;
+            border-top: none;
+            justify-content: space-between;
+            gap: 6px;
         }
+        .salud-stat { min-width: 0; }
+        .salud-stat-value { font-size: 16px; }
+        .salud-stat-name { font-size: 8.5px; margin-top: 2px; }
+    }
+    @media (max-width: 520px) {
+        .salud-card { padding: 8px 10px; gap: 6px 8px; }
+        .salud-main-block { padding-bottom: 6px; gap: 8px; }
+        .salud-icon { width: 34px; height: 34px; border-radius: 9px; }
+        .salud-icon .material-icons { font-size: 18px; }
+        .salud-percent { font-size: 20px; }
+        .salud-bar { height: 5px; }
+        .salud-stat-value { font-size: 14px; }
+        .salud-stat-name { font-size: 8px; }
+        .salud-stats-group { padding-top: 4px; gap: 4px; }
     }
 
     /* ── Card "Alertas Documentos" — misma superficie blanca limpia que Salud ── */
@@ -425,13 +466,12 @@
         width: 54px;
         height: 54px;
         border-radius: 16px;
-        /* Azul corporativo -> slate oscuro: armoniza con el hero y el header del modal (#1e293b) */
-        background: linear-gradient(135deg, #0067b1, #1e293b);
+        background: #1e293b;
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
-        box-shadow: 0 8px 20px -6px rgba(0, 103, 177, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
+        box-shadow: 0 8px 20px -6px rgba(30, 41, 59, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
     }
     .alertas-card-icon .material-icons { font-size: 28px; }
     .alertas-card-body {
@@ -474,6 +514,22 @@
         transition: transform 0.2s ease;
     }
     .alertas-card:hover .alertas-card-chev { transform: translateX(3px); }
+
+    @media (max-width: 900px) {
+        .alertas-card { gap: 12px; padding: 12px 14px; border-radius: 14px; }
+        .alertas-card-icon { width: 40px; height: 40px; border-radius: 11px; }
+        .alertas-card-icon .material-icons { font-size: 22px; }
+        .alertas-card-label { font-size: 10px; letter-spacing: 0.08em; }
+        .alertas-card-value { font-size: 26px; }
+        .alertas-card-sub { font-size: 11px; }
+    }
+    @media (max-width: 520px) {
+        .alertas-card { gap: 10px; padding: 10px 12px; }
+        .alertas-card-icon { width: 36px; height: 36px; border-radius: 10px; }
+        .alertas-card-icon .material-icons { font-size: 20px; }
+        .alertas-card-value { font-size: 22px; }
+        .alertas-card-sub { font-size: 10.5px; }
+    }
 
     /* ── Estilos del panel "Alertas Documentos" ── */
     /* (El panel flotante fue reemplazado por el modal `.alertas-modal-overlay`;
@@ -666,6 +722,11 @@
                             <i class="material-icons">chevron_right</i>
                         </div>
                     </div>
+
+                    {{-- Slot PWA: el boton "Instalar App" se inyecta aqui solo en mobile
+                         cuando el navegador emite beforeinstallprompt (o en iOS Safari).
+                         Ver public/js/pwa-install.js. --}}
+                    <div id="pwaInstallSlot" style="margin-top: 10px;"></div>
 
                 </div>
 

@@ -9,7 +9,7 @@
 
     {{-- ===== PWA ===== --}}
     <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ @filemtime(public_path('manifest.json')) }}">
-    <meta name="theme-color" content="#0067b1">
+    {{-- Sin theme-color: respetamos el color nativo de la barra del navegador (gris claro por defecto). --}}
     <meta name="application-name" content="Vidalsa">
     <meta name="mobile-web-app-capable" content="yes">
     {{-- iOS: homescreen / standalone --}}
