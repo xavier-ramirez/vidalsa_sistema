@@ -108,14 +108,8 @@ Route::middleware(['auth'])->group(function () {
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
             });
 
-            // RUTA DE EMERGENCIA: REPARAR ESQUEMA BD
-            // Requiere autenticación (heredada) + permiso explícito super.admin
-            Route::get('system/force-fix-db/vidalsa123', function () {
-                if (!auth()->user()->can('super.admin')) {
-                    abort(403, 'Acceso denegado.');
-                }
-                return app(App\Http\Controllers\SystemController::class)->forceFixDb();
-            });
+            // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora
+            // viven solo en migraciones idempotentes bajo `php artisan migrate`.
         });
 
     });

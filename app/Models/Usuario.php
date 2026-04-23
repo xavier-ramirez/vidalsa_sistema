@@ -21,17 +21,17 @@ class Usuario extends Authenticatable
      *
      * @var array<int, string>
      */
+    /**
+     * Campos seguros para mass-assignment (perfil / autoservicio).
+     * Los campos sensibles (ID_ROL, NIVEL_ACCESO, PERMISOS, ESTATUS, SESSION_TOKEN,
+     * ID_FRENTE_ASIGNADO, REQUIERE_CAMBIO_CLAVE) NO van aqui — se asignan
+     * explicitamente desde UserController bajo `can:manage.users` para evitar
+     * escalacion de privilegios via $user->fill($request->all()).
+     */
     protected $fillable = [
         'NOMBRE_COMPLETO',
         'CORREO_ELECTRONICO',
         'PASSWORD_HASH',
-        'ID_ROL',
-        'SESSION_TOKEN',
-        'NIVEL_ACCESO',
-        'ID_FRENTE_ASIGNADO',
-        'ESTATUS',
-        'PERMISOS',
-        'REQUIERE_CAMBIO_CLAVE',
     ];
 
     /**

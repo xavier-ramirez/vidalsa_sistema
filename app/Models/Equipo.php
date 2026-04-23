@@ -9,8 +9,15 @@ class Equipo extends Model
     protected $table = 'equipos';
     protected $primaryKey = 'ID_EQUIPO';
 
+    /**
+     * Mass-assignment seguro. ID_FRENTE_ACTUAL y ID_ANCLAJE fueron removidos:
+     * su mutacion debe pasar por flujos controlados (bulkStore de movilizacion,
+     * bulkAnchor, recepcionDirecta) que validan permisos, scope LOCAL y hacen
+     * lockForUpdate. Asignarlos directamente a la propiedad ($eq->ID_FRENTE_ACTUAL = X)
+     * sigue funcionando; solo se bloquea $eq->fill($request->all()).
+     */
     protected $fillable = [
-        'id_tipo_equipo', // Renamed from TIPO_EQUIPO
+        'id_tipo_equipo',
         'NUMERO_ETIQUETA',
         'CATEGORIA_FLOTA',
         'CODIGO_PATIO',
@@ -22,12 +29,10 @@ class Equipo extends Model
         'SERIAL_DE_MOTOR',
         'LINK_GPS',
         'FOTO_EQUIPO',
-        'ID_FRENTE_ACTUAL',
-        'DETALLE_UBICACION_ACTUAL',  // Patio/Subdivisión específica
+        'DETALLE_UBICACION_ACTUAL',
         'CONFIRMADO_EN_SITIO',
         'ESTADO_OPERATIVO',
-        'ID_ANCLAJE',
-        'CREADO_POR'
+        'CREADO_POR',
     ];
 
     /**

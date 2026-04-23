@@ -447,6 +447,19 @@ class MovilizacionController extends Controller
     {
         $query = \App\Models\Equipo::with(['tipo', 'frenteActual', 'documentacion', 'especificaciones:ID_ESPEC,FOTO_REFERENCIAL']);
 
+        // Scope LOCAL: el usuario solo ve equipos de los frentes que tiene asignados.
+        // Sin este scope, un usuario local podria buscar (y ver PLACA) de cualquier
+        // equipo del sistema, contradiciendo la politica aplicada en los otros flujos.
+        $user    = auth()->user();
+        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+        if ($isLocal) {
+            $permitidos = $user->getFrentesIds();
+            if (empty($permitidos)) {
+                return response()->json([]);
+            }
+            $query->whereIn('ID_FRENTE_ACTUAL', $permitidos);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $searchUpper = strtoupper(trim($search));
