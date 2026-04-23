@@ -634,6 +634,7 @@ window.loadEquipos = function (url = null, silent = false) {
         id_tipo: getVal('input[name="id_tipo"]'),
         modelo: getVal('input[name="modelo"]', advancedPanel || document),
         marca: getVal('input[name="marca"]', advancedPanel || document),
+        detalle_ubicacion: getVal('input[name="detalle_ubicacion"]', advancedPanel || document),
         anio: getVal('input[name="anio"]', advancedPanel || document),
         categoria: getVal('input[name="categoria"]', advancedPanel || document),
         estado: getVal('input[name="estado"]', advancedPanel || document),
@@ -657,7 +658,7 @@ window.loadEquipos = function (url = null, silent = false) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.detalle_ubicacion || filters.anio || filters.categoria || filters.estado || filters.gps || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -736,6 +737,34 @@ window.loadEquipos = function (url = null, silent = false) {
 
             const distroContainer = document.getElementById('distributionStatsContainer');
             if (distroContainer) distroContainer.innerHTML = data.distribution;
+
+            // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL
+            const ubicacionesCard      = document.getElementById('ubicacionesStatsCard');
+            const ubicacionesContainer = document.getElementById('ubicacionesStatsContainer');
+            const ubicacionFilterWrap  = document.getElementById('ubicacionAdvFilterWrapper');
+            const ubicacionFilterEl    = document.getElementById('ubicacionAdvFilter');
+            const showUbi = !!(data && data.showUbicaciones);
+
+            if (ubicacionesCard && ubicacionesContainer) {
+                if (showUbi && data.ubicaciones) {
+                    ubicacionesContainer.innerHTML = data.ubicaciones;
+                    ubicacionesCard.style.display = '';
+                } else {
+                    ubicacionesCard.style.display = 'none';
+                    ubicacionesContainer.innerHTML = '';
+                }
+            }
+
+            if (ubicacionFilterWrap) {
+                ubicacionFilterWrap.style.display = showUbi ? '' : 'none';
+                // Si ya no aplica el filtro de ubicación, limpiar valor y lista
+                if (!showUbi && ubicacionFilterEl && typeof window.clearDropdownFilter === 'function') {
+                    const hidden = ubicacionFilterEl.querySelector('input[data-filter-value]');
+                    if (hidden && hidden.value !== '') {
+                        window.clearDropdownFilter('ubicacionAdvFilter');
+                    }
+                }
+            }
 
             window.history.pushState(null, '', finalUrl);
 
@@ -1110,8 +1139,8 @@ window.openBulkModal = function (event) {
             overlay.remove();
             window.clearSelection();
 
-            // Refrescar tabla y esperar a que termine
-            await window.loadEquipos();
+            // Refrescar tabla silenciosamente en el fondo
+            window.loadEquipos(true);
 
             // Descarga del acta si aplica
             if (data.generar_pdf) {
@@ -1124,6 +1153,7 @@ window.openBulkModal = function (event) {
                     const downloadLink = document.createElement("a");
                     downloadLink.href = `/admin/movilizaciones/${firstId}/acta-traslado`;
                     downloadLink.style.display = "none";
+                    downloadLink.setAttribute("data-no-spa", "true");
                     document.body.appendChild(downloadLink);
                     setTimeout(() => {
                         downloadLink.click();
@@ -1481,6 +1511,9 @@ window.exportEquipos = function () {
     const marcaInput = advancedPanel
         ? advancedPanel.querySelector('input[name="marca"]')
         : document.querySelector('input[name="marca"]');
+    const detalleUbicacionInput = advancedPanel
+        ? advancedPanel.querySelector('input[name="detalle_ubicacion"]')
+        : document.querySelector('input[name="detalle_ubicacion"]');
     const categoriaInput = advancedPanel
         ? advancedPanel.querySelector('input[name="categoria"]')
         : document.querySelector('input[name="categoria"]');
@@ -1521,6 +1554,7 @@ window.exportEquipos = function () {
     hasAnyFilter |= appendIfValid("id_tipo", tipoInput?.value);
     hasAnyFilter |= appendIfValid("modelo", modeloInput?.value);
     hasAnyFilter |= appendIfValid("marca", marcaInput?.value);
+    hasAnyFilter |= appendIfValid("detalle_ubicacion", detalleUbicacionInput?.value);
     hasAnyFilter |= appendIfValid("anio", anioInput?.value);
     hasAnyFilter |= appendIfValid("categoria", categoriaInput?.value);
     hasAnyFilter |= appendIfValid("estado", estadoInput?.value);

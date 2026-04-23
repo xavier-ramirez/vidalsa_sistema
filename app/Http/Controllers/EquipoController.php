@@ -19,7 +19,7 @@ class EquipoController extends Controller
     public function __construct()
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileShow']);
-        $this->middleware('can:equipos.create')->only(['store']);
+        $this->middleware('can:equipos.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
         $this->middleware('can:equipos.edit')->only(['edit', 'update', 'changeStatus']);
         // uploadDoc/deleteDoc/updateMetadata: permission handled inside methods (user.edit OR equipos.edit OR super.admin)
     }
@@ -45,6 +45,69 @@ class EquipoController extends Controller
         return $equipo;
     }
 
+    /**
+     * Aplica al query los filtros activos del request. `$exclude` permite omitir ejes
+     * específicos para que los stats de una dimensión no queden limitados por su propio filtro.
+     */
+    private function applyEquipoFilters($query, Request $request, array $exclude = []): void
+    {
+        $user = auth()->user();
+        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
+        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
+        $search = $request->input('search_query');
+
+        if (empty($search)) {
+            if ($isLocalUser && count($frentesPermitidos) > 0) {
+                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } elseif ($isLocalUser) {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (!in_array('id_frente', $exclude) && $request->filled('id_frente') && trim($request->id_frente) !== '' && $request->id_frente !== 'all') {
+            $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        }
+
+        if (!in_array('id_tipo', $exclude) && $request->filled('id_tipo') && trim($request->id_tipo) !== '' && $request->id_tipo !== 'all') {
+            $query->where('id_tipo_equipo', $request->id_tipo);
+        }
+
+        if (!in_array('modelo', $exclude) && $request->filled('modelo') && trim($request->modelo) !== '') {
+            $query->where('MODELO', $request->modelo);
+        }
+
+        if (!in_array('marca', $exclude) && $request->filled('marca') && trim($request->marca) !== '') {
+            $query->where('MARCA', $request->marca);
+        }
+
+        if (!in_array('detalle_ubicacion', $exclude) && $request->filled('detalle_ubicacion') && trim($request->detalle_ubicacion) !== '') {
+            $query->where('DETALLE_UBICACION_ACTUAL', $request->detalle_ubicacion);
+        }
+
+        if (!in_array('anio', $exclude) && $request->filled('anio') && trim($request->anio) !== '') {
+            $query->where('ANIO', $request->anio);
+        }
+
+        if (!in_array('categoria', $exclude) && $request->filled('categoria') && trim($request->categoria) !== '') {
+            $query->where('CATEGORIA_FLOTA', $request->categoria);
+        }
+
+        if (!in_array('estado', $exclude) && $request->filled('estado') && trim($request->estado) !== '') {
+            $query->where('ESTADO_OPERATIVO', $request->estado);
+        }
+
+        if (!in_array('gps', $exclude) && $request->filled('gps') && trim($request->gps) !== '') {
+            $val = strtoupper(trim($request->gps));
+            if ($val === 'SI') {
+                $query->whereNotNull('LINK_GPS')->where('LINK_GPS', '!=', '');
+            } elseif ($val === 'NO') {
+                $query->where(function($q) {
+                    $q->whereNull('LINK_GPS')->orWhere('LINK_GPS', '=', '');
+                });
+            }
+        }
+    }
+
     public function index(Request $request)
     {
         $search = $request->input('search_query');
@@ -54,54 +117,8 @@ class EquipoController extends Controller
         $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
         $frentesPermitidos = $user ? $user->getFrentesIds() : [];
 
-        // LOCAL users are scoped to their frentes, EXCEPT when doing a global text search (by serial/placa)
-        if (empty($search)) {
-            if ($isLocalUser && count($frentesPermitidos) > 0) {
-                $equipos->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } elseif ($isLocalUser) {
-                $equipos->whereRaw('1 = 0'); // Empty result if no frentes
-            }
-        }
-        // GLOBAL users: no default filter applied — show all equipos on load
-
-        if ($request->filled('id_frente') && trim($request->id_frente) !== '' && $request->id_frente !== 'all') {
-            $equipos->where('ID_FRENTE_ACTUAL', $request->id_frente);
-        }
-
-        if ($request->filled('id_tipo') && trim($request->id_tipo) !== '' && $request->id_tipo !== 'all') {
-            $equipos->where('id_tipo_equipo', $request->id_tipo);
-        }
-
-        if ($request->filled('modelo') && trim($request->modelo) !== '') {
-            $equipos->where('MODELO', $request->modelo);
-        }
-
-        if ($request->filled('marca') && trim($request->marca) !== '') {
-            $equipos->where('MARCA', $request->marca);
-        }
-
-        if ($request->filled('anio') && trim($request->anio) !== '') {
-            $equipos->where('ANIO', $request->anio);
-        }
-
-        if ($request->filled('categoria') && trim($request->categoria) !== '') {
-            $equipos->where('CATEGORIA_FLOTA', $request->categoria);
-        }
-
-        if ($request->filled('estado') && trim($request->estado) !== '') {
-            $equipos->where('ESTADO_OPERATIVO', $request->estado);
-        }
-
-        if ($request->filled('gps') && trim($request->gps) !== '') {
-            $val = strtoupper(trim($request->gps));
-            if ($val === 'SI') {
-                $equipos->whereNotNull('LINK_GPS')->where('LINK_GPS', '!=', '');
-            } elseif ($val === 'NO') {
-                $equipos->where(function($q) {
-                    $q->whereNull('LINK_GPS')->orWhere('LINK_GPS', '=', '');
-                });
-            }
-        }
+        // Filtros principales (todos los ejes activos)
+        $this->applyEquipoFilters($equipos, $request);
 
         if ($search) {
             $searchUpper = strtoupper(trim($search));
@@ -188,7 +205,7 @@ class EquipoController extends Controller
             ->orderBy('equipos.CODIGO_PATIO', 'asc');
 
         // Check if any filter is applied (with non-empty values)
-        $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda');
+        $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('detalle_ubicacion') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda');
 
         if ($isLocalUser) {
             // Local users always show the table with their scoped frentes by default
@@ -209,6 +226,8 @@ class EquipoController extends Controller
         $stats = ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'mantenimiento' => 0];
         $tiposStats  = collect([]);
         $frentesStats = [];
+        $ubicacionesStats = collect([]);
+        $frenteEspecial = null;
 
         // Calcular stats SOLO cuando hay filtro activo (optimización: usa la colección ya cargada)
         if ($hasFilter) {
@@ -218,26 +237,49 @@ class EquipoController extends Controller
             $stats['mantenimiento'] = $allResults->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
             $stats['desincorporados'] = $allResults->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
 
-            // Calculate Tipos Stats from Collection
-            $tiposStats = $allResults->groupBy('id_tipo_equipo')->map(function ($group) {
-                $first = $group->first();
-                return (object) [
-                    'id_tipo_equipo' => $first->id_tipo_equipo,
-                    'nombre' => $first->tipo->nombre ?? 'Sin Tipo',
-                    'total' => $group->count()
-                ];
-            })->sortBy('nombre')->values();
+            // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
+            $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
+            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
+            $tiposStats = $tiposQuery
+                ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
+                ->groupBy('equipos.id_tipo_equipo', 'tipo_equipos.nombre')
+                ->orderBy('tipo_equipos.nombre', 'asc')
+                ->get();
 
-            // Calculate Frentes Stats from Collection
+            // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
             if ($request->filled('id_tipo')) {
-                $frentesStats = $allResults->whereNotNull('ID_FRENTE_ACTUAL')->groupBy('ID_FRENTE_ACTUAL')->map(function ($group) {
-                    $first = $group->first();
-                    return (object) [
-                        'ID_FRENTE_ACTUAL' => $first->ID_FRENTE_ACTUAL,
-                        'NOMBRE_FRENTE' => $first->frenteActual->NOMBRE_FRENTE ?? 'Sin Frente',
-                        'total' => $group->count()
-                    ];
-                })->sortBy('NOMBRE_FRENTE')->values();
+                $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
+                $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
+                $frentesStats = $frentesQuery
+                    ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
+                    ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', DB::raw('COUNT(*) as total'))
+                    ->groupBy('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
+                    ->orderBy('frentes_trabajo.NOMBRE_FRENTE', 'asc')
+                    ->get();
+            }
+
+            // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo si el frente filtrado es ESPECIAL;
+            // se listan TODAS las ubicaciones del frente (excluyendo el filtro detalle_ubicacion)
+            if ($request->filled('id_frente') && $request->id_frente !== 'all') {
+                $frenteEspecial = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
+                    ->where('TIPO_FRENTE', 'ESPECIAL')
+                    ->first();
+                if ($frenteEspecial) {
+                    $ubicQuery = Equipo::query();
+                    $this->applyEquipoFilters($ubicQuery, $request, ['detalle_ubicacion']);
+                    $rawUbicaciones = $ubicQuery
+                        ->select(
+                            DB::raw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), '__SIN_ASIGNAR__') as ubi_key"),
+                            DB::raw('COUNT(*) as total')
+                        )
+                        ->groupBy('ubi_key')
+                        ->orderBy('total', 'desc')
+                        ->get();
+                    $ubicacionesStats = $rawUbicaciones->map(fn($r) => (object) [
+                        'detalle' => $r->ubi_key === '__SIN_ASIGNAR__' ? 'Sin Asignar' : $r->ubi_key,
+                        'total'   => $r->total,
+                    ]);
+                }
             }
         }
         // else: $stats queda en ceros => la vista muestra '--' (comportamiento original)
@@ -307,7 +349,15 @@ class EquipoController extends Controller
                 'equiposData'  => $jsonPayload,
                 'pagination'   => '',
                 'stats'        => $stats,
-                'distribution' => view('admin.equipos.partials.distribution_stats', compact('frentesStats', 'tiposStats', 'hasFilter'))->render(),
+                'distribution'      => view('admin.equipos.partials.distribution_stats', [
+                    'frentesStats' => $frentesStats,
+                    'tiposStats'   => $tiposStats,
+                    'hasFilter'    => $hasFilter,
+                    'showFrentes'  => ($request->filled('id_tipo') && $request->id_tipo !== 'all')
+                                      && !($request->filled('id_frente') && $request->id_frente !== 'all'),
+                ])->render(),
+                'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteEspecial'))->render(),
+                'showUbicaciones'   => $frenteEspecial !== null,
             ]);
         }
 
@@ -334,7 +384,21 @@ class EquipoController extends Controller
             return Equipo::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposStats', 'frentesStats', 'availableModelos', 'availableMarcas', 'availableAnios', 'jsonPayload'));
+        // Ubicaciones disponibles para el filtro avanzado — solo las del frente ESPECIAL seleccionado
+        $availableUbicaciones = collect([]);
+        if ($frenteEspecial) {
+            $availableUbicaciones = Equipo::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
+                ->whereNotNull('DETALLE_UBICACION_ACTUAL')
+                ->where('DETALLE_UBICACION_ACTUAL', '!=', '')
+                ->distinct()
+                ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')
+                ->pluck('DETALLE_UBICACION_ACTUAL');
+        }
+
+        $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all')
+                       && !($request->filled('id_frente') && $request->id_frente !== 'all');
+
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableUbicaciones', 'jsonPayload', 'showFrentes'));
     }
 
     public function export(Request $request)
@@ -2715,5 +2779,643 @@ class EquipoController extends Controller
         ]);
 
         return response()->json(['success' => true, 'data' => $responsable]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────────
+    // ── CARGA MASIVA DESDE EXCEL ──────────────────────────────────────────────────
+
+    public function bulkTemplate(Request $request)
+    {
+        $user = auth()->user();
+        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // ── Hoja principal "Equipos" ──────────────────────────────────────────
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Equipos');
+
+        $headers = [
+            'A' => 'Tipo de Equipo',
+            'B' => 'Categoria de Flota',
+            'C' => 'Marca',
+            'D' => 'Modelo',
+            'E' => 'Año',
+            'F' => 'N° Etiqueta',
+            'G' => 'Serial de Chasis',
+            'H' => 'Serial de Motor',
+            'I' => 'Frente de Trabajo',
+            'J' => 'Status',
+        ];
+
+        foreach ($headers as $col => $label) {
+            $cell = $col . '1';
+            $sheet->setCellValue($cell, $label);
+
+            // Estilo: fondo azul corporativo, texto blanco bold, bordes thin
+            $sheet->getStyle($cell)->applyFromArray([
+                'font' => [
+                    'bold'  => true,
+                    'color' => ['argb' => 'FFFFFFFF'],
+                ],
+                'fill' => [
+                    'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FF0067B1'],
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color'       => ['argb' => 'FF000000'],
+                    ],
+                ],
+            ]);
+        }
+
+        // Congelar fila 1 y autoFilter
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:J1');
+
+        // Ancho de columnas
+        $colWidths = [
+            'A' => 22, 'B' => 20, 'C' => 16, 'D' => 16,
+            'E' => 10, 'F' => 15, 'G' => 22, 'H' => 22,
+            'I' => 25, 'J' => 18,
+        ];
+        foreach ($colWidths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
+        }
+
+        // Columna E (Año) como formato General para evitar interpretación de fecha
+        $sheet->getStyle('E2:E1001')->getNumberFormat()->setFormatCode(
+            \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_GENERAL
+        );
+
+        // ── Hoja oculta "_listas" ─────────────────────────────────────────────
+        $listSheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, '_listas');
+        $spreadsheet->addSheet($listSheet);
+
+        // Columna A: tipos de equipo
+        $tipos = TipoEquipo::orderBy('nombre')->pluck('nombre')->toArray();
+        foreach ($tipos as $i => $nombre) {
+            $listSheet->setCellValue('A' . ($i + 2), $nombre);
+        }
+        $listSheet->setCellValue('A1', 'TipoEquipo');
+
+        // Columna B: frentes activos (filtrados para LOCAL)
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocal) {
+            $frentesQuery->whereIn('ID_FRENTE', $user->getFrentesIds());
+        }
+        $frentes = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
+        foreach ($frentes as $i => $nombre) {
+            $listSheet->setCellValue('B' . ($i + 2), $nombre);
+        }
+        $listSheet->setCellValue('B1', 'FrenteTrabajo');
+
+        // Columna C: categorias de flota
+        $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
+        foreach ($categorias as $i => $val) {
+            $listSheet->setCellValue('C' . ($i + 2), $val);
+        }
+        $listSheet->setCellValue('C1', 'Categoria');
+
+        // Columna D: statuses
+        $statuses = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
+        foreach ($statuses as $i => $val) {
+            $listSheet->setCellValue('D' . ($i + 2), $val);
+        }
+        $listSheet->setCellValue('D1', 'Status');
+
+        // Ocultar hoja _listas
+        $spreadsheet->getSheetByName('_listas')->setSheetState(
+            \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN
+        );
+
+        // ── Data Validation ───────────────────────────────────────────────────
+        $tiposCount   = count($tipos);
+        $frentesCount = count($frentes);
+
+        // Helper closure para crear validaciones de lista.
+        // PhpSpreadsheet::getDataValidation() solo acepta una celda individual,
+        // así que aplicamos la validación a una celda ancla y luego propagamos al rango.
+        $addListValidation = function (string $column, string $formula) use ($sheet) {
+            $anchor = $column . '2';
+            $validation = $sheet->getCell($anchor)->getDataValidation();
+            $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setErrorTitle('Valor no permitido');
+            $validation->setError('Selecciona un valor de la lista.');
+            $validation->setFormula1($formula);
+            // Aplicar el mismo objeto de validación a toda la columna (filas 2-1001)
+            $validation->setSqref($column . '2:' . $column . '1001');
+        };
+
+        // A2:A1001 — Tipo de Equipo (SOFT: permite valores fuera de la lista con sugerencia)
+        if ($tiposCount > 0) {
+            $anchor = 'A2';
+            $validation = $sheet->getCell($anchor)->getDataValidation();
+            $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_INFORMATION);
+            $validation->setAllowBlank(true);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(false);
+            $validation->setShowDropDown(true);
+            $validation->setPromptTitle('Tipo de Equipo');
+            $validation->setPrompt('Selecciona de la lista o escribe uno nuevo (se creará al guardar).');
+            $validation->setFormula1('_listas!$A$2:$A$' . ($tiposCount + 1));
+            $validation->setSqref('A2:A1001');
+        }
+
+        // B2:B1001 — Categoria de Flota
+        $addListValidation('B', '_listas!$C$2:$C$3');
+
+        // I2:I1001 — Frente de Trabajo
+        if ($frentesCount > 0) {
+            $addListValidation('I', '_listas!$B$2:$B$' . ($frentesCount + 1));
+        }
+
+        // J2:J1001 — Status
+        $addListValidation('J', '_listas!$D$2:$D$5');
+
+        // Asegurarse que la hoja activa al abrir sea "Equipos"
+        $spreadsheet->setActiveSheetIndex(0);
+
+        // ── Escribir a temp y devolver descarga ───────────────────────────────
+        $tempFile = tempnam(sys_get_temp_dir(), 'plantilla_equipos_');
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($tempFile);
+
+        $filename = 'plantilla_equipos_' . now()->format('Y-m-d') . '.xlsx';
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    public function bulkPreview(Request $request)
+    {
+        $request->validate([
+            'archivo_excel' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        $user    = auth()->user();
+        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+        $frentesPermitidos = $isLocal ? $user->getFrentesIds() : [];
+
+        // Cargar el archivo
+        $path        = $request->file('archivo_excel')->getRealPath();
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+
+        // Activar hoja "Equipos" o la primera disponible
+        $sheet = $spreadsheet->getSheetByName('Equipos') ?? $spreadsheet->getActiveSheet();
+
+        // Validar headers
+        $expectedHeaders = [
+            'tipo de equipo', 'categoria de flota', 'marca', 'modelo', 'año',
+            'n° etiqueta', 'serial de chasis', 'serial de motor', 'frente de trabajo', 'status',
+        ];
+        $actualHeaders = [];
+        foreach (range('A', 'J') as $col) {
+            $val = $sheet->getCell($col . '1')->getValue();
+            $actualHeaders[] = strtolower(trim((string)$val));
+        }
+
+        if ($actualHeaders !== $expectedHeaders) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Headers inválidos: se esperaba [' . implode(', ', $expectedHeaders) . '], se recibió [' . implode(', ', $actualHeaders) . '].',
+            ], 422);
+        }
+
+        $highestRow = $sheet->getHighestDataRow();
+        $dataRows   = $highestRow - 1; // descontando fila 1 (header)
+
+        if ($dataRows > 500) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El archivo supera el máximo permitido de 500 filas de datos (tiene ' . $dataRows . ').',
+            ], 422);
+        }
+
+        // Constantes de validación en memoria
+        $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
+        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
+        $requiredFields  = ['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'];
+
+        // Pre-cargar todos los SERIAL_CHASIS y SERIAL_DE_MOTOR del archivo para detectar duplicados cross-file
+        $allChasis  = [];
+        $allMotores = [];
+
+        for ($n = 2; $n <= $highestRow; $n++) {
+            $chasis  = strtoupper(trim((string)$sheet->getCell('G' . $n)->getValue()));
+            $motor   = strtoupper(trim((string)$sheet->getCell('H' . $n)->getValue()));
+            if ($chasis !== '')  $allChasis[]  = $chasis;
+            if ($motor  !== '')  $allMotores[]  = $motor;
+        }
+
+        $duplicateChasis  = array_keys(array_filter(array_count_values($allChasis),  fn($c) => $c > 1));
+        $duplicateMotores = array_keys(array_filter(array_count_values($allMotores), fn($c) => $c > 1));
+
+        // Obtener seriales ya existentes en BD (case-insensitive via UPPER)
+        $existingChasisBD  = DB::table('equipos')
+            ->whereIn(DB::raw('UPPER(SERIAL_CHASIS)'), $allChasis)
+            ->pluck('SERIAL_CHASIS')
+            ->map(fn($v) => strtoupper($v))
+            ->toArray();
+        $existingMotoresBD = !empty($allMotores)
+            ? DB::table('equipos')
+                ->whereIn(DB::raw('UPPER(SERIAL_DE_MOTOR)'), $allMotores)
+                ->pluck('SERIAL_DE_MOTOR')
+                ->map(fn($v) => strtoupper($v))
+                ->toArray()
+            : [];
+
+        // Resolver lookups de tipos y frentes en memoria para evitar N+1
+        $tiposMap   = TipoEquipo::orderBy('nombre')->get()->keyBy(fn($t) => strtolower(trim($t->nombre)));
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocal) {
+            $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+        }
+        $frentesMap = $frentesQuery->get()->keyBy(fn($f) => strtolower(trim($f->NOMBRE_FRENTE)));
+
+        $rows = [];
+
+        for ($n = 2; $n <= $highestRow; $n++) {
+            // Leer valores crudos
+            $rawTipo      = trim((string)$sheet->getCell('A' . $n)->getValue());
+            $rawCategoria = trim((string)$sheet->getCell('B' . $n)->getValue());
+            $rawMarca     = trim((string)$sheet->getCell('C' . $n)->getValue());
+            $rawModelo    = trim((string)$sheet->getCell('D' . $n)->getValue());
+            $rawAnio      = $sheet->getCell('E' . $n)->getValue();
+            $rawEtiqueta  = trim((string)$sheet->getCell('F' . $n)->getValue());
+            $rawChasis    = trim((string)$sheet->getCell('G' . $n)->getValue());
+            $rawMotor     = trim((string)$sheet->getCell('H' . $n)->getValue());
+            $rawFrente    = trim((string)$sheet->getCell('I' . $n)->getValue());
+            $rawStatus    = trim((string)$sheet->getCell('J' . $n)->getValue());
+
+            // Ignorar filas completamente vacías
+            if ($rawTipo === '' && $rawMarca === '' && $rawModelo === '' && $rawChasis === '' && $rawFrente === '') {
+                continue;
+            }
+
+            // Normalizar
+            $tipoUpper      = strtoupper($rawTipo);
+            $categoriaUpper = strtoupper($rawCategoria);
+            $marcaUpper     = strtoupper($rawMarca);
+            $modeloUpper    = strtoupper($rawModelo);
+            $anio           = $rawAnio !== '' && $rawAnio !== null ? (int)$rawAnio : null;
+            $etiqueta       = $rawEtiqueta !== '' ? $rawEtiqueta : null;
+            $chasisUpper    = strtoupper($rawChasis);
+            $motorUpper     = $rawMotor !== '' ? strtoupper($rawMotor) : null;
+            $frenteUpper    = strtoupper($rawFrente);
+            $statusUpper    = strtoupper($rawStatus);
+
+            $errors               = [];
+            $idTipoResuelto       = null;
+            $idFrenteResuelto     = null;
+
+            // Validar requeridos
+            foreach ($requiredFields as $field) {
+                $val = match($field) {
+                    'tipo_equipo'    => $rawTipo,
+                    'categoria_flota'=> $rawCategoria,
+                    'marca'          => $rawMarca,
+                    'modelo'         => $rawModelo,
+                    'anio'           => $rawAnio,
+                    'serial_chasis'  => $rawChasis,
+                    'frente_trabajo' => $rawFrente,
+                    'status'         => $rawStatus,
+                    default          => '',
+                };
+                if ($val === '' || $val === null) {
+                    $errors[$field] = 'Campo requerido.';
+                }
+            }
+
+            // Validar tipo_equipo (permite valores nuevos — se crearán al guardar)
+            if ($rawTipo !== '') {
+                $tipoKey = strtolower($rawTipo);
+                if (isset($tiposMap[$tipoKey])) {
+                    $idTipoResuelto = $tiposMap[$tipoKey]->id;
+                }
+                // Si no existe, se crea después en bulkStoreBatch — no es error
+            }
+
+            // Validar categoria_flota
+            if ($rawCategoria !== '' && !in_array($categoriaUpper, $validCategorias)) {
+                $errors['categoria_flota'] = 'Debe ser FLOTA LIVIANA o FLOTA PESADA.';
+            }
+
+            // Validar status
+            if ($rawStatus !== '' && !in_array($statusUpper, $validStatuses)) {
+                $errors['status'] = 'Valor no válido. Opciones: ' . implode(', ', $validStatuses) . '.';
+            }
+
+            // Validar frente_trabajo
+            if ($rawFrente !== '') {
+                $frenteKey = strtolower($rawFrente);
+                if (isset($frentesMap[$frenteKey])) {
+                    $frente = $frentesMap[$frenteKey];
+                    $idFrenteResuelto = $frente->ID_FRENTE;
+                    // Verificar jurisdicción LOCAL
+                    if ($isLocal && !in_array($idFrenteResuelto, $frentesPermitidos)) {
+                        $errors['frente_trabajo'] = 'No tienes permiso sobre ese frente.';
+                        $idFrenteResuelto = null;
+                    }
+                } else {
+                    $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
+                }
+            }
+
+            // Validar serial_chasis
+            if ($chasisUpper !== '') {
+                if (in_array($chasisUpper, $existingChasisBD)) {
+                    $errors['serial_chasis'] = 'Ya registrado en BD.';
+                } elseif (in_array($chasisUpper, $duplicateChasis)) {
+                    $errors['serial_chasis'] = 'Duplicado dentro del archivo.';
+                }
+            }
+
+            // Validar serial_de_motor (opcional)
+            if ($motorUpper !== null) {
+                if (in_array($motorUpper, $existingMotoresBD)) {
+                    $errors['serial_de_motor'] = 'Ya registrado en BD.';
+                } elseif (in_array($motorUpper, $duplicateMotores)) {
+                    $errors['serial_de_motor'] = 'Duplicado dentro del archivo.';
+                }
+            }
+
+            $rows[] = [
+                'row_index' => $n,
+                'data'      => [
+                    'tipo_equipo'           => $tipoUpper,
+                    'categoria_flota'       => $categoriaUpper,
+                    'marca'                 => $marcaUpper,
+                    'modelo'                => $modeloUpper,
+                    'anio'                  => $anio,
+                    'numero_etiqueta'       => $etiqueta,
+                    'serial_chasis'         => $chasisUpper,
+                    'serial_de_motor'       => $motorUpper,
+                    'frente_trabajo'        => $frenteUpper,
+                    'status'                => $statusUpper,
+                    'id_tipo_equipo_resuelto' => $idTipoResuelto,
+                    'id_frente_resuelto'    => $idFrenteResuelto,
+                ],
+                'errors' => $errors,
+            ];
+        }
+
+        // Construir options para el frontend
+        $tiposOptions = TipoEquipo::orderBy('nombre')->get(['id', 'nombre'])
+            ->map(fn($t) => ['id' => $t->id, 'nombre' => $t->nombre]);
+
+        $frentesOptionsQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocal) {
+            $frentesOptionsQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+        }
+        $frentesOptions = $frentesOptionsQuery->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+            ->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]);
+
+        return response()->json([
+            'success' => true,
+            'rows'    => $rows,
+            'options' => [
+                'tipos'      => $tiposOptions,
+                'frentes'    => $frentesOptions,
+                'statuses'   => $validStatuses,
+                'categorias' => $validCategorias,
+            ],
+        ]);
+    }
+
+    public function bulkStoreBatch(Request $request)
+    {
+        set_time_limit(600);
+        ini_set('memory_limit', '512M');
+
+        $request->validate([
+            'rows'   => 'required|array|min:1|max:500',
+            'rows.*' => 'array',
+        ]);
+
+        $user    = auth()->user();
+        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+        $frentesPermitidos = $isLocal ? $user->getFrentesIds() : [];
+
+        $rows            = $request->input('rows');
+        $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
+        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
+        $requiredFields  = ['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'];
+
+        // Pre-cargar seriales del lote para cross-file check
+        $allChasis  = [];
+        $allMotores = [];
+        foreach ($rows as $row) {
+            $chasis = strtoupper(trim((string)($row['serial_chasis'] ?? '')));
+            $motor  = strtoupper(trim((string)($row['serial_de_motor'] ?? '')));
+            if ($chasis !== '') $allChasis[]  = $chasis;
+            if ($motor  !== '') $allMotores[] = $motor;
+        }
+        $duplicateChasis  = array_keys(array_filter(array_count_values($allChasis),  fn($c) => $c > 1));
+        $duplicateMotores = array_keys(array_filter(array_count_values($allMotores), fn($c) => $c > 1));
+
+        $existingChasisBD = DB::table('equipos')
+            ->whereIn(DB::raw('UPPER(SERIAL_CHASIS)'), $allChasis)
+            ->pluck('SERIAL_CHASIS')
+            ->map(fn($v) => strtoupper($v))
+            ->toArray();
+        $existingMotoresBD = !empty($allMotores)
+            ? DB::table('equipos')
+                ->whereIn(DB::raw('UPPER(SERIAL_DE_MOTOR)'), $allMotores)
+                ->pluck('SERIAL_DE_MOTOR')
+                ->map(fn($v) => strtoupper($v))
+                ->toArray()
+            : [];
+
+        // Resolver lookups en memoria
+        $tiposMap  = TipoEquipo::orderBy('nombre')->get()->keyBy(fn($t) => strtolower(trim($t->nombre)));
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocal) {
+            $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+        }
+        $frentesMap = $frentesQuery->get()->keyBy(fn($f) => strtolower(trim($f->NOMBRE_FRENTE)));
+
+        $allErrors    = [];
+        $resolvedRows = [];
+
+        foreach ($rows as $idx => $row) {
+            $errors = [];
+
+            $rawTipo      = trim((string)($row['tipo_equipo']      ?? ''));
+            $rawCategoria = trim((string)($row['categoria_flota']  ?? ''));
+            $rawMarca     = trim((string)($row['marca']            ?? ''));
+            $rawModelo    = trim((string)($row['modelo']           ?? ''));
+            $rawAnio      = $row['anio'] ?? null;
+            $rawEtiqueta  = trim((string)($row['numero_etiqueta']  ?? ''));
+            $rawChasis    = trim((string)($row['serial_chasis']    ?? ''));
+            $rawMotor     = trim((string)($row['serial_de_motor']  ?? ''));
+            $rawFrente    = trim((string)($row['frente_trabajo']   ?? ''));
+            $rawStatus    = trim((string)($row['status']           ?? ''));
+
+            $categoriaUpper = strtoupper($rawCategoria);
+            $chasisUpper    = strtoupper($rawChasis);
+            $motorUpper     = $rawMotor !== '' ? strtoupper($rawMotor) : null;
+            $statusUpper    = strtoupper($rawStatus);
+
+            $idTipoResuelto   = null;
+            $idFrenteResuelto = null;
+
+            // Requeridos
+            foreach ($requiredFields as $field) {
+                $val = match($field) {
+                    'tipo_equipo'    => $rawTipo,
+                    'categoria_flota'=> $rawCategoria,
+                    'marca'          => $rawMarca,
+                    'modelo'         => $rawModelo,
+                    'anio'           => $rawAnio,
+                    'serial_chasis'  => $rawChasis,
+                    'frente_trabajo' => $rawFrente,
+                    'status'         => $rawStatus,
+                    default          => '',
+                };
+                if ($val === '' || $val === null) {
+                    $errors[$field] = 'Campo requerido.';
+                }
+            }
+
+            // Tipo de equipo (permite valores nuevos — se crean en la transacción)
+            if ($rawTipo !== '') {
+                $tipoKey = strtolower($rawTipo);
+                if (isset($tiposMap[$tipoKey])) {
+                    $idTipoResuelto = $tiposMap[$tipoKey]->id;
+                }
+                // id_tipo_equipo_resuelto = null si es nuevo → firstOrCreate lo creará
+            }
+
+            // Categoria flota
+            if ($rawCategoria !== '' && !in_array($categoriaUpper, $validCategorias)) {
+                $errors['categoria_flota'] = 'Debe ser FLOTA LIVIANA o FLOTA PESADA.';
+            }
+
+            // Status
+            if ($rawStatus !== '' && !in_array($statusUpper, $validStatuses)) {
+                $errors['status'] = 'Valor no válido. Opciones: ' . implode(', ', $validStatuses) . '.';
+            }
+
+            // Frente de trabajo
+            if ($rawFrente !== '') {
+                $frenteKey = strtolower($rawFrente);
+                if (isset($frentesMap[$frenteKey])) {
+                    $frente = $frentesMap[$frenteKey];
+                    $idFrenteResuelto = $frente->ID_FRENTE;
+                    if ($isLocal && !in_array($idFrenteResuelto, $frentesPermitidos)) {
+                        $errors['frente_trabajo'] = 'No tienes permiso sobre ese frente.';
+                        $idFrenteResuelto = null;
+                    }
+                } else {
+                    $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
+                }
+            }
+
+            // Serial chasis
+            if ($chasisUpper !== '') {
+                if (in_array($chasisUpper, $existingChasisBD)) {
+                    $errors['serial_chasis'] = 'Ya registrado en BD.';
+                } elseif (in_array($chasisUpper, $duplicateChasis)) {
+                    $errors['serial_chasis'] = 'Duplicado dentro del lote.';
+                }
+            }
+
+            // Serial motor (opcional)
+            if ($motorUpper !== null) {
+                if (in_array($motorUpper, $existingMotoresBD)) {
+                    $errors['serial_de_motor'] = 'Ya registrado en BD.';
+                } elseif (in_array($motorUpper, $duplicateMotores)) {
+                    $errors['serial_de_motor'] = 'Duplicado dentro del lote.';
+                }
+            }
+
+            if (!empty($errors)) {
+                $allErrors[$idx] = $errors;
+            }
+
+            $resolvedRows[] = [
+                'tipo_equipo'             => $rawTipo,
+                'categoria_flota'         => $categoriaUpper,
+                'marca'                   => $rawMarca,
+                'modelo'                  => $rawModelo,
+                'anio'                    => $rawAnio,
+                'numero_etiqueta'         => $rawEtiqueta !== '' ? $rawEtiqueta : null,
+                'serial_chasis'           => $chasisUpper,
+                'serial_de_motor'         => $motorUpper,
+                'frente_trabajo'          => $rawFrente,
+                'status'                  => $statusUpper,
+                'id_tipo_equipo_resuelto' => $idTipoResuelto,
+                'id_frente_resuelto'      => $idFrenteResuelto,
+            ];
+        }
+
+        // Si alguna fila tiene errores → rechazar todo
+        if (!empty($allErrors)) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $allErrors,
+            ], 422);
+        }
+
+        // Insertar todo en transacción, row por row para disparar EquipoObserver.
+        // Si el tipo no existe todavía, lo creamos dentro de la misma transacción.
+        DB::transaction(function () use ($resolvedRows, $user) {
+            $tipoCache = []; // cache en memoria para no crear duplicados dentro del mismo lote
+            foreach ($resolvedRows as $row) {
+                $idTipo = $row['id_tipo_equipo_resuelto'];
+                if ($idTipo === null && !empty($row['tipo_equipo'])) {
+                    $tipoNombre = strtoupper(trim($row['tipo_equipo']));
+                    if (isset($tipoCache[$tipoNombre])) {
+                        $idTipo = $tipoCache[$tipoNombre];
+                    } else {
+                        $tipo = TipoEquipo::firstOrCreate(
+                            ['nombre' => $tipoNombre],
+                            ['ROL_ANCLAJE' => 'NEUTRO']
+                        );
+                        $idTipo = $tipo->id;
+                        $tipoCache[$tipoNombre] = $idTipo;
+                    }
+                }
+                Equipo::create([
+                    'id_tipo_equipo'           => $idTipo,
+                    'CATEGORIA_FLOTA'          => $row['categoria_flota'],
+                    'MARCA'                    => strtoupper($row['marca']),
+                    'MODELO'                   => strtoupper($row['modelo']),
+                    'ANIO'                     => (int)$row['anio'],
+                    'NUMERO_ETIQUETA'          => $row['numero_etiqueta'],
+                    'SERIAL_CHASIS'            => strtoupper($row['serial_chasis']),
+                    'SERIAL_DE_MOTOR'          => $row['serial_de_motor'] ? strtoupper($row['serial_de_motor']) : null,
+                    'ID_FRENTE_ACTUAL'         => $row['id_frente_resuelto'],
+                    'ESTADO_OPERATIVO'         => $row['status'],
+                    'CONFIRMADO_EN_SITIO'      => 0,
+                    'ID_ESPEC'                 => null,
+                    'ID_ANCLAJE'               => null,
+                    'CODIGO_PATIO'             => null,
+                    'DETALLE_UBICACION_ACTUAL' => null,
+                    'FOTO_EQUIPO'              => null,
+                    'LINK_GPS'                 => null,
+                    'CREADO_POR'               => $user->ID_USUARIO,
+                ]);
+            }
+        });
+
+        $count = count($resolvedRows);
+
+        return response()->json([
+            'success'  => true,
+            'message'  => $count . ' equipo' . ($count === 1 ? '' : 's') . ' creado' . ($count === 1 ? '' : 's') . ' correctamente.',
+            'count'    => $count,
+            'redirect' => '/admin/equipos',
+        ]);
     }
 }

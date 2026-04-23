@@ -53,7 +53,7 @@ class FrenteRequest extends FormRequest
         return [
             'NOMBRE_FRENTE' => 'required|string|max:150|unique:frentes_trabajo,NOMBRE_FRENTE,' . $id . ',ID_FRENTE',
             'UBICACION'     => 'required|string|max:100',
-            'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO',
+            'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO,ESPECIAL',
             'ESTATUS_FRENTE'=> 'required|in:ACTIVO,FINALIZADO',
             'SUBDIVISIONES' => 'nullable|string',
             'RESP_1_NOM'    => 'required|string|max:60',

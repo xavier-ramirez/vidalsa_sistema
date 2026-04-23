@@ -88,7 +88,7 @@
                             </div>
                         </td>
                         <td>
-                            <span class="badge {{ $frente->TIPO_FRENTE == 'OPERACION' ? 'badge-blue' : 'badge-purple' }}" 
+                            <span class="badge {{ $frente->TIPO_FRENTE == 'OPERACION' ? 'badge-blue' : ($frente->TIPO_FRENTE == 'ESPECIAL' ? 'badge-orange' : 'badge-purple') }}"
                                   style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700;">
                                 {{ $frente->TIPO_FRENTE }}
                             </span>

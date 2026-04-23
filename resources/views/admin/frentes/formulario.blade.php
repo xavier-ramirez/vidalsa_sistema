@@ -96,6 +96,8 @@
                                 onclick="selectOption('tipoSelect', 'OPERACION', 'OPERACION', 'tipo')">OPERACION</div>
                             <div class="dropdown-item"
                                 onclick="selectOption('tipoSelect', 'RESGUARDO', 'RESGUARDO', 'tipo')">RESGUARDO</div>
+                            <div class="dropdown-item"
+                                onclick="selectOption('tipoSelect', 'ESPECIAL', 'ESPECIAL', 'tipo')">ESPECIAL</div>
                         </div>
                     </div>
                 </div>

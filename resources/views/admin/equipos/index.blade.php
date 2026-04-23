@@ -165,7 +165,7 @@
             <!-- Advanced Filter Trigger -->
             <div style="position: relative; flex-shrink: 0;">
                 @php
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda');
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda');
                 @endphp
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;">
                     <i class="material-icons">filter_list</i>
@@ -204,6 +204,40 @@
                                         @foreach($availableModelos as $mod)
                                             @if(trim($mod) !== '')
                                                 <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
+                                            @endif
+                                        @endforeach
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ubicación Filter — visible solo para frentes TIPO_FRENTE=ESPECIAL -->
+                    <div id="ubicacionAdvFilterWrapper" style="margin-bottom: 15px; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
+                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Ubicación (Patio/Subdivisión)</span>
+                        <div class="custom-dropdown" id="ubicacionAdvFilter" data-filter-type="detalle_ubicacion" data-default-label="Seleccionar Ubicación..." style="font-size: 12px;">
+                            <input type="hidden" name="detalle_ubicacion" data-filter-value value="{{ request('detalle_ubicacion') }}">
+
+                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('detalle_ubicacion') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                    <i class="material-icons" style="font-size: 16px;">place</i>
+                                </div>
+                                <input type="text" name="filter_search_dropdown" data-filter-search
+                                    placeholder="{{ request('detalle_ubicacion') ?: 'Seleccionar Ubicación...' }}"
+                                    aria-label="Filtrar Ubicación"
+                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
+                                    oninput="window.filterDropdownOptions(this)"
+                                    autocomplete="off">
+                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('detalle_ubicacion') ? 'block' : 'none' }};"
+                                   onclick="event.stopPropagation(); clearDropdownFilter('ubicacionAdvFilter'); loadEquipos();">close</i>
+                            </div>
+
+                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
+                                    @if(isset($availableUbicaciones))
+                                        @foreach($availableUbicaciones as $ubi)
+                                            @if(trim($ubi) !== '')
+                                                <div class="dropdown-item {{ request('detalle_ubicacion') == $ubi ? 'selected' : '' }}" data-value="{{ $ubi }}" onclick="selectOption('ubicacionAdvFilter', '{{ addslashes(trim($ubi)) }}', '{{ addslashes(trim($ubi)) }}'); loadEquipos();">{{ $ubi }}</div>
                                             @endif
                                         @endforeach
                                     @endif
@@ -526,7 +560,7 @@
 </div> <!-- End admin-card -->
 
 <!-- Right Column: Simple Counter -->
-<div class="counter-sidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 15px;">
+<div class="counter-sidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 8px;">
 
     <!-- Main Total Card -->
 
@@ -563,6 +597,14 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — visible solo para frentes TIPO_FRENTE=ESPECIAL -->
+    <div id="ubicacionesStatsCard"
+         style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
+        <div id="ubicacionesStatsContainer">
+            @include('admin.equipos.partials.ubicaciones_stats')
         </div>
     </div>
 

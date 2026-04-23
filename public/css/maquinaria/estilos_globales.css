@@ -2876,3 +2876,71 @@ input:-webkit-autofill:active {
         box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
     }
 }
+
+/* ============================================================
+   BULK PREVIEW TABLE — Cargador de equipos vía Excel
+   ============================================================ */
+.bulk-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.bulk-preview-table thead th {
+    background: #0067b1;
+    color: #fff;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+}
+.bulk-preview-table tbody td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #edf2f7;
+    vertical-align: middle;
+    position: relative;
+}
+.bulk-preview-table tbody td.row-num {
+    background: #f7fafc;
+    text-align: center;
+    font-weight: 600;
+    color: #718096;
+}
+.bulk-preview-table tbody td.cell-error {
+    background: #fff5f5;
+    border: 2px solid #e53e3e;
+}
+.bulk-preview-table tbody td .cell-error-msg {
+    font-size: 11px;
+    color: #c53030;
+    margin-top: 2px;
+    font-weight: 600;
+}
+.bulk-preview-table tbody td .cell-info-msg {
+    font-size: 11px;
+    color: #d69e2e;
+    margin-top: 2px;
+    font-weight: 600;
+    font-style: italic;
+}
+.bulk-preview-table tbody td input,
+.bulk-preview-table tbody td select {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 6px 8px;
+    background: #fff;
+    font-size: 13px;
+}
+.bulk-preview-table tbody td input:focus,
+.bulk-preview-table tbody td select:focus {
+    outline: none;
+    border-color: #0067b1;
+    box-shadow: 0 0 0 2px rgba(0,103,177,0.15);
+}
+.bulk-preview-table tbody tr:hover {
+    background: #f7fafc;
+}

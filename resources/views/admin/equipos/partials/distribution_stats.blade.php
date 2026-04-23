@@ -1,5 +1,20 @@
-@if(request('id_tipo'))
-    {{-- Distribución por FRENTE (cuando hay un tipo seleccionado) --}}
+@php
+    // Lógica de qué card mostrar:
+    //   - Si filtra por id_frente (con o sin id_tipo) → mostrar "Distribución" por TIPO
+    //   - Si filtra por id_tipo sin id_frente → mostrar "Ubicación por Frente"
+    //   - Sin filtros → "Distribución" por TIPO (default)
+    // Se acepta $showFrentes inyectado desde el controller; si no viene, se calcula aquí.
+    if (!isset($showFrentes)) {
+        $reqFrente = request('id_frente');
+        $reqTipo   = request('id_tipo');
+        $hasFrenteFilter = $reqFrente && $reqFrente !== 'all';
+        $hasTipoFilter   = $reqTipo && $reqTipo !== 'all';
+        $showFrentes     = $hasTipoFilter && !$hasFrenteFilter;
+    }
+@endphp
+
+@if($showFrentes)
+    {{-- Distribución por FRENTE (cuando filtra por tipo sin frente) --}}
     <h4 style="margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente

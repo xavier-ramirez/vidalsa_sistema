@@ -61,7 +61,11 @@ Route::middleware(['auth'])->group(function () {
             Route::post('equipos/bulk-anchor', [App\Http\Controllers\EquipoController::class, 'bulkAnchor'])->name('equipos.bulkAnchor');
             Route::post('equipos/clear-anchor', [App\Http\Controllers\EquipoController::class, 'clearAnchor'])->name('equipos.clearAnchor');
             Route::patch('equipos/{id}/ubicacion', [App\Http\Controllers\EquipoController::class, 'updateUbicacion'])->name('equipos.updateUbicacion');
+            Route::get('equipos/bulk-template', [App\Http\Controllers\EquipoController::class, 'bulkTemplate'])->name('equipos.bulkTemplate');
+            Route::post('equipos/bulk-preview', [App\Http\Controllers\EquipoController::class, 'bulkPreview'])->name('equipos.bulkPreview');
+            Route::post('equipos/bulk-store-batch', [App\Http\Controllers\EquipoController::class, 'bulkStoreBatch'])->name('equipos.bulkStoreBatch');
             Route::resource('equipos', App\Http\Controllers\EquipoController::class);
+            Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
             Route::post('movilizaciones/recepcion-directa', [App\Http\Controllers\MovilizacionController::class, 'recepcionDirecta'])->name('movilizaciones.recepcionDirecta');
             Route::get('movilizaciones/buscar-equipos-recepcion', [App\Http\Controllers\MovilizacionController::class, 'buscarEquiposParaRecepcion'])->name('movilizaciones.buscarEquipos');
             Route::get('movilizaciones/subdivisiones/{id}', [App\Http\Controllers\MovilizacionController::class, 'getSubdivisiones'])->name('movilizaciones.subdivisiones');
