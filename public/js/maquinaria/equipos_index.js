@@ -969,50 +969,43 @@ window.openUbicacionBulkModal = function (event) {
     }).join('') + (selections.length > 12 ? `<span style="color:#64748b;font-size:12px;">+${selections.length - 12} más</span>` : '');
 
     overlay.innerHTML = `
-        <div style="background:white;width:100%;max-width:460px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:ubBulkIn 0.22s cubic-bezier(0.16,1,0.3,1);">
-            <div style="background:linear-gradient(135deg,#0284c7 0%,#075985 100%);padding:16px 20px;color:white;display:flex;align-items:center;justify-content:space-between;">
-                <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-                    <div style="background:rgba(255,255,255,0.18);width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i class="material-icons" style="font-size:22px;">pin_drop</i>
-                    </div>
-                    <div style="min-width:0;">
-                        <h2 style="margin:0;font-size:16px;font-weight:800;">Asignar Ubicación Específica</h2>
-                        <p style="margin:2px 0 0;font-size:12px;opacity:0.85;">${selections.length} equipo${selections.length !== 1 ? 's' : ''} en el mismo frente</p>
-                    </div>
+        <div style="background:white;width:100%;max-width:440px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;animation:ubBulkIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+            <!-- Header mismo patron que modal de Anclaje: fondo #1e293b + titulo centrado con icono de acento -->
+            <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i class="material-icons" style="color:#0284c7;font-size:20px;">pin_drop</i>
+                    <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Ubicación</h2>
                 </div>
-                <button type="button" id="ub-close" aria-label="Cerrar" style="background:rgba(255,255,255,0.15);border:none;color:white;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-                    <i class="material-icons" style="font-size:18px;">close</i>
+                <button type="button" id="ub-close" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                    <i class="material-icons">close</i>
                 </button>
             </div>
-            <div style="padding:22px 24px;display:flex;flex-direction:column;gap:14px;">
+            <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
                 <div>
-                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos seleccionados</p>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;max-height:90px;overflow-y:auto;">
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">${selections.length} equipo${selections.length !== 1 ? 's' : ''} seleccionado${selections.length !== 1 ? 's' : ''}</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;max-height:90px;overflow-y:auto;">
                         ${chipsHtml}
                     </div>
                 </div>
                 <div>
                     <label for="ub-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
                         <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                        Sitio específico dentro del frente asignado
+                        Sitio específico dentro del frente
                     </label>
-                    <div id="ub-inputbox" style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
-                        <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:20px;flex-shrink:0;">location_on</i>
+                    <div id="ub-inputbox" style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
+                        <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
                         <input type="text" id="ub-input" maxlength="150" autocomplete="off"
                             placeholder="Ej: PATIO 2, TALLER, ESTACIONAMIENTO A"
-                            style="flex:1;border:none;outline:none;padding:12px 6px;font-size:14px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
+                            style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
                     <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
-                        Indica la zona, patio, almacén o fila exacta donde queda el equipo dentro del frente.
+                        Indica la zona, patio, almacén o fila exacta dentro del frente.
                     </small>
                 </div>
                 <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
-                <div style="display:flex;gap:10px;justify-content:center;margin-top:4px;">
-                    <button type="button" id="ub-cancel" style="padding:10px 20px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>
-                    <button type="button" id="ub-submit" style="padding:10px 24px;border-radius:8px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;">
-                        <i class="material-icons" style="font-size:17px;">save</i> Aplicar
-                    </button>
-                </div>
+                <button type="button" id="ub-submit" style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#0284c7;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.2s;">
+                    <i class="material-icons">check_circle</i> Aplicar Ubicación
+                </button>
             </div>
         </div>
     `;
@@ -1036,7 +1029,6 @@ window.openUbicacionBulkModal = function (event) {
     setTimeout(() => input.focus(), 80);
 
     overlay.querySelector('#ub-close').onclick  = closeModal;
-    overlay.querySelector('#ub-cancel').onclick = closeModal;
     overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSubmit(); } });
 
