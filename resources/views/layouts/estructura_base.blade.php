@@ -1638,52 +1638,24 @@
                                 const downloadBtn = document.getElementById('pdfDownloadBtn');
                                 if (downloadBtn) downloadBtn.dataset.url = data.link;
 
-                                // Update Parent Button Data (Table Row)
-                                if (window.activeEquipoButton) {
-                                    const d = window.activeEquipoButton.dataset;
-                                    if (type === 'propiedad') d.linkPropiedad = data.link;
-                                    if (type === 'poliza') d.linkSeguro = data.link;
-                                    if (type === 'rotc') d.linkRotc = data.link;
-                                    if (type === 'racda') d.linkRacda = data.link;
-                                    if (type === 'adicional') d.linkAdicional = data.link;
-                                    if (type === 'adicional_2') d.linkAdicional2 = data.link;
-                                }
-
-                                // FIX: Also update the button in the currently open Details Modal
-                                // to prevent opening the old file if the user closes and re-opens preview.
-                                let containerId = '';
-                                if (type === 'propiedad') containerId = 'd_btn_propiedad';
-                                else if (type === 'poliza') containerId = 'd_btn_poliza';
-                                else if (type === 'rotc') containerId = 'd_btn_rotc';
-                                else if (type === 'racda') containerId = 'd_btn_racda';
-                                else if (type === 'adicional') containerId = 'd_btn_adicional';
-                                else if (type === 'adicional_2') containerId = 'd_btn_adicional_2';
-
-                                const btnContainer = document.getElementById(containerId);
-                                if (btnContainer) {
-                                    let metaHtml = '';
-                                    if (data.autor) {
-                                        const shortAutor = data.autor.includes('@') ? data.autor.split('@')[0] : data.autor;
-                                        metaHtml = `<div style="display:flex; flex-direction:column; align-items:flex-end; margin-right:8px; justify-content:center;">
-                                                    <span style="font-size:10px; color:#94a3b8; line-height: 1.1;">Por: <strong style="color:#64748b; font-weight:600;">${shortAutor}</strong></span>
-                                                    ${data.fecha ? `<span style="font-size:9px; color:#cbd5e1; font-weight:500;">${data.fecha}</span>` : ''}
-                                                </div>`;
+                                // Sincroniza dataset + equiposData usando el helper unico (DOC_FIELD_MAP).
+                                // Solo re-renderiza el modal detalles si sigue abierto debajo del preview;
+                                // asi evitamos reabrirlo por encima del preview y manejamos race conditions
+                                // (nodo muerto, SPA nav) gracias al guard de activeEquipoButton.
+                                const btnFP = window.activeEquipoButton;
+                                const btnFPAlive = btnFP && document.body.contains(btnFP);
+                                if (btnFPAlive && typeof window.applyDocUpload === 'function') {
+                                    window.applyDocUpload(btnFP.dataset, type, data);
+                                    if (window.equiposData && btnFP.dataset.equipoId && window.equiposData[btnFP.dataset.equipoId]) {
+                                        window.applyDocUpload(window.equiposData[btnFP.dataset.equipoId], type, data);
                                     }
-
-                                    btnContainer.innerHTML = `
-                                    <div class="pdf-btn-container" style="display:flex; align-items:center;">
-                                        ${metaHtml}
-                                        <button type="button" 
-                                            onclick="openPdfPreview('${data.link}', '${type}', '${label}', '${equipoId}')" 
-                                            style="width: 36px; height: 36px; border-radius: 8px; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
-                                            onmouseover="this.style.background='#e9ecef'" 
-                                            onmouseout="this.style.background='#f8f9fa'"
-                                            title="Ver PDF: ${label}">
-                                            <i class="material-icons" style="font-size: 20px; color: #6c757d;">picture_as_pdf</i>
-                                        </button>
-                                    </div>
-                                `;
+                                    const detailsModal = document.getElementById('detailsModal');
+                                    const detailsOpen  = detailsModal && detailsModal.classList.contains('active');
+                                    if (detailsOpen && typeof window.showDetailsImproved === 'function') {
+                                        try { window.showDetailsImproved(btnFP); } catch (_) { /* noop */ }
+                                    }
                                 }
+
                                 if (window.showToast) window.showToast('Documento actualizado exitosamente', 'success');
 
                                 // Refresh Dashboard Alerts if function exists
@@ -1760,37 +1732,34 @@
                             const data = await response.json();
 
                             if (data.success) {
-                                // Close Preview
+                                // Cierra preview
                                 closePdfPreview();
 
-                                // Update UI to show upload button again
-                                if (window.activeEquipoButton) {
-                                    const d = window.activeEquipoButton.dataset;
-                                    const containerId = `d_btn_${docType}`; // Assuming this naming convention from showDetailsImproved
-                                    const container = document.getElementById(containerId);
-
-                                    // Reset dataset + fecha del modal (si existe el span)
-                                    const clearSpanDate = (id) => { const el = document.getElementById(id); if (el) el.innerText = ''; };
-                                    if (docType === 'propiedad') d.linkPropiedad = '';
-                                    if (docType === 'poliza')    { d.linkSeguro = ''; d.vencSeguro = ''; clearSpanDate('d_venc_seguro'); }
-                                    if (docType === 'rotc')      { d.linkRotc = ''; d.fechaRotc = ''; clearSpanDate('d_fecha_rotc'); }
-                                    if (docType === 'racda')     { d.linkRacda = ''; d.fechaRacda = ''; clearSpanDate('d_fecha_racda'); }
-                                    if (docType === 'adicional') { d.linkAdicional = ''; d.fechaAdicional = ''; clearSpanDate('d_fecha_adicional'); }
-                                    if (docType === 'adicional_2'){ d.linkAdicional2 = ''; d.fechaAdicional2 = ''; clearSpanDate('d_fecha_adicional_2'); }
-
-                                    // Render Upload Button
-                                    if (container) {
-                                        const inputId = `input_upload_${docType}_${equipoId}`;
-                                        const inputHtml = `<input type="file" id="${inputId}" accept="application/pdf" style="display: none;" onchange="uploadDocument(this, '${docType}', '${equipoId}', '${containerId}', '${label}')">`;
-
-                                        container.innerHTML = `
-                                        <div style="position: relative; width: 30px; height: 30px;">
-                                            ${inputHtml}
-                                            <label for="${inputId}" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #fbfcfd; color: #3b82f6; border: 1px dashed #3b82f6; border-radius: 6px; transition: 0.2s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fbfcfd'" title="Cargar ${label}">
-                                                <i class="material-icons" style="font-size: 18px;">cloud_upload</i>
-                                            </label>
-                                        </div>
-                                    `;
+                                // Limpia dataset + equiposData y tambien la fecha de vencimiento
+                                // asociada (vencKey) via DOC_FIELD_MAP. showDetailsImproved re-renderiza
+                                // el boton en estado "cloud_upload" con el estilo correcto + verifica
+                                // CAN_UPDATE_INFO. No inyectamos HTML manual.
+                                const btnDel = window.activeEquipoButton;
+                                const btnDelAlive = btnDel && document.body.contains(btnDel);
+                                if (btnDelAlive) {
+                                    if (typeof window.clearDocFields === 'function') {
+                                        window.clearDocFields(btnDel.dataset, docType);
+                                        if (window.equiposData && btnDel.dataset.equipoId && window.equiposData[btnDel.dataset.equipoId]) {
+                                            window.clearDocFields(window.equiposData[btnDel.dataset.equipoId], docType);
+                                        }
+                                    }
+                                    // Limpia la fecha de vencimiento extra (no cubierta por clearDocFields).
+                                    const vk = window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[docType] ? window.DOC_FIELD_MAP[docType].vencKey : null;
+                                    if (vk) {
+                                        btnDel.dataset[vk] = '';
+                                        if (window.equiposData && btnDel.dataset.equipoId && window.equiposData[btnDel.dataset.equipoId]) {
+                                            window.equiposData[btnDel.dataset.equipoId][vk] = '';
+                                        }
+                                    }
+                                    const detailsModal = document.getElementById('detailsModal');
+                                    const detailsOpen  = detailsModal && detailsModal.classList.contains('active');
+                                    if (detailsOpen && typeof window.showDetailsImproved === 'function') {
+                                        try { window.showDetailsImproved(btnDel); } catch (_) { /* noop */ }
                                     }
                                 }
 

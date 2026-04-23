@@ -3,6 +3,50 @@
  * Version: 2.0 - Clean Architecture with Event Delegation
  */
 
+// ── Mapeo único de documentos: tipo → campos del dataset/equiposData ──
+// Fuente de verdad compartida entre uploadDocument, uploadDocumentFromPreview,
+// saveMetadata y cualquier consumer que deba sincronizar UI tras una
+// subida/edicion/borrado de PDF.
+if (!window.DOC_FIELD_MAP) {
+    window.DOC_FIELD_MAP = {
+        propiedad:   { link: 'linkPropiedad',  autor: 'propiedadAutor',  fecha: 'propiedadFecha',  vencKey: null },
+        poliza:      { link: 'linkSeguro',     autor: 'polizaAutor',     fecha: 'polizaFecha',     vencKey: 'vencSeguro' },
+        rotc:        { link: 'linkRotc',       autor: 'rotcAutor',       fecha: 'rotcFecha',       vencKey: 'fechaRotc' },
+        racda:       { link: 'linkRacda',      autor: 'racdaAutor',      fecha: 'racdaFecha',      vencKey: 'fechaRacda' },
+        adicional:   { link: 'linkAdicional',  autor: 'adicionalAutor',  fecha: 'adicionalFecha',  vencKey: 'fechaAdicional' },
+        adicional_2: { link: 'linkAdicional2', autor: 'adicional2Autor', fecha: 'adicional2Fecha', vencKey: 'fechaAdicional2' },
+    };
+}
+
+/**
+ * Aplica a `target` (dataset del boton o equiposData[id]) los campos devueltos
+ * por el backend tras un upload exitoso. Normaliza autor numerico y acorta email.
+ */
+if (!window.applyDocUpload) {
+    window.applyDocUpload = function (target, type, data) {
+        const m = window.DOC_FIELD_MAP[type];
+        if (!m || !target) return;
+        const autorRaw   = data.autor != null ? String(data.autor) : '';
+        const shortAutor = autorRaw.includes('@') ? autorRaw.split('@')[0] : autorRaw;
+        target[m.link]  = data.link || '';
+        target[m.autor] = shortAutor;
+        target[m.fecha] = data.fecha || '';
+    };
+}
+
+/**
+ * Limpia los mismos campos en `target` al borrar un documento.
+ */
+if (!window.clearDocFields) {
+    window.clearDocFields = function (target, type) {
+        const m = window.DOC_FIELD_MAP[type];
+        if (!m || !target) return;
+        target[m.link]  = '';
+        target[m.autor] = '';
+        target[m.fecha] = '';
+    };
+}
+
 // Global click handler for dropdowns (event delegation)
 // Helper to close all dropdowns except the one passed
 window.closeAllDropdowns = function (exceptElement) {
@@ -832,7 +876,7 @@ window.showDetailsImproved = function (target, event) {
     set("d_fecha_adicional_2", formatDate(d.fechaAdicional2));
 
     // Document Action Buttons Generator
-    const createDocBtn = (containerId, type, link, label, equipoId, autor = '', fecha = '') => {
+    const createDocBtn = (containerId, type, link, label, equipoId) => {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -877,18 +921,10 @@ window.showDetailsImproved = function (target, event) {
     };
 
     const eqId = d.equipoId;
-    createDocBtn(
-        "d_btn_propiedad",
-        "propiedad",
-        d.linkPropiedad,
-        "Propiedad",
-        eqId,
-        d.propiedadAutor,
-        d.propiedadFecha
-    );
-    createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId, d.polizaAutor, d.polizaFecha);
-    createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId, d.rotcAutor, d.rotcFecha);
-    createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId, d.racdaAutor, d.racdaFecha);
+    createDocBtn("d_btn_propiedad", "propiedad", d.linkPropiedad, "Propiedad", eqId);
+    createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId);
+    createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId);
+    createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId);
     // Ambas rows siempre visibles: "Certificado Asociado" y "Compraventa".
     const rowAdicional  = document.getElementById('d_row_adicional');
     const rowAdicional2 = document.getElementById('d_row_adicional_2');
@@ -900,25 +936,8 @@ window.showDetailsImproved = function (target, event) {
     if (labelAdicionalEl)  labelAdicionalEl.textContent  = 'Certificado Asociado';
     if (labelAdicional2El) labelAdicional2El.textContent = 'Compraventa';
 
-    createDocBtn(
-        "d_btn_adicional",
-        "adicional",
-        d.linkAdicional,
-        'Certificado Asociado',
-        eqId,
-        d.adicionalAutor,
-        d.adicionalFecha
-    );
-
-    createDocBtn(
-        "d_btn_adicional_2",
-        "adicional_2",
-        d.linkAdicional2,
-        'Compraventa',
-        eqId,
-        d.adicional2Autor,
-        d.adicional2Fecha
-    );
+    createDocBtn("d_btn_adicional", "adicional", d.linkAdicional, 'Certificado Asociado', eqId);
+    createDocBtn("d_btn_adicional_2", "adicional_2", d.linkAdicional2, 'Compraventa', eqId);
 
     // Show Modal
     if (modal) {
@@ -1188,31 +1207,26 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
             try {
                 const data = JSON.parse(xhr.responseText);
                 if (data.success) {
-                    // Update UI
-                    const container = document.getElementById(containerId);
-                    if (container) {
-                        container.innerHTML = `
-                            <div class="pdf-btn-container">
-                                <button type="button" 
-                                    onclick="event.stopPropagation(); openPdfPreview('${data.link}', '${type}', '${label}', '${equipoId}')" 
-                                    style="width: 36px; height: 36px; border-radius: 8px; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer;"
-                                    onmouseover="this.style.background='#e9ecef'" 
-                                    onmouseout="this.style.background='#f8f9fa'"
-                                    title="Ver PDF: ${label}">
-                                    <i class="material-icons" style="font-size: 20px; color: #6c757d;">picture_as_pdf</i>
-                                </button>
-                            </div>
-                        `;
-                    }
+                    // Guard de race: si el boton activo ya no esta en el DOM (navegacion SPA,
+                    // modal cerrado, pagina recargada), solo refrescamos alertas y salimos
+                    // sin reabrir el modal detalles sobre un contexto viejo.
+                    const btn = window.activeEquipoButton;
+                    const btnAlive = btn && document.body.contains(btn);
 
-                    if (window.activeEquipoButton) {
-                        const d = window.activeEquipoButton.dataset;
-                        if (type === "propiedad") d.linkPropiedad = data.link;
-                        if (type === "poliza") d.linkSeguro = data.link;
-                        if (type === "rotc") d.linkRotc = data.link;
-                        if (type === "racda") d.linkRacda = data.link;
-                        if (type === "adicional") d.linkAdicional = data.link;
-                        if (type === "adicional_2") d.linkAdicional2 = data.link;
+                    if (btnAlive) {
+                        // Sincroniza dataset del boton + cache equiposData via helper unico.
+                        window.applyDocUpload(btn.dataset, type, data);
+                        if (window.equiposData && btn.dataset.equipoId && window.equiposData[btn.dataset.equipoId]) {
+                            window.applyDocUpload(window.equiposData[btn.dataset.equipoId], type, data);
+                        }
+
+                        // Re-render del modal SOLO si sigue abierto (evita reabrirlo si el
+                        // usuario lo cerro mientras la subida estaba en vuelo).
+                        const modal = document.getElementById('detailsModal');
+                        const modalOpen = modal && modal.classList.contains('active');
+                        if (modalOpen && typeof window.showDetailsImproved === 'function') {
+                            try { window.showDetailsImproved(btn); } catch (_) { /* noop */ }
+                        }
                     }
 
                     if (typeof window.refreshDashboardAlerts === "function") {
@@ -1236,7 +1250,7 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                     }
                 }
             } catch (e) {
-                console.error("Error interpetando respuesta del servidor:", e);
+                console.error("Error interpretando respuesta del servidor:", e);
                 if (window.hidePreloader) window.hidePreloader();
                 if (window.showToast) {
                     window.showToast("Error subiendo el PDF. El archivo podría ser demasiado pesado.", "error");

@@ -98,7 +98,7 @@ class HistorialDocumentosController extends Controller
                 $autor = $doc->usuarioAdicional ? $doc->usuarioAdicional->CORREO_ELECTRONICO : $doc->ADICIONAL_SUBIDO_POR;
                 $events->push((object)[
                     'doc_key' => 'adicional',
-                    'tipo' => 'Doc. Adicional',
+                    'tipo' => 'Certificado Asociado',
                     'autor' => $autor,
                     'fecha_raw' => $doc->ADICIONAL_FECHA_SUBIDA,
                     'fecha' => Carbon::parse($doc->ADICIONAL_FECHA_SUBIDA),
@@ -112,7 +112,7 @@ class HistorialDocumentosController extends Controller
                 $autor = $doc->usuarioAdicional2 ? $doc->usuarioAdicional2->CORREO_ELECTRONICO : $doc->ADICIONAL_2_SUBIDO_POR;
                 $events->push((object)[
                     'doc_key' => 'adicional_2',
-                    'tipo' => 'Doc. Adicional #2',
+                    'tipo' => 'Compraventa',
                     'autor' => $autor,
                     'fecha_raw' => $doc->ADICIONAL_2_FECHA_SUBIDA,
                     'fecha' => Carbon::parse($doc->ADICIONAL_2_FECHA_SUBIDA),

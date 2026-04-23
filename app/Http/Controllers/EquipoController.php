@@ -334,7 +334,9 @@ class EquipoController extends Controller
                     'placa'           => optional($eq->documentacion)->PLACA ?? 'N/A',
                     'titular'         => optional($eq->documentacion)->NOMBRE_DEL_TITULAR ?? 'N/A',
                     'nroDoc'          => optional($eq->documentacion)->NRO_DE_DOCUMENTO ?? 'N/A',
-                    'vencSeguro'      => optional($eq->documentacion)->FECHA_VENC_POLIZA ?? 'N/A',
+                    // Fechas de vencimiento: todas en formato Y-m-d (consistente con <input type=date>).
+                    // Se parsean via Carbon para que sea defensivo frente a casts datetime/string en el model.
+                    'vencSeguro'      => optional($eq->documentacion)->FECHA_VENC_POLIZA ? \Carbon\Carbon::parse($eq->documentacion->FECHA_VENC_POLIZA)->format('Y-m-d') : '',
                     'seguro'          => optional(optional($eq->documentacion)->seguro)->NOMBRE_ASEGURADORA ?? 'N/A',
                     'linkPropiedad'   => optional($eq->documentacion)->LINK_DOC_PROPIEDAD ?? '',
                     'propiedadAutor'  => optional($eq->documentacion)->PROPIEDAD_SUBIDO_POR ?? '',
@@ -343,11 +345,11 @@ class EquipoController extends Controller
                     'polizaAutor'     => optional($eq->documentacion)->POLIZA_SUBIDO_POR ?? '',
                     'polizaFecha'     => optional($eq->documentacion)->POLIZA_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->POLIZA_FECHA_SUBIDA)->format('d/m/y') : '',
                     'linkRotc'        => optional($eq->documentacion)->LINK_ROTC ?? '',
-                    'fechaRotc'       => optional($eq->documentacion)->FECHA_ROTC ?? '',
+                    'fechaRotc'       => optional($eq->documentacion)->FECHA_ROTC ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ROTC)->format('Y-m-d') : '',
                     'rotcAutor'       => optional($eq->documentacion)->ROTC_SUBIDO_POR ?? '',
                     'rotcFecha'       => optional($eq->documentacion)->ROTC_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ROTC_FECHA_SUBIDA)->format('d/m/y') : '',
                     'linkRacda'       => optional($eq->documentacion)->LINK_RACDA ?? '',
-                    'fechaRacda'      => optional($eq->documentacion)->FECHA_RACDA ?? '',
+                    'fechaRacda'      => optional($eq->documentacion)->FECHA_RACDA ? \Carbon\Carbon::parse($eq->documentacion->FECHA_RACDA)->format('Y-m-d') : '',
                     'racdaAutor'      => optional($eq->documentacion)->RACDA_SUBIDO_POR ?? '',
                     'racdaFecha'      => optional($eq->documentacion)->RACDA_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->RACDA_FECHA_SUBIDA)->format('d/m/y') : '',
                     'linkAdicional'   => optional($eq->documentacion)->LINK_DOC_ADICIONAL ?? '',
@@ -1669,11 +1671,19 @@ class EquipoController extends Controller
             if (ob_get_length())
                 ob_end_clean();
 
+            // Devolvemos el autor como string (email de preferencia) para que el frontend
+            // pueda hacer `.includes('@')` sin TypeError. Si no hay email ni nombre,
+            // caemos a "Usuario #<id>" legible.
+            $u = auth()->user();
+            $autorStr = $u->CORREO_ELECTRONICO
+                ?? $u->NOMBRE_COMPLETO
+                ?? ('Usuario #' . $u->ID_USUARIO);
+
             return response()->json([
-                'success' => true, 
-                'link' => $fullUrl, 
-                'autor' => $uploadedBy,
-                'fecha' => \Carbon\Carbon::parse($uploadedAt)->format('d/m/y'),
+                'success' => true,
+                'link'    => $fullUrl,
+                'autor'   => $autorStr,
+                'fecha'   => \Carbon\Carbon::parse($uploadedAt)->format('d/m/y'),
                 'message' => 'Documento actualizado correctamente'
             ]);
 

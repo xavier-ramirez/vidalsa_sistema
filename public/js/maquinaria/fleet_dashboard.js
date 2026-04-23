@@ -118,9 +118,11 @@ window.openFleetDashboard = async function () {
     modal.classList.add('active');
     modal.style.display = 'flex';
 
-    if (typeof Chart === 'undefined') {
-        await loadChartJS();
-    }
+    // Dispara la carga de Chart.js (+DataLabels) en paralelo con el fetch.
+    // loadFleetDashboardData consulta _fleetChartReady antes de instanciar
+    // `new Chart(...)`, asi el fetch avanza mientras Chart.js se descarga.
+    window._fleetChartReady = (typeof Chart === 'undefined') ? loadChartJS() : Promise.resolve();
+    const chartReady = window._fleetChartReady;
 
     setupDropdownEvents();
 
@@ -165,7 +167,14 @@ window.openFleetDashboard = async function () {
     }
 
     window.currentFrenteId = firstFrenteId;
-    await loadFleetDashboardData(firstFrenteId);
+
+    // Ejecutar FETCH y CARGA DE CHART EN PARALELO. loadFleetDashboardData ya
+    // hace fetch a /fleet-stats; mientras llega la respuesta, Chart.js tambien
+    // se esta bajando. Al terminar ambos, los charts se renderizan al instante.
+    await Promise.all([
+        chartReady,
+        loadFleetDashboardData(firstFrenteId)
+    ]);
 };
 
 /**
@@ -344,47 +353,60 @@ window.closeFleetDashboard = function () {
 };
 
 /**
- * Load Chart.js library dynamically
+ * Helper: carga un <script> externo una sola vez. Devuelve la misma Promise
+ * si ya se estaba cargando (evita duplicados en SPA re-entries).
+ */
+function loadScriptOnce(src, testLoaded) {
+    if (testLoaded && testLoaded()) return Promise.resolve();
+    if (!window._fleetScriptCache) window._fleetScriptCache = {};
+    if (window._fleetScriptCache[src]) return window._fleetScriptCache[src];
+
+    const p = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+    });
+    window._fleetScriptCache[src] = p;
+    return p;
+}
+
+/**
+ * Load Chart.js + DataLabels plugin EN PARALELO.
+ * html2canvas NO se carga aqui: es on-demand desde exportFleetStats (solo se
+ * necesita al exportar, no para el render inicial del dashboard).
  */
 async function loadChartJS() {
-    return new Promise((resolve, reject) => {
-        const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
+    const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
+    const chartLoaded  = () => typeof Chart !== 'undefined';
+    const labelsLoaded = () => typeof ChartDataLabels !== 'undefined';
 
-        const script = document.createElement('script');
-        script.src = baseUrl + '/js/chart.umd.min.js';
+    // Core Chart.js primero (DataLabels lo necesita disponible para registrarse)
+    await loadScriptOnce(baseUrl + '/js/chart.umd.min.js', chartLoaded);
 
-        script.onload = () => {
-            const loadCanvas = () => {
-                if (typeof html2canvas !== 'undefined') {
-                    resolve();
-                    return;
-                }
-                const canvasScript = document.createElement('script');
-                canvasScript.src = baseUrl + '/js/html2canvas.min.js';
-                canvasScript.onload = () => resolve();
-                canvasScript.onerror = () => {
-                    console.warn('Failed to load html2canvas, downloads might fail.');
-                    resolve();
-                };
-                document.head.appendChild(canvasScript);
-            };
+    // DataLabels plugin — si falla, charts funcionan sin labels
+    try {
+        await loadScriptOnce(baseUrl + '/js/chartjs-plugin-datalabels.min.js', labelsLoaded);
+        if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
+            Chart.register(ChartDataLabels);
+        }
+    } catch (e) {
+        console.warn('DataLabels plugin no cargo, charts continuan sin etiquetas:', e.message);
+    }
+}
 
-            const pluginScript = document.createElement('script');
-            pluginScript.src = baseUrl + '/js/chartjs-plugin-datalabels.min.js';
-            pluginScript.onload = () => {
-                Chart.register(ChartDataLabels);
-                loadCanvas();
-            };
-            pluginScript.onerror = () => {
-                console.warn('Failed to load DataLabels plugin, charts will work without it.');
-                loadCanvas();
-            };
-            document.head.appendChild(pluginScript);
-        };
-
-        script.onerror = () => reject(new Error('Failed to load Chart.js'));
-        document.head.appendChild(script);
-    });
+/**
+ * Lazy-load html2canvas — solo cuando se pulsa Exportar.
+ */
+async function ensureHtml2Canvas() {
+    const baseUrl = document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '';
+    try {
+        await loadScriptOnce(baseUrl + '/js/html2canvas.min.js', () => typeof html2canvas !== 'undefined');
+    } catch (e) {
+        console.warn('html2canvas no cargo, downloads podrian fallar:', e.message);
+    }
 }
 
 /**
@@ -426,10 +448,14 @@ async function loadFleetDashboardData(frenteId) {
             throw new Error(data.message || 'El servidor devolvi├│ un error');
         }
 
+        // Render inmediato de lo que NO requiere Chart (stats numericos y panel lateral)
         updateStatCards(data.stats);
-
-        // Render equipos asignados por frente panel
         renderFleetEquiposAsignados(data.equiposPorFrente || []);
+
+        // Esperar Chart.js si aun se esta bajando (carga paralela disparada en openFleetDashboard)
+        if (window._fleetChartReady) {
+            try { await window._fleetChartReady; } catch (e) { console.warn('Chart.js no cargo:', e); }
+        }
 
         createCharts(data);
 
@@ -678,28 +704,19 @@ function destroyAllCharts() {
 /**
  * Capture DOM panel as image and download
  */
-window.descargarPanelHtmlFDM = function(panelId, nombre) {
+window.descargarPanelHtmlFDM = async function(panelId, nombre) {
     const el = document.getElementById(panelId);
     if (!el || el.style.display === 'none') {
-        alert('El panel no est├í visible.'); return;
+        alert('El panel no está visible.'); return;
     }
     if (typeof html2canvas === 'undefined') {
-        // Guard: avoid injecting the script more than once (rapid clicks protection)
-        const existingSrc = (document.querySelector('meta[name="base-url"]')?.getAttribute('content') || '') + '/js/html2canvas.min.js';
-        if (document.querySelector(`script[src="${existingSrc}"]`)) return; // already loading, wait
         if (window.showPreloader) window.showPreloader();
-        const script = document.createElement('script');
-        script.src = existingSrc;
-        script.onload = () => {
-            if (window.hidePreloader) window.hidePreloader();
-            window.descargarPanelHtmlFDM(panelId, nombre);
-        };
-        script.onerror = () => {
-            if (window.hidePreloader) window.hidePreloader();
+        await ensureHtml2Canvas();
+        if (window.hidePreloader) window.hidePreloader();
+        if (typeof html2canvas === 'undefined') {
             alert('Error al cargar la librería de captura.');
-        };
-        document.head.appendChild(script);
-        return;
+            return;
+        }
     }
     const fecha = new Date().toISOString().slice(0, 10);
     html2canvas(el, {

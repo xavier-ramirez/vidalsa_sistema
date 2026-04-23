@@ -132,8 +132,11 @@
                                 <div class="dropdown-item" data-value="racda" onclick="selectOption('tipoDocFilterSelect', 'racda', 'RACDA'); window.loadHistorialDocumentos();">
                                     RACDA
                                 </div>
-                                <div class="dropdown-item" data-value="doc. adicional" onclick="selectOption('tipoDocFilterSelect', 'doc. adicional', 'Doc. Adicional'); window.loadHistorialDocumentos();">
-                                    Doc. Adicional
+                                <div class="dropdown-item" data-value="certificado" onclick="selectOption('tipoDocFilterSelect', 'certificado', 'Certificado Asociado'); window.loadHistorialDocumentos();">
+                                    Certificado Asociado
+                                </div>
+                                <div class="dropdown-item" data-value="compraventa" onclick="selectOption('tipoDocFilterSelect', 'compraventa', 'Compraventa'); window.loadHistorialDocumentos();">
+                                    Compraventa
                                 </div>
                                 <div class="dropdown-item" data-value="registro de vehículo" onclick="selectOption('tipoDocFilterSelect', 'registro de vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">
                                     Registro de Vehículo

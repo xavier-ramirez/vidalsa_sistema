@@ -5,6 +5,33 @@
 @section('content')
 
 <style>
+    /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
+    @media (max-width: 768px) {
+        #advancedFilterPanel {
+            /* En vez de 300px fijo alineado al borde derecho, ocupar casi todo el viewport */
+            width: calc(100vw - 20px) !important;
+            max-width: calc(100vw - 20px) !important;
+            right: 10px !important;
+            left: auto !important;
+            /* Evita que el padding lo empuje fuera de la pantalla */
+            box-sizing: border-box !important;
+        }
+        /* Dropdowns internos (estado, GPS, etc.) tambien ocupan el ancho completo del panel */
+        #advancedFilterPanel .custom-dropdown,
+        #advancedFilterPanel .dropdown-trigger {
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        /* Items de la lista desplegable: un poco mas altos para facilitar tap */
+        #advancedFilterPanel .dropdown-item {
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
     /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas.
        Limitado a >768px para que NO se aplique en mobile (donde la tabla se transforma en cards verticales). */
     @media (min-width: 769px) and (max-width: 1400px) {
@@ -173,7 +200,7 @@
                 </button>
                 
                 <!-- Dynamic Filter Panel -->
-                <div id="advancedFilterPanel" style="display: none; position: absolute; top: 100%; right: 0; width: 300px; background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 100; margin-top: 10px; padding: 15px;">
+                <div id="advancedFilterPanel" style="display: none; position: absolute; top: 100%; right: 0; width: 300px; max-width: calc(100vw - 20px); background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 100; margin-top: 10px; padding: 15px;">
                     <h4 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
                         Filtros Avanzados
                         <span style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
@@ -804,6 +831,10 @@
                                  </div>
                                      <!-- Custom Dropdown List -->
                                      <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
+                                         {{-- Opcion agregada: ver stats GLOBALES de TODOS los frentes sumados --}}
+                                         <div onclick="dashboardSelectFrente('all', 'TODOS LOS FRENTES', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #0067b1; font-size: 13px; font-weight: 700; transition: background 0.2s; border-bottom: 1px solid #e2e8f0; margin-bottom: 4px;" onmouseover="this.style.background='#e1effa'" onmouseout="this.style.background='transparent'">
+                                             <i class="material-icons" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">public</i>TODOS LOS FRENTES
+                                         </div>
                                          @foreach($frentesDropdown as $frente)
                                              <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
                                                  {{ $frente->NOMBRE_FRENTE }}
