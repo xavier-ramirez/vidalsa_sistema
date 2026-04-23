@@ -889,36 +889,32 @@ window.showDetailsImproved = function (target, event) {
     createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId, d.polizaAutor, d.polizaFecha);
     createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId, d.rotcAutor, d.rotcFecha);
     createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId, d.racdaAutor, d.racdaFecha);
-    // Etiqueta del documento adicional según categoría de flota
-    const catFlota = (d.categoria || '').toUpperCase().trim();
-    let labelAdicional = 'Adicional';
-    if (catFlota.includes('LIVIANA')) {
-        labelAdicional = 'Certificado Asociado';
-    } else if (catFlota.includes('PESADA')) {
-        labelAdicional = 'Compraventa';
-    }
-    const labelAdicionalEl = document.getElementById('d_label_adicional');
-    if (labelAdicionalEl) labelAdicionalEl.textContent = labelAdicional;
+    // Ambas rows siempre visibles: "Certificado Asociado" y "Compraventa".
+    const rowAdicional  = document.getElementById('d_row_adicional');
+    const rowAdicional2 = document.getElementById('d_row_adicional_2');
+    if (rowAdicional)  rowAdicional.style.display  = 'flex';
+    if (rowAdicional2) rowAdicional2.style.display = 'flex';
+
+    const labelAdicionalEl  = document.getElementById('d_label_adicional');
+    const labelAdicional2El = document.getElementById('d_label_adicional_2');
+    if (labelAdicionalEl)  labelAdicionalEl.textContent  = 'Certificado Asociado';
+    if (labelAdicional2El) labelAdicional2El.textContent = 'Compraventa';
 
     createDocBtn(
         "d_btn_adicional",
         "adicional",
         d.linkAdicional,
-        labelAdicional,
+        'Certificado Asociado',
         eqId,
         d.adicionalAutor,
         d.adicionalFecha
     );
 
-    // Segundo documento adicional — mismo label dinámico por categoría.
-    const labelAdicional2El = document.getElementById('d_label_adicional_2');
-    if (labelAdicional2El) labelAdicional2El.textContent = labelAdicional + ' #2';
-
     createDocBtn(
         "d_btn_adicional_2",
         "adicional_2",
         d.linkAdicional2,
-        labelAdicional + ' #2',
+        'Compraventa',
         eqId,
         d.adicional2Autor,
         d.adicional2Fecha

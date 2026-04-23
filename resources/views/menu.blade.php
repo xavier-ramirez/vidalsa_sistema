@@ -181,19 +181,21 @@
     .alertas-modal-content {
         background: white;
         width: 100%;
-        max-width: 720px;
-        max-height: 88vh;
-        border-radius: 16px;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+        max-width: 520px;
+        max-height: 72vh;
+        border-radius: 14px;
+        box-shadow: 0 18px 40px -12px rgba(0,0,0,0.32);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        animation: alertasSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: alertasSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     }
+    .alertas-modal-content .alertas-panel-header { padding: 12px 16px; }
+    .alertas-modal-content .alertas-panel-toolbar { padding: 10px 16px 8px; }
     .alertas-modal-content .alertas-panel-body {
         flex: 1;
         overflow-y: auto;
-        padding: 0 18px 18px;
+        padding: 4px 14px 14px;
     }
     @keyframes alertasFadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes alertasSlideIn { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

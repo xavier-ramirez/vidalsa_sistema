@@ -306,25 +306,28 @@
             <input type="text" id="nro_doc_propiedad" name="documentacion[NRO_DE_DOCUMENTO]" class="form-input-custom doc-meta" data-file-target="doc_propiedad" data-has-existing="{{ $hasProp ? 'true' : 'false' }}" value="{{ old('documentacion.NRO_DE_DOCUMENTO', $equipo->documentacion->NRO_DE_DOCUMENTO ?? '') }}" style="flex: 1;" autocomplete="off">
 
             <!-- Button Wrapper -->
-            <div id="wrapper_propiedad" class="{{ $hasProp ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasProp ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
-                 @if($hasProp)
-                    <a href="{{ $equipo->documentacion->LINK_DOC_PROPIEDAD }}" target="_blank" class="btn-preview-pdf" style="text-decoration: none;">
-                        <i class="material-icons">visibility</i> Ver PDF
+            <div id="wrapper_propiedad" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
+                @if($hasProp)
+                    <a href="{{ $equipo->documentacion->LINK_DOC_PROPIEDAD }}" target="_blank" title="Ver documento: Propiedad"
+                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
+                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
                     </a>
-                    <label for="doc_propiedad" title="Reemplazar PDF" style="margin-left: 5px; color: var(--maquinaria-blue); display: flex; align-items: center;">
-                        <i class="material-icons" style="font-size: 20px;">edit</i>
+                    <label for="doc_propiedad" title="Reemplazar PDF"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
+                           onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="material-icons" style="font-size:16px;">edit</i>
                     </label>
-                 @else
-                    <label for="doc_propiedad" title="Cargar PDF de Propiedad" style="border-radius: 50%; border-style: solid; border-width: 2px;">
-                        <i class="material-icons" style="font-size: 18px;">add</i>
+                @else
+                    <label for="doc_propiedad" title="Cargar PDF de Propiedad"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;">
+                        <i class="material-icons" style="font-size:18px;">cloud_upload</i>
                     </label>
-                 @endif
+                @endif
             </div>
             <input type="file" id="doc_propiedad" name="doc_propiedad" class="doc-file" data-meta-target="nro_doc_propiedad" accept=".pdf" style="display: none;">
 
         </div>
         <small id="error_meta_nro_doc_propiedad" style="display:none; color: #e53e3e; font-size: 11px; margin-top: 2px;">Escriba el Nro. de Documento</small>
-        <small id="file_prop" style="color: #718096; font-size: 10px; display: {{ $hasProp ? 'block' : 'none' }};">{{ $hasProp ? '📄 Documento cargado' : '' }}</small>
         @error('doc_propiedad') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
 
     </div>
@@ -354,28 +357,29 @@
         <div style="display: flex; align-items: center; gap: 8px;">
             <input type="date" id="venc_poliza" name="documentacion[FECHA_VENC_POLIZA]" class="form-input-custom doc-meta" data-file-target="poliza_seguro" data-has-existing="{{ $hasPoliza ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_VENC_POLIZA', $equipo->documentacion->FECHA_VENC_POLIZA ?? '') }}" style="flex: 1; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
 
-            <div id="wrapper_poliza" class="{{ $hasPoliza ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasPoliza ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
-                 @if($hasPoliza)
-                    <a href="{{ $equipo->documentacion->LINK_POLIZA_SEGURO }}" target="_blank" class="btn-preview-pdf" style="text-decoration: none;">
-                        <i class="material-icons">visibility</i> Ver PDF
+            <div id="wrapper_poliza" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
+                @if($hasPoliza)
+                    <a href="{{ $equipo->documentacion->LINK_POLIZA_SEGURO }}" target="_blank" title="Ver documento: Póliza"
+                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
+                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
                     </a>
-                    <label for="poliza_seguro" title="Reemplazar PDF" style="margin-left: 5px; color: var(--maquinaria-blue); display: flex; align-items: center;">
-                        <i class="material-icons" style="font-size: 20px;">edit</i>
+                    <label for="poliza_seguro" title="Reemplazar PDF"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
+                           onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="material-icons" style="font-size:16px;">edit</i>
                     </label>
-                 @else
-                    <label for="poliza_seguro" title="Cargar PDF de Póliza" style="border-radius: 50%; border-style: solid; border-width: 2px;">
-                        <i class="material-icons" style="font-size: 18px;">add</i>
+                @else
+                    <label for="poliza_seguro" title="Cargar PDF de Póliza"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;">
+                        <i class="material-icons" style="font-size:18px;">cloud_upload</i>
                     </label>
-                 @endif
+                @endif
             </div>
             <input type="file" id="poliza_seguro" name="poliza_seguro" class="doc-file" data-meta-target="venc_poliza" accept=".pdf" style="display: none;">
 
         </div>
         <small id="error_meta_venc_poliza" style="display:none; color: #e53e3e; font-size: 11px; margin-top: 2px;">Seleccione la Fecha de Vencimiento de Póliza</small>
-        <small id="file_poliza" style="color: #718096; font-size: 10px; display: {{ $hasPoliza ? 'block' : 'none' }};">{{ $hasPoliza ? '📄 Póliza cargada' : '' }}</small>
         @error('poliza_seguro') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
-
-        <input type="hidden" name="documentacion[ESTADO_POLIZA]" value="VIGENTE">
     </div>
 
     <div style="position: relative;">
@@ -383,25 +387,28 @@
         <div style="display: flex; align-items: center; gap: 8px;">
             <input type="date" id="fecha_rotc" name="documentacion[FECHA_ROTC]" class="form-input-custom doc-meta" data-file-target="doc_rotc" data-has-existing="{{ $hasRotc ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_ROTC', $equipo->documentacion->FECHA_ROTC ?? '') }}" style="flex: 1; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
 
-            <div id="wrapper_rotc" class="{{ $hasRotc ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasRotc ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
-                 @if($hasRotc)
-                    <a href="{{ $equipo->documentacion->LINK_ROTC }}" target="_blank" class="btn-preview-pdf" style="text-decoration: none;">
-                        <i class="material-icons">visibility</i> Ver PDF
+            <div id="wrapper_rotc" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
+                @if($hasRotc)
+                    <a href="{{ $equipo->documentacion->LINK_ROTC }}" target="_blank" title="Ver documento: ROTC"
+                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
+                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
                     </a>
-                    <label for="doc_rotc" title="Reemplazar PDF" style="margin-left: 5px; color: var(--maquinaria-blue); display: flex; align-items: center;">
-                        <i class="material-icons" style="font-size: 20px;">edit</i>
+                    <label for="doc_rotc" title="Reemplazar PDF"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
+                           onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="material-icons" style="font-size:16px;">edit</i>
                     </label>
-                 @else
-                     <label for="doc_rotc" title="Cargar PDF ROTC" style="border-radius: 50%; border-style: solid; border-width: 2px;">
-                        <i class="material-icons" style="font-size: 18px;">add</i>
+                @else
+                    <label for="doc_rotc" title="Cargar PDF ROTC"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;">
+                        <i class="material-icons" style="font-size:18px;">cloud_upload</i>
                     </label>
-                 @endif
+                @endif
             </div>
             <input type="file" id="doc_rotc" name="doc_rotc" class="doc-file" data-meta-target="fecha_rotc" accept=".pdf" style="display: none;">
 
         </div>
         <small id="error_meta_fecha_rotc" style="display:none; color: #e53e3e; font-size: 11px; margin-top: 2px;">Seleccione la Fecha ROTC</small>
-        <small id="file_rotc" style="color: #718096; font-size: 10px; display: {{ $hasRotc ? 'block' : 'none' }};">{{ $hasRotc ? '📄 ROTC cargado' : '' }}</small>
         @error('doc_rotc') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
 
     </div>
@@ -411,25 +418,28 @@
         <div style="display: flex; align-items: center; gap: 8px;">
             <input type="date" id="fecha_racda" name="documentacion[FECHA_RACDA]" class="form-input-custom doc-meta" data-file-target="doc_racda" data-has-existing="{{ $hasRacda ? 'true' : 'false' }}" value="{{ old('documentacion.FECHA_RACDA', $equipo->documentacion->FECHA_RACDA ?? '') }}" style="flex: 1; cursor: pointer;" onclick="try{this.showPicker()}catch(e){}">
 
-           <div id="wrapper_racda" class="{{ $hasRacda ? 'pdf-btn-container' : 'upload-placeholder-mini' }}" style="{{ $hasRacda ? 'width: auto; height: auto;' : 'border-radius: 50%;' }}">
-                 @if($hasRacda)
-                    <a href="{{ $equipo->documentacion->LINK_RACDA }}" target="_blank" class="btn-preview-pdf" style="text-decoration: none;">
-                        <i class="material-icons">visibility</i> Ver PDF
+           <div id="wrapper_racda" class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
+                @if($hasRacda)
+                    <a href="{{ $equipo->documentacion->LINK_RACDA }}" target="_blank" title="Ver documento: RACDA"
+                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
+                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
                     </a>
-                    <label for="doc_racda" title="Reemplazar PDF" style="margin-left: 5px; color: var(--maquinaria-blue); display: flex; align-items: center;">
-                        <i class="material-icons" style="font-size: 20px;">edit</i>
+                    <label for="doc_racda" title="Reemplazar PDF"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
+                           onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="material-icons" style="font-size:16px;">edit</i>
                     </label>
-                 @else
-                     <label for="doc_racda" title="Cargar PDF RACDA" style="border-radius: 50%; border-style: solid; border-width: 2px;">
-                        <i class="material-icons" style="font-size: 18px;">add</i>
+                @else
+                    <label for="doc_racda" title="Cargar PDF RACDA"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;">
+                        <i class="material-icons" style="font-size:18px;">cloud_upload</i>
                     </label>
-                 @endif
+                @endif
             </div>
             <input type="file" id="doc_racda" name="doc_racda" class="doc-file" data-meta-target="fecha_racda" accept=".pdf" style="display: none;">
 
         </div>
         <small id="error_meta_fecha_racda" style="display:none; color: #e53e3e; font-size: 11px; margin-top: 2px;">Seleccione la Fecha RACDA</small>
-        <small id="file_racda" style="color: #718096; font-size: 10px; display: {{ $hasRacda ? 'block' : 'none' }};">{{ $hasRacda ? '📄 RACDA cargado' : '' }}</small>
     </div>
 
     

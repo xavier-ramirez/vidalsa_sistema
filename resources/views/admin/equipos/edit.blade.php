@@ -9,7 +9,7 @@
     </h1>
 </section>
 
-<div class="admin-card" style="max-width: 1000px; margin: 0 auto;">
+<div class="admin-card" style="max-width: 95%; margin: 0 auto;">
     <form id="editEquipoForm" action="{{ route('equipos.update', $equipo->ID_EQUIPO) }}" method="POST" enctype="multipart/form-data" novalidate>
         @csrf
         @method('PUT')
@@ -18,7 +18,7 @@
         @include('admin.equipos.partials.form_fields')
 
         <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center;">
-            <a href="{{ route('equipos.index') }}" class="btn-primary-maquinaria" style="background-color: #edf2f7; color: #4a5568;">
+            <a href="{{ route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria"

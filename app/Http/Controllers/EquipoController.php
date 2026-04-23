@@ -1269,9 +1269,15 @@ class EquipoController extends Controller
         $modelos = \Illuminate\Support\Facades\Cache::remember('modelos_list_form_v3', 60, function () {
             return Equipo::distinct()->whereNotNull('MODELO')->orderBy('MODELO', 'asc')->limit(1000)->pluck('MODELO');
         });
+        // Igual que create(): aniosList precargado para el dropdown; modelosList queda
+        // vacio porque el partial carga modelos via AJAX para evitar DOM bloat.
+        $aniosList = \Illuminate\Support\Facades\Cache::remember('anios_list_form_v3', 60, function () {
+            return Equipo::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
+        });
+        $modelosList = [];
 
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        return view('admin.equipos.edit', compact('equipo', 'frentes', 'seguros', 'categorias', 'tipos_equipo', 'marcas', 'modelos'));
+        return view('admin.equipos.edit', compact('equipo', 'frentes', 'seguros', 'categorias', 'tipos_equipo', 'marcas', 'modelos', 'aniosList', 'modelosList'));
     }
 
     public function update(Request $request, $id)
@@ -1281,7 +1287,7 @@ class EquipoController extends Controller
 
         // Normalize inputs to uppercase before validation to avoid case-sensitivity issues with unique constraints
         $request->merge([
-            'CODIGO_PATIO' => strtoupper($request->CODIGO_PATIO),
+            'CODIGO_PATIO' => (trim($request->CODIGO_PATIO ?? '') === '') ? null : strtoupper(trim($request->CODIGO_PATIO)),
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
             'DETALLE_UBICACION_ACTUAL' => (trim($request->DETALLE_UBICACION_ACTUAL ?? '') === '') ? null : strtoupper(trim($request->DETALLE_UBICACION_ACTUAL)),
@@ -1295,12 +1301,13 @@ class EquipoController extends Controller
         }
 
         $validated = $request->validate([
-            'CODIGO_PATIO' => 'required|unique:equipos,CODIGO_PATIO,' . $id . ',ID_EQUIPO',
-            'TIPO_EQUIPO' => 'required',
+            'CODIGO_PATIO' => 'nullable|unique:equipos,CODIGO_PATIO,' . $id . ',ID_EQUIPO',
+            'TIPO_EQUIPO' => 'required|max:35',
             'CATEGORIA_FLOTA' => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
             'MARCA' => 'required',
             'MODELO' => 'required',
             'ANIO' => 'required|integer',
+            'ID_ESPEC' => 'nullable|exists:caracteristicas_modelo,ID_ESPEC',
             'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
             'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
             'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA,' . ($equipo->documentacion ? $equipo->documentacion->ID_EQUIPO : 'NULL') . ',ID_EQUIPO',
