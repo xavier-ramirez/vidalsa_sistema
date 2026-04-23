@@ -109,7 +109,7 @@
     </div>
 
     <div style="margin-top: 25px;" id="catalogoPagination">
-        {{ $catalogos->links() }}
+        {{ $catalogos->links('vendor.pagination.custom-sliding') }}
     </div>
 </div> <!-- End admin-card -->
 
