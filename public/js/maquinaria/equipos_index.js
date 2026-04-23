@@ -1069,10 +1069,15 @@ window.openUbicacionBulkModal = function (event) {
                 throw new Error(err.message || ('Error ' + res.status));
             }
             const data = await res.json();
-            if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada en ' + (data.count || selections.length) + ' equipo(s).', 'success');
             if (typeof window.clearSelection === 'function') window.clearSelection();
-            if (typeof window.loadEquipos === 'function') window.loadEquipos(null, true);
             closeModal();
+            // Esperar a que la tabla termine el primer render antes de apagar el preloader.
+            // Evita el parpadeo donde el spinner se quita mientras la tabla aun se esta
+            // redibujando con los datos nuevos.
+            if (typeof window.loadEquipos === 'function') {
+                await window.loadEquipos(null, true);
+            }
+            if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada en ' + (data.count || selections.length) + ' equipo(s).', 'success');
         } catch (err) {
             console.error('[Ubicacion bulk]', err);
             showFb('error', err.message || 'No se pudo actualizar.');
@@ -1410,14 +1415,17 @@ window.openBulkModal = function (event) {
 
             const data = await res.json();
 
-            // Ocultar preloader, cerrar modal y limpiar selección
-            if (window.hidePreloader) window.hidePreloader();
+            // Cerrar modal y limpiar selección, pero NO apagamos el preloader:
+            // lo mantenemos activo hasta que loadEquipos termine su primer render
+            // (loadEquipos en modo no-silent gestiona el hidePreloader en su .finally).
+            // Así evitamos el "parpadeo" donde el spinner desaparece antes de que
+            // la tabla se haya redibujado con los datos nuevos.
             removePortal();
             overlay.remove();
             window.clearSelection();
 
-            // Refrescar tabla silenciosamente en el fondo (silent=true)
-            window.loadEquipos(null, true);
+            // Refrescar tabla con preloader visible hasta completar el render inicial
+            window.loadEquipos(null, false);
 
             // Descarga del acta si aplica
             if (data.generar_pdf) {
