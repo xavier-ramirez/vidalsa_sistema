@@ -167,8 +167,10 @@
 </div>
 
 <script>
-    // Variables enviadas desde Blade
-    const dbFrentes = @json($frentes ?? []);
+    // Variables enviadas desde Blade.
+    // Asignamos a window (idempotente) en vez de `const` top-level: el router SPA
+    // re-ejecuta los <script> al navegar y un `const` redeclarado revienta.
+    window.dbFrentes = @json($frentes ?? []);
     
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('reportDate').textContent = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });

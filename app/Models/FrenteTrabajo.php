@@ -11,8 +11,7 @@ class FrenteTrabajo extends Model
     protected $primaryKey = 'ID_FRENTE';
 
     /**
-     * Invalidar caches derivados cuando cambia cualquier frente.
-     * Previene stale-cache (p.ej. frentes_especial_ids usado por EquipoController y DashboardController).
+     * Invalida el cache `frentes_especial_ids` (leído por especialIds()) al guardar/borrar un frente.
      */
     protected static function booted(): void
     {
@@ -74,5 +73,27 @@ class FrenteTrabajo extends Model
     public function solicitudesMantenimiento()
     {
         return $this->hasMany(SolicitudMantenimiento::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');
+    }
+
+    /**
+     * IDs de frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota propia).
+     * Cache 5 min; invalidado automáticamente en booted() al guardar/borrar un frente.
+     */
+    public static function especialIds(): array
+    {
+        return Cache::remember(
+            'frentes_especial_ids', 300,
+            fn() => static::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
+        );
+    }
+
+    /**
+     * True si el ID suministrado corresponde a un frente ESPECIAL.
+     * Usado para detectar drill-down explícito y omitir la exclusión.
+     */
+    public static function isEspecialId($id): bool
+    {
+        if ($id === null || $id === '' || $id === 'all') return false;
+        return in_array((int) $id, array_map('intval', static::especialIds()), true);
     }
 }

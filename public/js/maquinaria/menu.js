@@ -5,11 +5,29 @@
 // No IIFE wrapper to prevent any scoping issues
 
 window.toggleExpiredDocs = function () {
-    const expiredContainer = document.getElementById('expiredDocsContainer');
-    if (!expiredContainer) return;
-    // block porque .alertas-panel usa layout de bloque (no flex en el contenedor raíz)
-    expiredContainer.style.display = (expiredContainer.style.display === 'none') ? 'block' : 'none';
+    const overlay = document.getElementById('expiredDocsContainer');
+    if (!overlay) return;
+    const isOpen = overlay.classList.toggle('open');
+    // Evita scroll del body mientras el modal está abierto
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    if (isOpen) {
+        // Autofocus al buscador para UX rápida
+        const searchInput = document.getElementById('alertSearch');
+        if (searchInput) setTimeout(() => searchInput.focus(), 60);
+    }
 };
+
+// Cerrar modal de alertas con tecla Escape (registrado una sola vez)
+if (!window._alertasModalEscHandler) {
+    window._alertasModalEscHandler = true;
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('expiredDocsContainer');
+        if (overlay && overlay.classList.contains('open')) {
+            window.toggleExpiredDocs();
+        }
+    });
+}
 
 // togglePendingMovs removido: la lista de "Equipos Por Confirmar" ahora vive en el
 // centro de notificaciones del navbar (layouts/estructura_base.blade.php).

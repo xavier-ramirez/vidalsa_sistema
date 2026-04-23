@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class FrentesSeeder extends Seeder
@@ -24,5 +25,7 @@ class FrentesSeeder extends Seeder
                 ['TIPO_FRENTE' => 'OPERACION', 'ESTATUS_FRENTE' => 'ACTIVO']
             );
         }
+
+        Cache::forget('frentes_especial_ids');
     }
 }

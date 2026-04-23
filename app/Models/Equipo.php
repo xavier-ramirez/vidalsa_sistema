@@ -52,6 +52,23 @@ class Equipo extends Model
         return $this->belongsTo(TipoEquipo::class, 'id_tipo_equipo');
     }
 
+    /**
+     * Excluye equipos asignados a frentes TIPO_FRENTE=ESPECIAL (no son flota propia).
+     * Mantiene equipos sin frente asignado (ID_FRENTE_ACTUAL IS NULL).
+     * Columna cualificada con `equipos.` para evitar ambigüedad en queries con JOINs.
+     * El cache de IDs vive en FrenteTrabajo::especialIds().
+     */
+    public function scopeExcludeEspecial($query)
+    {
+        $ids = FrenteTrabajo::especialIds();
+        if (empty($ids)) return $query;
+        $col = $this->getTable() . '.ID_FRENTE_ACTUAL';
+        return $query->where(function ($q) use ($ids, $col) {
+            $q->whereNull($col)
+              ->orWhereNotIn($col, $ids);
+        });
+    }
+
     public function especificaciones()
     {
         return $this->belongsTo(CaracteristicaModelo::class, 'ID_ESPEC', 'ID_ESPEC');

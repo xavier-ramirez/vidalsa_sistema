@@ -30,12 +30,23 @@ Estructura: overlay > modal-content > header + sub-header + body
 
                     </div>
                 </div>
-                <button type="button" onclick="closeDetailsModal(event)"
-                    style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;"
-                    onmouseover="this.style.background='rgba(255,255,255,0.2)'"
-                    onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                    <i class="material-icons" style="font-size: 18px;">close</i>
-                </button>
+                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                    @can('equipos.edit')
+                    <button type="button" id="btn_edit_equipo_detalles" title="Editar datos del equipo"
+                        onclick="editEquipoFromDetails(event)"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                        <i class="material-icons" style="font-size: 17px;">edit</i>
+                    </button>
+                    @endcan
+                    <button type="button" onclick="closeDetailsModal(event)"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                        <i class="material-icons" style="font-size: 18px;">close</i>
+                    </button>
+                </div>
             </div>
 
             {{-- Bloque "Ubicación Específica (Quick Edit)" removido por solicitud del usuario. --}}
@@ -107,11 +118,20 @@ Estructura: overlay > modal-content > header + sub-header + body
                             </div>
 
                             <div class="detail-row-doc"
-                                style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;">
+                                style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px dashed #f1f5f9;">
                                 <span id="d_label_adicional" style="color:#64748b;font-size:12px;font-weight:500;">Documento Adicional</span>
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <span id="d_fecha_adicional" style="color:#333;font-size:13px;"></span>
                                     <div id="d_btn_adicional"></div>
+                                </div>
+                            </div>
+
+                            <div class="detail-row-doc"
+                                style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;">
+                                <span id="d_label_adicional_2" style="color:#64748b;font-size:12px;font-weight:500;">Documento Adicional #2</span>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span id="d_fecha_adicional_2" style="color:#333;font-size:13px;"></span>
+                                    <div id="d_btn_adicional_2"></div>
                                 </div>
                             </div>
 
@@ -248,10 +268,10 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 <div class="spinner-circle"></div>
             </div>
             <iframe id="gps_iframe" src="about:blank"
-                style="width:100%; height:100%; border:none; display:none; min-height:540px;"
+                style="width:100%; height:100%; border:none; display:none; min-height:540px; opacity:0; transition:opacity 0.35s ease-in;"
                 allowfullscreen
                 allow="geolocation; fullscreen"
-                onload="document.getElementById('gps-loading-overlay').style.display='none'; this.style.display='block';"></iframe>
+                onload="if (window.handleGpsIframeLoad) window.handleGpsIframeLoad(this);"></iframe>
         </div>
     </div>
 </div>
@@ -271,49 +291,108 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 </style>
 
 <script>
-    window.openGpsModal = function (url, equipoPlaca, equipoSerial, equipoTipo) {
-        if (window.showPreloader) window.showPreloader();
+// Guard: el SPA router re-ejecuta los <script> inline al navegar. Sin este wrap
+// las `const` top-level revientan con "already declared" en la segunda carga.
+if (!window._gpsModalScriptLoaded) {
+    window._gpsModalScriptLoaded = true;
+    (function () {
+        // Portal GPS51 es cross-origin: iframe.onload dispara al cargar el documento raíz
+        // pero su JS de tiles y mapa siguen renderizando por 1-2s. Mantenemos el spinner
+        // visible un extra para cubrir ese render, luego fade-in del iframe.
+        var GPS_IFRAME_EXTRA_DELAY_MS = 1400;
 
-        const modal   = document.getElementById('gpsTrackerModal');
-        const titleEl = document.getElementById('gps_equipo_title');
-        const iframe  = document.getElementById('gps_iframe');
-        const overlay = document.getElementById('gps-loading-overlay');
+        window.handleGpsIframeLoad = function (iframe) {
+            var overlay = document.getElementById('gps-loading-overlay');
+            if (!iframe || iframe.src === 'about:blank') return;
+            setTimeout(function () {
+                // Si el usuario cerró el modal durante el delay, no revelar el iframe.
+                var modal = document.getElementById('gpsTrackerModal');
+                if (!modal || modal.style.display !== 'flex') return;
+                if (overlay) overlay.style.display = 'none';
+                iframe.style.display = 'block';
+                requestAnimationFrame(function () { iframe.style.opacity = '1'; });
+            }, GPS_IFRAME_EXTRA_DELAY_MS);
+        };
 
-        let dTipo   = (equipoTipo   && equipoTipo   !== 'null' && equipoTipo   !== '') ? equipoTipo.toUpperCase() : null;
-        let dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A'  && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
-        let dSerial = (equipoSerial && equipoSerial !== 'N/A'  && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
+        window.openGpsModal = function (url, equipoPlaca, equipoSerial, equipoTipo) {
+            if (window.showPreloader) window.showPreloader();
 
-        if (titleEl) {
-            let parts = [];
-            if (dTipo)        parts.push(`<span style="font-weight:800;color:#1e293b;">${dTipo}</span>`);
-            if (dPlaca)       parts.push(`<span style="color:#64748b;font-size:13px;">Placa: <strong>${dPlaca}</strong></span>`);
-            else if (dSerial) parts.push(`<span style="color:#64748b;font-size:13px;">Chasis: <strong>${dSerial}</strong></span>`);
-            titleEl.innerHTML = parts.join('<span style="color:#cbd5e1;margin:0 6px;">|</span>') || '&mdash;';
-        }
+            var modal   = document.getElementById('gpsTrackerModal');
+            var titleEl = document.getElementById('gps_equipo_title');
+            var iframe  = document.getElementById('gps_iframe');
+            var overlay = document.getElementById('gps-loading-overlay');
 
-        if (url && url !== 'null' && url !== '') {
-            if (overlay) overlay.style.display = 'flex';
-            if (iframe)  { iframe.style.display = 'none'; iframe.src = url; }
-        }
+            var dTipo   = (equipoTipo   && equipoTipo   !== 'null' && equipoTipo   !== '') ? equipoTipo.toUpperCase() : null;
+            var dPlaca  = (equipoPlaca  && equipoPlaca  !== 'N/A'  && equipoPlaca  !== 'Sin Placa')  ? equipoPlaca  : null;
+            var dSerial = (equipoSerial && equipoSerial !== 'N/A'  && equipoSerial !== 'Sin Chasis') ? equipoSerial : null;
 
-        setTimeout(() => {
-            if (window.hidePreloader) window.hidePreloader();
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }, 1200);
-    };
+            if (titleEl) {
+                var parts = [];
+                if (dTipo)        parts.push('<span style="font-weight:800;color:#1e293b;">' + dTipo + '</span>');
+                if (dPlaca)       parts.push('<span style="color:#64748b;font-size:13px;">Placa: <strong>' + dPlaca + '</strong></span>');
+                else if (dSerial) parts.push('<span style="color:#64748b;font-size:13px;">Chasis: <strong>' + dSerial + '</strong></span>');
+                titleEl.innerHTML = parts.join('<span style="color:#cbd5e1;margin:0 6px;">|</span>') || '&mdash;';
+            }
 
-    window.closeGpsModal = function () {
-        const modal  = document.getElementById('gpsTrackerModal');
-        const iframe = document.getElementById('gps_iframe');
-        if (modal && modal.style.display === 'flex') {
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
-            if (iframe) iframe.src = 'about:blank';
-        }
-    };
+            if (url && url !== 'null' && url !== '') {
+                if (overlay) overlay.style.display = 'flex';
+                if (iframe) {
+                    iframe.style.display = 'none';
+                    iframe.style.opacity = '0';
+                    iframe.src = url;
+                }
+            }
 
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') window.closeGpsModal();
-    });
+            setTimeout(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }, 1200);
+        };
+
+        // Abre la pantalla de edición del equipo que está siendo mostrado en el modal de detalles.
+        // Usa SPA nav si está disponible para mantener la experiencia fluida.
+        window.editEquipoFromDetails = function (event) {
+            if (event) { event.preventDefault(); event.stopPropagation(); }
+            // Doble check de permiso: la directiva Blade oculta el botón server-side,
+            // pero evitamos que invocaciones vía consola/DOM hack abran la pantalla de edición.
+            if (typeof window.CAN_UPDATE_INFO !== 'undefined' && window.CAN_UPDATE_INFO === false) {
+                if (window.showModal) {
+                    window.showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para editar equipos.', confirmText: 'Entendido', hideCancel: true });
+                }
+                return;
+            }
+            var equipoId = window._quickEditEquipoId;
+            if (!equipoId) {
+                if (window.showModal) {
+                    window.showModal({ type: 'error', title: 'No disponible', message: 'No se pudo identificar el equipo seleccionado.', confirmText: 'Entendido', hideCancel: true });
+                }
+                return;
+            }
+            var url = '/admin/equipos/' + encodeURIComponent(equipoId) + '/edit';
+            if (typeof window.closeDetailsModal === 'function') {
+                try { window.closeDetailsModal(); } catch (e) { /* noop */ }
+            }
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo(url);
+            } else {
+                window.location.href = url;
+            }
+        };
+
+        window.closeGpsModal = function () {
+            var modal  = document.getElementById('gpsTrackerModal');
+            var iframe = document.getElementById('gps_iframe');
+            if (modal && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+                document.body.style.overflow = '';
+                if (iframe) iframe.src = 'about:blank';
+            }
+        };
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') window.closeGpsModal();
+        });
+    })();
+}
 </script>

@@ -36,7 +36,11 @@ class Documentacion extends Model
         'ADICIONAL_SUBIDO_POR',
         'ADICIONAL_FECHA_SUBIDA',
         'FECHA_ADICIONAL',
-        
+        'LINK_DOC_ADICIONAL_2',
+        'ADICIONAL_2_SUBIDO_POR',
+        'ADICIONAL_2_FECHA_SUBIDA',
+        'FECHA_ADICIONAL_2',
+
         // Management Tracking
         'poliza_gestion_frente_id',
         'poliza_gestion_fecha',
@@ -56,6 +60,8 @@ class Documentacion extends Model
         'PROPIEDAD_FECHA_SUBIDA' => 'datetime',
         'ADICIONAL_FECHA_SUBIDA' => 'datetime',
         'FECHA_ADICIONAL' => 'date',
+        'ADICIONAL_2_FECHA_SUBIDA' => 'datetime',
+        'FECHA_ADICIONAL_2' => 'date',
         'poliza_gestion_fecha' => 'datetime',
         'rotc_gestion_fecha' => 'datetime',
         'racda_gestion_fecha' => 'datetime',
@@ -95,6 +101,11 @@ class Documentacion extends Model
     public function usuarioAdicional()
     {
         return $this->belongsTo(Usuario::class, 'ADICIONAL_SUBIDO_POR', 'ID_USUARIO');
+    }
+
+    public function usuarioAdicional2()
+    {
+        return $this->belongsTo(Usuario::class, 'ADICIONAL_2_SUBIDO_POR', 'ID_USUARIO');
     }
 
     // Management Relationships

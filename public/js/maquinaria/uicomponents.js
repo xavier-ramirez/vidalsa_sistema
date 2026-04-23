@@ -829,6 +829,7 @@ window.showDetailsImproved = function (target, event) {
     set("d_fecha_rotc", formatDate(d.fechaRotc));
     set("d_fecha_racda", formatDate(d.fechaRacda));
     set("d_fecha_adicional", formatDate(d.fechaAdicional));
+    set("d_fecha_adicional_2", formatDate(d.fechaAdicional2));
 
     // Document Action Buttons Generator
     const createDocBtn = (containerId, type, link, label, equipoId, autor = '', fecha = '') => {
@@ -907,6 +908,20 @@ window.showDetailsImproved = function (target, event) {
         eqId,
         d.adicionalAutor,
         d.adicionalFecha
+    );
+
+    // Segundo documento adicional — mismo label dinámico por categoría.
+    const labelAdicional2El = document.getElementById('d_label_adicional_2');
+    if (labelAdicional2El) labelAdicional2El.textContent = labelAdicional + ' #2';
+
+    createDocBtn(
+        "d_btn_adicional_2",
+        "adicional_2",
+        d.linkAdicional2,
+        labelAdicional + ' #2',
+        eqId,
+        d.adicional2Autor,
+        d.adicional2Fecha
     );
 
     // Show Modal
@@ -1201,6 +1216,7 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                         if (type === "rotc") d.linkRotc = data.link;
                         if (type === "racda") d.linkRacda = data.link;
                         if (type === "adicional") d.linkAdicional = data.link;
+                        if (type === "adicional_2") d.linkAdicional2 = data.link;
                     }
 
                     if (typeof window.refreshDashboardAlerts === "function") {

@@ -67,22 +67,11 @@ class EquipoController extends Controller
         if (!in_array('id_frente', $exclude)) {
             $raw = trim((string) $request->input('id_frente', ''));
             if ($raw !== '' && $raw !== 'all') {
-                // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL)
+                // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL).
                 $query->where('ID_FRENTE_ACTUAL', $raw);
             } else {
-                // "TODOS LOS FRENTES" o sin filtro: excluir equipos en frentes TIPO_FRENTE=ESPECIAL.
-                // Cacheamos los IDs de frentes ESPECIAL (5 min) para evitar subquery en cada call —
-                // applyEquipoFilters se invoca 5-8 veces por request (stats, tipos, frentes, ubicaciones).
-                $excludedEspecialIds = \Illuminate\Support\Facades\Cache::remember(
-                    'frentes_especial_ids', 300,
-                    fn() => \App\Models\FrenteTrabajo::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
-                );
-                if (!empty($excludedEspecialIds)) {
-                    $query->where(function ($q) use ($excludedEspecialIds) {
-                        $q->whereNull('ID_FRENTE_ACTUAL')
-                          ->orWhereNotIn('ID_FRENTE_ACTUAL', $excludedEspecialIds);
-                    });
-                }
+                // "TODOS LOS FRENTES" o sin filtro: excluir frentes ESPECIAL (no flota propia).
+                $query->excludeEspecial();
             }
         }
 
@@ -264,7 +253,12 @@ class EquipoController extends Controller
             // Stats: count directo con los mismos filtros, sin offset/limit
             $statsBase = Equipo::query();
             $this->applyEquipoFilters($statsBase, $request);
-            $stats['total']           = (clone $statsBase)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
+            // El "total" excluye DESINCORPORADO por defecto, PERO si el usuario filtra
+            // explícitamente por estado=DESINCORPORADO el total refleja esos equipos.
+            $filtroEstado = strtoupper(trim((string) $request->input('estado', '')));
+            $stats['total']           = $filtroEstado === 'DESINCORPORADO'
+                ? (clone $statsBase)->count()
+                : (clone $statsBase)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
             $stats['activos']         = (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
             $stats['inactivos']       = (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
             $stats['mantenimiento']   = (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
@@ -360,6 +354,10 @@ class EquipoController extends Controller
                     'fechaAdicional'  => optional($eq->documentacion)->FECHA_ADICIONAL ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ADICIONAL)->format('Y-m-d') : '',
                     'adicionalAutor'  => optional($eq->documentacion)->ADICIONAL_SUBIDO_POR ?? '',
                     'adicionalFecha'  => optional($eq->documentacion)->ADICIONAL_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ADICIONAL_FECHA_SUBIDA)->format('d/m/y') : '',
+                    'linkAdicional2'  => optional($eq->documentacion)->LINK_DOC_ADICIONAL_2 ?? '',
+                    'fechaAdicional2' => optional($eq->documentacion)->FECHA_ADICIONAL_2 ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ADICIONAL_2)->format('Y-m-d') : '',
+                    'adicional2Autor' => optional($eq->documentacion)->ADICIONAL_2_SUBIDO_POR ?? '',
+                    'adicional2Fecha' => optional($eq->documentacion)->ADICIONAL_2_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ADICIONAL_2_FECHA_SUBIDA)->format('d/m/y') : '',
                     'linkGps'         => $eq->LINK_GPS ?? '',
                     'frenteId'        => $eq->ID_FRENTE_ACTUAL,
                     'foto'            => $foto,
@@ -496,6 +494,8 @@ class EquipoController extends Controller
         // Apply same filters
         if ($request->filled('id_frente') && $request->id_frente != 'all') {
             $equipos->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        } else {
+            $equipos->excludeEspecial();
         }
         if ($request->filled('id_tipo')) {
             $equipos->where('id_tipo_equipo', $request->id_tipo);
@@ -1249,7 +1249,7 @@ class EquipoController extends Controller
 
     public function edit($id)
     {
-        $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables']);
+        $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables', 'tipo']);
 
         // Reutilizar las mismas claves de caché que create() para evitar duplicidad de datos
         $frentes = \Illuminate\Support\Facades\Cache::remember('frentes_activos_form', 3600, function () {
@@ -1531,7 +1531,7 @@ class EquipoController extends Controller
         ini_set('memory_limit', '512M');
         $request->validate([
             'file' => 'required|file|mimes:pdf|max:51200',
-            'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional',
+            'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
             'expiration_date' => 'nullable|date'
         ]);
 
@@ -1565,6 +1565,10 @@ class EquipoController extends Controller
             case 'adicional':
                 $dbColumn = 'LINK_DOC_ADICIONAL';
                 $filenamePrefix = 'doc_adicional_';
+                break;
+            case 'adicional_2':
+                $dbColumn = 'LINK_DOC_ADICIONAL_2';
+                $filenamePrefix = 'doc_adicional_2_';
                 break;
         }
 
@@ -1623,6 +1627,10 @@ class EquipoController extends Controller
                 case 'adicional':
                     $updateData['ADICIONAL_SUBIDO_POR'] = $uploadedBy;
                     $updateData['ADICIONAL_FECHA_SUBIDA'] = $uploadedAt;
+                    break;
+                case 'adicional_2':
+                    $updateData['ADICIONAL_2_SUBIDO_POR'] = $uploadedBy;
+                    $updateData['ADICIONAL_2_FECHA_SUBIDA'] = $uploadedAt;
                     break;
             }
 
@@ -1788,6 +1796,13 @@ class EquipoController extends Controller
                         'categoria' => $equipo->CATEGORIA_FLOTA
                     ];
                     break;
+
+                case 'adicional_2':
+                    $data = [
+                        'fecha_vencimiento' => $doc->FECHA_ADICIONAL_2 ?? '',
+                        'categoria' => $equipo->CATEGORIA_FLOTA
+                    ];
+                    break;
             }
         }
 
@@ -1804,7 +1819,7 @@ class EquipoController extends Controller
         }
 
         $request->validate([
-            'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional',
+            'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
         ]);
 
         $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);
@@ -1817,11 +1832,12 @@ class EquipoController extends Controller
         $type = $request->input('doc_type');
 
         $fieldMap = [
-            'propiedad' => 'LINK_DOC_PROPIEDAD',
-            'poliza'    => 'LINK_POLIZA_SEGURO',
-            'rotc'      => 'LINK_ROTC',
-            'racda'     => 'LINK_RACDA',
-            'adicional' => 'LINK_DOC_ADICIONAL',
+            'propiedad'   => 'LINK_DOC_PROPIEDAD',
+            'poliza'      => 'LINK_POLIZA_SEGURO',
+            'rotc'        => 'LINK_ROTC',
+            'racda'       => 'LINK_RACDA',
+            'adicional'   => 'LINK_DOC_ADICIONAL',
+            'adicional_2' => 'LINK_DOC_ADICIONAL_2',
         ];
 
         $field = $fieldMap[$type] ?? null;
@@ -1921,6 +1937,12 @@ class EquipoController extends Controller
             case 'adicional':
                 $updateData = [
                     'FECHA_ADICIONAL' => $request->input('fecha_vencimiento'),
+                ];
+                break;
+
+            case 'adicional_2':
+                $updateData = [
+                    'FECHA_ADICIONAL_2' => $request->input('fecha_vencimiento'),
                 ];
                 break;
         }
@@ -2044,12 +2066,15 @@ class EquipoController extends Controller
             $frentesPermitidos = $user ? $user->getFrentesIds() : [];
             $requestedFrenteId = $request->input('frente_id');
 
-            // ── Cache key única por usuario + frente solicitado ──────────────────
-            $cacheKey = 'fleet_stats_u' . ($user?->id ?? 'guest')
+            // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
+            $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
+
+            // Cache key — versión v2 para invalidar datos previos sin exclusión ESPECIAL.
+            $cacheKey = 'fleet_stats_v2_u' . ($user?->id ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all');
 
             return \Illuminate\Support\Facades\Cache::remember($cacheKey, 120, function () use (
-                $isLocal, $frentesPermitidos, $requestedFrenteId
+                $isLocal, $frentesPermitidos, $requestedFrenteId, $applyEspecialExclusion
             ) {
                 // ── Construir la query base una sola vez ──────────────────────────
                 $baseQuery = Equipo::query();
@@ -2068,6 +2093,11 @@ class EquipoController extends Controller
                     $baseQuery->whereRaw('1 = 0');
                 } elseif ($requestedFrenteId && $requestedFrenteId !== 'all') {
                     $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
+                }
+
+                // Excluir frentes ESPECIAL del dashboard de flota (salvo drill-down explícito).
+                if ($applyEspecialExclusion) {
+                    $baseQuery->excludeEspecial();
                 }
 
                 // ── Stats básicas: 3 counts en una sola query usando SUM condicional ──
@@ -2115,7 +2145,7 @@ class EquipoController extends Controller
                     ->orderBy('tipo_equipos.nombre')
                     ->get();
 
-                // ── 5. Equipos por Frente (siempre global, sin filtro) ────────────
+                // ── 5. Equipos por Frente (siempre global, sin filtro, sin ESPECIAL) ──
                 $eqByFrenteRaw = Equipo::query()
                     ->select(
                         'frentes_trabajo.NOMBRE_FRENTE as frente_nombre',
@@ -2124,6 +2154,7 @@ class EquipoController extends Controller
                     ->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
                     ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
                     ->whereNotNull('frentes_trabajo.NOMBRE_FRENTE')
+                    ->where('frentes_trabajo.TIPO_FRENTE', '!=', 'ESPECIAL')
                     ->groupBy('frentes_trabajo.NOMBRE_FRENTE')
                     ->orderByDesc('total')
                     ->get();
@@ -2227,6 +2258,11 @@ class EquipoController extends Controller
                 $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
                 $frenteObj = FrenteTrabajo::find($requestedFrenteId);
                 $frenteNombre = $frenteObj ? mb_strtoupper($frenteObj->NOMBRE_FRENTE) : 'FRENTE ESPECÍFICO';
+            }
+
+            // Excluir frentes ESPECIAL salvo cuando se filtra explícitamente por uno.
+            if (!FrenteTrabajo::isEspecialId($requestedFrenteId)) {
+                $baseQuery->excludeEspecial();
             }
 
             // --- 1. DATA FOR "FLOTA NUEVA VS VIEJA" ---
@@ -2497,7 +2533,7 @@ class EquipoController extends Controller
             ->select('ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO', 'ID_ESPEC', 'FOTO_EQUIPO', 'SERIAL_CHASIS', 'id_tipo_equipo', 'ID_FRENTE_ACTUAL');
 
         if ($search !== '') {
-            // Modo búsqueda global: busca en TODA la flota
+            // Modo búsqueda global: busca en TODA la flota (excluye ESPECIAL: no son flota propia).
             $s = '%' . $search . '%';
             $query->where(function ($q) use ($s) {
                 $q->where('MARCA', 'LIKE', $s)
@@ -2507,8 +2543,11 @@ class EquipoController extends Controller
                   ->orWhereHas('documentacion', fn($dq) => $dq->where('PLACA', 'LIKE', $s))
                   ->orWhereHas('tipo', fn($tq) => $tq->where('nombre', 'LIKE', $s));
             });
+            if (!FrenteTrabajo::isEspecialId($currentFrenteId)) {
+                $query->excludeEspecial();
+            }
         } else {
-            // Modo normal: solo el frente actual
+            // Modo normal: solo el frente actual (respeta el frente aunque sea ESPECIAL).
             $query->where('ID_FRENTE_ACTUAL', $currentFrenteId);
         }
 
@@ -2545,6 +2584,9 @@ class EquipoController extends Controller
 
         if ($frenteId && $frenteId !== 'all') {
             $query->where('ID_FRENTE_ACTUAL', $frenteId);
+        } else {
+            // Listado global: excluir frentes ESPECIAL (no son flota propia).
+            $query->excludeEspecial();
         }
 
         $anchored = $query->get()->map(function ($eq) {
@@ -2730,7 +2772,8 @@ class EquipoController extends Controller
     {
         $search = $request->input('search');
 
-        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion']);
+        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion'])
+            ->excludeEspecial();
 
         if ($search) {
             $searchUpper = strtoupper(trim($search));

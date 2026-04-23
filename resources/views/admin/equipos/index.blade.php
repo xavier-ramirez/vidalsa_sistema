@@ -481,6 +481,14 @@
                     <span style="font-size: 14px; font-weight: 500;">Sub-activos</span>
                 </button>
 
+                <!-- Catálogo de Modelos -->
+                <a href="{{ route('catalogo.index') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;">
+                    <div style="background: #f5f3ff; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #7c3aed;">menu_book</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Catálogo de Modelos</span>
+                </a>
+
                 <!-- Nuevo -->
                 <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
                     <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
@@ -501,6 +509,7 @@
         $hasFilter = request('search_query') || request('id_frente') || request('id_tipo')
                   || request('modelo') || request('marca') || request('anio')
                   || request('categoria') || request('estado')
+                  || request('gps') || request('detalle_ubicacion')
                   || request('filter_propiedad') || request('filter_poliza')
                   || request('filter_rotc') || request('filter_racda');
     @endphp

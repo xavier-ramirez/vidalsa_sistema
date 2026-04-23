@@ -6,9 +6,9 @@
     <div>
         <label for="input_tipo_equipo" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Tipo de Equipo</label>
         <div class="custom-form-autocomplete">
-            <input type="text" id="input_tipo_equipo" name="TIPO_EQUIPO" 
-                   class="form-input-custom @error('TIPO_EQUIPO') is-invalid @enderror" 
-                   value="{{ old('TIPO_EQUIPO', $equipo->TIPO_EQUIPO ?? '') }}" 
+            <input type="text" id="input_tipo_equipo" name="TIPO_EQUIPO"
+                   class="form-input-custom @error('TIPO_EQUIPO') is-invalid @enderror"
+                   value="{{ old('TIPO_EQUIPO', optional($equipo->tipo ?? null)->nombre ?? ($equipo->TIPO_EQUIPO ?? '')) }}"
                    placeholder="Seleccione o escriba..." 
                    required maxlength="35" autocomplete="off"
                    onfocus="showFormDropdown(this)" 

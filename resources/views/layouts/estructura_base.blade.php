@@ -507,10 +507,6 @@
                         class="nav-dropdown-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
                         <i class="material-icons">business</i> Frentes de trabajo
                     </a>
-                    <a href="{{ route('catalogo.index') }}"
-                        class="nav-dropdown-link {{ request()->is('admin/catalogo*') ? 'active' : '' }}">
-                        <i class="material-icons">menu_book</i> Catálogo de Modelos
-                    </a>
                     @can('super.admin')
                     <a href="{{ route('historial-documentos.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
@@ -1472,7 +1468,7 @@
                                 <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
                             </div>
                         `;
-                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || (ctx.docType === 'adicional' && info.categoria === 'FLOTA LIVIANA')) {
+                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || ((ctx.docType === 'adicional' || ctx.docType === 'adicional_2') && info.categoria === 'FLOTA LIVIANA')) {
                             html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
                         }
                         container.innerHTML = html;
@@ -1516,7 +1512,7 @@
                                 d.modelo = formData.get('modelo'); d.chasis = formData.get('serial_chasis');
                                 d.motorSerial = formData.get('serial_motor');
                             } else {
-                                const dateMap = { 'poliza': 'vencSeguro', 'rotc': 'fechaRotc', 'racda': 'fechaRacda', 'adicional': 'fechaAdicional' };
+                                const dateMap = { 'poliza': 'vencSeguro', 'rotc': 'fechaRotc', 'racda': 'fechaRacda', 'adicional': 'fechaAdicional', 'adicional_2': 'fechaAdicional2' };
                                 if (dateMap[ctx.docType]) d[dateMap[ctx.docType]] = formData.get('fecha_vencimiento');
                                 if (ctx.docType === 'poliza') d.seguro = formData.get('nombre_aseguradora');
                             }
@@ -1637,6 +1633,7 @@
                                     if (type === 'rotc') d.linkRotc = data.link;
                                     if (type === 'racda') d.linkRacda = data.link;
                                     if (type === 'adicional') d.linkAdicional = data.link;
+                                    if (type === 'adicional_2') d.linkAdicional2 = data.link;
                                 }
 
                                 // FIX: Also update the button in the currently open Details Modal
@@ -1647,6 +1644,7 @@
                                 else if (type === 'rotc') containerId = 'd_btn_rotc';
                                 else if (type === 'racda') containerId = 'd_btn_racda';
                                 else if (type === 'adicional') containerId = 'd_btn_adicional';
+                                else if (type === 'adicional_2') containerId = 'd_btn_adicional_2';
 
                                 const btnContainer = document.getElementById(containerId);
                                 if (btnContainer) {
@@ -1758,11 +1756,14 @@
                                     const containerId = `d_btn_${docType}`; // Assuming this naming convention from showDetailsImproved
                                     const container = document.getElementById(containerId);
 
-                                    // Reset dataset
+                                    // Reset dataset + fecha del modal (si existe el span)
+                                    const clearSpanDate = (id) => { const el = document.getElementById(id); if (el) el.innerText = ''; };
                                     if (docType === 'propiedad') d.linkPropiedad = '';
-                                    if (docType === 'poliza') d.linkSeguro = '';
-                                    if (docType === 'rotc') d.linkRotc = '';
-                                    if (docType === 'racda') d.linkRacda = '';
+                                    if (docType === 'poliza')    { d.linkSeguro = ''; d.vencSeguro = ''; clearSpanDate('d_venc_seguro'); }
+                                    if (docType === 'rotc')      { d.linkRotc = ''; d.fechaRotc = ''; clearSpanDate('d_fecha_rotc'); }
+                                    if (docType === 'racda')     { d.linkRacda = ''; d.fechaRacda = ''; clearSpanDate('d_fecha_racda'); }
+                                    if (docType === 'adicional') { d.linkAdicional = ''; d.fechaAdicional = ''; clearSpanDate('d_fecha_adicional'); }
+                                    if (docType === 'adicional_2'){ d.linkAdicional2 = ''; d.fechaAdicional2 = ''; clearSpanDate('d_fecha_adicional_2'); }
 
                                     // Render Upload Button
                                     if (container) {

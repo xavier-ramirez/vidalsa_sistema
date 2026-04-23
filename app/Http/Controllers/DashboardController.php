@@ -41,16 +41,8 @@ class DashboardController extends Controller
                 ->get();
 
             // 6. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
-            //    Cacheamos IDs de frentes ESPECIAL (5 min) para evitar subquery pesado en cada clone.
-            $excludedEspecialIds = \Illuminate\Support\Facades\Cache::remember(
-                'frentes_especial_ids', 300,
-                fn() => FrenteTrabajo::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
-            );
             $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
-                ->when(!empty($excludedEspecialIds), fn($q) => $q->where(fn($inner) =>
-                    $inner->whereNull('ID_FRENTE_ACTUAL')
-                          ->orWhereNotIn('ID_FRENTE_ACTUAL', $excludedEspecialIds)
-                ));
+                ->excludeEspecial();
 
             $totalFlotaActiva     = (clone $saludBase)->count();
             $equiposOperativos    = (clone $saludBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();
@@ -193,17 +185,7 @@ class DashboardController extends Controller
         ]);
 
         // Excluir equipos en frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales no son flota propia).
-        // Reutiliza el cache `frentes_especial_ids` invalidado automaticamente en FrenteTrabajo::booted().
-        $excludedEspecialIds = \Illuminate\Support\Facades\Cache::remember(
-            'frentes_especial_ids', 300,
-            fn() => FrenteTrabajo::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
-        );
-        if (!empty($excludedEspecialIds)) {
-            $query->where(function ($q) use ($excludedEspecialIds) {
-                $q->whereNull('ID_FRENTE_ACTUAL')
-                  ->orWhereNotIn('ID_FRENTE_ACTUAL', $excludedEspecialIds);
-            });
-        }
+        $query->excludeEspecial();
 
         // Only see alerts for assigned frentes if frentes are explicitly provided
         // (If Global Admin with no explicit frentes, $frenteIds is null and it skips this)

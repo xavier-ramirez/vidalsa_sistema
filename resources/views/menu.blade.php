@@ -130,6 +130,61 @@
         .menu-hero-title { font-size: 22px; }
     }
 
+    /* ── Wrapper grid: Salud Operacional + Alertas Documentos, 2 columnas en desktop, stack en mobile ── */
+    .cards-wrapper {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: stretch;
+    }
+    /* Los hijos directos ocupan toda la celda del grid para igualar alturas */
+    .cards-wrapper > * { display: flex; }
+    .cards-wrapper > * > .salud-card,
+    .cards-wrapper > * > .alertas-card,
+    .cards-wrapper > .salud-card,
+    .cards-wrapper > .alertas-card { width: 100%; height: 100%; }
+    @media (max-width: 900px) {
+        .cards-wrapper { grid-template-columns: 1fr; gap: 16px; }
+    }
+
+    /* ── Modal Alertas Documentos (reemplaza el panel desplegable) ── */
+    .alertas-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(3px);
+        z-index: 9500;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        animation: alertasFadeIn 0.2s ease-out;
+    }
+    .alertas-modal-overlay.open { display: flex; }
+    .alertas-modal-content {
+        background: white;
+        width: 100%;
+        max-width: 720px;
+        max-height: 88vh;
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        animation: alertasSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .alertas-modal-content .alertas-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 18px 18px;
+    }
+    @keyframes alertasFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes alertasSlideIn { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @media (max-width: 600px) {
+        .alertas-modal-overlay { padding: 12px; }
+        .alertas-modal-content { max-height: 94vh; }
+    }
+
     /* ── Card "Salud Operacional" — ancho completo con grid horizontal espacioso ── */
     .salud-card {
         position: relative;
@@ -602,20 +657,29 @@
                         </div>
                     </div>
 
-                    <!-- Panel desplegable -->
-                    <div class="alertas-panel" id="expiredDocsContainer" style="display: none;">
+                </div>
+
+                {{-- Modal Alertas Documentos (abierto desde la card) --}}
+                <div class="alertas-modal-overlay" id="expiredDocsContainer" onclick="if(event.target===this) toggleExpiredDocs()">
+                    <div class="alertas-modal-content" role="dialog" aria-modal="true" aria-label="Alertas de Documentos">
                         <div class="alertas-panel-header">
                             <div class="alertas-panel-title">
                                 <i class="material-icons">description</i>
                                 <span>Alertas de Documentos</span>
                             </div>
-                            <button type="button"
-                                    onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
-                                    class="alertas-export-btn"
-                                    title="Descargar Reporte PDF"
-                                    style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); color: #fff;">
-                                <i class="material-icons">file_download</i>
-                            </button>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <button type="button"
+                                        onclick="downloadDashboardPdf(this, '{{ route('dashboard.exportDocumentsPDF') }}')"
+                                        class="alertas-export-btn"
+                                        title="Descargar Reporte PDF"
+                                        style="background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); color: #fff;">
+                                    <i class="material-icons">file_download</i>
+                                </button>
+                                <button type="button" onclick="toggleExpiredDocs()" title="Cerrar"
+                                        style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                    <i class="material-icons" style="font-size:18px;">close</i>
+                                </button>
+                            </div>
                         </div>
                         <div class="alertas-panel-toolbar">
                             <div class="alertas-search-wrap">
