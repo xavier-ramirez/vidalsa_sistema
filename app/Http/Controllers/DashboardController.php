@@ -192,6 +192,19 @@ class DashboardController extends Controller
             'frenteActual'
         ]);
 
+        // Excluir equipos en frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales no son flota propia).
+        // Reutiliza el cache `frentes_especial_ids` invalidado automaticamente en FrenteTrabajo::booted().
+        $excludedEspecialIds = \Illuminate\Support\Facades\Cache::remember(
+            'frentes_especial_ids', 300,
+            fn() => FrenteTrabajo::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
+        );
+        if (!empty($excludedEspecialIds)) {
+            $query->where(function ($q) use ($excludedEspecialIds) {
+                $q->whereNull('ID_FRENTE_ACTUAL')
+                  ->orWhereNotIn('ID_FRENTE_ACTUAL', $excludedEspecialIds);
+            });
+        }
+
         // Only see alerts for assigned frentes if frentes are explicitly provided
         // (If Global Admin with no explicit frentes, $frenteIds is null and it skips this)
         if (is_array($frenteIds)) {

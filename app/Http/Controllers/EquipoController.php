@@ -399,6 +399,11 @@ class EquipoController extends Controller
                 ])->render(),
                 'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteEspecial'))->render(),
                 'showUbicaciones'   => $frenteEspecial !== null,
+            ])->withHeaders([
+                // Evita que el browser sirva respuestas JSON cacheadas con stats obsoletas
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma'        => 'no-cache',
+                'Expires'       => '0',
             ]);
         }
 
