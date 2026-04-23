@@ -1092,7 +1092,9 @@ window.openBulkModal = function (event) {
         const q = (filter || '').trim().toUpperCase();
         const filtered = q ? frentesData.filter(f => f.nombre.toUpperCase().includes(q)) : frentesData;
         if (filtered.length === 0) {
-            listBox.innerHTML = `<div style="padding:14px;text-align:center;color:#94a3b8;font-size:13px;">Sin resultados</div>`;
+            // Sin resultados: contraer el dropdown en vez de mostrar mensaje.
+            listBox.style.display = 'none';
+            return;
         } else {
             filtered.forEach(f => {
                 const item = document.createElement('div');
