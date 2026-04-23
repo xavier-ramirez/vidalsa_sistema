@@ -200,6 +200,11 @@ class HistorialDocumentosController extends Controller
 
         // Usuarios con sesion activa en los ultimos 30 min (driver database).
         // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).
+        // NOTA: el JOIN usa `sessions.user_id = usuarios.ID_USUARIO` — esto funciona porque
+        // App\Models\Usuario sobrescribe $primaryKey = 'ID_USUARIO', asi Auth::id() devuelve
+        // ese valor y Laravel lo persiste en sessions.user_id. La FK formal del schema
+        // apunta a la tabla default `users` que NO se usa en este proyecto.
+        // Ambas columnas del filtro (user_id y last_activity) estan indexadas.
         $activeUsers = collect();
         try {
             $cutoff = now()->subMinutes(30)->timestamp;
@@ -216,9 +221,13 @@ class HistorialDocumentosController extends Controller
                 )
                 ->orderByDesc('sessions.last_activity')
                 ->get();
-        } catch (\Exception $e) {
-            // Si la tabla sessions no existe (driver distinto) no rompe la vista.
-            \Illuminate\Support\Facades\Log::warning('active users read failed: ' . $e->getMessage());
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Solo atrapamos errores de query (tabla/col inexistente, driver distinto).
+            // Errores de logica siguen burbujeando. Log::error con stack trace para observabilidad.
+            \Illuminate\Support\Facades\Log::error('active users read failed', [
+                'error' => $e->getMessage(),
+                'sql'   => $e->getSql() ?? null,
+            ]);
         }
 
         if ($request->wantsJson()) {
