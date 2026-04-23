@@ -242,6 +242,39 @@
             </div>
         </div>
         @endif
+
+        {{-- ─── Usuarios Activos (sesiones últimos 30 min) ─── --}}
+        @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
+        <div style="background: white; border-radius: 12px; padding: 13px 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="color: #10b981; font-size: 18px;">radio_button_checked</i>
+                    <h3 style="margin: 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.3px;">Usuarios Activos</h3>
+                </div>
+                <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700;">{{ $activeUsers->count() }}</span>
+            </div>
+            @if($activeUsers->count() === 0)
+                <p style="margin: 4px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 4px 0;">Nadie conectado en los últimos 30 min.</p>
+            @else
+                <div style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                    @foreach($activeUsers as $u)
+                        @php
+                            $minsAgo = max(0, (int) floor((now()->timestamp - $u->last_activity) / 60));
+                            $ago = $minsAgo === 0 ? 'ahora' : ($minsAgo === 1 ? 'hace 1 min' : 'hace ' . $minsAgo . ' min');
+                            $nombreCorto = $u->NOMBRE_COMPLETO ?: strtok($u->CORREO_ELECTRONICO, '@');
+                        @endphp
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; border: 1px solid #dcfce7;" title="{{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
+                            <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                                <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.2); flex-shrink: 0;"></span>
+                                <span style="font-size: 12px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nombreCorto }}</span>
+                            </div>
+                            <span style="font-size: 10px; color: #64748b; white-space: nowrap; margin-left: 6px;">{{ $ago }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+        @endif
     </div>
 </div>
 

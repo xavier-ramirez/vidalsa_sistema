@@ -198,6 +198,29 @@ class HistorialDocumentosController extends Controller
         // Fetch blocked IPs
         $blockedIps = BloqueoIp::orderBy('ULTIMO_INTENTO', 'desc')->get();
 
+        // Usuarios con sesion activa en los ultimos 30 min (driver database).
+        // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).
+        $activeUsers = collect();
+        try {
+            $cutoff = now()->subMinutes(30)->timestamp;
+            $activeUsers = \Illuminate\Support\Facades\DB::table('sessions')
+                ->whereNotNull('user_id')
+                ->where('last_activity', '>=', $cutoff)
+                ->join('usuarios', 'usuarios.ID_USUARIO', '=', 'sessions.user_id')
+                ->select(
+                    'usuarios.ID_USUARIO',
+                    'usuarios.NOMBRE_COMPLETO',
+                    'usuarios.CORREO_ELECTRONICO',
+                    'sessions.ip_address',
+                    'sessions.last_activity'
+                )
+                ->orderByDesc('sessions.last_activity')
+                ->get();
+        } catch (\Exception $e) {
+            // Si la tabla sessions no existe (driver distinto) no rompe la vista.
+            \Illuminate\Support\Facades\Log::warning('active users read failed: ' . $e->getMessage());
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'html' => view('admin.historial_documentos.partials.table_rows', ['events' => $paginatedEvents])->render(),
@@ -207,9 +230,10 @@ class HistorialDocumentosController extends Controller
         }
 
         return view('admin.historial_documentos.index', [
-            'events' => $paginatedEvents, 
-            'total' => $total,
-            'blockedIps' => $blockedIps
+            'events'      => $paginatedEvents,
+            'total'       => $total,
+            'blockedIps'  => $blockedIps,
+            'activeUsers' => $activeUsers,
         ]);
     }
 
