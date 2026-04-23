@@ -1,12 +1,13 @@
 
-    <!-- Session Timeout Modal -->
-    <div id="sessionTimeoutModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
-        <div style="background: white; padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
-            <h3 style="margin: 0 0 10px; color: #1e293b; font-size: 20px; font-weight: 700;">Tu sesión está por expirar</h3>
-            <p style="margin: 0 0 25px; color: #64748b; font-size: 15px; line-height: 1.5;">Por seguridad, tu sesión se cerrará automáticamente en <strong id="sessionCountdown" style="color: #dc2626;">60</strong> segundos debido a inactividad.</p>
+    <!-- Session Timeout Modal (Modern & Compact) -->
+    <div id="sessionTimeoutModal" class="modal-overlay" style="display: none; z-index: 1000002 !important;">
+        <div class="modal-card" style="padding: 20px !important; max-width: 320px !important; border-radius: 12px; text-align: center;">
+            <i class="material-icons modal-icon" style="color: #f59e0b; font-size: 40px !important; margin-bottom: 10px !important;">warning</i>
+            <h3 class="modal-title" style="font-size: 1.05rem !important; margin-bottom: 5px !important; color: #1e293b; font-weight: 700;">Tu sesión está por expirar</h3>
+            <p class="modal-message" style="font-size: 0.9rem !important; margin-bottom: 15px !important; color: #64748b; line-height: 1.5;">Se cerrará en <strong id="sessionCountdown" style="color: #dc2626;">60</strong> segundos por inactividad.</p>
             
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="btnExtendSession" onclick="extendSession()" style="width: 100%; padding: 12px; background: var(--maquinaria-blue); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; transition: background 0.2s; box-shadow: 0 4px 6px -1px rgba(0, 103, 177, 0.3); cursor: default;">
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: center; width: 100%;">
+                <button id="btnExtendSession" onclick="extendSession()" class="modal-btn modal-btn-confirm" style="width: 100%; padding: 8px 16px !important; font-size: 0.85rem !important; background-color: var(--maquinaria-blue, #1e293b); color: white; border: none; border-radius: 6px; cursor: pointer;">
                     Mantener Sesión
                 </button>
             </div>
@@ -16,18 +17,22 @@
     <script>
         /**
          * Session Timeout Manager
-         * - Sesión: lee SESSION_LIFETIME de Laravel (local=10min, prod=120min)
+         * - Sesión: lee SESSION_LIFETIME de Laravel (local=20min, prod=25min)
          * - Throttle de 30s: actividad real no reinicia el timer en cada micro-evento
          * - Solo escucha: click y keydown (sin scroll/touchstart para evitar ruido)
-         * - Ping al servidor al 80% del tiempo de sesión (dinámico)
+         * - Ping al servidor SOLO si el usuario estuvo activo en los últimos 2 min
          * - Modal de aviso aparece con 60s de antelación al cierre
          */
         (function() {
             // ── Configuración ──────────────────────────────────────────
             const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 20 }} * 60 * 1000;
-            const WARNING_DURATION_SEC  = 60;    // Avisar 1 minuto antes
-            const ACTIVITY_THROTTLE_MS  = 30000; // Mínimo 30s entre reinicios por actividad
-            // Ping cada 80% del tiempo de sesión (ej: 8min si sesión=10min, 96min si sesión=120min)
+            // Avisar en el último 33% del tiempo (mín 15s, máx 60s)
+            const WARNING_DURATION_SEC  = Math.max(15, Math.min(60, Math.floor(SESSION_LIFETIME_MS / 1000 * 0.33)));
+            // Throttle = 25% del tiempo de sesión (mín 5s, máx 30s)
+            const ACTIVITY_THROTTLE_MS  = Math.max(5000, Math.min(30000, Math.floor(SESSION_LIFETIME_MS * 0.25)));
+            // "Activo" = último 50% del tiempo de sesión (mín 30s, máx 2min)
+            const RECENT_ACTIVITY_MS    = Math.max(30000, Math.min(120000, Math.floor(SESSION_LIFETIME_MS * 0.50)));
+            // Ping cada 80% del tiempo de sesión
             const SERVER_PING_MS        = Math.floor(SESSION_LIFETIME_MS * 0.80);
 
             // ── Estado interno ──────────────────────────────────────────
@@ -43,7 +48,7 @@
                 startCheckInterval();
                 startServerPing();
                 setupEventListeners();
-                console.log(`✅ Session Monitor: Activo | Sesión=${SESSION_LIFETIME_MS/60000}min | Aviso=${WARNING_DURATION_SEC}s | Ping=${SERVER_PING_MS/60000}min`);
+                console.log(`✅ Session Monitor: Activo | Sesión=${SESSION_LIFETIME_MS/60000}min | Aviso=${WARNING_DURATION_SEC}s | Ping cada ${SERVER_PING_MS/60000}min`);
             }
 
             // ── Timer Frontend ──────────────────────────────────────────
@@ -54,11 +59,10 @@
 
             function startCheckInterval() {
                 if (checkInterval) clearInterval(checkInterval);
-                // Verificar cada segundo para que la cuenta atrás sea precisa
                 checkInterval = setInterval(checkSessionStatus, 1000);
             }
 
-            // ── Verificación de estado ──────────────────────────────────
+            // ── Verificación de estado cada segundo ─────────────────────
             function checkSessionStatus() {
                 const msRemaining  = sessionExpirationTime - Date.now();
                 const secRemaining = Math.ceil(msRemaining / 1000);
@@ -72,60 +76,68 @@
                 }
             }
 
-            // ── Ping al servidor (verifica sesión real backend) ─────────
+            // ── Ping al servidor ────────────────────────────────────────
+            // REGLA CLAVE: el ping SOLO toca el servidor (y renueva la sesión backend)
+            // si el usuario estuvo activo en los últimos 2 minutos.
+            // Si está inactivo → el ping se salta → el servidor deja expirar la sesión
+            // → el timer del frontend llega a 0 → performLogout() se ejecuta.
             function startServerPing() {
                 if (serverPingInterval) clearInterval(serverPingInterval);
                 serverPingInterval = setInterval(pingServer, SERVER_PING_MS);
             }
 
             function pingServer() {
-                // Solo hace ping si el modal NO está visible (si ya está visible,
-                // el usuario debe actuar, no extender silenciosamente)
-                if (isModalVisible) return;
+                if (isModalVisible) return; // El usuario debe decidir, no renovar
 
+                const inactiveSinceMs = Date.now() - lastActivityReset;
+                if (inactiveSinceMs >= RECENT_ACTIVITY_MS) {
+                    // Inactivo: no tocar el servidor para que la sesión expire naturalmente
+                    console.log('💤 Ping omitido: ' + Math.round(inactiveSinceMs/60000) + 'min sin actividad');
+                    return;
+                }
+
+                // Usuario activo: renovar CSRF y mantener sesión backend viva
                 fetch('/refresh-csrf', { method: 'GET' })
                     .then(response => {
                         if (response.ok) {
-                            // Sesión backend viva → actualizamos token CSRF
                             return response.text().then(token => {
                                 if (token && token.length > 10) {
                                     const meta = document.querySelector('meta[name="csrf-token"]');
                                     if (meta) meta.setAttribute('content', token);
                                     if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
                                 }
-                                console.log('🔄 Ping OK: sesión backend activa');
+                                console.log('🔄 Ping OK: sesión backend activa (usuario activo)');
                             });
                         } else {
-                            // Servidor rechazó → sesión ya muerta en backend
                             console.warn('⚠️ Ping fallido: sesión expirada en servidor');
                             performLogout();
                         }
                     })
                     .catch(() => {
-                        // Sin conexión → no hacemos nada, el timer frontend decidirá
                         console.warn('⚠️ Ping sin respuesta (sin conexión)');
                     });
             }
 
-            // ── Modal ───────────────────────────────────────────────────
+            // ── Modal de advertencia ────────────────────────────────────
             function showWarning(secRemaining) {
                 const modal   = document.getElementById('sessionTimeoutModal');
                 const counter = document.getElementById('sessionCountdown');
-
                 if (modal && !isModalVisible) {
                     modal.style.display = 'flex';
-                    modal.style.zIndex  = '99999';
+                    modal.classList.add('active');
+                    modal.style.zIndex  = '1000002';
                     isModalVisible = true;
                 }
-                if (counter) {
-                    counter.innerText = Math.max(secRemaining, 0);
-                }
+                if (counter) counter.innerText = Math.max(secRemaining, 0);
             }
 
             function hideWarning() {
                 const modal = document.getElementById('sessionTimeoutModal');
                 if (modal) {
-                    modal.style.display = 'none';
+                    modal.classList.remove('active');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 300); // Wait for transition
                     isModalVisible = false;
                 }
                 const btn = document.getElementById('btnExtendSession');
@@ -161,7 +173,7 @@
                                 if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
                                 if (window.jQuery) window.jQuery.ajaxSetup({ headers: { 'X-CSRF-TOKEN': token } });
                             }
-                            // Reiniciar AMBOS timers (frontend + ping)
+                            // Usuario eligió extender → reiniciar timers
                             updateExpirationTime();
                             startServerPing();
                             hideWarning();
@@ -194,7 +206,7 @@
                     });
             };
 
-            // ── Logout automático ───────────────────────────────────────
+            // ── Logout automático al expirar ────────────────────────────
             function performLogout() {
                 clearInterval(checkInterval);
                 clearInterval(serverPingInterval);
@@ -215,11 +227,8 @@
 
             // ── Actividad del usuario (con throttle) ────────────────────
             function handleActivity() {
-                if (isModalVisible) return; // Modal visible → no reiniciar
-
+                if (isModalVisible) return; // Modal visible → el usuario debe decidir
                 const now = Date.now();
-                // CORRECCIÓN CLAVE: solo reiniciar si han pasado al menos 30 segundos
-                // desde el último reinicio. Evita que micro-clicks/animaciones eternicen la sesión.
                 if (now - lastActivityReset >= ACTIVITY_THROTTLE_MS) {
                     updateExpirationTime();
                 }

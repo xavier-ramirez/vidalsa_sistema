@@ -37,10 +37,5 @@
 @endsection
 
 @section('extra_js')
-    <script>
-        // No additional local initialization needed since we are using native browser date pickers.
-    </script>
-
-
-    </script>
+    {{-- No se requiere JS adicional en esta vista. El formulario es manejado por form_logic.js (global). --}}
 @endsection

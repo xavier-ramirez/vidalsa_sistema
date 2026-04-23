@@ -35,7 +35,5 @@
 @endsection
 
 @section('extra_js')
-    <script>
-        // Use native browser date pickers to match UI consistency across the application.
-    </script>
+    {{-- JS manejado por form_logic.js y equipos_form.js (cargados globalmente). --}}
 @endsection

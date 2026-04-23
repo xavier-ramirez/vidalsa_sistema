@@ -1110,11 +1110,19 @@ class EquipoController extends Controller
             }
         });
 
-        // Invalidate cached lists when new equipment is created
-        \Illuminate\Support\Facades\Cache::forget('equipos_modelos_list'); // For catalog autocomplete
-        \Illuminate\Support\Facades\Cache::forget('equipos_modelos_dropdown'); // For equipos index
-        \Illuminate\Support\Facades\Cache::forget('equipos_marcas_dropdown');
-        \Illuminate\Support\Facades\Cache::forget('equipos_anios_dropdown');
+        // Invalidar caché del índice y del formulario al crear un equipo nuevo
+        // (clave marcas/modelos del formulario = _v3; del índice = _dropdown)
+        foreach ([
+            'equipos_modelos_list',    // autocomplete del catálogo
+            'equipos_modelos_dropdown', // filtro del índice
+            'equipos_marcas_dropdown',
+            'equipos_anios_dropdown',
+            'marcas_list_form_v3',     // formulario create/edit
+            'modelos_list_form_v3',
+            'anios_list_form_v3',
+        ] as $key) {
+            \Illuminate\Support\Facades\Cache::forget($key);
+        }
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Equipo registrado correctamente.', 'redirect' => route('equipos.index')]);
@@ -1132,16 +1140,23 @@ class EquipoController extends Controller
     public function edit($id)
     {
         $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables']);
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc')->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
-        $seguros = CatalogoSeguro::orderBy('NOMBRE_ASEGURADORA', 'asc')->pluck('NOMBRE_ASEGURADORA');
-        $tipos_equipo = TipoEquipo::orderBy('nombre', 'asc')->pluck('nombre');
 
-        // Optimización: Uso de Cache para variables globales (Solicitud Usuario)
-        $marcas = \Illuminate\Support\Facades\Cache::remember('marcas_list_form_v2', 3600, function () {
+        // Reutilizar las mismas claves de caché que create() para evitar duplicidad de datos
+        $frentes = \Illuminate\Support\Facades\Cache::remember('frentes_activos_form', 3600, function () {
+            return FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+                ->orderBy('NOMBRE_FRENTE', 'asc')
+                ->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        });
+        $seguros = \Illuminate\Support\Facades\Cache::remember('seguros_list_form', 3600, function () {
+            return CatalogoSeguro::orderBy('NOMBRE_ASEGURADORA', 'asc')->pluck('NOMBRE_ASEGURADORA');
+        });
+        $tipos_equipo = \Illuminate\Support\Facades\Cache::remember('tipos_equipo_list_form', 3600, function () {
+            return TipoEquipo::orderBy('nombre', 'asc')->pluck('nombre');
+        });
+        $marcas = \Illuminate\Support\Facades\Cache::remember('marcas_list_form_v3', 60, function () {
             return Equipo::distinct()->whereNotNull('MARCA')->orderBy('MARCA', 'asc')->limit(1000)->pluck('MARCA');
         });
-
-        $modelos = \Illuminate\Support\Facades\Cache::remember('modelos_list_form_v2', 3600, function () {
+        $modelos = \Illuminate\Support\Facades\Cache::remember('modelos_list_form_v3', 60, function () {
             return Equipo::distinct()->whereNotNull('MODELO')->orderBy('MODELO', 'asc')->limit(1000)->pluck('MODELO');
         });
 
@@ -1355,14 +1370,24 @@ class EquipoController extends Controller
             }
         });
 
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.']);
+        // Invalidar caché SIEMPRE (antes del return, aplique a JSON o redirect)
+        foreach ([
+            'dashboard_total_alerts',
+            'dashboard_expired_list_v3',
+            'marcas_list_form_v3',
+            'modelos_list_form_v3',
+            'anios_list_form_v3',
+            'equipos_marcas_dropdown',
+            'equipos_anios_dropdown',
+        ] as $key) {
+            \Illuminate\Support\Facades\Cache::forget($key);
         }
-
-        \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
-        \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
         if (auth()->check()) {
             \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.', 'redirect' => route('equipos.index')]);
         }
 
         return redirect()->route('equipos.index')->with('success', 'Equipo actualizado.');
@@ -2335,37 +2360,65 @@ class EquipoController extends Controller
         $request->validate([
             'id_frente'   => 'required',
             'exclude_ids' => 'nullable|array',
+            'search'      => 'nullable|string|max:100',
         ]);
 
-        $equipos = Equipo::where('ID_FRENTE_ACTUAL', $request->id_frente)
-            ->whereHas('tipo', function ($q) use ($request) {
-                if ($request->source_role === 'REMOLCADOR') {
-                    $q->where('ROL_ANCLAJE', 'REMOLCABLE');
-                } elseif ($request->source_role === 'REMOLCABLE') {
-                    $q->where('ROL_ANCLAJE', 'REMOLCADOR');
+        $search      = trim($request->input('search', ''));
+        $sourceRole  = $request->source_role;
+        $currentFrenteId = $request->id_frente;
+
+        // Determinar rol opuesto requerido
+        $rolOpuesto = null;
+        if ($sourceRole === 'REMOLCADOR') {
+            $rolOpuesto = 'REMOLCABLE';
+        } elseif ($sourceRole === 'REMOLCABLE') {
+            $rolOpuesto = 'REMOLCADOR';
+        }
+
+        $query = Equipo::whereHas('tipo', function ($q) use ($rolOpuesto) {
+                if ($rolOpuesto) {
+                    $q->where('ROL_ANCLAJE', $rolOpuesto);
                 } else {
                     $q->where('ROL_ANCLAJE', 'NONE');
                 }
             })
-            ->when($request->exclude_ids, function ($q) use ($request) {
-                $q->whereNotIn('ID_EQUIPO', $request->exclude_ids);
-            })
-            ->with(['especificaciones', 'documentacion', 'tipo'])
-            ->select('ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO', 'ID_ESPEC', 'FOTO_EQUIPO', 'SERIAL_CHASIS', 'id_tipo_equipo')
-            ->orderBy('CODIGO_PATIO')
-            ->get()
-            ->map(function ($eq) {
-                return [
-                    'ID_EQUIPO'     => $eq->ID_EQUIPO,
-                    'CODIGO_PATIO'  => $eq->CODIGO_PATIO,
-                    'TIPO_NOMBRE'   => $eq->tipo->nombre ?? $eq->CODIGO_PATIO,
-                    'SERIAL_CHASIS' => $eq->SERIAL_CHASIS,
-                    'PLACA'         => $eq->documentacion->PLACA ?? null,
-                    'MARCA'         => $eq->MARCA,
-                    'MODELO'        => $eq->MODELO,
-                    'FOTO'          => $eq->especificaciones->FOTO_REFERENCIAL ?? $eq->FOTO_EQUIPO,
-                ];
+            ->when($request->exclude_ids, fn($q) => $q->whereNotIn('ID_EQUIPO', $request->exclude_ids))
+            ->with(['especificaciones', 'documentacion', 'tipo', 'frenteActual:ID_FRENTE,NOMBRE_FRENTE'])
+            ->select('ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO', 'ID_ESPEC', 'FOTO_EQUIPO', 'SERIAL_CHASIS', 'id_tipo_equipo', 'ID_FRENTE_ACTUAL');
+
+        if ($search !== '') {
+            // Modo búsqueda global: busca en TODA la flota
+            $s = '%' . $search . '%';
+            $query->where(function ($q) use ($s) {
+                $q->where('MARCA', 'LIKE', $s)
+                  ->orWhere('MODELO', 'LIKE', $s)
+                  ->orWhere('SERIAL_CHASIS', 'LIKE', $s)
+                  ->orWhere('CODIGO_PATIO', 'LIKE', $s)
+                  ->orWhereHas('documentacion', fn($dq) => $dq->where('PLACA', 'LIKE', $s))
+                  ->orWhereHas('tipo', fn($tq) => $tq->where('nombre', 'LIKE', $s));
             });
+        } else {
+            // Modo normal: solo el frente actual
+            $query->where('ID_FRENTE_ACTUAL', $currentFrenteId);
+        }
+
+        $equipos = $query->orderBy('CODIGO_PATIO')->get()->map(function ($eq) use ($currentFrenteId) {
+            $frenteNombre = optional($eq->frenteActual)->NOMBRE_FRENTE;
+            $esDeFrenteDistinto = $eq->ID_FRENTE_ACTUAL && (string)$eq->ID_FRENTE_ACTUAL !== (string)$currentFrenteId;
+
+            return [
+                'ID_EQUIPO'           => $eq->ID_EQUIPO,
+                'CODIGO_PATIO'        => $eq->CODIGO_PATIO,
+                'TIPO_NOMBRE'         => $eq->tipo->nombre ?? $eq->CODIGO_PATIO,
+                'SERIAL_CHASIS'       => $eq->SERIAL_CHASIS,
+                'PLACA'               => $eq->documentacion->PLACA ?? null,
+                'MARCA'               => $eq->MARCA,
+                'MODELO'              => $eq->MODELO,
+                'FOTO'                => $eq->especificaciones->FOTO_REFERENCIAL ?? $eq->FOTO_EQUIPO,
+                'FRENTE_NOMBRE'       => $frenteNombre,
+                'ES_FRENTE_DISTINTO'  => $esDeFrenteDistinto,
+            ];
+        });
 
         return response()->json($equipos);
     }

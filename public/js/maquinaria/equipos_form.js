@@ -248,7 +248,15 @@ function initEquiposForm() {
             },
             body: formData
         })
-            .then(r => r.json().then(data => ({ status: r.status, body: data })))
+            .then(r => {
+                // Guardia: si la respuesta no es JSON (p.ej. redirect 302 / HTML),
+                // el servidor no processó la solicitud como AJAX. Lanzar error claro.
+                const ct = r.headers.get('Content-Type') || '';
+                if (!ct.includes('application/json')) {
+                    throw new Error('La respuesta del servidor no es JSON. Posible redirect inesperado.');
+                }
+                return r.json().then(data => ({ status: r.status, body: data }));
+            })
             .then(({ status, body }) => {
                 if (window.hidePreloader) window.hidePreloader();
 
@@ -259,10 +267,15 @@ function initEquiposForm() {
                         if (typeof window.showToast === 'function') {
                             window.showToast(body.message || 'Equipo actualizado correctamente.', 'success');
                         }
-                        const referrer = document.referrer;
-                        const isFromEquipos = referrer && referrer.includes('/admin/equipos');
-                        const backUrl = isFromEquipos ? referrer : '/admin/equipos';
-                        setTimeout(() => { window.location.href = backUrl; }, 1200);
+                        // Usar navigateTo (SPA con spinner) en vez de location.href (recarga completa)
+                        const backUrl = body.redirect || '/admin/equipos';
+                        setTimeout(() => {
+                            if (typeof window.navigateTo === 'function') {
+                                window.navigateTo(backUrl);
+                            } else {
+                                window.location.href = backUrl;
+                            }
+                        }, 1200);
                     } else {
                         // CREATE MODE: Reset form
                         form.reset();

@@ -213,7 +213,6 @@
 @endsection
 
 @section('extra_js')
-<script src="{{ asset('js/maquinaria/form_logic.js') }}?v={{ @filemtime(public_path('js/maquinaria/form_logic.js')) }}"></script>
 <script>
     // Restaurar contador de frentes al cargar (modo edición)
     document.addEventListener('DOMContentLoaded', function () {

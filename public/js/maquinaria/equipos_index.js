@@ -1257,147 +1257,131 @@ window.openAnchorModal = async function (event) {
 
     overlay.querySelector("#btnCloseAnchor").onclick = () => overlay.remove();
 
-    // Fetch Equipos
-    try {
-        const response = await fetch(
-            `/admin/equipos/get-equipos-by-frente?id_frente=${firstFrenteId}&source_role=${sourceRole}`,
-            {
-                headers: { "X-Requested-With": "XMLHttpRequest" },
-            },
-        );
-        const equipos = await response.json();
-        const listContainer = content.querySelector("#anchorEquiposList");
-        listContainer.innerHTML = "";
+    // Fetch Equipos del frente actual (carga inicial)
+    const baseUrl = `/admin/equipos/get-equipos-by-frente?id_frente=${firstFrenteId}&source_role=${sourceRole}`;
 
-        const selectedIds = selections.map((s) => String(s[0]));
+    const listContainer = content.querySelector('#anchorEquiposList');
+    const anchorSearchInput = content.querySelector('#anchorSearchInput');
+    const anchorSearchClear = content.querySelector('#anchorSearchClear');
+    const anchorSearchBox = content.querySelector('#anchor-search-box');
+    const selectedIds = selections.map((s) => String(s[0]));
 
-        if (equipos.length === 0) {
-            listContainer.innerHTML =
-                '<div style="padding:40px 20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="font-size:32px; display:block; margin-bottom:10px;">assignment_late</i>No existe equipos disponibles</div>';
-        } else {
-            // ── Búsqueda en tiempo real ──
-            const anchorSearchInput = content.querySelector('#anchorSearchInput');
-            const anchorSearchClear = content.querySelector('#anchorSearchClear');
-            const anchorSearchBox = content.querySelector('#anchor-search-box');
+    // ── Helper: renderiza items en el contenedor ──
+    function renderAnchorItems(equipos) {
+        listContainer.innerHTML = '';
+        if (!equipos || equipos.length === 0) {
+            listContainer.innerHTML = '<div style="padding:40px 20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="font-size:32px; display:block; margin: 0 auto 10px;">search_off</i>Sin resultados</div>';
+            return;
+        }
+        equipos.forEach((eq) => {
+            const isSelected = selectedIds.includes(String(eq.ID_EQUIPO));
+            const item = document.createElement('div');
+            item.className = 'anchor-option-item';
+            item.style.cssText = `padding:10px; border-radius:8px; background:white; border:1px solid #e2e8f0; margin-bottom:6px; cursor:${isSelected ? 'not-allowed' : 'pointer'}; opacity:${isSelected ? '0.6' : '1'}; display:flex; align-items:center; gap:12px; transition:all 0.2s; position:relative;`;
 
-            function filterAnchorList(query) {
-                const q = (query || '').trim().toUpperCase();
-                const items = listContainer.querySelectorAll('.anchor-option-item');
-                let anyVisible = false;
-                items.forEach(item => {
-                    const text = (item.dataset.searchText || '').toUpperCase();
-                    const match = !q || text.includes(q);
-                    item.style.display = match ? '' : 'none';
-                    if (match) anyVisible = true;
-                });
-                let noResult = listContainer.querySelector('.anchor-no-result');
-                if (!anyVisible) {
-                    if (!noResult) {
-                        noResult = document.createElement('div');
-                        noResult.className = 'anchor-no-result';
-                        noResult.style.cssText = 'padding:30px 20px; text-align:center; color:#94a3b8; font-size:13px;';
-                        noResult.innerHTML = '<i class="material-icons" style="font-size:28px; display:block; margin-bottom:6px;">search_off</i>Sin resultados';
-                        listContainer.appendChild(noResult);
-                    }
-                } else if (noResult) {
-                    noResult.remove();
-                }
+            if (!isSelected) {
+                item.onmouseover = () => { if (!item.dataset.selected) item.style.borderColor = '#10b981'; item.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.05)'; };
+                item.onmouseout = () => { if (!item.dataset.selected) item.style.borderColor = '#e2e8f0'; item.style.boxShadow = 'none'; };
+                item.onclick = () => {
+                    content.querySelectorAll('.anchor-option-item').forEach((el) => {
+                        el.style.borderColor = '#e2e8f0';
+                        el.style.background = 'white';
+                        el.dataset.selected = '';
+                        el.querySelector('.check-mark').style.display = 'none';
+                    });
+                    item.style.borderColor = '#10b981';
+                    item.style.background = '#f0fdf4';
+                    item.dataset.selected = 'true';
+                    item.querySelector('.check-mark').style.display = 'block';
+                    window.selectedMasterId = eq.ID_EQUIPO;
+                    const btn = content.querySelector('#btnConfirmAnchor');
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                };
             }
 
-            anchorSearchInput.addEventListener('input', () => {
-                const val = anchorSearchInput.value;
-                anchorSearchClear.style.display = val ? 'block' : 'none';
-                anchorSearchBox.style.borderColor = val ? '#10b981' : '#e2e8f0';
-                filterAnchorList(val);
-            });
-            anchorSearchClear.addEventListener('click', () => {
-                anchorSearchInput.value = '';
-                anchorSearchClear.style.display = 'none';
-                anchorSearchBox.style.borderColor = '#e2e8f0';
-                filterAnchorList('');
-                anchorSearchInput.focus();
-            });
+            // Foto
+            let fotoHtml = '';
+            if (eq.FOTO) {
+                const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, '').split('?')[0];
+                fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%; height:100%; object-fit:cover;">`;
+            } else {
+                fotoHtml = `<i class="material-icons" style="font-size:20px; color:#cbd5e0;">image_not_supported</i>`;
+            }
 
-            // ── Render de items ──
-            equipos.forEach((eq) => {
-                const isSelected = selectedIds.includes(String(eq.ID_EQUIPO));
-                const item = document.createElement("div");
-                item.className = "anchor-option-item";
-                item.style.cssText = `padding:10px; border-radius:8px; background:white; border:1px solid #e2e8f0; margin-bottom:6px; cursor:${isSelected ? "not-allowed" : "pointer"}; opacity:${isSelected ? "0.6" : "1"}; display:flex; align-items:center; gap:12px; transition:all 0.2s; position:relative;`;
-                item.dataset.searchText = [
-                    eq.TIPO_NOMBRE || '',
-                    eq.CODIGO_PATIO || '',
-                    eq.MARCA || '',
-                    eq.MODELO || '',
-                    eq.SERIAL_CHASIS || '',
-                    eq.PLACA || '',
-                ].join(' ');
+            // Badge de frente distinto (solo aparece en búsqueda global)
+            const frenteBadge = eq.ES_FRENTE_DISTINTO && eq.FRENTE_NOMBRE
+                ? `<div style="font-size:10px; color:#f97316; font-weight:700; display:flex; align-items:center; gap:2px; margin-top:2px;"><i class="material-icons" style="font-size:10px;">location_on</i>${eq.FRENTE_NOMBRE}</div>`
+                : '';
 
-                if (!isSelected) {
-                    item.onmouseover = () => {
-                        if (!item.dataset.selected)
-                            item.style.borderColor = "#10b981";
-                        item.style.boxShadow =
-                            "0 4px 6px -1px rgba(0,0,0,0.05)";
-                    };
-                    item.onmouseout = () => {
-                        if (!item.dataset.selected)
-                            item.style.borderColor = "#e2e8f0";
-                        item.style.boxShadow = "none";
-                    };
-                    item.onclick = () => {
-                        content
-                            .querySelectorAll(".anchor-option-item")
-                            .forEach((el) => {
-                                el.style.borderColor = "#e2e8f0";
-                                el.style.background = "white";
-                                el.dataset.selected = "";
-                                el.querySelector(".check-mark").style.display =
-                                    "none";
-                            });
-                        item.style.borderColor = "#10b981";
-                        item.style.background = "#f0fdf4";
-                        item.dataset.selected = "true";
-                        item.querySelector(".check-mark").style.display =
-                            "block";
+            item.innerHTML = `
+                <div style="width:40px; height:40px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${fotoHtml}</div>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                    <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${eq.TIPO_NOMBRE || 'S/TIPO'}</span>
+                    <div style="font-size:11px; color:#475569; font-weight:600;">${eq.MARCA}</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:1px;">
+                        <span style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${eq.SERIAL_CHASIS || 'S/S'}</span>
+                        ${eq.PLACA ? `<span style="font-size:10px; color:#0067b1; font-weight:700; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${eq.PLACA}</span>` : ''}
+                    </div>
+                    ${frenteBadge}
+                </div>
+                <div class="check-mark" style="display:none; color:#10b981;"><i class="material-icons" style="font-size:20px;">check_circle</i></div>
+                ${isSelected ? `<i class="material-icons" style="color:#cbd5e0; font-size:20px; margin-left:auto;">lock</i>` : ''}
+            `;
+            listContainer.appendChild(item);
+        });
+    }
 
-                        window.selectedMasterId = eq.ID_EQUIPO;
-                        const btn = content.querySelector("#btnConfirmAnchor");
-                        btn.disabled = false;
-                        btn.style.opacity = "1";
-                        btn.style.cursor = "pointer";
-                    };
+    // ── Carga inicial: equipos del mismo frente ──
+    try {
+        const response = await fetch(baseUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const equipos = await response.json();
+
+        if (equipos.length === 0) {
+            listContainer.innerHTML = '<div style="padding:40px 20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="font-size:32px; display:block; margin: 0 auto 10px;">assignment_late</i>No existe equipos disponibles en este frente</div>';
+        } else {
+            renderAnchorItems(equipos);
+        }
+
+        // ── Búsqueda server-side con debounce ──
+        let searchTimer = null;
+        anchorSearchInput.addEventListener('input', () => {
+            const val = anchorSearchInput.value.trim();
+            anchorSearchClear.style.display = val ? 'block' : 'none';
+            anchorSearchBox.style.borderColor = val ? '#10b981' : '#e2e8f0';
+            clearTimeout(searchTimer);
+
+            if (!val) {
+                // Sin búsqueda: restaurar lista del frente
+                renderAnchorItems(equipos);
+                return;
+            }
+
+            // Mostrar spinner mientras busca
+            listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite; font-size:24px;">sync</i></div>';
+
+            searchTimer = setTimeout(async () => {
+                try {
+                    const url = `${baseUrl}&search=${encodeURIComponent(val)}`;
+                    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    const result = await res.json();
+                    renderAnchorItems(result);
+                } catch (e) {
+                    listContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#ef4444; font-size:13px;">Error buscando equipos</div>';
                 }
+            }, 400);
+        });
 
-                // Photo Handling
-                let fotoHtml = "";
-                if (eq.FOTO) {
-                    const driveId = eq.FOTO.replace(/^.*\/storage\/google\//, "").split("?")[0];
-                    fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%; height:100%; object-fit:cover;">`;
-                } else {
-                    fotoHtml = `<i class="material-icons" style="font-size:20px; color:#cbd5e0;">image_not_supported</i>`;
-                }
+        anchorSearchClear.addEventListener('click', () => {
+            anchorSearchInput.value = '';
+            anchorSearchClear.style.display = 'none';
+            anchorSearchBox.style.borderColor = '#e2e8f0';
+            renderAnchorItems(equipos);
+            anchorSearchInput.focus();
+        });
 
-                item.innerHTML = `
-                    <div style="width:40px; height:40px; background:#f1f5f9; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                        ${fotoHtml}
-                    </div>
-                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
-                        <span style="font-weight:800; font-size:13px; color:#1e293b; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${eq.TIPO_NOMBRE || 'S/TIPO'}</span>
-                        <div style="font-size:11px; color:#475569; font-weight:600;">${eq.MARCA}</div>
-                        <div style="display:flex; align-items:center; gap:8px; margin-top:1px;">
-                            <span style="font-size:10px; color:#64748b; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${eq.SERIAL_CHASIS || 'S/S'}</span>
-                            ${eq.PLACA ? `<span style="font-size:10px; color:#0067b1; font-weight:700; display:flex; align-items:center; gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${eq.PLACA}</span>` : ""}
-                        </div>
-                    </div>
-                    <div class="check-mark" style="display:none; color:#10b981;">
-                        <i class="material-icons" style="font-size:20px;">check_circle</i>
-                    </div>
-                    ${isSelected ? `<i class="material-icons" style="color:#cbd5e0; font-size:20px; margin-left:auto;">lock</i>` : ""}
-                `;
-                listContainer.appendChild(item);
-            });
-        } // fin else
+
     } catch (error) {
         console.error(error);
         overlay.remove();
@@ -1682,24 +1666,19 @@ window.handleCreateCheck = function (event) {
         return false;
     }
 
-    // 2. SPA Navigation Strategy
-    // Instead of forcing location.href, we inject the URL into the link and let the event bubble.
-    // The global 'navegacion.js' script will catch the click, see the valid href, and perform SPA load.
-    if (event && window.CREATE_URL) {
-        const link = event.currentTarget || event.target.closest("a");
-        if (link) {
-            link.href = window.CREATE_URL;
-            // Do NOT preventDefault() here. Let it bubble to 'navegacion.js'.
-            return true;
-        }
-    }
-
-    // 3. Fallback (if called programmatically or something failed)
+    // 2. SPA Navigation via navigateTo (spinner SPA)
     if (window.CREATE_URL) {
-        window.location.href = window.CREATE_URL;
+        if (typeof window.navigateTo === 'function') {
+            if (event) { event.preventDefault(); event.stopPropagation(); }
+            window.navigateTo(window.CREATE_URL);
+        } else {
+            // Fallback si el router SPA no está disponible aún
+            window.location.href = window.CREATE_URL;
+        }
     }
     return true;
 };
+
 
 // [End of dashboard cleanup]
 

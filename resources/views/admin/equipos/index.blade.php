@@ -4,8 +4,38 @@
 
 @section('content')
 
-
-
+<style>
+    /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas */
+    @media (max-width: 1400px) {
+        .table-equipos-mobile td, 
+        .table-equipos-mobile th, 
+        .table-equipos-mobile td div, 
+        .table-equipos-mobile td span {
+            font-size: 11.5px !important;
+            letter-spacing: -0.2px;
+        }
+        .table-equipos-mobile td strong {
+            font-size: 12px !important;
+        }
+        .table-equipos-mobile .material-icons {
+            font-size: 16px !important;
+        }
+        .table-equipos-mobile {
+            min-width: 900px !important; /* Reducir el min-width para evitar overflow */
+        }
+        
+        /* Ajustes para el panel lateral de contadores (Consolidado y Distribución) */
+        .counter-sidebar [style*="font-size: 13px"] { font-size: 11px !important; }
+        .counter-sidebar [style*="font-size: 36px"] { font-size: 26px !important; }
+        .counter-sidebar [style*="font-size: 18px"] { font-size: 15px !important; }
+        .counter-sidebar [style*="font-size: 16px"] { font-size: 14px !important; }
+        .counter-sidebar [style*="font-size: 8px"] { font-size: 7.5px !important; letter-spacing: -0.3px !important; }
+        .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
+        .counter-sidebar h4 .material-icons { font-size: 15px !important; }
+        .counter-sidebar li span { font-size: 9.5px !important; }
+        .counter-sidebar { gap: 10px !important; }
+    }
+</style>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h1 class="page-title">
             <span class="page-title-line2" style="color: #000;">Gestión de Equipos y Maquinaria</span>
@@ -417,7 +447,7 @@
                 </button>
 
                 <!-- Nuevo -->
-                <a href="{{ route('equipos.create') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
+                <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
                     <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
                         <i class="material-icons" style="font-size: 18px; color: #0284c7;">add_circle</i>
                     </div>
@@ -522,14 +552,14 @@
                 <!-- Detailed Stats Row -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
                     <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
-                        <i class="material-icons" style="font-size: 20px; color: #ef4444; margin-bottom: 2px;">cancel</i>
-                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
-                        <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inop.</span>
+                        <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
+                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
+                        <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativo</span>
                     </div>
                     <div onclick="filterByStatus('EN MANTENIMIENTO')" title="Filtrar: En Mantenimiento" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); transition: background 0.2s;">
-                        <i class="material-icons" style="font-size: 20px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
-                        <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 18px; color: white;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
-                        <span style="font-size: 10px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mant.</span>
+                        <i class="material-icons" style="font-size: 18px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
+                        <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
+                        <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mantenimiento</span>
                     </div>
                 </div>
             </div>

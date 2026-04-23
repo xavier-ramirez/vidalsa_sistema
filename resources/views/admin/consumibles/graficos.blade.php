@@ -745,7 +745,8 @@
         };
 
         function _cargarDatosLocal() {
-            if (window.showPreloader) window.showPreloader();
+            // Usamos indicadores de carga locales — NO el preloader global
+            // para evitar el doble spinner al navegar vía SPA.
             const params = getParams();
 
             const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
@@ -827,10 +828,8 @@
                     renderTodosEquipos(data.todos_equipos);
                     renderEspecFrente(data.espec_frente, data.tipo_activo);
                     renderEspecEquipo(data.espec_equipo, data.tipo_activo);
-                    if (window.hidePreloader) window.hidePreloader();
                 })
                 .catch(err => {
-                    if (window.hidePreloader) window.hidePreloader();
                     console.error('Error cargando datos de gráficos:', err);
                     ['loadingTotalFrente', 'loadingEqAsig',
                         'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(id => {
@@ -1892,17 +1891,12 @@
     <script
         src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
     <script>
-        console.log("🟢 [graficos.blade] Inline script final inyectado y ejecutándose.");
-
-        // Carga inicial de datos — se ejecuta tras cargar todos los scripts
+        // Carga inicial de datos — se ejecuta tras cargar todos los scripts.
+        // La bandera _graficosDataLoaded evita que ModuleManager (spa:contentLoaded)
+        // duplique la llamada cuando la página se carga por primera vez vía SPA.
         if (typeof window.cargarDatos === 'function') {
-            console.log("🟢 [graficos.blade] window.cargarDatos existe. Llamando ahora...");
+            window._graficosDataLoaded = true;
             window.cargarDatos();
-        } else if (typeof cargarDatos === 'function') {
-            console.log("🟢 [graficos.blade] cargarDatos (local) existe. Llamando ahora...");
-            cargarDatos();
-        } else {
-            console.error("🔴 [graficos.blade] ERROR: cargarDatos NO existe.");
         }
     </script>
 @endsection
