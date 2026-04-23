@@ -14,7 +14,8 @@ if (!window.DOC_FIELD_MAP) {
         rotc:        { link: 'linkRotc',       autor: 'rotcAutor',       fecha: 'rotcFecha',       vencKey: 'fechaRotc' },
         racda:       { link: 'linkRacda',      autor: 'racdaAutor',      fecha: 'racdaFecha',      vencKey: 'fechaRacda' },
         adicional:   { link: 'linkAdicional',  autor: 'adicionalAutor',  fecha: 'adicionalFecha',  vencKey: 'fechaAdicional' },
-        adicional_2: { link: 'linkAdicional2', autor: 'adicional2Autor', fecha: 'adicional2Fecha', vencKey: 'fechaAdicional2' },
+        // Compraventa (adicional_2) no tiene fecha de vencimiento -> vencKey: null.
+        adicional_2: { link: 'linkAdicional2', autor: 'adicional2Autor', fecha: 'adicional2Fecha', vencKey: null },
     };
 }
 
@@ -875,7 +876,7 @@ window.showDetailsImproved = function (target, event) {
     set("d_fecha_rotc", formatDate(d.fechaRotc));
     set("d_fecha_racda", formatDate(d.fechaRacda));
     set("d_fecha_adicional", formatDate(d.fechaAdicional));
-    set("d_fecha_adicional_2", formatDate(d.fechaAdicional2));
+    // d_fecha_adicional_2 eliminado: Compraventa no tiene fecha de vencimiento
 
     // Document Action Buttons Generator
     const createDocBtn = (containerId, type, link, label, equipoId) => {

@@ -1815,9 +1815,9 @@ class EquipoController extends Controller
                     break;
 
                 case 'adicional_2':
+                    // Compraventa: NO tiene fecha de vencimiento.
                     $data = [
-                        'fecha_vencimiento' => $doc->FECHA_ADICIONAL_2 ?? '',
-                        'categoria' => $equipo->CATEGORIA_FLOTA
+                        'categoria' => $equipo->CATEGORIA_FLOTA,
                     ];
                     break;
             }
@@ -1958,9 +1958,8 @@ class EquipoController extends Controller
                 break;
 
             case 'adicional_2':
-                $updateData = [
-                    'FECHA_ADICIONAL_2' => $request->input('fecha_vencimiento'),
-                ];
+                // Compraventa: no guarda fecha de vencimiento.
+                $updateData = [];
                 break;
         }
 
