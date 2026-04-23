@@ -994,7 +994,7 @@ window.openUbicacionBulkModal = function (event) {
                 <div>
                     <label for="ub-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
                         <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                        Detalle de Ubicación
+                        Sitio específico dentro del frente asignado
                     </label>
                     <div id="ub-inputbox" style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
                         <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:20px;flex-shrink:0;">location_on</i>
@@ -1003,14 +1003,14 @@ window.openUbicacionBulkModal = function (event) {
                             style="flex:1;border:none;outline:none;padding:12px 6px;font-size:14px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
                     <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
-                        Describe con precisión el sitio dentro del frente (zona, patio, almacén, fila, etc.).
+                        Indica la zona, patio, almacén o fila exacta donde queda el equipo dentro del frente.
                     </small>
                 </div>
                 <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
-                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
-                    <button type="button" id="ub-cancel" style="padding:10px 18px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>
-                    <button type="button" id="ub-submit" style="padding:10px 20px;border-radius:8px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;">
-                        <i class="material-icons" style="font-size:17px;">save</i> Aplicar a ${selections.length}
+                <div style="display:flex;gap:10px;justify-content:center;margin-top:4px;">
+                    <button type="button" id="ub-cancel" style="padding:10px 20px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>
+                    <button type="button" id="ub-submit" style="padding:10px 24px;border-radius:8px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <i class="material-icons" style="font-size:17px;">save</i> Aplicar
                     </button>
                 </div>
             </div>
