@@ -438,22 +438,22 @@
                         <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">Documentación Cargada</span>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <label style="display: flex; align-items: center; font-size: 13px; color: #334155;">
+                            <label for="chk_propiedad" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Propiedad
                             </label>
 
-                            <label style="display: flex; align-items: center; font-size: 13px; color: #334155;">
+                            <label for="chk_poliza" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_poliza" onchange="toggleDocFilter('poliza')" {{ request('filter_poliza') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Póliza
                             </label>
 
-                            <label style="display: flex; align-items: center; font-size: 13px; color: #334155;">
+                            <label for="chk_rotc" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_rotc" onchange="toggleDocFilter('rotc')" {{ request('filter_rotc') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 ROTC
                             </label>
 
-                            <label style="display: flex; align-items: center; font-size: 13px; color: #334155;">
+                            <label for="chk_racda" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_racda" onchange="toggleDocFilter('racda')" {{ request('filter_racda') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 RACDA
                             </label>

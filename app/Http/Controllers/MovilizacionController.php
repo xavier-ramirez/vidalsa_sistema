@@ -153,6 +153,61 @@ class MovilizacionController extends Controller
         return view('admin.movilizaciones.create', compact('equipos', 'frentes'));
     }
 
+    /**
+     * Busca la movilizacion mas reciente asociada al CODIGO_CONTROL dado
+     * y devuelve su ID para que el frontend dispare la descarga del acta PDF.
+     * Soporta codigos con o sin ceros a la izquierda (ej. "125" y "000125").
+     */
+    public function findByCodigoControl(Request $request)
+    {
+        $codigo = trim((string) $request->query('codigo', ''));
+        if ($codigo === '') {
+            return response()->json(['success' => false, 'message' => 'Debes indicar el N° de Operación.'], 422);
+        }
+
+        // Normaliza: quita ceros iniciales; busca tanto el valor crudo como el padded.
+        $normalizado = ltrim($codigo, '0');
+        if ($normalizado === '') $normalizado = '0';
+
+        $query = Movilizacion::query();
+
+        // Scope Local: solo sus frentes (origen o destino)
+        $user = auth()->user();
+        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+        if ($isLocal) {
+            $permitidos = $user->getFrentesIds();
+            if (empty($permitidos)) {
+                return response()->json(['success' => false, 'message' => 'No tienes frentes asignados.'], 403);
+            }
+            $query->where(function ($q) use ($permitidos) {
+                $q->whereIn('ID_FRENTE_ORIGEN', $permitidos)
+                  ->orWhereIn('ID_FRENTE_DESTINO', $permitidos);
+            });
+        }
+
+        $mov = (clone $query)
+            ->where(function ($q) use ($codigo, $normalizado) {
+                $q->where('CODIGO_CONTROL', $codigo)
+                  ->orWhere('CODIGO_CONTROL', $normalizado)
+                  ->orWhereRaw('CAST(CODIGO_CONTROL AS UNSIGNED) = ?', [(int) $normalizado]);
+            })
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$mov) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró ninguna movilización con ese N° de Operación.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'id'      => $mov->ID_MOVILIZACION,
+            'codigo'  => $mov->CODIGO_CONTROL,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
