@@ -686,6 +686,10 @@
             <i class="material-icons" style="font-size: 18px;">link_off</i>
             <span class="desktop-text">Desanclar</span>
         </button>
+        <button type="button" id="btnUbicacion" onclick="openUbicacionBulkModal(event)" class="btn-bulk-action" style="background: #0284c7;">
+            <i class="material-icons" style="font-size: 18px;">pin_drop</i>
+            <span class="desktop-text">Ubicación</span>
+        </button>
         <button type="button" onclick="openBulkModal(event)" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
             <span class="desktop-text">Asignar</span>

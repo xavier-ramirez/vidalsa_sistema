@@ -917,6 +917,181 @@ window.filterList = function (inputArg, listArg) {
 };
 
 
+/**
+ * Modal de asignacion masiva de DETALLE_UBICACION_ACTUAL.
+ * Todos los equipos seleccionados deben estar en el MISMO frente
+ * (la ubicacion especifica es relativa al frente donde estan).
+ */
+window.openUbicacionBulkModal = function (event) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+
+    // Permiso: misma capa que edit (backend lo valida igual)
+    if (window.CAN_UPDATE_INFO === false) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('No tienes permisos para actualizar ubicaciones.', 'error');
+        }
+        return;
+    }
+
+    const selections = Object.values(window.selectedEquipos || {});
+    if (selections.length === 0) {
+        if (typeof window.showToast === 'function') window.showToast('Selecciona al menos un equipo.', 'error');
+        return;
+    }
+
+    // Validar mismo frente: la ubicacion especifica solo tiene sentido dentro
+    // de un frente concreto. Si hay mezcla, rechazamos con un mensaje claro.
+    const frentesUnicos = [...new Set(selections.map(s => s.frenteId || ''))];
+    if (frentesUnicos.length > 1 || frentesUnicos[0] === '') {
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: 'error',
+                title: 'Selección no compatible',
+                message: 'Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección e inténtalo de nuevo.',
+                confirmText: 'Entendido',
+                hideCancel: true,
+            });
+        } else if (typeof window.showToast === 'function') {
+            window.showToast('Todos los equipos deben estar en el mismo frente.', 'error');
+        }
+        return;
+    }
+
+    // Construir modal
+    const overlay = document.createElement('div');
+    overlay.id = 'ubicacionBulkOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    const ids = selections.map(s => s.id);
+    const chipsHtml = selections.slice(0, 12).map(s => {
+        const label = s.placa || s.chasis || s.code || ('ID:' + s.id);
+        return `<span style="background:#e1effa;color:#0c4a6e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${label}</span>`;
+    }).join('') + (selections.length > 12 ? `<span style="color:#64748b;font-size:12px;">+${selections.length - 12} más</span>` : '');
+
+    overlay.innerHTML = `
+        <div style="background:white;width:100%;max-width:460px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:reimprimirIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+            <div style="background:linear-gradient(135deg,#0284c7 0%,#075985 100%);padding:16px 20px;color:white;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                    <div style="background:rgba(255,255,255,0.18);width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="material-icons" style="font-size:22px;">pin_drop</i>
+                    </div>
+                    <div style="min-width:0;">
+                        <h2 style="margin:0;font-size:16px;font-weight:800;">Asignar Ubicación Específica</h2>
+                        <p style="margin:2px 0 0;font-size:12px;opacity:0.85;">${selections.length} equipo${selections.length !== 1 ? 's' : ''} en el mismo frente</p>
+                    </div>
+                </div>
+                <button type="button" id="ub-close" aria-label="Cerrar" style="background:rgba(255,255,255,0.15);border:none;color:white;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                    <i class="material-icons" style="font-size:18px;">close</i>
+                </button>
+            </div>
+            <div style="padding:22px 24px;display:flex;flex-direction:column;gap:14px;">
+                <div>
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos seleccionados</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;max-height:90px;overflow-y:auto;">
+                        ${chipsHtml}
+                    </div>
+                </div>
+                <div>
+                    <label for="ub-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
+                        <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
+                        Detalle de Ubicación
+                    </label>
+                    <div id="ub-inputbox" style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
+                        <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:20px;flex-shrink:0;">location_on</i>
+                        <input type="text" id="ub-input" maxlength="150" autocomplete="off"
+                            placeholder="Ej: PATIO 2, TALLER, ESTACIONAMIENTO A"
+                            style="flex:1;border:none;outline:none;padding:12px 6px;font-size:14px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
+                    </div>
+                    <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
+                        Describe con precisión el sitio dentro del frente (zona, patio, almacén, fila, etc.).
+                    </small>
+                </div>
+                <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+                    <button type="button" id="ub-cancel" style="padding:10px 18px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>
+                    <button type="button" id="ub-submit" style="padding:10px 20px;border-radius:8px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <i class="material-icons" style="font-size:17px;">save</i> Aplicar a ${selections.length}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Keyframe comparte el `reimprimirIn` ya inyectado en index.blade; si no existe, inyectamos.
+    if (!document.getElementById('ub-keyframes')) {
+        const st = document.createElement('style');
+        st.id = 'ub-keyframes';
+        st.textContent = '@keyframes reimprimirIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } } #ub-inputbox:focus-within { border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,0.15); }';
+        document.head.appendChild(st);
+    }
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    const closeModal = () => { overlay.remove(); document.body.style.overflow = ''; };
+    const input = overlay.querySelector('#ub-input');
+    const box   = overlay.querySelector('#ub-inputbox');
+    const fb    = overlay.querySelector('#ub-feedback');
+    const submitBtn = overlay.querySelector('#ub-submit');
+    setTimeout(() => input.focus(), 80);
+
+    overlay.querySelector('#ub-close').onclick  = closeModal;
+    overlay.querySelector('#ub-cancel').onclick = closeModal;
+    overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSubmit(); } });
+
+    function showFb(type, msg) {
+        const c = {
+            info:    { bg:'#e0f2fe', border:'#bae6fd', color:'#075985' },
+            error:   { bg:'#fee2e2', border:'#fecaca', color:'#b91c1c' },
+            success: { bg:'#dcfce7', border:'#bbf7d0', color:'#15803d' },
+        }[type] || { bg:'#e0f2fe', border:'#bae6fd', color:'#075985' };
+        fb.style.cssText = 'display:block;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;background:' + c.bg + ';border:1px solid ' + c.border + ';color:' + c.color + ';';
+        fb.textContent = msg;
+    }
+
+    async function doSubmit() {
+        const valor = (input.value || '').trim();
+        if (!valor) {
+            box.style.borderColor = '#ef4444';
+            input.focus();
+            showFb('error', 'Ingresa el detalle de ubicación.');
+            return;
+        }
+        const original = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Aplicando...';
+        showFb('info', 'Guardando ubicación en ' + selections.length + ' equipo(s)…');
+        try {
+            const res = await fetch('/admin/equipos/bulk-ubicacion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ ids: ids, detalle_ubicacion: valor }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || ('Error ' + res.status));
+            }
+            const data = await res.json();
+            showFb('success', 'Actualizados ' + (data.count || selections.length) + ' equipo(s).');
+            if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada correctamente.', 'success');
+            if (typeof window.clearSelection === 'function') window.clearSelection();
+            if (typeof window.loadEquipos === 'function') window.loadEquipos(null, true);
+            setTimeout(closeModal, 700);
+        } catch (err) {
+            console.error('[Ubicacion bulk]', err);
+            showFb('error', err.message || 'No se pudo actualizar.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = original;
+        }
+    }
+    overlay.querySelector('#ub-submit').onclick = doSubmit;
+};
+
 window.openBulkModal = function (event) {
     if (event) {
         event.preventDefault();

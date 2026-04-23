@@ -61,6 +61,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('equipos/bulk-anchor', [App\Http\Controllers\EquipoController::class, 'bulkAnchor'])->name('equipos.bulkAnchor');
             Route::post('equipos/clear-anchor', [App\Http\Controllers\EquipoController::class, 'clearAnchor'])->name('equipos.clearAnchor');
             Route::patch('equipos/{id}/ubicacion', [App\Http\Controllers\EquipoController::class, 'updateUbicacion'])->name('equipos.updateUbicacion');
+            Route::post('equipos/bulk-ubicacion', [App\Http\Controllers\EquipoController::class, 'bulkUbicacion'])->name('equipos.bulkUbicacion');
             Route::get('equipos/bulk-template', [App\Http\Controllers\EquipoController::class, 'bulkTemplate'])->name('equipos.bulkTemplate');
             Route::post('equipos/bulk-preview', [App\Http\Controllers\EquipoController::class, 'bulkPreview'])->name('equipos.bulkPreview');
             Route::post('equipos/bulk-store-batch', [App\Http\Controllers\EquipoController::class, 'bulkStoreBatch'])->name('equipos.bulkStoreBatch');
