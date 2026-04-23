@@ -36,6 +36,7 @@ if (!window.applyDocUpload) {
 
 /**
  * Limpia los mismos campos en `target` al borrar un documento.
+ * Incluye la fecha de vencimiento (vencKey) cuando el tipo la tenga.
  */
 if (!window.clearDocFields) {
     window.clearDocFields = function (target, type) {
@@ -44,6 +45,7 @@ if (!window.clearDocFields) {
         target[m.link]  = '';
         target[m.autor] = '';
         target[m.fecha] = '';
+        if (m.vencKey) target[m.vencKey] = '';
     };
 }
 

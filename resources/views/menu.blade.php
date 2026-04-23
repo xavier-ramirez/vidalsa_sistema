@@ -469,25 +469,10 @@
     }
     .alertas-card:hover .alertas-card-chev { transform: translateX(3px); }
 
-    /* ── Panel desplegable "Alertas de Documentos" (dropup FLOTANTE: no empuja layout) ── */
-    .alertas-panel {
-        position: absolute;
-        bottom: calc(100% + 12px); /* 12px arriba de la card trigger */
-        left: 0;
-        right: 0;
-        z-index: 120;
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 18px;
-        overflow: hidden;
-        box-shadow: 0 -18px 48px -12px rgba(15, 23, 42, 0.22), 0 -6px 14px -4px rgba(15, 23, 42, 0.08);
-        animation: alertasPanelIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-        transform-origin: bottom left;
-    }
-    @keyframes alertasPanelIn {
-        from { opacity: 0; transform: translateY(8px) scale(0.98); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
+    /* ── Estilos del panel "Alertas Documentos" ── */
+    /* (El panel flotante fue reemplazado por el modal `.alertas-modal-overlay`;
+       los selectores .alertas-panel-header/title/toolbar/body siguen usandose
+       dentro del modal por reutilizacion de markup.) */
     .alertas-panel-header {
         display: flex;
         align-items: center;

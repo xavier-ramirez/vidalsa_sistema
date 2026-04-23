@@ -1525,8 +1525,10 @@
                                 d.modelo = formData.get('modelo'); d.chasis = formData.get('serial_chasis');
                                 d.motorSerial = formData.get('serial_motor');
                             } else {
-                                const dateMap = { 'poliza': 'vencSeguro', 'rotc': 'fechaRotc', 'racda': 'fechaRacda', 'adicional': 'fechaAdicional', 'adicional_2': 'fechaAdicional2' };
-                                if (dateMap[ctx.docType]) d[dateMap[ctx.docType]] = formData.get('fecha_vencimiento');
+                                // Consolidado: usa la misma fuente de verdad (DOC_FIELD_MAP.vencKey)
+                                // que el resto de los flujos de subida/borrado.
+                                const vk = (window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[ctx.docType]) ? window.DOC_FIELD_MAP[ctx.docType].vencKey : null;
+                                if (vk) d[vk] = formData.get('fecha_vencimiento');
                                 if (ctx.docType === 'poliza') d.seguro = formData.get('nombre_aseguradora');
                             }
                             showDetailsImproved(window.activeEquipoButton);
