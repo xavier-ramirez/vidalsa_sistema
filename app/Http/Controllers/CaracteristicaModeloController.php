@@ -161,12 +161,26 @@ class CaracteristicaModeloController extends Controller
                 if ($linkedCount > 0) {
                     Log::info("Auto-linked {$linkedCount} equipos to catalog ID {$catalogo->ID_ESPEC} ({$validated['MODELO']} {$validated['ANIO_ESPEC']})");
                 }
+
+                // Auditoria: registro de creacion (snapshot de campos relevantes)
+                \App\Models\CatalogoAuditLog::registrar(
+                    $catalogo->ID_ESPEC,
+                    'create',
+                    $catalogo->MODELO,
+                    (int) $catalogo->ANIO_ESPEC,
+                    collect($validated)->except(['foto_referencial'])->toArray()
+                );
             }
 
             if ($request->wantsJson()) {
+                // Flash del mensaje en sesion para que el siguiente GET (redirect hard
+                // hecho en JS) lo muestre como toast via el bloque @if(session('success'))
+                // de estructura_base. Evita parpadeo: spinner se mantiene hasta el redirect.
+                session()->flash('success', 'Modelo registrado correctamente.');
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Modelo registrado correctamente en el catálogo.'
+                    'success'  => true,
+                    'message'  => 'Modelo registrado correctamente en el catálogo.',
+                    'redirect' => route('catalogo.index'),
                 ], 200);
             }
 
@@ -212,6 +226,10 @@ class CaracteristicaModeloController extends Controller
         try {
             $oldModelo = $catalogo->MODELO;
             $oldAnio = $catalogo->ANIO_ESPEC;
+            // Snapshot original para diff de auditoria (solo campos auditables)
+            $auditFields = ['MODELO','ANIO_ESPEC','MOTOR','COMBUSTIBLE','CONSUMO_PROMEDIO',
+                            'ACEITE_MOTOR','ACEITE_CAJA','LIGA_FRENO','REFRIGERANTE','TIPO_BATERIA'];
+            $originalSnapshot = collect($auditFields)->mapWithKeys(fn($f) => [$f => $catalogo->{$f} ?? null])->toArray();
 
             // Convertir imagen a WebP ANTES de la transacción (evitar problemas de $this en closures)
             $webpFile = null;
@@ -287,7 +305,27 @@ class CaracteristicaModeloController extends Controller
                 }
             }
 
+            // Auditoria: diff de campos editados (solo los que realmente cambiaron)
+            $diff = [];
+            foreach ($auditFields as $f) {
+                $before = $originalSnapshot[$f] ?? null;
+                $after  = $validated[$f] ?? null;
+                if ((string)$before !== (string)$after) {
+                    $diff[$f] = ['antes' => $before, 'despues' => $after];
+                }
+            }
+            if (!empty($diff)) {
+                \App\Models\CatalogoAuditLog::registrar(
+                    $catalogo->ID_ESPEC,
+                    'edit',
+                    $catalogo->MODELO,
+                    (int) $catalogo->ANIO_ESPEC,
+                    $diff
+                );
+            }
+
             if ($request->wantsJson()) {
+                session()->flash('success', 'Modelo actualizado exitosamente');
                 return response()->json(['message' => 'Modelo actualizado exitosamente', 'redirect' => route('catalogo.index')]);
             }
 
@@ -325,7 +363,20 @@ class CaracteristicaModeloController extends Controller
                 \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
             }
             
+            // Snapshot antes de borrar, para auditoria
+            $snapshotModelo = $catalogo->MODELO;
+            $snapshotAnio   = (int) $catalogo->ANIO_ESPEC;
+            $snapshotId     = $catalogo->ID_ESPEC;
+
             $catalogo->delete();
+
+            \App\Models\CatalogoAuditLog::registrar(
+                $snapshotId,
+                'delete',
+                $snapshotModelo,
+                $snapshotAnio,
+                []
+            );
 
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Modelo eliminado del catálogo', 'redirect' => route('catalogo.index')]);

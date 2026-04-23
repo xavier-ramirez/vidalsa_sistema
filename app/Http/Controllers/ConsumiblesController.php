@@ -723,6 +723,81 @@ class ConsumiblesController extends Controller
 
 
     // ══════════════════════════════════════════════════════════════
+    // AUDITORIA DE CATALOGO — control de creaciones/ediciones/borrados
+    // hechos desde /admin/catalogo/create y /admin/catalogo/{id}/edit
+    // ══════════════════════════════════════════════════════════════
+    public function auditoriaCatalogoData(Request $request)
+    {
+        $desde      = $request->get('desde');
+        $hasta      = $request->get('hasta');
+        $accion     = $request->get('accion');     // create | edit | delete
+        $usuarioId  = $request->get('id_usuario');
+        $modeloTxt  = $request->get('modelo');     // LIKE
+
+        $rows = DB::table('catalogo_audit_log as l')
+            ->leftJoin('usuarios as u', 'u.ID_USUARIO', '=', 'l.ID_USUARIO')
+            ->leftJoin('caracteristicas_modelo as c', 'c.ID_ESPEC', '=', 'l.ID_ESPEC')
+            ->when($desde,     fn($q) => $q->where('l.created_at', '>=', $desde . ' 00:00:00'))
+            ->when($hasta,     fn($q) => $q->where('l.created_at', '<=', $hasta . ' 23:59:59'))
+            ->when($accion,    fn($q) => $q->where('l.ACCION', $accion))
+            ->when($usuarioId, fn($q) => $q->where('l.ID_USUARIO', $usuarioId))
+            ->when($modeloTxt, fn($q) => $q->where('l.MODELO', 'LIKE', '%' . trim($modeloTxt) . '%'))
+            ->select(
+                'l.ID_LOG',
+                'l.ID_ESPEC',
+                'l.ACCION',
+                'l.MODELO',
+                'l.ANIO_ESPEC',
+                'l.CAMBIOS',
+                'l.created_at',
+                DB::raw('COALESCE(u.NOMBRE_COMPLETO, u.CORREO_ELECTRONICO, CONCAT("Usuario #", l.ID_USUARIO)) as usuario'),
+                DB::raw('c.ID_ESPEC as existe_actual')
+            )
+            ->orderByDesc('l.created_at')
+            ->limit(500)
+            ->get()
+            ->map(function ($r) {
+                $cambios = null;
+                if (!empty($r->CAMBIOS)) {
+                    $decoded = json_decode($r->CAMBIOS, true);
+                    if (json_last_error() === JSON_ERROR_NONE) $cambios = $decoded;
+                }
+                return [
+                    'id_log'     => (int) $r->ID_LOG,
+                    'id_espec'   => $r->ID_ESPEC,
+                    'accion'     => $r->ACCION,
+                    'modelo'     => $r->MODELO,
+                    'anio'       => $r->ANIO_ESPEC,
+                    'usuario'    => $r->usuario,
+                    'fecha'      => $r->created_at,
+                    'cambios'    => $cambios,
+                    'existe'     => !is_null($r->existe_actual),
+                ];
+            });
+
+        $resumen = DB::table('catalogo_audit_log')
+            ->when($desde, fn($q) => $q->where('created_at', '>=', $desde . ' 00:00:00'))
+            ->when($hasta, fn($q) => $q->where('created_at', '<=', $hasta . ' 23:59:59'))
+            ->selectRaw("
+                SUM(CASE WHEN ACCION='create' THEN 1 ELSE 0 END) as creados,
+                SUM(CASE WHEN ACCION='edit'   THEN 1 ELSE 0 END) as editados,
+                SUM(CASE WHEN ACCION='delete' THEN 1 ELSE 0 END) as eliminados,
+                COUNT(*) as total
+            ")
+            ->first();
+
+        return response()->json([
+            'rows'    => $rows,
+            'resumen' => [
+                'creados'    => (int)($resumen->creados    ?? 0),
+                'editados'   => (int)($resumen->editados   ?? 0),
+                'eliminados' => (int)($resumen->eliminados ?? 0),
+                'total'      => (int)($resumen->total      ?? 0),
+            ],
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // EXPORTAR CSV — Descarga directa de datos confirmados
     // ══════════════════════════════════════════════════════════════
     public function exportarCsv(Request $request)

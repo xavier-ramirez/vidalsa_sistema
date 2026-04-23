@@ -60,39 +60,21 @@
                 return response.json();
             })
             .then(data => {
-                // Success
-                if (window.hidePreloader) window.hidePreloader(); // Hide immediately on success
-
+                // Success: mantenemos el preloader activo y redirigimos inmediatamente.
+                // El toast de exito sale en la pagina destino via session flash
+                // (bloque @if(session('success')) en estructura_base.blade.php).
+                // Evita parpadeo del form reseteado antes del redirect.
+                if (data.redirect) {
+                    window.__catalogoRedirecting = true;
+                    window.location.href = data.redirect;
+                    return;
+                }
+                // Fallback si el backend no envia redirect: apagar preloader y notificar.
+                if (window.hidePreloader) window.hidePreloader();
                 if (window.showToast) {
-                    window.showToast(data.message || 'Modelo registrado correctamente.', 'success');
-                    form.reset();
-                    const preview = document.getElementById('preview_referencial');
-                    if (preview) {
-                        preview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
-                        preview.style.borderColor = '#cbd5e0';
-                    }
-                    if (data.redirect) setTimeout(() => window.location.href = data.redirect, 1000);
-                } else if (window.showModal) {
-                    window.showModal({
-                        type: 'success',
-                        title: 'Éxito',
-                        message: data.message || 'Modelo registrado correctamente.',
-                        confirmText: 'Aceptar',
-                        hideCancel: true,
-                        onConfirm: () => {
-                            form.reset();
-                            const preview = document.getElementById('preview_referencial');
-                            if (preview) {
-                                preview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
-                                preview.style.borderColor = '#cbd5e0';
-                            }
-                            if (data.redirect) window.location.href = data.redirect;
-                        }
-                    });
+                    window.showToast(data.message || 'Modelo guardado correctamente.', 'success');
                 } else {
                     alert(data.message || 'Operación realizada correctamente.');
-                    form.reset();
-                    if (data.redirect) window.location.href = data.redirect;
                 }
             })
             .catch(error => {
@@ -122,9 +104,11 @@
                 }
             })
             .finally(() => {
-                // Double check hide
+                // Si estamos redirigiendo (success), NO apagamos el preloader ni
+                // restauramos el boton: el navegador esta cargando la siguiente pagina
+                // y queremos que el spinner se mantenga hasta que termine la transicion.
+                if (window.__catalogoRedirecting) return;
                 if (window.hidePreloader) window.hidePreloader();
-
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalBtnContent;

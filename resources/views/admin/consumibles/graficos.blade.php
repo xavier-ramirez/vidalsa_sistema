@@ -710,6 +710,64 @@
         </div>
     </div>
 
+    {{-- ══════════════════════════════════════════════════════════════
+         AUDITORIA DE CATALOGO — control de creaciones/ediciones/borrados
+         en /admin/catalogo/create y /admin/catalogo/{id}/edit
+         ══════════════════════════════════════════════════════════════ --}}
+    <div class="g-grid-1">
+        <div class="g-card">
+            <p class="g-title">
+                <i class="material-icons">fact_check</i>
+                Auditoría de Catálogo — Creaciones y Ediciones
+                <span class="g-subtitle" id="auditCatalogoSub"></span>
+            </p>
+            <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                <input class="eq-search" id="auditModelo" type="text" placeholder="Modelo..."
+                       oninput="window._auditDebounce && clearTimeout(window._auditDebounce); window._auditDebounce = setTimeout(cargarAuditoriaCatalogo, 300);"
+                       style="margin-bottom:0; flex:1; min-width:200px;">
+                <select id="auditAccion" class="eq-search" onchange="cargarAuditoriaCatalogo()"
+                        style="margin-bottom:0; width:auto; min-width:140px; background-color:#fbfcfd;">
+                    <option value="">Todas las acciones</option>
+                    <option value="create">Creación</option>
+                    <option value="edit">Edición</option>
+                    <option value="delete">Eliminación</option>
+                </select>
+                <input class="eq-search" id="auditDesde" type="date" onchange="cargarAuditoriaCatalogo()"
+                       style="margin-bottom:0; width:auto; min-width:140px;">
+                <input class="eq-search" id="auditHasta" type="date" onchange="cargarAuditoriaCatalogo()"
+                       style="margin-bottom:0; width:auto; min-width:140px;">
+                <button type="button" onclick="cargarAuditoriaCatalogo()"
+                        style="padding:8px 14px; border-radius:8px; border:1px solid #cbd5e1; background:#f1f5f9; color:#1e293b; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <i class="material-icons" style="font-size:18px;">refresh</i>
+                    Actualizar
+                </button>
+            </div>
+
+            <div id="auditResumen" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;"></div>
+
+            <div id="loadingAuditCatalogo" class="loading-overlay" style="display:none;">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="admin-table" id="tablaAuditCatalogo">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Acción</th>
+                            <th>Modelo</th>
+                            <th>Año</th>
+                            <th>Usuario</th>
+                            <th>Cambios</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyAuditCatalogo">
+                        <tr><td colspan="6" style="text-align:center; padding:24px; color:#94a3b8;">Sin registros aún.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ asset('js/chart.umd.min.js') }}"></script>
     <script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
     <script src="{{ asset('js/html2canvas.min.js') }}"></script>
@@ -1928,5 +1986,116 @@
             window._graficosDataLoaded = true;
             window.cargarDatos();
         }
+
+        // ══════════════════════════════════════════════════════════════
+        // AUDITORIA DE CATALOGO — carga via AJAX independiente de los filtros
+        // de graficos. Tabla + resumen arriba. Escape HTML defensivo.
+        // ══════════════════════════════════════════════════════════════
+        (function () {
+            function esc(s) {
+                if (s === null || s === undefined) return '';
+                return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+            }
+            function badgeAccion(accion) {
+                const map = {
+                    create: { t: 'Creación',    bg: '#dcfce7', fg: '#166534' },
+                    edit:   { t: 'Edición',     bg: '#dbeafe', fg: '#1e40af' },
+                    delete: { t: 'Eliminación', bg: '#fee2e2', fg: '#991b1b' },
+                };
+                const m = map[accion] || { t: accion || '—', bg: '#e2e8f0', fg: '#475569' };
+                return `<span style="background:${m.bg}; color:${m.fg}; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700;">${esc(m.t)}</span>`;
+            }
+            function formatCambios(c) {
+                if (!c || typeof c !== 'object') return '<span style="color:#94a3b8;">—</span>';
+                const keys = Object.keys(c);
+                if (!keys.length) return '<span style="color:#94a3b8;">—</span>';
+                const items = keys.map(k => {
+                    const v = c[k];
+                    if (v && typeof v === 'object' && 'antes' in v && 'despues' in v) {
+                        return `<div style="margin-bottom:3px;"><strong>${esc(k)}:</strong> <span style="color:#b45309;">${esc(v.antes ?? '—')}</span> → <span style="color:#166534;">${esc(v.despues ?? '—')}</span></div>`;
+                    }
+                    return `<div style="margin-bottom:3px;"><strong>${esc(k)}:</strong> ${esc(v)}</div>`;
+                });
+                return `<div style="max-width:420px; font-size:12px; line-height:1.3;">${items.join('')}</div>`;
+            }
+            function fmtFecha(s) {
+                if (!s) return '';
+                const d = new Date(s.replace(' ', 'T'));
+                if (isNaN(d)) return esc(s);
+                const dd = String(d.getDate()).padStart(2,'0');
+                const mm = String(d.getMonth()+1).padStart(2,'0');
+                const hh = String(d.getHours()).padStart(2,'0');
+                const mi = String(d.getMinutes()).padStart(2,'0');
+                return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
+            }
+
+            window.cargarAuditoriaCatalogo = function () {
+                const body = document.getElementById('bodyAuditCatalogo');
+                const loading = document.getElementById('loadingAuditCatalogo');
+                const resumen = document.getElementById('auditResumen');
+                const sub = document.getElementById('auditCatalogoSub');
+                if (!body) return;
+
+                if (loading) loading.style.display = '';
+
+                const params = new URLSearchParams();
+                const modelo = document.getElementById('auditModelo')?.value.trim();
+                const accion = document.getElementById('auditAccion')?.value;
+                const desde  = document.getElementById('auditDesde')?.value;
+                const hasta  = document.getElementById('auditHasta')?.value;
+                if (modelo) params.set('modelo', modelo);
+                if (accion) params.set('accion', accion);
+                if (desde)  params.set('desde', desde);
+                if (hasta)  params.set('hasta', hasta);
+
+                fetch('{{ route("consumibles.auditoriaCatalogo") }}?' + params.toString(), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (loading) loading.style.display = 'none';
+
+                    // Resumen
+                    const r = data.resumen || { creados: 0, editados: 0, eliminados: 0, total: 0 };
+                    if (resumen) {
+                        resumen.innerHTML = [
+                            {l:'Total',     v:r.total,      bg:'#f1f5f9', fg:'#1e293b'},
+                            {l:'Creados',   v:r.creados,    bg:'#dcfce7', fg:'#166534'},
+                            {l:'Editados',  v:r.editados,   bg:'#dbeafe', fg:'#1e40af'},
+                            {l:'Eliminados',v:r.eliminados, bg:'#fee2e2', fg:'#991b1b'},
+                        ].map(x => `<div style="background:${x.bg}; color:${x.fg}; padding:8px 14px; border-radius:10px; font-size:12px; font-weight:700; display:flex; align-items:center; gap:8px;"><span style="opacity:0.75;">${x.l}:</span><span style="font-size:15px;">${x.v}</span></div>`).join('');
+                    }
+                    if (sub) sub.textContent = `${(data.rows || []).length} registros recientes`;
+
+                    // Filas
+                    const rows = data.rows || [];
+                    if (!rows.length) {
+                        body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:#94a3b8;">Sin registros para los filtros seleccionados.</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = rows.map(row => {
+                        const modeloTxt = row.existe
+                            ? `<a href="/admin/catalogo/${encodeURIComponent(row.id_espec)}/edit" style="color:#0067b1; font-weight:700; text-decoration:none;">${esc(row.modelo || '—')}</a>`
+                            : `<span style="color:#475569;">${esc(row.modelo || '—')}</span>${row.accion === 'delete' ? '' : ' <em style="color:#94a3b8; font-size:11px;">(no existe)</em>'}`;
+                        return `<tr>
+                            <td style="white-space:nowrap;">${esc(fmtFecha(row.fecha))}</td>
+                            <td>${badgeAccion(row.accion)}</td>
+                            <td>${modeloTxt}</td>
+                            <td>${esc(row.anio ?? '—')}</td>
+                            <td>${esc(row.usuario || '—')}</td>
+                            <td>${formatCambios(row.cambios)}</td>
+                        </tr>`;
+                    }).join('');
+                })
+                .catch(err => {
+                    if (loading) loading.style.display = 'none';
+                    console.error('Error auditoria catalogo:', err);
+                    body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:#dc2626;">Error al cargar la auditoría.</td></tr>';
+                });
+            };
+
+            // Primera carga
+            window.cargarAuditoriaCatalogo();
+        })();
     </script>
 @endsection
