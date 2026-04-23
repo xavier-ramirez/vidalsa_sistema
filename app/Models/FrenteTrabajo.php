@@ -11,11 +11,21 @@ class FrenteTrabajo extends Model
     protected $primaryKey = 'ID_FRENTE';
 
     /**
-     * Invalida el cache `frentes_especial_ids` (leído por especialIds()) al guardar/borrar un frente.
+     * Invalida caches derivados al guardar/borrar un frente:
+     * - `frentes_especial_ids` (leido por especialIds()).
+     * - Generacion de la plantilla bulk (forzar regenerar el XLSX cacheado).
      */
     protected static function booted(): void
     {
-        $bust = static fn() => Cache::forget('frentes_especial_ids');
+        $bust = static function () {
+            Cache::forget('frentes_especial_ids');
+            // Incrementa el contador para invalidar todas las variantes de plantilla cacheadas.
+            if (!Cache::has('bulk_template_gen')) {
+                Cache::forever('bulk_template_gen', 1);
+            } else {
+                Cache::increment('bulk_template_gen');
+            }
+        };
         static::saved($bust);
         static::deleted($bust);
     }

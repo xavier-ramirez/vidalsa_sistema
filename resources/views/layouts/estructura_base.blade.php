@@ -7,6 +7,19 @@
     <title>@yield('title', 'Sistema de Gestión')</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
+    {{-- ===== PWA ===== --}}
+    <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ @filemtime(public_path('manifest.json')) }}">
+    <meta name="theme-color" content="#0067b1">
+    <meta name="application-name" content="Vidalsa">
+    <meta name="mobile-web-app-capable" content="yes">
+    {{-- iOS: homescreen / standalone --}}
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Vidalsa">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('icons/icon-152.png') }}">
+    <link rel="apple-touch-icon" sizes="192x192" href="{{ asset('icons/icon-192.png') }}">
+
     <!-- Preload Fonts to prevent FOUT (text flashing before icons load) -->
     <link rel="preload" as="font" href="{{ asset('fonts/MaterialIcons-Regular.ttf') }}" type="font/ttf"
         crossorigin="anonymous">
@@ -2261,6 +2274,9 @@
                 }
             });
         </script>
+
+        {{-- ===== PWA: registro del Service Worker + banner "Instalar aplicacion" ===== --}}
+        <script src="{{ asset('js/pwa-install.js') }}?v={{ @filemtime(public_path('js/pwa-install.js')) }}" defer></script>
 </body>
 
 </html>

@@ -2882,174 +2882,160 @@ class EquipoController extends Controller
 
     public function bulkTemplate(Request $request)
     {
-        $user = auth()->user();
+        $user    = auth()->user();
         $isLocal = $user && $user->NIVEL_ACCESO == 2;
 
+        // Cache el binario XLSX en disco por usuario-scope (solo cambia si agregan frentes/tipos).
+        // Se invalida automaticamente al guardar/borrar TipoEquipo o FrenteTrabajo: el
+        // counter `bulk_template_gen` incrementa y los archivos viejos quedan obsoletos.
+        // Usamos disco en vez de Cache::remember porque algunos drivers (database) no manejan binario.
+        $scopeKey = $isLocal
+            ? 'local_' . md5(implode(',', $user->getFrentesIds()))
+            : 'global';
+        $gen     = \Illuminate\Support\Facades\Cache::get('bulk_template_gen', 1);
+        $relPath = 'cache/bulk_template/g' . $gen . '_' . $scopeKey . '.xlsx';
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        if (!$disk->exists($relPath)) {
+            // Limpiar versiones anteriores del mismo scope (evita que storage crezca indefinido).
+            foreach ($disk->files('cache/bulk_template') as $old) {
+                if (str_ends_with($old, '_' . $scopeKey . '.xlsx') && $old !== $relPath) {
+                    $disk->delete($old);
+                }
+            }
+            $binary = $this->buildBulkTemplateBinary($isLocal, $user);
+            $disk->put($relPath, $binary);
+        }
+
+        $absPath  = $disk->path($relPath);
+        $filename = 'plantilla_equipos_' . now()->format('Y-m-d') . '.xlsx';
+        return response()->download($absPath, $filename, [
+            'Content-Type'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'        => 'no-cache',
+        ]);
+    }
+
+    /**
+     * Genera el binario XLSX de la plantilla de bulk upload. Optimizado para velocidad:
+     * - fromArray() en vez de setCellValue() en loops.
+     * - Un unico applyFromArray al rango de headers (no celda por celda).
+     * - Escritura en memoria (php://memory) evitando I/O a disco.
+     */
+    private function buildBulkTemplateBinary(bool $isLocal, $user): string
+    {
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // Metadata minima
+        $spreadsheet->getProperties()->setCreator('Vidalsa')->setTitle('Plantilla Bulk Equipos');
 
         // ── Hoja principal "Equipos" ──────────────────────────────────────────
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Equipos');
 
-        $headers = [
-            'A' => 'Tipo de Equipo',
-            'B' => 'Categoria de Flota',
-            'C' => 'Marca',
-            'D' => 'Modelo',
-            'E' => 'Año',
-            'F' => 'N° Etiqueta',
-            'G' => 'Serial de Chasis',
-            'H' => 'Serial de Motor',
-            'I' => 'Frente de Trabajo',
-            'J' => 'Status',
-        ];
+        $headersRow = [[
+            'Tipo de Equipo', 'Categoria de Flota', 'Marca', 'Modelo', 'Año',
+            'N° Etiqueta', 'Serial de Chasis', 'Serial de Motor', 'Frente de Trabajo', 'Status',
+        ]];
+        $sheet->fromArray($headersRow, null, 'A1');
 
-        foreach ($headers as $col => $label) {
-            $cell = $col . '1';
-            $sheet->setCellValue($cell, $label);
+        // Estilo header: UN SOLO applyFromArray al rango completo en lugar de celda por celda
+        $sheet->getStyle('A1:J1')->applyFromArray([
+            'font'    => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill'    => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF0067B1']],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color'       => ['argb' => 'FF000000'],
+                ],
+            ],
+        ]);
 
-            // Estilo: fondo azul corporativo, texto blanco bold, bordes thin
-            $sheet->getStyle($cell)->applyFromArray([
-                'font' => [
-                    'bold'  => true,
-                    'color' => ['argb' => 'FFFFFFFF'],
-                ],
-                'fill' => [
-                    'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['argb' => 'FF0067B1'],
-                ],
-                'borders' => [
-                    'allBorders' => [
-                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                        'color'       => ['argb' => 'FF000000'],
-                    ],
-                ],
-            ]);
-        }
-
-        // Congelar fila 1 y autoFilter
         $sheet->freezePane('A2');
         $sheet->setAutoFilter('A1:J1');
 
-        // Ancho de columnas
-        $colWidths = [
-            'A' => 22, 'B' => 20, 'C' => 16, 'D' => 16,
-            'E' => 10, 'F' => 15, 'G' => 22, 'H' => 22,
-            'I' => 25, 'J' => 18,
-        ];
-        foreach ($colWidths as $col => $width) {
-            $sheet->getColumnDimension($col)->setWidth($width);
+        $colWidths = ['A' => 22, 'B' => 20, 'C' => 16, 'D' => 16, 'E' => 10, 'F' => 15, 'G' => 22, 'H' => 22, 'I' => 25, 'J' => 18];
+        foreach ($colWidths as $col => $w) {
+            $sheet->getColumnDimension($col)->setWidth($w);
         }
 
-        // Columna E (Año) como formato General para evitar interpretación de fecha
-        $sheet->getStyle('E2:E1001')->getNumberFormat()->setFormatCode(
-            \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_GENERAL
-        );
-
-        // ── Hoja oculta "_listas" ─────────────────────────────────────────────
+        // ── Hoja oculta "_listas" con fromArray (mucho mas rapido que loops) ──
         $listSheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, '_listas');
         $spreadsheet->addSheet($listSheet);
 
-        // Columna A: tipos de equipo
         $tipos = TipoEquipo::orderBy('nombre')->pluck('nombre')->toArray();
-        foreach ($tipos as $i => $nombre) {
-            $listSheet->setCellValue('A' . ($i + 2), $nombre);
-        }
-        $listSheet->setCellValue('A1', 'TipoEquipo');
-
-        // Columna B: frentes activos (filtrados para LOCAL)
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
         if ($isLocal) {
             $frentesQuery->whereIn('ID_FRENTE', $user->getFrentesIds());
         }
-        $frentes = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
-        foreach ($frentes as $i => $nombre) {
-            $listSheet->setCellValue('B' . ($i + 2), $nombre);
-        }
-        $listSheet->setCellValue('B1', 'FrenteTrabajo');
-
-        // Columna C: categorias de flota
+        $frentes    = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        foreach ($categorias as $i => $val) {
-            $listSheet->setCellValue('C' . ($i + 2), $val);
-        }
-        $listSheet->setCellValue('C1', 'Categoria');
+        $statuses   = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
 
-        // Columna D: statuses
-        $statuses = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
-        foreach ($statuses as $i => $val) {
-            $listSheet->setCellValue('D' . ($i + 2), $val);
-        }
-        $listSheet->setCellValue('D1', 'Status');
+        // fromArray llena listas en columnas de golpe (orders of magnitude mas rapido)
+        $listSheet->fromArray([['TipoEquipo']], null, 'A1');
+        $listSheet->fromArray(array_map(fn($n) => [$n], $tipos), null, 'A2');
 
-        // Ocultar hoja _listas
-        $spreadsheet->getSheetByName('_listas')->setSheetState(
-            \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN
-        );
+        $listSheet->fromArray([['FrenteTrabajo']], null, 'B1');
+        $listSheet->fromArray(array_map(fn($n) => [$n], $frentes), null, 'B2');
+
+        $listSheet->fromArray([['Categoria']], null, 'C1');
+        $listSheet->fromArray(array_map(fn($n) => [$n], $categorias), null, 'C2');
+
+        $listSheet->fromArray([['Status']], null, 'D1');
+        $listSheet->fromArray(array_map(fn($n) => [$n], $statuses), null, 'D2');
+
+        $listSheet->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN);
 
         // ── Data Validation ───────────────────────────────────────────────────
         $tiposCount   = count($tipos);
         $frentesCount = count($frentes);
 
-        // Helper closure para crear validaciones de lista.
-        // PhpSpreadsheet::getDataValidation() solo acepta una celda individual,
-        // así que aplicamos la validación a una celda ancla y luego propagamos al rango.
-        $addListValidation = function (string $column, string $formula) use ($sheet) {
-            $anchor = $column . '2';
+        $addListValidation = function (string $column, string $formula, bool $soft = false, string $prompt = '') use ($sheet) {
+            $anchor     = $column . '2';
             $validation = $sheet->getCell($anchor)->getDataValidation();
             $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
+            $validation->setErrorStyle($soft
+                ? \PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_INFORMATION
+                : \PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
             $validation->setAllowBlank(true);
             $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(true);
+            $validation->setShowErrorMessage(!$soft);
             $validation->setShowDropDown(true);
-            $validation->setErrorTitle('Valor no permitido');
-            $validation->setError('Selecciona un valor de la lista.');
+            if ($soft && $prompt) {
+                $validation->setPromptTitle($column === 'A' ? 'Tipo de Equipo' : '');
+                $validation->setPrompt($prompt);
+            } else {
+                $validation->setErrorTitle('Valor no permitido');
+                $validation->setError('Selecciona un valor de la lista.');
+            }
             $validation->setFormula1($formula);
-            // Aplicar el mismo objeto de validación a toda la columna (filas 2-1001)
             $validation->setSqref($column . '2:' . $column . '1001');
         };
 
-        // A2:A1001 — Tipo de Equipo (SOFT: permite valores fuera de la lista con sugerencia)
         if ($tiposCount > 0) {
-            $anchor = 'A2';
-            $validation = $sheet->getCell($anchor)->getDataValidation();
-            $validation->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
-            $validation->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_INFORMATION);
-            $validation->setAllowBlank(true);
-            $validation->setShowInputMessage(true);
-            $validation->setShowErrorMessage(false);
-            $validation->setShowDropDown(true);
-            $validation->setPromptTitle('Tipo de Equipo');
-            $validation->setPrompt('Selecciona de la lista o escribe uno nuevo (se creará al guardar).');
-            $validation->setFormula1('_listas!$A$2:$A$' . ($tiposCount + 1));
-            $validation->setSqref('A2:A1001');
+            $addListValidation('A', '_listas!$A$2:$A$' . ($tiposCount + 1), true, 'Selecciona de la lista o escribe uno nuevo (se creará al guardar).');
         }
-
-        // B2:B1001 — Categoria de Flota
         $addListValidation('B', '_listas!$C$2:$C$3');
-
-        // I2:I1001 — Frente de Trabajo
         if ($frentesCount > 0) {
             $addListValidation('I', '_listas!$B$2:$B$' . ($frentesCount + 1));
         }
-
-        // J2:J1001 — Status
         $addListValidation('J', '_listas!$D$2:$D$5');
 
-        // Asegurarse que la hoja activa al abrir sea "Equipos"
         $spreadsheet->setActiveSheetIndex(0);
 
-        // ── Escribir a temp y devolver descarga ───────────────────────────────
-        $tempFile = tempnam(sys_get_temp_dir(), 'plantilla_equipos_');
-        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $writer->save($tempFile);
+        // Escritura a memoria (sin I/O a disco) — mas rapido y elimina cleanup
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->setPreCalculateFormulas(false); // no hay formulas en la plantilla
+        ob_start();
+        $writer->save('php://output');
+        $binary = ob_get_clean();
 
-        $filename = 'plantilla_equipos_' . now()->format('Y-m-d') . '.xlsx';
+        // Liberar memoria explicitamente
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet, $writer);
 
-        return response()->download($tempFile, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ])->deleteFileAfterSend(true);
+        return $binary;
     }
 
     public function bulkPreview(Request $request)
