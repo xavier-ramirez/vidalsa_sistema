@@ -133,19 +133,35 @@
     /* ── Wrapper grid: Salud Operacional + Alertas Documentos, responsive auto-fit ── */
     .cards-wrapper {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
         align-items: stretch;
         width: 100%;
+        box-sizing: border-box;
     }
-    /* Los hijos directos ocupan toda la celda del grid para igualar alturas y evitar overflow */
-    .cards-wrapper > * { display: flex; min-width: 0; }
+    /* Los hijos directos ocupan toda la celda del grid y NO se expanden mas alla */
+    .cards-wrapper > * {
+        display: flex;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+    }
     .cards-wrapper > * > .salud-card,
     .cards-wrapper > * > .alertas-card,
     .cards-wrapper > .salud-card,
-    .cards-wrapper > .alertas-card { width: 100%; height: 100%; min-width: 0; }
+    .cards-wrapper > .alertas-card {
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    /* Compactacion interna: reducir padding y gap dentro de cada card para bajar alto */
+    .cards-wrapper > * .salud-card,
+    .cards-wrapper .salud-card { padding: 16px 18px; gap: 18px; }
+    .cards-wrapper .alertas-card { padding: 14px 16px; }
     @media (max-width: 1100px) {
-        .cards-wrapper { grid-template-columns: 1fr; gap: 16px; }
+        .cards-wrapper { grid-template-columns: 1fr; gap: 12px; }
     }
 
     /* ── Modal Alertas Documentos (reemplaza el panel desplegable) ── */
