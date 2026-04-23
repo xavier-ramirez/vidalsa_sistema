@@ -177,6 +177,24 @@
 }
 .mov-confirm-btn .material-icons { font-size: 18px; }
 
+/* Responsive mobile: compactar items para que no se desborden en pantallas pequeñas */
+@media (max-width: 520px) {
+    .mov-pending-item {
+        padding: 8px 10px;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    .mov-icon-col { width: 30px; height: 30px; border-radius: 7px; }
+    .mov-icon-col .material-icons { font-size: 16px; }
+    .mov-tipo { font-size: 12px; }
+    .mov-etiqueta { font-size: 10px; }
+    .mov-placa { font-size: 10px; }
+    .mov-meta { gap: 6px; row-gap: 3px; }
+    .mov-frente, .mov-time { font-size: 9.5px; }
+    .mov-confirm-btn { width: 28px; height: 28px; border-radius: 7px; }
+    .mov-confirm-btn .material-icons { font-size: 16px; }
+}
+
 /* Estado vacío */
 .mov-empty-state {
     display: flex;

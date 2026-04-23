@@ -70,17 +70,19 @@ class EquipoController extends Controller
                 // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL)
                 $query->where('ID_FRENTE_ACTUAL', $raw);
             } else {
-                // "TODOS LOS FRENTES" o sin filtro explícito: excluir equipos en frentes
-                // tipo ESPECIAL (asignaciones especiales — equipos que controlamos pero no son de Vidalsa).
-                // Solo deben contar OPERACION y RESGUARDO.
-                $query->where(function ($q) {
-                    $q->whereNull('ID_FRENTE_ACTUAL')
-                      ->orWhereNotIn('ID_FRENTE_ACTUAL', function ($sub) {
-                          $sub->select('ID_FRENTE')
-                              ->from('frentes_trabajo')
-                              ->where('TIPO_FRENTE', 'ESPECIAL');
-                      });
-                });
+                // "TODOS LOS FRENTES" o sin filtro: excluir equipos en frentes TIPO_FRENTE=ESPECIAL.
+                // Cacheamos los IDs de frentes ESPECIAL (5 min) para evitar subquery en cada call —
+                // applyEquipoFilters se invoca 5-8 veces por request (stats, tipos, frentes, ubicaciones).
+                $excludedEspecialIds = \Illuminate\Support\Facades\Cache::remember(
+                    'frentes_especial_ids', 300,
+                    fn() => \App\Models\FrenteTrabajo::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
+                );
+                if (!empty($excludedEspecialIds)) {
+                    $query->where(function ($q) use ($excludedEspecialIds) {
+                        $q->whereNull('ID_FRENTE_ACTUAL')
+                          ->orWhereNotIn('ID_FRENTE_ACTUAL', $excludedEspecialIds);
+                    });
+                }
             }
         }
 

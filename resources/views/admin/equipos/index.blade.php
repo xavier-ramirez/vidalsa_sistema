@@ -5,11 +5,12 @@
 @section('content')
 
 <style>
-    /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas */
-    @media (max-width: 1400px) {
-        .table-equipos-mobile td, 
-        .table-equipos-mobile th, 
-        .table-equipos-mobile td div, 
+    /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas.
+       Limitado a >768px para que NO se aplique en mobile (donde la tabla se transforma en cards verticales). */
+    @media (min-width: 769px) and (max-width: 1400px) {
+        .table-equipos-mobile td,
+        .table-equipos-mobile th,
+        .table-equipos-mobile td div,
         .table-equipos-mobile td span {
             font-size: 11.5px !important;
             letter-spacing: -0.2px;

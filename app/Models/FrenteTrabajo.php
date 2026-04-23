@@ -3,11 +3,23 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class FrenteTrabajo extends Model
 {
     protected $table = 'frentes_trabajo';
     protected $primaryKey = 'ID_FRENTE';
+
+    /**
+     * Invalidar caches derivados cuando cambia cualquier frente.
+     * Previene stale-cache (p.ej. frentes_especial_ids usado por EquipoController y DashboardController).
+     */
+    protected static function booted(): void
+    {
+        $bust = static fn() => Cache::forget('frentes_especial_ids');
+        static::saved($bust);
+        static::deleted($bust);
+    }
 
     protected $fillable = [
         'ID_FRENTE',

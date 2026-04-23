@@ -10,7 +10,13 @@
 </section>
 
 @can('equipos.create')
-<div class="admin-card" style="max-width: 95%; margin: 0 auto 20px auto; padding: 20px;">
+<style>
+    /* La carga masiva vía Excel no aplica en teléfonos (UX de subida/preview no es usable ahí) */
+    @media (max-width: 768px) {
+        #bulkUploadCard { display: none !important; }
+    }
+</style>
+<div id="bulkUploadCard" class="admin-card" style="max-width: 95%; margin: 0 auto 20px auto; padding: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div>
             <h3 style="margin: 0; color: #0067b1; font-size: 16px; font-weight: 700;">

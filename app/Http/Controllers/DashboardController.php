@@ -41,15 +41,16 @@ class DashboardController extends Controller
                 ->get();
 
             // 6. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
+            //    Cacheamos IDs de frentes ESPECIAL (5 min) para evitar subquery pesado en cada clone.
+            $excludedEspecialIds = \Illuminate\Support\Facades\Cache::remember(
+                'frentes_especial_ids', 300,
+                fn() => FrenteTrabajo::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
+            );
             $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
-                ->where(function ($q) {
-                    $q->whereNull('ID_FRENTE_ACTUAL')
-                      ->orWhereNotIn('ID_FRENTE_ACTUAL', function ($sub) {
-                          $sub->select('ID_FRENTE')
-                              ->from('frentes_trabajo')
-                              ->where('TIPO_FRENTE', 'ESPECIAL');
-                      });
-                });
+                ->when(!empty($excludedEspecialIds), fn($q) => $q->where(fn($inner) =>
+                    $inner->whereNull('ID_FRENTE_ACTUAL')
+                          ->orWhereNotIn('ID_FRENTE_ACTUAL', $excludedEspecialIds)
+                ));
 
             $totalFlotaActiva     = (clone $saludBase)->count();
             $equiposOperativos    = (clone $saludBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count();

@@ -380,12 +380,11 @@
 
         /* Responsive: breakpoint 900px (matches con el layout base donde se activa mobile) */
         @media (max-width: 900px) {
-            /* El panel de usuario se oculta; la utility .desktop-only ya lo oculta,
-               mantenemos la regla explícita para evitar conflictos con reglas inline posteriores. */
             .header-user-panel { display: none !important; }
-            /* Acercar el notif al hamburger (logout está oculto) */
+            /* Empujar el grupo notif hacia la derecha, pegado al hamburger con 6px de separación */
+            .dashboard-header { justify-content: flex-start !important; }
+            .header-actions { margin-left: auto !important; gap: 0; }
             .notif-center { margin: 0; }
-            .header-actions { margin-left: 0; gap: 0; }
             .notif-bell-btn { height: 38px; padding: 0 4px; }
             .notif-bell-btn .material-icons { font-size: 19px; }
             .notif-badge {
@@ -395,13 +394,21 @@
                 top: 2px;
                 right: 2px;
             }
-            .menu-toggle.mobile-only { padding: 4px 6px; }
-        }
-        @media (max-width: 520px) {
+            .menu-toggle.mobile-only { margin-left: 6px !important; padding: 4px 6px; }
+
+            /* Dropdown de notificaciones anclado al viewport para que nunca se escape */
             .notif-dropdown {
-                width: calc(100vw - 20px);
-                right: -10px;
+                position: fixed;
+                top: 82px;
+                left: 10px;
+                right: 10px;
+                width: auto;
+                max-width: none;
+                max-height: calc(100vh - 100px);
+                display: flex;
+                flex-direction: column;
             }
+            .notif-dropdown-body { flex: 1; max-height: none; }
         }
     </style>
     <!-- Custom UI Components (SPA Friendly) -->
@@ -517,7 +524,7 @@
         <div class="header-actions">
             {{-- ── Panel de usuario (avatar + nombre + rol) — estilo moderno en el navbar ── --}}
             @auth
-                <div class="header-user-panel desktop-only" title="{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}">
+                <div class="header-user-panel" title="{{ auth()->user()->NOMBRE_COMPLETO ?? 'Usuario' }}">
                     <div class="hup-avatar">
                         {{ strtoupper(substr(auth()->user()->NOMBRE_COMPLETO ?? 'U', 0, 1)) }}
                     </div>
