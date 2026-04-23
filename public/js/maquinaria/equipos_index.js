@@ -969,7 +969,7 @@ window.openUbicacionBulkModal = function (event) {
     }).join('') + (selections.length > 12 ? `<span style="color:#64748b;font-size:12px;">+${selections.length - 12} más</span>` : '');
 
     overlay.innerHTML = `
-        <div style="background:white;width:100%;max-width:460px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:reimprimirIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+        <div style="background:white;width:100%;max-width:460px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:ubBulkIn 0.22s cubic-bezier(0.16,1,0.3,1);">
             <div style="background:linear-gradient(135deg,#0284c7 0%,#075985 100%);padding:16px 20px;color:white;display:flex;align-items:center;justify-content:space-between;">
                 <div style="display:flex;align-items:center;gap:12px;min-width:0;">
                     <div style="background:rgba(255,255,255,0.18);width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -1021,7 +1021,7 @@ window.openUbicacionBulkModal = function (event) {
     if (!document.getElementById('ub-keyframes')) {
         const st = document.createElement('style');
         st.id = 'ub-keyframes';
-        st.textContent = '@keyframes reimprimirIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } } #ub-inputbox:focus-within { border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,0.15); }';
+        st.textContent = '@keyframes ubBulkIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } } #ub-inputbox:focus-within { border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,0.15); }';
         document.head.appendChild(st);
     }
 

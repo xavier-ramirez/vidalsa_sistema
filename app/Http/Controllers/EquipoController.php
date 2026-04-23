@@ -2800,53 +2800,54 @@ class EquipoController extends Controller
             'detalle_ubicacion' => 'required|string|max:150',
         ]);
 
-        $valor = strtoupper(trim($request->input('detalle_ubicacion')));
-
-        $user    = auth()->user();
-        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+        $valor      = strtoupper(trim($request->input('detalle_ubicacion')));
+        $user       = auth()->user();
+        $isLocal    = $user && $user->NIVEL_ACCESO == 2;
         $permitidos = $isLocal ? $user->getFrentesIds() : [];
 
-        $equipos = Equipo::whereIn('ID_EQUIPO', $request->ids)
-            ->lockForUpdate()
-            ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+        // Transaccion requerida para que lockForUpdate tenga efecto real hasta el UPDATE
+        // final. Evita race entre validacion "mismo frente" y el write posterior.
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $valor, $isLocal, $permitidos) {
+            $equipos = Equipo::whereIn('ID_EQUIPO', $request->ids)
+                ->lockForUpdate()
+                ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
-        if ($equipos->isEmpty()) {
-            return response()->json(['success' => false, 'message' => 'No se encontraron los equipos.'], 404);
-        }
+            if ($equipos->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'No se encontraron los equipos.'], 404);
+            }
 
-        // Todos deben compartir el mismo frente (la ubicacion es relativa al frente).
-        $frentesUnicos = $equipos->pluck('ID_FRENTE_ACTUAL')->unique();
-        if ($frentesUnicos->count() > 1) {
+            $frentesUnicos = $equipos->pluck('ID_FRENTE_ACTUAL')->unique();
+            if ($frentesUnicos->count() > 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Todos los equipos deben estar en el mismo frente.',
+                ], 422);
+            }
+            $frenteUnico = $frentesUnicos->first();
+            if ($frenteUnico === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Los equipos seleccionados no tienen un frente asignado.',
+                ], 422);
+            }
+
+            if ($isLocal && !in_array($frenteUnico, $permitidos)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes permiso sobre el frente de los equipos seleccionados.',
+                ], 403);
+            }
+
+            $count = Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
+                'DETALLE_UBICACION_ACTUAL' => $valor,
+            ]);
+
             return response()->json([
-                'success' => false,
-                'message' => 'Todos los equipos deben estar en el mismo frente.',
-            ], 422);
-        }
-        $frenteUnico = $frentesUnicos->first();
-        if ($frenteUnico === null) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Los equipos seleccionados no tienen un frente asignado.',
-            ], 422);
-        }
-
-        // Scope LOCAL: el frente debe estar en la jurisdiccion del usuario.
-        if ($isLocal && !in_array($frenteUnico, $permitidos)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tienes permiso sobre el frente de los equipos seleccionados.',
-            ], 403);
-        }
-
-        $count = Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
-            'DETALLE_UBICACION_ACTUAL' => $valor,
-        ]);
-
-        return response()->json([
-            'success'                  => true,
-            'count'                    => $count,
-            'DETALLE_UBICACION_ACTUAL' => $valor,
-        ]);
+                'success'                  => true,
+                'count'                    => $count,
+                'DETALLE_UBICACION_ACTUAL' => $valor,
+            ]);
+        });
     }
 
     // ─── MOBILE API ───────────────────────────────────────────────────────────────
