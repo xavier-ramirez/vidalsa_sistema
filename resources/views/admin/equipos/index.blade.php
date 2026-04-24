@@ -502,11 +502,9 @@
                     <span style="font-size: 14px; font-weight: 500;">Exportación de Data</span>
                 </a>
 
-                <!-- Equipos Auxiliares (maquinas de soldar, luminarias, compresores, etc) -->
-                <a href="{{ route('equipos-auxiliares.index') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=	ransparent'">
-                    <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;"><i class="material-icons" style="font-size: 18px; color: #f59e0b;">construction</i></div>
-                    <span style="font-size: 14px; font-weight: 500;">Equipos Auxiliares</span>
-                </a>
+                {{-- Boton 'Equipos Auxiliares' del dropdown removido: ahora se accede
+                     desde el dropdown 'Flota Operacional' del navbar, al lado de
+                     'Equipos y Maquinarias'. --}}
 
                 <!-- Catálogo de Modelos -->
                 <a href="{{ route('catalogo.index') }}" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;">

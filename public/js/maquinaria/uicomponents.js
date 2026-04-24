@@ -1072,7 +1072,9 @@ window.loadResponsables = (function () {
         const inputNom = document.getElementById('resp_nombre');
 
         if (formContainer && inputCed && inputNom) {
-            formContainer.style.display = 'flex';
+            // Siempre arrancar con form oculto; lo mostramos solo si no hay
+            // responsables o si el usuario toca el lapiz.
+            formContainer.style.display = 'none';
             inputCed.value = '';
             inputNom.value = '';
         }
@@ -1081,20 +1083,43 @@ window.loadResponsables = (function () {
 
         list.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Cargando responsables...</p>';
 
+        // Helper: inserta un boton lapiz compacto al final de la lista que al
+        // hacer click muestra el form de nuevo responsable. Se crea solo si
+        // hay al menos 1 responsable ya registrado.
+        const injectEditPencil = () => {
+            if (!formContainer) return;
+            const wrap = document.createElement('div');
+            wrap.id = 'responsable_edit_pencil_wrap';
+            wrap.style.cssText = 'display:flex;justify-content:flex-end;margin-top:4px;';
+            wrap.innerHTML =
+                '<button type="button" id="responsable_edit_pencil" title="Registrar nuevo responsable" ' +
+                'style="background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;width:30px;height:30px;border-radius:8px;' +
+                'display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" ' +
+                'onmouseover="this.style.background=\'#e2e8f0\';this.style.color=\'#1e293b\'" ' +
+                'onmouseout="this.style.background=\'#f1f5f9\';this.style.color=\'#475569\'">' +
+                '<i class="material-icons" style="font-size:16px;">edit</i>' +
+                '</button>';
+            list.appendChild(wrap);
+            wrap.querySelector('button').addEventListener('click', () => {
+                formContainer.style.display = 'flex';
+                wrap.remove();
+                if (inputNom) inputNom.focus();
+            });
+        };
+
         fetch(`/admin/equipos/${equipoId}/responsables`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(r => r.json())
         .then(res => {
-            // El form de "agregar responsable" SIEMPRE se mantiene visible: el
-            // backend conserva un historial de 2 registros por equipo y rota
-            // al insertar uno nuevo. Si ocultaramos el form cuando ya hay 2,
-            // el usuario no tendria como ingresar uno nuevo sin buscar el
-            // boton edit escondido.
-            if (formContainer) formContainer.style.display = 'flex';
-
+            // Regla UX:
+            // - Sin responsables -> mostrar el form para que el usuario capture el primero.
+            // - Con responsables -> ocultar form, mostrar lista compacta + boton lapiz.
+            //   Al tocar el lapiz aparece el form para anexar uno nuevo (el backend
+            //   rota el mas viejo manteniendo solo 2 en historial).
             if (!res.success || res.data.length === 0) {
                 list.innerHTML = '';
+                if (formContainer) formContainer.style.display = 'flex';
                 return;
             }
 
@@ -1127,6 +1152,9 @@ window.loadResponsables = (function () {
                     ${statusBadge}
                 </div>`;
             }).join('');
+            // Boton lapiz al final para registrar un nuevo responsable (rotando
+            // el mas viejo). El form permanece oculto hasta que se toque.
+            injectEditPencil();
         })
         .catch(() => {
             list.innerHTML = '<p style="color:#dc2626;font-size:12px;text-align:center;padding:8px;">Error al cargar responsables.</p>';
