@@ -2033,13 +2033,12 @@ window.handleCreateCheck = function (event) {
             event.stopPropagation();
         }
 
-        window.showModal({
-            type: "error",
-            title: "Acceso Denegado",
-            message: "No tienes permisos para crear nuevos equipos.",
-            confirmText: "Entendido",
-            hideCancel: true,
-        });
+        // Notificacion moderna (toast) en lugar del modal bloqueante.
+        // Patron consistente con el resto de validaciones de permiso del
+        // modulo (/admin/equipos movilizar, anclar, ubicar, etc).
+        if (typeof window.showToast === 'function') {
+            window.showToast('No tienes permisos para crear nuevos equipos.', 'error');
+        }
         return false;
     }
 
