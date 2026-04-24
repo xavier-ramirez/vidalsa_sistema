@@ -23,35 +23,91 @@
         @endcan
     </div>
 
-    <!-- Filtros -->
+    {{-- Filtros: mismo diseño visual que /admin/equipos (custom-dropdown + trigger) --}}
     <form id="auxFiltersForm" onsubmit="event.preventDefault(); cargarAuxiliares();" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center;">
-        <input type="text" name="search" value="{{ request('search') }}" placeholder="Buscar por serial, marca, modelo..."
-               oninput="_auxDebounce && clearTimeout(_auxDebounce); _auxDebounce = setTimeout(cargarAuxiliares, 300);"
-               style="flex:1;min-width:220px;padding:10px 14px;border:1px solid #cbd5e0;border-radius:10px;font-size:13px;background:#fbfcfd;outline:none;">
 
-        <select name="tipo" onchange="cargarAuxiliares()" style="padding:10px 14px;border:1px solid #cbd5e0;border-radius:10px;font-size:13px;background:#fbfcfd;min-width:160px;">
-            <option value="all">Todos los tipos</option>
-            @foreach($tipos as $k => $label)
-                <option value="{{ $k }}" {{ request('tipo') === $k ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-        </select>
+        {{-- 1. Filtro FRENTE --}}
+        @php
+            $reqFrente = request('id_frente');
+            $frenteActual = null;
+            if ($reqFrente && $reqFrente !== 'all') {
+                $frenteActual = $frentes->firstWhere('ID_FRENTE', (int) $reqFrente);
+            }
+            $frenteLabel = $frenteActual ? $frenteActual->NOMBRE_FRENTE : 'Filtrar Frente...';
+        @endphp
+        <input type="hidden" name="id_frente" value="{{ $reqFrente ?: '' }}" data-filter-value>
+        <div class="custom-dropdown" id="auxFrenteFilterSelect" data-filter-type="id_frente" data-default-label="Filtrar Frente..." style="flex:1;min-width:180px;">
+            <div class="dropdown-trigger {{ $reqFrente && $reqFrente !== 'all' ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:12px; height:45px;">
+                <div style="padding: 0 12px; display: flex; align-items: center; color: #64748b;">
+                    <i class="material-icons" style="font-size: 18px;">place</i>
+                </div>
+                <input type="text" data-filter-search placeholder="Buscar frente..." style="flex: 1; border: none; background: transparent; padding: 12px 5px; font-size: 13px; outline: none; min-width: 0;" autocomplete="off" value="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : '' }}">
+                <span data-filter-label style="display:none;">{{ $frenteLabel }}</span>
+                <i class="material-icons" data-clear-btn
+                   style="padding:0 8px; color:#64748b; font-size:18px; cursor:pointer; display:{{ $reqFrente && $reqFrente !== 'all' ? 'block' : 'none' }};"
+                   onclick="event.stopPropagation(); clearDropdownFilter('auxFrenteFilterSelect'); cargarAuxiliares();">close</i>
+            </div>
+            <div class="dropdown-list">
+                <div class="dropdown-item {{ !$reqFrente || $reqFrente === 'all' ? 'selected' : '' }}" data-value="all"
+                     onclick="selectOption('auxFrenteFilterSelect','all','TODOS LOS FRENTES'); cargarAuxiliares();">
+                    TODOS LOS FRENTES
+                </div>
+                @foreach($frentes as $frente)
+                    <div class="dropdown-item {{ (string)$reqFrente === (string)$frente->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $frente->ID_FRENTE }}"
+                         onclick="selectOption('auxFrenteFilterSelect','{{ $frente->ID_FRENTE }}','{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); cargarAuxiliares();">
+                        {{ $frente->NOMBRE_FRENTE }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
 
-        <select name="id_frente" onchange="cargarAuxiliares()" style="padding:10px 14px;border:1px solid #cbd5e0;border-radius:10px;font-size:13px;background:#fbfcfd;min-width:180px;">
-            <option value="all">Todos los frentes</option>
-            @foreach($frentes as $f)
-                <option value="{{ $f->ID_FRENTE }}" {{ (string)request('id_frente') === (string)$f->ID_FRENTE ? 'selected' : '' }}>{{ $f->NOMBRE_FRENTE }}</option>
-            @endforeach
-        </select>
+        {{-- 2. Filtro TIPO --}}
+        @php
+            $reqTipo = request('tipo');
+            $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? ($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
+        @endphp
+        <input type="hidden" name="tipo" value="{{ $reqTipo ?: '' }}" data-filter-value>
+        <div class="custom-dropdown" id="auxTipoFilterSelect" data-filter-type="tipo" data-default-label="Filtrar Tipo..." style="flex:1;min-width:180px;">
+            <div class="dropdown-trigger {{ $reqTipo && $reqTipo !== 'all' ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:12px; height:45px;">
+                <div style="padding: 0 12px; display: flex; align-items: center; color: #64748b;">
+                    <i class="material-icons" style="font-size: 18px;">category</i>
+                </div>
+                <input type="text" data-filter-search placeholder="Buscar tipo..." style="flex: 1; border: none; background: transparent; padding: 12px 5px; font-size: 13px; outline: none; min-width: 0;" autocomplete="off" value="{{ ($reqTipo && $reqTipo !== 'all') ? $tipoLabel : '' }}">
+                <span data-filter-label style="display:none;">{{ $tipoLabel }}</span>
+                <i class="material-icons" data-clear-btn
+                   style="padding:0 8px; color:#64748b; font-size:18px; cursor:pointer; display:{{ $reqTipo && $reqTipo !== 'all' ? 'block' : 'none' }};"
+                   onclick="event.stopPropagation(); clearDropdownFilter('auxTipoFilterSelect'); cargarAuxiliares();">close</i>
+            </div>
+            <div class="dropdown-list">
+                <div class="dropdown-item {{ !$reqTipo || $reqTipo === 'all' ? 'selected' : '' }}" data-value="all"
+                     onclick="selectOption('auxTipoFilterSelect','all','TODOS LOS TIPOS'); cargarAuxiliares();">
+                    TODOS LOS TIPOS
+                </div>
+                @foreach($tipos as $k => $label)
+                    <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}"
+                         onclick="selectOption('auxTipoFilterSelect','{{ $k }}','{{ addslashes($label) }}'); cargarAuxiliares();">
+                        {{ $label }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
 
-        <select name="estado" onchange="cargarAuxiliares()" style="padding:10px 14px;border:1px solid #cbd5e0;border-radius:10px;font-size:13px;background:#fbfcfd;min-width:150px;">
-            <option value="all">Todos los estados</option>
-            @foreach($estados as $k => $label)
-                <option value="{{ $k }}" {{ request('estado') === $k ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-        </select>
+        {{-- 3. Filtro SERIAL (búsqueda libre) --}}
+        <div class="search-wrapper" style="flex:1;min-width:220px;border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};display:flex;align-items:center;height:45px;overflow:hidden;">
+            <div style="padding: 0 12px; display: flex; align-items: center; color: #64748b;">
+                <i class="material-icons" style="font-size: 18px;">search</i>
+            </div>
+            <input type="text" id="auxSearchInput" name="search" value="{{ request('search') }}" placeholder="Buscar por serial..."
+                   oninput="window._auxDebounce && clearTimeout(window._auxDebounce); window._auxDebounce = setTimeout(cargarAuxiliares, 300);"
+                   style="flex:1; border:none; background:transparent; padding:12px 5px; font-size:13px; outline:none;" autocomplete="off">
+            <i class="material-icons"
+               style="padding:0 8px; color:#64748b; font-size:18px; cursor:pointer; display:{{ request('search') ? 'block' : 'none' }};"
+               onclick="event.stopPropagation(); document.getElementById('auxSearchInput').value=''; cargarAuxiliares();">close</i>
+        </div>
     </form>
 
-    <!-- Tabla -->
+    {{-- Tabla: columnas 'Equipo Host' y 'Acciones' removidas a pedido del dueño.
+         Edicion vive en el formulario de edit (se puede llegar a el via otra ruta). --}}
     <div class="custom-scrollbar-container" style="background:white;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,0.08);overflow:hidden;">
         <table class="admin-table" id="auxTable" style="width:100%;">
             <thead>
@@ -61,9 +117,7 @@
                     <th class="table-header-custom">Serial</th>
                     <th class="table-header-custom">Capacidad</th>
                     <th class="table-header-custom">Frente</th>
-                    <th class="table-header-custom">Equipo Host</th>
                     <th class="table-header-custom">Estado</th>
-                    <th class="table-header-custom" style="text-align:right;">Acciones</th>
                 </tr>
             </thead>
             <tbody id="auxTableBody">
@@ -72,7 +126,6 @@
         </table>
     </div>
 
-    <!-- Paginación -->
     <div id="auxPagination" style="margin-top:14px;">
         {{ $auxiliares->links('vendor.pagination.custom-sliding') }}
     </div>
@@ -81,7 +134,6 @@
 
 <script>
 (function () {
-    let _auxDebounce = null;
     window.cargarAuxiliares = function () {
         const form   = document.getElementById('auxFiltersForm');
         const params = new URLSearchParams(new FormData(form));

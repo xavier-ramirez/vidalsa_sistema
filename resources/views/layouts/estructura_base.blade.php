@@ -484,7 +484,7 @@
                 <a href="#"
                     class="nav-link {{ (request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) || request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}"
                     style="display: flex; align-items: center; gap: 4px;">
-                    <i class="material-icons" style="font-size: 18px;">agriculture</i>Flota Operacional
+                    <i class="material-icons" style="font-size: 18px;">agriculture</i>Flota
                     <i class="material-icons" style="font-size: 16px;">expand_more</i>
                 </a>
                 <div class="nav-dropdown-content">
@@ -630,7 +630,7 @@
             <div class="mobile-nav-group-title">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="material-icons">agriculture</i>
-                    Flota Operacional
+                    Flota
                 </div>
                 <i class="material-icons chevron">expand_more</i>
             </div>
