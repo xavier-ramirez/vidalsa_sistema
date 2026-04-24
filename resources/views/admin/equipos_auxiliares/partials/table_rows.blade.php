@@ -12,37 +12,67 @@
             'DESINCORPORADO'  => ['color' => '#475569', 'bg' => '#f1f5f9', 'icon' => 'block',         'label' => 'DESINCORP.'],
         ];
         $currentConfig = $statusConfig[$aux->ESTADO_OPERATIVO] ?? $statusConfig['DESINCORPORADO'];
+
+        // Foto del equipo: propia, fallback a la de otro aux con misma
+        // MARCA/MODELO (catalogo implicito). $photoByModel viene opcional.
+        $photoByModel = $photoByModel ?? collect();
+        $modelKey = mb_strtoupper(trim(($aux->MARCA ?? '') . '|' . ($aux->MODELO ?? '')));
+        $fotoUrl  = $aux->FOTO ?: ($photoByModel[$modelKey] ?? null);
+        $fotoDriveId = $fotoUrl ? basename(str_replace('/storage/google/', '', $fotoUrl)) : null;
     @endphp
     <tr data-aux-id="{{ $aux->ID_AUXILIAR }}"
         data-codigo="{{ $aux->CODIGO_INTERNO ?: $aux->SERIAL }}"
         data-frente="{{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
         class="aux-row-selectable @if(auth()->user() && auth()->user()->can('equipos.edit')) aux-row-clickable @endif"
         style="{{ auth()->user() && auth()->user()->can('equipos.edit') ? 'cursor:pointer;' : '' }}">
-        {{-- 1. Tipo + Marca/Modelo + Frente (columna FRENTE/FOTO eliminada) --}}
-        <td class="table-cell-custom" style="font-size: 12px; color: #000; max-width: 240px; word-wrap: break-word;">
-            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $tipoLabel }}</div>
-            <div style="font-size: 11px; color: #334155; font-weight: 600; text-transform: uppercase; margin-top: 2px;">
-                {{ $aux->MARCA }} {{ $aux->MODELO }}
-            </div>
-            @if($aux->CODIGO_INTERNO)
-                <div style="font-size: 10px; color: #718096; font-weight: 500; margin-top: 2px;">#{{ strtoupper($aux->CODIGO_INTERNO) }}</div>
-            @endif
-            <div style="display:inline-flex; align-items:center; gap:3px; margin-top: 4px; font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase;">
-                <i class="material-icons" style="font-size: 12px;">place</i>
+        {{-- 1. FRENTE + FOTO (patron vehiculos: /admin/equipos) --}}
+        <td class="table-cell-custom table-cell-center" style="padding: 6px 4px; width: 150px;">
+            <div style="font-size: 11px; color: #000; margin-bottom: 5px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word;">
                 {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
             </div>
+            @if($fotoDriveId)
+                <div class="table-image-wrapper" style="cursor: default;">
+                    <img data-src="https://drive.google.com/thumbnail?id={{ $fotoDriveId }}&sz=w300"
+                         src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'></svg>"
+                         alt="Foto" loading="lazy"
+                         style="width: 54px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0;">
+                </div>
+            @else
+                <div style="width:54px; height:54px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc; display:inline-flex; align-items:center; justify-content:center; color:#cbd5e0;">
+                    <i class="material-icons" style="font-size:22px;">image_not_supported</i>
+                </div>
+            @endif
         </td>
 
-        {{-- 3. Serial --}}
-        <td class="table-cell-custom" style="font-size: 12px; max-width: 140px; color: #4a5568;">
-            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;">
-                <strong>S:</strong> {{ $aux->SERIAL ?: '—' }}
+        {{-- 2. Tipo (columna independiente, patron /admin/equipos) --}}
+        <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
+            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $tipoLabel }}</div>
+            @if($aux->CAPACIDAD)
+                <div style="font-size: 11px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 3px;">{{ $aux->CAPACIDAD }}</div>
+            @endif
+        </td>
+
+        {{-- 3. Marca / Modelo --}}
+        <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
+            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $aux->MARCA ?: '—' }}</div>
+            @if($aux->MODELO)
+                <div style="font-size: 11px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 3px;">{{ $aux->MODELO }}</div>
+            @endif
+        </td>
+
+        {{-- 4. Serial / Codigo interno --}}
+        <td class="table-cell-custom" style="font-size: 12.5px; color: #4a5568;">
+            <div style="text-transform: uppercase; line-height: 1.3;">
+                <strong style="color:#64748b;">S:</strong> {{ $aux->SERIAL ?: '—' }}
             </div>
-        </td>
-
-        {{-- 4. Capacidad (compresa) --}}
-        <td class="table-cell-custom" style="font-size: 12px; color: #4a5568; text-transform: uppercase; width: 90px; max-width: 90px;">
-            {{ $aux->CAPACIDAD ?: '—' }}
+            @if($aux->CODIGO_INTERNO)
+                <div style="font-size: 11px; color: #718096; margin-top: 3px; text-transform: uppercase;">
+                    <strong style="color:#64748b;">Cod:</strong> #{{ strtoupper($aux->CODIGO_INTERNO) }}
+                </div>
+            @endif
+            @if($aux->ANIO)
+                <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">Año: {{ $aux->ANIO }}</div>
+            @endif
         </td>
 
         {{-- 5. Estado (compreso) --}}
@@ -68,21 +98,29 @@
             @endcan
         </td>
 
-        {{-- 6. Acciones (ojo -> modal de detalles) --}}
-        <td class="table-cell-center" style="padding: 8px 5px; width: 40px; text-align: center; vertical-align: middle;">
-            <div style="display:flex; justify-content:center; align-items:center;">
+        {{-- 6. Acciones: ojo (detalles) + lapiz (editar ficha) --}}
+        <td class="table-cell-center" style="padding: 8px 5px; width: 72px; text-align: center; vertical-align: middle;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:4px;">
                 <button type="button"
                     data-aux-id="{{ $aux->ID_AUXILIAR }}"
-                    onclick="window.openAuxDetailsModal(this, event)"
+                    onclick="event.stopPropagation(); window.openAuxDetailsModal(this, event)"
                     class="btn-details-mini" title="Ver Detalles">
                     <i class="material-icons">visibility</i>
                 </button>
+                @can('equipos.edit')
+                <a href="{{ route('equipos-auxiliares.edit', $aux->ID_AUXILIAR) }}"
+                   onclick="event.stopPropagation();"
+                   class="btn-details-mini" title="Editar"
+                   style="color:#0067b1; background:#eff6ff;">
+                    <i class="material-icons">edit</i>
+                </a>
+                @endcan
             </div>
         </td>
     </tr>
 @empty
     <tr>
-        <td colspan="5" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
+        <td colspan="6" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
             @if(request('tipo') || request('id_frente') || request('search') || request('marca') || request('modelo') || request('capacidad') || request('estado'))
                 <i class="material-icons" style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">search_off</i>
                 NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.

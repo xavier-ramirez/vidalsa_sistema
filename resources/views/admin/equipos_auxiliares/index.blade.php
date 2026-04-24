@@ -202,11 +202,12 @@
             <table class="admin-table" id="auxTable" style="width:100%;">
                 <thead>
                     <tr class="table-row-header">
-                        <th class="table-header-custom">TIPO / MARCA / MODELO</th>
-                        <th class="table-header-custom">SERIAL</th>
-                        <th class="table-header-custom" style="width: 90px;">CAPACIDAD</th>
-                        <th class="table-header-custom" style="width: 120px;">ESTADO</th>
-                        <th class="table-header-custom table-cell-center" style="width: 40px;"></th>
+                        <th class="table-header-custom" style="width: 150px;"></th>
+                        <th class="table-header-custom" style="width: 22%;">TIPO</th>
+                        <th class="table-header-custom" style="width: 15%;">MARCA / MODELO</th>
+                        <th class="table-header-custom" style="width: 25%;">SERIAL</th>
+                        <th class="table-header-custom" style="width: 110px;">ESTADO</th>
+                        <th class="table-cell-center" style="width: 90px;"></th>
                     </tr>
                 </thead>
                 <tbody id="auxTableBody">

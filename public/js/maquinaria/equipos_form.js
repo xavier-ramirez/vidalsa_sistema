@@ -386,6 +386,13 @@ function initEquiposForm() {
                         'ANIO':               'anio',
                     };
 
+                    // Contabilizar cuantos errores del server lograron marcar
+                    // un input real. Si NINGUNO matchea, no mostramos banner
+                    // generico (el usuario no sabria que corregir); en su
+                    // lugar mostramos modal con la lista completa de mensajes.
+                    let mappedCount = 0;
+                    const unmappedMsgs = [];
+
                     Object.entries(body.errors).forEach(([field, msgs]) => {
                         const inputId = serverToClientMap[field] || field;
                         let input = document.getElementById(inputId) || form.querySelector(`[name="${field}"]`);
@@ -396,10 +403,35 @@ function initEquiposForm() {
                             input = form.querySelector(`[name="${bracketName}"]`);
                         }
 
-                        if (input) showFieldError(input, msgs[0]);
+                        if (input) {
+                            showFieldError(input, msgs[0]);
+                            mappedCount++;
+                        } else {
+                            unmappedMsgs.push((msgs[0] || '').toString());
+                        }
                     });
 
-                    showGlobalSummary();
+                    if (mappedCount > 0) {
+                        // Hay campos marcados -> banner estandar
+                        showGlobalSummary();
+                    } else if (unmappedMsgs.length > 0) {
+                        // Ningun input matchea: el banner generico confunde.
+                        // Mostrar modal con la lista real de errores del server.
+                        if (typeof window.showModal === 'function') {
+                            window.showModal({
+                                type: 'error',
+                                title: 'No se pudo guardar',
+                                message: unmappedMsgs.join('\n'),
+                                confirmText: 'Entendido',
+                                hideCancel: true,
+                            });
+                        } else if (typeof window.showToast === 'function') {
+                            window.showToast(unmappedMsgs[0], 'error');
+                        }
+                    }
+                    // Si body.errors esta vacio y no hay ni mapped ni unmapped,
+                    // no hacemos nada (el caller seguramente lo manejo). Sin
+                    // banner fantasma sin campos rojos.
                 } else {
                     throw new Error(body.message || 'Error desconocido.');
                 }
