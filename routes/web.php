@@ -59,8 +59,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('equipos/get-equipos-by-frente', [App\Http\Controllers\EquipoController::class, 'getEquiposByFrente'])->name('equipos.getByFrente');
             Route::get('equipos/get-anchors', [App\Http\Controllers\EquipoController::class, 'getAnchoredEquipos'])->name('equipos.getAnchors');
             Route::get('equipos/export-anchors', [App\Http\Controllers\EquipoController::class, 'exportAnclajes'])->middleware('can:equipos.edit')->name('equipos.exportAnclajes');
-            Route::post('equipos/bulk-anchor', [App\Http\Controllers\EquipoController::class, 'bulkAnchor'])->name('equipos.bulkAnchor');
-            Route::post('equipos/clear-anchor', [App\Http\Controllers\EquipoController::class, 'clearAnchor'])->name('equipos.clearAnchor');
+            Route::post('equipos/bulk-anchor', [App\Http\Controllers\EquipoController::class, 'bulkAnchor'])->middleware('can:equipos.assign')->name('equipos.bulkAnchor');
+            Route::post('equipos/clear-anchor', [App\Http\Controllers\EquipoController::class, 'clearAnchor'])->middleware('can:equipos.assign')->name('equipos.clearAnchor');
             Route::patch('equipos/{id}/ubicacion', [App\Http\Controllers\EquipoController::class, 'updateUbicacion'])->name('equipos.updateUbicacion');
             Route::post('equipos/bulk-ubicacion', [App\Http\Controllers\EquipoController::class, 'bulkUbicacion'])->name('equipos.bulkUbicacion');
             Route::get('equipos/bulk-template', [App\Http\Controllers\EquipoController::class, 'bulkTemplate'])->name('equipos.bulkTemplate');

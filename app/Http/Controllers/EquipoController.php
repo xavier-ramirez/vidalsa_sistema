@@ -2602,8 +2602,14 @@ class EquipoController extends Controller
                 $query->excludeEspecial();
             }
         } else {
-            // Modo normal: solo el frente actual (respeta el frente aunque sea ESPECIAL).
-            $query->where('ID_FRENTE_ACTUAL', $currentFrenteId);
+            // Modo normal: se listan equipos de TODOS los frentes (no solo el
+            // del origen). El anclaje ya no se restringe al mismo frente —
+            // permite enlazar REMOLCADOR del frente A con REMOLCABLE del frente B.
+            // Excluimos ESPECIAL (patio/almacen) para no contaminar la lista con
+            // unidades que no son flota productiva.
+            if (!FrenteTrabajo::isEspecialId($currentFrenteId)) {
+                $query->excludeEspecial();
+            }
         }
 
         $equipos = $query->orderBy('CODIGO_PATIO')->get()->map(function ($eq) use ($currentFrenteId) {

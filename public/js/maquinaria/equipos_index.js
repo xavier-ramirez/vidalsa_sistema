@@ -1517,6 +1517,18 @@ window.openAnchorModal = async function (event) {
         event.stopPropagation();
     }
 
+    // Permiso: anclar/desanclar es parte del flujo de asignacion. El backend
+    // (routes/web.php) valida lo mismo con middleware can:equipos.assign;
+    // este guard solo evita que el usuario vea un modal inutil.
+    if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
+        if (typeof window.showToast === 'function') {
+            window.showToast('No tienes permiso para anclar equipos.', 'error');
+        } else if (typeof window.showModal === 'function') {
+            window.showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permiso para anclar equipos.', confirmText: 'Entendido', hideCancel: true });
+        }
+        return;
+    }
+
     const selections = Object.entries(window.selectedEquipos);
     if (selections.length === 0) return;
 
