@@ -1,15 +1,14 @@
 @php
-    $hasF = $hasFilter ?? false;
     $dist = $distribucion ?? collect();
-    $totalDist = $hasF ? $dist->sum('total') : 0;
+    $totalDist = $dist->sum('total');
     $tiposLabel = \App\Models\EquipoAuxiliar::tiposLabel();
 @endphp
-<h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-    <i class="material-icons" style="font-size: 18px; color: #3b82f6;">pie_chart</i>
-    Distribución
-</h4>
-<ul style="list-style:none;padding:0;margin:0;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
-    @if($hasF && $dist->count() > 0)
+@if($dist->count() > 0)
+    <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <i class="material-icons" style="font-size: 18px; color: #3b82f6;">pie_chart</i>
+        Distribución
+    </h4>
+    <ul style="list-style:none;padding:0;margin:0;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
         @foreach($dist as $row)
             @php $pct = $totalDist > 0 ? ($row->total / $totalDist) * 100 : 0; @endphp
             <li style="padding-bottom:4px;border-bottom:1px dashed #f1f5f9;">
@@ -26,7 +25,10 @@
                 </div>
             </li>
         @endforeach
-    @else
-        <p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;">Aplica un filtro para ver el detalle.</p>
-    @endif
-</ul>
+    </ul>
+@else
+    <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700;">
+        Distribución
+    </h4>
+    <p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;">Sin datos para mostrar.</p>
+@endif

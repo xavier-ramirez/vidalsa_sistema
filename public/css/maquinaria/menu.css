@@ -144,15 +144,25 @@
     cursor: default;
 }
 
-.nav-dropdown-link:hover,
-.nav-dropdown-link.active {
+.nav-dropdown-link:hover {
     background: #f0f4f8;
     color: var(--maquinaria-blue);
 }
 
-.nav-dropdown-link:hover i,
-.nav-dropdown-link.active i {
+.nav-dropdown-link:hover i {
     color: var(--maquinaria-blue);
+}
+
+.nav-dropdown-link:focus,
+.nav-dropdown-link:focus-visible {
+    outline: none;
+    background: transparent;
+    color: var(--maquinaria-gray-text);
+}
+
+.nav-dropdown-link:focus i,
+.nav-dropdown-link:focus-visible i {
+    color: inherit;
 }
 
 .nav-dropdown-link i {

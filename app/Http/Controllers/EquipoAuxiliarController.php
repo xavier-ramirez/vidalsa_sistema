@@ -31,6 +31,10 @@ class EquipoAuxiliarController extends Controller
             if ($request->filled('estado') && $request->estado !== 'all') {
                 $q->where('ESTADO_OPERATIVO', $request->estado);
             }
+            // Filtros avanzados
+            if ($request->filled('marca'))     $q->where('MARCA', 'like', '%' . trim($request->marca) . '%');
+            if ($request->filled('modelo'))    $q->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
+            if ($request->filled('capacidad')) $q->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
             if ($request->filled('search')) {
                 $s = trim($request->search);
                 $q->where(function ($qq) use ($s) {
@@ -56,6 +60,9 @@ class EquipoAuxiliarController extends Controller
         $statsBase = EquipoAuxiliar::query();
         if ($request->filled('tipo') && $request->tipo !== 'all')         $statsBase->where('TIPO', $request->tipo);
         if ($request->filled('id_frente') && $request->id_frente !== 'all')$statsBase->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        if ($request->filled('marca'))     $statsBase->where('MARCA', 'like', '%' . trim($request->marca) . '%');
+        if ($request->filled('modelo'))    $statsBase->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
+        if ($request->filled('capacidad')) $statsBase->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
         if ($request->filled('search')) {
             $s = trim($request->search);
             $statsBase->where(function ($qq) use ($s) {
@@ -99,13 +106,13 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
-     * Exportar listado (CSV) respetando los filtros activos.
+     * Exportar listado (XLSX) respetando los filtros activos.
      */
     public function export(Request $request)
     {
-        set_time_limit(120);
+        set_time_limit(180);
         $query = EquipoAuxiliar::with('frente');
-        if ($request->filled('tipo') && $request->tipo !== 'all')         $query->where('TIPO', $request->tipo);
+        if ($request->filled('tipo') && $request->tipo !== 'all')          $query->where('TIPO', $request->tipo);
         if ($request->filled('id_frente') && $request->id_frente !== 'all')$query->where('ID_FRENTE_ACTUAL', $request->id_frente);
         if ($request->filled('estado') && $request->estado !== 'all')      $query->where('ESTADO_OPERATIVO', $request->estado);
         if ($request->filled('search')) {
@@ -116,30 +123,72 @@ class EquipoAuxiliarController extends Controller
             });
         }
 
-        $filename = 'Equipos_Auxiliares_' . date('Y-m-d_H-i') . '.csv';
-        $tipos = EquipoAuxiliar::tiposLabel();
+        $tipos   = EquipoAuxiliar::tiposLabel();
         $estados = EquipoAuxiliar::estadosLabel();
 
-        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($query, $tipos, $estados) {
-            $out = fopen('php://output', 'w');
-            // UTF-8 BOM para Excel
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD', 'ANIO', 'FRENTE', 'ESTADO'], ';');
-            $query->orderBy('TIPO')->chunk(200, function ($rows) use ($out, $tipos, $estados) {
-                foreach ($rows as $r) {
-                    fputcsv($out, [
-                        mb_strtoupper($tipos[$r->TIPO] ?? $r->TIPO),
-                        $r->MARCA, $r->MODELO, $r->SERIAL, $r->CODIGO_INTERNO, $r->CAPACIDAD,
-                        $r->ANIO,
-                        optional($r->frente)->NOMBRE_FRENTE,
-                        mb_strtoupper($estados[$r->ESTADO_OPERATIVO] ?? $r->ESTADO_OPERATIVO),
-                    ], ';');
-                }
-            });
-            fclose($out);
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Equipos Auxiliares');
+
+        // Titulo
+        $sheet->setCellValue('A1', 'LISTADO DE EQUIPOS AUXILIARES');
+        $sheet->mergeCells('A1:I1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF0067B1');
+        $sheet->getStyle('A1')->getFont()->getColor()->setARGB('FFFFFFFF');
+        $sheet->getRowDimension(1)->setRowHeight(28);
+
+        // Subtitulo con fecha
+        $sheet->setCellValue('A2', 'Generado: ' . now()->format('d/m/Y H:i'));
+        $sheet->mergeCells('A2:I2');
+        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2')->getFont()->setItalic(true)->setSize(10);
+
+        // Headers
+        $headers = ['TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CÓDIGO INTERNO', 'CAPACIDAD', 'AÑO', 'FRENTE', 'ESTADO'];
+        $sheet->fromArray($headers, null, 'A4');
+        $sheet->getStyle('A4:I4')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A4:I4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');
+        $sheet->getStyle('A4:I4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(4)->setRowHeight(22);
+
+        // Rows
+        $row = 5;
+        $query->orderBy('TIPO')->chunk(300, function ($rows) use ($sheet, $tipos, $estados, &$row) {
+            foreach ($rows as $r) {
+                $sheet->setCellValue("A{$row}", mb_strtoupper($tipos[$r->TIPO] ?? $r->TIPO));
+                $sheet->setCellValue("B{$row}", $r->MARCA);
+                $sheet->setCellValue("C{$row}", $r->MODELO);
+                $sheet->setCellValue("D{$row}", $r->SERIAL);
+                $sheet->setCellValue("E{$row}", $r->CODIGO_INTERNO);
+                $sheet->setCellValue("F{$row}", $r->CAPACIDAD);
+                $sheet->setCellValue("G{$row}", $r->ANIO);
+                $sheet->setCellValue("H{$row}", optional($r->frente)->NOMBRE_FRENTE);
+                $sheet->setCellValue("I{$row}", mb_strtoupper($estados[$r->ESTADO_OPERATIVO] ?? $r->ESTADO_OPERATIVO));
+                $row++;
+            }
         });
-        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+
+        // Bordes + autosize
+        if ($row > 5) {
+            $sheet->getStyle("A4:I" . ($row - 1))->getBorders()->getAllBorders()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                ->getColor()->setARGB('FFCBD5E0');
+        }
+        foreach (range('A', 'I') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'Listado_Equipos_Auxiliares_' . date('Y-m-d_H-i') . '.xlsx';
+
+        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($spreadsheet) {
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+        });
+        $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $response->headers->set('Cache-Control', 'max-age=0');
         return $response;
     }
 
@@ -294,6 +343,28 @@ class EquipoAuxiliarController extends Controller
         return response()->json(['success' => true, 'message' => 'Equipo auxiliar desanclado.']);
     }
 
+    /**
+     * Cambio rapido de estado operativo (inline desde la tabla del index).
+     * Validacion minima: solo ESTADO_OPERATIVO. No toca otros campos required.
+     */
+    public function changeStatus(Request $request, $id)
+    {
+        $estados = array_keys(EquipoAuxiliar::estadosLabel());
+        $request->validate([
+            'ESTADO_OPERATIVO' => 'required|string|in:' . implode(',', $estados),
+        ]);
+
+        $aux = EquipoAuxiliar::findOrFail($id);
+        $aux->ESTADO_OPERATIVO = $request->input('ESTADO_OPERATIVO');
+        $aux->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Estado actualizado.',
+            'estado'  => $aux->ESTADO_OPERATIVO,
+        ]);
+    }
+
     // ═══════════════════════════════════════════════════════════
     // SEARCH — autocomplete para anclaje
     // ═══════════════════════════════════════════════════════════
@@ -333,24 +404,33 @@ class EquipoAuxiliarController extends Controller
         $q = trim($request->get('q', ''));
         if (strlen($q) < 2) return response()->json([]);
 
+        // Busqueda ampliada: serial chasis, serial motor, placa (docum.),
+        // codigo patio, marca y modelo. Join con documentacion para PLACA.
         $results = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares')
+            ->leftJoin('documentacion as doc_host', 'equipos.ID_EQUIPO', '=', 'doc_host.ID_EQUIPO')
+            ->select('equipos.*')
             ->where(function ($w) use ($q) {
-                $w->where('CODIGO_PATIO', 'like', "%{$q}%")
-                  ->orWhere('SERIAL_CHASIS', 'like', "%{$q}%")
-                  ->orWhere('MARCA', 'like', "%{$q}%")
-                  ->orWhere('MODELO', 'like', "%{$q}%");
+                $w->where('equipos.CODIGO_PATIO', 'like', "%{$q}%")
+                  ->orWhere('equipos.SERIAL_CHASIS', 'like', "%{$q}%")
+                  ->orWhere('equipos.SERIAL_DE_MOTOR', 'like', "%{$q}%")
+                  ->orWhere('equipos.MARCA', 'like', "%{$q}%")
+                  ->orWhere('equipos.MODELO', 'like', "%{$q}%")
+                  ->orWhere('doc_host.PLACA', 'like', "%{$q}%");
             })
+            ->distinct()
             ->limit(20)
             ->get()
             ->map(function ($e) {
                 return [
-                    'id'            => $e->ID_EQUIPO,
-                    'codigo'        => $e->CODIGO_PATIO,
-                    'placa'         => optional($e->documentacion)->PLACA,
-                    'tipo'          => optional($e->tipo)->nombre,
-                    'marca_modelo'  => trim(($e->MARCA ?? '') . ' ' . ($e->MODELO ?? '')),
+                    'id'             => $e->ID_EQUIPO,
+                    'codigo'         => $e->CODIGO_PATIO,
+                    'placa'          => optional($e->documentacion)->PLACA,
+                    'serial_chasis'  => $e->SERIAL_CHASIS,
+                    'serial_motor'   => $e->SERIAL_DE_MOTOR,
+                    'tipo'           => optional($e->tipo)->nombre,
+                    'marca_modelo'   => trim(($e->MARCA ?? '') . ' ' . ($e->MODELO ?? '')),
                     'auxiliares_anclados' => $e->equiposAuxiliares->count(),
-                    'disponible'    => $e->equiposAuxiliares->count() < EquipoAuxiliar::ANCHOR_MAX_PER_HOST,
+                    'disponible'     => $e->equiposAuxiliares->count() < EquipoAuxiliar::ANCHOR_MAX_PER_HOST,
                 ];
             });
 
@@ -372,17 +452,46 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     private function validateData(Request $request, bool $isCreate = true): array
     {
+        // ID del auxiliar actual (para excluirlo del check unique en update)
+        $currentId = $request->route('id');
+
+        // Normalizar ANTES de validar: uppercase + trim en campos donde
+        // guardamos uppercase, para que el check unique compare consistente
+        // (sino "ms-01" pasa unique aunque la BD tenga "MS-01" y al
+        // guardar con strtoupper se crearia un duplicado logico).
+        foreach (['SERIAL', 'CODIGO_INTERNO', 'MARCA', 'MODELO', 'CAPACIDAD'] as $f) {
+            if ($request->filled($f)) {
+                $request->merge([$f => mb_strtoupper(trim($request->input($f)))]);
+            }
+        }
+
+        // TIPO: si el usuario seleccionó una etiqueta legible del datalist
+        // (ej. "Maquina de Soldar"), mapearla al codigo enum correspondiente
+        // (MAQUINA_SOLDAR) para preservar la consistencia con los registros
+        // existentes. Comparacion case-insensitive. Si no hay match, se
+        // normaliza como tipo custom (uppercase + underscores).
+        if ($request->filled('TIPO')) {
+            $input = trim($request->input('TIPO'));
+            $labels = EquipoAuxiliar::tiposLabel(); // [code => label]
+            $code = null;
+            foreach ($labels as $k => $label) {
+                if (mb_strtolower($label) === mb_strtolower($input)) { $code = $k; break; }
+            }
+            $request->merge(['TIPO' => $code ?? mb_strtoupper(preg_replace('/\s+/', '_', $input))]);
+        }
+
         // TIPO y ESTADO_OPERATIVO son SIEMPRE requeridos, tanto en create como
         // en update: representan estado fundamental del registro. Si dejamos
         // 'sometimes|required|...' en update permitiria pasar string vacio via
         // JSON y el required no dispara. Mejor mantenerlos fuera del sometimes.
+        // SERIAL: unique ignorando self en update (cuando esta presente).
         $rules = [
-            'TIPO'             => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::tiposLabel())),
+            'TIPO'             => 'required|string|max:30',
             'ESTADO_OPERATIVO' => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
-            'MARCA'            => 'nullable|string|max:80',
-            'MODELO'           => 'nullable|string|max:80',
-            'SERIAL'           => 'nullable|string|max:100',
-            'CODIGO_INTERNO'   => 'nullable|string|max:50',
+            'MARCA'            => 'required|string|max:80',
+            'MODELO'           => 'required|string|max:80',
+            'SERIAL'           => 'required|string|max:100|unique:equipos_auxiliares,SERIAL' . ($currentId ? ',' . $currentId . ',ID_AUXILIAR' : ''),
+            'CODIGO_INTERNO'   => 'nullable|string|max:50|unique:equipos_auxiliares,CODIGO_INTERNO' . ($currentId ? ',' . $currentId . ',ID_AUXILIAR' : ''),
             'CAPACIDAD'        => 'nullable|string|max:80',
             'ANIO'             => 'nullable|integer|min:1950|max:2100',
             'ID_FRENTE_ACTUAL' => 'nullable|exists:frentes_trabajo,ID_FRENTE',
@@ -399,7 +508,16 @@ class EquipoAuxiliarController extends Controller
             }
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'SERIAL.unique'         => 'El serial ingresado ya está registrado en otro equipo auxiliar.',
+            'CODIGO_INTERNO.unique' => 'El código interno ingresado ya está registrado en otro equipo auxiliar.',
+        ]);
+
+        // Normaliza TIPO: uppercase + espacios por guiones_bajos para mantener consistencia
+        // con los codigos existentes (MAQUINA_SOLDAR, etc.) cuando el usuario escribe uno nuevo.
+        if (isset($validated['TIPO'])) {
+            $validated['TIPO'] = mb_strtoupper(preg_replace('/\s+/', '_', trim($validated['TIPO'])));
+        }
 
         // Proteger tope ANCHOR_MAX_PER_HOST en create/update: si ID_EQUIPO_HOST
         // viene seteado y el host ya tiene N auxiliares distintos al actual,

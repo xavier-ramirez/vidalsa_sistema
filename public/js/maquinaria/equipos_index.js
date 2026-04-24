@@ -129,10 +129,13 @@ const STATUS_CONFIG = {
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (!_activeTrigger) return;
-                const id  = _activeTrigger.dataset.equipoId;
-                const url = _activeTrigger.dataset.statusUrl;
+                // Capturar trigger ANTES de closeSharedMenu(), porque este resetea
+                // _activeTrigger a null y changeStatusLite recibiria un null.
+                const trigger = _activeTrigger;
+                const id  = trigger.dataset.equipoId;
+                const url = trigger.dataset.statusUrl;
                 closeSharedMenu();
-                window.changeStatusLite(id, key, url, _activeTrigger);
+                window.changeStatusLite(id, key, url, trigger);
             });
             menu.appendChild(item);
         });

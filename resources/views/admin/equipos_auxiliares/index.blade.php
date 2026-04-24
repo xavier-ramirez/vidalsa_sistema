@@ -37,9 +37,9 @@
                 $frenteActual = ($reqFrente && $reqFrente !== 'all') ? $frentes->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
                 $frenteLabel  = $frenteActual ? $frenteActual->NOMBRE_FRENTE : 'Filtrar Frente...';
             @endphp
-            <input type="hidden" name="id_frente" value="{{ $reqFrente ?: '' }}" data-filter-value>
             <div class="custom-dropdown" id="auxFrenteFilterSelect" data-filter-type="id_frente"
                  data-default-label="Filtrar Frente..." style="flex:1;min-width:180px;max-width:260px;">
+                <input type="hidden" name="id_frente" value="{{ $reqFrente ?: '' }}" data-filter-value>
                 <div class="dropdown-trigger {{ $reqFrente && $reqFrente !== 'all' ? 'filter-active' : '' }}"
                      style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">place</i></div>
@@ -68,9 +68,9 @@
                 $reqTipo = request('tipo');
                 $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? ($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
             @endphp
-            <input type="hidden" name="tipo" value="{{ $reqTipo ?: '' }}" data-filter-value>
             <div class="custom-dropdown" id="auxTipoFilterSelect" data-filter-type="tipo"
                  data-default-label="Filtrar Tipo..." style="flex:1;min-width:180px;max-width:260px;">
+                <input type="hidden" name="tipo" value="{{ $reqTipo ?: '' }}" data-filter-value>
                 <div class="dropdown-trigger {{ $reqTipo && $reqTipo !== 'all' ? 'filter-active' : '' }}"
                      style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
@@ -105,12 +105,55 @@
                    onclick="event.stopPropagation(); document.getElementById('auxSearchInput').value=''; cargarAuxiliares();">close</i>
             </div>
 
-            <button type="button" title="Filtros Avanzados"
-                    onclick="window.showToast && window.showToast('Filtros avanzados proximamente.', 'info')"
-                    class="btn-primary-maquinaria"
-                    style="height:45px;width:45px;flex-shrink:0;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;background:white;border:1px solid #cbd5e0;color:#64748b;box-shadow:none;">
-                <i class="material-icons">filter_list</i>
-            </button>
+            @php
+                $advActive = request()->filled('marca') || request()->filled('modelo') || request()->filled('estado') || request()->filled('capacidad');
+            @endphp
+            <div style="position:relative;flex-shrink:0;">
+                <button type="button" id="auxAdvBtn" title="Filtros Avanzados"
+                        onclick="const p=document.getElementById('auxAdvPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none'; event.stopPropagation();"
+                        class="btn-primary-maquinaria"
+                        style="height:45px;width:45px;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;background:{{ $advActive ? '#fee2e2' : 'white' }};border:1px solid {{ $advActive ? '#ef4444' : '#cbd5e0' }};color:{{ $advActive ? '#ef4444' : '#64748b' }};box-shadow:none;">
+                    <i class="material-icons">filter_list</i>
+                </button>
+                <div id="auxAdvPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;width:320px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);padding:14px;z-index:100;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h4 style="margin:0;font-size:14px;font-weight:700;color:#334155;">Filtros Avanzados</h4>
+                        <span style="font-size:11px;color:#64748b;text-decoration:underline;cursor:pointer;"
+                              onclick="document.getElementById('adv_marca').value=''; document.getElementById('adv_modelo').value=''; document.getElementById('adv_capacidad').value=''; document.getElementById('adv_estado').value=''; cargarAuxiliares();">Limpiar Todo</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Marca</label>
+                            <input type="text" id="adv_marca" name="marca" value="{{ request('marca') }}" placeholder="Ej: Miller" autocomplete="off"
+                                   style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Modelo</label>
+                            <input type="text" id="adv_modelo" name="modelo" value="{{ request('modelo') }}" placeholder="Ej: Bobcat 225" autocomplete="off"
+                                   style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Estado</label>
+                            <select id="adv_estado" name="estado"
+                                    style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;">
+                                <option value="">Todos</option>
+                                @foreach($estados as $k => $label)
+                                    <option value="{{ $k }}" {{ request('estado') === $k ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Capacidad</label>
+                            <input type="text" id="adv_capacidad" name="capacidad" value="{{ request('capacidad') }}" placeholder="Ej: 300A, 20 pies" autocomplete="off"
+                                   style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
+                        </div>
+                        <button type="button" onclick="cargarAuxiliares(); document.getElementById('auxAdvPanel').style.display='none';"
+                                class="btn-primary-maquinaria" style="width:100%;height:38px;justify-content:center;margin-top:4px;">
+                            <i class="material-icons" style="font-size:16px;">search</i> Aplicar
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {{-- Acciones --}}
             <div style="position:relative;flex-shrink:0;">
@@ -130,11 +173,11 @@
                         <span>Nuevo Equipo Auxiliar</span>
                     </a>
                     @endcan
-                    <a href="#" onclick="event.preventDefault(); window.exportAuxiliaresCsv(); document.getElementById('auxAccionesDropdown').style.display='none';"
+                    <a href="#" onclick="event.preventDefault(); window.exportAuxiliaresXlsx(); document.getElementById('auxAccionesDropdown').style.display='none';"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">file_download</i></div>
-                        <span>Exportar Lista (CSV)</span>
+                        <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
+                        <span>Exportación de Data</span>
                     </a>
                     <a href="#" onclick="event.preventDefault(); if(window.showToast){window.showToast('Catálogo por Modelo en desarrollo.', 'info');} document.getElementById('auxAccionesDropdown').style.display='none';"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
@@ -184,19 +227,19 @@
 
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <div title="Total de equipos auxiliares" style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px;">
-                        <span id="auxStatsTotal" style="font-size: 36px; font-weight: 800; line-height: 1;">{{ $hasFilter ? $stats['total'] : '--' }}</span>
+                        <span id="auxStatsTotal" style="font-size: 36px; font-weight: 800; line-height: 1;">{{ $stats['total'] }}</span>
                         <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">TOTAL</span>
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
                         <div title="Operativos" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25);">
                             <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
-                            <strong id="auxStatsOperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['operativos'] : '--' }}</strong>
+                            <strong id="auxStatsOperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['operativos'] }}</strong>
                             <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Operativos</span>
                         </div>
                         <div title="Inoperativos" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
                             <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
-                            <strong id="auxStatsInoperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['inoperativos'] : '--' }}</strong>
+                            <strong id="auxStatsInoperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['inoperativos'] }}</strong>
                             <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativos</span>
                         </div>
                     </div>
@@ -229,22 +272,22 @@
             document.getElementById('auxTableBody').innerHTML = data.html;
             document.getElementById('auxPagination').innerHTML = data.pagination;
             if (data.stats) {
-                const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = data.hasFilter ? v : '--'; };
+                const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? 0; };
                 set('auxStatsTotal',       data.stats.total);
                 set('auxStatsOperativos',  data.stats.operativos);
                 set('auxStatsInoperativos',data.stats.inoperativos);
             }
-            if (data.distribucion) renderDistribucion(data.distribucion, data.hasFilter);
+            if (data.distribucion) renderDistribucion(data.distribucion);
         })
         .catch(e => console.error('auxiliares load:', e))
         .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
 
-    function renderDistribucion(rows, hasFilter) {
+    function renderDistribucion(rows) {
         const cont = document.getElementById('auxDistribucionContainer');
         if (!cont) return;
-        if (!hasFilter || !rows.length) {
-            cont.innerHTML = '<h4 style="margin:0 0 12px 0;font-size:12px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;"><i class="material-icons" style="font-size:18px;color:#3b82f6;">pie_chart</i>Distribución</h4><p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;">Aplica un filtro para ver el detalle.</p>';
+        if (!rows || !rows.length) {
+            cont.innerHTML = '<h4 style="margin:0 0 12px 0;font-size:12px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;">Distribución</h4><p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;">Sin datos para mostrar.</p>';
             return;
         }
         const total = rows.reduce((a,r) => a + parseInt(r.total,10), 0);
@@ -286,24 +329,156 @@
     if (!window.auxAccionesOutsideBound) {
         window.auxAccionesOutsideBound = true;
         document.addEventListener('click', (e) => {
+            // Cerrar dropdown Acciones
             const d = document.getElementById('auxAccionesDropdown');
             const btn = document.getElementById('auxAccionesBtn');
-            if (!d || !btn) return;
-            if (!d.contains(e.target) && !btn.contains(e.target)) d.style.display = 'none';
+            if (d && btn && !d.contains(e.target) && !btn.contains(e.target)) d.style.display = 'none';
+            // Cerrar panel Filtros Avanzados
+            const adv = document.getElementById('auxAdvPanel');
+            const advBtn = document.getElementById('auxAdvBtn');
+            if (adv && advBtn && !adv.contains(e.target) && !advBtn.contains(e.target)) adv.style.display = 'none';
+            // Cerrar menu de estado de fila
+            const sm = document.getElementById('auxStatusMenu');
+            if (sm && !sm.contains(e.target) && !e.target.closest('.aux-status-trigger')) sm.style.display = 'none';
         });
     }
 
-    // Exportar CSV respetando filtros activos
-    window.exportAuxiliaresCsv = function () {
+    // ── Menu de cambio de estado (inline en la tabla) ──
+    const AUX_STATUS = @json($estados);
+    const AUX_STATUS_COLOR = {
+        OPERATIVO:      { bg: '#dcfce7', fg: '#166534', icon: 'check_circle' },
+        INOPERATIVO:    { bg: '#fee2e2', fg: '#991b1b', icon: 'cancel' },
+        EN_ALMACEN:     { bg: '#dbeafe', fg: '#1e40af', icon: 'inventory_2' },
+        DESINCORPORADO: { bg: '#e2e8f0', fg: '#475569', icon: 'block' },
+    };
+
+    function getOrCreateAuxStatusMenu() {
+        let menu = document.getElementById('auxStatusMenu');
+        if (menu) return menu;
+        menu = document.createElement('div');
+        menu.id = 'auxStatusMenu';
+        menu.style.cssText = 'position:absolute;display:none;min-width:180px;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:9999;';
+        document.body.appendChild(menu);
+        return menu;
+    }
+
+    let _auxStatusTrigger = null;
+
+    window.openAuxStatusMenu = function (trigger) {
+        const menu = getOrCreateAuxStatusMenu();
+        // Si ya estaba abierto para este trigger, cerrar
+        if (_auxStatusTrigger === trigger && menu.style.display !== 'none') {
+            menu.style.display = 'none'; _auxStatusTrigger = null; return;
+        }
+        _auxStatusTrigger = trigger;
+        const currentStatus = trigger.dataset.status;
+        menu.innerHTML = '';
+        Object.entries(AUX_STATUS).forEach(([key, label]) => {
+            const cfg = AUX_STATUS_COLOR[key] || { bg:'#f1f5f9', fg:'#475569', icon:'help_outline' };
+            const item = document.createElement('div');
+            item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;border-bottom:1px solid #f8fafc;font-size:12px;font-weight:600;color:#334155;';
+            item.innerHTML = `
+                <div style="background:${cfg.bg};padding:4px;border-radius:4px;display:flex;">
+                    <i class="material-icons" style="font-size:16px;color:${cfg.fg};">${cfg.icon}</i>
+                </div>
+                <span>${label}</span>
+                ${key === currentStatus ? '<i class="material-icons" style="font-size:14px;color:'+cfg.fg+';margin-left:auto;">check</i>' : ''}
+            `;
+            item.addEventListener('mouseover', () => item.style.background = '#f8fafc');
+            item.addEventListener('mouseout', () => item.style.background = 'white');
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menu.style.display = 'none';
+                window.auxChangeStatus(trigger, key);
+                _auxStatusTrigger = null;
+            });
+            menu.appendChild(item);
+        });
+        // Posicionar bajo el trigger
+        const r = trigger.getBoundingClientRect();
+        menu.style.top  = (window.scrollY + r.bottom + 4) + 'px';
+        menu.style.left = (window.scrollX + r.left) + 'px';
+        menu.style.display = 'block';
+    };
+
+    window.auxChangeStatus = function (trigger, newStatus) {
+        const oldStatus = trigger.dataset.status;
+        if (oldStatus === newStatus) return;
+        const url = trigger.dataset.statusUrl;
+        const cfg = AUX_STATUS_COLOR[newStatus] || { bg:'#f1f5f9', fg:'#475569' };
+        const lbl = AUX_STATUS[newStatus] || newStatus;
+        // Optimistic UI
+        trigger.style.background = cfg.bg;
+        trigger.style.color = cfg.fg;
+        trigger.style.borderColor = cfg.fg + '33';
+        const lblEl = trigger.querySelector('.aux-status-label');
+        if (lblEl) lblEl.textContent = lbl;
+        trigger.dataset.status = newStatus;
+
+        fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+            },
+            body: JSON.stringify({ ESTADO_OPERATIVO: newStatus })
+        })
+        .then(r => r.json().then(body => ({ status: r.status, body })))
+        .then(({ status, body }) => {
+            if (status === 200) {
+                if (window.showToast) window.showToast('Estado actualizado.', 'success');
+                cargarAuxiliares(); // refrescar stats + distribucion
+            } else {
+                throw new Error(body.message || 'Error');
+            }
+        })
+        .catch(err => {
+            // Revertir UI
+            const oldCfg = AUX_STATUS_COLOR[oldStatus] || { bg:'#f1f5f9', fg:'#475569' };
+            trigger.style.background = oldCfg.bg;
+            trigger.style.color = oldCfg.fg;
+            trigger.style.borderColor = oldCfg.fg + '33';
+            if (lblEl) lblEl.textContent = AUX_STATUS[oldStatus] || oldStatus;
+            trigger.dataset.status = oldStatus;
+            if (window.showToast) window.showToast('No se pudo actualizar el estado.', 'error');
+            console.error('auxChangeStatus:', err);
+        });
+    };
+
+    // Exportar XLSX respetando filtros activos.
+    // Usamos fetch() + Blob en vez de <a> click para que el navegador NO muestre
+    // el spinner de pestana: solo el preloader propio de la app.
+    window.exportAuxiliaresXlsx = function () {
         const form = document.getElementById('auxFiltersForm');
         const params = form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
         const url = '{{ route("equipos-auxiliares.export") }}' + (params.toString() ? '?' + params.toString() : '');
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('data-no-spa', 'true');
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => document.body.removeChild(link), 500);
+
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const cd = r.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename="?([^";]+)"?/i);
+                const filename = m ? m[1] : 'Listado_Equipos_Auxiliares.xlsx';
+                return r.blob().then(blob => ({ blob, filename }));
+            })
+            .then(({ blob, filename }) => {
+                const objUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+            })
+            .catch(err => {
+                console.error('export auxiliares:', err);
+                if (window.showToast) window.showToast('No se pudo exportar. Intenta nuevamente.', 'error');
+            })
+            .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
 })();
 </script>

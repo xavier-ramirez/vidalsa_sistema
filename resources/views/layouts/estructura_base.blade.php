@@ -1100,17 +1100,20 @@
                 });
             }
 
-            // Toggle Mobile Group
-            document.addEventListener('DOMContentLoaded', () => {
-                const configGroup = document.getElementById('mobileConfigGroup');
-                if (configGroup) {
-                    const title = configGroup.querySelector('.mobile-nav-group-title');
-                    title.onclick = (e) => {
-                        e.stopPropagation();
-                        configGroup.classList.toggle('active');
-                    };
-                }
-            });
+            // Toggle Mobile Groups (Flota, Configuraciones, etc.) — event delegation
+            // para que funcione con cualquier grupo sin nombrarlos uno por uno y
+            // para sobrevivir re-renders SPA (delegacion en document, idempotente).
+            if (!window._mobileNavGroupDelegated) {
+                window._mobileNavGroupDelegated = true;
+                document.addEventListener('click', (e) => {
+                    const title = e.target.closest('.mobile-nav-group-title');
+                    if (!title) return;
+                    const group = title.closest('.mobile-nav-group');
+                    if (!group) return;
+                    e.stopPropagation();
+                    group.classList.toggle('active');
+                });
+            }
 
             // Dropdown Click Interaction
             document.addEventListener('DOMContentLoaded', () => {

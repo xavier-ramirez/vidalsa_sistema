@@ -2029,8 +2029,11 @@ input:-webkit-autofill:active {
         border-radius: 8px;
     }
 
-    .btn-bulk-action i.material-icons {
-        font-size: 18px !important;
+    /* En mobile, ocultar iconos de los botones del bulk bar para compactar
+       (Limpiar / Anclar / Desanclar / Ubicación / Asignar) — solo queda el texto. */
+    .btn-bulk-action i.material-icons,
+    .btn-bulk-clear i.material-icons {
+        display: none !important;
     }
 
     /* Mostrar texto en móviles */
