@@ -55,7 +55,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // redirect con flash toast para navegacion normal.
         $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
             $wantsJson = $request->expectsJson() || $request->is('api/*') || $request->ajax() || strtolower($request->header('X-Requested-With')) === 'xmlhttprequest';
-            $msg = $e->getMessage() ?: 'No tienes permiso para realizar esta acción.';
+            // Traducimos SIEMPRE a mensaje amigable. El default de Laravel es
+            // "This action is unauthorized." (ingles, generico, confunde al
+            // usuario). Solo respetamos el message custom si NO es ese default.
+            $raw = $e->getMessage();
+            $msg = ($raw && strcasecmp($raw, 'This action is unauthorized.') !== 0)
+                ? $raw
+                : 'No tienes permiso para realizar esta acción.';
             if ($wantsJson) {
                 return response()->json(['success' => false, 'message' => $msg, 'forbidden' => true], 403);
             }
