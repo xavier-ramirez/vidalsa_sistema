@@ -22,8 +22,8 @@
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria"
-                @cannot('equipos.edit')
-                onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permiso para actualizar equipos.', confirmText: 'Entendido', hideCancel: true });"
+                @cannot('user.edit')
+                onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permiso para actualizar la información del equipo.', confirmText: 'Entendido', hideCancel: true });"
                 @endcannot
             >
                 <i class="material-icons">save</i>

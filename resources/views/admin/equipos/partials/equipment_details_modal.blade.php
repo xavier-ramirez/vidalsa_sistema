@@ -188,9 +188,12 @@ Estructura: overlay > modal-content > header + sub-header + body
                         <i class="material-icons" style="font-size: 20px; color: #64748b;">person_pin</i>
                         <span>Responsable Asignado</span>
                     </summary>
-                    {{-- Boton lapiz: FUERA de <summary> porque HTML prohibe elementos
-                         interactivos como descendientes de summary (accesibilidad).
-                         Posicionado en absoluto sobre el header. --}}
+                    {{-- Boton lapiz para registrar nuevo responsable.
+                         Solo visible con permiso user.edit (escritura). Los
+                         usuarios sin el permiso ven el historial en modo lectura.
+                         Sta FUERA de <summary> porque HTML prohibe elementos
+                         interactivos como descendientes de summary (accesibilidad). --}}
+                    @can('user.edit')
                     <button type="button" id="responsable_edit_pencil_header" title="Registrar nuevo responsable"
                         onclick="const f=document.getElementById('responsable_form_container'); if(f){f.style.display='flex'; const n=document.getElementById('resp_nombre'); if(n) n.focus();}"
                         style="position:absolute; top:12px; right:16px; z-index:2; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s;"
@@ -198,8 +201,10 @@ Estructura: overlay > modal-content > header + sub-header + body
                         onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
                         <i class="material-icons" style="font-size: 16px;">edit</i>
                     </button>
+                    @endcan
                     <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
 
+                        @can('user.edit')
                         {{-- Formulario para asignar nuevo responsable (oculto por defecto) --}}
                         <div id="responsable_form_container"
                             style="display: none; flex-direction: column; gap: 8px; font-size: 13px; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; max-width: 340px;">
@@ -214,6 +219,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                                     style="flex: 1; padding: 5px 8px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 12px; outline: none; background: white; color: #0f172a;">
                             </div>
                         </div>
+                        @endcan
 
                         {{-- Lista de responsables (historial) --}}
                         <div id="responsable_list" style="display: flex; flex-direction: column; gap: 8px;">

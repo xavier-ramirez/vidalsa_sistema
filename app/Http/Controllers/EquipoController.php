@@ -20,7 +20,11 @@ class EquipoController extends Controller
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileShow']);
         $this->middleware('can:equipos.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
-        $this->middleware('can:equipos.edit')->only(['edit', 'update', 'changeStatus']);
+        // edit/update: permiso 'user.edit' (boton lapiz del modal detalles
+        // + formulario de edicion de ficha). changeStatus: 'equipos.edit'
+        // (cambio de estatus inline, desacoplado de la edicion general).
+        $this->middleware('can:user.edit')->only(['edit', 'update']);
+        $this->middleware('can:equipos.edit')->only(['changeStatus']);
         // Borrar un equipo es destructivo irreversible: solo super.admin.
         $this->middleware('can:super.admin')->only(['destroy']);
         // uploadDoc/deleteDoc/updateMetadata: permission 'user.edit' (Gate::before resuelve super.admin)
@@ -3165,6 +3169,12 @@ class EquipoController extends Controller
 
     public function storeResponsable(Request $request, $id)
     {
+        // Registrar responsable = escritura de ficha, requiere user.edit.
+        // Gate::before del AppServiceProvider resuelve super.admin automaticamente.
+        if (! auth()->user()?->can('user.edit')) {
+            return response()->json(['success' => false, 'message' => 'Sin permisos'], 403);
+        }
+
         $request->validate([
             'CEDULA_RESPONSABLE' => 'required|string|max:20',
             'PERSONA_ASIGNADA'   => 'required|string|max:150',
