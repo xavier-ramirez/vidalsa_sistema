@@ -2684,6 +2684,11 @@ class EquipoController extends Controller
      */
     public function exportAnclajes(Request $request)
     {
+        // XLSX de anclajes puede tardar >30s cuando hay muchos pares y el
+        // servidor tiene que cargar relaciones completas. Subimos el limite
+        // para evitar 60s fatal en generaciones legitimas.
+        set_time_limit(180);
+
         $frenteId = $request->input('frente_id');
 
         // Reutilizar la lógica de getAnchoredEquipos: obtener pares únicos
