@@ -1938,11 +1938,11 @@ input:-webkit-autofill:active {
     transform: translateX(-50%) translateY(100px);
     background: #1e293b;
     color: white;
-    padding: 12px 25px;
-    border-radius: 50px;
+    padding: 8px 16px;
+    border-radius: 40px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 10px;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
     z-index: 1000;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -1959,34 +1959,40 @@ input:-webkit-autofill:active {
 .selection-counter {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .btn-bulk-clear {
     background: transparent;
     border: none;
     color: #94a3b8;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     transition: 0.2s;
+    padding: 4px 6px;
 }
 
 .btn-bulk-action {
     background: #0067b1;
     color: white;
     border: none;
-    padding: 8px 18px;
-    border-radius: 25px;
+    padding: 6px 12px;
+    border-radius: 20px;
     font-weight: 700;
+    font-size: 12.5px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     transition: 0.2s;
+}
+
+.btn-bulk-action i.material-icons {
+    font-size: 17px;
 }
 
 .btn-bulk-action:hover {
