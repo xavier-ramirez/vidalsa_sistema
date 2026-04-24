@@ -226,18 +226,24 @@
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <div title="Total de equipos auxiliares" style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px;">
+                    <div title="Cargar todos (limpia filtro de estado)" onclick="window.auxFilterByEstado('all')"
+                         style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px; cursor: pointer; transition: transform 0.15s;"
+                         onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <span id="auxStatsTotal" style="font-size: 36px; font-weight: 800; line-height: 1;">{{ $stats['total'] }}</span>
                         <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">TOTAL</span>
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
-                        <div title="Operativos" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25);">
+                        <div title="Filtrar solo Operativos" onclick="window.auxFilterByEstado('OPERATIVO')"
+                             style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); cursor: pointer; transition: transform 0.15s;"
+                             onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
                             <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
                             <strong id="auxStatsOperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['operativos'] }}</strong>
                             <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Operativos</span>
                         </div>
-                        <div title="Inoperativos" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
+                        <div title="Filtrar solo Inoperativos" onclick="window.auxFilterByEstado('INOPERATIVO')"
+                             style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); cursor: pointer; transition: transform 0.15s;"
+                             onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
                             <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                             <strong id="auxStatsInoperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['inoperativos'] }}</strong>
                             <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativos</span>
@@ -257,21 +263,55 @@
 
 </div>{{-- /page-layout-grid --}}
 
-{{-- Modal de detalles (oculto por defecto, poblado via JS) --}}
-<div id="auxDetailsModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9998; padding:20px; overflow-y:auto;"
+{{-- ═══════════════════════════════════════════════════════════
+     MODAL DETALLES DE EQUIPO AUXILIAR
+     Mismo estilo que /admin/equipos (modal-overlay + modal-content +
+     header azul oscuro + accordion details). Solo muestra campos
+     que NO estan en la tabla.
+     ═══════════════════════════════════════════════════════════ --}}
+<div id="auxDetailsModal" class="modal-overlay" style="display: none;"
      onclick="if(event.target===this) window.closeAuxDetailsModal()">
-    <div style="max-width:820px; margin:30px auto; background:white; border-radius:14px; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
-        <div style="background:#1e293b; color:white; padding:16px 22px; display:flex; justify-content:space-between; align-items:center;">
-            <h2 id="auxDetailsTitle" style="margin:0; font-size:17px; font-weight:700; display:flex; align-items:center; gap:10px; text-transform:uppercase;">
-                <i class="material-icons">construction</i>
-                <span>DETALLES DE EQUIPO AUXILIAR</span>
-            </h2>
-            <button type="button" onclick="window.closeAuxDetailsModal()"
-                    style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.28); color:white; width:30px; height:30px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-                <i class="material-icons" style="font-size:18px;">close</i>
-            </button>
+    <div class="modal-content"
+        style="width: 90%; max-width: 420px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
+
+        {{-- HEADER --}}
+        <div style="background: var(--maquinaria-dark-blue); color: white;">
+            <div style="padding: 12px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;">
+                    <h2 id="auxDetailsTitle" style="margin: 0; font-size: 17px; font-weight: 700; word-break: break-word; line-height: 1.2;">—</h2>
+                    <p id="auxDetailsSubtitle" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px; word-break: break-word;">—</p>
+                </div>
+                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                    @can('equipos.edit')
+                        <button type="button" id="auxDetailsEditBtn" title="Editar datos"
+                            style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                            <i class="material-icons" style="font-size: 17px;">edit</i>
+                        </button>
+                    @endcan
+                    <button type="button" id="auxDetailsActaBtn" title="Acta de Asignación"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                        <i class="material-icons" style="font-size: 17px;">description</i>
+                    </button>
+                    <button type="button" onclick="window.closeAuxDetailsModal()"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                        <i class="material-icons" style="font-size: 18px;">close</i>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div id="auxDetailsBody" style="padding:22px; text-transform:uppercase;"></div>
+
+        {{-- BODY --}}
+        <div class="modal-body-scroll" style="padding: 25px; max-height: 80vh; overflow-y: auto; overflow-x: hidden;">
+            <div id="auxDetailsBody" style="display: flex; flex-direction: column; gap: 15px;">
+                {{-- Contenido inyectado via JS (renderAuxDetailsModal) --}}
+            </div>
+        </div>
     </div>
 </div>
 
@@ -300,102 +340,87 @@
     };
 
     window.renderAuxDetailsModal = function (d) {
-        const body = document.getElementById('auxDetailsBody');
+        // Title + subtitle en el header
+        const title = document.getElementById('auxDetailsTitle');
+        const sub   = document.getElementById('auxDetailsSubtitle');
+        if (title) title.textContent = (d.tipo_label || d.tipo || 'Auxiliar');
+        if (sub)   sub.textContent   = ((d.marca || '') + ' ' + (d.modelo || '')).trim() || '—';
+
+        // Enlazar edit + acta en los botones del header
+        const editBtn = document.getElementById('auxDetailsEditBtn');
+        if (editBtn) editBtn.onclick = () => { window.location.href = d.edit_url; };
+        const actaBtn = document.getElementById('auxDetailsActaBtn');
+        if (actaBtn) actaBtn.onclick = () => { window.open(d.acta_url, '_blank'); };
+
+        // Helper: fila de detalle con label + valor alineados
         const row = (label, value) => `
-            <div style="display:grid; grid-template-columns:150px 1fr; padding:7px 0; border-bottom:1px solid #f1f5f9; gap:15px; font-size:12.5px;">
-                <div style="color:#64748b; font-weight:700;">${label}</div>
-                <div style="color:#0f172a; font-weight:600;">${value || '—'}</div>
+            <div class="detail-row-basic" style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed #f1f5f9;">
+                <span style="color:#64748b; font-size:12px; white-space:nowrap;">${label}</span>
+                <span style="color:#333; font-size:13px; text-align:right; word-wrap:break-word; line-height:1.3; flex:1; max-width:65%;">${value || '—'}</span>
             </div>`;
-        const section = (title, icon, content) => `
-            <details open style="background:white; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:10px;">
-                <summary style="padding:12px 16px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px; background:#f8fafc; list-style:none; cursor:pointer; font-size:13px;">
-                    <i class="material-icons" style="font-size:18px; color:#64748b;">${icon}</i>
+
+        // Helper: seccion accordion (mismo estilo que /admin/equipos)
+        const section = (title, icon, content, open = false) => `
+            <details ${open ? 'open' : ''} name="aux_details_accordion" style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
+                <summary style="padding:15px 20px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:10px; background:#f8fafc; list-style:none; cursor:pointer;">
+                    <i class="material-icons" style="font-size:20px; color:#64748b;">${icon}</i>
                     <span>${title}</span>
                 </summary>
-                <div style="padding:12px 16px;">${content}</div>
+                <div style="padding:12px 18px; border-top:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px;">
+                    ${content}
+                </div>
             </details>`;
 
-        const foto = d.foto_drive_id
-            ? `<img src="https://drive.google.com/thumbnail?id=${d.foto_drive_id}&sz=w400" style="max-width:160px; max-height:160px; border-radius:8px; border:1px solid #e2e8f0;">`
-            : '<span style="color:#94a3b8; font-size:12px;">Sin foto</span>';
-
-        const estadoBadges = {
-            OPERATIVO:      { color:'#16a34a', bg:'#f0fdf4', icon:'check_circle' },
-            INOPERATIVO:    { color:'#dc2626', bg:'#fef2f2', icon:'cancel' },
-            EN_ALMACEN:     { color:'#1e40af', bg:'#eff6ff', icon:'inventory_2' },
-            DESINCORPORADO: { color:'#475569', bg:'#f1f5f9', icon:'block' }
-        };
-        const eb = estadoBadges[d.estado] || estadoBadges.DESINCORPORADO;
-        const estadoHtml = `<span style="display:inline-flex; align-items:center; gap:5px; background:${eb.bg}; color:${eb.color}; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700;">
-            <i class="material-icons" style="font-size:14px;">${eb.icon}</i>${d.estado_label || d.estado}
-        </span>`;
-
-        // Vencimiento con badge si esta vencido o por vencer
-        let vencHtml = '—';
+        // Badge de fecha de vencimiento del certificado
+        let vencHtml = '<span style="color:#94a3b8;">Sin fecha</span>';
         if (d.fecha_vencimiento_cert) {
             const venc = new Date(d.fecha_vencimiento_cert);
             const hoy = new Date(); hoy.setHours(0,0,0,0);
             const diff = Math.floor((venc - hoy) / (1000*60*60*24));
             let color = '#16a34a', bg = '#f0fdf4', txt = d.fecha_vencimiento_cert;
-            if (diff < 0)      { color = '#dc2626'; bg = '#fef2f2'; txt += ' (vencido)'; }
-            else if (diff < 30){ color = '#d97706'; bg = '#fffbeb'; txt += ' (' + diff + ' dias)'; }
-            vencHtml = `<span style="background:${bg}; color:${color}; padding:3px 10px; border-radius:6px; font-weight:700;">${txt}</span>`;
+            if (diff < 0)       { color = '#dc2626'; bg = '#fef2f2'; txt += ' (VENCIDO)'; }
+            else if (diff < 30) { color = '#d97706'; bg = '#fffbeb'; txt += ' (' + diff + ' días)'; }
+            vencHtml = `<span style="background:${bg}; color:${color}; padding:3px 10px; border-radius:6px; font-weight:700; font-size:12px;">${txt}</span>`;
         }
 
-        const docPropiedad = d.link_doc_propiedad
-            ? `<a href="${d.link_doc_propiedad}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:6px; color:#16a34a; font-weight:700; text-decoration:none;"><i class="material-icons" style="font-size:18px;">picture_as_pdf</i>Ver PDF</a>`
-            : '<span style="color:#94a3b8;">No cargado</span>';
-        const certificado = d.link_certificado
-            ? `<a href="${d.link_certificado}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:6px; color:#1e40af; font-weight:700; text-decoration:none;"><i class="material-icons" style="font-size:18px;">picture_as_pdf</i>Ver PDF</a>`
-            : '<span style="color:#94a3b8;">No cargado</span>';
+        // Links a PDFs
+        const pdfLink = (url, label, color) => url
+            ? `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:4px; color:${color}; font-weight:700; text-decoration:none; font-size:12px;"><i class="material-icons" style="font-size:16px;">picture_as_pdf</i>${label}</a>`
+            : '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
 
+        // Equipo Vinculado
         const host = d.host_id
-            ? (d.host_codigo || '#' + d.host_id) + (d.host_placa ? ' — ' + d.host_placa : '') + (d.host_tipo ? ' (' + d.host_tipo + ')' : '')
-            : '—';
+            ? ((d.host_codigo || '#' + d.host_id)
+                + (d.host_placa ? ' · <strong>' + d.host_placa + '</strong>' : '')
+                + (d.host_tipo  ? ' <em style="color:#64748b;">('+ d.host_tipo +')</em>' : ''))
+            : '<em style="color:#94a3b8;">Sin vincular</em>';
 
+        // IMPORTANTE: solo campos NO presentes en la tabla del index.
+        // En la tabla ya se ven: frente, foto, tipo, marca/modelo, serial, capacidad, estado.
+        // Aqui mostramos: codigo interno, año, observaciones, equipo vinculado,
+        // documentacion (propiedad + certificado + vencimiento) y auditoria.
+        const body = document.getElementById('auxDetailsBody');
         body.innerHTML = `
-            <div style="display:flex; gap:18px; margin-bottom:16px; flex-wrap:wrap;">
-                <div style="flex:0 0 auto;">${foto}</div>
-                <div style="flex:1; min-width:250px;">
-                    <div style="font-size:18px; font-weight:800; color:#0f172a; margin-bottom:4px;">${d.tipo_label || d.tipo}</div>
-                    <div style="font-size:13px; color:#475569; font-weight:600; margin-bottom:6px;">${(d.marca || '') + ' ' + (d.modelo || '')}</div>
-                    <div>${estadoHtml}</div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; align-self:flex-start;">
-                    <a href="${d.edit_url}" class="btn-primary-maquinaria btn-secondary" style="font-size:12px;">
-                        <i class="material-icons" style="font-size:15px;">edit</i> Editar
-                    </a>
-                    <a href="${d.acta_url}" target="_blank" rel="noopener" class="btn-primary-maquinaria btn-secondary" style="font-size:12px;">
-                        <i class="material-icons" style="font-size:15px;">description</i> Acta
-                    </a>
-                </div>
-            </div>
-
-            ${section('Información General', 'info',
-                row('Tipo', d.tipo_label || d.tipo) +
-                row('Marca', d.marca) +
-                row('Modelo', d.modelo) +
-                row('Serial', d.serial) +
-                row('Código Interno', d.codigo_interno) +
-                row('Capacidad', d.capacidad) +
-                row('Año', d.anio) +
-                row('Estado', d.estado_label)
+            ${section('Documentación Legal y Soportes', 'description',
+                row('Doc. Propiedad',       pdfLink(d.link_doc_propiedad, 'Ver PDF', '#16a34a')) +
+                row('Certificado',          pdfLink(d.link_certificado, 'Ver PDF', '#1e40af')) +
+                row('Vencimiento Certif.',  vencHtml),
+                true
             )}
 
-            ${section('Asignación', 'place',
-                row('Frente de Trabajo', d.frente || 'Sin Asignar') +
-                row('Equipo Vinculado', host)
+            ${section('Información Adicional', 'info',
+                row('Código Interno',       d.codigo_interno ? '#' + d.codigo_interno : '—') +
+                row('Año',                  d.anio) +
+                row('Observaciones',        d.observaciones)
             )}
 
-            ${section('Documentación', 'folder',
-                row('Documento de Propiedad', docPropiedad) +
-                row('Certificado', certificado) +
-                row('Vencimiento Certificado', vencHtml)
+            ${section('Vinculación', 'link',
+                row('Equipo Vinculado',     host)
             )}
 
             ${section('Auditoría', 'history',
-                row('Creado por', d.creado_por) +
-                row('Fecha de creación', d.created_at)
+                row('Creado por',           d.creado_por) +
+                row('Fecha de creación',    d.created_at)
             )}
         `;
     };
@@ -456,11 +481,22 @@
         rows.forEach(r => {
             const pct = total > 0 ? (parseInt(r.total,10) / total) * 100 : 0;
             const label = TIPOS[r.TIPO] || r.TIPO;
-            html += '<li style="padding-bottom:4px;border-bottom:1px dashed #f1f5f9;"><div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;"><span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;">'+label+'</span><span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;">'+r.total+'</span></div><div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#3b82f6 0%,#2563eb 100%);"></div></div></li>';
+            html += '<li onclick="window.auxFilterByTipo(\''+r.TIPO+'\')" style="padding:4px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'"><div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;"><span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;">'+label+'</span><span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;">'+r.total+'</span></div><div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#3b82f6 0%,#2563eb 100%);"></div></div></li>';
         });
         html += '</ul>';
         cont.innerHTML = html;
     }
+
+    // Helpers para filtrar desde Consolidado + Distribucion (clicks).
+    window.auxFilterByTipo = function (tipo) {
+        selectOption('auxTipoFilterSelect', tipo, (@json($tipos))[tipo] || tipo);
+        cargarAuxiliares();
+    };
+    window.auxFilterByEstado = function (estado) {
+        const input = document.getElementById('adv_estado');
+        if (input) input.value = (estado === 'all') ? '' : estado;
+        cargarAuxiliares();
+    };
 
     if (!window.auxPaginationAttached) {
         window.auxPaginationAttached = true;

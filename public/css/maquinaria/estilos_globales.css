@@ -2508,6 +2508,23 @@ input:-webkit-autofill:active {
         margin-top: 5px;
     }
 
+    /* Boton "Acciones" en mobile: debe ir DESPUES de la fila de busqueda
+       (mv-search-adv-row tiene order:3). Sin order explicito caia en 0 y se
+       pintaba arriba del filtro de Serial. */
+    .mv-acciones-btn-container {
+        order: 5 !important;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-top: 5px;
+        display: flex !important;
+        justify-content: stretch !important;
+    }
+
+    .mv-acciones-btn-container #btnAccionesMov {
+        width: 100% !important;
+    }
+
     .mv-filter-btn-row #btnRecepcionDirecta {
         justify-content: center !important;
         flex: 1 !important;

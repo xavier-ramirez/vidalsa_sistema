@@ -46,10 +46,25 @@ class EquipoAuxiliarController extends Controller
             }
         };
 
+        // Flag: hay al menos un filtro activo. Si no hay, la tabla se muestra
+        // vacia (patron de /admin/equipos) para evitar dump masivo de registros.
+        $hasFilter = $request->filled('tipo') || $request->filled('id_frente')
+                  || $request->filled('estado') || $request->filled('search')
+                  || $request->filled('marca') || $request->filled('modelo')
+                  || $request->filled('capacidad');
+
         $query = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion']);
         $applyFilters($query);
 
-        $auxiliares = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+        if ($hasFilter) {
+            $auxiliares = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+        } else {
+            // Paginador vacio mantiene compatibilidad con ->links() en la vista.
+            $auxiliares = new \Illuminate\Pagination\LengthAwarePaginator(
+                collect([]), 0, 25, 1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
 
         // Mapa MARCA|MODELO -> FOTO (de cualquier auxiliar que tenga foto).
         // Sirve como catalogo implicito: si un auxiliar no tiene foto propia,
@@ -99,9 +114,6 @@ class EquipoAuxiliarController extends Controller
             ->groupBy('TIPO')
             ->orderByDesc('total')
             ->get();
-
-        $hasFilter = $request->filled('tipo') || $request->filled('id_frente')
-                  || $request->filled('estado') || $request->filled('search');
 
         if ($request->wantsJson()) {
             return response()->json([

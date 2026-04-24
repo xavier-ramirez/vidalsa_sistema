@@ -94,9 +94,14 @@
     </tr>
 @empty
     <tr>
-        <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
-            <i class="material-icons" style="font-size: 36px; display: block; margin: 0 auto 8px auto;">construction</i>
-            NO HAY EQUIPOS AUXILIARES REGISTRADOS.
+        <td colspan="6" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
+            @if(request('tipo') || request('id_frente') || request('search') || request('marca') || request('modelo') || request('capacidad') || request('estado'))
+                <i class="material-icons" style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">search_off</i>
+                NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.
+            @else
+                <i class="material-icons" style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">filter_alt</i>
+                SELECCIONA UN FILTRO PARA VER LOS EQUIPOS AUXILIARES.
+            @endif
         </td>
     </tr>
 @endforelse

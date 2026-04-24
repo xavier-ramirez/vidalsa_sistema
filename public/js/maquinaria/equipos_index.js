@@ -1294,6 +1294,10 @@ window.openBulkModal = function (event) {
                     clearBtn.style.display = 'flex';
                     listBox.style.display = 'none';
                     inputBox.style.borderColor = '#0067b1';
+                    // Re-evaluar el picker de ubicacion: si el usuario abrio
+                    // "Frente nuevo" mientras escribia y luego selecciono uno
+                    // registrado de la lista, hay que ocultar el wrapper.
+                    toggleUbicacionPicker();
                 };
                 listBox.appendChild(item);
             });
