@@ -9,7 +9,7 @@
     </h1>
 </section>
 
-@can('user.create')
+@can('equipos.create')
 <style>
     /* La carga masiva via Excel no aplica en telefonos */
     @media (max-width: 768px) {
