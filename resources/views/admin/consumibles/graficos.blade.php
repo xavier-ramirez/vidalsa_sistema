@@ -2006,6 +2006,12 @@
         // Carga inicial de datos — se ejecuta tras cargar todos los scripts.
         // La bandera _graficosDataLoaded evita que ModuleManager (spa:contentLoaded)
         // duplique la llamada cuando la página se carga por primera vez vía SPA.
+        //
+        // IMPORTANTE: resetear _graficosFirstRunDone a false en cada montaje
+        // de la vista. Sin esto, una segunda visita via SPA (salir y volver)
+        // ve el flag con true de la visita previa y dispara el preloader
+        // global durante el first run, causando el doble-spinner con el de SPA.
+        window._graficosFirstRunDone = false;
         if (typeof window.cargarDatos === 'function') {
             window._graficosDataLoaded = true;
             window.cargarDatos();
