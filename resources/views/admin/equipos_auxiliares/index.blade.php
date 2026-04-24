@@ -130,32 +130,64 @@
                         <span style="font-size:11px;color:#64748b;text-decoration:underline;cursor:pointer;"
                               onclick="document.getElementById('adv_marca').value=''; document.getElementById('adv_modelo').value=''; document.getElementById('adv_capacidad').value=''; document.getElementById('adv_estado').value=''; cargarAuxiliares();">Limpiar Todo</span>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display:flex;flex-direction:column;gap:15px;">
+                        {{-- Marca --}}
                         <div>
-                            <label for="adv_marca" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Marca</label>
-                            <input type="text" id="adv_marca" name="marca" value="{{ request('marca') }}" placeholder="Ej: Miller" autocomplete="off"
-                                   style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Marca</span>
+                            <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0;">
+                                <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
+                                    <i class="material-icons" style="font-size:16px;">search</i>
+                                </div>
+                                <input type="text" id="adv_marca" name="marca" value="{{ request('marca') }}" placeholder="Ej: Miller" autocomplete="off"
+                                       style="width:100%;border:none;background:transparent;padding:6px 5px;font-size:12px;outline:none;">
+                                <i class="material-icons" onclick="document.getElementById('adv_marca').value=''; cargarAuxiliares(); this.style.display='none';" style="padding:0 5px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('marca') ? 'block' : 'none' }};">close</i>
+                            </div>
                         </div>
+
+                        {{-- Modelo --}}
                         <div>
-                            <label for="adv_modelo" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Modelo</label>
-                            <input type="text" id="adv_modelo" name="modelo" value="{{ request('modelo') }}" placeholder="Ej: Bobcat 225" autocomplete="off"
-                                   style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Modelo</span>
+                            <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0;">
+                                <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
+                                    <i class="material-icons" style="font-size:16px;">search</i>
+                                </div>
+                                <input type="text" id="adv_modelo" name="modelo" value="{{ request('modelo') }}" placeholder="Ej: Bobcat 225" autocomplete="off"
+                                       style="width:100%;border:none;background:transparent;padding:6px 5px;font-size:12px;outline:none;">
+                                <i class="material-icons" onclick="document.getElementById('adv_modelo').value=''; cargarAuxiliares(); this.style.display='none';" style="padding:0 5px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('modelo') ? 'block' : 'none' }};">close</i>
+                            </div>
                         </div>
+
+                        {{-- Capacidad --}}
                         <div>
-                            <label for="adv_estado" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Estado</label>
-                            <select id="adv_estado" name="estado"
-                                    style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;">
-                                <option value="">Todos</option>
-                                @foreach($estados as $k => $label)
-                                    <option value="{{ $k }}" {{ request('estado') === $k ? 'selected' : '' }}>{{ $label }}</option>
-                                @endforeach
-                            </select>
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Capacidad</span>
+                            <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0;">
+                                <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
+                                    <i class="material-icons" style="font-size:16px;">search</i>
+                                </div>
+                                <input type="text" id="adv_capacidad" name="capacidad" value="{{ request('capacidad') }}" placeholder="Ej: 300A, 20 pies" autocomplete="off"
+                                       style="width:100%;border:none;background:transparent;padding:6px 5px;font-size:12px;outline:none;">
+                                <i class="material-icons" onclick="document.getElementById('adv_capacidad').value=''; cargarAuxiliares(); this.style.display='none';" style="padding:0 5px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('capacidad') ? 'block' : 'none' }};">close</i>
+                            </div>
                         </div>
+
+                        {{-- Estado --}}
                         <div>
-                            <label for="adv_capacidad" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Capacidad</label>
-                            <input type="text" id="adv_capacidad" name="capacidad" value="{{ request('capacidad') }}" placeholder="Ej: 300A, 20 pies" autocomplete="off"
-                                   style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Estado</span>
+                            <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0;">
+                                <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
+                                    <i class="material-icons" style="font-size:16px;">flag</i>
+                                </div>
+                                <select id="adv_estado" name="estado" onchange="cargarAuxiliares();"
+                                        style="width:100%;border:none;background:transparent;padding:6px 5px;font-size:12px;outline:none;appearance:none;">
+                                    <option value="">Todos</option>
+                                    @foreach($estados as $k => $label)
+                                        <option value="{{ $k }}" {{ request('estado') === $k ? 'selected' : '' }}>{{ strtoupper($label) }}</option>
+                                    @endforeach
+                                </select>
+                                <i class="material-icons" style="padding:0 5px;color:#94a3b8;font-size:16px;">expand_more</i>
+                            </div>
                         </div>
+
                         <button type="button" onclick="cargarAuxiliares(); document.getElementById('auxAdvPanel').style.display='none';"
                                 class="btn-primary-maquinaria" style="width:100%;height:38px;justify-content:center;margin-top:4px;">
                             <i class="material-icons" style="font-size:16px;">search</i> Aplicar

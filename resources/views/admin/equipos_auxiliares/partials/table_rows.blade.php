@@ -33,13 +33,12 @@
             @if($fotoDriveId)
                 <div class="table-image-wrapper" style="cursor: default;">
                     <img data-src="https://drive.google.com/thumbnail?id={{ $fotoDriveId }}&sz=w300"
-                         src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'></svg>"
-                         alt="Foto" loading="lazy"
-                         style="width: 54px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0;">
+                         alt="Foto"
+                         style="width:100%; height:100%; object-fit:contain; opacity:0; transition:opacity 0.4s;">
                 </div>
             @else
-                <div style="width:54px; height:54px; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc; display:inline-flex; align-items:center; justify-content:center; color:#cbd5e0;">
-                    <i class="material-icons" style="font-size:22px;">image_not_supported</i>
+                <div class="table-image-wrapper placeholder">
+                    <span class="material-icons">image_not_supported</span>
                 </div>
             @endif
         </td>
