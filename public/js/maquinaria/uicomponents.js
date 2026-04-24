@@ -1072,22 +1072,27 @@ window.loadResponsables = (function () {
         })
         .then(r => r.json())
         .then(res => {
+            // El form de "agregar responsable" SIEMPRE se mantiene visible: el
+            // backend conserva un historial de 2 registros por equipo y rota
+            // al insertar uno nuevo. Si ocultaramos el form cuando ya hay 2,
+            // el usuario no tendria como ingresar uno nuevo sin buscar el
+            // boton edit escondido.
+            if (formContainer) formContainer.style.display = 'flex';
+
             if (!res.success || res.data.length === 0) {
                 list.innerHTML = '';
-                if (formContainer) formContainer.style.display = 'flex';
                 return;
             }
-
-            if (formContainer) formContainer.style.display = 'none';
 
             list.innerHTML = res.data.map((r, index) => {
                 const isCurrent = index === 0;
                 const bg     = isCurrent ? '#f0fdf4' : '#f8fafc';
                 const border = isCurrent ? '#bbf7d0' : '#e2e8f0';
-                const editBtnEl = isCurrent ? `
-                <button type="button" onclick="document.getElementById('responsable_form_container').style.display='flex';" title="Editar Responsable" style="background: white; border: 1px solid #cbd5e1; color: #475569; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='white'">
-                    <i class="material-icons" style="font-size: 14px;">edit</i>
-                </button>` : '';
+                // Badge "Actual" / "Anterior" para que el usuario entienda el orden
+                // sin necesidad de un boton edit (form siempre visible abajo).
+                const statusBadge = isCurrent
+                    ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;">Actual</span>'
+                    : '<span style="background:#e2e8f0;color:#475569;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;">Anterior</span>';
 
                 const f = new Date(r.FECHA_ASIGNACION);
                 const dStr = isNaN(f.getTime()) ? r.FECHA_ASIGNACION : f.toLocaleDateString('es-VE');
@@ -1105,7 +1110,7 @@ window.loadResponsables = (function () {
                             C.I. ${r.CEDULA_RESPONSABLE} &nbsp;&bull;&nbsp; Asignado el ${dStr}
                         </div>
                     </div>
-                    ${editBtnEl}
+                    ${statusBadge}
                 </div>`;
             }).join('');
         })
