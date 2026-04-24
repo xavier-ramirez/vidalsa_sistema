@@ -40,7 +40,7 @@
             @php
                 $reqFrente = request('id_frente');
                 $frenteActual = ($reqFrente && $reqFrente !== 'all') ? $frentes->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
-                $frenteLabel  = $frenteActual ? $frenteActual->NOMBRE_FRENTE : 'Filtrar Frente...';
+                $frenteLabel  = $frenteActual ? mb_strtoupper($frenteActual->NOMBRE_FRENTE) : 'Filtrar Frente...';
             @endphp
             <div class="custom-dropdown" id="auxFrenteFilterSelect" data-filter-type="id_frente"
                  data-default-label="Filtrar Frente..." style="flex:1;min-width:180px;max-width:260px;">
@@ -50,8 +50,8 @@
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">place</i></div>
                     <input type="text" id="auxFrenteFilterSearch" name="frente_filter_search" data-filter-search
                            placeholder="Filtrar Frente..." aria-label="Filtrar Frente"
-                           style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
-                           autocomplete="off" value="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : '' }}">
+                           style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;text-transform:uppercase;"
+                           autocomplete="off" value="{{ $frenteActual ? mb_strtoupper($frenteActual->NOMBRE_FRENTE) : '' }}">
                     <span data-filter-label style="display:none;">{{ $frenteLabel }}</span>
                     <i class="material-icons" data-clear-btn
                        style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $reqFrente && $reqFrente !== 'all' ? 'block' : 'none' }};"
@@ -61,9 +61,10 @@
                     <div class="dropdown-item {{ !$reqFrente || $reqFrente === 'all' ? 'selected' : '' }}" data-value="all"
                          onclick="selectOption('auxFrenteFilterSelect','all','TODOS LOS FRENTES'); cargarAuxiliares();">TODOS LOS FRENTES</div>
                     @foreach($frentes as $frente)
+                        @php $frenteNombreUpper = mb_strtoupper(trim($frente->NOMBRE_FRENTE)); @endphp
                         <div class="dropdown-item {{ (string)$reqFrente === (string)$frente->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $frente->ID_FRENTE }}"
-                             onclick="selectOption('auxFrenteFilterSelect','{{ $frente->ID_FRENTE }}','{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); cargarAuxiliares();">
-                            {{ $frente->NOMBRE_FRENTE }}
+                             onclick="selectOption('auxFrenteFilterSelect','{{ $frente->ID_FRENTE }}','{{ addslashes($frenteNombreUpper) }}'); cargarAuxiliares();">
+                            {{ $frenteNombreUpper }}
                         </div>
                     @endforeach
                 </div>
