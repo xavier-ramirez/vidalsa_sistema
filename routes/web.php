@@ -95,12 +95,21 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('consumibles/{id}/frente',       [App\Http\Controllers\ConsumiblesController::class, 'updateFrente'])   ->name('consumibles.updateFrente');
             Route::delete('consumibles/{id}',             [App\Http\Controllers\ConsumiblesController::class, 'destroy'])        ->name('consumibles.destroy');
 
-            // ── Sub-activos (Herramientas / Equipos Menores) ─────────────────
-            Route::get ('sub-activos',        [App\Http\Controllers\SubActivoController::class, 'index'])  ->name('sub-activos.index');
-            Route::get ('sub-activos/count',  [App\Http\Controllers\SubActivoController::class, 'count'])  ->name('sub-activos.count');
-            Route::post('sub-activos',        [App\Http\Controllers\SubActivoController::class, 'store'])  ->name('sub-activos.store');
-            Route::patch('sub-activos/{id}',  [App\Http\Controllers\SubActivoController::class, 'update']) ->name('sub-activos.update');
-            Route::delete('sub-activos/{id}', [App\Http\Controllers\SubActivoController::class, 'destroy'])->name('sub-activos.destroy');
+            // ── Equipos Auxiliares (maquinas de soldar, luminarias, compresores, etc) ──
+            // Reemplaza el antiguo modulo "sub-activos" con logica de anclaje 1:N
+            // (un camion de soldadura puede llevar hasta 2 maquinas de soldar).
+            Route::get   ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'index'])  ->name('equipos-auxiliares.index');
+            Route::get   ('equipos-auxiliares/count',          [App\Http\Controllers\EquipoAuxiliarController::class, 'count'])  ->name('equipos-auxiliares.count');
+            Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');
+            Route::get   ('equipos-auxiliares/hosts/search',   [App\Http\Controllers\EquipoAuxiliarController::class, 'searchHosts'])->name('equipos-auxiliares.searchHosts');
+            Route::get   ('equipos-auxiliares/{id}/acta',      [App\Http\Controllers\EquipoAuxiliarController::class, 'actaAsignacion'])->middleware('can:equipos.view')->name('equipos-auxiliares.acta');
+            Route::get   ('equipos-auxiliares/create',         [App\Http\Controllers\EquipoAuxiliarController::class, 'create'])->middleware('can:equipos.create')->name('equipos-auxiliares.create');
+            Route::post  ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'store']) ->middleware('can:equipos.create')->name('equipos-auxiliares.store');
+            Route::get   ('equipos-auxiliares/{id}/edit',      [App\Http\Controllers\EquipoAuxiliarController::class, 'edit']) ->middleware('can:equipos.edit')->name('equipos-auxiliares.edit');
+            Route::patch ('equipos-auxiliares/{id}',           [App\Http\Controllers\EquipoAuxiliarController::class, 'update'])->middleware('can:equipos.edit')->name('equipos-auxiliares.update');
+            Route::delete('equipos-auxiliares/{id}',           [App\Http\Controllers\EquipoAuxiliarController::class, 'destroy'])->middleware('can:super.admin')->name('equipos-auxiliares.destroy');
+            Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.edit')->name('equipos-auxiliares.anchor');
+            Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.edit')->name('equipos-auxiliares.unanchor');
 
 
 

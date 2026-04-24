@@ -122,10 +122,11 @@ class Equipo extends Model
         return $this->hasMany(MovilizacionHistorial::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
 
-    /** Sub-activos montados en este vehículo (máquinas de soldar, plantas, etc.) */
-    public function subActivos()
+    /** Equipos auxiliares anclados a este equipo (ej: maquinas de soldar en un
+     *  camion de soldadura). Maximo 2 por equipo via unique index en la tabla link. */
+    public function equiposAuxiliares()
     {
-        return $this->hasMany(\App\Models\SubActivo::class, 'ID_EQUIPO_HOST', 'ID_EQUIPO');
+        return $this->hasMany(\App\Models\EquipoAuxiliar::class, 'ID_EQUIPO_HOST', 'ID_EQUIPO');
     }
 
     public function creador()
