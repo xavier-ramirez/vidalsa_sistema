@@ -428,9 +428,9 @@ window._eliminarSeleccionados = function () {
      style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); backdrop-filter: blur(3px); z-index:10000; align-items:center; justify-content:center; padding:20px;"
      onclick="if(event.target===this) window.closeReimprimirActaModal()">
     <div style="background:white; width:100%; max-width:440px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden; animation:reimprimirIn 0.22s cubic-bezier(0.16,1,0.3,1);">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg, #0067b1 0%, #003c6e 100%); padding:16px 20px; color:white; display:flex; align-items:center; justify-content:space-between;">
-            <div style="display:flex; align-items:center; gap:12px;">
+        <!-- Header (misma paleta que el modal de Anclaje/Ubicacion: #1e293b solido, titulo centrado) -->
+        <div style="background:#1e293b; padding:16px 20px; color:white; position:relative;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
                 <div style="background:rgba(255,255,255,0.18); width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
                     <i class="material-icons" style="font-size:22px;">print</i>
                 </div>
@@ -440,7 +440,7 @@ window._eliminarSeleccionados = function () {
                 </div>
             </div>
             <button type="button" onclick="window.closeReimprimirActaModal()" aria-label="Cerrar"
-                style="background:rgba(255,255,255,0.15); border:none; color:white; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                style="background:rgba(255,255,255,0.15); border:none; color:white; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:absolute; top:14px; right:16px;">
                 <i class="material-icons" style="font-size:18px;">close</i>
             </button>
         </div>
@@ -448,7 +448,7 @@ window._eliminarSeleccionados = function () {
         <div style="padding:22px 24px; display:flex; flex-direction:column; gap:14px;">
             <div>
                 <label for="reimprimirCodigoInput" style="display:block; font-size:13px; font-weight:700; color:#475569; margin-bottom:6px;">
-                    <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:4px; color:#0067b1;">tag</i>
+                    <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:4px; color:#1e293b;">tag</i>
                     N° de Operación
                 </label>
                 <div id="reimprimirInputBox"
@@ -467,14 +467,14 @@ window._eliminarSeleccionados = function () {
 
             <div id="reimprimirFeedback" style="display:none; padding:10px 12px; border-radius:8px; font-size:12.5px; font-weight:600;"></div>
 
-            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+            <div style="display:flex; gap:10px; justify-content:center; margin-top:4px;">
                 <button type="button" onclick="window.closeReimprimirActaModal()"
                     style="padding:10px 18px; border-radius:8px; border:1px solid #e2e8f0; background:white; color:#475569; font-size:13px; font-weight:700; cursor:pointer;">
                     Cancelar
                 </button>
                 <button type="button" id="reimprimirSubmitBtn" onclick="window.submitReimprimirActa()"
-                    style="padding:10px 20px; border-radius:8px; border:none; background:#0067b1; color:white; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px;">
-                    <i class="material-icons" style="font-size:17px;">file_download</i> Generar PDF
+                    style="padding:10px 20px; border-radius:8px; border:none; background:#1e293b; color:white; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <i class="material-icons" style="font-size:17px;">file_download</i> Generar
                 </button>
             </div>
         </div>
@@ -483,7 +483,7 @@ window._eliminarSeleccionados = function () {
 
 <style>
 @keyframes reimprimirIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-#reimprimirInputBox:focus-within { border-color:#0067b1; box-shadow:0 0 0 3px rgba(0,103,177,0.15); }
+#reimprimirInputBox:focus-within { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,0.15); }
 </style>
 
 <script>
