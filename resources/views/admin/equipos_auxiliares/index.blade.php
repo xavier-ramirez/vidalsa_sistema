@@ -497,7 +497,6 @@
         body.innerHTML = `
             ${section('Documentación Legal y Soportes', 'description',
                 row('Doc. Propiedad',       pdfLink(d.link_doc_propiedad, 'Ver PDF', '#16a34a')) +
-                row('Nº Doc. Propiedad',    d.nro_doc_propiedad || '—') +
                 row('Certificado',          pdfLink(d.link_certificado, 'Ver PDF', '#1e40af')) +
                 row('Vencimiento Certif.',  vencHtml),
                 true

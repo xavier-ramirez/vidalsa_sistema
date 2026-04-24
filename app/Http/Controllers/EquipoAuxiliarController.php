@@ -233,7 +233,6 @@ class EquipoAuxiliarController extends Controller
             'foto'           => $aux->FOTO,
             'foto_drive_id'  => $aux->FOTO ? basename(str_replace('/storage/google/', '', $aux->FOTO)) : null,
             'link_doc_propiedad'     => $aux->LINK_DOC_PROPIEDAD ?? null,
-            'nro_doc_propiedad'      => $aux->NRO_DOC_PROPIEDAD ?? null,
             'link_certificado'       => $aux->LINK_CERTIFICADO ?? null,
             'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT ?? null,
             'frente'         => optional($aux->frente)->NOMBRE_FRENTE,
@@ -294,7 +293,7 @@ class EquipoAuxiliarController extends Controller
         $data['CREADO_POR'] = auth()->id();
         // Todos los campos de texto (select o input) se guardan en MAYUSCULAS
         // para consistencia (reportes, busquedas, filtros case-insensitive).
-        foreach (['MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD', 'OBSERVACIONES', 'NRO_DOC_PROPIEDAD'] as $f) {
+        foreach (['MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD', 'OBSERVACIONES'] as $f) {
             if (!empty($data[$f])) $data[$f] = mb_strtoupper(trim($data[$f]));
         }
 
@@ -359,7 +358,7 @@ class EquipoAuxiliarController extends Controller
 
         // Todos los campos de texto se normalizan a MAYUSCULAS (consistencia
         // con store y con el resto de la app).
-        foreach (['MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD', 'OBSERVACIONES', 'NRO_DOC_PROPIEDAD'] as $f) {
+        foreach (['MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD', 'OBSERVACIONES'] as $f) {
             if (!empty($data[$f])) $data[$f] = mb_strtoupper(trim($data[$f]));
         }
 
@@ -627,7 +626,7 @@ class EquipoAuxiliarController extends Controller
         // guardamos uppercase, para que el check unique compare consistente
         // (sino "ms-01" pasa unique aunque la BD tenga "MS-01" y al
         // guardar con strtoupper se crearia un duplicado logico).
-        foreach (['SERIAL', 'CODIGO_INTERNO', 'MARCA', 'MODELO', 'CAPACIDAD', 'NRO_DOC_PROPIEDAD'] as $f) {
+        foreach (['SERIAL', 'CODIGO_INTERNO', 'MARCA', 'MODELO', 'CAPACIDAD'] as $f) {
             if ($request->filled($f)) {
                 $request->merge([$f => mb_strtoupper(trim($request->input($f)))]);
             }
@@ -668,7 +667,6 @@ class EquipoAuxiliarController extends Controller
             // Documentacion (opcional). En UPDATE aceptamos fecha pasada para no
             // bloquear edicion de registros con certificados ya vencidos.
             'doc_propiedad'          => 'nullable|file|mimes:pdf|max:10240',
-            'NRO_DOC_PROPIEDAD'      => 'nullable|string|max:80',
             'certificado'            => 'nullable|file|mimes:pdf|max:10240',
             'fecha_vencimiento_cert' => $isCreate ? 'nullable|date|after_or_equal:today' : 'nullable|date',
         ];
