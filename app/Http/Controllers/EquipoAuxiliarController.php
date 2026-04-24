@@ -71,6 +71,20 @@ class EquipoAuxiliarController extends Controller
         $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
+        // Catalogo implicito de FOTO por MARCA|MODEL: si un auxiliar no tiene
+        // FOTO propia, el partial cae a la de otro registro con el mismo modelo
+        // (evita placeholders masivos cuando se registran sin foto individual).
+        $photoByModel = EquipoAuxiliar::whereNotNull('FOTO')
+            ->where('FOTO', '!=', '')
+            ->select('MARCA', 'MODELO', 'FOTO')
+            ->orderByDesc('ID_AUXILIAR')
+            ->get()
+            ->reduce(function ($carry, $a) {
+                $key = mb_strtoupper(trim(($a->MARCA ?? '') . '|' . ($a->MODELO ?? '')));
+                if ($key !== '|' && !isset($carry[$key])) $carry[$key] = $a->FOTO;
+                return $carry;
+            }, []);
+
         // Stats: total/operativos/inoperativos/mantenimiento respetando los filtros
         // activos excepto el propio filtro de estado (para mostrar el breakdown real).
         $statsBase = EquipoAuxiliar::query();
@@ -104,7 +118,7 @@ class EquipoAuxiliarController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos'))->render(),
+                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos', 'photoByModel'))->render(),
                 'pagination'   => $auxiliares->links('vendor.pagination.custom-sliding')->toHtml(),
                 'count'        => $auxiliares->total(),
                 'stats'        => $stats,
@@ -114,7 +128,7 @@ class EquipoAuxiliarController extends Controller
         }
 
         return view('admin.equipos_auxiliares.index', compact(
-            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter'
+            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel'
         ));
     }
 
