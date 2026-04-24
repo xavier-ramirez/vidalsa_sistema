@@ -50,7 +50,7 @@
 /* Navegación */
 .header-nav {
     display: flex;
-    gap: 18px;
+    gap: 12px;
     align-items: center;
     margin-left: auto;
 }
