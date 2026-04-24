@@ -87,7 +87,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/graficos',           [App\Http\Controllers\ConsumiblesController::class, 'graficos'])       ->name('consumibles.graficos');
             Route::get ('consumibles/auditoria-catalogo', [App\Http\Controllers\ConsumiblesController::class, 'auditoriaCatalogoData'])->middleware('can:super.admin')->name('consumibles.auditoriaCatalogo');
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
-            Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->name('consumibles.guardarLote');
+            Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->middleware('can:super.admin')->name('consumibles.guardarLote');
             Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->name('consumibles.matchAutomatico');
             // Rutas con wildcard {id} al final para no capturar segmentos estáticos
             Route::patch('consumibles/{id}/estado',       [App\Http\Controllers\ConsumiblesController::class, 'updateEstado'])   ->name('consumibles.updateEstado');

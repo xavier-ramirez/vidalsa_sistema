@@ -120,7 +120,8 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function guardarLote(Request $request)
     {
-        abort_if(!auth()->user()->can('super.admin'), 403, 'No tienes permiso para cargar consumibles.');
+        // Permiso 'super.admin' validado en el middleware de la ruta
+        // (routes/web.php: middleware('can:super.admin') en consumibles.guardarLote).
 
         // ── 1. Filtrar filas vacías ANTES de validar ──────────────
         $filasFiltradas = collect($request->input('filas', []))

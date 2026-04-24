@@ -397,15 +397,22 @@
             </button>
         </div>
 
-        {{-- ACCIONES --}}
+        {{-- ACCIONES. "Guardar Lote" solo visible con permiso super.admin
+             (coincide con el middleware del POST /consumibles/guardar-lote). --}}
         <div style="margin-top: 30px; display: flex; gap: 12px; justify-content: center; padding-bottom:40px;">
             <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>
-            <button type="submit" class="btn-primary-maquinaria">
-                <i class="material-icons">save</i>
-                Guardar Lote
-            </button>
+            @can('super.admin')
+                <button type="submit" class="btn-primary-maquinaria">
+                    <i class="material-icons">save</i>
+                    Guardar Lote
+                </button>
+            @else
+                <span style="font-size:12px; color:#94a3b8; padding:10px 14px; border:1px dashed #cbd5e1; border-radius:8px;">
+                    Solo un Super Admin puede guardar el lote.
+                </span>
+            @endcan
         </div>
 
     </form>
