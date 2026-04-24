@@ -723,11 +723,6 @@
                         </div>
                     </div>
 
-                    {{-- Slot PWA: el boton "Instalar App" se inyecta aqui solo en mobile
-                         cuando el navegador emite beforeinstallprompt (o en iOS Safari).
-                         Ver public/js/pwa-install.js. --}}
-                    <div id="pwaInstallSlot" style="margin-top: 10px;"></div>
-
                 </div>
 
                 {{-- Modal Alertas Documentos (abierto desde la card) --}}
@@ -771,6 +766,11 @@
 
 
             </div>
+
+            {{-- Slot PWA: boton "Instalar App". Fuera del .cards-wrapper (grid)
+                 para que SIEMPRE quede debajo de las dos cards, nunca al lado.
+                 Solo se inyecta contenido en mobile/no-standalone via pwa-install.js. --}}
+            <div id="pwaInstallSlot" style="margin-top: 12px;"></div>
         </div>
     </div>
 </div>
