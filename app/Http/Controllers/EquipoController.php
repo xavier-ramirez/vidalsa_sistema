@@ -23,7 +23,7 @@ class EquipoController extends Controller
         $this->middleware('can:equipos.edit')->only(['edit', 'update', 'changeStatus']);
         // Borrar un equipo es destructivo irreversible: solo super.admin.
         $this->middleware('can:super.admin')->only(['destroy']);
-        // uploadDoc/deleteDoc/updateMetadata: permission handled inside methods (user.edit OR equipos.edit OR super.admin)
+        // uploadDoc/deleteDoc/updateMetadata: permission 'user.edit' (Gate::before resuelve super.admin)
     }
 
     /**
@@ -1528,7 +1528,7 @@ class EquipoController extends Controller
 
     public function uploadDoc(Request $request, $id)
     {
-        if (!auth()->user()->can('user.edit') && !auth()->user()->can('equipos.edit') && !auth()->user()->can('super.admin')) {
+        if (!auth()->user()->can('user.edit')) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
         set_time_limit(600);
@@ -1833,7 +1833,7 @@ class EquipoController extends Controller
      */
     public function deleteDoc(Request $request, $id)
     {
-        if (!auth()->user()->can('user.edit') && !auth()->user()->can('equipos.edit') && !auth()->user()->can('super.admin')) {
+        if (!auth()->user()->can('user.edit')) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
 
@@ -1886,7 +1886,7 @@ class EquipoController extends Controller
      */
     public function updateMetadata(Request $request, $id)
     {
-        if (!auth()->user()->can('user.edit') && !auth()->user()->can('equipos.edit') && !auth()->user()->can('super.admin')) {
+        if (!auth()->user()->can('user.edit')) {
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
         $equipo = $this->findAndAuthorizeEquipo($id, ['documentacion']);

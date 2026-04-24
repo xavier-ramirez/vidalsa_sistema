@@ -1511,7 +1511,11 @@
             };
 
             // Permission Flag (Global & Exposed to External Scripts)
-            window.CAN_UPDATE_INFO = {{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('user.edit') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+            // CAN_UPDATE_INFO habilita: boton lapiz del modal detalles, upload
+            // PDF del modal detalles, submit de edicion de ficha. SOLO mira
+            // 'user.edit'. Gate::before resuelve super.admin automaticamente
+            // dentro de ->can('user.edit') (no hay que repetirlo aca).
+            window.CAN_UPDATE_INFO = {{ auth()->user() && auth()->user()->can('user.edit') ? 'true' : 'false' }};
             window.CAN_CREATE_EQUIPOS = {{ auth()->user() && auth()->user()->can('equipos.create') ? 'true' : 'false' }};
             window.CAN_ASSIGN_EQUIPOS = {{ auth()->user() && auth()->user()->can('equipos.assign') ? 'true' : 'false' }};
             window.CAN_CHANGE_STATUS = {{ auth()->user() && auth()->user()->can('equipos.edit') ? 'true' : 'false' }};
