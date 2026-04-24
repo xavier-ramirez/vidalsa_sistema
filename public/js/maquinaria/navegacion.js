@@ -181,19 +181,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const parser = new DOMParser();
             const doc    = parser.parseFromString(html, 'text/html');
 
-            // Auto Cache-Busting: Detectar si el servidor sirvió versiones más nuevas de nuestros scripts
+            // Auto Cache-Busting: detectar si el servidor sirvió versiones mas nuevas
+            // de nuestros scripts. Si hay cambio REAL -> hard reload para evitar bugs
+            // por codigo desactualizado. Excluimos scripts no-criticos (pwa-install,
+            // service worker loader, etc.) cuya nueva version no afecta la logica
+            // de la app — evitamos reloads innecesarios que se perciben como "se
+            // recargo toda la pagina" al navegar entre modulos.
             const newScripts     = Array.from(doc.querySelectorAll('script[src]'));
             const currentScripts = Array.from(document.querySelectorAll('script[src]'));
             let versionChanged   = false;
 
+            // Paths que NO disparan hard reload aunque cambie su version:
+            // - pwa-install.js: solo registra SW, no afecta paginas abiertas.
+            // - sw.js: el service worker se actualiza en su propio canal.
+            const NON_CRITICAL_SCRIPTS = ['/js/pwa-install.js', '/sw.js'];
+
             for (let i = 0; i < newScripts.length; i++) {
                 const ns = newScripts[i];
-                // Ignorar librerías externas o CDN
-                if (!ns.src.includes(window.location.origin)) continue;
+                if (!ns.src.includes(window.location.origin)) continue; // externos
 
-                const basePath        = ns.src.split('?')[0];
+                const basePath = ns.src.split('?')[0];
+                if (NON_CRITICAL_SCRIPTS.some(p => basePath.endsWith(p))) continue;
+
                 const matchingCurrent = currentScripts.find(cs => cs.src.split('?')[0] === basePath);
-
                 if (matchingCurrent && matchingCurrent.src !== ns.src) {
                     versionChanged = true;
                     console.log(`Nueva versión detectada para: ${basePath}. Requiriendo recarga completa.`);

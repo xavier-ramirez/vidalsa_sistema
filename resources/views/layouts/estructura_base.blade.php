@@ -484,13 +484,13 @@
                 <a href="#"
                     class="nav-link {{ (request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) || request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}"
                     style="display: flex; align-items: center; gap: 4px;">
-                    <i class="material-icons" style="font-size: 18px;">agriculture</i>Flota
+                    <i class="material-icons" style="font-size: 18px;">agriculture</i>Flota Operacional
                     <i class="material-icons" style="font-size: 16px;">expand_more</i>
                 </a>
                 <div class="nav-dropdown-content">
                     <a href="{{ route('equipos.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
-                        <i class="material-icons">agriculture</i> Vehículo
+                        <i class="material-icons">agriculture</i> Equipos y Maquinarias
                     </a>
                     <a href="{{ route('equipos-auxiliares.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
@@ -630,14 +630,14 @@
             <div class="mobile-nav-group-title">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="material-icons">agriculture</i>
-                    Flota
+                    Flota Operacional
                 </div>
                 <i class="material-icons chevron">expand_more</i>
             </div>
             <div class="mobile-nav-group-content">
                 <a href="{{ route('equipos.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
-                    <i class="material-icons">agriculture</i> Vehículo
+                    <i class="material-icons">agriculture</i> Equipos y Maquinarias
                 </a>
                 <a href="{{ route('equipos-auxiliares.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
