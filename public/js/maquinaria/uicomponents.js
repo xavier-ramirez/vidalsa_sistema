@@ -828,6 +828,35 @@ window.showDetailsImproved = function (target, event) {
         subtitleParts.push(`Serial: ${d.chasis}`);
     set("modal_equipo_subtitle", subtitleParts.join(" - "));
 
+    // ── Pill de estatus (OPERATIVO / INOPERATIVO / EN MANTENIMIENTO / DESINCORPORADO)
+    // Abre el sharedStatusMenu (definido en equipos_index.js). Solo visible si
+    // el usuario tiene permiso equipos.edit (el boton se renderiza condicional en Blade).
+    const statusBtn = document.getElementById("modal_status_trigger");
+    if (statusBtn) {
+        const raw = (d.estado || target.getAttribute("data-estado") || "").toString().toUpperCase().trim();
+        if (raw) {
+            const iconEl = statusBtn.querySelector('.material-icons');
+            const spanEl = statusBtn.querySelector('span');
+            const cfgMap = {
+                'OPERATIVO':        { color: '#bbf7d0', icon: 'check_circle', label: 'Operativo' },
+                'INOPERATIVO':      { color: '#fca5a5', icon: 'cancel',       label: 'Inoperativo' },
+                'EN MANTENIMIENTO': { color: '#fcd34d', icon: 'engineering',  label: 'Mantenimiento' },
+                'DESINCORPORADO':   { color: '#cbd5e1', icon: 'archive',      label: 'Desincorp.' },
+            };
+            const cfg = cfgMap[raw] || { color: '#cbd5e1', icon: 'help_outline', label: raw };
+            if (iconEl) { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
+            if (spanEl) spanEl.textContent = cfg.label;
+            statusBtn.dataset.equipoId = d.equipoId || '';
+            statusBtn.dataset.status   = raw;
+            // Construir URL sin depender de route() - ya que estamos en SPA
+            const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
+            statusBtn.dataset.statusUrl = baseUrl + '/admin/equipos/' + encodeURIComponent(d.equipoId) + '/status';
+            statusBtn.style.display = 'inline-flex';
+        } else {
+            statusBtn.style.display = 'none';
+        }
+    }
+
     // GPS Button
     const gpsBtn = document.getElementById("modal_gps_btn");
     if (gpsBtn) {

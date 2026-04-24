@@ -63,6 +63,7 @@
             data-modelo="{{ $alert->equipo->MODELO }}"
             data-anio="{{ $alert->equipo->ANIO }}"
             data-tipo="{{ $alert->equipo->tipo->nombre ?? 'N/A' }}"
+            data-estado="{{ $alert->equipo->ESTADO_OPERATIVO ?? '' }}"
             data-categoria="{{ $alert->equipo->CATEGORIA_FLOTA }}"
             data-ubicacion="{{ $alert->equipo->frenteActual->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
             data-motor-serial="{{ $alert->equipo->SERIAL_DE_MOTOR }}"

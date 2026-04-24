@@ -109,7 +109,9 @@ const STATUS_CONFIG = {
 
         menu = document.createElement('div');
         menu.id = 'sharedStatusMenu';
-        menu.style.cssText = 'display:none; position:fixed; min-width:180px; background:white; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.15); border:1px solid #e2e8f0; z-index:9999; overflow:hidden;';
+        // z-index 100001: por encima del modal de detalles (z-index 99999)
+        // para que el menu sea visible cuando el modal esta abierto.
+        menu.style.cssText = 'display:none; position:fixed; min-width:180px; background:white; border-radius:8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.15); border:1px solid #e2e8f0; z-index:100001; overflow:hidden;';
 
         Object.entries(STATUS_CONFIG).forEach(([key, cfg]) => {
             const item = document.createElement('div');
