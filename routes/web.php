@@ -123,6 +123,11 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
             Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.edit')->name('equipos-auxiliares.bulkMove');
 
+            // Carga masiva via Excel (patron identico a /admin/equipos)
+            Route::get   ('equipos-auxiliares/bulk-template',     [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkTemplate'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkTemplate');
+            Route::post  ('equipos-auxiliares/bulk-preview',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkPreview'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkPreview');
+            Route::post  ('equipos-auxiliares/bulk-store-batch', [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkStoreBatch'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkStoreBatch');
+
             // ── Reporte de Fallas (placeholder: modulo pendiente de definicion) ──
             // El usuario pidio el boton en el navbar pero aun no confirmo alcance
             // (opciones A/B/C/D en propuesta anterior). Ruta temporal que muestra

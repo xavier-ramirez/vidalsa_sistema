@@ -1,7 +1,9 @@
 @php
     $dist = $distribucion ?? collect();
     $totalDist = $dist->sum('total');
-    $tiposLabel = \App\Models\EquipoAuxiliar::tiposLabel();
+    // Usa el mapa dinamico heredado del parent (index) que combina enum
+    // + tipos custom en BD. Fallback al enum base si se incluye fuera de contexto.
+    $tiposLabel = $tipos ?? \App\Models\EquipoAuxiliar::tiposLabel();
 @endphp
 @if($dist->count() > 0)
     <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">

@@ -2098,6 +2098,9 @@
         {{-- Bulk upload de equipos (Global: @yield('extra_js') queda fuera del .main-viewport → SPA no lo re-ejecutaría) --}}
         <script
             src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}"></script>
+        {{-- Bulk upload de equipos auxiliares (mismo patron SPA-compat) --}}
+        <script
+            src="{{ asset('js/maquinaria/auxiliares_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/auxiliares_bulk.js')) }}"></script>
 
         {{-- ── Centro de notificaciones (Equipos por confirmar) ── --}}
         <script>

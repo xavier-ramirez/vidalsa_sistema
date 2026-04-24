@@ -9,6 +9,55 @@
     </h1>
 </section>
 
+@can('equipos.create')
+<style>
+    /* La carga masiva via Excel no aplica en telefonos */
+    @media (max-width: 768px) {
+        #bulkUploadCardAux { display: none !important; }
+    }
+</style>
+<div id="bulkUploadCardAux" class="admin-card" style="max-width: 95%; margin: 0 auto 20px auto; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <h3 style="margin: 0; color: #0067b1; font-size: 16px; font-weight: 700;">
+                <i class="material-icons" style="vertical-align: middle;">upload_file</i>
+                Carga Masiva desde Excel
+            </h3>
+            <p style="margin: 4px 0 0; color: #718096; font-size: 13px;">
+                Descarga la plantilla, completa los equipos auxiliares y súbelo para registrar varios a la vez.
+            </p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="{{ route('equipos-auxiliares.bulkTemplate') }}"
+               id="btnDescargarPlantillaAux"
+               class="btn-primary-maquinaria btn-secondary"
+               data-no-spa
+               download
+               onclick="if(window.showPreloader) window.showPreloader(); setTimeout(() => { if(window.hidePreloader) window.hidePreloader(); }, 2500);">
+                <i class="material-icons">download</i> Descargar Plantilla
+            </a>
+            <button type="button" id="btnCargarExcelAux" class="btn-primary-maquinaria">
+                <i class="material-icons">upload</i> Cargar Excel
+            </button>
+            <input type="file" id="bulkExcelInputAux" accept=".xlsx,.xls" style="display: none;">
+        </div>
+    </div>
+
+    <div id="bulkPreviewPanelAux" style="display: none; margin-top: 20px;">
+        <div id="bulkPreviewHeaderAux" style="margin-bottom: 12px; font-size: 14px; color: #4a5568;"></div>
+        <div id="bulkPreviewTableWrapperAux" style="overflow: auto; max-height: 60vh; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table id="bulkPreviewTableAux" class="bulk-preview-table"></table>
+        </div>
+        <div style="margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="btnCancelBulkAux" class="btn-primary-maquinaria btn-secondary">Cancelar</button>
+            <button type="button" id="btnGuardarBulkAux" class="btn-primary-maquinaria">
+                <i class="material-icons">save</i> Guardar Todo
+            </button>
+        </div>
+    </div>
+</div>
+@endcan
+
 <div id="formEquipoAuxiliarCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">
     <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.store') }}" method="POST" enctype="multipart/form-data" novalidate>
         @csrf

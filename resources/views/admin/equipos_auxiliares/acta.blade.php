@@ -51,7 +51,9 @@
 
     <div class="section-title">Datos del Equipo Auxiliar</div>
     @php
-        $tipoLabel = \App\Models\EquipoAuxiliar::tiposLabel()[$auxiliar->TIPO] ?? $auxiliar->TIPO;
+        // Usa $tipos dinamico del controller; fallback al enum base.
+        $tiposMap = $tipos ?? \App\Models\EquipoAuxiliar::tiposLabel();
+        $tipoLabel = $tiposMap[$auxiliar->TIPO] ?? $auxiliar->TIPO;
         $estadoLabel = \App\Models\EquipoAuxiliar::estadosLabel()[$auxiliar->ESTADO_OPERATIVO] ?? $auxiliar->ESTADO_OPERATIVO;
     @endphp
     <table class="info">

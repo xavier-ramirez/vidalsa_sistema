@@ -584,7 +584,10 @@ class EquipoAuxiliarController extends Controller
     {
         $auxiliar = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion', 'equipoHost.tipo', 'creador'])
             ->findOrFail($id);
-        return view('admin.equipos_auxiliares.acta', compact('auxiliar'));
+        // Pasa el mapa dinamico de tipos para que el acta muestre labels
+        // legibles tambien para tipos custom creados por el usuario.
+        $tipos = $this->getTiposDinamicos();
+        return view('admin.equipos_auxiliares.acta', compact('auxiliar', 'tipos'));
     }
 
     /**
@@ -708,5 +711,359 @@ class EquipoAuxiliarController extends Controller
         }
 
         return $validated;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // CARGA MASIVA (Excel) — patron identico a /admin/equipos
+    // ═══════════════════════════════════════════════════════════
+    /**
+     * Headers canonicos de la plantilla. El orden es vinculante: lo usa tanto
+     * el generador (bulkTemplate) como el parser (bulkPreview) para validar.
+     */
+    private function bulkHeaderKeys(): array
+    {
+        return ['tipo', 'marca', 'modelo', 'serial', 'codigo interno', 'capacidad', 'año', 'frente de trabajo', 'estado', 'observaciones'];
+    }
+
+    private function bulkHeaderLabels(): array
+    {
+        return ['Tipo', 'Marca', 'Modelo', 'Serial', 'Codigo Interno', 'Capacidad', 'Año', 'Frente de Trabajo', 'Estado', 'Observaciones'];
+    }
+
+    /**
+     * Descarga plantilla XLSX para bulk upload. Incluye hoja oculta "_listas"
+     * con data validation (dropdowns) para Tipo/Frente/Estado. Tipos custom
+     * son permitidos (validation soft): el Excel muestra sugerencias pero no
+     * bloquea escribir uno nuevo — se crea al guardar.
+     */
+    public function bulkTemplate(Request $request)
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getProperties()->setCreator('Vidalsa')->setTitle('Plantilla Bulk Equipos Auxiliares');
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Auxiliares');
+        $sheet->fromArray([$this->bulkHeaderLabels()], null, 'A1');
+
+        $sheet->getStyle('A1:J1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF0067B1']],
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]],
+        ]);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:J1');
+
+        $colWidths = ['A' => 22, 'B' => 16, 'C' => 16, 'D' => 18, 'E' => 16, 'F' => 14, 'G' => 8, 'H' => 25, 'I' => 16, 'J' => 30];
+        foreach ($colWidths as $col => $w) {
+            $sheet->getColumnDimension($col)->setWidth($w);
+        }
+
+        // Hoja oculta con listas para dropdowns
+        $listSheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, '_listas');
+        $spreadsheet->addSheet($listSheet);
+
+        $tiposArr   = array_values(array_map(fn($l) => mb_strtoupper($l), $this->getTiposDinamicos()));
+        $frentesArr = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->pluck('NOMBRE_FRENTE')->toArray();
+        $estadosArr = array_keys(EquipoAuxiliar::estadosLabel());
+
+        $listSheet->fromArray([['Tipos']], null, 'A1');
+        $listSheet->fromArray(array_map(fn($v) => [$v], $tiposArr), null, 'A2');
+        $listSheet->fromArray([['Frentes']], null, 'B1');
+        $listSheet->fromArray(array_map(fn($v) => [$v], $frentesArr), null, 'B2');
+        $listSheet->fromArray([['Estados']], null, 'C1');
+        $listSheet->fromArray(array_map(fn($v) => [$v], $estadosArr), null, 'C2');
+        $listSheet->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN);
+
+        $addListValidation = function (string $column, string $formula, bool $soft = false, string $prompt = '') use ($sheet) {
+            $v = $sheet->getCell($column . '2')->getDataValidation();
+            $v->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST);
+            $v->setErrorStyle($soft
+                ? \PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_INFORMATION
+                : \PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP);
+            $v->setAllowBlank(true);
+            $v->setShowInputMessage(true);
+            $v->setShowErrorMessage(!$soft);
+            $v->setShowDropDown(true);
+            if ($soft && $prompt) {
+                $v->setPromptTitle('Tipo');
+                $v->setPrompt($prompt);
+            } else {
+                $v->setErrorTitle('Valor no permitido');
+                $v->setError('Selecciona un valor de la lista.');
+            }
+            $v->setFormula1($formula);
+            $v->setSqref($column . '2:' . $column . '1001');
+        };
+
+        if (count($tiposArr) > 0) {
+            $addListValidation('A', '_listas!$A$2:$A$' . (count($tiposArr) + 1), true, 'Selecciona de la lista o escribe uno nuevo (se creara al guardar).');
+        }
+        if (count($frentesArr) > 0) {
+            $addListValidation('H', '_listas!$B$2:$B$' . (count($frentesArr) + 1));
+        }
+        $addListValidation('I', '_listas!$C$2:$C$' . (count($estadosArr) + 1));
+
+        $spreadsheet->setActiveSheetIndex(0);
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->setPreCalculateFormulas(false);
+
+        $filename = 'plantilla_equipos_auxiliares_' . now()->format('Y-m-d') . '.xlsx';
+        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($writer) {
+            $writer->save('php://output');
+        });
+        $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        return $response;
+    }
+
+    /**
+     * Parsea el XLSX y devuelve JSON con filas + errores por fila. No crea
+     * nada en BD. Resuelve TIPO/FRENTE a code/id para que el frontend edite
+     * con selects y luego mande el batch final limpio.
+     */
+    public function bulkPreview(Request $request)
+    {
+        $request->validate([
+            'archivo_excel' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        $path = $request->file('archivo_excel')->getRealPath();
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+        $sheet = $spreadsheet->getSheetByName('Auxiliares') ?? $spreadsheet->getActiveSheet();
+
+        // Headers
+        $expected = $this->bulkHeaderKeys();
+        $actual = [];
+        foreach (range('A', 'J') as $col) {
+            $actual[] = mb_strtolower(trim((string) $sheet->getCell($col . '1')->getValue()));
+        }
+        if ($actual !== $expected) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Headers invalidos. Descarga la plantilla nuevamente.',
+            ], 422);
+        }
+
+        $highestRow = $sheet->getHighestDataRow();
+        if ($highestRow - 1 > 500) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El archivo supera 500 filas de datos.',
+            ], 422);
+        }
+
+        // Lookups en memoria (1 llamada c/u, no por fila)
+        $tiposMap = $this->getTiposDinamicos();            // [CODE => Label]
+        $tiposByCodeLower  = [];
+        $tiposByLabelLower = [];
+        foreach ($tiposMap as $code => $label) {
+            $tiposByCodeLower[mb_strtolower($code)]   = $code;
+            $tiposByLabelLower[mb_strtolower($label)] = $code;
+        }
+        $frentesMap = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+            ->orderBy('NOMBRE_FRENTE')
+            ->get()
+            ->keyBy(fn($f) => mb_strtolower(trim($f->NOMBRE_FRENTE)));
+        $validEstados = array_keys(EquipoAuxiliar::estadosLabel());
+
+        // Pre-scan para detectar duplicados en archivo y contra BD
+        $allSeriales = [];
+        for ($n = 2; $n <= $highestRow; $n++) {
+            $s = mb_strtoupper(trim((string) $sheet->getCell('D' . $n)->getValue()));
+            if ($s !== '') $allSeriales[] = $s;
+        }
+        $duplicateSeriales = array_keys(array_filter(array_count_values($allSeriales), fn($c) => $c > 1));
+        $existingSerialesBD = !empty($allSeriales)
+            ? DB::table('equipos_auxiliares')
+                ->whereIn(DB::raw('UPPER(SERIAL)'), $allSeriales)
+                ->pluck('SERIAL')->map(fn($v) => mb_strtoupper($v))->toArray()
+            : [];
+
+        $rows = [];
+        for ($n = 2; $n <= $highestRow; $n++) {
+            $rawTipo    = trim((string) $sheet->getCell('A' . $n)->getValue());
+            $rawMarca   = trim((string) $sheet->getCell('B' . $n)->getValue());
+            $rawModelo  = trim((string) $sheet->getCell('C' . $n)->getValue());
+            $rawSerial  = trim((string) $sheet->getCell('D' . $n)->getValue());
+            $rawCodigo  = trim((string) $sheet->getCell('E' . $n)->getValue());
+            $rawCap     = trim((string) $sheet->getCell('F' . $n)->getValue());
+            $rawAnio    = $sheet->getCell('G' . $n)->getValue();
+            $rawFrente  = trim((string) $sheet->getCell('H' . $n)->getValue());
+            $rawEstado  = trim((string) $sheet->getCell('I' . $n)->getValue());
+            $rawObs     = trim((string) $sheet->getCell('J' . $n)->getValue());
+
+            // Skip filas vacias
+            if ($rawTipo === '' && $rawMarca === '' && $rawModelo === '' && $rawSerial === '') continue;
+
+            $errors = [];
+            $serialUpper = mb_strtoupper($rawSerial);
+            $estadoUpper = mb_strtoupper($rawEstado);
+
+            // Requeridos
+            foreach (['tipo' => $rawTipo, 'marca' => $rawMarca, 'modelo' => $rawModelo, 'serial' => $rawSerial, 'estado' => $rawEstado] as $field => $val) {
+                if ($val === '') $errors[$field] = 'Campo requerido.';
+            }
+
+            // TIPO: resolver a code. Match por label o por code (case-insensitive).
+            // Si no matchea, normalizar como custom (UPPERCASE + _).
+            $tipoCodigo = null;
+            if ($rawTipo !== '') {
+                $key = mb_strtolower($rawTipo);
+                if (isset($tiposByCodeLower[$key])) {
+                    $tipoCodigo = $tiposByCodeLower[$key];
+                } elseif (isset($tiposByLabelLower[$key])) {
+                    $tipoCodigo = $tiposByLabelLower[$key];
+                } else {
+                    $tipoCodigo = mb_strtoupper(preg_replace('/\s+/', '_', $rawTipo));
+                }
+            }
+
+            // ESTADO
+            if ($rawEstado !== '' && !in_array($estadoUpper, $validEstados)) {
+                $errors['estado'] = 'Valor no valido. Opciones: ' . implode(', ', $validEstados) . '.';
+            }
+
+            // FRENTE (opcional)
+            $idFrenteResuelto = null;
+            if ($rawFrente !== '') {
+                $fKey = mb_strtolower(trim($rawFrente));
+                if (isset($frentesMap[$fKey])) {
+                    $idFrenteResuelto = $frentesMap[$fKey]->ID_FRENTE;
+                } else {
+                    $errors['frente_de_trabajo'] = 'Frente no encontrado o inactivo.';
+                }
+            }
+
+            // SERIAL unique
+            if ($serialUpper !== '') {
+                if (in_array($serialUpper, $existingSerialesBD)) {
+                    $errors['serial'] = 'Ya registrado en BD.';
+                } elseif (in_array($serialUpper, $duplicateSeriales)) {
+                    $errors['serial'] = 'Duplicado dentro del archivo.';
+                }
+            }
+
+            $anio = ($rawAnio !== '' && $rawAnio !== null) ? (int) $rawAnio : null;
+            if ($anio !== null && ($anio < 1950 || $anio > 2100)) {
+                $errors['año'] = 'Debe estar entre 1950 y 2100.';
+            }
+
+            $rows[] = [
+                'row_index' => $n,
+                'data' => [
+                    'tipo'               => mb_strtoupper($rawTipo),
+                    'tipo_codigo'        => $tipoCodigo,
+                    'marca'              => mb_strtoupper($rawMarca),
+                    'modelo'             => mb_strtoupper($rawModelo),
+                    'serial'             => $serialUpper,
+                    'codigo_interno'     => mb_strtoupper($rawCodigo),
+                    'capacidad'          => mb_strtoupper($rawCap),
+                    'anio'               => $anio,
+                    'frente'             => mb_strtoupper($rawFrente),
+                    'id_frente_resuelto' => $idFrenteResuelto,
+                    'estado'             => $estadoUpper,
+                    'observaciones'      => mb_strtoupper($rawObs),
+                ],
+                'errors' => $errors,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'rows'    => $rows,
+            'options' => [
+                'tipos'   => array_values(array_map(fn($l) => mb_strtoupper($l), $tiposMap)),
+                'frentes' => FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+                                ->orderBy('NOMBRE_FRENTE')
+                                ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+                                ->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]),
+                'estados' => $validEstados,
+            ],
+        ]);
+    }
+
+    /**
+     * Recibe el batch ya editado en el frontend y lo inserta en transaccion.
+     * Si hay errores de BD en alguna fila, hace rollback completo y reporta
+     * los fallos. Tipos custom nuevos simplemente se guardan con su code
+     * normalizado (no requiere tabla de catalogo).
+     */
+    public function bulkStoreBatch(Request $request)
+    {
+        set_time_limit(600);
+
+        $data = $request->validate([
+            'rows'                       => 'required|array|min:1|max:500',
+            'rows.*.tipo_codigo'         => 'required|string|max:30',
+            'rows.*.marca'               => 'required|string|max:80',
+            'rows.*.modelo'              => 'required|string|max:80',
+            'rows.*.serial'              => 'required|string|max:100',
+            'rows.*.codigo_interno'      => 'nullable|string|max:50',
+            'rows.*.capacidad'           => 'nullable|string|max:80',
+            'rows.*.anio'                => 'nullable|integer|min:1950|max:2100',
+            'rows.*.id_frente_resuelto'  => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'rows.*.estado'              => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
+            'rows.*.observaciones'       => 'nullable|string|max:500',
+        ]);
+
+        // Unicidad de SERIAL cross-batch y contra BD (defensa final server-side)
+        $seriales = array_map(fn($r) => mb_strtoupper(trim($r['serial'])), $data['rows']);
+        $dupEnBatch = array_keys(array_filter(array_count_values($seriales), fn($c) => $c > 1));
+        if (!empty($dupEnBatch)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hay seriales duplicados en el batch: ' . implode(', ', $dupEnBatch),
+            ], 422);
+        }
+        $conflictsBD = DB::table('equipos_auxiliares')
+            ->whereIn(DB::raw('UPPER(SERIAL)'), $seriales)
+            ->pluck('SERIAL')->toArray();
+        if (!empty($conflictsBD)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Algun serial ya existe en BD: ' . implode(', ', $conflictsBD),
+            ], 422);
+        }
+
+        $creadoPor = auth()->id();
+        $now = now();
+
+        DB::beginTransaction();
+        try {
+            $batch = [];
+            foreach ($data['rows'] as $row) {
+                $batch[] = [
+                    'TIPO'             => mb_strtoupper(preg_replace('/\s+/', '_', $row['tipo_codigo'])),
+                    'MARCA'            => mb_strtoupper(trim($row['marca'])),
+                    'MODELO'           => mb_strtoupper(trim($row['modelo'])),
+                    'SERIAL'           => mb_strtoupper(trim($row['serial'])),
+                    'CODIGO_INTERNO'   => !empty($row['codigo_interno']) ? mb_strtoupper(trim($row['codigo_interno'])) : null,
+                    'CAPACIDAD'        => !empty($row['capacidad']) ? mb_strtoupper(trim($row['capacidad'])) : null,
+                    'ANIO'             => $row['anio'] ?? null,
+                    'ID_FRENTE_ACTUAL' => $row['id_frente_resuelto'] ?? null,
+                    'ESTADO_OPERATIVO' => $row['estado'],
+                    'OBSERVACIONES'    => !empty($row['observaciones']) ? mb_strtoupper(trim($row['observaciones'])) : null,
+                    'CREADO_POR'       => $creadoPor,
+                    'created_at'       => $now,
+                    'updated_at'       => $now,
+                ];
+            }
+            EquipoAuxiliar::insert($batch);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Se registraron ' . count($batch) . ' equipo(s) auxiliar(es).',
+                'count'   => count($batch),
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('bulkStoreBatch auxiliares: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al guardar el batch: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
