@@ -498,7 +498,7 @@
             <a href="{{ route('fallas.index') }}"
                 class="nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}"
                 style="display:flex; align-items:center;">
-                <i class="material-icons" style="font-size:18px; margin-right:5px;">report_problem</i>Fallas
+                <i class="material-icons" style="font-size:18px; margin-right:5px;">report_problem</i>Reporte de Fallas
             </a>
 
             <!-- Configuraciones Dropdown -->
