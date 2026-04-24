@@ -49,4 +49,22 @@ return Application::configure(basePath: dirname(__DIR__))
             return redirect('/login')->with('info', 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
         });
 
+        // Acceso denegado (middleware can:* / Gate::denies / authorize()) en rutas WEB.
+        // Sin este handler, Laravel muestra la pagina Symfony fea (o pantalla en blanco
+        // si la navegacion es via SPA fetch). Retornamos JSON estandar para AJAX y
+        // redirect con flash toast para navegacion normal.
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+            $wantsJson = $request->expectsJson() || $request->is('api/*') || $request->ajax() || strtolower($request->header('X-Requested-With')) === 'xmlhttprequest';
+            $msg = $e->getMessage() ?: 'No tienes permiso para realizar esta acción.';
+            if ($wantsJson) {
+                return response()->json(['success' => false, 'message' => $msg, 'forbidden' => true], 403);
+            }
+            // Navegacion normal: vuelve a la pagina anterior con flash toast que se
+            // mostrara via el hook de estructura_base.blade.php (vidalsa_flash_toast).
+            return redirect()->back()->with('flash_toast', [
+                'message' => $msg,
+                'type'    => 'error',
+            ]);
+        });
+
     })->create();
