@@ -22,7 +22,7 @@
                     Cancelar
                 </a>
                 <button type="submit" class="btn-primary-maquinaria"
-                    @cannot('equipos.edit')
+                    @cannot('equipos.create')
                     onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: No tienes permiso para actualizar este modelo.', 'error');"
                     @endcannot
                 >

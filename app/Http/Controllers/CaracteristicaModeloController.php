@@ -14,8 +14,7 @@ class CaracteristicaModeloController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('can:equipos.create')->only(['store']);
-        $this->middleware('can:equipos.edit')->only(['update']);
+        $this->middleware('can:equipos.create')->only(['store', 'update']);
         $this->middleware('can:super.admin')->only(['destroy']);
     }
 
