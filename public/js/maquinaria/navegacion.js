@@ -124,12 +124,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // cuando la navegacion es rapida (<250ms) y el usuario no alcanza
         // a percibir el spinner. En redes rapidas consumibles/graficos
         // respondia sin mostrar claramente el preloader.
+        //
+        // NOTA: esta variable es LOCAL al scope de loadPage(). Antes se llamaba
+        // `_preloaderShownAt` pero colisionaba con la variable del outer
+        // closure (linea ~272) que usa el watchdog de 8s. Renombrada a
+        // `_navShownAt` para eliminar el shadow y que el watchdog sea eficaz.
         const MIN_PRELOADER_MS = 280;
-        const _preloaderShownAt = performance.now();
+        const _navShownAt = performance.now();
 
         const _hidePreloaderRespectingMinTime = () => {
             if (!window.hidePreloader) return;
-            const elapsed = performance.now() - _preloaderShownAt;
+            const elapsed = performance.now() - _navShownAt;
             if (elapsed < MIN_PRELOADER_MS) {
                 setTimeout(() => window.hidePreloader(), MIN_PRELOADER_MS - elapsed);
             } else {
