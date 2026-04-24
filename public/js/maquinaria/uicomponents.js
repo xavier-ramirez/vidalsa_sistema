@@ -1083,29 +1083,9 @@ window.loadResponsables = (function () {
 
         list.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Cargando responsables...</p>';
 
-        // Helper: inserta un boton lapiz compacto al final de la lista que al
-        // hacer click muestra el form de nuevo responsable. Se crea solo si
-        // hay al menos 1 responsable ya registrado.
-        const injectEditPencil = () => {
-            if (!formContainer) return;
-            const wrap = document.createElement('div');
-            wrap.id = 'responsable_edit_pencil_wrap';
-            wrap.style.cssText = 'display:flex;justify-content:flex-end;margin-top:4px;';
-            wrap.innerHTML =
-                '<button type="button" id="responsable_edit_pencil" title="Registrar nuevo responsable" ' +
-                'style="background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;width:30px;height:30px;border-radius:8px;' +
-                'display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" ' +
-                'onmouseover="this.style.background=\'#e2e8f0\';this.style.color=\'#1e293b\'" ' +
-                'onmouseout="this.style.background=\'#f1f5f9\';this.style.color=\'#475569\'">' +
-                '<i class="material-icons" style="font-size:16px;">edit</i>' +
-                '</button>';
-            list.appendChild(wrap);
-            wrap.querySelector('button').addEventListener('click', () => {
-                formContainer.style.display = 'flex';
-                wrap.remove();
-                if (inputNom) inputNom.focus();
-            });
-        };
+        // El boton lapiz para mostrar el form esta ahora en el header del
+        // accordion (ver equipment_details_modal.blade.php #responsable_edit_pencil_header).
+        // Aqui ya no inyectamos ninguno al final de la lista.
 
         fetch(`/admin/equipos/${equipoId}/responsables`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -1152,9 +1132,6 @@ window.loadResponsables = (function () {
                     ${statusBadge}
                 </div>`;
             }).join('');
-            // Boton lapiz al final para registrar un nuevo responsable (rotando
-            // el mas viejo). El form permanece oculto hasta que se toque.
-            injectEditPencil();
         })
         .catch(() => {
             list.innerHTML = '<p style="color:#dc2626;font-size:12px;text-align:center;padding:8px;">Error al cargar responsables.</p>';

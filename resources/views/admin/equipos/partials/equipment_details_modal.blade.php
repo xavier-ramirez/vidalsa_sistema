@@ -187,6 +187,16 @@ Estructura: overlay > modal-content > header + sub-header + body
                         style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
                         <i class="material-icons" style="font-size: 20px; color: #64748b;">person_pin</i>
                         <span>Responsable Asignado</span>
+                        {{-- Boton lapiz al lado del titulo: muestra el form para capturar
+                             un nuevo responsable. Stop propagation para NO togglear el
+                             accordion al pulsarlo. --}}
+                        <button type="button" id="responsable_edit_pencil_header" title="Registrar nuevo responsable"
+                            onclick="event.stopPropagation(); event.preventDefault(); const f=document.getElementById('responsable_form_container'); if(f){f.style.display='flex'; const n=document.getElementById('resp_nombre'); if(n) n.focus();}"
+                            style="margin-left:auto; background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s;"
+                            onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
+                            onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
+                            <i class="material-icons" style="font-size: 16px;">edit</i>
+                        </button>
                     </summary>
                     <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
 
