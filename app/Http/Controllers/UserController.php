@@ -14,7 +14,7 @@ class UserController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        // Requiere clave super.admin EN PERMISOS + rol SUPER ADMIN
+        // Requiere SOLO la clave 'super.admin' en PERMISOS (el rol ya no importa)
         $this->middleware('can:manage.users')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     }
 

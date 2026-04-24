@@ -47,12 +47,9 @@ class AppServiceProvider extends ServiceProvider
             // Normalizar (eliminar espacios, lowercase)
             $permisos = array_map('strtolower', array_map('trim', array_filter($permisos, 'is_string')));
 
-            // ── manage.users: requiere AMBAS condiciones SIEMPRE (no es bypaseable) ──
-            // Se evalúa ANTES del shortcut de super.admin para garantizar ambas condiciones.
+            // ── manage.users: solo requiere la clave 'super.admin' en PERMISOS ──
             if ($ability === 'manage.users') {
-                $tieneClaveAdmin = in_array('super.admin', $permisos);
-                $tieneRolAdmin   = optional($user->rol)->NOMBRE_ROL === 'SUPER ADMIN';
-                return $tieneClaveAdmin && $tieneRolAdmin; // true o false definitivo
+                return in_array('super.admin', $permisos); // true o false definitivo
             }
 
             // Clave maestra: super.admin en PERMISOS = acceso total (para todo lo demás)
