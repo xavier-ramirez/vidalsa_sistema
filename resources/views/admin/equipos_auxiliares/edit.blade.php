@@ -18,7 +18,7 @@
 </section>
 
 <div id="formEquipoAuxiliarCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">
-    <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.update', $auxiliar->ID_AUXILIAR) }}" method="POST" novalidate data-is-edit="1">
+    <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.update', $auxiliar->ID_AUXILIAR) }}" method="POST" enctype="multipart/form-data" novalidate data-is-edit="1">
         @csrf
         @method('PATCH')
 

@@ -193,12 +193,12 @@
             <table class="admin-table" id="auxTable" style="width:100%;">
                 <thead>
                     <tr class="table-row-header">
-                        <th class="table-header-custom table-cell-center" style="width: 15%;">Frente / Foto</th>
-                        <th class="table-header-custom">Tipo</th>
-                        <th class="table-header-custom">Marca / Modelo</th>
-                        <th class="table-header-custom">Serial</th>
-                        <th class="table-header-custom">Capacidad</th>
-                        <th class="table-header-custom" style="width: 130px;">Estado</th>
+                        <th class="table-header-custom table-cell-center" style="width: 13%;"></th>
+                        <th class="table-header-custom">TIPO / MARCA / MODELO</th>
+                        <th class="table-header-custom">SERIAL</th>
+                        <th class="table-header-custom" style="width: 90px;">CAPACIDAD</th>
+                        <th class="table-header-custom" style="width: 120px;">ESTADO</th>
+                        <th class="table-header-custom table-cell-center" style="width: 40px;"></th>
                     </tr>
                 </thead>
                 <tbody id="auxTableBody">
@@ -256,6 +256,165 @@
     </div>
 
 </div>{{-- /page-layout-grid --}}
+
+{{-- Modal de detalles (oculto por defecto, poblado via JS) --}}
+<div id="auxDetailsModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9998; padding:20px; overflow-y:auto;"
+     onclick="if(event.target===this) window.closeAuxDetailsModal()">
+    <div style="max-width:820px; margin:30px auto; background:white; border-radius:14px; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
+        <div style="background:#1e293b; color:white; padding:16px 22px; display:flex; justify-content:space-between; align-items:center;">
+            <h2 id="auxDetailsTitle" style="margin:0; font-size:17px; font-weight:700; display:flex; align-items:center; gap:10px; text-transform:uppercase;">
+                <i class="material-icons">construction</i>
+                <span>DETALLES DE EQUIPO AUXILIAR</span>
+            </h2>
+            <button type="button" onclick="window.closeAuxDetailsModal()"
+                    style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.28); color:white; width:30px; height:30px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                <i class="material-icons" style="font-size:18px;">close</i>
+            </button>
+        </div>
+        <div id="auxDetailsBody" style="padding:22px; text-transform:uppercase;"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // ── Modal de detalles ──
+    window.openAuxDetailsModal = function (btn, e) {
+        if (e) e.stopPropagation();
+        const id = btn.dataset.auxId;
+        if (!id) return;
+        const modal = document.getElementById('auxDetailsModal');
+        const body  = document.getElementById('auxDetailsBody');
+        body.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;"><i class="material-icons" style="font-size:36px;">hourglass_empty</i><div style="margin-top:8px;">Cargando detalles…</div></div>';
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+
+        fetch('/admin/equipos-auxiliares/' + id + '/details', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(d => window.renderAuxDetailsModal(d))
+        .catch(err => {
+            body.innerHTML = '<div style="text-align:center; padding:40px; color:#dc2626;">Error al cargar detalles.</div>';
+            console.error('openAuxDetailsModal:', err);
+        });
+    };
+
+    window.renderAuxDetailsModal = function (d) {
+        const body = document.getElementById('auxDetailsBody');
+        const row = (label, value) => `
+            <div style="display:grid; grid-template-columns:150px 1fr; padding:7px 0; border-bottom:1px solid #f1f5f9; gap:15px; font-size:12.5px;">
+                <div style="color:#64748b; font-weight:700;">${label}</div>
+                <div style="color:#0f172a; font-weight:600;">${value || '—'}</div>
+            </div>`;
+        const section = (title, icon, content) => `
+            <details open style="background:white; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:10px;">
+                <summary style="padding:12px 16px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:8px; background:#f8fafc; list-style:none; cursor:pointer; font-size:13px;">
+                    <i class="material-icons" style="font-size:18px; color:#64748b;">${icon}</i>
+                    <span>${title}</span>
+                </summary>
+                <div style="padding:12px 16px;">${content}</div>
+            </details>`;
+
+        const foto = d.foto_drive_id
+            ? `<img src="https://drive.google.com/thumbnail?id=${d.foto_drive_id}&sz=w400" style="max-width:160px; max-height:160px; border-radius:8px; border:1px solid #e2e8f0;">`
+            : '<span style="color:#94a3b8; font-size:12px;">Sin foto</span>';
+
+        const estadoBadges = {
+            OPERATIVO:      { color:'#16a34a', bg:'#f0fdf4', icon:'check_circle' },
+            INOPERATIVO:    { color:'#dc2626', bg:'#fef2f2', icon:'cancel' },
+            EN_ALMACEN:     { color:'#1e40af', bg:'#eff6ff', icon:'inventory_2' },
+            DESINCORPORADO: { color:'#475569', bg:'#f1f5f9', icon:'block' }
+        };
+        const eb = estadoBadges[d.estado] || estadoBadges.DESINCORPORADO;
+        const estadoHtml = `<span style="display:inline-flex; align-items:center; gap:5px; background:${eb.bg}; color:${eb.color}; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700;">
+            <i class="material-icons" style="font-size:14px;">${eb.icon}</i>${d.estado_label || d.estado}
+        </span>`;
+
+        // Vencimiento con badge si esta vencido o por vencer
+        let vencHtml = '—';
+        if (d.fecha_vencimiento_cert) {
+            const venc = new Date(d.fecha_vencimiento_cert);
+            const hoy = new Date(); hoy.setHours(0,0,0,0);
+            const diff = Math.floor((venc - hoy) / (1000*60*60*24));
+            let color = '#16a34a', bg = '#f0fdf4', txt = d.fecha_vencimiento_cert;
+            if (diff < 0)      { color = '#dc2626'; bg = '#fef2f2'; txt += ' (vencido)'; }
+            else if (diff < 30){ color = '#d97706'; bg = '#fffbeb'; txt += ' (' + diff + ' dias)'; }
+            vencHtml = `<span style="background:${bg}; color:${color}; padding:3px 10px; border-radius:6px; font-weight:700;">${txt}</span>`;
+        }
+
+        const docPropiedad = d.link_doc_propiedad
+            ? `<a href="${d.link_doc_propiedad}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:6px; color:#16a34a; font-weight:700; text-decoration:none;"><i class="material-icons" style="font-size:18px;">picture_as_pdf</i>Ver PDF</a>`
+            : '<span style="color:#94a3b8;">No cargado</span>';
+        const certificado = d.link_certificado
+            ? `<a href="${d.link_certificado}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:6px; color:#1e40af; font-weight:700; text-decoration:none;"><i class="material-icons" style="font-size:18px;">picture_as_pdf</i>Ver PDF</a>`
+            : '<span style="color:#94a3b8;">No cargado</span>';
+
+        const host = d.host_id
+            ? (d.host_codigo || '#' + d.host_id) + (d.host_placa ? ' — ' + d.host_placa : '') + (d.host_tipo ? ' (' + d.host_tipo + ')' : '')
+            : '—';
+
+        body.innerHTML = `
+            <div style="display:flex; gap:18px; margin-bottom:16px; flex-wrap:wrap;">
+                <div style="flex:0 0 auto;">${foto}</div>
+                <div style="flex:1; min-width:250px;">
+                    <div style="font-size:18px; font-weight:800; color:#0f172a; margin-bottom:4px;">${d.tipo_label || d.tipo}</div>
+                    <div style="font-size:13px; color:#475569; font-weight:600; margin-bottom:6px;">${(d.marca || '') + ' ' + (d.modelo || '')}</div>
+                    <div>${estadoHtml}</div>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; align-self:flex-start;">
+                    <a href="${d.edit_url}" class="btn-primary-maquinaria btn-secondary" style="font-size:12px;">
+                        <i class="material-icons" style="font-size:15px;">edit</i> Editar
+                    </a>
+                    <a href="${d.acta_url}" target="_blank" rel="noopener" class="btn-primary-maquinaria btn-secondary" style="font-size:12px;">
+                        <i class="material-icons" style="font-size:15px;">description</i> Acta
+                    </a>
+                </div>
+            </div>
+
+            ${section('Información General', 'info',
+                row('Tipo', d.tipo_label || d.tipo) +
+                row('Marca', d.marca) +
+                row('Modelo', d.modelo) +
+                row('Serial', d.serial) +
+                row('Código Interno', d.codigo_interno) +
+                row('Capacidad', d.capacidad) +
+                row('Año', d.anio) +
+                row('Estado', d.estado_label)
+            )}
+
+            ${section('Asignación', 'place',
+                row('Frente de Trabajo', d.frente || 'Sin Asignar') +
+                row('Equipo Vinculado', host)
+            )}
+
+            ${section('Documentación', 'folder',
+                row('Documento de Propiedad', docPropiedad) +
+                row('Certificado', certificado) +
+                row('Vencimiento Certificado', vencHtml)
+            )}
+
+            ${section('Auditoría', 'history',
+                row('Creado por', d.creado_por) +
+                row('Fecha de creación', d.created_at)
+            )}
+        `;
+    };
+
+    window.closeAuxDetailsModal = function () {
+        const modal = document.getElementById('auxDetailsModal');
+        if (modal) modal.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+
+    // Cerrar con Escape
+    if (!window._auxDetailsEscBound) {
+        window._auxDetailsEscBound = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') window.closeAuxDetailsModal();
+        });
+    }
+})();
+</script>
 
 <script>
 (function () {
@@ -343,13 +502,12 @@
         });
     }
 
-    // ── Menu de cambio de estado (inline en la tabla) ──
-    const AUX_STATUS = @json($estados);
-    const AUX_STATUS_COLOR = {
-        OPERATIVO:      { bg: '#dcfce7', fg: '#166534', icon: 'check_circle' },
-        INOPERATIVO:    { bg: '#fee2e2', fg: '#991b1b', icon: 'cancel' },
-        EN_ALMACEN:     { bg: '#dbeafe', fg: '#1e40af', icon: 'inventory_2' },
-        DESINCORPORADO: { bg: '#e2e8f0', fg: '#475569', icon: 'block' },
+    // ── Menu de cambio de estado (estilo /admin/equipos openSharedStatusMenu) ──
+    const AUX_STATUS_CFG = {
+        OPERATIVO:      { color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle', label: 'Operativo' },
+        INOPERATIVO:    { color: '#dc2626', bg: '#fef2f2', icon: 'cancel',       label: 'Inoperativo' },
+        EN_ALMACEN:     { color: '#1e40af', bg: '#eff6ff', icon: 'inventory_2',  label: 'En Almacén' },
+        DESINCORPORADO: { color: '#475569', bg: '#f1f5f9', icon: 'block',        label: 'Desincorp.' },
     };
 
     function getOrCreateAuxStatusMenu() {
@@ -357,7 +515,7 @@
         if (menu) return menu;
         menu = document.createElement('div');
         menu.id = 'auxStatusMenu';
-        menu.style.cssText = 'position:absolute;display:none;min-width:180px;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:9999;';
+        menu.style.cssText = 'position:absolute; display:none; min-width:200px; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 25px -5px rgba(15,23,42,0.18); overflow:hidden; z-index:9999;';
         document.body.appendChild(menu);
         return menu;
     }
@@ -366,35 +524,35 @@
 
     window.openAuxStatusMenu = function (trigger) {
         const menu = getOrCreateAuxStatusMenu();
-        // Si ya estaba abierto para este trigger, cerrar
         if (_auxStatusTrigger === trigger && menu.style.display !== 'none') {
             menu.style.display = 'none'; _auxStatusTrigger = null; return;
         }
         _auxStatusTrigger = trigger;
         const currentStatus = trigger.dataset.status;
         menu.innerHTML = '';
-        Object.entries(AUX_STATUS).forEach(([key, label]) => {
-            const cfg = AUX_STATUS_COLOR[key] || { bg:'#f1f5f9', fg:'#475569', icon:'help_outline' };
+        Object.entries(AUX_STATUS_CFG).forEach(([key, cfg]) => {
             const item = document.createElement('div');
-            item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;border-bottom:1px solid #f8fafc;font-size:12px;font-weight:600;color:#334155;';
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; border-bottom:1px solid #f8fafc;';
             item.innerHTML = `
-                <div style="background:${cfg.bg};padding:4px;border-radius:4px;display:flex;">
-                    <i class="material-icons" style="font-size:16px;color:${cfg.fg};">${cfg.icon}</i>
+                <div style="background:${cfg.bg}; padding:4px; border-radius:4px; display:flex;">
+                    <i class="material-icons" style="font-size:16px; color:${cfg.color};">${cfg.icon}</i>
                 </div>
-                <span>${label}</span>
-                ${key === currentStatus ? '<i class="material-icons" style="font-size:14px;color:'+cfg.fg+';margin-left:auto;">check</i>' : ''}
+                <span style="font-size:12px; font-weight:600; color:#334155;">${cfg.label}</span>
+                ${key === currentStatus
+                    ? '<i class="material-icons" style="font-size:14px; color:'+cfg.color+'; margin-left:auto;">check</i>'
+                    : ''}
             `;
             item.addEventListener('mouseover', () => item.style.background = '#f8fafc');
-            item.addEventListener('mouseout', () => item.style.background = 'white');
+            item.addEventListener('mouseout',  () => item.style.background = 'white');
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 menu.style.display = 'none';
-                window.auxChangeStatus(trigger, key);
+                const t = _auxStatusTrigger;
                 _auxStatusTrigger = null;
+                window.auxChangeStatus(t, key);
             });
             menu.appendChild(item);
         });
-        // Posicionar bajo el trigger
         const r = trigger.getBoundingClientRect();
         menu.style.top  = (window.scrollY + r.bottom + 4) + 'px';
         menu.style.left = (window.scrollX + r.left) + 'px';
@@ -402,17 +560,20 @@
     };
 
     window.auxChangeStatus = function (trigger, newStatus) {
+        if (!trigger) return;
         const oldStatus = trigger.dataset.status;
         if (oldStatus === newStatus) return;
         const url = trigger.dataset.statusUrl;
-        const cfg = AUX_STATUS_COLOR[newStatus] || { bg:'#f1f5f9', fg:'#475569' };
-        const lbl = AUX_STATUS[newStatus] || newStatus;
-        // Optimistic UI
-        trigger.style.background = cfg.bg;
-        trigger.style.color = cfg.fg;
-        trigger.style.borderColor = cfg.fg + '33';
-        const lblEl = trigger.querySelector('.aux-status-label');
-        if (lblEl) lblEl.textContent = lbl;
+        const cfg = AUX_STATUS_CFG[newStatus] || AUX_STATUS_CFG['DESINCORPORADO'];
+
+        const iconEl  = trigger.querySelector('.material-icons:first-child') || trigger.querySelector('div > .material-icons');
+        const labelEl = trigger.querySelector('.aux-status-label');
+
+        // Optimistic UI (mismo estilo que equipos)
+        if (iconEl)  { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
+        if (labelEl)   labelEl.textContent = cfg.label;
+        const innerBlock = trigger.querySelector('div');
+        if (innerBlock) innerBlock.style.color = cfg.color;
         trigger.dataset.status = newStatus;
 
         fetch(url, {
@@ -429,18 +590,16 @@
         .then(({ status, body }) => {
             if (status === 200) {
                 if (window.showToast) window.showToast('Estado actualizado.', 'success');
-                cargarAuxiliares(); // refrescar stats + distribucion
+                cargarAuxiliares();
             } else {
                 throw new Error(body.message || 'Error');
             }
         })
         .catch(err => {
-            // Revertir UI
-            const oldCfg = AUX_STATUS_COLOR[oldStatus] || { bg:'#f1f5f9', fg:'#475569' };
-            trigger.style.background = oldCfg.bg;
-            trigger.style.color = oldCfg.fg;
-            trigger.style.borderColor = oldCfg.fg + '33';
-            if (lblEl) lblEl.textContent = AUX_STATUS[oldStatus] || oldStatus;
+            const oldCfg = AUX_STATUS_CFG[oldStatus] || AUX_STATUS_CFG['DESINCORPORADO'];
+            if (iconEl)  { iconEl.textContent = oldCfg.icon; iconEl.style.color = oldCfg.color; }
+            if (labelEl)   labelEl.textContent = oldCfg.label;
+            if (innerBlock) innerBlock.style.color = oldCfg.color;
             trigger.dataset.status = oldStatus;
             if (window.showToast) window.showToast('No se pudo actualizar el estado.', 'error');
             console.error('auxChangeStatus:', err);

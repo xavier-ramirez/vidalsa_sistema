@@ -169,6 +169,64 @@
     </div>
 </div>
 
+{{-- ═══════════════════════════════════════════════════════════
+     Documentación (opcional): Propiedad + Certificado con vencimiento.
+     Almacenamiento local via storage/app/public/equipos_auxiliares/{id}/
+     ═══════════════════════════════════════════════════════════ --}}
+<h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; margin: 30px 0 20px 0;">
+    <i class="material-icons" style="font-size: 18px; vertical-align: middle; color: var(--maquinaria-blue);">description</i>
+    Documentación
+</h3>
+
+<div class="grid-responsive-5">
+    {{-- Documento de Propiedad (PDF) --}}
+    <div style="grid-column: span 2;">
+        <label for="doc_propiedad" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
+            Documento de Propiedad (PDF)
+        </label>
+        @if(!empty($auxiliar->LINK_DOC_PROPIEDAD))
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:6px 10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
+                <i class="material-icons" style="font-size:18px; color:#16a34a;">picture_as_pdf</i>
+                <a href="{{ asset($auxiliar->LINK_DOC_PROPIEDAD) }}" target="_blank" rel="noopener"
+                   style="color:#16a34a; font-size:12px; font-weight:600; text-decoration:none; flex:1;">Ver documento actual</a>
+            </div>
+        @endif
+        <input type="file" id="doc_propiedad" name="doc_propiedad" accept="application/pdf"
+               class="form-input-custom @error('doc_propiedad') is-invalid @enderror"
+               style="padding: 8px 10px;">
+        @error('doc_propiedad') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    {{-- Certificado (PDF) --}}
+    <div style="grid-column: span 2;">
+        <label for="certificado" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
+            Certificado (PDF)
+        </label>
+        @if(!empty($auxiliar->LINK_CERTIFICADO))
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:6px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;">
+                <i class="material-icons" style="font-size:18px; color:#1e40af;">picture_as_pdf</i>
+                <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener"
+                   style="color:#1e40af; font-size:12px; font-weight:600; text-decoration:none; flex:1;">Ver certificado actual</a>
+            </div>
+        @endif
+        <input type="file" id="certificado" name="certificado" accept="application/pdf"
+               class="form-input-custom @error('certificado') is-invalid @enderror"
+               style="padding: 8px 10px;">
+        @error('certificado') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    {{-- Fecha de Vencimiento del Certificado --}}
+    <div>
+        <label for="fecha_vencimiento_cert" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
+            Venc. Certificado
+        </label>
+        <input type="date" id="fecha_vencimiento_cert" name="fecha_vencimiento_cert"
+               value="{{ old('fecha_vencimiento_cert', optional($auxiliar->FECHA_VENCIMIENTO_CERT)->format('Y-m-d')) }}"
+               class="form-input-custom @error('fecha_vencimiento_cert') is-invalid @enderror">
+        @error('fecha_vencimiento_cert') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+</div>
+
 <script>
 (function () {
     // ── Tipo combobox (app style) ──

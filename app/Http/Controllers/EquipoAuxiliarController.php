@@ -51,6 +51,20 @@ class EquipoAuxiliarController extends Controller
 
         $auxiliares = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
 
+        // Mapa MARCA|MODELO -> FOTO (de cualquier auxiliar que tenga foto).
+        // Sirve como catalogo implicito: si un auxiliar no tiene foto propia,
+        // la tabla muestra la foto de otro registro con el mismo modelo.
+        $photoByModel = EquipoAuxiliar::whereNotNull('FOTO')
+            ->where('FOTO', '!=', '')
+            ->select('MARCA', 'MODELO', 'FOTO')
+            ->orderByDesc('ID_AUXILIAR')
+            ->get()
+            ->reduce(function ($carry, $a) {
+                $key = mb_strtoupper(trim(($a->MARCA ?? '') . '|' . ($a->MODELO ?? '')));
+                if ($key !== '|' && !isset($carry[$key])) $carry[$key] = $a->FOTO;
+                return $carry;
+            }, []);
+
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
         $tipos   = EquipoAuxiliar::tiposLabel();
         $estados = EquipoAuxiliar::estadosLabel();
@@ -91,7 +105,7 @@ class EquipoAuxiliarController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares'))->render(),
+                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'photoByModel'))->render(),
                 'pagination'   => $auxiliares->links('vendor.pagination.custom-sliding')->toHtml(),
                 'count'        => $auxiliares->total(),
                 'stats'        => $stats,
@@ -101,7 +115,7 @@ class EquipoAuxiliarController extends Controller
         }
 
         return view('admin.equipos_auxiliares.index', compact(
-            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter'
+            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel'
         ));
     }
 
@@ -198,6 +212,42 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Detalles completos del auxiliar (para modal de "Ver detalles").
+     */
+    public function details($id)
+    {
+        $aux = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion', 'equipoHost.tipo', 'creador'])->findOrFail($id);
+        return response()->json([
+            'id'             => $aux->ID_AUXILIAR,
+            'tipo'           => $aux->TIPO,
+            'tipo_label'     => EquipoAuxiliar::tiposLabel()[$aux->TIPO] ?? $aux->TIPO,
+            'marca'          => $aux->MARCA,
+            'modelo'         => $aux->MODELO,
+            'serial'         => $aux->SERIAL,
+            'codigo_interno' => $aux->CODIGO_INTERNO,
+            'capacidad'      => $aux->CAPACIDAD,
+            'anio'           => $aux->ANIO,
+            'estado'         => $aux->ESTADO_OPERATIVO,
+            'estado_label'   => EquipoAuxiliar::estadosLabel()[$aux->ESTADO_OPERATIVO] ?? $aux->ESTADO_OPERATIVO,
+            'observaciones'  => $aux->OBSERVACIONES,
+            'foto'           => $aux->FOTO,
+            'foto_drive_id'  => $aux->FOTO ? basename(str_replace('/storage/google/', '', $aux->FOTO)) : null,
+            'link_doc_propiedad'     => $aux->LINK_DOC_PROPIEDAD ?? null,
+            'link_certificado'       => $aux->LINK_CERTIFICADO ?? null,
+            'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT ?? null,
+            'frente'         => optional($aux->frente)->NOMBRE_FRENTE,
+            'host_codigo'    => optional($aux->equipoHost)->CODIGO_PATIO,
+            'host_id'        => $aux->ID_EQUIPO_HOST,
+            'host_placa'     => optional(optional($aux->equipoHost)->documentacion)->PLACA,
+            'host_tipo'      => optional(optional($aux->equipoHost)->tipo)->nombre,
+            'creado_por'     => optional($aux->creador)->NOMBRE_COMPLETO,
+            'created_at'     => optional($aux->created_at)->format('d/m/Y H:i'),
+            'edit_url'       => route('equipos-auxiliares.edit', $aux->ID_AUXILIAR),
+            'acta_url'       => route('equipos-auxiliares.acta', $aux->ID_AUXILIAR),
+        ]);
+    }
+
+    /**
      * Lista los equipos auxiliares anclados a un equipo host especifico.
      * Usado por el modal de detalles de /admin/equipos para mostrar los
      * auxiliares en la seccion "Sub-activos vinculados".
@@ -244,7 +294,18 @@ class EquipoAuxiliarController extends Controller
             if (!empty($data[$f])) $data[$f] = strtoupper(trim($data[$f]));
         }
 
+        // Remover claves de archivos del array antes de create (Eloquent no sabe manejarlos).
+        unset($data['doc_propiedad'], $data['certificado']);
+        // Normalizar nombre de campo fecha.
+        if (!empty($data['fecha_vencimiento_cert'])) {
+            $data['FECHA_VENCIMIENTO_CERT'] = $data['fecha_vencimiento_cert'];
+        }
+        unset($data['fecha_vencimiento_cert']);
+
         $auxiliar = EquipoAuxiliar::create($data);
+
+        // Guardar archivos PDF (si vinieron) en storage/app/public/equipos_auxiliares/{id}/
+        $this->storeAuxDocs($request, $auxiliar);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -274,7 +335,15 @@ class EquipoAuxiliarController extends Controller
             if (!empty($data[$f])) $data[$f] = strtoupper(trim($data[$f]));
         }
 
+        unset($data['doc_propiedad'], $data['certificado']);
+        if (array_key_exists('fecha_vencimiento_cert', $data)) {
+            $data['FECHA_VENCIMIENTO_CERT'] = $data['fecha_vencimiento_cert'] ?: null;
+            unset($data['fecha_vencimiento_cert']);
+        }
+
         $auxiliar->update($data);
+
+        $this->storeAuxDocs($request, $auxiliar);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -447,6 +516,35 @@ class EquipoAuxiliarController extends Controller
         return view('admin.equipos_auxiliares.acta', compact('auxiliar'));
     }
 
+    /**
+     * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en
+     * storage/app/public/equipos_auxiliares/{id}/. Actualiza las
+     * columnas LINK_DOC_PROPIEDAD / LINK_CERTIFICADO. Idempotente:
+     * si no vienen archivos, no toca nada.
+     */
+    private function storeAuxDocs(Request $request, EquipoAuxiliar $aux): void
+    {
+        $updates = [];
+
+        if ($request->hasFile('doc_propiedad') && $request->file('doc_propiedad')->isValid()) {
+            $file = $request->file('doc_propiedad');
+            $name = 'propiedad_' . time() . '.pdf';
+            $path = $file->storeAs('equipos_auxiliares/' . $aux->ID_AUXILIAR, $name, 'public');
+            $updates['LINK_DOC_PROPIEDAD'] = '/storage/' . $path;
+        }
+
+        if ($request->hasFile('certificado') && $request->file('certificado')->isValid()) {
+            $file = $request->file('certificado');
+            $name = 'certificado_' . time() . '.pdf';
+            $path = $file->storeAs('equipos_auxiliares/' . $aux->ID_AUXILIAR, $name, 'public');
+            $updates['LINK_CERTIFICADO'] = '/storage/' . $path;
+        }
+
+        if (!empty($updates)) {
+            $aux->update($updates);
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════
     // VALIDATION
     // ═══════════════════════════════════════════════════════════
@@ -497,6 +595,11 @@ class EquipoAuxiliarController extends Controller
             'ID_FRENTE_ACTUAL' => 'nullable|exists:frentes_trabajo,ID_FRENTE',
             'ID_EQUIPO_HOST'   => 'nullable|exists:equipos,ID_EQUIPO',
             'OBSERVACIONES'    => 'nullable|string|max:500',
+            // Documentacion (opcional). En UPDATE aceptamos fecha pasada para no
+            // bloquear edicion de registros con certificados ya vencidos.
+            'doc_propiedad'          => 'nullable|file|mimes:pdf|max:10240',
+            'certificado'            => 'nullable|file|mimes:pdf|max:10240',
+            'fecha_vencimiento_cert' => $isCreate ? 'nullable|date|after_or_equal:today' : 'nullable|date',
         ];
 
         // En update hacemos sometimes SOLO los nullable; required se mantiene.

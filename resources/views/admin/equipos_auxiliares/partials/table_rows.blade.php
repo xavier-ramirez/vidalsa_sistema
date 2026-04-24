@@ -1,71 +1,102 @@
 @forelse($auxiliares as $aux)
     @php
         $tipoLabel = \App\Models\EquipoAuxiliar::tiposLabel()[$aux->TIPO] ?? $aux->TIPO;
-        $estadoLabel = \App\Models\EquipoAuxiliar::estadosLabel()[$aux->ESTADO_OPERATIVO] ?? $aux->ESTADO_OPERATIVO;
-        $estadoColor = match($aux->ESTADO_OPERATIVO) {
-            'OPERATIVO' => ['bg' => '#dcfce7', 'fg' => '#166534'],
-            'INOPERATIVO' => ['bg' => '#fee2e2', 'fg' => '#991b1b'],
-            'EN_ALMACEN' => ['bg' => '#dbeafe', 'fg' => '#1e40af'],
-            'DESINCORPORADO' => ['bg' => '#e2e8f0', 'fg' => '#475569'],
-            default => ['bg' => '#f1f5f9', 'fg' => '#475569'],
-        };
-        $fotoDriveId = $aux->FOTO ? basename(str_replace('/storage/google/', '', $aux->FOTO)) : null;
+
+        $statusConfig = [
+            'OPERATIVO'       => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'icon' => 'check_circle',  'label' => 'OPERATIVO'],
+            'INOPERATIVO'     => ['color' => '#dc2626', 'bg' => '#fef2f2', 'icon' => 'cancel',        'label' => 'INOPERATIVO'],
+            'EN_ALMACEN'      => ['color' => '#1e40af', 'bg' => '#eff6ff', 'icon' => 'inventory_2',   'label' => 'EN ALMACÉN'],
+            'DESINCORPORADO'  => ['color' => '#475569', 'bg' => '#f1f5f9', 'icon' => 'block',         'label' => 'DESINCORP.'],
+        ];
+        $currentConfig = $statusConfig[$aux->ESTADO_OPERATIVO] ?? $statusConfig['DESINCORPORADO'];
+
+        // Foto del equipo: si el auxiliar no tiene una propia, caer a la de
+        // cualquier otro auxiliar registrado con la misma MARCA/MODELO (catalogo
+        // implicito por modelo). $photoByModel viene del controller index().
+        $photoByModel = $photoByModel ?? collect();
+        $modelKey = mb_strtoupper(trim(($aux->MARCA ?? '') . '|' . ($aux->MODELO ?? '')));
+        $fotoUrl  = $aux->FOTO ?: ($photoByModel[$modelKey] ?? null);
+        $fotoDriveId = $fotoUrl ? basename(str_replace('/storage/google/', '', $fotoUrl)) : null;
     @endphp
     <tr>
-        {{-- 1. Frente + Foto (si tiene; si no, solo el nombre de frente) --}}
+        {{-- 1. Frente + Foto --}}
         <td class="table-cell-custom table-cell-center" style="padding: 4px 2px;">
-            <div style="font-size: 13px; color: #000; margin-bottom: 5px; line-height: 1.3; font-weight: 600; text-align: center;">
-                {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}
+            <div style="font-size: 11px; color: #000; margin-bottom: 4px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase;">
+                {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
             </div>
             @if($fotoDriveId)
                 <div class="table-image-wrapper" style="cursor: default;">
                     <img data-src="https://drive.google.com/thumbnail?id={{ $fotoDriveId }}&sz=w300"
                          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'></svg>"
                          alt="Foto" loading="lazy"
-                         style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0;">
+                         style="width: 54px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0;">
                 </div>
             @endif
         </td>
 
-        {{-- 2. Tipo --}}
-        <td>
-            <span style="font-weight: 700; color: #1e293b;">{{ $tipoLabel }}</span>
+        {{-- 2. Tipo + Marca/Modelo (combinadas) --}}
+        <td class="table-cell-custom" style="font-size: 12px; color: #000; max-width: 200px; word-wrap: break-word;">
+            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $tipoLabel }}</div>
+            <div style="font-size: 11px; color: #334155; font-weight: 600; text-transform: uppercase; margin-top: 2px;">
+                {{ $aux->MARCA }} {{ $aux->MODELO }}
+            </div>
+            @if($aux->CODIGO_INTERNO)
+                <div style="font-size: 10px; color: #718096; font-weight: 500; margin-top: 2px;">#{{ strtoupper($aux->CODIGO_INTERNO) }}</div>
+            @endif
         </td>
 
-        {{-- 3. Marca / Modelo --}}
-        <td>{{ $aux->MARCA }} {{ $aux->MODELO }}</td>
+        {{-- 3. Serial --}}
+        <td class="table-cell-custom" style="font-size: 12px; max-width: 140px; color: #4a5568;">
+            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;">
+                <strong>S:</strong> {{ $aux->SERIAL ?: '—' }}
+            </div>
+        </td>
 
-        {{-- 4. Serial --}}
-        <td><code style="font-size: 12px;">{{ $aux->SERIAL ?: '—' }}</code></td>
+        {{-- 4. Capacidad (compresa) --}}
+        <td class="table-cell-custom" style="font-size: 12px; color: #4a5568; text-transform: uppercase; width: 90px; max-width: 90px;">
+            {{ $aux->CAPACIDAD ?: '—' }}
+        </td>
 
-        {{-- 5. Capacidad --}}
-        <td>{{ $aux->CAPACIDAD ?: '—' }}</td>
-
-        {{-- 6. Estado --}}
-        <td>
+        {{-- 5. Estado (compreso) --}}
+        <td class="table-cell-custom" style="padding: 8px 2px; width: 120px;">
             @can('equipos.edit')
-                <button type="button"
-                        class="aux-status-trigger"
-                        data-aux-id="{{ $aux->ID_AUXILIAR }}"
-                        data-status="{{ $aux->ESTADO_OPERATIVO }}"
-                        data-status-url="{{ route('equipos-auxiliares.estado', $aux->ID_AUXILIAR) }}"
-                        onclick="event.stopPropagation(); window.openAuxStatusMenu(this)"
-                        style="background:{{ $estadoColor['bg'] }};color:{{ $estadoColor['fg'] }};border:1px solid {{ $estadoColor['fg'] }}33;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
-                    <span class="aux-status-label">{{ $estadoLabel }}</span>
-                    <i class="material-icons" style="font-size:14px;">expand_more</i>
-                </button>
+                <div class="aux-status-trigger"
+                    data-aux-id="{{ $aux->ID_AUXILIAR }}"
+                    data-status="{{ $aux->ESTADO_OPERATIVO }}"
+                    data-status-url="{{ route('equipos-auxiliares.estado', $aux->ID_AUXILIAR) }}"
+                    onclick="event.stopPropagation(); window.openAuxStatusMenu(this)"
+                    style="padding: 5px 8px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 11px; font-weight: 700; background: white; border: 1px solid #e2e8f0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; gap: 5px; color: {{ $currentConfig['color'] }};">
+                        <i class="material-icons" style="font-size: 14px;">{{ $currentConfig['icon'] }}</i>
+                        <span class="aux-status-label" style="color: #334155; text-transform: uppercase;">{{ $currentConfig['label'] }}</span>
+                    </div>
+                    <i class="material-icons" style="font-size: 14px; color: #94a3b8;">expand_more</i>
+                </div>
             @else
-                <span style="background:{{ $estadoColor['bg'] }};color:{{ $estadoColor['fg'] }};padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;">
-                    {{ $estadoLabel }}
-                </span>
+                <div style="padding: 5px 8px; border-radius: 8px; display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; background: {{ $currentConfig['bg'] }}; border: 1px solid {{ $currentConfig['bg'] }}; color: {{ $currentConfig['color'] }}; text-transform: uppercase;">
+                    <i class="material-icons" style="font-size: 14px;">{{ $currentConfig['icon'] }}</i>
+                    <span>{{ $currentConfig['label'] }}</span>
+                </div>
             @endcan
+        </td>
+
+        {{-- 6. Acciones (ojo -> modal de detalles) --}}
+        <td class="table-cell-center" style="padding: 8px 5px; width: 40px; text-align: center; vertical-align: middle;">
+            <div style="display:flex; justify-content:center; align-items:center;">
+                <button type="button"
+                    data-aux-id="{{ $aux->ID_AUXILIAR }}"
+                    onclick="window.openAuxDetailsModal(this, event)"
+                    class="btn-details-mini" title="Ver Detalles">
+                    <i class="material-icons">visibility</i>
+                </button>
+            </div>
         </td>
     </tr>
 @empty
     <tr>
         <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
             <i class="material-icons" style="font-size: 36px; display: block; margin: 0 auto 8px auto;">construction</i>
-            No hay equipos auxiliares registrados.
+            NO HAY EQUIPOS AUXILIARES REGISTRADOS.
         </td>
     </tr>
 @endforelse

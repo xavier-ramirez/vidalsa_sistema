@@ -107,6 +107,7 @@ Route::middleware(['auth'])->group(function () {
             // real si requiere edit.
             Route::get   ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'index'])  ->name('equipos-auxiliares.index');
             Route::get   ('equipos-auxiliares/count',          [App\Http\Controllers\EquipoAuxiliarController::class, 'count'])  ->name('equipos-auxiliares.count');
+            Route::get   ('equipos-auxiliares/{id}/details',   [App\Http\Controllers\EquipoAuxiliarController::class, 'details'])->name('equipos-auxiliares.details');
             Route::get   ('equipos-auxiliares/export',         [App\Http\Controllers\EquipoAuxiliarController::class, 'export']) ->name('equipos-auxiliares.export');
             Route::get   ('equipos-auxiliares/by-host/{id}',   [App\Http\Controllers\EquipoAuxiliarController::class, 'byHost']) ->name('equipos-auxiliares.byHost');
             Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');

@@ -13,10 +13,12 @@ class EquipoAuxiliar extends Model
         'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD',
         'ANIO', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'ID_EQUIPO_HOST',
         'FOTO', 'OBSERVACIONES', 'CREADO_POR',
+        'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT',
     ];
 
     protected $casts = [
         'ANIO' => 'integer',
+        'FECHA_VENCIMIENTO_CERT' => 'date',
     ];
 
     public static function tiposLabel(): array

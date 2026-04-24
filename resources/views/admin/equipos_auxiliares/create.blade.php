@@ -10,7 +10,7 @@
 </section>
 
 <div id="formEquipoAuxiliarCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">
-    <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.store') }}" method="POST" novalidate>
+    <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.store') }}" method="POST" enctype="multipart/form-data" novalidate>
         @csrf
 
         @include('admin.equipos_auxiliares.partials.form_fields')
