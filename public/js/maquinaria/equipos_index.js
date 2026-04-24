@@ -942,8 +942,9 @@ window.filterList = function (inputArg, listArg) {
 window.openUbicacionBulkModal = function (event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
 
-    // Permiso: misma capa que edit (backend lo valida igual)
-    if (window.CAN_UPDATE_INFO === false) {
+    // Permiso: asignar ubicacion especifica es parte del flujo de asignacion
+    // (mismo que movilizar). Backend valida can('equipos.assign') igual.
+    if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
         if (typeof window.showToast === 'function') {
             window.showToast('No tienes permisos para actualizar ubicaciones.', 'error');
         }

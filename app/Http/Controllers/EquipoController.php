@@ -2984,10 +2984,13 @@ class EquipoController extends Controller
     }
 
     // ─── QUICK EDIT: UBICACIÓN ───────────────────────────────────────────────────
+    // Permiso: equipos.assign (mismo que movilizar). Setear una ubicacion
+    // especifica dentro del frente es operacionalmente afin a reasignar/mover,
+    // no a editar la ficha del equipo. Filosofia del sistema: solo PERMISOS
+    // decide — NIVEL_ACCESO del usuario no restringe la operacion.
     public function updateUbicacion(Request $request, $id)
     {
-        // Requiere el mismo permiso que editar equipos
-        if (! auth()->user()?->can('equipos.edit')) {
+        if (! auth()->user()?->can('equipos.assign')) {
             return response()->json(['success' => false, 'error' => 'Sin permisos'], 403);
         }
 
@@ -3012,12 +3015,14 @@ class EquipoController extends Controller
 
     /**
      * BULK update del DETALLE_UBICACION_ACTUAL sobre varios equipos del MISMO frente.
-     * Frontend valida mismo frente; aqui hacemos la misma validacion como guard
-     * defensivo y respetamos el scope LOCAL del usuario.
+     * Permiso: equipos.assign (mismo que movilizar). Frontend valida mismo
+     * frente; aqui hacemos la misma validacion como guard defensivo.
+     * NIVEL_ACCESO del usuario NO restringe la operacion — filosofia del
+     * sistema: solo PERMISOS decide (ver AppServiceProvider::boot).
      */
     public function bulkUbicacion(Request $request)
     {
-        if (! auth()->user()?->can('equipos.edit')) {
+        if (! auth()->user()?->can('equipos.assign')) {
             return response()->json(['success' => false, 'message' => 'Sin permisos'], 403);
         }
 
@@ -3027,14 +3032,11 @@ class EquipoController extends Controller
             'detalle_ubicacion' => 'required|string|max:150',
         ]);
 
-        $valor      = strtoupper(trim($request->input('detalle_ubicacion')));
-        $user       = auth()->user();
-        $isLocal    = $user && $user->NIVEL_ACCESO == 2;
-        $permitidos = $isLocal ? $user->getFrentesIds() : [];
+        $valor = strtoupper(trim($request->input('detalle_ubicacion')));
 
         // Transaccion requerida para que lockForUpdate tenga efecto real hasta el UPDATE
         // final. Evita race entre validacion "mismo frente" y el write posterior.
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $valor, $isLocal, $permitidos) {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $valor) {
             $equipos = Equipo::whereIn('ID_EQUIPO', $request->ids)
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
@@ -3056,13 +3058,6 @@ class EquipoController extends Controller
                     'success' => false,
                     'message' => 'Los equipos seleccionados no tienen un frente asignado.',
                 ], 422);
-            }
-
-            if ($isLocal && !in_array($frenteUnico, $permitidos)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No tienes permiso sobre el frente de los equipos seleccionados.',
-                ], 403);
             }
 
             $count = Equipo::whereIn('ID_EQUIPO', $request->ids)->update([

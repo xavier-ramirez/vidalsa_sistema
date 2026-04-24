@@ -259,8 +259,6 @@ class MovilizacionController extends Controller
         ]);
 
         $authUser = auth()->user();
-        $isLocal  = $authUser && $authUser->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $isLocal ? $authUser->getFrentesIds() : [];
 
         DB::beginTransaction();
         try {
@@ -287,14 +285,11 @@ class MovilizacionController extends Controller
                 ]
             );
 
-            // Scope LOCAL: el destino debe estar en la jurisdicción del usuario
-            if ($isLocal && !in_array($frente->ID_FRENTE, $frentesPermitidos)) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No tienes permiso para mover equipos al frente destino.',
-                ], 403);
-            }
+            // Acceso a bulkStore se controla UNICAMENTE con el permiso
+            // 'equipos.assign' (middleware del controller + @can en UI). El
+            // campo NIVEL_ACCESO del usuario NO limita la operacion — la
+            // filosofia del sistema es "solo la clave PERMISOS decide"
+            // (ver AppServiceProvider::boot).
 
             $userEmail  = $authUser->CORREO_ELECTRONICO ?? 'SISTEMA';
             $now        = now();
@@ -305,19 +300,6 @@ class MovilizacionController extends Controller
             $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
-
-            // Scope LOCAL: todos los orígenes deben estar en la jurisdicción
-            if ($isLocal) {
-                foreach ($equipos as $eq) {
-                    if ($eq->ID_FRENTE_ACTUAL && !in_array($eq->ID_FRENTE_ACTUAL, $frentesPermitidos)) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'No tienes permiso sobre al menos un equipo seleccionado (frente origen fuera de tu jurisdicción).',
-                        ], 403);
-                    }
-                }
-            }
 
             // Crear movilizaciones una por una (dispara MovilizacionObserver, devuelve IDs exactos
             // sin depender de timestamp match entre Carbon µs y MySQL TIMESTAMP sin fracción).
