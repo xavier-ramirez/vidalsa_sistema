@@ -244,7 +244,6 @@ class EquipoAuxiliarController extends Controller
             'creado_por'     => optional($aux->creador)->NOMBRE_COMPLETO,
             'created_at'     => optional($aux->created_at)->format('d/m/Y H:i'),
             'edit_url'       => route('equipos-auxiliares.edit', $aux->ID_AUXILIAR),
-            'acta_url'       => route('equipos-auxiliares.acta', $aux->ID_AUXILIAR),
         ]);
     }
 
@@ -577,18 +576,6 @@ class EquipoAuxiliarController extends Controller
         return response()->json($results);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // ACTA DE ASIGNACION (HTML imprimible; sin PDF para minimizar deps)
-    // ═══════════════════════════════════════════════════════════
-    public function actaAsignacion($id)
-    {
-        $auxiliar = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion', 'equipoHost.tipo', 'creador'])
-            ->findOrFail($id);
-        // Pasa el mapa dinamico de tipos para que el acta muestre labels
-        // legibles tambien para tipos custom creados por el usuario.
-        $tipos = $this->getTiposDinamicos();
-        return view('admin.equipos_auxiliares.acta', compact('auxiliar', 'tipos'));
-    }
 
     /**
      * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en

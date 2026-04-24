@@ -112,16 +112,18 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('equipos-auxiliares/by-host/{id}',   [App\Http\Controllers\EquipoAuxiliarController::class, 'byHost']) ->name('equipos-auxiliares.byHost');
             Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');
             Route::get   ('equipos-auxiliares/hosts/search',   [App\Http\Controllers\EquipoAuxiliarController::class, 'searchHosts'])->name('equipos-auxiliares.searchHosts');
-            Route::get   ('equipos-auxiliares/{id}/acta',      [App\Http\Controllers\EquipoAuxiliarController::class, 'actaAsignacion'])->name('equipos-auxiliares.acta');
             Route::get   ('equipos-auxiliares/create',         [App\Http\Controllers\EquipoAuxiliarController::class, 'create'])->middleware('can:equipos.create')->name('equipos-auxiliares.create');
             Route::post  ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'store']) ->middleware('can:equipos.create')->name('equipos-auxiliares.store');
             Route::get   ('equipos-auxiliares/{id}/edit',      [App\Http\Controllers\EquipoAuxiliarController::class, 'edit']) ->middleware('can:equipos.edit')->name('equipos-auxiliares.edit');
             Route::patch ('equipos-auxiliares/{id}',           [App\Http\Controllers\EquipoAuxiliarController::class, 'update'])->middleware('can:equipos.edit')->name('equipos-auxiliares.update');
             Route::delete('equipos-auxiliares/{id}',           [App\Http\Controllers\EquipoAuxiliarController::class, 'destroy'])->middleware('can:super.admin')->name('equipos-auxiliares.destroy');
-            Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.edit')->name('equipos-auxiliares.anchor');
-            Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.edit')->name('equipos-auxiliares.unanchor');
+            // Vincular/desvincular (anchor/unanchor) + movilizacion: flujos de
+            // asignacion fisica -> permiso equipos.assign (coherente con el
+            // modulo /admin/equipos: anclar y movilizar van en la misma clave).
+            Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.assign')->name('equipos-auxiliares.anchor');
+            Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.assign')->name('equipos-auxiliares.unanchor');
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
-            Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.edit')->name('equipos-auxiliares.bulkMove');
+            Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkMove');
 
             // Carga masiva via Excel (patron identico a /admin/equipos)
             Route::get   ('equipos-auxiliares/bulk-template',     [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkTemplate'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkTemplate');

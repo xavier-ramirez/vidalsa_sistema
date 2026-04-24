@@ -369,12 +369,14 @@
                             <i class="material-icons" style="font-size: 17px;">edit</i>
                         </button>
                     @endcan
-                    <button type="button" id="auxDetailsActaBtn" title="Acta de Asignación"
-                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                        <i class="material-icons" style="font-size: 17px;">description</i>
-                    </button>
+                    @can('equipos.assign')
+                        <button type="button" id="auxDetailsVincularBtn" title="Vincular a Equipo Host"
+                            style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                            <i class="material-icons" style="font-size: 17px;">link</i>
+                        </button>
+                    @endcan
                     <button type="button" onclick="window.closeAuxDetailsModal()"
                         style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
@@ -440,11 +442,11 @@
         if (title) title.textContent = (d.tipo_label || d.tipo || 'Auxiliar');
         if (sub)   sub.textContent   = ((d.marca || '') + ' ' + (d.modelo || '')).trim() || '—';
 
-        // Enlazar edit + acta en los botones del header
+        // Enlazar edit + vincular en los botones del header
         const editBtn = document.getElementById('auxDetailsEditBtn');
         if (editBtn) editBtn.onclick = () => { window.location.href = d.edit_url; };
-        const actaBtn = document.getElementById('auxDetailsActaBtn');
-        if (actaBtn) actaBtn.onclick = () => { window.open(d.acta_url, '_blank'); };
+        const vincularBtn = document.getElementById('auxDetailsVincularBtn');
+        if (vincularBtn) vincularBtn.onclick = () => window.openAuxVincularModal(d);
 
         // Helper: fila de detalle con label + valor alineados
         const row = (label, value) => `
@@ -511,11 +513,6 @@
             ${section('Vinculación', 'link',
                 row('Equipo Vinculado',     host)
             )}
-
-            ${section('Auditoría', 'history',
-                row('Creado por',           d.creado_por) +
-                row('Fecha de creación',    d.created_at)
-            )}
         `;
     };
 
@@ -535,6 +532,212 @@
             if (e.key === 'Escape') window.closeAuxDetailsModal();
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  MODAL "VINCULAR A EQUIPO HOST" (patron igual al Anclaje de
+    //  /admin/equipos: overlay oscuro, header #1e293b, input search
+    //  server-side con debounce, lista de candidatos, submit POST).
+    // ═══════════════════════════════════════════════════════════════
+    window.openAuxVincularModal = function (aux) {
+        // Cerrar el modal de detalles primero
+        window.closeAuxDetailsModal();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'aux-vincular-overlay';
+        overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2600; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(2px);';
+
+        const content = document.createElement('div');
+        content.style.cssText = 'background:white; border-radius:16px; width:90%; max-width:480px; max-height:92vh; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column;';
+
+        content.innerHTML = `
+            <div style="background:#1e293b; padding:18px; color:white; display:flex; justify-content:center; align-items:center; position:relative;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <i class="material-icons" style="color:#10b981; font-size:20px;">link</i>
+                    <h2 style="margin:0; font-size:16px; font-weight:700;">Vincular a Equipo Host</h2>
+                </div>
+                <button type="button" id="btnCloseAuxVincular" style="position:absolute; right:15px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                    <i class="material-icons">close</i>
+                </button>
+            </div>
+            <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px; overflow:hidden;">
+                <div style="background:#f1f5f9; padding:10px 12px; border-radius:10px; font-size:12.5px; color:#334155;">
+                    <strong>Auxiliar:</strong> ${(aux.tipo_label || aux.tipo || 'Auxiliar')} ${(aux.marca || '')} ${(aux.modelo || '')}
+                    ${aux.serial ? `<br><span style="color:#64748b;">Serial: ${aux.serial}</span>` : ''}
+                    ${aux.host_id ? `<br><span style="color:#64748b;">Actualmente vinculado a: <strong>${aux.host_codigo || '#' + aux.host_id}</strong></span>` : ''}
+                </div>
+
+                <div id="auxVincularInputBox" style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:10px; background:white; overflow:hidden; transition:border-color 0.2s;">
+                    <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:20px; flex-shrink:0;">search</i>
+                    <input type="text" id="auxVincularSearch" placeholder="Buscar por serial motor, serial chasis, placa..." autocomplete="off"
+                        style="flex:1; border:none; outline:none; padding:11px 6px; font-size:14px; background:transparent;">
+                    <i class="material-icons" id="auxVincularClear" style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer; display:none;">close</i>
+                </div>
+
+                <div id="auxVincularList" style="overflow-y:auto; max-height:320px; border:1px solid #f1f5f9; border-radius:10px;">
+                    <div style="padding:24px; text-align:center; color:#94a3b8; font-size:13px;">
+                        <i class="material-icons" style="font-size:28px; display:block; margin: 0 auto 8px; color:#cbd5e0;">search</i>
+                        Escribe al menos 2 caracteres para buscar equipos host disponibles.
+                    </div>
+                </div>
+
+                ${aux.host_id ? `
+                <button type="button" id="auxVincularDesanclarBtn" style="width:100%; padding:10px; background:white; color:#dc2626; border:1px solid #fecaca; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="material-icons" style="font-size:18px;">link_off</i> Desvincular del host actual
+                </button>
+                ` : ''}
+            </div>
+        `;
+
+        overlay.appendChild(content);
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+
+        const _close = () => { overlay.remove(); document.body.style.overflow = ''; };
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) _close(); });
+        content.querySelector('#btnCloseAuxVincular').onclick = _close;
+
+        const searchInput = content.querySelector('#auxVincularSearch');
+        const clearBtn    = content.querySelector('#auxVincularClear');
+        const listBox     = content.querySelector('#auxVincularList');
+        const inputBox    = content.querySelector('#auxVincularInputBox');
+
+        let debounceTimer = null;
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim();
+            clearBtn.style.display = q ? 'block' : 'none';
+            inputBox.style.borderColor = q ? '#10b981' : '#e2e8f0';
+
+            if (q.length < 2) {
+                listBox.innerHTML = '<div style="padding:24px; text-align:center; color:#94a3b8; font-size:13px;"><i class="material-icons" style="font-size:28px; display:block; margin: 0 auto 8px; color:#cbd5e0;">search</i>Escribe al menos 2 caracteres para buscar equipos host disponibles.</div>';
+                return;
+            }
+
+            clearTimeout(debounceTimer);
+            listBox.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite; font-size:22px;">sync</i></div>';
+            debounceTimer = setTimeout(async () => {
+                try {
+                    const r = await fetch('/admin/equipos-auxiliares/hosts/search?q=' + encodeURIComponent(q), {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                    });
+                    const rows = await r.json();
+                    if (!rows || !rows.length) {
+                        listBox.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8; font-size:13px;">Sin resultados.</div>';
+                        return;
+                    }
+                    listBox.innerHTML = rows.map(h => {
+                        const dis = h.disponible ? '' : 'opacity:0.55; pointer-events:none;';
+                        const badge = h.disponible
+                            ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Disponible</span>`
+                            : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Lleno (${h.auxiliares_anclados}/2)</span>`;
+                        return `
+                            <div class="aux-vincular-card" data-host-id="${h.id}" data-host-codigo="${(h.codigo || '').replace(/"/g,'&quot;')}"
+                                 style="padding:11px 13px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s; ${dis}"
+                                 onmouseover="if(!${!h.disponible}) this.style.background='#f0fdf4'"
+                                 onmouseout="this.style.background='white'">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:4px;">
+                                    <strong style="color:#1e293b; font-size:13.5px;">${h.codigo || ('#' + h.id)}</strong>
+                                    ${badge}
+                                </div>
+                                <div style="font-size:12px; color:#475569; line-height:1.3;">
+                                    ${h.marca_modelo || '<em style="color:#94a3b8;">Sin marca/modelo</em>'}
+                                    ${h.tipo ? ` · <span style="color:#64748b;">${h.tipo}</span>` : ''}
+                                </div>
+                                <div style="font-size:11px; color:#64748b; margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;">
+                                    ${h.placa ? `<span><b>Placa:</b> ${h.placa}</span>` : ''}
+                                    ${h.serial_chasis ? `<span><b>Chasis:</b> ${h.serial_chasis}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    // Bind click en cada candidato
+                    listBox.querySelectorAll('.aux-vincular-card').forEach(card => {
+                        card.onclick = () => window.auxConfirmarVinculacion(aux.id, card.dataset.hostId, card.dataset.hostCodigo, _close);
+                    });
+                } catch (e) {
+                    listBox.innerHTML = '<div style="padding:20px; text-align:center; color:#ef4444; font-size:12.5px;">Error al buscar equipos.</div>';
+                }
+            }, 280);
+        });
+
+        clearBtn.onclick = () => { searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); searchInput.focus(); };
+
+        // Boton desvincular (si aplica)
+        const desBtn = content.querySelector('#auxVincularDesanclarBtn');
+        if (desBtn) {
+            desBtn.onclick = () => window.auxDesvincular(aux.id, _close);
+        }
+
+        searchInput.focus();
+    };
+
+    // Confirmar vinculacion: POST al endpoint anchor con ID del host.
+    window.auxConfirmarVinculacion = function (auxId, hostId, hostCodigo, closeCb) {
+        if (window.showPreloader) window.showPreloader();
+        fetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ id_equipo_host: hostId })
+        })
+        .then(async r => {
+            if (window.hidePreloader) window.hidePreloader();
+            if (r.status === 403) {
+                const b = await r.json().catch(()=>({}));
+                if (window.showToast) window.showToast(b.message || 'No tienes permiso para vincular.', 'error');
+                return;
+            }
+            const body = await r.json();
+            if (body.success) {
+                if (window.showToast) window.showToast(body.message || `Vinculado a ${hostCodigo}.`, 'success');
+                if (typeof closeCb === 'function') closeCb();
+                if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
+            } else {
+                if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: body.message || 'No se pudo vincular.', confirmText: 'Cerrar', hideCancel: true });
+            }
+        })
+        .catch(err => {
+            if (window.hidePreloader) window.hidePreloader();
+            console.error('[auxConfirmarVinculacion]', err);
+            if (window.showToast) window.showToast('Error de red al vincular.', 'error');
+        });
+    };
+
+    window.auxDesvincular = function (auxId, closeCb) {
+        if (window.showPreloader) window.showPreloader();
+        fetch('/admin/equipos-auxiliares/' + auxId + '/unanchor', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(async r => {
+            if (window.hidePreloader) window.hidePreloader();
+            if (r.status === 403) {
+                const b = await r.json().catch(()=>({}));
+                if (window.showToast) window.showToast(b.message || 'No tienes permiso para desvincular.', 'error');
+                return;
+            }
+            const body = await r.json();
+            if (body.success) {
+                if (window.showToast) window.showToast(body.message || 'Desvinculado correctamente.', 'success');
+                if (typeof closeCb === 'function') closeCb();
+                if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
+            } else {
+                if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: body.message || 'No se pudo desvincular.', confirmText: 'Cerrar', hideCancel: true });
+            }
+        })
+        .catch(err => {
+            if (window.hidePreloader) window.hidePreloader();
+            console.error('[auxDesvincular]', err);
+            if (window.showToast) window.showToast('Error de red al desvincular.', 'error');
+        });
+    };
 })();
 </script>
 
