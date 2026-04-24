@@ -15,7 +15,7 @@
 
 @if($showFrentes)
     {{-- Distribución por FRENTE (cuando filtra por tipo sin frente) --}}
-    <h4 style="margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+    <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente
     </h4>
@@ -28,10 +28,10 @@
                     style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
                     onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
-                        <span style="color: #334155; font-size: 11px; font-weight: 600; word-break: break-word; line-height: 1.2; flex: 1;">
+                        <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
                             {{ $stat->NOMBRE_FRENTE ?? 'Sin Asignar' }}
                         </span>
-                        <span style="font-weight: 700; color: #1e293b; font-size: 11px; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
+                        <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
                             {{ $stat->total }}
                         </span>
                     </div>
@@ -45,7 +45,7 @@
 
 @else
     {{-- Distribución por TIPO (vista por defecto) --}}
-    <h4 style="margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+    <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #3b82f6;">pie_chart</i>
         Distribución
     </h4>
@@ -58,10 +58,10 @@
                     style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
                     onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
-                        <span style="color: #334155; font-size: 11px; font-weight: 600; word-break: break-word; line-height: 1.2; flex: 1;">
+                        <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
                             {{ $stat->nombre ?? 'Desconocido' }}
                         </span>
-                        <span style="font-weight: 700; color: #1e293b; font-size: 11px; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
+                        <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
                             {{ $stat->total }}
                         </span>
                     </div>
