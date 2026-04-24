@@ -1506,6 +1506,13 @@ class EquipoController extends Controller
             \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
         }
 
+        // Auditoria: registrar la edicion general de ficha en equipo_audit_log
+        // para que aparezca en /admin/historial-documentos con fecha y usuario.
+        // Los demas metodos (uploadDoc, deleteDoc, updateMetadata, ubicacion)
+        // ya lo hacen; sin esto, las ediciones de datos del equipo quedaban
+        // fuera del historial.
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'edit', []);
+
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.', 'redirect' => route('equipos.index')]);
         }
