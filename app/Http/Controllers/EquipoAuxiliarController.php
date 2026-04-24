@@ -71,6 +71,17 @@ class EquipoAuxiliarController extends Controller
         $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
+        // Listas para los dropdowns de filtros avanzados
+        $availableMarcas = EquipoAuxiliar::select('MARCA')
+            ->whereNotNull('MARCA')->where('MARCA', '!=', '')
+            ->distinct()->orderBy('MARCA')->pluck('MARCA');
+        $availableModelos = EquipoAuxiliar::select('MODELO')
+            ->whereNotNull('MODELO')->where('MODELO', '!=', '')
+            ->distinct()->orderBy('MODELO')->pluck('MODELO');
+        $availableCapacidades = EquipoAuxiliar::select('CAPACIDAD')
+            ->whereNotNull('CAPACIDAD')->where('CAPACIDAD', '!=', '')
+            ->distinct()->orderBy('CAPACIDAD')->pluck('CAPACIDAD');
+
         // Catalogo implicito de FOTO por MARCA|MODEL: si un auxiliar no tiene
         // FOTO propia, el partial cae a la de otro registro con el mismo modelo
         // (evita placeholders masivos cuando se registran sin foto individual).
@@ -128,7 +139,8 @@ class EquipoAuxiliarController extends Controller
         }
 
         return view('admin.equipos_auxiliares.index', compact(
-            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel'
+            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel',
+            'availableMarcas', 'availableModelos', 'availableCapacidades'
         ));
     }
 
