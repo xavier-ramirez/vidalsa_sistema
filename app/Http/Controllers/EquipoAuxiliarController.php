@@ -21,26 +21,29 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function index(Request $request)
     {
-        $query = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion']);
+        $applyFilters = function ($q) use ($request) {
+            if ($request->filled('tipo') && $request->tipo !== 'all') {
+                $q->where('TIPO', $request->tipo);
+            }
+            if ($request->filled('id_frente') && $request->id_frente !== 'all') {
+                $q->where('ID_FRENTE_ACTUAL', $request->id_frente);
+            }
+            if ($request->filled('estado') && $request->estado !== 'all') {
+                $q->where('ESTADO_OPERATIVO', $request->estado);
+            }
+            if ($request->filled('search')) {
+                $s = trim($request->search);
+                $q->where(function ($qq) use ($s) {
+                    $qq->where('SERIAL', 'like', "%{$s}%")
+                      ->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
+                      ->orWhere('MARCA', 'like', "%{$s}%")
+                      ->orWhere('MODELO', 'like', "%{$s}%");
+                });
+            }
+        };
 
-        if ($request->filled('tipo') && $request->tipo !== 'all') {
-            $query->where('TIPO', $request->tipo);
-        }
-        if ($request->filled('id_frente') && $request->id_frente !== 'all') {
-            $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
-        }
-        if ($request->filled('estado') && $request->estado !== 'all') {
-            $query->where('ESTADO_OPERATIVO', $request->estado);
-        }
-        if ($request->filled('search')) {
-            $s = trim($request->search);
-            $query->where(function ($q) use ($s) {
-                $q->where('SERIAL', 'like', "%{$s}%")
-                  ->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
-                  ->orWhere('MARCA', 'like', "%{$s}%")
-                  ->orWhere('MODELO', 'like', "%{$s}%");
-            });
-        }
+        $query = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion']);
+        $applyFilters($query);
 
         $auxiliares = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
 
@@ -48,15 +51,96 @@ class EquipoAuxiliarController extends Controller
         $tipos   = EquipoAuxiliar::tiposLabel();
         $estados = EquipoAuxiliar::estadosLabel();
 
+        // Stats: total/operativos/inoperativos/mantenimiento respetando los filtros
+        // activos excepto el propio filtro de estado (para mostrar el breakdown real).
+        $statsBase = EquipoAuxiliar::query();
+        if ($request->filled('tipo') && $request->tipo !== 'all')         $statsBase->where('TIPO', $request->tipo);
+        if ($request->filled('id_frente') && $request->id_frente !== 'all')$statsBase->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $statsBase->where(function ($qq) use ($s) {
+                $qq->where('SERIAL', 'like', "%{$s}%")
+                  ->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
+                  ->orWhere('MARCA', 'like', "%{$s}%")
+                  ->orWhere('MODELO', 'like', "%{$s}%");
+            });
+        }
+        $stats = [
+            'total'         => (clone $statsBase)->count(),
+            'operativos'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
+            'inoperativos'  => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
+            'en_almacen'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN_ALMACEN')->count(),
+        ];
+
+        // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
+        $distribucion = (clone $statsBase)
+            ->selectRaw('TIPO, COUNT(*) as total')
+            ->groupBy('TIPO')
+            ->orderByDesc('total')
+            ->get();
+
+        $hasFilter = $request->filled('tipo') || $request->filled('id_frente')
+                  || $request->filled('estado') || $request->filled('search');
+
         if ($request->wantsJson()) {
             return response()->json([
-                'html'       => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares'))->render(),
-                'pagination' => $auxiliares->links('vendor.pagination.custom-sliding')->toHtml(),
-                'count'      => $auxiliares->total(),
+                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares'))->render(),
+                'pagination'   => $auxiliares->links('vendor.pagination.custom-sliding')->toHtml(),
+                'count'        => $auxiliares->total(),
+                'stats'        => $stats,
+                'distribucion' => $distribucion,
+                'hasFilter'    => $hasFilter,
             ]);
         }
 
-        return view('admin.equipos_auxiliares.index', compact('auxiliares', 'frentes', 'tipos', 'estados'));
+        return view('admin.equipos_auxiliares.index', compact(
+            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter'
+        ));
+    }
+
+    /**
+     * Exportar listado (CSV) respetando los filtros activos.
+     */
+    public function export(Request $request)
+    {
+        set_time_limit(120);
+        $query = EquipoAuxiliar::with('frente');
+        if ($request->filled('tipo') && $request->tipo !== 'all')         $query->where('TIPO', $request->tipo);
+        if ($request->filled('id_frente') && $request->id_frente !== 'all')$query->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        if ($request->filled('estado') && $request->estado !== 'all')      $query->where('ESTADO_OPERATIVO', $request->estado);
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $query->where(function ($qq) use ($s) {
+                $qq->where('SERIAL', 'like', "%{$s}%")->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
+                  ->orWhere('MARCA', 'like', "%{$s}%")->orWhere('MODELO', 'like', "%{$s}%");
+            });
+        }
+
+        $filename = 'Equipos_Auxiliares_' . date('Y-m-d_H-i') . '.csv';
+        $tipos = EquipoAuxiliar::tiposLabel();
+        $estados = EquipoAuxiliar::estadosLabel();
+
+        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($query, $tipos, $estados) {
+            $out = fopen('php://output', 'w');
+            // UTF-8 BOM para Excel
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD', 'ANIO', 'FRENTE', 'ESTADO'], ';');
+            $query->orderBy('TIPO')->chunk(200, function ($rows) use ($out, $tipos, $estados) {
+                foreach ($rows as $r) {
+                    fputcsv($out, [
+                        mb_strtoupper($tipos[$r->TIPO] ?? $r->TIPO),
+                        $r->MARCA, $r->MODELO, $r->SERIAL, $r->CODIGO_INTERNO, $r->CAPACIDAD,
+                        $r->ANIO,
+                        optional($r->frente)->NOMBRE_FRENTE,
+                        mb_strtoupper($estados[$r->ESTADO_OPERATIVO] ?? $r->ESTADO_OPERATIVO),
+                    ], ';');
+                }
+            });
+            fclose($out);
+        });
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        return $response;
     }
 
     public function count()
