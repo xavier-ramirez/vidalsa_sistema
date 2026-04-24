@@ -19,7 +19,9 @@ class EquipoController extends Controller
     public function __construct()
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileShow']);
-        $this->middleware('can:equipos.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
+        // Registro uno a uno + carga masiva via Excel: requieren 'user.create'.
+        // Gate::before resuelve super.admin.
+        $this->middleware('can:user.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
         // edit/update: permiso 'user.edit' (boton lapiz del modal detalles
         // + formulario de edicion de ficha). changeStatus: 'equipos.edit'
         // (cambio de estatus inline, desacoplado de la edicion general).

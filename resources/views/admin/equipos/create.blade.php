@@ -9,7 +9,7 @@
     </h1>
 </section>
 
-@can('equipos.create')
+@can('user.create')
 <style>
     /* La carga masiva vía Excel no aplica en teléfonos (UX de subida/preview no es usable ahí) */
     @media (max-width: 768px) {
@@ -70,7 +70,7 @@
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria"
-                @cannot('equipos.create')
+                @cannot('user.create')
                 onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permiso para registrar equipos.', confirmText: 'Entendido', hideCancel: true });"
                 @endcannot
             >
