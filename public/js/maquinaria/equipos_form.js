@@ -194,9 +194,18 @@ function initEquiposForm() {
 
     // --- SUBMIT CORE LOGIC ---
     const executeSubmission = () => {
-        // B. Clear Errors
-        const summary = document.getElementById('errorSummary');
-        if (summary) summary.style.display = 'none';
+        // B. Clear Errors — remover (no solo ocultar) el banner anterior
+        // y limpiar TODA marca .is-invalid + mensajes inline residuales.
+        // Sin esto, un 422 previo dejaba inputs marcados y el re-check de
+        // .is-invalid abajo fallaba para siempre aunque el user corrigiera.
+        const oldSummary = document.getElementById('errorSummary');
+        if (oldSummary) oldSummary.remove();
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        form.querySelectorAll('.custom-dropdown.is-invalid, .custom-form-autocomplete.is-invalid')
+            .forEach(el => el.classList.remove('is-invalid'));
+        form.querySelectorAll('.error-message-inline').forEach(el => el.remove());
+        // Reset border-color de triggers de dropdowns que haya quedado en rojo
+        form.querySelectorAll('.custom-dropdown .dropdown-trigger').forEach(t => t.style.borderColor = '');
 
         // Resolve button references from dataset (set by the submit listener before calling us)
         const submitBtn = form.querySelector('button[type="submit"]');
