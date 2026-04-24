@@ -159,6 +159,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             clearTimeout(timeoutId);
 
+            // 403 de AuthorizationException: servidor devuelve JSON con
+            // {success:false, message, forbidden:true}. Mostrar toast y
+            // ABORTAR la navegacion (no reload, o caeriamos en bucle: el
+            // destino seguira devolviendo 403 al no tener el permiso).
+            if (response.status === 403) {
+                handledCleanup = true;
+                if (window.hidePreloader) window.hidePreloader();
+                let msg = 'No tienes permiso para acceder a esa sección.';
+                try {
+                    const body = await response.json();
+                    if (body && body.message) msg = body.message;
+                } catch (_) { /* sin body JSON, usar default */ }
+                if (typeof window.showToast === 'function') {
+                    window.showToast(msg, 'error');
+                } else if (typeof window.showModal === 'function') {
+                    window.showModal({ type: 'error', title: 'Acceso Denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
+                }
+                return;
+            }
+
             // Respuesta HTTP con error → navegación normal
             if (!response.ok) {
                 handledCleanup = true;
