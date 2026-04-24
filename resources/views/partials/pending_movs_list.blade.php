@@ -6,11 +6,21 @@
     $authUser      = auth()->user();
     $authFrenteIds = $authUser ? $authUser->getFrentesIds() : [];
     $authEsGlobal  = ($authUser && $authUser->NIVEL_ACCESO == 1);
+    // Regla de visibilidad:
+    // - Si el usuario tiene frentes asignados (cualquier nivel), SOLO ve
+    //   movilizaciones cuyo destino esta en esos frentes. Esto asegura que
+    //   un usuario nivel 1 con frente=15 no reciba notificaciones de otros
+    //   frentes donde no opera.
+    // - Si es GLOBAL y NO tiene frentes asignados (super-admin master sin
+    //   restricciones), ve todo.
+    $authFrenteIdsStr = array_map('strval', $authFrenteIds);
+    $verTodo = $authEsGlobal && count($authFrenteIds) === 0;
 @endphp
 
 @forelse($recentActivity as $activity)
     @php
-        $esDestinatario = $authEsGlobal || in_array((string)$activity->ID_FRENTE_DESTINO, array_map('strval', $authFrenteIds));
+        $esDestinatario = $verTodo
+            || in_array((string)$activity->ID_FRENTE_DESTINO, $authFrenteIdsStr);
         $placa          = $activity->equipo->documentacion->PLACA ?? null;
         $serial         = $activity->equipo->SERIAL_CHASIS ?? null;
         $primaryId      = ($placa && strtoupper($placa) !== 'N/A') ? $placa : $serial;
