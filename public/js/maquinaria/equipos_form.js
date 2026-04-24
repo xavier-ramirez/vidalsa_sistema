@@ -115,10 +115,23 @@ function initEquiposForm() {
         }
         feedbackLoader.style.display = 'block';
 
-        // Assuming endpoint exists
-        fetch(`/admin/equipos/check-unique?field=${fieldName}&value=${encodeURIComponent(input.value.trim())}`)
+        // En modo edit, pasar el id del equipo para excluirlo del check (sino
+        // el propio valor del equipo se detecta como "duplicado consigo mismo").
+        const editMethodInput = form.querySelector('input[name="_method"][value="PUT"]');
+        const equipoId = editMethodInput
+            ? (form.action.match(/equipos\/(\d+)/) || [])[1]
+            : null;
+        const idParam = equipoId ? `&id=${encodeURIComponent(equipoId)}` : '';
+
+        // AbortController con timeout: evita que un fetch colgado bloquee
+        // indefinidamente el setInterval del submit (deadlock que congela UI).
+        const ctrl = new AbortController();
+        const timeoutId = setTimeout(() => ctrl.abort(), 8000);
+
+        fetch(`/admin/equipos/check-unique?field=${fieldName}&value=${encodeURIComponent(input.value.trim())}${idParam}`, { signal: ctrl.signal })
             .then(r => r.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 feedbackLoader.style.display = 'none';
                 if (data.exists) {
                     showFieldError(input, `Este valor ya ha sido registrado.`);
@@ -129,8 +142,11 @@ function initEquiposForm() {
                 }
             })
             .catch(err => {
-                console.error(err);
+                clearTimeout(timeoutId);
+                // Fuerza ocultar el loader aunque el fetch haya fallado, asi
+                // el submit no queda esperando forever via setInterval.
                 feedbackLoader.style.display = 'none';
+                console.error('checkUniqueness:', err);
             });
     };
 
