@@ -120,6 +120,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // si el bloque try ya lo manejó correctamente.
         let handledCleanup = false;
 
+        // Tiempo minimo que el preloader queda visible: evita el parpadeo
+        // cuando la navegacion es rapida (<250ms) y el usuario no alcanza
+        // a percibir el spinner. En redes rapidas consumibles/graficos
+        // respondia sin mostrar claramente el preloader.
+        const MIN_PRELOADER_MS = 280;
+        const _preloaderShownAt = performance.now();
+
+        const _hidePreloaderRespectingMinTime = () => {
+            if (!window.hidePreloader) return;
+            const elapsed = performance.now() - _preloaderShownAt;
+            if (elapsed < MIN_PRELOADER_MS) {
+                setTimeout(() => window.hidePreloader(), MIN_PRELOADER_MS - elapsed);
+            } else {
+                window.hidePreloader();
+            }
+        };
+
         try {
             if (window.showPreloader) window.showPreloader();
 
@@ -212,7 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Marcar como manejado ANTES de ocultar, para que el bloque finally
             // no ejecute un segundo hidePreloader (race condition fix).
             handledCleanup = true;
-            if (window.hidePreloader) window.hidePreloader();
+            // hidePreloader respetando MIN_PRELOADER_MS para que no parpadee
+            // en navegaciones muy rapidas (<280ms): el usuario siempre ve el spinner.
+            _hidePreloaderRespectingMinTime();
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             // Cerrar menú mobile si está abierto
