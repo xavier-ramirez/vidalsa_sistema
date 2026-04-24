@@ -837,8 +837,11 @@
         };
 
         function _cargarDatosLocal() {
-            // Usamos indicadores de carga locales — NO el preloader global
-            // para evitar el doble spinner al navegar vía SPA.
+            // Mostrar preloader global tradicional (fondo blanco) para cada cambio
+            // de filtro, como lo pidio el dueño. Los spinners locales siguen
+            // presentes en cada seccion para dar feedback granular, pero el
+            // preloader global da la consistencia visual del resto de la app.
+            if (typeof window.showPreloader === 'function') window.showPreloader();
             const params = getParams();
 
             const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
@@ -932,6 +935,10 @@
                         const elCaucho = document.getElementById('loadingCauchoModelo');
                         if (elCaucho) elCaucho.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
                     }
+                })
+                .finally(() => {
+                    // Apagar preloader global tanto en exito como en error.
+                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
                 });
         }
 
