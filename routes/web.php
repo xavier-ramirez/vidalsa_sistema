@@ -118,6 +118,14 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.edit')->name('equipos-auxiliares.anchor');
             Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.edit')->name('equipos-auxiliares.unanchor');
 
+            // ── Reporte de Fallas (placeholder: modulo pendiente de definicion) ──
+            // El usuario pidio el boton en el navbar pero aun no confirmo alcance
+            // (opciones A/B/C/D en propuesta anterior). Ruta temporal que muestra
+            // vista "En construccion" para evitar 404 desde el boton.
+            Route::get('fallas', function () {
+                return view('admin.fallas.placeholder');
+            })->name('fallas.index');
+
 
 
             // ── Auditoría Documental ─────────────────────────────────────────

@@ -495,6 +495,12 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">local_shipping</i>Historial Mov.
             </a>
 
+            <a href="{{ route('fallas.index') }}"
+                class="nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}"
+                style="display:flex; align-items:center;">
+                <i class="material-icons" style="font-size:18px; margin-right:5px;">report_problem</i>Fallas
+            </a>
+
             <!-- Configuraciones Dropdown -->
             <a href="{{ route('consumibles.graficos') }}"
                 class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
@@ -621,6 +627,10 @@
         <a href="{{ route('movilizaciones.index') }}"
             class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
             <i class="material-icons">local_shipping</i> Historial Mov.
+        </a>
+        <a href="{{ route('fallas.index') }}"
+            class="mobile-nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}">
+            <i class="material-icons">report_problem</i> Reporte de Fallas
         </a>
         <a href="{{ route('consumibles.graficos') }}"
             class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
