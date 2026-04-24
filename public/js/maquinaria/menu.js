@@ -200,10 +200,10 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
     document.getElementById('btnCancelGestion').onclick = closeHandler;
 
     document.getElementById('btnConfirmGestion').onclick = async function () {
-        const btn = this;
-        btn.innerHTML = 'Procesando...';
-        btn.disabled = true;
-        btn.style.opacity = '0.8';
+        // Cerrar el modal de confirmacion y dejar que el preloader global
+        // de la app sea el unico indicador de carga mientras procesamos.
+        closeHandler();
+        if (typeof window.showPreloader === 'function') window.showPreloader();
 
         try {
             const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -221,9 +221,8 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
             });
 
             const data = await response.json();
-            
+
             if (data.success) {
-                closeHandler();
                 if (typeof window.refreshDashboardAlerts === 'function') {
                     await window.refreshDashboardAlerts();
                 }
@@ -235,7 +234,6 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
             }
         } catch (error) {
             console.error('Error:', error);
-            closeHandler();
             if (typeof window.showToast === 'function') {
                 window.showToast(error.message, 'error');
             } else if (typeof window.showModal === 'function') {
@@ -243,6 +241,8 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
             } else {
                 alert(error.message);
             }
+        } finally {
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
         }
     };
 };
