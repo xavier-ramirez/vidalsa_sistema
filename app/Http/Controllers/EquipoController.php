@@ -21,6 +21,8 @@ class EquipoController extends Controller
         $this->middleware('auth')->except(['mobileIndex', 'mobileShow']);
         $this->middleware('can:equipos.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
         $this->middleware('can:equipos.edit')->only(['edit', 'update', 'changeStatus']);
+        // Borrar un equipo es destructivo irreversible: solo super.admin.
+        $this->middleware('can:super.admin')->only(['destroy']);
         // uploadDoc/deleteDoc/updateMetadata: permission handled inside methods (user.edit OR equipos.edit OR super.admin)
     }
 

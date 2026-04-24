@@ -1002,8 +1002,20 @@ window.showDetailsImproved = function (target, event) {
                 CONTAINER:        { icon: 'inventory_2',  color: '#6366f1', bg: '#eef2ff', label: 'Contenedor'    },
                 OTRO:             { icon: 'build',        color: '#64748b', bg: '#f1f5f9', label: 'Otro'          },
             };
-            fetch(`/admin/equipos-auxiliares/by-host/${eqId}`, { headers:{'X-Requested-With':'XMLHttpRequest'} })
-            .then(r => r.json())
+            // Cache en memoria 30s para evitar fetches duplicados al reabrir el mismo modal
+            window._byHostCache = window._byHostCache || new Map();
+            const cacheKey = String(eqId);
+            const cached   = window._byHostCache.get(cacheKey);
+            const now      = Date.now();
+            const cachedPromise = (cached && (now - cached.t) < 30000)
+                ? Promise.resolve(cached.data)
+                : fetch(`/admin/equipos-auxiliares/by-host/${eqId}`, { headers:{'X-Requested-With':'XMLHttpRequest'} })
+                    .then(r => r.json())
+                    .then(data => {
+                        window._byHostCache.set(cacheKey, { data, t: Date.now() });
+                        return data;
+                    });
+            cachedPromise
             .then(json => {
                 if (!json.ok || json.data.length === 0) {
                     saList.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">No hay equipos auxiliares vinculados.</p>';
