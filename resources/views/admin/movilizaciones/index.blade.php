@@ -428,16 +428,14 @@ window._eliminarSeleccionados = function () {
      style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); backdrop-filter: blur(3px); z-index:10000; align-items:center; justify-content:center; padding:20px;"
      onclick="if(event.target===this) window.closeReimprimirActaModal()">
     <div style="background:white; width:100%; max-width:440px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden; animation:reimprimirIn 0.22s cubic-bezier(0.16,1,0.3,1);">
-        <!-- Header (misma paleta que el modal de Anclaje/Ubicacion: #1e293b solido, titulo centrado) -->
+        <!-- Header (misma paleta que el modal de Anclaje/Ubicacion: #1e293b solido) -->
         <div style="background:#1e293b; padding:16px 20px; color:white; position:relative;">
-            <div style="display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
-                <div style="background:rgba(255,255,255,0.18); width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center;">
+                <div style="display:flex; align-items:center; gap:10px;">
                     <i class="material-icons" style="font-size:22px;">print</i>
-                </div>
-                <div>
                     <h2 style="margin:0; font-size:16px; font-weight:800;">Reimprimir Acta de Traslado</h2>
-                    <p style="margin:2px 0 0; font-size:12px; opacity:0.85;">Busca por N° de Operación del informe</p>
                 </div>
+                <p style="margin:2px 0 0; font-size:12px; opacity:0.85;">Busca por N° de Operación del informe</p>
             </div>
             <button type="button" onclick="window.closeReimprimirActaModal()" aria-label="Cerrar"
                 style="background:rgba(255,255,255,0.15); border:none; color:white; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:absolute; top:14px; right:16px;">
@@ -460,9 +458,6 @@ window._eliminarSeleccionados = function () {
                         style="flex:1; border:none; outline:none; padding:12px 6px; font-size:14px; background:transparent; letter-spacing:0.5px;"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitReimprimirActa();}">
                 </div>
-                <small style="display:block; margin-top:6px; font-size:11px; color:#94a3b8; line-height:1.4;">
-                    El N° de Operación aparece en la columna correspondiente del listado y en el acta PDF descargada anteriormente.
-                </small>
             </div>
 
             <div id="reimprimirFeedback" style="display:none; padding:10px 12px; border-radius:8px; font-size:12.5px; font-weight:600;"></div>
