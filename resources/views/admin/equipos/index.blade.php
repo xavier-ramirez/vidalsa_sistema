@@ -1179,7 +1179,7 @@
                 <h3 style="margin: 0; color: #fff; font-size: 16px; font-weight: 600;">Anclaje de Equipos</h3>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <button type="button" onclick="window.exportAnclajesToCsv()" title="Exportar a Excel (CSV)" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(16, 185, 129, 0.25)'" onmouseout="this.style.background='rgba(16, 185, 129, 0.15)'">
+                <button type="button" onclick="window.exportAnclajesToExcel()" title="Exportar a Excel (.xlsx)" style="background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.28); color: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.22)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.12)'">
                     <i class="material-icons" style="font-size: 18px;">download</i>
                 </button>
                 <button type="button" onclick="document.getElementById('anclajesListModal').classList.remove('active')" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#94a3b8'">
@@ -1289,46 +1289,31 @@
             });
     }
 
-    window.exportAnclajesToCsv = function() {
+    // Exporta los anclajes a XLSX generado por PhpSpreadsheet (backend) con el
+    // mismo encabezado corporativo de los demas reportes del sistema.
+    window.exportAnclajesToExcel = function() {
         const data = window.lastAnclajesData;
         if (!data || data.length === 0) {
-            alert('No hay datos para exportar.');
+            if (typeof window.showToast === 'function') {
+                window.showToast('No hay equipos anclados para exportar.', 'warning');
+            } else {
+                alert('No hay datos para exportar.');
+            }
             return;
         }
-
-        let csvContent = 'TIPO EQUIPO 1,MARCA,IDENTIFICADOR 1,ANCLADO A (TIPO 2),IDENTIFICADOR 2\n';
-
-        data.forEach(pair => {
-            const a = pair.eq_a;
-            const b = pair.eq_b;
-            if (!a || !b) return;
-
-            const aPlacaOrSerial = (a.placa && a.placa !== 'S/P') ? a.placa : (a.serial || 'N/A');
-            const bPlacaOrSerial = (b.placa && b.placa !== 'S/P') ? b.placa : (b.serial || 'N/A');
-            
-            // Extract the core brand name (to simplify if needed, or use the full string)
-            // Just handling strings to avoid CSV injection or break with commas
-            const escapeCsv = (str) => '"' + (str || '').replace(/"/g, '""') + '"';
-
-            csvContent += escapeCsv(a.tipo) + ',' +
-                          escapeCsv(a.marca_modelo) + ',' +
-                          escapeCsv(aPlacaOrSerial) + ',' +
-                          escapeCsv(b.tipo) + ',' +
-                          escapeCsv(bPlacaOrSerial) + '\n';
-        });
-
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
         const fValueElement = document.querySelector('input[name="id_frente"][data-filter-value]');
-        let fValueStr = (fValueElement && fValueElement.value && fValueElement.value !== 'all') ? ('_frente_' + fValueElement.value) : '_todos_frentes';
-        
-        link.href = URL.createObjectURL(blob);
-        link.download = `Anclajes${fValueStr}_${new Date().toISOString().slice(0,10)}.csv`;
+        const fValue = (fValueElement && fValueElement.value && fValueElement.value !== 'all') ? fValueElement.value : '';
+        const url = '{{ route("equipos.exportAnclajes") }}' + (fValue ? ('?frente_id=' + encodeURIComponent(fValue)) : '');
+        const link = document.createElement('a');
+        link.href = url;
         link.style.display = 'none';
+        link.setAttribute('data-no-spa', 'true');
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-    }
+        setTimeout(() => document.body.removeChild(link), 500);
+    };
+    // Alias para compatibilidad con llamadas antiguas
+    window.exportAnclajesToCsv = window.exportAnclajesToExcel;
 
     // Alias: CAN_CREATE_INFO → CAN_CREATE_EQUIPOS (definido globalmente en estructura_base)
     // Se mantiene por compatibilidad con equipos_index.js

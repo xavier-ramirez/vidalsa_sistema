@@ -2677,6 +2677,190 @@ class EquipoController extends Controller
     }
 
     /**
+     * Exporta la lista de equipos anclados a XLSX usando PhpSpreadsheet, con el
+     * mismo encabezado corporativo de los otros reportes (Consumibles): logo +
+     * titulo + edicion/revision/fecha. Cada fila: Equipo Padre (tipo, placa/serial)
+     * + Equipo Hijo Anclado (tipo, placa/serial) + frente comun.
+     */
+    public function exportAnclajes(Request $request)
+    {
+        $frenteId = $request->input('frente_id');
+
+        // Reutilizar la lógica de getAnchoredEquipos: obtener pares únicos
+        $query = Equipo::with(['ancladoA', 'tipo', 'ancladoA.tipo', 'documentacion', 'ancladoA.documentacion', 'frenteActual'])
+            ->whereNotNull('ID_ANCLAJE');
+
+        if ($frenteId && $frenteId !== 'all') {
+            $query->where('ID_FRENTE_ACTUAL', $frenteId);
+        } else {
+            $query->excludeEspecial();
+        }
+
+        $anchored = $query->get();
+
+        // Deduplicar pares mutuos (A→B y B→A)
+        $pairs = [];
+        $seen = [];
+        foreach ($anchored as $eq) {
+            if (!$eq->ancladoA) continue;
+            $id1 = $eq->ID_EQUIPO;
+            $id2 = $eq->ID_ANCLAJE;
+            $key = $id1 < $id2 ? "{$id1}_{$id2}" : "{$id2}_{$id1}";
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $pairs[] = $eq;
+        }
+
+        $nombreFrente = 'TODOS LOS FRENTES';
+        if ($frenteId && $frenteId !== 'all') {
+            $f = \App\Models\FrenteTrabajo::find($frenteId);
+            if ($f) $nombreFrente = mb_strtoupper($f->NOMBRE_FRENTE);
+        }
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Anclajes');
+
+        $spreadsheet->getProperties()
+            ->setCreator('Sistema de Gestión de Equipos Operacionales')
+            ->setLastModifiedBy('Administrador')
+            ->setTitle('Reporte de Anclajes')
+            ->setSubject('Listado de equipos anclados')
+            ->setDescription('Generado automáticamente por el Sistema - C.VIDALSA 27, C.A.');
+
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
+        // ── Encabezado corporativo (mismo patron que ConsumiblesController::exportarCsv) ──
+        $logoPath = public_path('img/imagen_uno.jpg');
+        if (file_exists($logoPath)) {
+            try {
+                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                $drawing->setName('Logo CVIDALSA');
+                $drawing->setDescription('Logo');
+                $drawing->setPath($logoPath);
+                $drawing->setCoordinates('A1');
+                $drawing->setOffsetX(45);
+                $drawing->setOffsetY(10);
+                $drawing->setHeight(100);
+                $drawing->setWorksheet($sheet);
+            } catch (\Exception $e) { /* silencioso si no puede cargarse */ }
+        }
+
+        $sheet->getRowDimension('1')->setRowHeight(35);
+        $sheet->getRowDimension('2')->setRowHeight(35);
+        $sheet->getRowDimension('3')->setRowHeight(35);
+
+        $sheet->mergeCells('A1:B3');
+        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $subTitle = $nombreFrente !== 'TODOS LOS FRENTES' ? 'FRENTE: "' . $nombreFrente . '"' : 'TODOS LOS FRENTES';
+        $titleText = "CONTROL DE EQUIPOS ANCLADOS\n" . $subTitle;
+
+        $sheet->mergeCells('C1:E3');
+        $sheet->setCellValue('C1', $titleText);
+        $sheet->getStyle('C1')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('C1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('C1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $sheet->mergeCells('F1:G1');
+        $sheet->setCellValue('F1', 'EDICIÓN: 1');
+        $sheet->getStyle('F1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('F1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('F1')->getFont()->setBold(true)->setSize(11);
+        $sheet->getStyle('F1:G1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $sheet->mergeCells('F2:G2');
+        $sheet->setCellValue('F2', 'REVISIÓN: 0');
+        $sheet->getStyle('F2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('F2')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('F2')->getFont()->setBold(true)->setSize(11);
+        $sheet->getStyle('F2:G2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $sheet->mergeCells('F3:G3');
+        $sheet->setCellValue('F3', 'FECHA DE IMPRESIÓN: ' . date('d/m/Y'));
+        $sheet->getStyle('F3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('F3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('F3')->getFont()->setBold(true)->setSize(11);
+        $sheet->getStyle('F3:G3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $sheet->getStyle('A1:G3')->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+        $rowNum = 6;
+        $sheet->setCellValue('A' . ($rowNum - 1), 'EMITIDO POR EL SISTEMA DE GESTIÓN DE EQUIPOS OPERACIONALES | Total de pares: ' . count($pairs));
+        $sheet->getStyle('A' . ($rowNum - 1))->getFont()->setBold(true)->getColor()->setARGB('FF475569');
+
+        // ── Cabecera de tabla ──
+        $headers = [
+            'A' => '#',
+            'B' => 'TIPO EQUIPO PADRE',
+            'C' => 'PLACA / SERIAL (PADRE)',
+            'D' => 'MARCA / MODELO (PADRE)',
+            'E' => 'TIPO EQUIPO HIJO ANCLADO',
+            'F' => 'SERIAL DE CHASIS (HIJO)',
+            'G' => 'FRENTE',
+        ];
+        foreach ($headers as $col => $title) {
+            $sheet->setCellValue($col . $rowNum, $title);
+        }
+        $sheet->getStyle('A' . $rowNum . ':G' . $rowNum)->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A' . $rowNum . ':G' . $rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');
+        $sheet->getStyle('A' . $rowNum . ':G' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $rowNum++;
+        $startDataRow = $rowNum;
+
+        // Función auxiliar: elige placa si existe y no es S/P, sino serial, sino N/A
+        $placaOrSerial = function ($eq) {
+            $placa = optional($eq->documentacion)->PLACA;
+            if ($placa && strtoupper(trim($placa)) !== 'S/P') return $placa;
+            return $eq->SERIAL_CHASIS ?: 'N/A';
+        };
+
+        $counter = 1;
+        foreach ($pairs as $padre) {
+            $hijo = $padre->ancladoA;
+            $tipoPadre = $padre->tipo->nombre ?? 'S/T';
+            $tipoHijo  = $hijo->tipo->nombre ?? 'S/T';
+            $marcaModeloPadre = trim(($padre->MARCA ?? '') . ' ' . ($padre->MODELO ?? '')) ?: 'S/M';
+            $serialHijo = $hijo->SERIAL_CHASIS ?: ($placaOrSerial($hijo));
+            $frente = optional($padre->frenteActual)->NOMBRE_FRENTE ?? '—';
+
+            $sheet->setCellValue('A' . $rowNum, $counter++);
+            $sheet->setCellValue('B' . $rowNum, mb_strtoupper($tipoPadre));
+            $sheet->setCellValue('C' . $rowNum, mb_strtoupper($placaOrSerial($padre)));
+            $sheet->setCellValue('D' . $rowNum, mb_strtoupper($marcaModeloPadre));
+            $sheet->setCellValue('E' . $rowNum, mb_strtoupper($tipoHijo));
+            $sheet->setCellValue('F' . $rowNum, mb_strtoupper($serialHijo));
+            $sheet->setCellValue('G' . $rowNum, mb_strtoupper($frente));
+
+            $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $rowNum++;
+        }
+
+        if ($startDataRow < $rowNum) {
+            $sheet->getStyle('A' . $startDataRow . ':G' . ($rowNum - 1))
+                  ->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        }
+
+        // Columnas: A (numero) fija, el resto auto-size
+        $sheet->getColumnDimension('A')->setWidth(6);
+        foreach (['B','C','D','E','F','G'] as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'export_anclajes_');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($tempFile);
+
+        $slug = $frenteId && $frenteId !== 'all' ? '_frente_' . $frenteId : '_todos_frentes';
+        $name = 'Anclajes' . $slug . '_' . date('Y-m-d_H-i') . '.xlsx';
+
+        return response()->download($tempFile, $name)->deleteFileAfterSend(true);
+    }
+
+    /**
      * Perform bulk anchoring of equipment (mutual link between two equipos)
      */
     public function bulkAnchor(Request $request)
