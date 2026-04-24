@@ -99,7 +99,7 @@ function renderFleetEquiposAsignados(lista) {
                 box-shadow:0 2px 8px rgba(0,0,0,.15);
             ">
                 <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                    <span style="font-size:11px;font-weight:800;color:#fff;background:rgba(255,255,255,0.18);padding:2px 8px;border-radius:999px;min-width:28px;text-align:center;flex-shrink:0;">#${i + 1}</span>
+                    <span style="font-size:12px;font-weight:700;color:#fff;opacity:0.85;flex-shrink:0;">#${i + 1}</span>
                     <span style="font-size:12px;font-weight:700;line-height:1.2;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
