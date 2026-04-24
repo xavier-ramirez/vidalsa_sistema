@@ -114,7 +114,7 @@ class EquipoAuxiliarController extends Controller
         }
 
         return view('admin.equipos_auxiliares.index', compact(
-            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel'
+            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter'
         ));
     }
 
@@ -217,10 +217,11 @@ class EquipoAuxiliarController extends Controller
     public function details($id)
     {
         $aux = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion', 'equipoHost.tipo', 'creador'])->findOrFail($id);
+        $tiposMap = $this->getTiposDinamicos();
         return response()->json([
             'id'             => $aux->ID_AUXILIAR,
             'tipo'           => $aux->TIPO,
-            'tipo_label'     => EquipoAuxiliar::tiposLabel()[$aux->TIPO] ?? $aux->TIPO,
+            'tipo_label'     => $tiposMap[$aux->TIPO] ?? $aux->TIPO,
             'marca'          => $aux->MARCA,
             'modelo'         => $aux->MODELO,
             'serial'         => $aux->SERIAL,
@@ -511,6 +512,7 @@ class EquipoAuxiliarController extends Controller
         $q = trim($request->get('q', ''));
         if (strlen($q) < 2) return response()->json([]);
 
+        $tiposMap = $this->getTiposDinamicos();
         $results = EquipoAuxiliar::with('equipoHost.documentacion')
             ->where(function ($w) use ($q) {
                 $w->where('SERIAL', 'like', "%{$q}%")
@@ -520,11 +522,11 @@ class EquipoAuxiliarController extends Controller
             })
             ->limit(20)
             ->get()
-            ->map(function ($a) {
+            ->map(function ($a) use ($tiposMap) {
                 return [
                     'id'          => $a->ID_AUXILIAR,
                     'tipo'        => $a->TIPO,
-                    'tipo_label'  => EquipoAuxiliar::tiposLabel()[$a->TIPO] ?? $a->TIPO,
+                    'tipo_label'  => $tiposMap[$a->TIPO] ?? $a->TIPO,
                     'marca'       => $a->MARCA,
                     'modelo'      => $a->MODELO,
                     'serial'      => $a->SERIAL,
