@@ -835,10 +835,8 @@
                                  </div>
                                      <!-- Custom Dropdown List -->
                                      <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
-                                         {{-- Opcion agregada: ver stats GLOBALES de TODOS los frentes sumados --}}
-                                         <div onclick="dashboardSelectFrente('all', 'TODOS LOS FRENTES', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #0067b1; font-size: 13px; font-weight: 700; transition: background 0.2s; border-bottom: 1px solid #e2e8f0; margin-bottom: 4px;" onmouseover="this.style.background='#e1effa'" onmouseout="this.style.background='transparent'">
-                                             <i class="material-icons" style="font-size: 14px; vertical-align: middle; margin-right: 4px;">public</i>TODOS LOS FRENTES
-                                         </div>
+                                         {{-- La opcion "Todos los Frentes" fue removida del dashboard:
+                                              solo se permite ver estadisticas de un frente especifico a la vez. --}}
                                          @foreach($frentesDropdown as $frente)
                                              <div onclick="dashboardSelectFrente('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
                                                  {{ $frente->NOMBRE_FRENTE }}
