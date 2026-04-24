@@ -290,9 +290,9 @@ function clearTable(reset = true) {
 function createRow(cEq='', desc='', cFil='') {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><input type="number" class="eq-qty" placeholder="-" min="1" value="${cEq}" oninput="styleRow(this)"></td>
-        <td><input type="text" class="desc-col" placeholder="Ej: CHUTO HOWO o Filtro XY" value="${desc}"></td>
-        <td><input type="number" class="fil-qty" placeholder="-" min="1" value="${cFil}"></td>
+        <td><input type="number" class="eq-qty" name="eq_qty[]" placeholder="-" min="1" value="${cEq}" oninput="styleRow(this)" aria-label="Cantidad de equipos"></td>
+        <td><input type="text" class="desc-col" name="desc[]" placeholder="Ej: CHUTO HOWO o Filtro XY" value="${desc}" aria-label="Descripción"></td>
+        <td><input type="number" class="fil-qty" name="fil_qty[]" placeholder="-" min="1" value="${cFil}" aria-label="Cantidad de filtros"></td>
         <td style="text-align:center;"><button class="btn-del-row" onclick="this.closest('tr').remove()"><i class="material-icons">close</i></button></td>
     `;
     

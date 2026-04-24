@@ -941,10 +941,17 @@
                     }
                 })
                 .finally(() => {
-                    // Apagar preloader global (idempotente; inofensivo si nunca se mostro).
-                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                    // Marcar que ya paso el primer fetch: los siguientes SI muestran preloader.
-                    window._graficosFirstRunDone = true;
+                    // Apagar preloader DESPUES de que el browser pinte al menos un
+                    // frame con el contenido renderizado. Antes el finally disparaba
+                    // hidePreloader inmediatamente tras los renderXxx y el usuario
+                    // veia desaparecer el spinner antes de ver los graficos pintados.
+                    // Dos requestAnimationFrame = garantiza que el layout + paint
+                    // del primer frame terminaron.
+                    const _afterPaint = () => {
+                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                        window._graficosFirstRunDone = true;
+                    };
+                    requestAnimationFrame(() => requestAnimationFrame(_afterPaint));
                 });
         }
 
