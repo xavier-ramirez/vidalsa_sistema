@@ -3139,8 +3139,11 @@ class EquipoController extends Controller
 
     public function getResponsables($id)
     {
+        // Desempate por ID_ASIGNACION DESC: si dos registros tienen la misma
+        // FECHA_ASIGNACION (mismo segundo), el que se inserto despues gana.
         $responsables = \App\Models\Responsable::where('ID_EQUIPO', $id)
             ->orderBy('FECHA_ASIGNACION', 'desc')
+            ->orderBy('ID_ASIGNACION', 'desc')
             ->limit(self::RESPONSABLES_HISTORIAL_MAX)
             ->get();
         return response()->json(['success' => true, 'data' => $responsables]);
@@ -3161,10 +3164,14 @@ class EquipoController extends Controller
                 'FECHA_ASIGNACION'   => now(),
             ]);
 
-            // Mantener solo los N mas recientes; borrar el resto para que la
-            // tabla no crezca indefinidamente en equipos con mucha rotacion.
+            // Mantener solo los N mas recientes. Desempate por ID_ASIGNACION DESC
+            // es critico: FECHA_ASIGNACION tiene precision de segundos, dos inserts
+            // muy rapidos pueden coincidir y MySQL no garantiza orden estable ahi.
+            // Sin este desempate, el nuevo registro podia ser borrado por el
+            // whereNotIn si MySQL lo listaba despues del viejo con la misma fecha.
             $keepIds = \App\Models\Responsable::where('ID_EQUIPO', $id)
                 ->orderBy('FECHA_ASIGNACION', 'desc')
+                ->orderBy('ID_ASIGNACION', 'desc')
                 ->limit(self::RESPONSABLES_HISTORIAL_MAX)
                 ->pluck('ID_ASIGNACION');
             \App\Models\Responsable::where('ID_EQUIPO', $id)
