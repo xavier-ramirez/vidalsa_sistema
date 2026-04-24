@@ -1746,6 +1746,8 @@ window.openAnchorModal = async function (event) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
                     "X-CSRF-TOKEN": document.querySelector(
                         'meta[name="csrf-token"]',
                     ).content,
@@ -1755,6 +1757,27 @@ window.openAnchorModal = async function (event) {
                     master_id: window.selectedMasterId,
                 }),
             });
+
+            // 403 permiso denegado: cerramos modal y mostramos toast.
+            // Sin este guard, response.json() explotaba con "Unexpected token '<'"
+            // cuando el servidor devolvia HTML de Symfony en lugar de JSON.
+            if (response.status === 403) {
+                let msg = 'No tienes permiso para anclar equipos.';
+                try { const body = await response.json(); if (body && body.message) msg = body.message; } catch (_) {}
+                overlay.remove();
+                if (typeof window.showToast === 'function') window.showToast(msg, 'error');
+                else if (typeof window.showModal === 'function') window.showModal({ type: 'error', title: 'Acceso Denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
+                return;
+            }
+
+            // Cualquier otro error HTTP: leer body o mostrar mensaje genérico
+            if (!response.ok) {
+                let msg = 'Error del servidor (' + response.status + ').';
+                try { const body = await response.json(); if (body && (body.message || body.error)) msg = body.message || body.error; } catch (_) {}
+                if (typeof window.showModal === 'function') window.showModal({ type: 'error', title: 'Error', message: msg, confirmText: 'Cerrar', hideCancel: true });
+                return;
+            }
+
             const data = await response.json();
             if (data.success) {
                 overlay.remove();
@@ -1767,7 +1790,8 @@ window.openAnchorModal = async function (event) {
                 window.showModal({ type: 'error', title: 'Error', message: data.error || 'Error al anclar equipos.', confirmText: 'Cerrar', hideCancel: true });
             }
         } catch (error) {
-            console.error(error);
+            console.error('[bulkAnchor]', error);
+            if (typeof window.showToast === 'function') window.showToast('Error de red al anclar equipos.', 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML =
