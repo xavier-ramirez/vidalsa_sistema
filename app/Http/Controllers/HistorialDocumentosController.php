@@ -330,15 +330,13 @@ class HistorialDocumentosController extends Controller
         ]);
     }
 
+    /**
+     * Desbloquear IP. El permiso 'super.admin' ya se valida en el middleware
+     * de la ruta (routes/web.php linea 142: middleware('can:super.admin')),
+     * no duplicamos el check aqui.
+     */
     public function unlockIp($id)
     {
-        if (!auth()->user()->can('super.admin')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tienes permiso para realizar esta acción.'
-            ], 403);
-        }
-
         try {
             $bloqueo = BloqueoIp::findOrFail($id);
             $ip = $bloqueo->DIRECCION_IP;
@@ -349,6 +347,7 @@ class HistorialDocumentosController extends Controller
                 'message' => "La IP {$ip} ha sido desbloqueada exitosamente."
             ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('unlockIp failed: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error al desbloquear la IP.'
