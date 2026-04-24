@@ -55,22 +55,22 @@
         <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $aux->MARCA ?: '—' }}</div>
             @if($aux->MODELO)
-                <div style="font-size: 11px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 3px;">{{ $aux->MODELO }}</div>
+                <div style="font-size: 13px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 3px;">{{ $aux->MODELO }}</div>
             @endif
         </td>
 
         {{-- 4. Serial / Codigo interno --}}
-        <td class="table-cell-custom" style="font-size: 12.5px; color: #4a5568;">
+        <td class="table-cell-custom" style="font-size: 14px; color: #4a5568;">
             <div style="text-transform: uppercase; line-height: 1.3;">
                 <strong style="color:#64748b;">S:</strong> {{ $aux->SERIAL ?: '—' }}
             </div>
             @if($aux->CODIGO_INTERNO)
-                <div style="font-size: 11px; color: #718096; margin-top: 3px; text-transform: uppercase;">
+                <div style="font-size: 12.5px; color: #718096; margin-top: 3px; text-transform: uppercase;">
                     <strong style="color:#64748b;">Cod:</strong> #{{ strtoupper($aux->CODIGO_INTERNO) }}
                 </div>
             @endif
             @if($aux->ANIO)
-                <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">Año: {{ $aux->ANIO }}</div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Año: {{ $aux->ANIO }}</div>
             @endif
         </td>
 
