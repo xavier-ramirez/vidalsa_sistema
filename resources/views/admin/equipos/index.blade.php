@@ -1312,8 +1312,6 @@
         link.click();
         setTimeout(() => document.body.removeChild(link), 500);
     };
-    // Alias para compatibilidad con llamadas antiguas
-    window.exportAnclajesToCsv = window.exportAnclajesToExcel;
 
     // Alias: CAN_CREATE_INFO → CAN_CREATE_EQUIPOS (definido globalmente en estructura_base)
     // Se mantiene por compatibilidad con equipos_index.js

@@ -698,8 +698,12 @@
                 } else {
                     _flushFlashToast();
                 }
-                // En navegaciones SPA, volver a leer al cargar el nuevo contenido.
-                window.addEventListener('spa:contentLoaded', _flushFlashToast);
+                // En navegaciones SPA, leer el toast nuevo y liberar el flag
+                // de "redirigiendo" para que el siguiente submit arranque limpio.
+                window.addEventListener('spa:contentLoaded', function () {
+                    _flushFlashToast();
+                    window.__vidalsaRedirecting = false;
+                });
             })();
         </script>
 

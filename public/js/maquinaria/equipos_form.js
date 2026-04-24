@@ -274,7 +274,7 @@ function initEquiposForm() {
                         } catch (_) { /* silencioso si sessionStorage no disponible */ }
 
                         const backUrl = body.redirect || '/admin/equipos';
-                        window.__equiposFormRedirecting = true;
+                        window.__vidalsaRedirecting = true;
                         if (typeof window.navigateTo === 'function') {
                             window.navigateTo(backUrl);
                         } else {

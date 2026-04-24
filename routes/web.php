@@ -58,7 +58,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('equipos/bulk-mobilize', [App\Http\Controllers\MovilizacionController::class, 'bulkStore'])->name('equipos.bulkMobilize');
             Route::get('equipos/get-equipos-by-frente', [App\Http\Controllers\EquipoController::class, 'getEquiposByFrente'])->name('equipos.getByFrente');
             Route::get('equipos/get-anchors', [App\Http\Controllers\EquipoController::class, 'getAnchoredEquipos'])->name('equipos.getAnchors');
-            Route::get('equipos/export-anchors', [App\Http\Controllers\EquipoController::class, 'exportAnclajes'])->name('equipos.exportAnclajes');
+            Route::get('equipos/export-anchors', [App\Http\Controllers\EquipoController::class, 'exportAnclajes'])->middleware('can:equipos.edit')->name('equipos.exportAnclajes');
             Route::post('equipos/bulk-anchor', [App\Http\Controllers\EquipoController::class, 'bulkAnchor'])->name('equipos.bulkAnchor');
             Route::post('equipos/clear-anchor', [App\Http\Controllers\EquipoController::class, 'clearAnchor'])->name('equipos.clearAnchor');
             Route::patch('equipos/{id}/ubicacion', [App\Http\Controllers\EquipoController::class, 'updateUbicacion'])->name('equipos.updateUbicacion');
@@ -85,7 +85,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/buscar-frente',      [App\Http\Controllers\ConsumiblesController::class, 'buscarFrente'])   ->name('consumibles.buscarFrente');
             Route::get ('consumibles/graficos-data',      [App\Http\Controllers\ConsumiblesController::class, 'graficosData'])   ->name('consumibles.graficosData');
             Route::get ('consumibles/graficos',           [App\Http\Controllers\ConsumiblesController::class, 'graficos'])       ->name('consumibles.graficos');
-            Route::get ('consumibles/auditoria-catalogo', [App\Http\Controllers\ConsumiblesController::class, 'auditoriaCatalogoData'])->name('consumibles.auditoriaCatalogo');
+            Route::get ('consumibles/auditoria-catalogo', [App\Http\Controllers\ConsumiblesController::class, 'auditoriaCatalogoData'])->middleware('can:super.admin')->name('consumibles.auditoriaCatalogo');
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
             Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->name('consumibles.guardarLote');
             Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->name('consumibles.matchAutomatico');

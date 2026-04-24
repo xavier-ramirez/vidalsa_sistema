@@ -60,16 +60,26 @@
                 return response.json();
             })
             .then(data => {
-                // Success: mantenemos el preloader activo y redirigimos inmediatamente.
-                // El toast de exito sale en la pagina destino via session flash
-                // (bloque @if(session('success')) en estructura_base.blade.php).
-                // Evita parpadeo del form reseteado antes del redirect.
+                // Success: mantenemos el preloader activo y navegamos inmediato
+                // (SPA si disponible, full-reload como fallback). El toast aparece
+                // en la pagina destino via sessionStorage + hook global de
+                // estructura_base. Evita parpadeo del form reseteado.
                 if (data.redirect) {
-                    window.__catalogoRedirecting = true;
-                    window.location.href = data.redirect;
+                    try {
+                        sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
+                            message: data.message || 'Modelo guardado correctamente.',
+                            type: 'success',
+                        }));
+                    } catch (_) { /* silencioso si sessionStorage no disponible */ }
+                    window.__vidalsaRedirecting = true;
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo(data.redirect);
+                    } else {
+                        window.location.href = data.redirect;
+                    }
                     return;
                 }
-                // Fallback si el backend no envia redirect: apagar preloader y notificar.
+                // Fallback: apagar preloader y notificar inline.
                 if (window.hidePreloader) window.hidePreloader();
                 if (window.showToast) {
                     window.showToast(data.message || 'Modelo guardado correctamente.', 'success');
@@ -104,10 +114,10 @@
                 }
             })
             .finally(() => {
-                // Si estamos redirigiendo (success), NO apagamos el preloader ni
-                // restauramos el boton: el navegador esta cargando la siguiente pagina
-                // y queremos que el spinner se mantenga hasta que termine la transicion.
-                if (window.__catalogoRedirecting) return;
+                // Si estamos redirigiendo (success), NO apagamos preloader ni
+                // restauramos el boton: el navegador esta cargando la siguiente
+                // pagina y queremos que el spinner se mantenga hasta la transicion.
+                if (window.__vidalsaRedirecting) return;
                 if (window.hidePreloader) window.hidePreloader();
                 if (submitBtn) {
                     submitBtn.disabled = false;

@@ -713,7 +713,10 @@
     {{-- ══════════════════════════════════════════════════════════════
          AUDITORIA DE CATALOGO — control de creaciones/ediciones/borrados
          en /admin/catalogo/create y /admin/catalogo/{id}/edit
+         Solo super.admin: la auditoria contiene PII (usuarios) + trail de
+         acciones administrativas sensibles.
          ══════════════════════════════════════════════════════════════ --}}
+    @can('super.admin')
     <div class="g-grid-1">
         <div class="g-card">
             <p class="g-title">
@@ -767,6 +770,7 @@
             </div>
         </div>
     </div>
+    @endcan
 
     <script src="{{ asset('js/chart.umd.min.js') }}"></script>
     <script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
@@ -1990,7 +1994,9 @@
         // ══════════════════════════════════════════════════════════════
         // AUDITORIA DE CATALOGO — carga via AJAX independiente de los filtros
         // de graficos. Tabla + resumen arriba. Escape HTML defensivo.
+        // Solo se inicializa si el slot HTML existe (gate @can('super.admin')).
         // ══════════════════════════════════════════════════════════════
+        if (document.getElementById('bodyAuditCatalogo'))
         (function () {
             function esc(s) {
                 if (s === null || s === undefined) return '';

@@ -167,16 +167,15 @@ class CaracteristicaModeloController extends Controller
                     $catalogo->ID_ESPEC,
                     'create',
                     $catalogo->MODELO,
-                    (int) $catalogo->ANIO_ESPEC,
+                    $catalogo->ANIO_ESPEC !== null ? (int) $catalogo->ANIO_ESPEC : null,
                     collect($validated)->except(['foto_referencial'])->toArray()
                 );
             }
 
             if ($request->wantsJson()) {
-                // Flash del mensaje en sesion para que el siguiente GET (redirect hard
-                // hecho en JS) lo muestre como toast via el bloque @if(session('success'))
-                // de estructura_base. Evita parpadeo: spinner se mantiene hasta el redirect.
-                session()->flash('success', 'Modelo registrado correctamente.');
+                // El JS usa sessionStorage + navigateTo SPA para mostrar el toast
+                // en la pagina destino sin parpadeo. Ver public/js/maquinaria/catalogo_create.js
+                // y el hook global en resources/views/layouts/estructura_base.blade.php.
                 return response()->json([
                     'success'  => true,
                     'message'  => 'Modelo registrado correctamente en el catálogo.',
@@ -319,13 +318,13 @@ class CaracteristicaModeloController extends Controller
                     $catalogo->ID_ESPEC,
                     'edit',
                     $catalogo->MODELO,
-                    (int) $catalogo->ANIO_ESPEC,
+                    $catalogo->ANIO_ESPEC !== null ? (int) $catalogo->ANIO_ESPEC : null,
                     $diff
                 );
             }
 
             if ($request->wantsJson()) {
-                session()->flash('success', 'Modelo actualizado exitosamente');
+                // El toast sale en destino via sessionStorage (ver catalogo_create.js).
                 return response()->json(['message' => 'Modelo actualizado exitosamente', 'redirect' => route('catalogo.index')]);
             }
 

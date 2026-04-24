@@ -3129,10 +3129,19 @@ class EquipoController extends Controller
     // ──────────────────────────────────────────────────────────────────────────────
     // ── GESTIÓN DE RESPONSABLES DE EQUIPOS ─────────────────────────────────────────
 
+    /**
+     * Maximo de responsables historicos conservados por equipo. La lista se
+     * muestra en el detalle del equipo (UI limita lo visible, pero si no se
+     * trunca en DB crece sin bound). Con HISTORIAL_MAX=2 siempre quedan el
+     * actual y el anterior.
+     */
+    private const RESPONSABLES_HISTORIAL_MAX = 2;
+
     public function getResponsables($id)
     {
         $responsables = \App\Models\Responsable::where('ID_EQUIPO', $id)
             ->orderBy('FECHA_ASIGNACION', 'desc')
+            ->limit(self::RESPONSABLES_HISTORIAL_MAX)
             ->get();
         return response()->json(['success' => true, 'data' => $responsables]);
     }
@@ -3144,12 +3153,26 @@ class EquipoController extends Controller
             'PERSONA_ASIGNADA'   => 'required|string|max:150',
         ]);
 
-        $responsable = \App\Models\Responsable::create([
-            'ID_EQUIPO'          => $id,
-            'CEDULA_RESPONSABLE' => strtoupper(trim($request->CEDULA_RESPONSABLE)),
-            'PERSONA_ASIGNADA'   => strtoupper(trim($request->PERSONA_ASIGNADA)),
-            'FECHA_ASIGNACION'   => now(),
-        ]);
+        $responsable = DB::transaction(function () use ($request, $id) {
+            $nuevo = \App\Models\Responsable::create([
+                'ID_EQUIPO'          => $id,
+                'CEDULA_RESPONSABLE' => strtoupper(trim($request->CEDULA_RESPONSABLE)),
+                'PERSONA_ASIGNADA'   => strtoupper(trim($request->PERSONA_ASIGNADA)),
+                'FECHA_ASIGNACION'   => now(),
+            ]);
+
+            // Mantener solo los N mas recientes; borrar el resto para que la
+            // tabla no crezca indefinidamente en equipos con mucha rotacion.
+            $keepIds = \App\Models\Responsable::where('ID_EQUIPO', $id)
+                ->orderBy('FECHA_ASIGNACION', 'desc')
+                ->limit(self::RESPONSABLES_HISTORIAL_MAX)
+                ->pluck('ID_ASIGNACION');
+            \App\Models\Responsable::where('ID_EQUIPO', $id)
+                ->whereNotIn('ID_ASIGNACION', $keepIds)
+                ->delete();
+
+            return $nuevo;
+        });
 
         return response()->json(['success' => true, 'data' => $responsable]);
     }
