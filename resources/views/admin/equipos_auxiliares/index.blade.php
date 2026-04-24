@@ -43,7 +43,8 @@
                 <div class="dropdown-trigger {{ $reqFrente && $reqFrente !== 'all' ? 'filter-active' : '' }}"
                      style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">place</i></div>
-                    <input type="text" data-filter-search placeholder="Filtrar Frente..."
+                    <input type="text" id="auxFrenteFilterSearch" name="frente_filter_search" data-filter-search
+                           placeholder="Filtrar Frente..." aria-label="Filtrar Frente"
                            style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
                            autocomplete="off" value="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : '' }}">
                     <span data-filter-label style="display:none;">{{ $frenteLabel }}</span>
@@ -74,7 +75,8 @@
                 <div class="dropdown-trigger {{ $reqTipo && $reqTipo !== 'all' ? 'filter-active' : '' }}"
                      style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
-                    <input type="text" data-filter-search placeholder="Filtrar Tipo..."
+                    <input type="text" id="auxTipoFilterSearch" name="tipo_filter_search" data-filter-search
+                           placeholder="Filtrar Tipo..." aria-label="Filtrar Tipo"
                            style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
                            autocomplete="off" value="{{ ($reqTipo && $reqTipo !== 'all') ? $tipoLabel : '' }}">
                     <span data-filter-label style="display:none;">{{ $tipoLabel }}</span>
@@ -123,17 +125,17 @@
                     </div>
                     <div style="display:flex;flex-direction:column;gap:10px;">
                         <div>
-                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Marca</label>
+                            <label for="adv_marca" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Marca</label>
                             <input type="text" id="adv_marca" name="marca" value="{{ request('marca') }}" placeholder="Ej: Miller" autocomplete="off"
                                    style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
                         </div>
                         <div>
-                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Modelo</label>
+                            <label for="adv_modelo" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Modelo</label>
                             <input type="text" id="adv_modelo" name="modelo" value="{{ request('modelo') }}" placeholder="Ej: Bobcat 225" autocomplete="off"
                                    style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
                         </div>
                         <div>
-                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Estado</label>
+                            <label for="adv_estado" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Estado</label>
                             <select id="adv_estado" name="estado"
                                     style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;">
                                 <option value="">Todos</option>
@@ -143,7 +145,7 @@
                             </select>
                         </div>
                         <div>
-                            <label style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Capacidad</label>
+                            <label for="adv_capacidad" style="display:block;font-size:11px;font-weight:700;color:#334155;margin-bottom:4px;">Capacidad</label>
                             <input type="text" id="adv_capacidad" name="capacidad" value="{{ request('capacidad') }}" placeholder="Ej: 300A, 20 pies" autocomplete="off"
                                    style="width:100%;height:38px;padding:0 10px;border:1px solid #cbd5e0;border-radius:8px;background:white;font-size:13px;box-sizing:border-box;">
                         </div>
@@ -193,6 +195,12 @@
             <table class="admin-table" id="auxTable" style="width:100%;">
                 <thead>
                     <tr class="table-row-header">
+                        @can('equipos.edit')
+                        <th class="table-header-custom table-cell-center" style="width: 32px;">
+                            <input type="checkbox" id="auxBulkSelectAll" onclick="window.auxToggleSelectAll(this)"
+                                   style="width:16px; height:16px; cursor:pointer;" title="Seleccionar todos">
+                        </th>
+                        @endcan
                         <th class="table-header-custom table-cell-center" style="width: 13%;"></th>
                         <th class="table-header-custom">TIPO / MARCA / MODELO</th>
                         <th class="table-header-custom">SERIAL</th>
@@ -263,6 +271,77 @@
 
 </div>{{-- /page-layout-grid --}}
 
+@can('equipos.edit')
+{{-- ═══════════════════════════════════════════════════════════
+     BARRA FLOTANTE DE SELECCION MASIVA (estilo /admin/equipos)
+     ═══════════════════════════════════════════════════════════ --}}
+<div id="auxBulkBar" class="selection-floating-bar" style="display:none;">
+    <div class="selection-counter">
+        <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
+            <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
+        </div>
+        <span id="auxBulkCount">0</span>
+    </div>
+    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2);"></div>
+    <div style="display: flex; gap: 10px;">
+        <button type="button" onclick="window.auxClearSelection()" class="btn-bulk-clear"
+                onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+            <span class="desktop-text">Limpiar</span>
+        </button>
+        <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
+            <i class="material-icons" style="font-size: 18px;">local_shipping</i>
+            <span class="desktop-text">Movilizar</span>
+        </button>
+    </div>
+</div>
+
+{{-- ═══════════════════════════════════════════════════════════
+     MODAL MOVILIZACION MASIVA (pick frente destino)
+     ═══════════════════════════════════════════════════════════ --}}
+<div id="auxMovilizarModal" class="modal-overlay" style="display:none;"
+     onclick="if(event.target===this) window.closeAuxMovilizarModal()">
+    <div class="modal-content"
+         style="width: 90%; max-width: 480px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: white; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
+        <div style="background: var(--maquinaria-dark-blue); color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                <i class="material-icons">local_shipping</i>
+                Movilización de Auxiliares
+            </h2>
+            <button type="button" onclick="window.closeAuxMovilizarModal()"
+                    style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+                <i class="material-icons" style="font-size:18px;">close</i>
+            </button>
+        </div>
+        <div style="padding: 20px;">
+            <div id="auxMovilizarSummary" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#475569;">
+                {{-- poblado via JS --}}
+            </div>
+
+            <label for="auxMovilizarFrente" style="display:block; font-weight:700; margin-bottom:6px; color:var(--maquinaria-dark-blue); font-size:13px;">
+                <i class="material-icons" style="font-size:14px; vertical-align:middle;">place</i>
+                Frente de Destino <span style="color:var(--maquinaria-red);">*</span>
+            </label>
+            <select id="auxMovilizarFrente" class="form-input-custom" style="width:100%;">
+                <option value="">— Seleccione un frente —</option>
+                @foreach($frentes as $f)
+                    <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
+                @endforeach
+            </select>
+
+            <div style="display:flex; gap:10px; margin-top:18px; justify-content:flex-end;">
+                <button type="button" onclick="window.closeAuxMovilizarModal()" class="btn-primary-maquinaria btn-secondary">
+                    Cancelar
+                </button>
+                <button type="button" onclick="window.auxSubmitMovilizar()" class="btn-primary-maquinaria">
+                    <i class="material-icons" style="font-size:16px;">send</i>
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endcan
+
 {{-- ═══════════════════════════════════════════════════════════
      MODAL DETALLES DE EQUIPO AUXILIAR
      Mismo estilo que /admin/equipos (modal-overlay + modal-content +
@@ -321,20 +400,33 @@
     window.openAuxDetailsModal = function (btn, e) {
         if (e) e.stopPropagation();
         const id = btn.dataset.auxId;
-        if (!id) return;
+        if (!id) {
+            console.warn('openAuxDetailsModal: boton sin data-aux-id');
+            return;
+        }
         const modal = document.getElementById('auxDetailsModal');
         const body  = document.getElementById('auxDetailsBody');
+        if (!modal || !body) {
+            console.warn('openAuxDetailsModal: modal/body no encontrado en DOM');
+            return;
+        }
         body.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;"><i class="material-icons" style="font-size:36px;">hourglass_empty</i><div style="margin-top:8px;">Cargando detalles…</div></div>';
-        modal.style.display = 'block';
+        // modal-overlay usa display:flex para centrar via CSS global; setear flex
+        // (no block) para respetar el layout del contenedor .modal-content.
+        modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
 
         fetch('/admin/equipos-auxiliares/' + id + '/details', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
         })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
         .then(d => window.renderAuxDetailsModal(d))
         .catch(err => {
-            body.innerHTML = '<div style="text-align:center; padding:40px; color:#dc2626;">Error al cargar detalles.</div>';
+            body.innerHTML = '<div style="text-align:center; padding:40px; color:#dc2626;">Error al cargar detalles. ' + (err.message || '') + '</div>';
             console.error('openAuxDetailsModal:', err);
         });
     };
@@ -462,6 +554,8 @@
                 set('auxStatsInoperativos',data.stats.inoperativos);
             }
             if (data.distribucion) renderDistribucion(data.distribucion);
+            // Restaurar checks seleccionados tras rerender del body
+            if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
         })
         .catch(e => console.error('auxiliares load:', e))
         .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
@@ -496,6 +590,116 @@
         const input = document.getElementById('adv_estado');
         if (input) input.value = (estado === 'all') ? '' : estado;
         cargarAuxiliares();
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // SELECCION MASIVA + MOVILIZACION (patron identico a /admin/equipos)
+    // ═══════════════════════════════════════════════════════════
+    window._auxSelected = window._auxSelected || new Set();
+
+    window.auxToggleSelection = function (cb) {
+        const id = cb.value;
+        if (cb.checked) window._auxSelected.add(id);
+        else             window._auxSelected.delete(id);
+        window.auxRefreshBulkBar();
+    };
+
+    window.auxToggleSelectAll = function (cb) {
+        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox').forEach(c => {
+            c.checked = cb.checked;
+            const id = c.value;
+            if (cb.checked) window._auxSelected.add(id);
+            else             window._auxSelected.delete(id);
+        });
+        window.auxRefreshBulkBar();
+    };
+
+    window.auxRefreshBulkBar = function () {
+        const bar = document.getElementById('auxBulkBar');
+        const count = document.getElementById('auxBulkCount');
+        if (!bar) return;
+        const n = window._auxSelected.size;
+        if (count) count.textContent = String(n);
+        bar.style.display = n > 0 ? 'flex' : 'none';
+    };
+
+    window.auxClearSelection = function () {
+        window._auxSelected.clear();
+        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox').forEach(c => c.checked = false);
+        const all = document.getElementById('auxBulkSelectAll');
+        if (all) all.checked = false;
+        window.auxRefreshBulkBar();
+    };
+
+    // Restaurar checks marcados tras refresh AJAX de la tabla
+    window.auxRestoreSelection = function () {
+        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox').forEach(c => {
+            if (window._auxSelected.has(c.value)) c.checked = true;
+        });
+    };
+
+    window.openAuxMovilizarModal = function () {
+        if (window._auxSelected.size === 0) return;
+        const modal = document.getElementById('auxMovilizarModal');
+        const sum   = document.getElementById('auxMovilizarSummary');
+        if (!modal) return;
+        // Construir resumen con los seleccionados (codigo/serial)
+        const items = [];
+        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox:checked').forEach(c => {
+            items.push(c.dataset.codigo || ('#' + c.value));
+        });
+        if (sum) sum.innerHTML = '<strong>' + window._auxSelected.size + '</strong> equipo(s) a movilizar: <span style="color:#334155;">' + items.slice(0,6).join(', ') + (items.length > 6 ? ', +' + (items.length - 6) + ' más' : '') + '</span>';
+        document.getElementById('auxMovilizarFrente').value = '';
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeAuxMovilizarModal = function () {
+        const modal = document.getElementById('auxMovilizarModal');
+        if (modal) modal.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+
+    window.auxSubmitMovilizar = function () {
+        const frenteId = document.getElementById('auxMovilizarFrente').value;
+        if (!frenteId) {
+            if (window.showToast) window.showToast('Selecciona un frente destino.', 'warning');
+            return;
+        }
+        const ids = Array.from(window._auxSelected).map(x => parseInt(x, 10));
+        if (!ids.length) { window.closeAuxMovilizarModal(); return; }
+
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        fetch('{{ route("equipos-auxiliares.bulkMove") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
+            },
+            body: JSON.stringify({ ids: ids, id_frente: parseInt(frenteId, 10) })
+        })
+        .then(r => r.json().then(body => ({ status: r.status, body })))
+        .then(({ status, body }) => {
+            if (status === 200 && body.success) {
+                if (window.showToast) window.showToast(body.message || 'Movilización exitosa.', 'success');
+                window.auxClearSelection();
+                window.closeAuxMovilizarModal();
+                cargarAuxiliares();
+            } else {
+                if (window.showModal) {
+                    window.showModal({ type:'error', title:'Error', message: body.message || 'No se pudo movilizar.', confirmText:'Entendido', hideCancel:true });
+                } else if (window.showToast) {
+                    window.showToast(body.message || 'Error al movilizar.', 'error');
+                }
+            }
+        })
+        .catch(err => {
+            console.error('auxSubmitMovilizar:', err);
+            if (window.showToast) window.showToast('Error de red.', 'error');
+        })
+        .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
 
     if (!window.auxPaginationAttached) {

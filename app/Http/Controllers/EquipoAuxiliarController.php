@@ -425,6 +425,48 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Movilizacion masiva: reasigna multiples auxiliares al mismo ID_FRENTE_ACTUAL.
+     * Acepta array de IDs + frente destino (o creacion de frente nuevo via NOMBRE).
+     */
+    public function bulkMove(Request $request)
+    {
+        $data = $request->validate([
+            'ids'            => 'required|array|min:1',
+            'ids.*'          => 'integer|exists:equipos_auxiliares,ID_AUXILIAR',
+            'id_frente'      => 'nullable|exists:frentes_trabajo,ID_FRENTE',
+            'nombre_frente'  => 'nullable|string|max:100',
+        ]);
+
+        // Si viene nombre_frente sin id_frente, intentar match o crear nuevo.
+        $frenteId = $data['id_frente'] ?? null;
+        if (!$frenteId && !empty($data['nombre_frente'])) {
+            $nombre = mb_strtoupper(trim($data['nombre_frente']));
+            $frente = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [$nombre])->first();
+            if ($frente) {
+                $frenteId = $frente->ID_FRENTE;
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El frente destino no existe. Crealo primero en /admin/frentes.'
+                ], 422);
+            }
+        }
+
+        if (!$frenteId) {
+            return response()->json(['success' => false, 'message' => 'Frente destino requerido.'], 422);
+        }
+
+        $affected = EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids'])
+            ->update(['ID_FRENTE_ACTUAL' => $frenteId]);
+
+        return response()->json([
+            'success'  => true,
+            'message'  => "Se movilizaron {$affected} equipo(s) auxiliar(es) al frente destino.",
+            'affected' => $affected,
+        ]);
+    }
+
+    /**
      * Cambio rapido de estado operativo (inline desde la tabla del index).
      * Validacion minima: solo ESTADO_OPERATIVO. No toca otros campos required.
      */

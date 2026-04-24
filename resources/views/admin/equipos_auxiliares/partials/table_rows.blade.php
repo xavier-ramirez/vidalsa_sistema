@@ -18,7 +18,18 @@
         $fotoUrl  = $aux->FOTO ?: ($photoByModel[$modelKey] ?? null);
         $fotoDriveId = $fotoUrl ? basename(str_replace('/storage/google/', '', $fotoUrl)) : null;
     @endphp
-    <tr>
+    <tr data-aux-id="{{ $aux->ID_AUXILIAR }}">
+        {{-- 0. Checkbox para seleccion masiva --}}
+        @can('equipos.edit')
+        <td class="table-cell-center" style="padding: 8px 4px; width: 32px;">
+            <input type="checkbox" class="aux-bulk-checkbox" value="{{ $aux->ID_AUXILIAR }}"
+                   onclick="event.stopPropagation(); window.auxToggleSelection(this)"
+                   data-frente="{{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
+                   data-codigo="{{ $aux->CODIGO_INTERNO ?: $aux->SERIAL }}"
+                   style="width:16px; height:16px; cursor:pointer;">
+        </td>
+        @endcan
+
         {{-- 1. Frente + Foto --}}
         <td class="table-cell-custom table-cell-center" style="padding: 4px 2px;">
             <div style="font-size: 11px; color: #000; margin-bottom: 4px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase;">
@@ -94,7 +105,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="6" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
+        <td colspan="{{ auth()->user() && auth()->user()->can('equipos.edit') ? 7 : 6 }}" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
             @if(request('tipo') || request('id_frente') || request('search') || request('marca') || request('modelo') || request('capacidad') || request('estado'))
                 <i class="material-icons" style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">search_off</i>
                 NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.

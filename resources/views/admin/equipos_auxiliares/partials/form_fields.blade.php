@@ -171,58 +171,87 @@
 
 {{-- ═══════════════════════════════════════════════════════════
      Documentación (opcional): Propiedad + Certificado con vencimiento.
+     Estilo e iconografia identicos a /admin/equipos/create: input de meta
+     a la izquierda + boton de 30x30 a la derecha (azul con description si
+     ya hay PDF, dashed con cloud_upload si no).
      Almacenamiento local via storage/app/public/equipos_auxiliares/{id}/
      ═══════════════════════════════════════════════════════════ --}}
-<h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; margin: 30px 0 20px 0;">
-    <i class="material-icons" style="font-size: 18px; vertical-align: middle; color: var(--maquinaria-blue);">description</i>
-    Documentación
-</h3>
+@php
+    $hasProp = !empty($auxiliar->LINK_DOC_PROPIEDAD);
+    $hasCert = !empty($auxiliar->LINK_CERTIFICADO);
+@endphp
+<h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; margin: 30px 0 20px 0;">Documentación Legal</h3>
 
 <div class="grid-responsive-5">
-    {{-- Documento de Propiedad (PDF) --}}
-    <div style="grid-column: span 2;">
-        <label for="doc_propiedad" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
-            Documento de Propiedad (PDF)
-        </label>
-        @if(!empty($auxiliar->LINK_DOC_PROPIEDAD))
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:6px 10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
-                <i class="material-icons" style="font-size:18px; color:#16a34a;">picture_as_pdf</i>
-                <a href="{{ asset($auxiliar->LINK_DOC_PROPIEDAD) }}" target="_blank" rel="noopener"
-                   style="color:#16a34a; font-size:12px; font-weight:600; text-decoration:none; flex:1;">Ver documento actual</a>
+    {{-- Documento de Propiedad --}}
+    <div style="position: relative;">
+        <label for="doc_propiedad_meta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Documento de Propiedad</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="text" id="doc_propiedad_meta" name="doc_propiedad_meta" class="form-input-custom" value="{{ $hasProp ? 'PDF cargado' : '' }}"
+                   placeholder="Sin documento" readonly style="flex: 1; background:#f8fafc; cursor:default;" autocomplete="off">
+            <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
+                @if($hasProp)
+                    <a href="{{ asset($auxiliar->LINK_DOC_PROPIEDAD) }}" target="_blank" rel="noopener" title="Ver documento: Propiedad"
+                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
+                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
+                    </a>
+                    <label for="doc_propiedad" title="Reemplazar PDF"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
+                           onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="material-icons" style="font-size:16px;">edit</i>
+                    </label>
+                @else
+                    <label for="doc_propiedad" title="Cargar PDF de Propiedad"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;"
+                           onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='transparent'">
+                        <i class="material-icons" style="font-size:18px;">cloud_upload</i>
+                    </label>
+                @endif
             </div>
-        @endif
-        <input type="file" id="doc_propiedad" name="doc_propiedad" accept="application/pdf"
-               class="form-input-custom @error('doc_propiedad') is-invalid @enderror"
-               style="padding: 8px 10px;">
-        @error('doc_propiedad') <span class="error-message-inline">{{ $message }}</span> @enderror
+            <input type="file" id="doc_propiedad" name="doc_propiedad" accept=".pdf" style="display:none;"
+                   onchange="document.getElementById('doc_propiedad_meta').value = this.files[0] ? this.files[0].name : '';">
+        </div>
+        @error('doc_propiedad') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Certificado (PDF) --}}
-    <div style="grid-column: span 2;">
-        <label for="certificado" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
-            Certificado (PDF)
-        </label>
-        @if(!empty($auxiliar->LINK_CERTIFICADO))
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:6px 10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;">
-                <i class="material-icons" style="font-size:18px; color:#1e40af;">picture_as_pdf</i>
-                <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener"
-                   style="color:#1e40af; font-size:12px; font-weight:600; text-decoration:none; flex:1;">Ver certificado actual</a>
+    {{-- Certificado --}}
+    <div style="position: relative;">
+        <label for="certificado_meta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Certificado</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="text" id="certificado_meta" name="certificado_meta" class="form-input-custom" value="{{ $hasCert ? 'PDF cargado' : '' }}"
+                   placeholder="Sin certificado" readonly style="flex: 1; background:#f8fafc; cursor:default;" autocomplete="off">
+            <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
+                @if($hasCert)
+                    <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener" title="Ver documento: Certificado"
+                       style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
+                        <i class="material-icons" style="font-size:17px; color:white;">description</i>
+                    </a>
+                    <label for="certificado" title="Reemplazar PDF"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
+                           onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                        <i class="material-icons" style="font-size:16px;">edit</i>
+                    </label>
+                @else
+                    <label for="certificado" title="Cargar PDF de Certificado"
+                           style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;"
+                           onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='transparent'">
+                        <i class="material-icons" style="font-size:18px;">cloud_upload</i>
+                    </label>
+                @endif
             </div>
-        @endif
-        <input type="file" id="certificado" name="certificado" accept="application/pdf"
-               class="form-input-custom @error('certificado') is-invalid @enderror"
-               style="padding: 8px 10px;">
-        @error('certificado') <span class="error-message-inline">{{ $message }}</span> @enderror
+            <input type="file" id="certificado" name="certificado" accept=".pdf" style="display:none;"
+                   onchange="document.getElementById('certificado_meta').value = this.files[0] ? this.files[0].name : '';">
+        </div>
+        @error('certificado') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Fecha de Vencimiento del Certificado --}}
+    {{-- Vencimiento del Certificado --}}
     <div>
-        <label for="fecha_vencimiento_cert" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
-            Venc. Certificado
-        </label>
+        <label for="fecha_vencimiento_cert" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Vencimiento Certif.</label>
         <input type="date" id="fecha_vencimiento_cert" name="fecha_vencimiento_cert"
                value="{{ old('fecha_vencimiento_cert', optional($auxiliar->FECHA_VENCIMIENTO_CERT)->format('Y-m-d')) }}"
-               class="form-input-custom @error('fecha_vencimiento_cert') is-invalid @enderror">
+               class="form-input-custom @error('fecha_vencimiento_cert') is-invalid @enderror"
+               style="cursor:pointer;" onclick="try{this.showPicker()}catch(e){}">
         @error('fecha_vencimiento_cert') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 </div>

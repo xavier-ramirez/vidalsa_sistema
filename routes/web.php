@@ -121,6 +121,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.edit')->name('equipos-auxiliares.anchor');
             Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.edit')->name('equipos-auxiliares.unanchor');
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
+            Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.edit')->name('equipos-auxiliares.bulkMove');
 
             // ── Reporte de Fallas (placeholder: modulo pendiente de definicion) ──
             // El usuario pidio el boton en el navbar pero aun no confirmo alcance
