@@ -187,7 +187,7 @@
                         @foreach($available_permissions as $key => $label)
                             <label class="multiselect-item" for="perm_{{ $loop->index }}">
                                 <input type="checkbox" id="perm_{{ $loop->index }}" name="PERMISOS[]" value="{{ $key }}" {{ in_array($key, $user_perms) ? 'checked' : '' }} onchange="updateSelectedCount()">
-                                <span>{{ $label }}</span>
+                                <span><strong>{{ $key }}</strong> <span style="color:#64748b; font-size:12px;">— {{ $label }}</span></span>
                             </label>
                         @endforeach
                     </div>
