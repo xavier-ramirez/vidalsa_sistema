@@ -27,7 +27,9 @@ class EquipoController extends Controller
     }
 
     /**
-     * Centralized lookup with IDOR horizontal protection
+     * Centralized lookup. NO aplica barrera por NIVEL_ACCESO / jurisdiccion:
+     * la filosofia del sistema es "solo la clave PERMISOS decide el acceso".
+     * El control granular ya esta en el middleware/@can de cada operacion.
      */
     private function findAndAuthorizeEquipo($id, $with = [])
     {
@@ -35,16 +37,7 @@ class EquipoController extends Controller
         if (!empty($with)) {
             $query->with($with);
         }
-        $equipo = $query->findOrFail($id);
-
-        $user = auth()->user();
-        if ($user && $user->NIVEL_ACCESO == 2) {
-            $frentesPermitidos = $user->getFrentesIds();
-            if (!in_array($equipo->ID_FRENTE_ACTUAL, $frentesPermitidos)) {
-                abort(403, 'Acceso Denegado: Este equipo pertenece a un Frente de Trabajo ajeno a su jurisdicción.');
-            }
-        }
-        return $equipo;
+        return $query->findOrFail($id);
     }
 
     /**
@@ -3529,13 +3522,7 @@ class EquipoController extends Controller
             if ($rawFrente !== '') {
                 $frenteKey = strtolower($rawFrente);
                 if (isset($frentesMap[$frenteKey])) {
-                    $frente = $frentesMap[$frenteKey];
-                    $idFrenteResuelto = $frente->ID_FRENTE;
-                    // Verificar jurisdicción LOCAL
-                    if ($isLocal && !in_array($idFrenteResuelto, $frentesPermitidos)) {
-                        $errors['frente_trabajo'] = 'No tienes permiso sobre ese frente.';
-                        $idFrenteResuelto = null;
-                    }
+                    $idFrenteResuelto = $frentesMap[$frenteKey]->ID_FRENTE;
                 } else {
                     $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
                 }
@@ -3720,12 +3707,7 @@ class EquipoController extends Controller
             if ($rawFrente !== '') {
                 $frenteKey = strtolower($rawFrente);
                 if (isset($frentesMap[$frenteKey])) {
-                    $frente = $frentesMap[$frenteKey];
-                    $idFrenteResuelto = $frente->ID_FRENTE;
-                    if ($isLocal && !in_array($idFrenteResuelto, $frentesPermitidos)) {
-                        $errors['frente_trabajo'] = 'No tienes permiso sobre ese frente.';
-                        $idFrenteResuelto = null;
-                    }
+                    $idFrenteResuelto = $frentesMap[$frenteKey]->ID_FRENTE;
                 } else {
                     $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
                 }

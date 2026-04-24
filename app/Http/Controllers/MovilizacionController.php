@@ -169,21 +169,9 @@ class MovilizacionController extends Controller
         $normalizado = ltrim($codigo, '0');
         if ($normalizado === '') $normalizado = '0';
 
+        // Acceso controlado por permisos (no por NIVEL_ACCESO). Cualquier
+        // usuario autenticado puede buscar un acta por codigo de control.
         $query = Movilizacion::query();
-
-        // Scope Local: solo sus frentes (origen o destino)
-        $user = auth()->user();
-        $isLocal = $user && $user->NIVEL_ACCESO == 2;
-        if ($isLocal) {
-            $permitidos = $user->getFrentesIds();
-            if (empty($permitidos)) {
-                return response()->json(['success' => false, 'message' => 'No tienes frentes asignados.'], 403);
-            }
-            $query->where(function ($q) use ($permitidos) {
-                $q->whereIn('ID_FRENTE_ORIGEN', $permitidos)
-                  ->orWhereIn('ID_FRENTE_DESTINO', $permitidos);
-            });
-        }
 
         $mov = (clone $query)
             ->where(function ($q) use ($codigo, $normalizado) {
@@ -356,13 +344,8 @@ class MovilizacionController extends Controller
             'DETALLE_UBICACION' => 'nullable|string|max:150',
         ]);
 
-        // Asegurar que el usuario tenga permisos sobre el frente destino (si no es global)
-        if ($usuario->NIVEL_ACCESO != 1) {
-            $frentesPermitidos = $usuario->getFrentesIds();
-            if (!in_array($request->ID_FRENTE_DESTINO, $frentesPermitidos)) {
-                return response()->json(['success' => false, 'error' => 'No tiene permisos para recibir equipos en este frente.'], 403);
-            }
-        }
+        // Acceso controlado UNICAMENTE por el permiso 'equipos.assign' (middleware
+        // del controller). NIVEL_ACCESO del usuario NO restringe el frente destino.
 
         DB::beginTransaction();
         try {
@@ -538,16 +521,9 @@ class MovilizacionController extends Controller
         try {
             $baseMov = Movilizacion::findOrFail($id);
 
-            // Scope LOCAL: el usuario debe tener acceso al frente origen o destino
-            $authUser = auth()->user();
-            if ($authUser && $authUser->NIVEL_ACCESO == 2) {
-                $frentesPermitidos = $authUser->getFrentesIds();
-                $origenOk  = in_array($baseMov->ID_FRENTE_ORIGEN, $frentesPermitidos);
-                $destinoOk = in_array($baseMov->ID_FRENTE_DESTINO, $frentesPermitidos);
-                if (!$origenOk && !$destinoOk) {
-                    abort(403, 'No tienes permiso para descargar esta acta.');
-                }
-            }
+            // Acceso a la descarga del acta: controlado solo por autenticacion
+            // (middleware 'auth'). NIVEL_ACCESO del usuario no restringe —
+            // cualquier usuario autenticado puede descargar el acta PDF.
 
             // Para tandas sin CODIGO_CONTROL (recepciones directas / actualizaciones)
             // no tiene sentido generar acta agrupada.
