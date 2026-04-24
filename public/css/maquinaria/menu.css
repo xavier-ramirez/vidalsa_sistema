@@ -146,13 +146,13 @@
 
 .nav-dropdown-link:hover,
 .nav-dropdown-link.active {
-    background: var(--maquinaria-blue);
-    color: #ffffff;
+    background: #f0f4f8;
+    color: var(--maquinaria-blue);
 }
 
 .nav-dropdown-link:hover i,
 .nav-dropdown-link.active i {
-    color: #ffffff;
+    color: var(--maquinaria-blue);
 }
 
 .nav-dropdown-link i {

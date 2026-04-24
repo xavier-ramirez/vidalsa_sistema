@@ -105,11 +105,11 @@
                    onclick="event.stopPropagation(); document.getElementById('auxSearchInput').value=''; cargarAuxiliares();">close</i>
             </div>
 
-            <button type="button" onclick="window.showToast && window.showToast('Filtros avanzados proximamente.', 'info')"
-                    style="height:45px;padding:0 16px;background:white;border:1px solid #cbd5e0;border-radius:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#475569;cursor:pointer;flex-shrink:0;"
-                    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                <i class="material-icons" style="font-size:18px;color:#0067b1;">tune</i>
-                <span>Filtros Avanzados</span>
+            <button type="button" title="Filtros Avanzados"
+                    onclick="window.showToast && window.showToast('Filtros avanzados proximamente.', 'info')"
+                    class="btn-primary-maquinaria"
+                    style="height:45px;width:45px;flex-shrink:0;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;background:white;border:1px solid #cbd5e0;color:#64748b;box-shadow:none;">
+                <i class="material-icons">filter_list</i>
             </button>
 
             {{-- Acciones --}}
