@@ -109,7 +109,7 @@
                 <span>Acciones</span>
                 <i class="material-icons" style="font-size:16px;">expand_more</i>
             </button>
-            <div id="auxAccionesDropdown" style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:220px;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:50;">
+            <div id="auxAccionesDropdown" style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:240px;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:50;">
                 @can('equipos.create')
                 <a href="{{ route('equipos-auxiliares.create') }}"
                    style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
@@ -118,6 +118,13 @@
                     <span>Nuevo Equipo Auxiliar</span>
                 </a>
                 @endcan
+                {{-- Catalogo por Modelo: fichas con foto + caracteristicas de cada tipo de auxiliar (en desarrollo) --}}
+                <a href="#" onclick="event.preventDefault(); if(window.showToast){window.showToast('Catálogo por Modelo en desarrollo.', 'info');} document.getElementById('auxAccionesDropdown').style.display='none';"
+                   style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
+                   onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <div style="background:#eff6ff;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">menu_book</i></div>
+                    <span>Catálogo por Modelo</span>
+                </a>
             </div>
         </div>
     </form>
@@ -127,12 +134,12 @@
         <table class="admin-table" id="auxTable" style="width:100%;">
             <thead>
                 <tr class="table-row-header">
+                    <th class="table-header-custom table-cell-center" style="width: 15%;">Frente / Foto</th>
                     <th class="table-header-custom">Tipo</th>
                     <th class="table-header-custom">Marca / Modelo</th>
                     <th class="table-header-custom">Serial</th>
                     <th class="table-header-custom">Capacidad</th>
-                    <th class="table-header-custom">Frente</th>
-                    <th class="table-header-custom">Estado</th>
+                    <th class="table-header-custom" style="width: 130px;">Estado</th>
                 </tr>
             </thead>
             <tbody id="auxTableBody">
