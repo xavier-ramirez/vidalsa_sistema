@@ -490,11 +490,11 @@
                 <div class="nav-dropdown-content">
                     <a href="{{ route('equipos.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
-                        <i class="material-icons">agriculture</i> Equipos y Maquinarias
+                        <i class="material-icons">agriculture</i> Vehículos
                     </a>
                     <a href="{{ route('equipos-auxiliares.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
-                        <i class="material-icons">construction</i> Activos Auxiliares
+                        <i class="material-icons">construction</i> Equipos Auxiliares
                     </a>
                 </div>
             </div>
@@ -637,11 +637,11 @@
             <div class="mobile-nav-group-content">
                 <a href="{{ route('equipos.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
-                    <i class="material-icons">agriculture</i> Equipos y Maquinarias
+                    <i class="material-icons">agriculture</i> Vehículos
                 </a>
                 <a href="{{ route('equipos-auxiliares.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
-                    <i class="material-icons">construction</i> Activos Auxiliares
+                    <i class="material-icons">construction</i> Equipos Auxiliares
                 </a>
             </div>
         </div>
