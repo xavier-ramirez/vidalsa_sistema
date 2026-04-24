@@ -480,9 +480,14 @@
             </a>
 
             <a href="{{ route('equipos.index') }}"
-                class="nav-link {{ request()->is('admin/equipos*') ? 'active' : '' }}"
+                class="nav-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}"
                 style="display: flex; align-items: center;">
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">agriculture</i>Vehículo
+            </a>
+            <a href="{{ route('equipos-auxiliares.index') }}"
+                class="nav-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}"
+                style="display: flex; align-items: center;">
+                <i class="material-icons" style="font-size: 18px; margin-right: 5px;">construction</i>Aux.
             </a>
             <a href="{{ route('movilizaciones.index') }}"
                 class="nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}"
@@ -606,8 +611,12 @@
         </a>
 
         <a href="{{ route('equipos.index') }}"
-            class="mobile-nav-link {{ request()->is('admin/equipos*') ? 'active' : '' }}">
+            class="mobile-nav-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
             <i class="material-icons">agriculture</i> Vehículo
+        </a>
+        <a href="{{ route('equipos-auxiliares.index') }}"
+            class="mobile-nav-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
+            <i class="material-icons">construction</i> Equipos Auxiliares
         </a>
         <a href="{{ route('movilizaciones.index') }}"
             class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
