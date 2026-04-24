@@ -513,6 +513,7 @@
             <!-- Configuraciones Dropdown -->
             <a href="{{ route('consumibles.graficos') }}"
                 class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
+                data-no-spa="true"
                 style="display:flex; align-items:center;">
                 <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
             </a>
@@ -654,7 +655,8 @@
             <i class="material-icons">report_problem</i> Reporte de Fallas
         </a>
         <a href="{{ route('consumibles.graficos') }}"
-            class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
+            class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
+            data-no-spa="true">
             <i class="material-icons">local_gas_station</i> Consumibles
         </a>
 
