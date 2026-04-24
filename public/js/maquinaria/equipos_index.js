@@ -166,14 +166,26 @@ const STATUS_CONFIG = {
             item.querySelector('.check-icon').style.display = (item.dataset.statusKey === currentStatus) ? 'inline' : 'none';
         });
 
-        // Posicionar el menú justo debajo del trigger
+        // Posicionar el menú justo debajo del trigger.
+        // Con position:fixed, las coordenadas son relativas al viewport, por lo
+        // que NO sumamos window.scrollY (antes lo hacia y el menu aparecia fuera
+        // de pantalla cuando habia scroll). Tambien clamp left para que no se
+        // salga del viewport a la derecha (critico en mobile).
         const rect = trigger.getBoundingClientRect();
         menu.style.display = 'block';
         const menuH = menu.offsetHeight;
+        const menuW = menu.offsetWidth;
         const spaceBelow = window.innerHeight - rect.bottom;
         const top = spaceBelow >= menuH ? rect.bottom + 4 : rect.top - menuH - 4;
-        menu.style.top  = top + window.scrollY + 'px';
-        menu.style.left = rect.left + 'px';
+
+        // Clamp horizontal: no salir por la derecha ni por la izquierda del viewport.
+        let left = rect.left;
+        const maxLeft = window.innerWidth - menuW - 8; // 8px de margen del borde
+        if (left > maxLeft) left = maxLeft;
+        if (left < 8) left = 8;
+
+        menu.style.top  = top + 'px';
+        menu.style.left = left + 'px';
 
         _activeTrigger = trigger;
     };

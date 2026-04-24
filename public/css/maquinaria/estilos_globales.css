@@ -1733,10 +1733,13 @@ input:-webkit-autofill:active {
         width: 100% !important;
     }
 
-    .table-equipos-mobile tbody td:nth-child(5) .status-trigger {
+    .table-equipos-mobile tbody td:nth-child(5) .status-trigger,
+    .table-equipos-mobile tbody td:nth-child(5) .status-trigger-lite {
         height: auto !important;
-        min-height: 32px !important;
-        padding: 4px 8px !important;
+        min-height: 36px !important;
+        padding: 6px 10px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
         /* Consistent touch target */
     }
 
