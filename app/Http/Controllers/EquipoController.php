@@ -2791,14 +2791,14 @@ class EquipoController extends Controller
         $sheet->setCellValue('A' . ($rowNum - 1), 'EMITIDO POR EL SISTEMA DE GESTIÓN DE EQUIPOS OPERACIONALES | Total de pares: ' . count($pairs));
         $sheet->getStyle('A' . ($rowNum - 1))->getFont()->setBold(true)->getColor()->setARGB('FF475569');
 
-        // ── Cabecera de tabla ──
+        // ── Cabecera de tabla ── (terminologia de dominio: REMOLCADOR / REMOLCADO) ──
         $headers = [
             'A' => '#',
-            'B' => 'TIPO EQUIPO PADRE',
-            'C' => 'PLACA / SERIAL (PADRE)',
-            'D' => 'MARCA / MODELO (PADRE)',
-            'E' => 'TIPO EQUIPO HIJO ANCLADO',
-            'F' => 'SERIAL DE CHASIS (HIJO)',
+            'B' => 'TIPO REMOLCADOR',
+            'C' => 'PLACA / SERIAL (REMOLCADOR)',
+            'D' => 'MARCA / MODELO',
+            'E' => 'TIPO REMOLCADO',
+            'F' => 'PLACA / SERIAL (REMOLCADO)',
             'G' => 'FRENTE',
         ];
         foreach ($headers as $col => $title) {
@@ -2819,20 +2819,39 @@ class EquipoController extends Controller
         };
 
         $counter = 1;
-        foreach ($pairs as $padre) {
-            $hijo = $padre->ancladoA;
-            $tipoPadre = $padre->tipo->nombre ?? 'S/T';
-            $tipoHijo  = $hijo->tipo->nombre ?? 'S/T';
-            $marcaModeloPadre = trim(($padre->MARCA ?? '') . ' ' . ($padre->MODELO ?? '')) ?: 'S/M';
-            $serialHijo = $hijo->SERIAL_CHASIS ?: ($placaOrSerial($hijo));
-            $frente = optional($padre->frenteActual)->NOMBRE_FRENTE ?? '—';
+        foreach ($pairs as $par) {
+            $a = $par;
+            $b = $par->ancladoA;
+
+            // Determinar REMOLCADOR y REMOLCADO por ROL_ANCLAJE del tipo:
+            // - Si alguno es REMOLCADOR, va en las columnas izquierdas (B/C/D).
+            // - Si ninguno lo es (pareja neutra/remolcable-remolcable), se deja
+            //   el orden original A->B para no perder informacion.
+            $rolA = strtoupper(optional($a->tipo)->ROL_ANCLAJE ?? '');
+            $rolB = strtoupper(optional($b->tipo)->ROL_ANCLAJE ?? '');
+
+            if ($rolB === 'REMOLCADOR' && $rolA !== 'REMOLCADOR') {
+                // Swap: el remolcador real es $b
+                $remolcador = $b;
+                $remolcado  = $a;
+            } else {
+                $remolcador = $a;
+                $remolcado  = $b;
+            }
+
+            $tipoRemolcador  = $remolcador->tipo->nombre ?? 'S/T';
+            $tipoRemolcado   = $remolcado->tipo->nombre ?? 'S/T';
+            $marcaModelo     = trim(($remolcador->MARCA ?? '') . ' ' . ($remolcador->MODELO ?? '')) ?: 'S/M';
+            $idRemolcado     = $placaOrSerial($remolcado);
+            // El frente suele ser el mismo en ambos; usamos el del remolcador.
+            $frente = optional($remolcador->frenteActual)->NOMBRE_FRENTE ?? '—';
 
             $sheet->setCellValue('A' . $rowNum, $counter++);
-            $sheet->setCellValue('B' . $rowNum, mb_strtoupper($tipoPadre));
-            $sheet->setCellValue('C' . $rowNum, mb_strtoupper($placaOrSerial($padre)));
-            $sheet->setCellValue('D' . $rowNum, mb_strtoupper($marcaModeloPadre));
-            $sheet->setCellValue('E' . $rowNum, mb_strtoupper($tipoHijo));
-            $sheet->setCellValue('F' . $rowNum, mb_strtoupper($serialHijo));
+            $sheet->setCellValue('B' . $rowNum, mb_strtoupper($tipoRemolcador));
+            $sheet->setCellValue('C' . $rowNum, mb_strtoupper($placaOrSerial($remolcador)));
+            $sheet->setCellValue('D' . $rowNum, mb_strtoupper($marcaModelo));
+            $sheet->setCellValue('E' . $rowNum, mb_strtoupper($tipoRemolcado));
+            $sheet->setCellValue('F' . $rowNum, mb_strtoupper($idRemolcado));
             $sheet->setCellValue('G' . $rowNum, mb_strtoupper($frente));
 
             $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
