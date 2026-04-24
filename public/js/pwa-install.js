@@ -46,13 +46,10 @@
                window.navigator.standalone === true;
     }
 
-    function isMobileDevice() {
-        var ua = (window.navigator.userAgent || '').toLowerCase();
-        var uaLooksMobile = /android|iphone|ipad|ipod|iemobile|opera mini|mobile|tablet/.test(ua);
-        var coarsePointer = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || false;
-        var narrowViewport = window.innerWidth <= 1024;
-        return (uaLooksMobile && narrowViewport) || (coarsePointer && narrowViewport);
-    }
+    // isMobileDevice() fue removida: antes se usaba para mostrar el boton
+    // de instalar SOLO en mobile. Ahora el boton aparece en cualquier
+    // plataforma capaz de instalar la PWA (Chrome/Edge desktop emiten el
+    // mismo beforeinstallprompt cuando el manifest + SW son validos).
 
     function isIOSSafari() {
         var ua = window.navigator.userAgent || '';
@@ -66,17 +63,20 @@
         var slot = document.getElementById('pwaInstallSlot');
         if (!slot) return;
 
-        // Si ya no aplica (standalone o desktop), aseguramos que quede vacio.
-        if (isStandalone() || !isMobileDevice()) {
+        // Si la app ya esta instalada (standalone mode), no mostrar el boton.
+        if (isStandalone()) {
             slot.innerHTML = '';
             return;
         }
 
-        // Solo mostramos el boton cuando el navegador REALMENTE puede instalar
-        // la PWA ahora mismo: tiene deferredPrompt disponible (Chrome/Edge/Android)
-        // o es iOS Safari (fallback manual Compartir→Pantalla de Inicio).
-        // En otros casos ocultamos el slot — el boton debe funcionar "al primer click"
-        // sin hints intermedios.
+        // Mostrar el boton cuando el navegador realmente puede instalar la PWA:
+        //   - Chrome/Edge/Android mobile: via beforeinstallprompt (deferredPrompt)
+        //   - Chrome/Edge DESKTOP: mismo mecanismo beforeinstallprompt (antes se
+        //     excluia con !isMobileDevice — ahora se permite para que el usuario
+        //     pueda crear acceso directo en PC desde la app, no solo desde el
+        //     icono nativo de la barra de URL del navegador).
+        //   - iOS Safari: fallback manual (Compartir -> Agregar a pantalla inicio).
+        // Otros (Firefox desktop sin soporte, Safari desktop): ocultar el slot.
         var canPrompt = !!deferredPrompt;
         var iosFallback = isIOSSafari();
         if (!canPrompt && !iosFallback) {
