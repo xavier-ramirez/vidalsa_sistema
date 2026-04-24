@@ -17,19 +17,6 @@ Estructura: overlay > modal-content > header + sub-header + body
                         <p id="modal_equipo_subtitle" style="margin: 2px 0 0 0; opacity: 0.8; font-size: 12px; word-break: break-word;"></p>
                     </div>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        @can('equipos.edit')
-                        {{-- Pill de estatus: click abre el sharedStatusMenu (mismo de la
-                             tabla). Los datasets los rellena showDetailsImproved. --}}
-                        <button type="button" id="modal_status_trigger"
-                            data-equipo-id="" data-status="" data-status-url=""
-                            onclick="event.stopPropagation(); if(window.openSharedStatusMenu) window.openSharedStatusMenu(this);"
-                            style="display: none; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.28); color: #fff; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;"
-                            onmouseover="this.style.background='rgba(255,255,255,0.22)'"
-                            onmouseout="this.style.background='rgba(255,255,255,0.12)'">
-                            <i class="material-icons" style="font-size: 14px;">check_circle</i>
-                            <span>Operativo</span>
-                        </button>
-                        @endcan
                         <button id="modal_gps_btn" type="button"
                             onclick="openGpsModal(this.dataset.url, this.dataset.equipoName, this.dataset.equipoSerial, this.dataset.equipoTipo)"
                             data-url="" data-equipo-name="" data-equipo-serial="" data-equipo-tipo=""
