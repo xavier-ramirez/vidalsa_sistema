@@ -1523,6 +1523,13 @@ class EquipoController extends Controller
     public function destroy($id)
     {
         $equipo = $this->findAndAuthorizeEquipo($id);
+        // Registrar ANTES del delete (conservamos el snapshot); el log queda
+        // con ID_EQUIPO que ya no existe pero la vista lo muestra como
+        // "Equipo Eliminado" (HistorialDocumentosController linea 175).
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete', [
+            'codigo_patio'  => $equipo->CODIGO_PATIO,
+            'serial_chasis' => $equipo->SERIAL_CHASIS,
+        ]);
         $equipo->delete();
         return redirect()->route('equipos.index')->with('success', 'Equipo eliminado.');
     }
@@ -1533,8 +1540,15 @@ class EquipoController extends Controller
             'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
         ]);
         $equipo = $this->findAndAuthorizeEquipo($id);
+        $estadoAnterior = $equipo->ESTADO_OPERATIVO;
         $equipo->ESTADO_OPERATIVO = $request->input('status');
         $equipo->save();
+
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'status_change', [
+            'anterior' => $estadoAnterior,
+            'nuevo'    => $equipo->ESTADO_OPERATIVO,
+        ]);
+
         return response()->json(['success' => true, 'message' => 'Estatus actualizado.']);
     }
 
@@ -3013,6 +3027,10 @@ class EquipoController extends Controller
         $equipo->DETALLE_UBICACION_ACTUAL = $valor;
         $equipo->save();
 
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'ubicacion', [
+            'valor' => $valor,
+        ]);
+
         return response()->json([
             'success'                 => true,
             'DETALLE_UBICACION_ACTUAL' => $valor,
@@ -3069,6 +3087,14 @@ class EquipoController extends Controller
             $count = Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
                 'DETALLE_UBICACION_ACTUAL' => $valor,
             ]);
+
+            // Auditoria masiva: una fila por equipo afectado. El historial
+            // mostrara N eventos "Ubicacion Masiva" agrupados por created_at.
+            foreach ($request->ids as $equipoId) {
+                \App\Models\EquipoAuditLog::registrar($equipoId, 'bulk_ubicacion', [
+                    'valor' => $valor,
+                ]);
+            }
 
             return response()->json([
                 'success'                  => true,

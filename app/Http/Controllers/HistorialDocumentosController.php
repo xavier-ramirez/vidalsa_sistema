@@ -203,6 +203,8 @@ class HistorialDocumentosController extends Controller
                     'delete_adicional_2'   => 'Borrado Compraventa',
                     'ubicacion'            => 'Cambio de Ubicación',
                     'bulk_ubicacion'       => 'Ubicación Masiva',
+                    'status_change'        => 'Cambio de Estatus',
+                    'delete'               => 'Eliminación de Equipo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
                 $events->push((object)[
