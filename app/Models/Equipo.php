@@ -122,11 +122,6 @@ class Equipo extends Model
         return $this->hasMany(MovilizacionHistorial::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
 
-    public function solicitudesMantenimiento()
-    {
-        return $this->hasMany(SolicitudMantenimiento::class, 'ID_EQUIPO', 'ID_EQUIPO');
-    }
-
     /** Sub-activos montados en este vehículo (máquinas de soldar, plantas, etc.) */
     public function subActivos()
     {

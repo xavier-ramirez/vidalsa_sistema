@@ -205,37 +205,37 @@
                 
                 <!-- Main Trigger Button -->
                 <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" onclick="const d = document.getElementById('splitDropdownMenuMov'); d.style.display = d.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
-                    <i class="material-icons">settings</i>
+                    <i class="material-icons" style="font-size: 18px;">settings</i>
                     <span>Acciones</span>
                     <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
                 </button>
 
                 <!-- Dropdown Menu -->
-                <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: 100%; right: 0; width: 240px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; z-index: 50; margin-top: 5px; overflow: hidden; animation: slideDown 0.2s ease-out;">
+                <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: 100%; right: 0; width: 240px; background: #ffffff; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12); border: 1px solid #e2e8f0; z-index: 50; margin-top: 5px; overflow: hidden; animation: slideDown 0.2s ease-out;">
                     {{-- Reimprimir Acta: disponible para cualquier usuario autenticado --}}
-                    <div style="padding: 8px 5px;">
+                    <div style="padding: 6px;">
                         <button type="button"
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window.openReimprimirActaModal();"
-                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 15px; border-radius: 6px; border: none; background: transparent; color: #0067b1; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
+                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #0067b1; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
                             onmouseover="this.style.background='#e1effa'" onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size: 18px;">print</i>
-                            Reimprimir Acta por Código
+                            <i class="material-icons" style="font-size: 18px; line-height: 1;">print</i>
+                            <span>Reimprimir Acta por Código</span>
                         </button>
                     </div>
 
                     @can('super.admin')
-                    <div style="padding: 0 5px 8px; border-top: 1px solid #cbd5e1;">
+                    <div style="padding: 6px; border-top: 1px solid #e2e8f0;">
                         <button type="button"
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._eliminarSeleccionados();"
-                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 15px; border-radius: 6px; border: none; background: transparent; color: #ef4444; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s; margin-top: 8px;"
+                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #ef4444; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
                             onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size: 18px;">delete</i>
-                            Eliminar seleccionados
+                            <i class="material-icons" style="font-size: 18px; line-height: 1;">delete</i>
+                            <span>Eliminar seleccionados</span>
                         </button>
                     </div>
-                    <div style="padding: 6px 15px 8px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-                        <i class="material-icons" style="font-size: 12px; vertical-align: middle;">touch_app</i>
-                        Haz click en las filas para seleccionarlas
+                    <div style="padding: 8px 14px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 6px;">
+                        <i class="material-icons" style="font-size: 14px; line-height: 1;">touch_app</i>
+                        <span>Haz click en las filas para seleccionarlas</span>
                     </div>
                     @endcan
                 </div>

@@ -80,11 +80,6 @@ class FrenteTrabajo extends Model
         return $this->hasMany(MovilizacionHistorial::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
     }
 
-    public function solicitudesMantenimiento()
-    {
-        return $this->hasMany(SolicitudMantenimiento::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');
-    }
-
     /**
      * IDs de frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota propia).
      * Cache 5 min; invalidado automáticamente en booted() al guardar/borrar un frente.

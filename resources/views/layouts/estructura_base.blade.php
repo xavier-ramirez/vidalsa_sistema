@@ -671,6 +671,38 @@
             </script>
         @endif
 
+        {{-- Flash toast desde sessionStorage (post-redirect en flujos AJAX/SPA).
+             Permite mostrar la notificacion en la pagina destino sin parpadeo
+             cuando el form origen redirigio via JS (ej: equipos edit, catalogo). --}}
+        <script>
+            (function () {
+                function _flushFlashToast() {
+                    try {
+                        var raw = sessionStorage.getItem('vidalsa_flash_toast');
+                        if (!raw) return;
+                        sessionStorage.removeItem('vidalsa_flash_toast');
+                        var data = JSON.parse(raw);
+                        if (!data || !data.message) return;
+                        var tryShow = function () {
+                            if (typeof window.showToast === 'function') {
+                                window.showToast(data.message, data.type || 'success');
+                            } else {
+                                setTimeout(tryShow, 80);
+                            }
+                        };
+                        tryShow();
+                    } catch (_) { /* silencioso */ }
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', _flushFlashToast);
+                } else {
+                    _flushFlashToast();
+                }
+                // En navegaciones SPA, volver a leer al cargar el nuevo contenido.
+                window.addEventListener('spa:contentLoaded', _flushFlashToast);
+            })();
+        </script>
+
         @yield('content')
     </main>
 

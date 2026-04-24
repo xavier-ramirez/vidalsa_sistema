@@ -258,25 +258,31 @@ function initEquiposForm() {
                 return r.json().then(data => ({ status: r.status, body: data }));
             })
             .then(({ status, body }) => {
-                if (window.hidePreloader) window.hidePreloader();
-
                 if (status === 200 || status === 201) {
                     const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
 
                     if (isEdit) {
-                        if (typeof window.showToast === 'function') {
-                            window.showToast(body.message || 'Equipo actualizado correctamente.', 'success');
-                        }
-                        // Usar navigateTo (SPA con spinner) en vez de location.href (recarga completa)
+                        // UX: mantener el preloader activo y navegar INMEDIATO al listado.
+                        // El toast se muestra en la pagina destino via sessionStorage + hook
+                        // de estructura_base. Evita el parpadeo "form visible con toast" antes
+                        // del redirect que causaba el setTimeout(1200ms).
+                        try {
+                            sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
+                                message: body.message || 'Equipo actualizado correctamente.',
+                                type: 'success',
+                            }));
+                        } catch (_) { /* silencioso si sessionStorage no disponible */ }
+
                         const backUrl = body.redirect || '/admin/equipos';
-                        setTimeout(() => {
-                            if (typeof window.navigateTo === 'function') {
-                                window.navigateTo(backUrl);
-                            } else {
-                                window.location.href = backUrl;
-                            }
-                        }, 1200);
+                        window.__equiposFormRedirecting = true;
+                        if (typeof window.navigateTo === 'function') {
+                            window.navigateTo(backUrl);
+                        } else {
+                            window.location.href = backUrl;
+                        }
+                        return;
                     } else {
+                        if (window.hidePreloader) window.hidePreloader();
                         // CREATE MODE: Reset form
                         form.reset();
 
@@ -338,6 +344,7 @@ function initEquiposForm() {
                         }
                     }
                 } else if (status === 422) {
+                    if (window.hidePreloader) window.hidePreloader();
                     restoreBtn();
 
                     const serverToClientMap = {
