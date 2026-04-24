@@ -4,17 +4,15 @@
 @section('content')
 <div class="dashboard-container" style="padding: 15px 20px; position: relative; z-index: 1;">
 
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
-        <div>
-            <h1 style="margin:0;font-size:22px;font-weight:800;color:#1e293b;display:flex;align-items:center;gap:10px;">
-                <i class="material-icons" style="color:#f59e0b;">construction</i>
-                Equipos Auxiliares
-            </h1>
-            <p style="margin:4px 0 0 0;color:#64748b;font-size:13px;">
-                Máquinas de soldar, luminarias, compresores, contenedores y plantas eléctricas.
-            </p>
-        </div>
+    {{-- Titulo con la misma tipografia que /admin/equipos (class page-title + page-title-line2) --}}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h1 class="page-title">
+            <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
+        </h1>
     </div>
+
+    {{-- Contenedor blanco unico que envuelve filtros + tabla + paginacion (patron admin-card como en /admin/equipos) --}}
+    <div class="admin-card" style="margin: 0; min-height: 60vh; min-width: 0; width: 100%;">
 
     {{-- Barra de filtros + acciones: 3 filtros en fila + boton Filtros Avanzados + boton Acciones --}}
     <form id="auxFiltersForm" onsubmit="event.preventDefault(); cargarAuxiliares();"
@@ -124,7 +122,8 @@
         </div>
     </form>
 
-    <div class="custom-scrollbar-container" style="background:white;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,0.08);overflow:hidden;">
+    {{-- Tabla ya no tiene su propio fondo blanco: vive dentro del admin-card padre --}}
+    <div class="custom-scrollbar-container" style="overflow-x:auto;">
         <table class="admin-table" id="auxTable" style="width:100%;">
             <thead>
                 <tr class="table-row-header">
@@ -146,6 +145,7 @@
         {{ $auxiliares->links('vendor.pagination.custom-sliding') }}
     </div>
 
+    </div>{{-- /admin-card --}}
 </div>
 
 <script>
