@@ -23,7 +23,7 @@
                 </a>
                 <button type="submit" class="btn-primary-maquinaria"
                     @cannot('equipos.edit')
-                    onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permiso para actualizar este modelo.', confirmText: 'Entendido', hideCancel: true });"
+                    onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: No tienes permiso para actualizar este modelo.', 'error');"
                     @endcannot
                 >
                     <i class="material-icons">save</i>

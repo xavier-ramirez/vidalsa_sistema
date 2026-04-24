@@ -202,7 +202,10 @@
             <a href="{{ route('usuarios.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>
-            <button type="submit" class="btn-primary-maquinaria">
+            <button type="submit" class="btn-primary-maquinaria"
+                @cannot('manage.users')
+                onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: Necesitas permiso de Super Admin para guardar cambios de usuarios.', 'error');"
+                @endcannot>
                 <i class="material-icons">save</i>
                 {{ isset($user) ? 'Actualizar Información' : 'Registrar en el Sistema' }}
             </button>

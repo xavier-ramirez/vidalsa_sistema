@@ -81,7 +81,12 @@
 
             <!-- Nuevo Button -->
             <div class="filter-item">
-                <a href="{{ route('catalogo.create') }}" class="btn-primary-maquinaria" style="height: 45px; display: flex; align-items: center; padding: 0 15px; text-decoration: none; gap: 8px;">
+                <a href="{{ route('catalogo.create') }}"
+                    class="btn-primary-maquinaria"
+                    style="height: 45px; display: flex; align-items: center; padding: 0 15px; text-decoration: none; gap: 8px;"
+                    @cannot('equipos.create')
+                    onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: No tienes permiso para registrar nuevos modelos.', 'error');"
+                    @endcannot>
                     <i class="material-icons" style="font-size: 18px;">add_circle</i>
                     Nuevo
                 </a>
