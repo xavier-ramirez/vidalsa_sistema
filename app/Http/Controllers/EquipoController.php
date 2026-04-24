@@ -1506,12 +1506,11 @@ class EquipoController extends Controller
             \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
         }
 
-        // Auditoria: registrar la edicion general de ficha en equipo_audit_log
-        // para que aparezca en /admin/historial-documentos con fecha y usuario.
-        // Los demas metodos (uploadDoc, deleteDoc, updateMetadata, ubicacion)
-        // ya lo hacen; sin esto, las ediciones de datos del equipo quedaban
-        // fuera del historial.
-        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'edit', []);
+        // NOTA: NO registramos audit 'edit' aqui. El EquipoObserver::updated
+        // (AppServiceProvider::boot) ya lo hace automaticamente cuando el
+        // modelo detecta cambios (getChanges), y ademas guarda el diff
+        // antes/despues — mas rico que un registro plano. Agregar un
+        // registrar() aqui generaba duplicados en equipo_audit_log.
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.', 'redirect' => route('equipos.index')]);
@@ -1523,9 +1522,8 @@ class EquipoController extends Controller
     public function destroy($id)
     {
         $equipo = $this->findAndAuthorizeEquipo($id);
-        // Registrar ANTES del delete (conservamos el snapshot); el log queda
-        // con ID_EQUIPO que ya no existe pero la vista lo muestra como
-        // "Equipo Eliminado" (HistorialDocumentosController linea 175).
+        // Registrar ANTES del delete (el Observer solo cubre 'updated',
+        // no 'deleted', asi que este registro manual NO duplica nada).
         \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete', [
             'codigo_patio'  => $equipo->CODIGO_PATIO,
             'serial_chasis' => $equipo->SERIAL_CHASIS,
@@ -1540,14 +1538,12 @@ class EquipoController extends Controller
             'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
         ]);
         $equipo = $this->findAndAuthorizeEquipo($id);
-        $estadoAnterior = $equipo->ESTADO_OPERATIVO;
         $equipo->ESTADO_OPERATIVO = $request->input('status');
         $equipo->save();
 
-        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'status_change', [
-            'anterior' => $estadoAnterior,
-            'nuevo'    => $equipo->ESTADO_OPERATIVO,
-        ]);
+        // NOTA: El EquipoObserver::updated registra automaticamente un audit
+        // 'edit' con el diff de ESTADO_OPERATIVO (antes/despues). Agregar un
+        // registrar() manual aqui generaba eventos duplicados en el historial.
 
         return response()->json(['success' => true, 'message' => 'Estatus actualizado.']);
     }
@@ -3033,9 +3029,8 @@ class EquipoController extends Controller
         $equipo->DETALLE_UBICACION_ACTUAL = $valor;
         $equipo->save();
 
-        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'ubicacion', [
-            'valor' => $valor,
-        ]);
+        // EquipoObserver::updated registra automaticamente el audit 'edit'
+        // con diff de DETALLE_UBICACION_ACTUAL. No duplicamos con registrar() manual.
 
         return response()->json([
             'success'                 => true,
@@ -3094,8 +3089,10 @@ class EquipoController extends Controller
                 'DETALLE_UBICACION_ACTUAL' => $valor,
             ]);
 
-            // Auditoria masiva: una fila por equipo afectado. El historial
-            // mostrara N eventos "Ubicacion Masiva" agrupados por created_at.
+            // IMPORTANTE: el ->update() masivo de QueryBuilder NO dispara
+            // EquipoObserver::updated (no hidrata modelos), asi que este
+            // registrar() manual NO duplica eventos — es la UNICA forma de
+            // que estas acciones queden en equipo_audit_log.
             foreach ($request->ids as $equipoId) {
                 \App\Models\EquipoAuditLog::registrar($equipoId, 'bulk_ubicacion', [
                     'valor' => $valor,
