@@ -837,11 +837,15 @@
         };
 
         function _cargarDatosLocal() {
-            // Mostrar preloader global tradicional (fondo blanco) para cada cambio
-            // de filtro, como lo pidio el dueño. Los spinners locales siguen
-            // presentes en cada seccion para dar feedback granular, pero el
-            // preloader global da la consistencia visual del resto de la app.
-            if (typeof window.showPreloader === 'function') window.showPreloader();
+            // Preloader global SOLO en cambios de filtro subsecuentes. En la
+            // carga inicial (al navegar a /admin/consumibles/graficos), el SPA
+            // ya mostro su preloader y disparar otro aqui causaria el parpadeo
+            // "spinner -> vista -> spinner otra vez".
+            // Los spinners locales de cada seccion siguen dando feedback granular.
+            const isSubsequent = window._graficosFirstRunDone === true;
+            if (isSubsequent && typeof window.showPreloader === 'function') {
+                window.showPreloader();
+            }
             const params = getParams();
 
             const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
@@ -937,8 +941,10 @@
                     }
                 })
                 .finally(() => {
-                    // Apagar preloader global tanto en exito como en error.
+                    // Apagar preloader global (idempotente; inofensivo si nunca se mostro).
                     if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                    // Marcar que ya paso el primer fetch: los siguientes SI muestran preloader.
+                    window._graficosFirstRunDone = true;
                 });
         }
 
