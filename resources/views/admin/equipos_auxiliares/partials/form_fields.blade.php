@@ -214,45 +214,38 @@
         @error('doc_propiedad') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
     </div>
 
-    {{-- Certificado --}}
+    {{-- Vencimiento del Certificado + boton PDF integrado (el cuadro "Certificado"
+         readonly fue eliminado; el PDF se carga directo desde este bloque). --}}
     <div style="position: relative;">
-        <label for="certificado_meta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Certificado</label>
+        <label for="fecha_vencimiento_cert" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Vencimiento Certif.</label>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="text" id="certificado_meta" name="certificado_meta" class="form-input-custom" value="{{ $hasCert ? 'PDF cargado' : '' }}"
-                   placeholder="Sin certificado" readonly style="flex: 1; background:#f8fafc; cursor:default;" autocomplete="off">
+            <input type="date" id="fecha_vencimiento_cert" name="fecha_vencimiento_cert"
+                   value="{{ old('fecha_vencimiento_cert', optional($auxiliar->FECHA_VENCIMIENTO_CERT)->format('Y-m-d')) }}"
+                   class="form-input-custom @error('fecha_vencimiento_cert') is-invalid @enderror"
+                   style="flex: 1; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}">
             <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasCert)
-                    <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener" title="Ver documento: Certificado"
+                    <a href="{{ asset($auxiliar->LINK_CERTIFICADO) }}" target="_blank" rel="noopener" title="Ver certificado"
                        style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:linear-gradient(135deg,#1e3a5f,#2563eb); box-shadow:0 2px 6px rgba(37,99,235,0.35);">
                         <i class="material-icons" style="font-size:17px; color:white;">description</i>
                     </a>
-                    <label for="certificado" title="Reemplazar PDF"
+                    <label for="certificado" title="Reemplazar certificado"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; color:#64748b; cursor:pointer; background:#f1f5f9;"
                            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
                         <i class="material-icons" style="font-size:16px;">edit</i>
                     </label>
                 @else
-                    <label for="certificado" title="Cargar PDF de Certificado"
+                    <label for="certificado" title="Cargar PDF de certificado"
                            style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px dashed #3b82f6; color:#3b82f6; border-radius:6px; cursor:pointer;"
                            onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='transparent'">
                         <i class="material-icons" style="font-size:18px;">cloud_upload</i>
                     </label>
                 @endif
             </div>
-            <input type="file" id="certificado" name="certificado" accept=".pdf" style="display:none;"
-                   onchange="document.getElementById('certificado_meta').value = this.files[0] ? this.files[0].name : '';">
+            <input type="file" id="certificado" name="certificado" accept=".pdf" style="display:none;">
         </div>
-        @error('certificado') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
-    </div>
-
-    {{-- Vencimiento del Certificado --}}
-    <div>
-        <label for="fecha_vencimiento_cert" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Vencimiento Certif.</label>
-        <input type="date" id="fecha_vencimiento_cert" name="fecha_vencimiento_cert"
-               value="{{ old('fecha_vencimiento_cert', optional($auxiliar->FECHA_VENCIMIENTO_CERT)->format('Y-m-d')) }}"
-               class="form-input-custom @error('fecha_vencimiento_cert') is-invalid @enderror"
-               style="cursor:pointer;" onclick="try{this.showPicker()}catch(e){}">
         @error('fecha_vencimiento_cert') <span class="error-message-inline">{{ $message }}</span> @enderror
+        @error('certificado') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
     </div>
 </div>
 
