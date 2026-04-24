@@ -66,22 +66,9 @@ class EquipoAuxiliarController extends Controller
             );
         }
 
-        // Mapa MARCA|MODELO -> FOTO (de cualquier auxiliar que tenga foto).
-        // Sirve como catalogo implicito: si un auxiliar no tiene foto propia,
-        // la tabla muestra la foto de otro registro con el mismo modelo.
-        $photoByModel = EquipoAuxiliar::whereNotNull('FOTO')
-            ->where('FOTO', '!=', '')
-            ->select('MARCA', 'MODELO', 'FOTO')
-            ->orderByDesc('ID_AUXILIAR')
-            ->get()
-            ->reduce(function ($carry, $a) {
-                $key = mb_strtoupper(trim(($a->MARCA ?? '') . '|' . ($a->MODELO ?? '')));
-                if ($key !== '|' && !isset($carry[$key])) $carry[$key] = $a->FOTO;
-                return $carry;
-            }, []);
-
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
-        $tipos   = EquipoAuxiliar::tiposLabel();
+        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
+        $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
         // Stats: total/operativos/inoperativos/mantenimiento respetando los filtros
@@ -117,7 +104,7 @@ class EquipoAuxiliarController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'photoByModel'))->render(),
+                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos'))->render(),
                 'pagination'   => $auxiliares->links('vendor.pagination.custom-sliding')->toHtml(),
                 'count'        => $auxiliares->total(),
                 'stats'        => $stats,
@@ -149,7 +136,8 @@ class EquipoAuxiliarController extends Controller
             });
         }
 
-        $tipos   = EquipoAuxiliar::tiposLabel();
+        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
+        $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -292,7 +280,8 @@ class EquipoAuxiliarController extends Controller
     public function create()
     {
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
-        $tipos   = EquipoAuxiliar::tiposLabel();
+        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
+        $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
         $auxiliar = new EquipoAuxiliar();
         return view('admin.equipos_auxiliares.create', compact('auxiliar', 'frentes', 'tipos', 'estados'));
@@ -336,9 +325,31 @@ class EquipoAuxiliarController extends Controller
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
         $frentes  = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
-        $tipos    = EquipoAuxiliar::tiposLabel();
+        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
+        $tipos    = $this->getTiposDinamicos();
         $estados  = EquipoAuxiliar::estadosLabel();
         return view('admin.equipos_auxiliares.edit', compact('auxiliar', 'frentes', 'tipos', 'estados'));
+    }
+
+    /**
+     * Combina los TIPOS del enum (con labels bonitos) con los tipos custom
+     * que el usuario haya registrado (existentes en la BD). Para los custom,
+     * genera un label legible a partir del codigo (ej. "GENERADOR_DIESEL" ->
+     * "Generador Diesel"). Asi el filtro y los comboboxes reflejan siempre
+     * el estado real de tipos en uso, no una lista hardcoded.
+     */
+    private function getTiposDinamicos(): array
+    {
+        $tipos = EquipoAuxiliar::tiposLabel();
+        $tiposEnDB = EquipoAuxiliar::select('TIPO')
+            ->whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+        foreach ($tiposEnDB as $t) {
+            if (!isset($tipos[$t])) {
+                $tipos[$t] = ucwords(mb_strtolower(str_replace('_', ' ', $t)));
+            }
+        }
+        return $tipos;
     }
 
     public function update(Request $request, $id)

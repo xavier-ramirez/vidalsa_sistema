@@ -202,7 +202,6 @@
             <table class="admin-table" id="auxTable" style="width:100%;">
                 <thead>
                     <tr class="table-row-header">
-                        <th class="table-header-custom table-cell-center" style="width: 13%;"></th>
                         <th class="table-header-custom">TIPO / MARCA / MODELO</th>
                         <th class="table-header-custom">SERIAL</th>
                         <th class="table-header-custom" style="width: 90px;">CAPACIDAD</th>

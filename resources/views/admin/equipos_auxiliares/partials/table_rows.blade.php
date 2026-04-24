@@ -1,6 +1,9 @@
 @forelse($auxiliares as $aux)
     @php
-        $tipoLabel = \App\Models\EquipoAuxiliar::tiposLabel()[$aux->TIPO] ?? $aux->TIPO;
+        // Usa $tipos (que el controller pasa con tipos custom + enum) como fuente
+        // de labels. Asi reflejamos los tipos nuevos creados por el usuario.
+        $tiposMap  = $tipos ?? \App\Models\EquipoAuxiliar::tiposLabel();
+        $tipoLabel = $tiposMap[$aux->TIPO] ?? $aux->TIPO;
 
         $statusConfig = [
             'OPERATIVO'       => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'icon' => 'check_circle',  'label' => 'OPERATIVO'],
@@ -9,37 +12,14 @@
             'DESINCORPORADO'  => ['color' => '#475569', 'bg' => '#f1f5f9', 'icon' => 'block',         'label' => 'DESINCORP.'],
         ];
         $currentConfig = $statusConfig[$aux->ESTADO_OPERATIVO] ?? $statusConfig['DESINCORPORADO'];
-
-        // Foto del equipo: si el auxiliar no tiene una propia, caer a la de
-        // cualquier otro auxiliar registrado con la misma MARCA/MODELO (catalogo
-        // implicito por modelo). $photoByModel viene del controller index().
-        $photoByModel = $photoByModel ?? collect();
-        $modelKey = mb_strtoupper(trim(($aux->MARCA ?? '') . '|' . ($aux->MODELO ?? '')));
-        $fotoUrl  = $aux->FOTO ?: ($photoByModel[$modelKey] ?? null);
-        $fotoDriveId = $fotoUrl ? basename(str_replace('/storage/google/', '', $fotoUrl)) : null;
     @endphp
     <tr data-aux-id="{{ $aux->ID_AUXILIAR }}"
         data-codigo="{{ $aux->CODIGO_INTERNO ?: $aux->SERIAL }}"
         data-frente="{{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
         class="aux-row-selectable @if(auth()->user() && auth()->user()->can('equipos.edit')) aux-row-clickable @endif"
         style="{{ auth()->user() && auth()->user()->can('equipos.edit') ? 'cursor:pointer;' : '' }}">
-        {{-- 1. Frente + Foto --}}
-        <td class="table-cell-custom table-cell-center" style="padding: 4px 2px;">
-            <div style="font-size: 11px; color: #000; margin-bottom: 4px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase;">
-                {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
-            </div>
-            @if($fotoDriveId)
-                <div class="table-image-wrapper" style="cursor: default;">
-                    <img data-src="https://drive.google.com/thumbnail?id={{ $fotoDriveId }}&sz=w300"
-                         src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'></svg>"
-                         alt="Foto" loading="lazy"
-                         style="width: 54px; height: 54px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0;">
-                </div>
-            @endif
-        </td>
-
-        {{-- 2. Tipo + Marca/Modelo (combinadas) --}}
-        <td class="table-cell-custom" style="font-size: 12px; color: #000; max-width: 200px; word-wrap: break-word;">
+        {{-- 1. Tipo + Marca/Modelo + Frente (columna FRENTE/FOTO eliminada) --}}
+        <td class="table-cell-custom" style="font-size: 12px; color: #000; max-width: 240px; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $tipoLabel }}</div>
             <div style="font-size: 11px; color: #334155; font-weight: 600; text-transform: uppercase; margin-top: 2px;">
                 {{ $aux->MARCA }} {{ $aux->MODELO }}
@@ -47,6 +27,10 @@
             @if($aux->CODIGO_INTERNO)
                 <div style="font-size: 10px; color: #718096; font-weight: 500; margin-top: 2px;">#{{ strtoupper($aux->CODIGO_INTERNO) }}</div>
             @endif
+            <div style="display:inline-flex; align-items:center; gap:3px; margin-top: 4px; font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase;">
+                <i class="material-icons" style="font-size: 12px;">place</i>
+                {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+            </div>
         </td>
 
         {{-- 3. Serial --}}
@@ -98,7 +82,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="6" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
+        <td colspan="5" class="table-empty-state" style="text-align: center; padding: 40px; color: #94a3b8;">
             @if(request('tipo') || request('id_frente') || request('search') || request('marca') || request('modelo') || request('capacidad') || request('estado'))
                 <i class="material-icons" style="font-size: 48px; display: block; margin: 0 auto 10px auto; color: #cbd5e0;">search_off</i>
                 NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.
