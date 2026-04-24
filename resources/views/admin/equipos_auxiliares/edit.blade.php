@@ -7,14 +7,6 @@
     <h1 class="page-title">
         <span class="page-title-line2" style="color: #000;">Editar Equipo Auxiliar #{{ $auxiliar->ID_AUXILIAR }}</span>
     </h1>
-    <div style="margin-top: 10px;">
-        <a href="{{ route('equipos-auxiliares.acta', $auxiliar->ID_AUXILIAR) }}" target="_blank"
-           class="btn-primary-maquinaria btn-secondary"
-           style="display: inline-flex; align-items: center; gap: 6px;">
-            <i class="material-icons" style="font-size: 18px;">description</i>
-            Acta de Asignación
-        </a>
-    </div>
 </section>
 
 <div id="formEquipoAuxiliarCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">

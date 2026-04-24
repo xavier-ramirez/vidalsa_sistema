@@ -15,6 +15,49 @@
         .counter-sidebar li span { font-size: 9.5px !important; }
         .counter-sidebar { gap: 10px !important; }
     }
+
+    /* ── Responsive filtros en mobile ──
+       Frente y Tipo: una linea completa cada uno.
+       Serial + boton de Filtros Avanzados: misma fila (Serial crece, boton 45x45).
+       Acciones: fila propia full-width. --}}
+    @media (max-width: 768px) {
+        #auxFiltersForm {
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+            align-items: stretch !important;
+        }
+        #auxFiltersForm > .custom-dropdown {
+            flex: 1 0 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+        }
+        /* Serial: crece y comparte fila con el boton de filtros avanzados */
+        #auxFiltersForm > .search-wrapper {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+        }
+        /* Boton de Filtros Avanzados: fijo al lado del Serial */
+        #auxFiltersForm > div[data-aux-role="adv"] {
+            flex: 0 0 45px !important;
+            width: 45px !important;
+        }
+        /* Contenedor del boton Acciones: fila propia full-width */
+        #auxFiltersForm > div[data-aux-role="acciones"] {
+            flex: 1 0 100% !important;
+            display: flex !important;
+        }
+        #auxFiltersForm #auxAccionesBtn {
+            flex: 1 !important;
+            justify-content: center !important;
+        }
+        #auxAdvPanel {
+            width: calc(100vw - 24px) !important;
+            max-width: calc(100vw - 24px) !important;
+            right: 0 !important;
+            left: auto !important;
+        }
+    }
 </style>
 
 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
@@ -22,7 +65,7 @@
         <h1 class="page-title" style="margin-bottom: 2px;">
             <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
         </h1>
-        <p style="margin: 0; font-size: 12px; color: #64748b; font-weight: 500; line-height: 1.3;">
+        <p class="aux-page-subtitle" style="margin: 0; font-size: 12px; color: #64748b; font-weight: 500; line-height: 1.3;">
             Máquinas de soldar, compresores, luminarias, plantas eléctricas, contenedores y otros.
         </p>
     </div>
@@ -31,10 +74,10 @@
 <div class="page-layout-grid">
 
     {{-- Columna izq: Filtros + Tabla --}}
-    <div class="admin-card" style="margin: 0; min-height: 70vh; min-width: 0; width: 100%;">
+    <div class="admin-card" data-page="equipos-auxiliares" style="margin: 0; min-height: 70vh; min-width: 0; width: 100%;">
 
         <form id="auxFiltersForm" onsubmit="event.preventDefault(); cargarAuxiliares();"
-              style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center;">
+              style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:5px;align-items:center;">
 
             {{-- Frente --}}
             @php
@@ -49,9 +92,11 @@
                      style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">place</i></div>
                     <input type="text" id="auxFrenteFilterSearch" name="frente_filter_search" data-filter-search
-                           placeholder="Filtrar Frente..." aria-label="Filtrar Frente"
-                           style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;text-transform:uppercase;"
-                           autocomplete="off" value="{{ $frenteActual ? mb_strtoupper($frenteActual->NOMBRE_FRENTE) : '' }}">
+                           placeholder="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : 'Filtrar Frente...' }}" aria-label="Filtrar Frente"
+                           style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
+                           onfocus="this.closest('.custom-dropdown').classList.add('active');"
+                           oninput="this.closest('.custom-dropdown').classList.add('active'); window.filterDropdownOptions(this);"
+                           autocomplete="off">
                     <span data-filter-label style="display:none;">{{ $frenteLabel }}</span>
                     <i class="material-icons" data-clear-btn
                        style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $reqFrente && $reqFrente !== 'all' ? 'block' : 'none' }};"
@@ -59,12 +104,12 @@
                 </div>
                 <div class="dropdown-content">
                     <div class="dropdown-item {{ !$reqFrente || $reqFrente === 'all' ? 'selected' : '' }}" data-value="all"
-                         onclick="selectOption('auxFrenteFilterSelect','all','TODOS LOS FRENTES'); cargarAuxiliares();">TODOS LOS FRENTES</div>
+                         onclick="selectOption('auxFrenteFilterSelect','all','Todos los Frentes'); cargarAuxiliares();">Todos los Frentes</div>
                     @foreach($frentes as $frente)
-                        @php $frenteNombreUpper = mb_strtoupper(trim($frente->NOMBRE_FRENTE)); @endphp
+                        @php $frenteNombre = trim($frente->NOMBRE_FRENTE); @endphp
                         <div class="dropdown-item {{ (string)$reqFrente === (string)$frente->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $frente->ID_FRENTE }}"
-                             onclick="selectOption('auxFrenteFilterSelect','{{ $frente->ID_FRENTE }}','{{ addslashes($frenteNombreUpper) }}'); cargarAuxiliares();">
-                            {{ $frenteNombreUpper }}
+                             onclick="selectOption('auxFrenteFilterSelect','{{ $frente->ID_FRENTE }}','{{ addslashes($frenteNombre) }}'); cargarAuxiliares();">
+                            {{ $frenteNombre }}
                         </div>
                     @endforeach
                 </div>
@@ -73,7 +118,7 @@
             {{-- Tipo --}}
             @php
                 $reqTipo = request('tipo');
-                $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? mb_strtoupper($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
+                $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? ($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
             @endphp
             <div class="custom-dropdown" id="auxTipoFilterSelect" data-filter-type="tipo"
                  data-default-label="Filtrar Tipo..." style="flex:1;min-width:180px;max-width:260px;">
@@ -82,9 +127,11 @@
                      style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
                     <input type="text" id="auxTipoFilterSearch" name="tipo_filter_search" data-filter-search
-                           placeholder="Filtrar Tipo..." aria-label="Filtrar Tipo"
+                           placeholder="{{ ($reqTipo && $reqTipo !== 'all') ? $tipoLabel : 'Filtrar Tipo...' }}" aria-label="Filtrar Tipo"
                            style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
-                           autocomplete="off" value="{{ ($reqTipo && $reqTipo !== 'all') ? $tipoLabel : '' }}">
+                           onfocus="this.closest('.custom-dropdown').classList.add('active');"
+                           oninput="this.closest('.custom-dropdown').classList.add('active'); window.filterDropdownOptions(this);"
+                           autocomplete="off">
                     <span data-filter-label style="display:none;">{{ $tipoLabel }}</span>
                     <i class="material-icons" data-clear-btn
                        style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $reqTipo && $reqTipo !== 'all' ? 'block' : 'none' }};"
@@ -92,12 +139,11 @@
                 </div>
                 <div class="dropdown-content">
                     <div class="dropdown-item {{ !$reqTipo || $reqTipo === 'all' ? 'selected' : '' }}" data-value="all"
-                         onclick="selectOption('auxTipoFilterSelect','all','TODOS LOS TIPOS'); cargarAuxiliares();">TODOS LOS TIPOS</div>
+                         onclick="selectOption('auxTipoFilterSelect','all','Todos los Tipos'); cargarAuxiliares();">Todos los Tipos</div>
                     @foreach($tipos as $k => $label)
-                        @php $labelUpper = mb_strtoupper($label); @endphp
                         <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}"
-                             onclick="selectOption('auxTipoFilterSelect','{{ $k }}','{{ addslashes($labelUpper) }}'); cargarAuxiliares();">
-                            {{ $labelUpper }}
+                             onclick="selectOption('auxTipoFilterSelect','{{ $k }}','{{ addslashes($label) }}'); cargarAuxiliares();">
+                            {{ $label }}
                         </div>
                     @endforeach
                 </div>
@@ -117,19 +163,19 @@
             @php
                 $advActive = request()->filled('marca') || request()->filled('modelo') || request()->filled('estado') || request()->filled('capacidad');
             @endphp
-            <div style="position:relative;flex-shrink:0;">
+            <div data-aux-role="adv" style="position:relative;flex-shrink:0;">
                 <button type="button" id="auxAdvBtn" title="Filtros Avanzados"
                         onclick="const p=document.getElementById('auxAdvPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none'; event.stopPropagation();"
                         class="btn-primary-maquinaria"
                         style="height:45px;width:45px;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;background:{{ $advActive ? '#fee2e2' : 'white' }};border:1px solid {{ $advActive ? '#ef4444' : '#cbd5e0' }};color:{{ $advActive ? '#ef4444' : '#64748b' }};box-shadow:none;">
                     <i class="material-icons">filter_list</i>
                 </button>
-                <div id="auxAdvPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;width:320px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);padding:14px;z-index:500;overflow:visible;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                        <h4 style="margin:0;font-size:14px;font-weight:700;color:#334155;">Filtros Avanzados</h4>
-                        <span style="font-size:11px;color:#64748b;text-decoration:underline;cursor:pointer;"
+                <div id="auxAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:300px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);margin-top:10px;padding:15px;z-index:500;overflow:visible;">
+                    <h4 style="margin:0 0 15px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
+                        Filtros Avanzados
+                        <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
                               onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');cargarAuxiliares();">Limpiar Todo</span>
-                    </div>
+                    </h4>
                     <div style="display:flex;flex-direction:column;gap:10px;">
 
                         {{-- Marca --}}
@@ -137,10 +183,10 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Marca</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_marca" name="marca" value="{{ request('marca') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('marca') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_marca">
-                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">search</i>
+                                <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('marca') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_marca">
+                                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_marca" placeholder="Ej: Miller" value="{{ request('marca') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('marca',this.value)"
                                            onfocus="auxAdvOpen('marca')"
                                            onblur="setTimeout(()=>auxAdvClose('marca'),200)">
@@ -161,10 +207,10 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Modelo</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_modelo" name="modelo" value="{{ request('modelo') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_modelo">
-                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">search</i>
+                                <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_modelo">
+                                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_modelo" placeholder="Ej: Bobcat 225" value="{{ request('modelo') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('modelo',this.value)"
                                            onfocus="auxAdvOpen('modelo')"
                                            onblur="setTimeout(()=>auxAdvClose('modelo'),200)">
@@ -185,10 +231,10 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Capacidad</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_capacidad" name="capacidad" value="{{ request('capacidad') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_capacidad">
-                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">search</i>
+                                <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_capacidad">
+                                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_capacidad" placeholder="Ej: 300A, 20 pies" value="{{ request('capacidad') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('capacidad',this.value)"
                                            onfocus="auxAdvOpen('capacidad')"
                                            onblur="setTimeout(()=>auxAdvClose('capacidad'),200)">
@@ -209,10 +255,10 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Estado</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_estado" name="estado" value="{{ request('estado') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('estado') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_estado">
-                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">flag</i>
+                                <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('estado') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_estado">
+                                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">flag</i>
                                     <input type="text" id="aux_txt_estado" placeholder="{{ request('estado') ? strtoupper($estados[request('estado')] ?? request('estado')) : 'Todos los estados' }}" value="" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('estado',this.value)"
                                            onfocus="auxAdvOpen('estado')"
                                            onblur="setTimeout(()=>auxAdvClose('estado'),200)">
@@ -228,16 +274,12 @@
                             </div>
                         </div>
 
-                        <button type="button" onclick="cargarAuxiliares();document.getElementById('auxAdvPanel').style.display='none';"
-                                class="btn-primary-maquinaria" style="width:100%;height:38px;justify-content:center;margin-top:4px;">
-                            <i class="material-icons" style="font-size:16px;">search</i> Aplicar
-                        </button>
                     </div>
                 </div>
             </div>
 
             {{-- Acciones --}}
-            <div style="position:relative;flex-shrink:0;">
+            <div data-aux-role="acciones" style="position:relative;flex-shrink:0;">
                 <button type="button" id="auxAccionesBtn" class="btn-primary-maquinaria"
                         style="height:45px;padding:0 16px;border-radius:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;cursor:pointer;"
                         onclick="const d=document.getElementById('auxAccionesDropdown'); d.style.display = d.style.display==='none'||!d.style.display ? 'block' : 'none'; event.stopPropagation();">
@@ -245,24 +287,24 @@
                     <span>Acciones</span>
                     <i class="material-icons" style="font-size:16px;">expand_more</i>
                 </button>
-                <div id="auxAccionesDropdown" style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:240px;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:50;">
-                    @can('equipos.create')
-                    <a href="{{ route('equipos-auxiliares.create') }}"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
-                       onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                        <div style="background:#fff7ed;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#f59e0b;">add_circle</i></div>
+                <div id="auxAccionesDropdown" style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:240px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);overflow:hidden;z-index:50;">
+                    @php $canCreateAux = auth()->user() && auth()->user()->can('equipos.create'); @endphp
+                    <a href="{{ $canCreateAux ? route('equipos-auxiliares.create') : '#' }}"
+                       @if(!$canCreateAux) onclick="event.preventDefault(); if(window.showToast){window.showToast('No tienes permiso para crear equipos auxiliares.', 'warning');} document.getElementById('auxAccionesDropdown').style.display='none';" @endif
+                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:{{ $canCreateAux ? '#475569' : '#94a3b8' }};font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;{{ $canCreateAux ? '' : 'cursor:not-allowed;' }}"
+                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:{{ $canCreateAux ? '#fff7ed' : '#f1f5f9' }};padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:{{ $canCreateAux ? '#f59e0b' : '#94a3b8' }};">{{ $canCreateAux ? 'add_circle' : 'lock' }}</i></div>
                         <span>Nuevo Equipo Auxiliar</span>
                     </a>
-                    @endcan
                     <a href="#" onclick="event.preventDefault(); window.exportAuxiliaresXlsx(); document.getElementById('auxAccionesDropdown').style.display='none';"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
-                       onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
                         <span>Exportación de Data</span>
                     </a>
                     <a href="#" onclick="event.preventDefault(); if(window.showToast){window.showToast('Catálogo por Modelo en desarrollo.', 'info');} document.getElementById('auxAccionesDropdown').style.display='none';"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
-                       onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                         <div style="background:#eff6ff;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">menu_book</i></div>
                         <span>Catálogo por Modelo</span>
                     </a>
@@ -270,8 +312,30 @@
             </div>
         </form>
 
+        {{-- Stats compactas SOLO en movil (el sidebar se oculta <=900px) --}}
+        <div class="equipos-mobile-stats">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;opacity:0.75;margin-bottom:6px;display:flex;align-items:center;gap:5px;">
+                <i class="material-icons" style="font-size:13px;">pie_chart</i>
+                Consolidado de Auxiliares
+            </div>
+            <div style="display:flex;gap:8px;justify-content:space-between;">
+                <div onclick="window.auxFilterByEstado('all')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,0.15);box-shadow:0 2px 4px rgba(0,0,0,0.1);cursor:pointer;">
+                    <span style="font-size:10px;font-weight:700;opacity:0.8;margin-bottom:2px;">TOTAL</span>
+                    <span style="font-size:22px;font-weight:800;line-height:1;">{{ $stats['total'] }}</span>
+                </div>
+                <div onclick="window.auxFilterByEstado('OPERATIVO')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);cursor:pointer;">
+                    <span style="font-size:10px;font-weight:700;color:#86efac;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">check_circle</i> OPER.</span>
+                    <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['operativos'] }}</span>
+                </div>
+                <div onclick="window.auxFilterByEstado('INOPERATIVO')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);cursor:pointer;">
+                    <span style="font-size:10px;font-weight:700;color:#fca5a5;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">cancel</i> INOP.</span>
+                    <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['inoperativos'] }}</span>
+                </div>
+            </div>
+        </div>
+
         <div class="custom-scrollbar-container" style="overflow-x:auto;">
-            <table class="admin-table" id="auxTable" style="width:100%;">
+            <table class="admin-table table-equipos-mobile" id="auxTable" style="width:100%;">
                 <thead>
                     <tr class="table-row-header">
                         <th class="table-header-custom" style="width: 150px;"></th>
@@ -442,14 +506,6 @@
                             <i class="material-icons" style="font-size: 17px;">edit</i>
                         </button>
                     @endcan
-                    @can('equipos.assign')
-                        <button type="button" id="auxDetailsVincularBtn" title="Vincular a Equipo Host"
-                            style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
-                            onmouseover="this.style.background='rgba(255,255,255,0.2)'"
-                            onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                            <i class="material-icons" style="font-size: 17px;">link</i>
-                        </button>
-                    @endcan
                     <button type="button" onclick="window.closeAuxDetailsModal()"
                         style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'"
@@ -485,10 +541,19 @@
             console.warn('openAuxDetailsModal: modal/body no encontrado en DOM');
             return;
         }
-        body.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;"><i class="material-icons" style="font-size:36px;">hourglass_empty</i><div style="margin-top:8px;">Cargando detalles…</div></div>';
-        // .modal-overlay tiene opacity:0 + display:none por default; la clase .active
-        // la vuelve visible (display:flex + opacity:1). Setear solo display inline
-        // dejaba el modal invisible por opacity:0.
+
+        // Patron /admin/equipos: abrimos el modal AL INSTANTE con la cabecera
+        // precargada desde los data-* del boton; el body se popula al resolver
+        // el fetch (usualmente <300ms). Sin spinner.
+        const title = document.getElementById('auxDetailsTitle');
+        const sub   = document.getElementById('auxDetailsSubtitle');
+        if (title) title.textContent = (btn.dataset.tipoLabel || 'Auxiliar').toUpperCase();
+        if (sub) {
+            const marca  = (btn.dataset.marca || '').toUpperCase();
+            const modelo = (btn.dataset.modelo || '').toUpperCase();
+            sub.textContent = (marca + ' ' + modelo).trim() || '—';
+        }
+        body.innerHTML = '';
         modal.style.display = '';
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -503,8 +568,8 @@
         })
         .then(d => window.renderAuxDetailsModal(d))
         .catch(err => {
-            body.innerHTML = '<div style="text-align:center; padding:40px; color:#dc2626;">Error al cargar detalles. ' + (err.message || '') + '</div>';
             console.error('openAuxDetailsModal:', err);
+            body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Error al cargar detalles. ' + (err.message || '') + '</div>';
         });
     };
 
@@ -515,11 +580,9 @@
         if (title) title.textContent = (d.tipo_label || d.tipo || 'Auxiliar');
         if (sub)   sub.textContent   = ((d.marca || '') + ' ' + (d.modelo || '')).trim() || '—';
 
-        // Enlazar edit + vincular en los botones del header
+        // Enlazar edit en el boton del header
         const editBtn = document.getElementById('auxDetailsEditBtn');
         if (editBtn) editBtn.onclick = () => { window.location.href = d.edit_url; };
-        const vincularBtn = document.getElementById('auxDetailsVincularBtn');
-        if (vincularBtn) vincularBtn.onclick = () => window.openAuxVincularModal(d);
 
         // Helper: fila de detalle con label + valor alineados
         const row = (label, value) => `
@@ -573,8 +636,7 @@
             ${section('Documentación Legal y Soportes', 'description',
                 row('Doc. Propiedad',       pdfLink(d.link_doc_propiedad, 'Ver PDF', '#16a34a')) +
                 row('Certificado',          pdfLink(d.link_certificado, 'Ver PDF', '#1e40af')) +
-                row('Vencimiento Certif.',  vencHtml),
-                true
+                row('Vencimiento Certif.',  vencHtml)
             )}
 
             ${section('Información Adicional', 'info',
@@ -864,7 +926,9 @@
 
     // Helpers para filtrar desde Consolidado + Distribucion (clicks).
     window.auxFilterByTipo = function (tipo) {
-        selectOption('auxTipoFilterSelect', tipo, (@json($tipos))[tipo] || tipo);
+        const tiposMap = @json($tipos);
+        const label = tiposMap[tipo] || tipo;
+        selectOption('auxTipoFilterSelect', tipo, label);
         cargarAuxiliares();
     };
     window.auxFilterByEstado = function (estado) {

@@ -97,23 +97,18 @@
             @endcan
         </td>
 
-        {{-- 6. Acciones: ojo (detalles) + lapiz (editar ficha) --}}
+        {{-- 6. Acciones: ojo (detalles) --}}
         <td class="table-cell-center" style="padding: 8px 5px; width: 72px; text-align: center; vertical-align: middle;">
             <div style="display:flex; justify-content:center; align-items:center; gap:4px;">
                 <button type="button"
                     data-aux-id="{{ $aux->ID_AUXILIAR }}"
+                    data-tipo-label="{{ $tipoLabel }}"
+                    data-marca="{{ $aux->MARCA }}"
+                    data-modelo="{{ $aux->MODELO }}"
                     onclick="event.stopPropagation(); window.openAuxDetailsModal(this, event)"
                     class="btn-details-mini" title="Ver Detalles">
                     <i class="material-icons">visibility</i>
                 </button>
-                @can('equipos.edit')
-                <a href="{{ route('equipos-auxiliares.edit', $aux->ID_AUXILIAR) }}"
-                   onclick="event.stopPropagation();"
-                   class="btn-details-mini" title="Editar"
-                   style="color:#0067b1; background:#eff6ff;">
-                    <i class="material-icons">edit</i>
-                </a>
-                @endcan
             </div>
         </td>
     </tr>
