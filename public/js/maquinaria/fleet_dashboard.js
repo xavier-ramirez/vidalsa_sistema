@@ -78,6 +78,9 @@ function renderFleetEquiposAsignados(lista) {
         return;
     }
 
+    // Ordenar de mayor a menor por cantidad de equipos asignados
+    lista = [...lista].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+
     const COLOR = '#475569'; // gris corporativo fijo
 
     body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;">${lista.map((row, i) => `
