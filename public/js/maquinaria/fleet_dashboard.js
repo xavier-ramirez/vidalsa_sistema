@@ -99,7 +99,7 @@ function renderFleetEquiposAsignados(lista) {
                 box-shadow:0 2px 8px rgba(0,0,0,.15);
             ">
                 <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                    <span style="font-size:12px;font-weight:700;color:#94a3b8;width:20px;"></span>
+                    <span style="font-size:11px;font-weight:800;color:#fff;background:rgba(255,255,255,0.18);padding:2px 8px;border-radius:999px;min-width:28px;text-align:center;flex-shrink:0;">#${i + 1}</span>
                     <span style="font-size:12px;font-weight:700;line-height:1.2;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:5px;">
@@ -630,16 +630,18 @@ function createStackedBarChart(canvasId, config) {
     if (emptyMsg) emptyMsg.remove();
     ctx.style.display = '';
 
-    // Dynamic height: smarter formula with max cap
-    // - ≤5 labels: 44px each   → comfortable spacing
-    // - 6-10 labels: 36px each → compact but readable
-    // - >10 labels: 28px each  → dense but still visible
-    // Hard cap: 320px (never taller than a screen panel)
+    // Dynamic height: escalar con el numero de frentes para que los datalabels
+    // siempre sean legibles (antes habia cap en 320px que aplastaba las barras
+    // cuando habia muchos frentes y los numeros quedaban ilegibles).
+    // - ≤5  labels: 44px cada una (espacioso)
+    // - 6-10 labels: 38px (compacto pero con aire)
+    // - >10 labels: 34px (denso, aun legible)
     const labelCount = config.labels ? config.labels.length : 1;
-    const pxPerLabel = labelCount <= 5 ? 36 : labelCount <= 10 ? 32 : 28;
-    const dynamicHeight = Math.min(320, Math.max(160, labelCount * pxPerLabel + 40));
+    const pxPerLabel = labelCount <= 5 ? 44 : labelCount <= 10 ? 38 : 34;
+    // Sin cap superior: el panel tiene su propio scroll si hace falta.
+    const dynamicHeight = Math.max(220, labelCount * pxPerLabel + 60);
     ctx.style.height = dynamicHeight + 'px';
-    ctx.style.maxHeight = dynamicHeight + 'px';
+    ctx.style.maxHeight = 'none';
 
     return new Chart(ctx, {
         type: 'bar',
@@ -647,7 +649,7 @@ function createStackedBarChart(canvasId, config) {
             labels: config.labels,
             datasets: config.datasets.map(ds => ({
                 ...ds,
-                maxBarThickness: 28
+                maxBarThickness: 34
             }))
         },
         options: {
