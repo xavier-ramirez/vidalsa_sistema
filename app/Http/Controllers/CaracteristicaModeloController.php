@@ -55,7 +55,9 @@ class CaracteristicaModeloController extends Controller
         // JSON Response for AJAX
         if ($request->wantsJson() && $request->has('ajax_load')) {
             $tableHtml = view('admin.catalogo.partials.table_rows', compact('catalogos'))->render();
-            $paginationHtml = $catalogos->appends($request->all())->links()->toHtml();
+            // Usar el mismo view custom que el SSR inicial (index.blade.php linea 112)
+            // para que la paginacion no cambie de estilo al navegar via AJAX.
+            $paginationHtml = $catalogos->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
             $statsHtml = view('admin.catalogo.partials.stats_sidebar', compact('totalCount', 'modelCounts'))->render();
 
             return response()->json([
