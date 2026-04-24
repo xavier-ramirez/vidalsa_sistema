@@ -64,6 +64,32 @@ class EquipoAuxiliarController extends Controller
         return response()->json(['total' => EquipoAuxiliar::count()]);
     }
 
+    /**
+     * Lista los equipos auxiliares anclados a un equipo host especifico.
+     * Usado por el modal de detalles de /admin/equipos para mostrar los
+     * auxiliares en la seccion "Sub-activos vinculados".
+     */
+    public function byHost($hostId)
+    {
+        $auxiliares = EquipoAuxiliar::where('ID_EQUIPO_HOST', $hostId)
+            ->orderBy('TIPO')
+            ->get()
+            ->map(function ($a) {
+                return [
+                    'id'        => $a->ID_AUXILIAR,
+                    'tipo'      => $a->TIPO,
+                    'serial'    => $a->SERIAL,
+                    'marca'     => $a->MARCA,
+                    'modelo'    => $a->MODELO,
+                    'capacidad' => $a->CAPACIDAD,
+                    'anio'      => $a->ANIO,
+                    'estado'    => $a->ESTADO_OPERATIVO,
+                ];
+            });
+
+        return response()->json(['ok' => true, 'data' => $auxiliares]);
+    }
+
     // ═══════════════════════════════════════════════════════════
     // CRUD
     // ═══════════════════════════════════════════════════════════

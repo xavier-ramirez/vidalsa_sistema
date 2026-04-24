@@ -993,18 +993,20 @@ window.showDetailsImproved = function (target, event) {
             saList.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">Cargando...</p>';
             if (saBadge) saBadge.textContent = subCount;
 
+            // Tipos alineados con el nuevo modulo Equipos Auxiliares (App\Models\EquipoAuxiliar).
             const SA_TIPO_CFG = {
-            MAQUINA_SOLDADURA: { icon: 'construction', color: '#f59e0b', bg: '#fff7ed', label: 'Máq. Soldadura' },
-            PLANTA_ELECTRICA:  { icon: 'bolt',          color: '#eab308', bg: '#fefce8', label: 'Planta Eléc.'   },
-            CONTENEDOR:        { icon: 'inventory_2',   color: '#6366f1', bg: '#eef2ff', label: 'Contenedor'     },
-            COMPRESOR:         { icon: 'air',           color: '#0ea5e9', bg: '#f0f9ff', label: 'Compresor'      },
-            OTRO:              { icon: 'handyman',       color: '#64748b', bg: '#f1f5f9', label: 'Otro'           },
-        };
-        fetch(`/admin/sub-activos?host=${eqId}`, { headers:{'X-Requested-With':'XMLHttpRequest'} })
+                MAQUINA_SOLDAR:   { icon: 'flash_on',     color: '#f59e0b', bg: '#fff7ed', label: 'Máq. Soldar'   },
+                LUMINARIA:        { icon: 'lightbulb',    color: '#eab308', bg: '#fefce8', label: 'Luminaria'     },
+                COMPRESOR:        { icon: 'compress',     color: '#0ea5e9', bg: '#f0f9ff', label: 'Compresor'     },
+                PLANTA_ELECTRICA: { icon: 'bolt',         color: '#eab308', bg: '#fefce8', label: 'Planta Eléc.'  },
+                CONTAINER:        { icon: 'inventory_2',  color: '#6366f1', bg: '#eef2ff', label: 'Contenedor'    },
+                OTRO:             { icon: 'build',        color: '#64748b', bg: '#f1f5f9', label: 'Otro'          },
+            };
+            fetch(`/admin/equipos-auxiliares/by-host/${eqId}`, { headers:{'X-Requested-With':'XMLHttpRequest'} })
             .then(r => r.json())
             .then(json => {
                 if (!json.ok || json.data.length === 0) {
-                    saList.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">No hay sub-activos directamente vinculados.</p>';
+                    saList.innerHTML = '<p style="color:#94a3b8;font-size:12px;text-align:center;padding:8px;">No hay equipos auxiliares vinculados.</p>';
                     return;
                 }
                 saAccordion.style.display = 'block';

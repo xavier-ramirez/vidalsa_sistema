@@ -1302,13 +1302,47 @@
         const fValueElement = document.querySelector('input[name="id_frente"][data-filter-value]');
         const fValue = (fValueElement && fValueElement.value && fValueElement.value !== 'all') ? fValueElement.value : '';
         const url = '{{ route("equipos.exportAnclajes") }}' + (fValue ? ('?frente_id=' + encodeURIComponent(fValue)) : '');
-        const link = document.createElement('a');
-        link.href = url;
-        link.style.display = 'none';
-        link.setAttribute('data-no-spa', 'true');
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => document.body.removeChild(link), 500);
+
+        // Fetch + blob en lugar de <a href>.click(): evita el spinner nativo
+        // de la pestaña del navegador. Mostramos el preloader global propio
+        // de la app mientras se genera el XLSX en el servidor.
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+
+        fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const cd = r.headers.get('content-disposition') || '';
+                const m  = cd.match(/filename="?([^";]+)"?/i);
+                const fname = m ? m[1] : ('Anclajes_' + new Date().toISOString().slice(0,10) + '.xlsx');
+                return r.blob().then(blob => ({ blob, fname }));
+            })
+            .then(({ blob, fname }) => {
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = fname;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(blobUrl);
+                }, 300);
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Descarga lista: ' + fname, 'success');
+                }
+            })
+            .catch(err => {
+                console.error('[exportAnclajes]', err);
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Error al descargar el Excel de anclajes.', 'error');
+                } else {
+                    alert('Error al descargar el Excel.');
+                }
+            })
+            .finally(() => {
+                if (typeof window.hidePreloader === 'function') window.hidePreloader();
+            });
     };
 
     // Alias: CAN_CREATE_INFO → CAN_CREATE_EQUIPOS (definido globalmente en estructura_base)
