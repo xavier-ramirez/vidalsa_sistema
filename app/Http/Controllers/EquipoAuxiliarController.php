@@ -262,26 +262,49 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     private function validateData(Request $request, bool $isCreate = true): array
     {
+        // TIPO y ESTADO_OPERATIVO son SIEMPRE requeridos, tanto en create como
+        // en update: representan estado fundamental del registro. Si dejamos
+        // 'sometimes|required|...' en update permitiria pasar string vacio via
+        // JSON y el required no dispara. Mejor mantenerlos fuera del sometimes.
         $rules = [
             'TIPO'             => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::tiposLabel())),
+            'ESTADO_OPERATIVO' => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
             'MARCA'            => 'nullable|string|max:80',
             'MODELO'           => 'nullable|string|max:80',
             'SERIAL'           => 'nullable|string|max:100',
             'CODIGO_INTERNO'   => 'nullable|string|max:50',
             'CAPACIDAD'        => 'nullable|string|max:80',
             'ANIO'             => 'nullable|integer|min:1950|max:2100',
-            'ESTADO_OPERATIVO' => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
             'ID_FRENTE_ACTUAL' => 'nullable|exists:frentes_trabajo,ID_FRENTE',
             'ID_EQUIPO_HOST'   => 'nullable|exists:equipos,ID_EQUIPO',
             'OBSERVACIONES'    => 'nullable|string|max:500',
         ];
 
+        // En update hacemos sometimes SOLO los nullable; required se mantiene.
         if (!$isCreate) {
             foreach ($rules as $k => $v) {
-                $rules[$k] = 'sometimes|' . $v;
+                if (strpos($v, 'nullable') !== false) {
+                    $rules[$k] = 'sometimes|' . $v;
+                }
             }
         }
 
-        return $request->validate($rules);
+        $validated = $request->validate($rules);
+
+        // Proteger tope ANCHOR_MAX_PER_HOST en create/update: si ID_EQUIPO_HOST
+        // viene seteado y el host ya tiene N auxiliares distintos al actual,
+        // rechazar. El endpoint anchor() tambien lo valida con lockForUpdate,
+        // pero validar aqui tambien protege el set directo via form.
+        if (!empty($validated['ID_EQUIPO_HOST'])) {
+            $auxiliarId = $request->route('id');
+            $existentes = EquipoAuxiliar::where('ID_EQUIPO_HOST', $validated['ID_EQUIPO_HOST'])
+                ->when($auxiliarId, fn($q) => $q->where('ID_AUXILIAR', '!=', $auxiliarId))
+                ->count();
+            if ($existentes >= EquipoAuxiliar::ANCHOR_MAX_PER_HOST) {
+                abort(422, 'El equipo host ya tiene el maximo de ' . EquipoAuxiliar::ANCHOR_MAX_PER_HOST . ' auxiliares anclados.');
+            }
+        }
+
+        return $validated;
     }
 }

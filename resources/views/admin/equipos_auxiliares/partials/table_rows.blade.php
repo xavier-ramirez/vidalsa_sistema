@@ -26,9 +26,9 @@
         <td>{{ optional($aux->frente)->NOMBRE_FRENTE ?: '—' }}</td>
         <td>
             @if($aux->equipoHost)
-                <a href="#" style="color:#0067b1;font-weight:600;text-decoration:none;">
+                <span style="color:#0067b1;font-weight:600;" title="{{ $aux->equipoHost->MARCA }} {{ $aux->equipoHost->MODELO }}">
                     {{ $aux->equipoHost->CODIGO_PATIO ?: $aux->equipoHost->SERIAL_CHASIS }}
-                </a>
+                </span>
             @else
                 <span style="color:#94a3b8;font-size:12px;">Sin host</span>
             @endif

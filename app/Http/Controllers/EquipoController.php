@@ -207,7 +207,7 @@ class EquipoController extends Controller
                 'ancladoA.documentacion',
                 'ancladoA.frenteActual',
             ])
-            ->withCount('subActivos')
+            ->withCount('equiposAuxiliares')
             ->orderBy('tipo_equipos.nombre', 'asc')
             ->orderBy('equipos.CODIGO_PATIO', 'asc');
 
@@ -370,7 +370,7 @@ class EquipoController extends Controller
                     'anchorTipoNombre'=> optional(optional($eq->ancladoA)->tipo)->nombre ?? 'Equipo',
                     'anchorPlaca'     => optional(optional($eq->ancladoA)->documentacion)->PLACA ?? '',
                     'anchorSerial'    => optional($eq->ancladoA)->SERIAL_CHASIS ?? '',
-                    'subCount'        => $eq->sub_activos_count ?? 0,
+                    'subCount'        => $eq->equipos_auxiliares_count ?? 0,
                     'detalleUbicacion'=> $eq->DETALLE_UBICACION_ACTUAL ?? '',
                 ];
             }

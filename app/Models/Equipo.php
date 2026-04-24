@@ -123,7 +123,9 @@ class Equipo extends Model
     }
 
     /** Equipos auxiliares anclados a este equipo (ej: maquinas de soldar en un
-     *  camion de soldadura). Maximo 2 por equipo via unique index en la tabla link. */
+     *  camion de soldadura). El tope de 2 por equipo host NO esta en la DB como
+     *  constraint; se enforza en EquipoAuxiliarController::anchor via
+     *  lockForUpdate + count, y en validateData al crear/actualizar. */
     public function equiposAuxiliares()
     {
         return $this->hasMany(\App\Models\EquipoAuxiliar::class, 'ID_EQUIPO_HOST', 'ID_EQUIPO');

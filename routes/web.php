@@ -98,11 +98,18 @@ Route::middleware(['auth'])->group(function () {
             // ── Equipos Auxiliares (maquinas de soldar, luminarias, compresores, etc) ──
             // Reemplaza el antiguo modulo "sub-activos" con logica de anclaje 1:N
             // (un camion de soldadura puede llevar hasta 2 maquinas de soldar).
+            // NOTA permisos: el proyecto no tiene un gate 'equipos.view' — la
+            // convencion es que cualquier user autenticado lee el listado de
+            // equipos (el middleware 'auth' del group padre lo cubre). Los
+            // endpoints de modificacion si requieren can:equipos.edit.
+            // Los endpoints de autocomplete (search/searchHosts) quedan tambien
+            // solo bajo auth porque alimentan la UI de anclaje, pero el anchor
+            // real si requiere edit.
             Route::get   ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'index'])  ->name('equipos-auxiliares.index');
             Route::get   ('equipos-auxiliares/count',          [App\Http\Controllers\EquipoAuxiliarController::class, 'count'])  ->name('equipos-auxiliares.count');
             Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');
             Route::get   ('equipos-auxiliares/hosts/search',   [App\Http\Controllers\EquipoAuxiliarController::class, 'searchHosts'])->name('equipos-auxiliares.searchHosts');
-            Route::get   ('equipos-auxiliares/{id}/acta',      [App\Http\Controllers\EquipoAuxiliarController::class, 'actaAsignacion'])->middleware('can:equipos.view')->name('equipos-auxiliares.acta');
+            Route::get   ('equipos-auxiliares/{id}/acta',      [App\Http\Controllers\EquipoAuxiliarController::class, 'actaAsignacion'])->name('equipos-auxiliares.acta');
             Route::get   ('equipos-auxiliares/create',         [App\Http\Controllers\EquipoAuxiliarController::class, 'create'])->middleware('can:equipos.create')->name('equipos-auxiliares.create');
             Route::post  ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'store']) ->middleware('can:equipos.create')->name('equipos-auxiliares.store');
             Route::get   ('equipos-auxiliares/{id}/edit',      [App\Http\Controllers\EquipoAuxiliarController::class, 'edit']) ->middleware('can:equipos.edit')->name('equipos-auxiliares.edit');
