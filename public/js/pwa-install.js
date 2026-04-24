@@ -72,11 +72,17 @@
             return;
         }
 
-        // Siempre renderizamos el boton en mobile (no-standalone). Si el prompt aun no
-        // esta disponible, el click hara fallback: en iOS muestra hint, en Android/desktop
-        // abre un hint generico indicando el menu del navegador.
+        // Solo mostramos el boton cuando el navegador REALMENTE puede instalar
+        // la PWA ahora mismo: tiene deferredPrompt disponible (Chrome/Edge/Android)
+        // o es iOS Safari (fallback manual Compartir→Pantalla de Inicio).
+        // En otros casos ocultamos el slot — el boton debe funcionar "al primer click"
+        // sin hints intermedios.
         var canPrompt = !!deferredPrompt;
         var iosFallback = isIOSSafari();
+        if (!canPrompt && !iosFallback) {
+            slot.innerHTML = '';
+            return;
+        }
 
         // Si ya esta renderizado, no duplicar.
         if (slot.querySelector('[data-pwa-install-btn]')) return;
@@ -110,29 +116,16 @@
                 });
             } else if (iosFallback) {
                 showIOSHint();
-            } else {
-                showGenericHint();
             }
+            // Si no hay prompt y no es iOS, el boton no deberia estar visible
+            // (renderSlot ya lo oculta). Aqui no hacemos nada.
         });
     }
 
-    function showGenericHint() {
-        var slot = document.getElementById('pwaInstallSlot');
-        if (!slot) return;
-        var existing = document.getElementById('pwaGenericHint');
-        if (existing) { existing.remove(); return; }
-        var hint = document.createElement('div');
-        hint.id = 'pwaGenericHint';
-        hint.style.cssText =
-            'margin-top:10px;padding:10px 12px;border-radius:12px;background:#f1f5f9;' +
-            'color:#1e293b;font-size:13px;line-height:1.35;border:1px solid #e2e8f0;';
-        hint.innerHTML =
-            '<strong>Instalar app:</strong> abre el menu del navegador ' +
-            '<span style="font-weight:700;">(⋮)</span> y elige ' +
-            '<span style="font-weight:700;">"Instalar aplicacion"</span> o ' +
-            '<span style="font-weight:700;">"Agregar a pantalla de inicio"</span>.';
-        slot.appendChild(hint);
-    }
+    // showGenericHint removido a proposito: el usuario pidio que el boton
+    // "Instalar App" dispare el prompt nativo directo, sin mensajes intermedios.
+    // Si el navegador no tiene beforeinstallprompt disponible, renderSlot()
+    // oculta el boton en lugar de mostrar hints.
 
     function showIOSHint() {
         // Hint ligero y discreto, no modal flotante azul.
