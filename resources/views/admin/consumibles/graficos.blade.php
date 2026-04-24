@@ -1994,7 +1994,7 @@
         // ══════════════════════════════════════════════════════════════
         // AUDITORIA DE CATALOGO — carga via AJAX independiente de los filtros
         // de graficos. Tabla + resumen arriba. Escape HTML defensivo.
-        // Solo se inicializa si el slot HTML existe (gate @can('super.admin')).
+        // Solo se inicializa si el slot HTML existe (gate super.admin a nivel Blade).
         // ══════════════════════════════════════════════════════════════
         if (document.getElementById('bodyAuditCatalogo'))
         (function () {
