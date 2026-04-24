@@ -183,12 +183,15 @@
 <h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; margin: 30px 0 20px 0;">Documentación Legal</h3>
 
 <div class="grid-responsive-5">
-    {{-- Documento de Propiedad --}}
+    {{-- Documento de Propiedad: Nº editable + boton PDF (patron /admin/equipos/create) --}}
     <div style="position: relative;">
-        <label for="doc_propiedad_meta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Documento de Propiedad</label>
+        <label for="NRO_DOC_PROPIEDAD" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Nº Doc. Propiedad</label>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="text" id="doc_propiedad_meta" name="doc_propiedad_meta" class="form-input-custom" value="{{ $hasProp ? 'PDF cargado' : '' }}"
-                   placeholder="Sin documento" readonly style="flex: 1; background:#f8fafc; cursor:default;" autocomplete="off">
+            <input type="text" id="NRO_DOC_PROPIEDAD" name="NRO_DOC_PROPIEDAD"
+                   class="form-input-custom @error('NRO_DOC_PROPIEDAD') is-invalid @enderror"
+                   value="{{ old('NRO_DOC_PROPIEDAD', $auxiliar->NRO_DOC_PROPIEDAD) }}"
+                   placeholder="Nº del título / certificado de propiedad" maxlength="80"
+                   style="flex: 1;" autocomplete="off">
             <div class="pdf-btn-container" style="display:flex; align-items:center; gap:6px;">
                 @if($hasProp)
                     <a href="{{ asset($auxiliar->LINK_DOC_PROPIEDAD) }}" target="_blank" rel="noopener" title="Ver documento: Propiedad"
@@ -208,9 +211,9 @@
                     </label>
                 @endif
             </div>
-            <input type="file" id="doc_propiedad" name="doc_propiedad" accept=".pdf" style="display:none;"
-                   onchange="document.getElementById('doc_propiedad_meta').value = this.files[0] ? this.files[0].name : '';">
+            <input type="file" id="doc_propiedad" name="doc_propiedad" accept=".pdf" style="display:none;">
         </div>
+        @error('NRO_DOC_PROPIEDAD') <span class="error-message-inline">{{ $message }}</span> @enderror
         @error('doc_propiedad') <div style="color: var(--maquinaria-red); font-size: 12px; margin-top: 4px;">{{ $message }}</div> @enderror
     </div>
 

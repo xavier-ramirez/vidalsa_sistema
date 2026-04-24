@@ -17,10 +17,15 @@
     }
 </style>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
-    </h1>
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+    <div>
+        <h1 class="page-title" style="margin-bottom: 2px;">
+            <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
+        </h1>
+        <p style="margin: 0; font-size: 12px; color: #64748b; font-weight: 500; line-height: 1.3;">
+            Máquinas de soldar, compresores, luminarias, plantas eléctricas, contenedores y otros.
+        </p>
+    </div>
 </div>
 
 <div class="page-layout-grid">
@@ -67,7 +72,7 @@
             {{-- Tipo --}}
             @php
                 $reqTipo = request('tipo');
-                $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? ($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
+                $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? mb_strtoupper($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
             @endphp
             <div class="custom-dropdown" id="auxTipoFilterSelect" data-filter-type="tipo"
                  data-default-label="Filtrar Tipo..." style="flex:1;min-width:180px;max-width:260px;">
@@ -88,9 +93,10 @@
                     <div class="dropdown-item {{ !$reqTipo || $reqTipo === 'all' ? 'selected' : '' }}" data-value="all"
                          onclick="selectOption('auxTipoFilterSelect','all','TODOS LOS TIPOS'); cargarAuxiliares();">TODOS LOS TIPOS</div>
                     @foreach($tipos as $k => $label)
+                        @php $labelUpper = mb_strtoupper($label); @endphp
                         <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}"
-                             onclick="selectOption('auxTipoFilterSelect','{{ $k }}','{{ addslashes($label) }}'); cargarAuxiliares();">
-                            {{ $label }}
+                             onclick="selectOption('auxTipoFilterSelect','{{ $k }}','{{ addslashes($labelUpper) }}'); cargarAuxiliares();">
+                            {{ $labelUpper }}
                         </div>
                     @endforeach
                 </div>
@@ -195,12 +201,6 @@
             <table class="admin-table" id="auxTable" style="width:100%;">
                 <thead>
                     <tr class="table-row-header">
-                        @can('equipos.edit')
-                        <th class="table-header-custom table-cell-center" style="width: 32px;">
-                            <input type="checkbox" id="auxBulkSelectAll" onclick="window.auxToggleSelectAll(this)"
-                                   style="width:16px; height:16px; cursor:pointer;" title="Seleccionar todos">
-                        </th>
-                        @endcan
                         <th class="table-header-custom table-cell-center" style="width: 13%;"></th>
                         <th class="table-header-custom">TIPO / MARCA / MODELO</th>
                         <th class="table-header-custom">SERIAL</th>
@@ -348,7 +348,7 @@
      header azul oscuro + accordion details). Solo muestra campos
      que NO estan en la tabla.
      ═══════════════════════════════════════════════════════════ --}}
-<div id="auxDetailsModal" class="modal-overlay" style="display: none;"
+<div id="auxDetailsModal" class="modal-overlay"
      onclick="if(event.target===this) window.closeAuxDetailsModal()">
     <div class="modal-content"
         style="width: 90%; max-width: 420px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
@@ -411,9 +411,11 @@
             return;
         }
         body.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;"><i class="material-icons" style="font-size:36px;">hourglass_empty</i><div style="margin-top:8px;">Cargando detalles…</div></div>';
-        // modal-overlay usa display:flex para centrar via CSS global; setear flex
-        // (no block) para respetar el layout del contenedor .modal-content.
-        modal.style.display = 'flex';
+        // .modal-overlay tiene opacity:0 + display:none por default; la clase .active
+        // la vuelve visible (display:flex + opacity:1). Setear solo display inline
+        // dejaba el modal invisible por opacity:0.
+        modal.style.display = '';
+        modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
         fetch('/admin/equipos-auxiliares/' + id + '/details', {
@@ -495,6 +497,7 @@
         body.innerHTML = `
             ${section('Documentación Legal y Soportes', 'description',
                 row('Doc. Propiedad',       pdfLink(d.link_doc_propiedad, 'Ver PDF', '#16a34a')) +
+                row('Nº Doc. Propiedad',    d.nro_doc_propiedad || '—') +
                 row('Certificado',          pdfLink(d.link_certificado, 'Ver PDF', '#1e40af')) +
                 row('Vencimiento Certif.',  vencHtml),
                 true
@@ -519,7 +522,10 @@
 
     window.closeAuxDetailsModal = function () {
         const modal = document.getElementById('auxDetailsModal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.display = '';
+        }
         document.body.style.overflow = '';
     };
 
@@ -593,24 +599,26 @@
     };
 
     // ═══════════════════════════════════════════════════════════
-    // SELECCION MASIVA + MOVILIZACION (patron identico a /admin/equipos)
+    // SELECCION MASIVA + MOVILIZACION (patron /admin/equipos — row click)
+    // Click en cualquier parte de la fila alterna selecto/deselecto.
+    // Guarda { id -> { id, codigo, frente } } en window._auxSelectedMap.
     // ═══════════════════════════════════════════════════════════
-    window._auxSelected = window._auxSelected || new Set();
+    window._auxSelectedMap = window._auxSelectedMap || {};
 
-    window.auxToggleSelection = function (cb) {
-        const id = cb.value;
-        if (cb.checked) window._auxSelected.add(id);
-        else             window._auxSelected.delete(id);
-        window.auxRefreshBulkBar();
-    };
-
-    window.auxToggleSelectAll = function (cb) {
-        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox').forEach(c => {
-            c.checked = cb.checked;
-            const id = c.value;
-            if (cb.checked) window._auxSelected.add(id);
-            else             window._auxSelected.delete(id);
-        });
+    window.auxToggleRow = function (tr) {
+        if (!tr || !tr.dataset.auxId) return;
+        const id = tr.dataset.auxId;
+        if (id in window._auxSelectedMap) {
+            delete window._auxSelectedMap[id];
+            tr.classList.remove('selected-row-maquinaria');
+        } else {
+            window._auxSelectedMap[id] = {
+                id: id,
+                codigo: tr.dataset.codigo || ('#' + id),
+                frente: tr.dataset.frente || ''
+            };
+            tr.classList.add('selected-row-maquinaria');
+        }
         window.auxRefreshBulkBar();
     };
 
@@ -618,37 +626,49 @@
         const bar = document.getElementById('auxBulkBar');
         const count = document.getElementById('auxBulkCount');
         if (!bar) return;
-        const n = window._auxSelected.size;
+        const n = Object.keys(window._auxSelectedMap).length;
         if (count) count.textContent = String(n);
         bar.style.display = n > 0 ? 'flex' : 'none';
     };
 
     window.auxClearSelection = function () {
-        window._auxSelected.clear();
-        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox').forEach(c => c.checked = false);
-        const all = document.getElementById('auxBulkSelectAll');
-        if (all) all.checked = false;
+        window._auxSelectedMap = {};
+        document.querySelectorAll('#auxTableBody tr.selected-row-maquinaria').forEach(tr => {
+            tr.classList.remove('selected-row-maquinaria');
+        });
         window.auxRefreshBulkBar();
     };
 
-    // Restaurar checks marcados tras refresh AJAX de la tabla
+    // Restaurar highlight tras AJAX refresh de la tabla
     window.auxRestoreSelection = function () {
-        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox').forEach(c => {
-            if (window._auxSelected.has(c.value)) c.checked = true;
+        document.querySelectorAll('#auxTableBody tr[data-aux-id]').forEach(tr => {
+            if (tr.dataset.auxId in window._auxSelectedMap) {
+                tr.classList.add('selected-row-maquinaria');
+            }
         });
+        window.auxRefreshBulkBar();
     };
 
+    // Delegacion de click en filas (solo con can:equipos.edit via clase)
+    if (!window._auxRowClickBound) {
+        window._auxRowClickBound = true;
+        document.addEventListener('click', function (e) {
+            const tr = e.target.closest('#auxTableBody tr.aux-row-clickable');
+            if (!tr) return;
+            // Ignorar clicks en elementos interactivos dentro de la fila
+            if (e.target.closest('button, a, input, .aux-status-trigger, .material-icons, .btn-details-mini')) return;
+            window.auxToggleRow(tr);
+        });
+    }
+
     window.openAuxMovilizarModal = function () {
-        if (window._auxSelected.size === 0) return;
+        const ids = Object.keys(window._auxSelectedMap);
+        if (ids.length === 0) return;
         const modal = document.getElementById('auxMovilizarModal');
         const sum   = document.getElementById('auxMovilizarSummary');
         if (!modal) return;
-        // Construir resumen con los seleccionados (codigo/serial)
-        const items = [];
-        document.querySelectorAll('#auxTableBody .aux-bulk-checkbox:checked').forEach(c => {
-            items.push(c.dataset.codigo || ('#' + c.value));
-        });
-        if (sum) sum.innerHTML = '<strong>' + window._auxSelected.size + '</strong> equipo(s) a movilizar: <span style="color:#334155;">' + items.slice(0,6).join(', ') + (items.length > 6 ? ', +' + (items.length - 6) + ' más' : '') + '</span>';
+        const items = ids.map(k => window._auxSelectedMap[k].codigo);
+        if (sum) sum.innerHTML = '<strong>' + ids.length + '</strong> equipo(s) a movilizar: <span style="color:#334155;">' + items.slice(0,6).join(', ') + (items.length > 6 ? ', +' + (items.length - 6) + ' más' : '') + '</span>';
         document.getElementById('auxMovilizarFrente').value = '';
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -666,7 +686,7 @@
             if (window.showToast) window.showToast('Selecciona un frente destino.', 'warning');
             return;
         }
-        const ids = Array.from(window._auxSelected).map(x => parseInt(x, 10));
+        const ids = Object.keys(window._auxSelectedMap).map(x => parseInt(x, 10));
         if (!ids.length) { window.closeAuxMovilizarModal(); return; }
 
         if (typeof window.showPreloader === 'function') window.showPreloader();

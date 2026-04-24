@@ -59,6 +59,45 @@
     if (!form || form.dataset.ajaxBound === '1') return;
     form.dataset.ajaxBound = '1';
 
+    // ── Helper: mostrar errores de validacion estilo /admin/equipos ──
+    window.auxApplyValidationErrors = function (errors) {
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        form.querySelectorAll('.error-message-inline').forEach(el => el.remove());
+        const oldSummary = document.getElementById('errorSummary');
+        if (oldSummary) oldSummary.remove();
+
+        const summaryHtml = `
+            <div id="errorSummary" style="background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; padding: 12px 15px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600;">
+                <i class="material-icons" style="color: var(--maquinaria-red);">error_outline</i>
+                <span>Atención: Hemos detectado errores. Por favor, verifica los campos marcados en rojo.</span>
+            </div>
+        `;
+        form.insertAdjacentHTML('afterbegin', summaryHtml);
+
+        Object.entries(errors).forEach(([field, msgs]) => {
+            const msg = Array.isArray(msgs) ? msgs[0] : String(msgs);
+            const input = document.getElementById(field)
+                       || document.querySelector(`[name="${field}"]`);
+            if (!input) return;
+            input.classList.add('is-invalid');
+            const dropdown = input.closest('.custom-dropdown');
+            if (dropdown) {
+                dropdown.classList.add('is-invalid');
+                const trigger = dropdown.querySelector('.dropdown-trigger');
+                if (trigger) trigger.style.borderColor = '#e53e3e';
+            }
+            const parent = dropdown ? dropdown.parentNode : input.parentNode;
+            if (!parent) return;
+            const feedback = document.createElement('span');
+            feedback.className = 'error-message-inline';
+            feedback.innerText = msg;
+            parent.appendChild(feedback);
+        });
+
+        const firstInvalid = form.querySelector('.is-invalid');
+        if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         if (form.dataset.submitting === '1') return;
@@ -80,11 +119,11 @@
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200 || status === 201) {
+                const msg = body.message || 'Equipo auxiliar actualizado correctamente.';
+                // Toast INMEDIATO + fallback en sessionStorage para post-navigate
+                if (typeof window.showToast === 'function') window.showToast(msg, 'success');
                 try {
-                    sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
-                        message: body.message || 'Equipo auxiliar actualizado correctamente.',
-                        type: 'success'
-                    }));
+                    sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                 } catch (_) {}
                 const redirect = body.redirect || '{{ route("equipos-auxiliares.index") }}';
                 if (typeof window.navigateTo === 'function') window.navigateTo(redirect);
@@ -96,21 +135,8 @@
             form.dataset.submitting = '0';
 
             if (status === 422 && body.errors) {
-                const firstField = Object.keys(body.errors)[0];
-                const firstMsg   = body.errors[firstField]?.[0] ?? 'Datos invalidos.';
-                if (window.showModal) {
-                    window.showModal({
-                        type: firstField === 'SERIAL' || firstField === 'CODIGO_INTERNO' ? 'warning' : 'error',
-                        title: firstField === 'SERIAL' ? 'Serial duplicado' : (firstField === 'CODIGO_INTERNO' ? 'Codigo interno duplicado' : 'Revisa los datos'),
-                        message: firstMsg,
-                        confirmText: 'Entendido',
-                        hideCancel: true
-                    });
-                } else if (window.showToast) {
-                    window.showToast(firstMsg, 'error');
-                } else {
-                    alert(firstMsg);
-                }
+                // Patron identico a /admin/equipos: banner + .is-invalid + error inline
+                window.auxApplyValidationErrors(body.errors);
                 return;
             }
 
