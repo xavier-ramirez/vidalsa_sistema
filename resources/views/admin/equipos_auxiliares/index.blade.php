@@ -137,20 +137,20 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Marca</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_marca" name="marca" value="{{ request('marca') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : 'white' }};border:1px solid {{ request('marca') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_marca">
-                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">search</i>
+                                <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('marca') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_marca">
+                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_marca" placeholder="Ej: Miller" value="{{ request('marca') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
                                            oninput="auxAdvFilter('marca',this.value)"
                                            onfocus="auxAdvOpen('marca')"
                                            onblur="setTimeout(()=>auxAdvClose('marca'),200)">
-                                    <i class="material-icons" id="aux_clr_marca" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('marca') ? 'block' : 'none' }};"
+                                    <i class="material-icons" id="aux_clr_marca" style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('marca') ? 'block' : 'none' }};"
                                        onmousedown="event.preventDefault();auxAdvClear('marca');cargarAuxiliares();">close</i>
                                 </div>
-                                <div id="aux_list_marca" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('marca','','Ej: Miller');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS MARCAS</div>
+                                <div id="aux_list_marca" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('marca','','Ej: Miller');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS MARCAS</div>
                                     @foreach($availableMarcas as $m)
-                                    <div class="aux-adv-opt" data-val="{{ $m }}" onmousedown="event.preventDefault();auxAdvSelect('marca','{{ $m }}','{{ addslashes($m) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $m }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $m }}" onmousedown="event.preventDefault();auxAdvSelect('marca','{{ $m }}','{{ addslashes($m) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $m }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -161,20 +161,20 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Modelo</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_modelo" name="modelo" value="{{ request('modelo') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : 'white' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_modelo">
-                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">search</i>
+                                <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_modelo">
+                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_modelo" placeholder="Ej: Bobcat 225" value="{{ request('modelo') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
                                            oninput="auxAdvFilter('modelo',this.value)"
                                            onfocus="auxAdvOpen('modelo')"
                                            onblur="setTimeout(()=>auxAdvClose('modelo'),200)">
-                                    <i class="material-icons" id="aux_clr_modelo" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('modelo') ? 'block' : 'none' }};"
+                                    <i class="material-icons" id="aux_clr_modelo" style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('modelo') ? 'block' : 'none' }};"
                                        onmousedown="event.preventDefault();auxAdvClear('modelo');cargarAuxiliares();">close</i>
                                 </div>
-                                <div id="aux_list_modelo" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('modelo','','Ej: Bobcat 225');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS MODELOS</div>
+                                <div id="aux_list_modelo" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('modelo','','Ej: Bobcat 225');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS MODELOS</div>
                                     @foreach($availableModelos as $mod)
-                                    <div class="aux-adv-opt" data-val="{{ $mod }}" onmousedown="event.preventDefault();auxAdvSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $mod }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $mod }}" onmousedown="event.preventDefault();auxAdvSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $mod }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -185,20 +185,20 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Capacidad</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_capacidad" name="capacidad" value="{{ request('capacidad') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : 'white' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_capacidad">
-                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">search</i>
+                                <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_capacidad">
+                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_capacidad" placeholder="Ej: 300A, 20 pies" value="{{ request('capacidad') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
                                            oninput="auxAdvFilter('capacidad',this.value)"
                                            onfocus="auxAdvOpen('capacidad')"
                                            onblur="setTimeout(()=>auxAdvClose('capacidad'),200)">
-                                    <i class="material-icons" id="aux_clr_capacidad" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('capacidad') ? 'block' : 'none' }};"
+                                    <i class="material-icons" id="aux_clr_capacidad" style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('capacidad') ? 'block' : 'none' }};"
                                        onmousedown="event.preventDefault();auxAdvClear('capacidad');cargarAuxiliares();">close</i>
                                 </div>
-                                <div id="aux_list_capacidad" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('capacidad','','Ej: 300A, 20 pies');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS CAPACIDADES</div>
+                                <div id="aux_list_capacidad" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('capacidad','','Ej: 300A, 20 pies');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS CAPACIDADES</div>
                                     @foreach($availableCapacidades as $cap)
-                                    <div class="aux-adv-opt" data-val="{{ $cap }}" onmousedown="event.preventDefault();auxAdvSelect('capacidad','{{ $cap }}','{{ addslashes($cap) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $cap }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $cap }}" onmousedown="event.preventDefault();auxAdvSelect('capacidad','{{ $cap }}','{{ addslashes($cap) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $cap }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -209,20 +209,20 @@
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Estado</span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_estado" name="estado" value="{{ request('estado') }}">
-                                <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : 'white' }};border:1px solid {{ request('estado') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_estado">
-                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">flag</i>
+                                <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('estado') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:40px;" id="aux_box_estado">
+                                    <i class="material-icons" style="padding:0 12px;color:#64748b;font-size:18px;">flag</i>
                                     <input type="text" id="aux_txt_estado" placeholder="{{ request('estado') ? strtoupper($estados[request('estado')] ?? request('estado')) : 'Todos los estados' }}" value="" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
+                                           style="flex:1;border:none;background:transparent;padding:0 5px;font-size:13px;outline:none;"
                                            oninput="auxAdvFilter('estado',this.value)"
                                            onfocus="auxAdvOpen('estado')"
                                            onblur="setTimeout(()=>auxAdvClose('estado'),200)">
-                                    <i class="material-icons" id="aux_clr_estado" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('estado') ? 'block' : 'none' }};"
+                                    <i class="material-icons" id="aux_clr_estado" style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('estado') ? 'block' : 'none' }};"
                                        onmousedown="event.preventDefault();auxAdvClear('estado');cargarAuxiliares();">close</i>
                                 </div>
-                                <div id="aux_list_estado" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('estado','','Todos los estados');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS ESTADOS</div>
+                                <div id="aux_list_estado" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('estado','','Todos los estados');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS ESTADOS</div>
                                     @foreach($estados as $k => $label)
-                                    <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -1216,8 +1216,8 @@
         if (txt)    { txt.value = value; txt.placeholder = value ? value : label; }
         if (clr)    clr.style.display = value ? 'block' : 'none';
         if (box)    {
-            box.style.background  = value ? '#e1effa' : 'white';
-            box.style.borderColor = value ? '#0067b1' : '#e2e8f0';
+            box.style.background  = value ? '#e1effa' : '#fbfcfd';
+            box.style.borderColor = value ? '#0067b1' : '#cbd5e0';
         }
         if (list)   list.style.display = 'none';
     };
