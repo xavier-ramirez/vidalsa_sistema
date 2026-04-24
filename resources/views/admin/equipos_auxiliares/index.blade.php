@@ -124,46 +124,33 @@
                         style="height:45px;width:45px;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;background:{{ $advActive ? '#fee2e2' : 'white' }};border:1px solid {{ $advActive ? '#ef4444' : '#cbd5e0' }};color:{{ $advActive ? '#ef4444' : '#64748b' }};box-shadow:none;">
                     <i class="material-icons">filter_list</i>
                 </button>
-                <div id="auxAdvPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;width:340px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);padding:14px;z-index:200;">
+                <div id="auxAdvPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;width:320px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);padding:14px;z-index:500;overflow:visible;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <h4 style="margin:0;font-size:14px;font-weight:700;color:#334155;">Filtros Avanzados</h4>
                         <span style="font-size:11px;color:#64748b;text-decoration:underline;cursor:pointer;"
-                              onclick="clearDropdownFilter('adv_marca_dd'); clearDropdownFilter('adv_modelo_dd'); clearDropdownFilter('adv_capacidad_dd'); clearDropdownFilter('adv_estado_dd'); cargarAuxiliares();">Limpiar Todo</span>
+                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');cargarAuxiliares();">Limpiar Todo</span>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:10px;">
 
                         {{-- Marca --}}
                         <div>
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Marca</span>
-                            <div class="custom-dropdown" id="adv_marca_dd"
-                                 data-filter-type="marca" data-default-label="Ej: Miller"
-                                 style="position:relative;">
-                                <input type="hidden" name="marca" data-filter-value value="{{ request('marca') }}">
-                                <div class="dropdown-trigger {{ request('marca') ? 'filter-active' : '' }}"
-                                     style="padding:0;display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : 'white' }};border:1px solid {{ request('marca') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;overflow:visible;">
-                                    <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
-                                        <i class="material-icons" style="font-size:16px;">search</i>
-                                    </div>
-                                    <input type="text" data-filter-search
-                                           placeholder="{{ request('marca') ?: 'Ej: Miller' }}"
-                                           value="{{ request('marca') }}"
-                                           autocomplete="off"
+                            <div style="position:relative;">
+                                <input type="hidden" id="aux_val_marca" name="marca" value="{{ request('marca') }}">
+                                <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : 'white' }};border:1px solid {{ request('marca') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_marca">
+                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">search</i>
+                                    <input type="text" id="aux_txt_marca" placeholder="Ej: Miller" value="{{ request('marca') }}" autocomplete="off"
                                            style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
-                                           oninput="filterDropdownOptions(this);"
-                                           onfocus="this.closest('.custom-dropdown').classList.add('active')">
-                                    <i class="material-icons" data-clear-btn
-                                       style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('marca') ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); clearDropdownFilter('adv_marca_dd'); cargarAuxiliares();">close</i>
+                                           oninput="auxAdvFilter('marca',this.value)"
+                                           onfocus="auxAdvOpen('marca')"
+                                           onblur="setTimeout(()=>auxAdvClose('marca'),200)">
+                                    <i class="material-icons" id="aux_clr_marca" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('marca') ? 'block' : 'none' }};"
+                                       onmousedown="event.preventDefault();auxAdvClear('marca');cargarAuxiliares();">close</i>
                                 </div>
-                                <div class="dropdown-content" style="position:absolute;top:100%;left:0;right:0;z-index:300;max-height:160px;overflow-y:auto;border-radius:6px;">
-                                    <div class="dropdown-item {{ !request('marca') ? 'selected' : '' }}" data-value=""
-                                         onclick="selectOption('adv_marca_dd','','Ej: Miller'); cargarAuxiliares();">TODAS LAS MARCAS</div>
-                                    @foreach($availableMarcas as $marca)
-                                        <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}"
-                                             data-value="{{ $marca }}"
-                                             onclick="selectOption('adv_marca_dd','{{ $marca }}','{{ addslashes($marca) }}'); cargarAuxiliares();">
-                                            {{ $marca }}
-                                        </div>
+                                <div id="aux_list_marca" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('marca','','Ej: Miller');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS MARCAS</div>
+                                    @foreach($availableMarcas as $m)
+                                    <div class="aux-adv-opt" data-val="{{ $m }}" onmousedown="event.preventDefault();auxAdvSelect('marca','{{ $m }}','{{ addslashes($m) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $m }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -172,35 +159,22 @@
                         {{-- Modelo --}}
                         <div>
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Modelo</span>
-                            <div class="custom-dropdown" id="adv_modelo_dd"
-                                 data-filter-type="modelo" data-default-label="Ej: Bobcat 225"
-                                 style="position:relative;">
-                                <input type="hidden" name="modelo" data-filter-value value="{{ request('modelo') }}">
-                                <div class="dropdown-trigger {{ request('modelo') ? 'filter-active' : '' }}"
-                                     style="padding:0;display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : 'white' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;overflow:visible;">
-                                    <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
-                                        <i class="material-icons" style="font-size:16px;">search</i>
-                                    </div>
-                                    <input type="text" data-filter-search
-                                           placeholder="{{ request('modelo') ?: 'Ej: Bobcat 225' }}"
-                                           value="{{ request('modelo') }}"
-                                           autocomplete="off"
+                            <div style="position:relative;">
+                                <input type="hidden" id="aux_val_modelo" name="modelo" value="{{ request('modelo') }}">
+                                <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : 'white' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_modelo">
+                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">search</i>
+                                    <input type="text" id="aux_txt_modelo" placeholder="Ej: Bobcat 225" value="{{ request('modelo') }}" autocomplete="off"
                                            style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
-                                           oninput="filterDropdownOptions(this);"
-                                           onfocus="this.closest('.custom-dropdown').classList.add('active')">
-                                    <i class="material-icons" data-clear-btn
-                                       style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('modelo') ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); clearDropdownFilter('adv_modelo_dd'); cargarAuxiliares();">close</i>
+                                           oninput="auxAdvFilter('modelo',this.value)"
+                                           onfocus="auxAdvOpen('modelo')"
+                                           onblur="setTimeout(()=>auxAdvClose('modelo'),200)">
+                                    <i class="material-icons" id="aux_clr_modelo" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('modelo') ? 'block' : 'none' }};"
+                                       onmousedown="event.preventDefault();auxAdvClear('modelo');cargarAuxiliares();">close</i>
                                 </div>
-                                <div class="dropdown-content" style="position:absolute;top:100%;left:0;right:0;z-index:300;max-height:160px;overflow-y:auto;border-radius:6px;">
-                                    <div class="dropdown-item {{ !request('modelo') ? 'selected' : '' }}" data-value=""
-                                         onclick="selectOption('adv_modelo_dd','','Ej: Bobcat 225'); cargarAuxiliares();">TODOS LOS MODELOS</div>
-                                    @foreach($availableModelos as $modelo)
-                                        <div class="dropdown-item {{ request('modelo') == $modelo ? 'selected' : '' }}"
-                                             data-value="{{ $modelo }}"
-                                             onclick="selectOption('adv_modelo_dd','{{ $modelo }}','{{ addslashes($modelo) }}'); cargarAuxiliares();">
-                                            {{ $modelo }}
-                                        </div>
+                                <div id="aux_list_modelo" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('modelo','','Ej: Bobcat 225');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS MODELOS</div>
+                                    @foreach($availableModelos as $mod)
+                                    <div class="aux-adv-opt" data-val="{{ $mod }}" onmousedown="event.preventDefault();auxAdvSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $mod }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -209,35 +183,22 @@
                         {{-- Capacidad --}}
                         <div>
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Capacidad</span>
-                            <div class="custom-dropdown" id="adv_capacidad_dd"
-                                 data-filter-type="capacidad" data-default-label="Ej: 300A, 20 pies"
-                                 style="position:relative;">
-                                <input type="hidden" name="capacidad" data-filter-value value="{{ request('capacidad') }}">
-                                <div class="dropdown-trigger {{ request('capacidad') ? 'filter-active' : '' }}"
-                                     style="padding:0;display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : 'white' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;overflow:visible;">
-                                    <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
-                                        <i class="material-icons" style="font-size:16px;">search</i>
-                                    </div>
-                                    <input type="text" data-filter-search
-                                           placeholder="{{ request('capacidad') ?: 'Ej: 300A, 20 pies' }}"
-                                           value="{{ request('capacidad') }}"
-                                           autocomplete="off"
+                            <div style="position:relative;">
+                                <input type="hidden" id="aux_val_capacidad" name="capacidad" value="{{ request('capacidad') }}">
+                                <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : 'white' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_capacidad">
+                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">search</i>
+                                    <input type="text" id="aux_txt_capacidad" placeholder="Ej: 300A, 20 pies" value="{{ request('capacidad') }}" autocomplete="off"
                                            style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
-                                           oninput="filterDropdownOptions(this);"
-                                           onfocus="this.closest('.custom-dropdown').classList.add('active')">
-                                    <i class="material-icons" data-clear-btn
-                                       style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('capacidad') ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); clearDropdownFilter('adv_capacidad_dd'); cargarAuxiliares();">close</i>
+                                           oninput="auxAdvFilter('capacidad',this.value)"
+                                           onfocus="auxAdvOpen('capacidad')"
+                                           onblur="setTimeout(()=>auxAdvClose('capacidad'),200)">
+                                    <i class="material-icons" id="aux_clr_capacidad" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('capacidad') ? 'block' : 'none' }};"
+                                       onmousedown="event.preventDefault();auxAdvClear('capacidad');cargarAuxiliares();">close</i>
                                 </div>
-                                <div class="dropdown-content" style="position:absolute;top:100%;left:0;right:0;z-index:300;max-height:160px;overflow-y:auto;border-radius:6px;">
-                                    <div class="dropdown-item {{ !request('capacidad') ? 'selected' : '' }}" data-value=""
-                                         onclick="selectOption('adv_capacidad_dd','','Ej: 300A, 20 pies'); cargarAuxiliares();">TODAS LAS CAPACIDADES</div>
+                                <div id="aux_list_capacidad" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('capacidad','','Ej: 300A, 20 pies');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS CAPACIDADES</div>
                                     @foreach($availableCapacidades as $cap)
-                                        <div class="dropdown-item {{ request('capacidad') == $cap ? 'selected' : '' }}"
-                                             data-value="{{ $cap }}"
-                                             onclick="selectOption('adv_capacidad_dd','{{ $cap }}','{{ addslashes($cap) }}'); cargarAuxiliares();">
-                                            {{ $cap }}
-                                        </div>
+                                    <div class="aux-adv-opt" data-val="{{ $cap }}" onmousedown="event.preventDefault();auxAdvSelect('capacidad','{{ $cap }}','{{ addslashes($cap) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $cap }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -246,41 +207,28 @@
                         {{-- Estado --}}
                         <div>
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Estado</span>
-                            <div class="custom-dropdown" id="adv_estado_dd"
-                                 data-filter-type="estado" data-default-label="Todos los estados"
-                                 style="position:relative;">
-                                <input type="hidden" name="estado" data-filter-value value="{{ request('estado') }}">
-                                <div class="dropdown-trigger {{ request('estado') ? 'filter-active' : '' }}"
-                                     style="padding:0;display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : 'white' }};border:1px solid {{ request('estado') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;overflow:visible;">
-                                    <div style="padding:0 8px;display:flex;align-items:center;color:#94a3b8;">
-                                        <i class="material-icons" style="font-size:16px;">flag</i>
-                                    </div>
-                                    <input type="text" data-filter-search
-                                           placeholder="{{ request('estado') ? strtoupper($estados[request('estado')] ?? request('estado')) : 'Todos los estados' }}"
-                                           value=""
-                                           autocomplete="off"
+                            <div style="position:relative;">
+                                <input type="hidden" id="aux_val_estado" name="estado" value="{{ request('estado') }}">
+                                <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : 'white' }};border:1px solid {{ request('estado') ? '#0067b1' : '#e2e8f0' }};border-radius:6px;height:32px;" id="aux_box_estado">
+                                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:16px;">flag</i>
+                                    <input type="text" id="aux_txt_estado" placeholder="{{ request('estado') ? strtoupper($estados[request('estado')] ?? request('estado')) : 'Todos los estados' }}" value="" autocomplete="off"
                                            style="flex:1;border:none;background:transparent;padding:4px 0;font-size:12px;outline:none;"
-                                           oninput="filterDropdownOptions(this);"
-                                           onfocus="this.closest('.custom-dropdown').classList.add('active')">
-                                    <i class="material-icons" data-clear-btn
-                                       style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('estado') ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); clearDropdownFilter('adv_estado_dd'); cargarAuxiliares();">close</i>
+                                           oninput="auxAdvFilter('estado',this.value)"
+                                           onfocus="auxAdvOpen('estado')"
+                                           onblur="setTimeout(()=>auxAdvClose('estado'),200)">
+                                    <i class="material-icons" id="aux_clr_estado" style="padding:0 6px;color:#94a3b8;font-size:16px;cursor:pointer;display:{{ request('estado') ? 'block' : 'none' }};"
+                                       onmousedown="event.preventDefault();auxAdvClear('estado');cargarAuxiliares();">close</i>
                                 </div>
-                                <div class="dropdown-content" style="position:absolute;top:100%;left:0;right:0;z-index:300;max-height:160px;overflow-y:auto;border-radius:6px;">
-                                    <div class="dropdown-item {{ !request('estado') ? 'selected' : '' }}" data-value=""
-                                         onclick="selectOption('adv_estado_dd','','Todos los estados'); cargarAuxiliares();">TODOS LOS ESTADOS</div>
+                                <div id="aux_list_estado" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);max-height:150px;overflow-y:auto;margin-top:2px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('estado','','Todos los estados');cargarAuxiliares();" style="padding:7px 10px;font-size:11px;color:#64748b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS ESTADOS</div>
                                     @foreach($estados as $k => $label)
-                                        <div class="dropdown-item {{ request('estado') === $k ? 'selected' : '' }}"
-                                             data-value="{{ $k }}"
-                                             onclick="selectOption('adv_estado_dd','{{ $k }}','{{ strtoupper($label) }}'); cargarAuxiliares();">
-                                            {{ strtoupper($label) }}
-                                        </div>
+                                    <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:7px 10px;font-size:12px;font-weight:600;color:#1e293b;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
                                     @endforeach
                                 </div>
                             </div>
                         </div>
 
-                        <button type="button" onclick="cargarAuxiliares(); document.getElementById('auxAdvPanel').style.display='none';"
+                        <button type="button" onclick="cargarAuxiliares();document.getElementById('auxAdvPanel').style.display='none';"
                                 class="btn-primary-maquinaria" style="width:100%;height:38px;justify-content:center;margin-top:4px;">
                             <i class="material-icons" style="font-size:16px;">search</i> Aplicar
                         </button>
@@ -920,8 +868,8 @@
         cargarAuxiliares();
     };
     window.auxFilterByEstado = function (estado) {
-        const input = document.getElementById('adv_estado');
-        if (input) input.value = (estado === 'all') ? '' : estado;
+        const val = (estado === 'all') ? '' : estado;
+        window.auxAdvSelect('estado', val, val ? val : 'Todos los estados');
         cargarAuxiliares();
     };
 
@@ -1226,6 +1174,58 @@
             })
             .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
+
+    // ═══════════════════════════════════════════════════════════
+    // AUTOCOMPLETE FILTROS AVANZADOS (Marca / Modelo / Capacidad / Estado)
+    // Sistema propio: controla display directo, sin depender de CSS .active
+    // ═══════════════════════════════════════════════════════════
+    window.auxAdvFilter = function (prefix, q) {
+        var list = document.getElementById('aux_list_' + prefix);
+        if (!list) return;
+        list.style.display = 'block';
+        var term = (q || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        list.querySelectorAll('.aux-adv-opt').forEach(function (opt) {
+            var text = opt.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            opt.style.display = (term === '' || text.includes(term)) ? 'block' : 'none';
+        });
+        var clr = document.getElementById('aux_clr_' + prefix);
+        if (clr) clr.style.display = q ? 'block' : 'none';
+    };
+
+    window.auxAdvOpen = function (prefix) {
+        var list = document.getElementById('aux_list_' + prefix);
+        if (!list) return;
+        list.style.display = 'block';
+        list.querySelectorAll('.aux-adv-opt').forEach(function (opt) {
+            opt.style.display = 'block';
+        });
+    };
+
+    window.auxAdvClose = function (prefix) {
+        var list = document.getElementById('aux_list_' + prefix);
+        if (list) list.style.display = 'none';
+    };
+
+    window.auxAdvSelect = function (prefix, value, label) {
+        var hidden = document.getElementById('aux_val_' + prefix);
+        var txt    = document.getElementById('aux_txt_' + prefix);
+        var clr    = document.getElementById('aux_clr_' + prefix);
+        var box    = document.getElementById('aux_box_' + prefix);
+        var list   = document.getElementById('aux_list_' + prefix);
+        if (hidden) hidden.value = value;
+        if (txt)    { txt.value = value; txt.placeholder = value ? value : label; }
+        if (clr)    clr.style.display = value ? 'block' : 'none';
+        if (box)    {
+            box.style.background  = value ? '#e1effa' : 'white';
+            box.style.borderColor = value ? '#0067b1' : '#e2e8f0';
+        }
+        if (list)   list.style.display = 'none';
+    };
+
+    window.auxAdvClear = function (prefix) {
+        window.auxAdvSelect(prefix, '', '');
+    };
+
 })();
 </script>
 @endsection
