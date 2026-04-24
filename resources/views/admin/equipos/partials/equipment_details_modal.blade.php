@@ -356,6 +356,11 @@ if (!window._gpsModalScriptLoaded) {
 
             setTimeout(function () {
                 if (window.hidePreloader) window.hidePreloader();
+                // Guard: si la SPA navego antes de que dispare el timeout, el
+                // modal ya no esta conectado al DOM. Evitamos aplicar overflow
+                // hidden al body de la pagina destino (ej. /edit) lo que dejaba
+                // al usuario sin scroll vertical.
+                if (!modal || !modal.isConnected) return;
                 modal.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
             }, 1200);

@@ -1053,6 +1053,11 @@ window.closeDetailsModal = function (event) {
             modal.style.display = "none";
         }, 300);
     }
+
+    // CRITICO: restaurar scroll del body. El modal lo setea a 'hidden' al abrir,
+    // y si no lo revertimos aqui, cualquier pagina que venga despues (ej. al
+    // navegar a /edit desde el boton del modal) queda sin scroll vertical.
+    document.body.style.overflow = '';
 };
 
 window.loadResponsables = (function () {
