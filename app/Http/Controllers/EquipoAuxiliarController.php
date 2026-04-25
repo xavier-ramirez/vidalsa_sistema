@@ -321,8 +321,27 @@ class EquipoAuxiliarController extends Controller
      */
     public function details($id)
     {
-        $aux = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion', 'equipoHost.tipo', 'creador'])->findOrFail($id);
+        $aux = EquipoAuxiliar::with([
+            'frente',
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            'equipoHost.especificaciones',
+            'equipoHost.frenteActual',
+            'creador',
+        ])->findOrFail($id);
         $tiposMap = $this->getTiposDinamicos();
+
+        // Foto del host: prioriza FOTO_REFERENCIAL del catalogo del modelo,
+        // cae a FOTO_EQUIPO propia.
+        $hostFoto = null;
+        if ($aux->equipoHost) {
+            if ($aux->equipoHost->especificaciones && $aux->equipoHost->especificaciones->FOTO_REFERENCIAL) {
+                $hostFoto = asset($aux->equipoHost->especificaciones->FOTO_REFERENCIAL);
+            } elseif ($aux->equipoHost->FOTO_EQUIPO) {
+                $hostFoto = asset($aux->equipoHost->FOTO_EQUIPO);
+            }
+        }
+
         return response()->json([
             'id'             => $aux->ID_AUXILIAR,
             'tipo'           => $aux->TIPO,
@@ -342,13 +361,24 @@ class EquipoAuxiliarController extends Controller
             'link_certificado'       => $aux->LINK_CERTIFICADO ?? null,
             'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT ?? null,
             'frente'         => optional($aux->frente)->NOMBRE_FRENTE,
-            'host_codigo'    => optional($aux->equipoHost)->CODIGO_PATIO,
-            'host_id'        => $aux->ID_EQUIPO_HOST,
-            'host_placa'     => optional(optional($aux->equipoHost)->documentacion)->PLACA,
-            'host_tipo'      => optional(optional($aux->equipoHost)->tipo)->nombre,
+            // Host (equipo vinculado)
+            'host_id'            => $aux->ID_EQUIPO_HOST,
+            'host_codigo'        => optional($aux->equipoHost)->CODIGO_PATIO,
+            'host_placa'         => optional(optional($aux->equipoHost)->documentacion)->PLACA,
+            'host_serial_chasis' => optional($aux->equipoHost)->SERIAL_CHASIS,
+            'host_tipo'          => optional(optional($aux->equipoHost)->tipo)->nombre,
+            'host_marca'         => optional($aux->equipoHost)->MARCA,
+            'host_modelo'        => optional($aux->equipoHost)->MODELO,
+            'host_foto'          => $hostFoto,
+            'host_frente'        => optional(optional($aux->equipoHost)->frenteActual)->NOMBRE_FRENTE,
+            // Auditoria
             'creado_por'     => optional($aux->creador)->NOMBRE_COMPLETO,
             'created_at'     => optional($aux->created_at)->format('d/m/Y H:i'),
             'edit_url'       => route('equipos-auxiliares.edit', $aux->ID_AUXILIAR),
+            // Permisos del usuario actual para que el frontend renderice
+            // condicionalmente los botones de accion del modal.
+            'can_edit'       => auth()->user() && auth()->user()->can('equipos.edit'),
+            'can_assign'     => auth()->user() && auth()->user()->can('equipos.assign'),
         ]);
     }
 

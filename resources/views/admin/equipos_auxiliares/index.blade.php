@@ -478,10 +478,12 @@
                 onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
             <span class="desktop-text">Limpiar</span>
         </button>
+        @can('equipos.assign')
         <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
-            <span class="desktop-text">Movilizar</span>
+            <span class="desktop-text">Asignar</span>
         </button>
+        @endcan
     </div>
 </div>
 
@@ -649,9 +651,10 @@
                 <span style="color:#333; font-size:13px; text-align:right; word-wrap:break-word; line-height:1.3; flex:1; max-width:65%;">${value || '—'}</span>
             </div>`;
 
-        // Helper: seccion accordion (sin name= para permitir varias abiertas a la vez)
+        // Helper: seccion accordion (name="aux_details_accordion" -> solo una
+        // abierta a la vez; al abrir otra, la actual se cierra automaticamente)
         const section = (title, icon, content, open = false) => `
-            <details ${open ? 'open' : ''} style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
+            <details ${open ? 'open' : ''} name="aux_details_accordion" style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
                 <summary style="padding:15px 20px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:10px; background:#f8fafc; list-style:none; cursor:pointer;">
                     <i class="material-icons" style="font-size:20px; color:#64748b;">${icon}</i>
                     <span>${title}</span>
@@ -678,19 +681,25 @@
             ? `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:4px; color:${color}; font-weight:700; text-decoration:none; font-size:12px;"><i class="material-icons" style="font-size:16px;">picture_as_pdf</i>${label}</a>`
             : '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
 
-        // Equipo Vinculado: tarjeta con datos del host si existe
-        const hostCard = d.host_id
-            ? `<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px; margin-top:4px;">
-                    <div style="background:#1e40af; color:white; padding:8px; border-radius:8px; display:flex; flex-shrink:0;">
-                        <i class="material-icons" style="font-size:20px;">directions_car</i>
+        // Tarjeta del equipo vinculado (host) - estilo "etiqueta" compacta del modal de anclajes /admin/equipos
+        let hostCard;
+        if (d.host_id) {
+            const idPrincipal = d.host_placa || d.host_serial_chasis || ('#' + d.host_id);
+            const tipoUpper   = (d.host_tipo || 'Sin Tipo').toUpperCase();
+            const fotoThumb = d.host_foto
+                ? `<img src="${d.host_foto}" alt="" style="width:32px;height:26px;object-fit:contain;border-radius:5px;background:#fff;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML='<div style=&quot;width:32px;height:26px;border-radius:5px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0;&quot;><i class=&quot;material-icons&quot; style=&quot;color:#cbd5e1;font-size:14px;&quot;>directions_car</i></div>'">`
+                : `<div style="width:32px;height:26px;border-radius:5px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0;"><i class="material-icons" style="color:#cbd5e1;font-size:14px;">directions_car</i></div>`;
+            hostCard = `
+                <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;padding:5px 8px;border-radius:6px;border:1px solid #f1f5f9;">
+                    ${fotoThumb}
+                    <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+                        <span style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">${tipoUpper}</span>
+                        <span style="font-size:12px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${idPrincipal}</span>
                     </div>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-weight:800; color:#1e293b; font-size:14px; line-height:1.2;">${d.host_placa || d.host_codigo || ('#' + d.host_id)}</div>
-                        ${d.host_tipo ? `<div style="color:#475569; font-size:12px; margin-top:2px;">${d.host_tipo}</div>` : ''}
-                        ${d.host_codigo && d.host_placa ? `<div style="color:#64748b; font-size:11px; margin-top:2px;">Código: #${d.host_codigo}</div>` : ''}
-                    </div>
-               </div>`
-            : '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:13px; font-style:italic;">Sin equipo vinculado.</div>';
+                </div>`;
+        } else {
+            hostCard = '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:12px;font-style:italic;">Sin equipo vinculado.</div>';
+        }
 
         // IMPORTANTE: solo campos NO presentes en la tabla del index.
         // En la tabla ya se ven: frente, foto, tipo, marca/modelo, serial, capacidad, estado.
