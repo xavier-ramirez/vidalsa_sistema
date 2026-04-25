@@ -387,9 +387,9 @@
                     @php $canCreateAux = auth()->user() && auth()->user()->can('equipos.create'); @endphp
                     <a href="{{ $canCreateAux ? route('equipos-auxiliares.create') : '#' }}"
                        @if(!$canCreateAux) onclick="event.preventDefault(); if(window.showToast){window.showToast('No tienes permiso para crear equipos auxiliares.', 'warning');} document.getElementById('auxAccionesDropdown').style.display='none';" @endif
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:{{ $canCreateAux ? '#475569' : '#94a3b8' }};font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;{{ $canCreateAux ? '' : 'cursor:not-allowed;' }}"
+                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;{{ $canCreateAux ? '' : 'cursor:not-allowed;' }}"
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:{{ $canCreateAux ? '#fff7ed' : '#f1f5f9' }};padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:{{ $canCreateAux ? '#f59e0b' : '#94a3b8' }};">{{ $canCreateAux ? 'add_circle' : 'lock' }}</i></div>
+                        <div style="background:#fff7ed;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#f59e0b;">add_circle</i></div>
                         <span>Nuevo Equipo Auxiliar</span>
                     </a>
                     <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.openAuxAnclajesModal();"
