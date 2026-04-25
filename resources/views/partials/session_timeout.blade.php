@@ -1,14 +1,39 @@
 
-    <!-- Session Timeout Modal (Modern & Compact) -->
+    {{-- Session Timeout Modal — Estilo moderno consistente con modales de /admin/equipos --}}
     <div id="sessionTimeoutModal" class="modal-overlay" style="display: none; z-index: 1000002 !important;">
-        <div class="modal-card" style="padding: 20px !important; max-width: 320px !important; border-radius: 12px; text-align: center;">
-            <i class="material-icons modal-icon" style="color: #f59e0b; font-size: 40px !important; margin-bottom: 10px !important;">warning</i>
-            <h3 class="modal-title" style="font-size: 1.05rem !important; margin-bottom: 5px !important; color: #1e293b; font-weight: 700;">Tu sesión está por expirar</h3>
-            <p class="modal-message" style="font-size: 0.9rem !important; margin-bottom: 15px !important; color: #64748b; line-height: 1.5;">Se cerrará en <strong id="sessionCountdown" style="color: #dc2626;">60</strong> segundos por inactividad.</p>
-            
-            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: center; width: 100%;">
-                <button id="btnExtendSession" onclick="extendSession()" class="modal-btn modal-btn-confirm" style="width: 100%; padding: 8px 16px !important; font-size: 0.85rem !important; background-color: var(--maquinaria-blue, #1e293b); color: white; border: none; border-radius: 6px; cursor: pointer;">
-                    Mantener Sesión
+        <div class="modal-content" style="width: 90%; max-width: 380px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); border: 1px solid #e2e8f0;">
+
+            {{-- HEADER con gradiente + icono circular --}}
+            <div style="background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%); padding: 20px 22px; display: flex; align-items: center; gap: 14px;">
+                <div style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="material-icons" style="color: #f59e0b; font-size: 24px;">warning_amber</i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 style="margin: 0; color: #fff; font-size: 15px; font-weight: 700; line-height: 1.25;">Tu sesión está por expirar</h3>
+                    <p style="margin: 3px 0 0 0; color: #94a3b8; font-size: 12px;">Inactividad detectada</p>
+                </div>
+            </div>
+
+            {{-- BODY --}}
+            <div style="padding: 22px 24px; background: #f8fafc;">
+                <p style="margin: 0 0 14px 0; font-size: 14px; color: #334155; line-height: 1.55; text-align: center;">
+                    Se cerrará automáticamente en
+                    <strong id="sessionCountdown" style="color: #dc2626; font-size: 22px; font-weight: 800; display: block; margin: 6px 0;">60</strong>
+                    <span style="color:#64748b; font-size:12.5px;">segundos por inactividad.</span>
+                </p>
+
+                {{-- Barra de progreso --}}
+                <div style="background: #e2e8f0; height: 6px; border-radius: 999px; overflow: hidden; margin-bottom: 18px;">
+                    <div id="sessionCountdownBar" style="height: 100%; width: 100%; background: linear-gradient(90deg,#ef4444 0%,#f59e0b 100%); border-radius: 999px; transition: width 1s linear;"></div>
+                </div>
+
+                {{-- Boton principal --}}
+                <button id="btnExtendSession" type="button" onclick="extendSession()"
+                        style="width: 100%; padding: 11px 16px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg,#0067b1 0%,#0284c7 100%); color: white; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(2,132,199,0.3); transition: transform 0.15s, box-shadow 0.15s;"
+                        onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(2,132,199,0.45)';"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(2,132,199,0.3)';">
+                    <i class="material-icons" style="font-size: 18px;">refresh</i>
+                    <span>Mantener Sesión</span>
                 </button>
             </div>
         </div>
@@ -138,13 +163,16 @@
             function showWarning(secRemaining) {
                 const modal   = document.getElementById('sessionTimeoutModal');
                 const counter = document.getElementById('sessionCountdown');
+                const bar     = document.getElementById('sessionCountdownBar');
                 if (modal && !isModalVisible) {
                     modal.style.display = 'flex';
                     modal.classList.add('active');
                     modal.style.zIndex  = '1000002';
                     isModalVisible = true;
                 }
-                if (counter) counter.innerText = Math.max(secRemaining, 0);
+                const safeSec = Math.max(secRemaining, 0);
+                if (counter) counter.innerText = safeSec;
+                if (bar) bar.style.width = (Math.max(0, Math.min(100, (safeSec / WARNING_DURATION_SEC) * 100))) + '%';
             }
 
             function hideWarning() {
@@ -156,11 +184,13 @@
                     }, 300); // Wait for transition
                     isModalVisible = false;
                 }
+                const bar = document.getElementById('sessionCountdownBar');
+                if (bar) bar.style.width = '100%';
                 const btn = document.getElementById('btnExtendSession');
                 if (btn) {
                     btn.disabled      = false;
                     btn.style.opacity = '1';
-                    btn.innerHTML     = 'Mantener Sesión';
+                    btn.innerHTML     = '<i class="material-icons" style="font-size:18px;">refresh</i><span>Mantener Sesión</span>';
                 }
             }
 
@@ -170,7 +200,7 @@
                 if (btn) {
                     btn.disabled      = true;
                     btn.style.opacity = '0.7';
-                    btn.innerHTML     = 'Renovando...';
+                    btn.innerHTML     = '<i class="material-icons" style="font-size:18px;animation:spin 1s linear infinite;">sync</i><span>Renovando...</span>';
                 }
 
                 if (typeof window.showPreloader === 'function') window.showPreloader();
@@ -217,7 +247,7 @@
                         if (btn) {
                             btn.disabled      = false;
                             btn.style.opacity = '1';
-                            btn.innerHTML     = 'Mantener Sesión';
+                            btn.innerHTML     = '<i class="material-icons" style="font-size:18px;">refresh</i><span>Mantener Sesión</span>';
                         }
                     });
             };

@@ -628,9 +628,10 @@
     {{-- ── Hero moderno: 3 imágenes con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
         <div class="menu-hero-stripes">
-            <div><img src="{{ asset('images/menu_hero_1.jpeg') }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img src="{{ asset('images/menu_hero_2.jpeg') }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img src="{{ asset('images/menu_hero_3.jpeg') }}" alt="" draggable="false" style="object-position: 25% center;"></div>
+            @php $heroImg = asset('images/maquinaria_login_new.webp'); @endphp
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: 75% center;"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">
