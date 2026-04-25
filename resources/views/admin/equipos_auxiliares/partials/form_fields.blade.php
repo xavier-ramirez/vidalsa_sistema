@@ -147,20 +147,45 @@
         <label for="hostSearchInput" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
             Equipo Vinculado
         </label>
+        @php
+            $hostPickedCard = null;
+            if (isset($h) && $h) {
+                $hostPickedCard = [
+                    'id'     => $h->ID_EQUIPO,
+                    'codigo' => $h->CODIGO_PATIO ?? ('#'.$h->ID_EQUIPO),
+                    'marca'  => $h->MARCA,
+                    'modelo' => $h->MODELO,
+                    'placa'  => optional($h->documentacion)->PLACA,
+                ];
+            }
+        @endphp
         <div id="auxHostPicker" style="position: relative;">
             <input type="hidden" name="ID_EQUIPO_HOST" id="ID_EQUIPO_HOST" value="{{ $hostId }}">
-            <input type="text" id="hostSearchInput" autocomplete="off"
-                   value="{{ $hostPreload }}"
-                   class="form-input-custom @error('ID_EQUIPO_HOST') is-invalid @enderror"
-                   placeholder="Buscar por serial motor, serial chasis o placa..."
-                   oninput="window.auxHostSearch(this)"
-                   onfocus="window.auxHostSearch(this)"
-                   onblur="setTimeout(()=>window.auxHostClose(),200)">
-            <i class="material-icons" id="hostClearBtn"
-               style="position:absolute; right:8px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:18px; color:#94a3b8; display:{{ $hostId ? 'block' : 'none' }};"
-               onclick="window.auxHostClear()">close</i>
-            <div id="hostResultsBox"
-                 style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 20px -5px rgba(15,23,42,0.18); max-height:320px; overflow-y:auto; z-index:50;">
+            <div id="hostSearchWrapper" style="position:relative; display:{{ $hostPickedCard ? 'none' : 'block' }};">
+                <input type="text" id="hostSearchInput" autocomplete="off"
+                       class="form-input-custom @error('ID_EQUIPO_HOST') is-invalid @enderror"
+                       placeholder="Buscar por serial motor, serial chasis o placa..."
+                       oninput="window.auxHostSearch(this)"
+                       onfocus="window.auxHostSearch(this)"
+                       onblur="setTimeout(()=>window.auxHostClose(),200)">
+                <div id="hostResultsBox"
+                     style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 20px -5px rgba(15,23,42,0.18); max-height:360px; overflow-y:auto; z-index:50;">
+                </div>
+            </div>
+            <div id="hostSelectedCard" style="display:{{ $hostPickedCard ? 'flex' : 'none' }}; background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:10px 12px; align-items:center; gap:12px;">
+                <div style="background:#1e40af; color:white; padding:8px; border-radius:8px; display:flex; flex-shrink:0;">
+                    <i class="material-icons" style="font-size:20px;">directions_car</i>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div id="hostSelectedPrimary" style="font-weight:800; color:#1e293b; font-size:14px; line-height:1.2;">{{ $hostPickedCard['placa'] ?? ($hostPickedCard['codigo'] ?? '') }}</div>
+                    <div id="hostSelectedSecondary" style="color:#475569; font-size:12px; margin-top:2px;">{{ trim(($hostPickedCard['marca'] ?? '').' '.($hostPickedCard['modelo'] ?? '')) ?: '' }}</div>
+                    <div id="hostSelectedTertiary" style="color:#64748b; font-size:11px; margin-top:2px;">{{ isset($hostPickedCard['codigo']) ? 'Código: '.$hostPickedCard['codigo'] : '' }}</div>
+                </div>
+                <button type="button" onclick="window.auxHostClear()" title="Cambiar equipo vinculado"
+                        style="background:white; border:1px solid #cbd5e1; color:#475569; cursor:pointer; border-radius:6px; padding:6px 10px; display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600;">
+                    <i class="material-icons" style="font-size:16px;">swap_horiz</i>
+                    Cambiar
+                </button>
             </div>
         </div>
         <small style="display:block;margin-top:4px;font-size:11px;color:#94a3b8;">
@@ -304,28 +329,44 @@
             box.style.display = 'block';
             return;
         }
+        const esc = (s) => (s || '').toString().replace(/"/g, '&quot;');
         box.innerHTML = rows.map(r => {
             const dis = r.disponible ? '' : 'opacity:0.55; pointer-events:none;';
             const badge = r.disponible
-                ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Disponible</span>`
-                : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
+                ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>`
+                : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
+            // Identificacion principal: PLACA si existe, si no, SERIAL_CHASIS
+            const idPrincipal = r.placa || r.serial_chasis || ('#' + r.id);
+            const idLabel     = r.placa ? 'Placa' : (r.serial_chasis ? 'Chasis' : 'ID');
+            // Para la card de seleccion (al hacer pick): primary=placa/chasis, secondary=tipo+marca, tertiary=codigo
+            const primary   = idPrincipal;
+            const secondary = [r.tipo, r.marca].filter(x => x).join(' · ');
+            const tertiary  = r.codigo ? ('Código: ' + r.codigo) : '';
+            // Thumbnail: imagen si tiene, sino icono
+            const thumb = r.foto
+                ? `<img src="${esc(r.foto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;background:#f1f5f9;flex-shrink:0;border:1px solid #e2e8f0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:24px;&quot;>directions_car</i></div>'">`
+                : `<div style="width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;"><i class="material-icons" style="font-size:24px;">directions_car</i></div>`;
             return `
-                <div class="aux-host-card" style="padding:10px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; ${dis}"
+                <div class="aux-host-card" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; display:flex; align-items:center; gap:12px; ${dis}"
                      onmousedown="event.preventDefault(); window.auxHostPick(${r.id}, this)"
-                     data-label="${(r.codigo || ('#'+r.id)).replace(/"/g,'&quot;')} — ${(r.marca_modelo || '').replace(/"/g,'&quot;')} ${r.placa ? '('+r.placa+')' : ''}"
+                     data-primary="${esc(primary)}"
+                     data-secondary="${esc(secondary)}"
+                     data-tertiary="${esc(tertiary)}"
                      onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:4px;">
-                        <strong style="color:#1e293b; font-size:13px;">${r.codigo || ('#'+r.id)}</strong>
-                        ${badge}
-                    </div>
-                    <div style="font-size:12px; color:#475569; line-height:1.35;">
-                        ${r.marca_modelo || '<em style="color:#94a3b8;">Sin marca/modelo</em>'}
-                        ${r.tipo ? `<span style="color:#64748b;"> · ${r.tipo}</span>` : ''}
-                    </div>
-                    <div style="font-size:11px; color:#64748b; margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;">
-                        ${r.placa ? `<span><b>Placa:</b> ${r.placa}</span>` : ''}
-                        ${r.serial_chasis ? `<span><b>Chasis:</b> ${r.serial_chasis}</span>` : ''}
-                        ${r.serial_motor ? `<span><b>Motor:</b> ${r.serial_motor}</span>` : ''}
+                    ${thumb}
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:4px;">
+                            <strong style="color:#1e293b; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                <span style="color:#94a3b8; font-size:10px; font-weight:600; text-transform:uppercase;">${idLabel}:</span> ${idPrincipal}
+                            </strong>
+                            ${badge}
+                        </div>
+                        <div style="font-size:12px; color:#475569; line-height:1.35;">
+                            ${r.tipo ? `<span style="font-weight:600; color:#334155;">${r.tipo}</span>` : ''}
+                            ${r.tipo && r.marca ? ' · ' : ''}
+                            ${r.marca ? `<span>${r.marca}</span>` : ''}
+                            ${!r.tipo && !r.marca ? '<em style="color:#94a3b8;">Sin información</em>' : ''}
+                        </div>
                     </div>
                 </div>
             `;
@@ -336,10 +377,19 @@
     window.auxHostPick = function (id, el) {
         const hidden = document.getElementById('ID_EQUIPO_HOST');
         const search = document.getElementById('hostSearchInput');
-        const clear  = document.getElementById('hostClearBtn');
+        const wrapper = document.getElementById('hostSearchWrapper');
+        const card    = document.getElementById('hostSelectedCard');
         if (hidden) hidden.value = id;
-        if (search) search.value = el.dataset.label || ('#' + id);
-        if (clear) clear.style.display = 'block';
+        // Poblar la tarjeta de seleccion con data-* del elemento clickeado
+        const primary = document.getElementById('hostSelectedPrimary');
+        const secondary = document.getElementById('hostSelectedSecondary');
+        const tertiary = document.getElementById('hostSelectedTertiary');
+        if (primary)   primary.textContent   = el.dataset.primary   || ('#' + id);
+        if (secondary) secondary.textContent = el.dataset.secondary || '';
+        if (tertiary)  tertiary.textContent  = el.dataset.tertiary  || '';
+        if (wrapper) wrapper.style.display = 'none';
+        if (card)    card.style.display    = 'flex';
+        if (search)  search.value = '';
         window.auxHostClose();
     };
 
@@ -349,14 +399,17 @@
     };
 
     window.auxHostClear = function () {
-        const hidden = document.getElementById('ID_EQUIPO_HOST');
-        const search = document.getElementById('hostSearchInput');
-        const clear  = document.getElementById('hostClearBtn');
+        const hidden  = document.getElementById('ID_EQUIPO_HOST');
+        const search  = document.getElementById('hostSearchInput');
+        const wrapper = document.getElementById('hostSearchWrapper');
+        const card    = document.getElementById('hostSelectedCard');
         if (hidden) hidden.value = '';
         if (search) search.value = '';
-        if (clear) clear.style.display = 'none';
+        if (wrapper) wrapper.style.display = 'block';
+        if (card)    card.style.display    = 'none';
         _hostLastQuery = '';
         window.auxHostClose();
+        if (search) search.focus();
     };
 })();
 </script>

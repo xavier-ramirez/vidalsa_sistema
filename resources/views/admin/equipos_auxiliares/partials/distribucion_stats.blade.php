@@ -17,8 +17,8 @@
                 style="padding:4px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;"
                 onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                 <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;">
-                    <span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;">
-                        {{ $tiposLabel[$row->TIPO] ?? $row->TIPO }}
+                    <span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;">
+                        {{ mb_strtoupper($tiposLabel[$row->TIPO] ?? $row->TIPO) }}
                     </span>
                     <span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;white-space:nowrap;">
                         {{ $row->total }}

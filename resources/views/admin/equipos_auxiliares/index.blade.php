@@ -16,28 +16,77 @@
         .counter-sidebar { gap: 10px !important; }
     }
 
-    /* ── Responsive filtros en mobile ──
-       Frente y Tipo: una linea completa cada uno.
-       Serial + boton de Filtros Avanzados: misma fila (Serial crece, boton 45x45).
-       Acciones: fila propia full-width. --}}
+    /* ── Desktop: los 3 filtros siempre en una sola fila (no wrap por falta de ancho) ── */
+    @media (min-width: 769px) {
+        #auxFiltersForm {
+            flex-wrap: nowrap !important;
+        }
+        #auxFiltersForm > .custom-dropdown,
+        #auxFiltersForm > .search-wrapper {
+            min-width: 0 !important;
+        }
+    }
+
+    /* ── Lista desplegable de autocomplete para Frente/Tipo/Serial ── */
+    .aux-main-list {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        max-height: 260px;
+        overflow-y: auto;
+        margin-top: 4px;
+        padding: 5px;
+    }
+    .aux-main-opt {
+        padding: 10px 15px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--maquinaria-dark-blue);
+        cursor: pointer;
+        border-radius: 6px;
+    }
+    .aux-main-opt:hover {
+        background: #f0f4f8;
+    }
+    .aux-main-opt.placeholder {
+        font-size: 13px;
+        color: #64748b;
+    }
+    /* Tipo: la lista completa en mayusculas */
+    #aux_main_list_tipo .aux-main-opt {
+        text-transform: uppercase;
+    }
+
+    /* ── Responsive filtros en mobile: Frente y Tipo en linea propia, Serial+adv en misma fila, Acciones abajo ── */
     @media (max-width: 768px) {
+        /* Subtitulo de la cabecera se oculta en mobile para dar mas espacio al contenido */
+        .aux-page-subtitle {
+            display: none !important;
+        }
         #auxFiltersForm {
             flex-wrap: wrap !important;
             gap: 10px !important;
             align-items: stretch !important;
         }
-        #auxFiltersForm > .custom-dropdown {
+        /* Frente y Tipo: cada uno una fila completa */
+        #auxFiltersForm > div[data-aux-role="dropdown"] {
             flex: 1 0 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
         }
-        /* Serial: crece y comparte fila con el boton de filtros avanzados */
+        /* Serial + boton Filtros Avanzados: misma fila */
         #auxFiltersForm > .search-wrapper {
             flex: 1 1 auto !important;
             min-width: 0 !important;
             max-width: none !important;
         }
-        /* Boton de Filtros Avanzados: fijo al lado del Serial */
         #auxFiltersForm > div[data-aux-role="adv"] {
             flex: 0 0 45px !important;
             width: 45px !important;
@@ -79,70 +128,68 @@
         <form id="auxFiltersForm" onsubmit="event.preventDefault(); cargarAuxiliares();"
               style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:5px;align-items:center;">
 
-            {{-- Frente --}}
+            {{-- Frente (autocomplete propio, patron auxMainFilter) --}}
             @php
                 $reqFrente = request('id_frente');
                 $frenteActual = ($reqFrente && $reqFrente !== 'all') ? $frentes->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
-                $frenteLabel  = $frenteActual ? mb_strtoupper($frenteActual->NOMBRE_FRENTE) : 'Filtrar Frente...';
             @endphp
-            <div class="custom-dropdown" id="auxFrenteFilterSelect" data-filter-type="id_frente"
-                 data-default-label="Filtrar Frente..." style="flex:1;min-width:180px;max-width:260px;">
-                <input type="hidden" name="id_frente" value="{{ $reqFrente ?: '' }}" data-filter-value>
-                <div class="dropdown-trigger {{ $reqFrente && $reqFrente !== 'all' ? 'filter-active' : '' }}"
-                     style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">place</i></div>
-                    <input type="text" id="auxFrenteFilterSearch" name="frente_filter_search" data-filter-search
-                           placeholder="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : 'Filtrar Frente...' }}" aria-label="Filtrar Frente"
-                           style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
-                           onfocus="this.closest('.custom-dropdown').classList.add('active');"
-                           oninput="this.closest('.custom-dropdown').classList.add('active'); window.filterDropdownOptions(this);"
-                           autocomplete="off">
-                    <span data-filter-label style="display:none;">{{ $frenteLabel }}</span>
-                    <i class="material-icons" data-clear-btn
-                       style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $reqFrente && $reqFrente !== 'all' ? 'block' : 'none' }};"
-                       onclick="event.stopPropagation(); clearDropdownFilter('auxFrenteFilterSelect'); cargarAuxiliares();">close</i>
+            <div data-aux-role="dropdown" style="flex:1;min-width:180px;max-width:260px;position:relative;">
+                <input type="hidden" id="aux_main_val_frente" name="id_frente" value="{{ $reqFrente ?: '' }}">
+                <div style="display:flex;align-items:center;background:{{ $frenteActual ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ $frenteActual ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;overflow:hidden;" id="aux_main_box_frente">
+                    <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
+                    <input type="text" id="aux_main_txt_frente"
+                           placeholder="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : 'Filtrar Frente...' }}"
+                           value="{{ $frenteActual ? $frenteActual->NOMBRE_FRENTE : '' }}"
+                           autocomplete="off"
+                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
+                           oninput="auxMainFilter('frente', this.value)"
+                           onfocus="auxMainOpen('frente')"
+                           onblur="setTimeout(()=>auxMainClose('frente'),200)">
+                    <i class="material-icons" id="aux_main_clr_frente"
+                       style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $frenteActual ? 'block' : 'none' }};"
+                       onmousedown="event.preventDefault();auxMainClear('frente');cargarAuxiliares();">close</i>
                 </div>
-                <div class="dropdown-content">
-                    <div class="dropdown-item {{ !$reqFrente || $reqFrente === 'all' ? 'selected' : '' }}" data-value="all"
-                         onclick="selectOption('auxFrenteFilterSelect','all','Todos los Frentes'); cargarAuxiliares();">Todos los Frentes</div>
+                <div id="aux_main_list_frente" class="aux-main-list">
+                    <div class="aux-main-opt placeholder" data-val="all" data-label="TODOS LOS FRENTES"
+                         onmousedown="event.preventDefault();auxMainSelect('frente','all','TODOS LOS FRENTES');cargarAuxiliares();">TODOS LOS FRENTES</div>
                     @foreach($frentes as $frente)
-                        @php $frenteNombre = trim($frente->NOMBRE_FRENTE); @endphp
-                        <div class="dropdown-item {{ (string)$reqFrente === (string)$frente->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $frente->ID_FRENTE }}"
-                             onclick="selectOption('auxFrenteFilterSelect','{{ $frente->ID_FRENTE }}','{{ addslashes($frenteNombre) }}'); cargarAuxiliares();">
-                            {{ $frenteNombre }}
+                        @php $frenteNombreUpper = mb_strtoupper(trim($frente->NOMBRE_FRENTE)); @endphp
+                        <div class="aux-main-opt" data-val="{{ $frente->ID_FRENTE }}" data-label="{{ $frenteNombreUpper }}"
+                             onmousedown="event.preventDefault();auxMainSelect('frente','{{ $frente->ID_FRENTE }}','{{ addslashes($frenteNombreUpper) }}');cargarAuxiliares();">
+                            {{ $frenteNombreUpper }}
                         </div>
                     @endforeach
                 </div>
             </div>
 
-            {{-- Tipo --}}
+            {{-- Tipo (autocomplete propio, patron auxMainFilter) --}}
             @php
                 $reqTipo = request('tipo');
                 $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? ($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
+                $tipoActivo = $reqTipo && $reqTipo !== 'all';
             @endphp
-            <div class="custom-dropdown" id="auxTipoFilterSelect" data-filter-type="tipo"
-                 data-default-label="Filtrar Tipo..." style="flex:1;min-width:180px;max-width:260px;">
-                <input type="hidden" name="tipo" value="{{ $reqTipo ?: '' }}" data-filter-value>
-                <div class="dropdown-trigger {{ $reqTipo && $reqTipo !== 'all' ? 'filter-active' : '' }}"
-                     style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
-                    <input type="text" id="auxTipoFilterSearch" name="tipo_filter_search" data-filter-search
-                           placeholder="{{ ($reqTipo && $reqTipo !== 'all') ? $tipoLabel : 'Filtrar Tipo...' }}" aria-label="Filtrar Tipo"
-                           style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;"
-                           onfocus="this.closest('.custom-dropdown').classList.add('active');"
-                           oninput="this.closest('.custom-dropdown').classList.add('active'); window.filterDropdownOptions(this);"
-                           autocomplete="off">
-                    <span data-filter-label style="display:none;">{{ $tipoLabel }}</span>
-                    <i class="material-icons" data-clear-btn
-                       style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $reqTipo && $reqTipo !== 'all' ? 'block' : 'none' }};"
-                       onclick="event.stopPropagation(); clearDropdownFilter('auxTipoFilterSelect'); cargarAuxiliares();">close</i>
+            <div data-aux-role="dropdown" style="flex:1;min-width:180px;max-width:260px;position:relative;">
+                <input type="hidden" id="aux_main_val_tipo" name="tipo" value="{{ $reqTipo ?: '' }}">
+                <div style="display:flex;align-items:center;background:{{ $tipoActivo ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;overflow:hidden;" id="aux_main_box_tipo">
+                    <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
+                    <input type="text" id="aux_main_txt_tipo"
+                           placeholder="{{ $tipoActivo ? $tipoLabel : 'Filtrar Tipo...' }}"
+                           value="{{ $tipoActivo ? $tipoLabel : '' }}"
+                           autocomplete="off"
+                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
+                           oninput="auxMainFilter('tipo', this.value)"
+                           onfocus="auxMainOpen('tipo')"
+                           onblur="setTimeout(()=>auxMainClose('tipo'),200)">
+                    <i class="material-icons" id="aux_main_clr_tipo"
+                       style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $tipoActivo ? 'block' : 'none' }};"
+                       onmousedown="event.preventDefault();auxMainClear('tipo');cargarAuxiliares();">close</i>
                 </div>
-                <div class="dropdown-content">
-                    <div class="dropdown-item {{ !$reqTipo || $reqTipo === 'all' ? 'selected' : '' }}" data-value="all"
-                         onclick="selectOption('auxTipoFilterSelect','all','Todos los Tipos'); cargarAuxiliares();">Todos los Tipos</div>
+                <div id="aux_main_list_tipo" class="aux-main-list">
+                    <div class="aux-main-opt placeholder" data-val="all" data-label="TODOS LOS TIPOS"
+                         onmousedown="event.preventDefault();auxMainSelect('tipo','all','TODOS LOS TIPOS');cargarAuxiliares();">TODOS LOS TIPOS</div>
                     @foreach($tipos as $k => $label)
-                        <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}"
-                             onclick="selectOption('auxTipoFilterSelect','{{ $k }}','{{ addslashes($label) }}'); cargarAuxiliares();">
+                        <div class="aux-main-opt" data-val="{{ $k }}" data-label="{{ $label }}"
+                             onmousedown="event.preventDefault();auxMainSelect('tipo','{{ $k }}','{{ addslashes($label) }}');cargarAuxiliares();">
                             {{ $label }}
                         </div>
                     @endforeach
@@ -196,7 +243,7 @@
                                 <div id="aux_list_marca" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
                                     <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('marca','','Ej: Miller');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS MARCAS</div>
                                     @foreach($availableMarcas as $m)
-                                    <div class="aux-adv-opt" data-val="{{ $m }}" onmousedown="event.preventDefault();auxAdvSelect('marca','{{ $m }}','{{ addslashes($m) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $m }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $m }}" onmousedown="event.preventDefault();auxAdvSelect('marca','{{ $m }}','{{ addslashes($m) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $m }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -220,7 +267,7 @@
                                 <div id="aux_list_modelo" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
                                     <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('modelo','','Ej: Bobcat 225');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS MODELOS</div>
                                     @foreach($availableModelos as $mod)
-                                    <div class="aux-adv-opt" data-val="{{ $mod }}" onmousedown="event.preventDefault();auxAdvSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $mod }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $mod }}" onmousedown="event.preventDefault();auxAdvSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $mod }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -244,7 +291,7 @@
                                 <div id="aux_list_capacidad" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
                                     <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('capacidad','','Ej: 300A, 20 pies');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS CAPACIDADES</div>
                                     @foreach($availableCapacidades as $cap)
-                                    <div class="aux-adv-opt" data-val="{{ $cap }}" onmousedown="event.preventDefault();auxAdvSelect('capacidad','{{ $cap }}','{{ addslashes($cap) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $cap }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $cap }}" onmousedown="event.preventDefault();auxAdvSelect('capacidad','{{ $cap }}','{{ addslashes($cap) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $cap }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -268,7 +315,7 @@
                                 <div id="aux_list_estado" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
                                     <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('estado','','Todos los estados');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS ESTADOS</div>
                                     @foreach($estados as $k => $label)
-                                    <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:#00004d;cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
+                                    <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
                                     @endforeach
                                 </div>
                             </div>
@@ -295,6 +342,12 @@
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                         <div style="background:{{ $canCreateAux ? '#fff7ed' : '#f1f5f9' }};padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:{{ $canCreateAux ? '#f59e0b' : '#94a3b8' }};">{{ $canCreateAux ? 'add_circle' : 'lock' }}</i></div>
                         <span>Nuevo Equipo Auxiliar</span>
+                    </a>
+                    <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.openAuxAnclajesModal();"
+                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
+                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">link</i></div>
+                        <span>Ver Anclajes</span>
                     </a>
                     <a href="#" onclick="event.preventDefault(); window.exportAuxiliaresXlsx(); document.getElementById('auxAccionesDropdown').style.display='none';"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
@@ -488,7 +541,7 @@
 <div id="auxDetailsModal" class="modal-overlay"
      onclick="if(event.target===this) window.closeAuxDetailsModal()">
     <div class="modal-content"
-        style="width: 90%; max-width: 420px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
+        style="width: 90%; max-width: 400px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
 
         {{-- HEADER --}}
         <div style="background: var(--maquinaria-dark-blue); color: white;">
@@ -542,22 +595,8 @@
             return;
         }
 
-        // Patron /admin/equipos: abrimos el modal AL INSTANTE con la cabecera
-        // precargada desde los data-* del boton; el body se popula al resolver
-        // el fetch (usualmente <300ms). Sin spinner.
-        const title = document.getElementById('auxDetailsTitle');
-        const sub   = document.getElementById('auxDetailsSubtitle');
-        if (title) title.textContent = (btn.dataset.tipoLabel || 'Auxiliar').toUpperCase();
-        if (sub) {
-            const marca  = (btn.dataset.marca || '').toUpperCase();
-            const modelo = (btn.dataset.modelo || '').toUpperCase();
-            sub.textContent = (marca + ' ' + modelo).trim() || '—';
-        }
-        body.innerHTML = '';
-        modal.style.display = '';
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-
+        // Sin spinner ni dinamismo: fetch en silencio, abrimos el modal solo
+        // cuando los datos estan listos (igual que el modal de /admin/equipos).
         fetch('/admin/equipos-auxiliares/' + id + '/details', {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             credentials: 'same-origin'
@@ -566,10 +605,17 @@
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         })
-        .then(d => window.renderAuxDetailsModal(d))
+        .then(d => {
+            window.renderAuxDetailsModal(d);
+            modal.style.display = '';
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        })
         .catch(err => {
             console.error('openAuxDetailsModal:', err);
-            body.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Error al cargar detalles. ' + (err.message || '') + '</div>';
+            if (typeof window.showToast === 'function') {
+                window.showToast('Error al cargar detalles. ' + (err.message || ''), 'error');
+            }
         });
     };
 
@@ -580,9 +626,21 @@
         if (title) title.textContent = (d.tipo_label || d.tipo || 'Auxiliar');
         if (sub)   sub.textContent   = ((d.marca || '') + ' ' + (d.modelo || '')).trim() || '—';
 
-        // Enlazar edit en el boton del header
+        // Enlazar edit en el boton del header (usa SPA navigateTo si esta disponible)
         const editBtn = document.getElementById('auxDetailsEditBtn');
-        if (editBtn) editBtn.onclick = () => { window.location.href = d.edit_url; };
+        if (editBtn) editBtn.onclick = () => {
+            window.closeAuxDetailsModal();
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo(d.edit_url);
+            } else {
+                // Fallback: click en un <a> para que el interceptor SPA global lo tome
+                const a = document.createElement('a');
+                a.href = d.edit_url;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            }
+        };
 
         // Helper: fila de detalle con label + valor alineados
         const row = (label, value) => `
@@ -591,9 +649,9 @@
                 <span style="color:#333; font-size:13px; text-align:right; word-wrap:break-word; line-height:1.3; flex:1; max-width:65%;">${value || '—'}</span>
             </div>`;
 
-        // Helper: seccion accordion (mismo estilo que /admin/equipos)
+        // Helper: seccion accordion (sin name= para permitir varias abiertas a la vez)
         const section = (title, icon, content, open = false) => `
-            <details ${open ? 'open' : ''} name="aux_details_accordion" style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
+            <details ${open ? 'open' : ''} style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
                 <summary style="padding:15px 20px; font-weight:700; color:#1e293b; display:flex; align-items:center; gap:10px; background:#f8fafc; list-style:none; cursor:pointer;">
                     <i class="material-icons" style="font-size:20px; color:#64748b;">${icon}</i>
                     <span>${title}</span>
@@ -620,12 +678,19 @@
             ? `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:4px; color:${color}; font-weight:700; text-decoration:none; font-size:12px;"><i class="material-icons" style="font-size:16px;">picture_as_pdf</i>${label}</a>`
             : '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
 
-        // Equipo Vinculado
-        const host = d.host_id
-            ? ((d.host_codigo || '#' + d.host_id)
-                + (d.host_placa ? ' · <strong>' + d.host_placa + '</strong>' : '')
-                + (d.host_tipo  ? ' <em style="color:#64748b;">('+ d.host_tipo +')</em>' : ''))
-            : '<em style="color:#94a3b8;">Sin vincular</em>';
+        // Equipo Vinculado: tarjeta con datos del host si existe
+        const hostCard = d.host_id
+            ? `<div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border:1px solid #93c5fd; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px; margin-top:4px;">
+                    <div style="background:#1e40af; color:white; padding:8px; border-radius:8px; display:flex; flex-shrink:0;">
+                        <i class="material-icons" style="font-size:20px;">directions_car</i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:800; color:#1e293b; font-size:14px; line-height:1.2;">${d.host_placa || d.host_codigo || ('#' + d.host_id)}</div>
+                        ${d.host_tipo ? `<div style="color:#475569; font-size:12px; margin-top:2px;">${d.host_tipo}</div>` : ''}
+                        ${d.host_codigo && d.host_placa ? `<div style="color:#64748b; font-size:11px; margin-top:2px;">Código: #${d.host_codigo}</div>` : ''}
+                    </div>
+               </div>`
+            : '<div style="text-align:center; padding:12px; color:#94a3b8; font-size:13px; font-style:italic;">Sin equipo vinculado.</div>';
 
         // IMPORTANTE: solo campos NO presentes en la tabla del index.
         // En la tabla ya se ven: frente, foto, tipo, marca/modelo, serial, capacidad, estado.
@@ -645,9 +710,7 @@
                 row('Observaciones',        d.observaciones)
             )}
 
-            ${section('Vinculación', 'link',
-                row('Equipo Vinculado',     host)
-            )}
+            ${section('Vinculación', 'link', hostCard)}
         `;
     };
 
@@ -668,211 +731,6 @@
         });
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  MODAL "VINCULAR A EQUIPO HOST" (patron igual al Anclaje de
-    //  /admin/equipos: overlay oscuro, header #1e293b, input search
-    //  server-side con debounce, lista de candidatos, submit POST).
-    // ═══════════════════════════════════════════════════════════════
-    window.openAuxVincularModal = function (aux) {
-        // Cerrar el modal de detalles primero
-        window.closeAuxDetailsModal();
-
-        const overlay = document.createElement('div');
-        overlay.className = 'aux-vincular-overlay';
-        overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2600; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(2px);';
-
-        const content = document.createElement('div');
-        content.style.cssText = 'background:white; border-radius:16px; width:90%; max-width:480px; max-height:92vh; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column;';
-
-        content.innerHTML = `
-            <div style="background:#1e293b; padding:18px; color:white; display:flex; justify-content:center; align-items:center; position:relative;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <i class="material-icons" style="color:#10b981; font-size:20px;">link</i>
-                    <h2 style="margin:0; font-size:16px; font-weight:700;">Vincular a Equipo Host</h2>
-                </div>
-                <button type="button" id="btnCloseAuxVincular" style="position:absolute; right:15px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-                    <i class="material-icons">close</i>
-                </button>
-            </div>
-            <div style="padding:18px 20px; display:flex; flex-direction:column; gap:12px; overflow:hidden;">
-                <div style="background:#f1f5f9; padding:10px 12px; border-radius:10px; font-size:12.5px; color:#334155;">
-                    <strong>Auxiliar:</strong> ${(aux.tipo_label || aux.tipo || 'Auxiliar')} ${(aux.marca || '')} ${(aux.modelo || '')}
-                    ${aux.serial ? `<br><span style="color:#64748b;">Serial: ${aux.serial}</span>` : ''}
-                    ${aux.host_id ? `<br><span style="color:#64748b;">Actualmente vinculado a: <strong>${aux.host_codigo || '#' + aux.host_id}</strong></span>` : ''}
-                </div>
-
-                <div id="auxVincularInputBox" style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:10px; background:white; overflow:hidden; transition:border-color 0.2s;">
-                    <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:20px; flex-shrink:0;">search</i>
-                    <input type="text" id="auxVincularSearch" placeholder="Buscar por serial motor, serial chasis, placa..." autocomplete="off"
-                        style="flex:1; border:none; outline:none; padding:11px 6px; font-size:14px; background:transparent;">
-                    <i class="material-icons" id="auxVincularClear" style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer; display:none;">close</i>
-                </div>
-
-                <div id="auxVincularList" style="overflow-y:auto; max-height:320px; border:1px solid #f1f5f9; border-radius:10px;">
-                    <div style="padding:24px; text-align:center; color:#94a3b8; font-size:13px;">
-                        <i class="material-icons" style="font-size:28px; display:block; margin: 0 auto 8px; color:#cbd5e0;">search</i>
-                        Escribe al menos 2 caracteres para buscar equipos host disponibles.
-                    </div>
-                </div>
-
-                ${aux.host_id ? `
-                <button type="button" id="auxVincularDesanclarBtn" style="width:100%; padding:10px; background:white; color:#dc2626; border:1px solid #fecaca; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <i class="material-icons" style="font-size:18px;">link_off</i> Desvincular del host actual
-                </button>
-                ` : ''}
-            </div>
-        `;
-
-        overlay.appendChild(content);
-        document.body.appendChild(overlay);
-        document.body.style.overflow = 'hidden';
-
-        const _close = () => { overlay.remove(); document.body.style.overflow = ''; };
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) _close(); });
-        content.querySelector('#btnCloseAuxVincular').onclick = _close;
-
-        const searchInput = content.querySelector('#auxVincularSearch');
-        const clearBtn    = content.querySelector('#auxVincularClear');
-        const listBox     = content.querySelector('#auxVincularList');
-        const inputBox    = content.querySelector('#auxVincularInputBox');
-
-        let debounceTimer = null;
-        searchInput.addEventListener('input', () => {
-            const q = searchInput.value.trim();
-            clearBtn.style.display = q ? 'block' : 'none';
-            inputBox.style.borderColor = q ? '#10b981' : '#e2e8f0';
-
-            if (q.length < 2) {
-                listBox.innerHTML = '<div style="padding:24px; text-align:center; color:#94a3b8; font-size:13px;"><i class="material-icons" style="font-size:28px; display:block; margin: 0 auto 8px; color:#cbd5e0;">search</i>Escribe al menos 2 caracteres para buscar equipos host disponibles.</div>';
-                return;
-            }
-
-            clearTimeout(debounceTimer);
-            listBox.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite; font-size:22px;">sync</i></div>';
-            debounceTimer = setTimeout(async () => {
-                try {
-                    const r = await fetch('/admin/equipos-auxiliares/hosts/search?q=' + encodeURIComponent(q), {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-                    });
-                    const rows = await r.json();
-                    if (!rows || !rows.length) {
-                        listBox.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8; font-size:13px;">Sin resultados.</div>';
-                        return;
-                    }
-                    listBox.innerHTML = rows.map(h => {
-                        const dis = h.disponible ? '' : 'opacity:0.55; pointer-events:none;';
-                        const badge = h.disponible
-                            ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Disponible</span>`
-                            : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;">Lleno (${h.auxiliares_anclados}/2)</span>`;
-                        return `
-                            <div class="aux-vincular-card" data-host-id="${h.id}" data-host-codigo="${(h.codigo || '').replace(/"/g,'&quot;')}"
-                                 style="padding:11px 13px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s; ${dis}"
-                                 onmouseover="if(!${!h.disponible}) this.style.background='#f0fdf4'"
-                                 onmouseout="this.style.background='white'">
-                                <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:4px;">
-                                    <strong style="color:#1e293b; font-size:13.5px;">${h.codigo || ('#' + h.id)}</strong>
-                                    ${badge}
-                                </div>
-                                <div style="font-size:12px; color:#475569; line-height:1.3;">
-                                    ${h.marca_modelo || '<em style="color:#94a3b8;">Sin marca/modelo</em>'}
-                                    ${h.tipo ? ` · <span style="color:#64748b;">${h.tipo}</span>` : ''}
-                                </div>
-                                <div style="font-size:11px; color:#64748b; margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;">
-                                    ${h.placa ? `<span><b>Placa:</b> ${h.placa}</span>` : ''}
-                                    ${h.serial_chasis ? `<span><b>Chasis:</b> ${h.serial_chasis}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                    // Bind click en cada candidato
-                    listBox.querySelectorAll('.aux-vincular-card').forEach(card => {
-                        card.onclick = () => window.auxConfirmarVinculacion(aux.id, card.dataset.hostId, card.dataset.hostCodigo, _close);
-                    });
-                } catch (e) {
-                    listBox.innerHTML = '<div style="padding:20px; text-align:center; color:#ef4444; font-size:12.5px;">Error al buscar equipos.</div>';
-                }
-            }, 280);
-        });
-
-        clearBtn.onclick = () => { searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); searchInput.focus(); };
-
-        // Boton desvincular (si aplica)
-        const desBtn = content.querySelector('#auxVincularDesanclarBtn');
-        if (desBtn) {
-            desBtn.onclick = () => window.auxDesvincular(aux.id, _close);
-        }
-
-        searchInput.focus();
-    };
-
-    // Confirmar vinculacion: POST al endpoint anchor con ID del host.
-    window.auxConfirmarVinculacion = function (auxId, hostId, hostCodigo, closeCb) {
-        if (window.showPreloader) window.showPreloader();
-        fetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ id_equipo_host: hostId })
-        })
-        .then(async r => {
-            if (window.hidePreloader) window.hidePreloader();
-            if (r.status === 403) {
-                const b = await r.json().catch(()=>({}));
-                if (window.showToast) window.showToast(b.message || 'No tienes permiso para vincular.', 'error');
-                return;
-            }
-            const body = await r.json();
-            if (body.success) {
-                if (window.showToast) window.showToast(body.message || `Vinculado a ${hostCodigo}.`, 'success');
-                if (typeof closeCb === 'function') closeCb();
-                if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
-            } else {
-                if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: body.message || 'No se pudo vincular.', confirmText: 'Cerrar', hideCancel: true });
-            }
-        })
-        .catch(err => {
-            if (window.hidePreloader) window.hidePreloader();
-            console.error('[auxConfirmarVinculacion]', err);
-            if (window.showToast) window.showToast('Error de red al vincular.', 'error');
-        });
-    };
-
-    window.auxDesvincular = function (auxId, closeCb) {
-        if (window.showPreloader) window.showPreloader();
-        fetch('/admin/equipos-auxiliares/' + auxId + '/unanchor', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(async r => {
-            if (window.hidePreloader) window.hidePreloader();
-            if (r.status === 403) {
-                const b = await r.json().catch(()=>({}));
-                if (window.showToast) window.showToast(b.message || 'No tienes permiso para desvincular.', 'error');
-                return;
-            }
-            const body = await r.json();
-            if (body.success) {
-                if (window.showToast) window.showToast(body.message || 'Desvinculado correctamente.', 'success');
-                if (typeof closeCb === 'function') closeCb();
-                if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
-            } else {
-                if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: body.message || 'No se pudo desvincular.', confirmText: 'Cerrar', hideCancel: true });
-            }
-        })
-        .catch(err => {
-            if (window.hidePreloader) window.hidePreloader();
-            console.error('[auxDesvincular]', err);
-            if (window.showToast) window.showToast('Error de red al desvincular.', 'error');
-        });
-    };
 })();
 </script>
 
@@ -917,8 +775,8 @@
         html += '<ul style="list-style:none;padding:0;margin:0;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">';
         rows.forEach(r => {
             const pct = total > 0 ? (parseInt(r.total,10) / total) * 100 : 0;
-            const label = TIPOS[r.TIPO] || r.TIPO;
-            html += '<li onclick="window.auxFilterByTipo(\''+r.TIPO+'\')" style="padding:4px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'"><div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;"><span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;">'+label+'</span><span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;">'+r.total+'</span></div><div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#3b82f6 0%,#2563eb 100%);"></div></div></li>';
+            const label = (TIPOS[r.TIPO] || r.TIPO).toUpperCase();
+            html += '<li onclick="window.auxFilterByTipo(\''+r.TIPO+'\')" style="padding:4px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'"><div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;"><span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;">'+label+'</span><span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;">'+r.total+'</span></div><div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#3b82f6 0%,#2563eb 100%);"></div></div></li>';
         });
         html += '</ul>';
         cont.innerHTML = html;
@@ -1288,6 +1146,144 @@
 
     window.auxAdvClear = function (prefix) {
         window.auxAdvSelect(prefix, '', '');
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // AUTOCOMPLETE FILTROS PRINCIPALES (Frente / Tipo)
+    // Mismo patron que auxAdv* pero sobre elementos aux_main_*
+    // ═══════════════════════════════════════════════════════════
+    window.auxMainFilter = function (prefix, q) {
+        var list = document.getElementById('aux_main_list_' + prefix);
+        if (!list) return;
+        list.style.display = 'block';
+        var term = (q || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        list.querySelectorAll('.aux-main-opt').forEach(function (opt) {
+            var text = (opt.dataset.label || opt.textContent).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            opt.style.display = (term === '' || text.includes(term)) ? 'block' : 'none';
+        });
+    };
+
+    window.auxMainOpen = function (prefix) {
+        var list = document.getElementById('aux_main_list_' + prefix);
+        if (!list) return;
+        list.style.display = 'block';
+        list.querySelectorAll('.aux-main-opt').forEach(function (opt) {
+            opt.style.display = 'block';
+        });
+    };
+
+    window.auxMainClose = function (prefix) {
+        var list = document.getElementById('aux_main_list_' + prefix);
+        if (list) list.style.display = 'none';
+    };
+
+    window.auxMainSelect = function (prefix, value, label) {
+        var hidden = document.getElementById('aux_main_val_' + prefix);
+        var txt    = document.getElementById('aux_main_txt_' + prefix);
+        var clr    = document.getElementById('aux_main_clr_' + prefix);
+        var box    = document.getElementById('aux_main_box_' + prefix);
+        var list   = document.getElementById('aux_main_list_' + prefix);
+        var isReal = value && value !== 'all' && value !== '';
+        if (hidden) hidden.value = isReal ? value : '';
+        if (txt)    { txt.value = isReal ? label : ''; txt.placeholder = label; }
+        if (clr)    clr.style.display = isReal ? 'block' : 'none';
+        if (box)    {
+            box.style.background  = isReal ? '#e1effa' : '#fbfcfd';
+            box.style.borderColor = isReal ? '#0067b1' : '#cbd5e0';
+        }
+        if (list)   list.style.display = 'none';
+    };
+
+    window.auxMainClear = function (prefix) {
+        window.auxMainSelect(prefix, '', prefix === 'frente' ? 'Filtrar Frente...' : 'Filtrar Tipo...');
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // MODAL "VER ANCLAJES" - Muestra aux anclados a equipos host
+    // Mismo patron visual que /admin/equipos (openAnclajesListModal)
+    // ═══════════════════════════════════════════════════════════
+    window.openAuxAnclajesModal = function () {
+        let modal = document.getElementById('auxAnclajesModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'auxAnclajesModal';
+            modal.className = 'modal-overlay';
+            modal.style.zIndex = '10000';
+            modal.innerHTML = `
+                <div class="modal-content" style="width:90%; max-width:800px; max-height:90vh; background:#fff; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+                    <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="background:rgba(255,255,255,0.1); padding:8px; border-radius:8px;"><i class="material-icons" style="color:#fff; font-size:20px;">link</i></div>
+                            <h3 style="margin:0; color:#fff; font-size:16px; font-weight:600;">Anclaje de Auxiliares</h3>
+                        </div>
+                        <button type="button" onclick="document.getElementById('auxAnclajesModal').classList.remove('active')" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; display:flex; padding:4px;">
+                            <i class="material-icons">close</i>
+                        </button>
+                    </div>
+                    <div id="auxAnclajesLoading" style="padding:40px; text-align:center; color:#64748b;">
+                        <i class="material-icons" style="font-size:32px; animation:fleetSpin 1s linear infinite;">refresh</i>
+                        <p style="margin-top:10px; font-size:14px;">Cargando anclajes...</p>
+                    </div>
+                    <div id="auxAnclajesBody" style="display:none; padding:14px 16px; overflow-y:auto; flex:1; background:#f8fafc;">
+                        <div id="auxAnclajesGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px;"></div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+        modal.classList.add('active');
+        document.getElementById('auxAnclajesLoading').style.display = 'block';
+        document.getElementById('auxAnclajesBody').style.display = 'none';
+
+        fetch('{{ route("equipos-auxiliares.index") }}?anchored=1', {
+            headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
+        .then(data => {
+            const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+            const anchored = list.filter(a => a.ID_EQUIPO_HOST || a.id_equipo_host || a.host_id);
+            document.getElementById('auxAnclajesLoading').style.display = 'none';
+            document.getElementById('auxAnclajesBody').style.display = 'block';
+            const grid = document.getElementById('auxAnclajesGrid');
+            if (anchored.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#94a3b8; background:#fff; border-radius:8px; border:1px dashed #cbd5e1;">No hay auxiliares anclados actualmente.</div>';
+                return;
+            }
+            grid.innerHTML = anchored.map(a => {
+                const tipo = (a.TIPO || a.tipo || 'Auxiliar').toString().toUpperCase();
+                const marca = a.MARCA || a.marca || '';
+                const modelo = a.MODELO || a.modelo || '';
+                const serial = a.SERIAL || a.serial || '';
+                const hostCodigo = a.host_codigo || a.HOST_CODIGO || '#' + (a.ID_EQUIPO_HOST || a.host_id);
+                const hostPlaca = a.host_placa || a.HOST_PLACA || '';
+                return `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                    <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#f8fafc; border-radius:6px;">
+                        <div style="background:#fff7ed; padding:5px; border-radius:5px; display:flex;"><i class="material-icons" style="font-size:14px; color:#f59e0b;">construction</i></div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.4px;">${tipo}</div>
+                            <div style="font-size:12px; font-weight:800; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${serial || (marca + ' ' + modelo).trim() || '—'}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:center; height:14px; position:relative;">
+                        <div style="position:absolute; inset:0 calc(50% - 1px); background:#e2e8f0; width:1px; margin:0 auto;"></div>
+                        <div style="background:#dbeafe; width:18px; height:18px; border-radius:50%; color:#2563eb; z-index:2; border:2px solid #fff; display:flex; align-items:center; justify-content:center; position:relative;"><i class="material-icons" style="font-size:10px; transform:rotate(90deg);">link</i></div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#f8fafc; border-radius:6px;">
+                        <div style="background:#eff6ff; padding:5px; border-radius:5px; display:flex;"><i class="material-icons" style="font-size:14px; color:#1e40af;">directions_car</i></div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.4px;">EQUIPO HOST</div>
+                            <div style="font-size:12px; font-weight:800; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${hostPlaca || hostCodigo}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        })
+        .catch(err => {
+            console.error('openAuxAnclajesModal:', err);
+            document.getElementById('auxAnclajesLoading').style.display = 'none';
+            document.getElementById('auxAnclajesBody').style.display = 'block';
+            document.getElementById('auxAnclajesGrid').innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ef4444; padding:20px;">Error al cargar anclajes.</div>';
+        });
     };
 
 })();

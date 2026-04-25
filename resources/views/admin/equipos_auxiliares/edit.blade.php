@@ -16,31 +16,14 @@
 
         @include('admin.equipos_auxiliares.partials.form_fields')
 
-        <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div>
-                @can('super.admin')
-                <form action="{{ route('equipos-auxiliares.destroy', $auxiliar->ID_AUXILIAR) }}" method="POST"
-                      onsubmit="return confirm('¿Eliminar este equipo auxiliar? Esta acción no se puede deshacer.')"
-                      style="margin: 0;">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn-primary-maquinaria"
-                            style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;">
-                        <i class="material-icons">delete</i>
-                        Eliminar
-                    </button>
-                </form>
-                @endcan
-            </div>
-            <div style="display: flex; gap: 12px;">
-                <a href="{{ route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary">
-                    Cancelar
-                </a>
-                <button type="submit" class="btn-primary-maquinaria">
-                    <i class="material-icons">save</i>
-                    Guardar cambios
-                </button>
-            </div>
+        <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
+            <a href="{{ route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary">
+                Cancelar
+            </a>
+            <button type="submit" class="btn-primary-maquinaria">
+                <i class="material-icons">save</i>
+                Guardar
+            </button>
         </div>
     </form>
 </div>
