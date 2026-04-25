@@ -32,7 +32,10 @@
        barra de scroll del body). --- */
     html { scrollbar-gutter: stable; }
 
-    /* ── Lista desplegable de autocomplete para Frente/Tipo/Serial ── */
+    /* Lista desplegable de autocomplete para Frente/Tipo/Serial.
+       Tipografia 1:1 con .dropdown-item de /admin/equipos (estilos_globales.css
+       L1129) pero con peso 600 y color #1e293b para igualar la legibilidad
+       que el usuario ve en el modulo de Vehiculos. */
     .aux-main-list {
         display: none;
         position: absolute;
@@ -50,10 +53,10 @@
         padding: 5px;
     }
     .aux-main-opt {
-        padding: 10px 15px;
+        padding: 8px 12px;
         font-size: 14px;
         font-weight: 600;
-        color: var(--maquinaria-dark-blue);
+        color: #1e293b;
         cursor: pointer;
         border-radius: 6px;
     }
@@ -62,10 +65,44 @@
     }
     .aux-main-opt.placeholder {
         font-size: 13px;
-        color: #64748b;
+        color: #475569;
+        font-weight: 600;
     }
     /* Tipo: la lista completa en mayusculas */
     #aux_main_list_tipo .aux-main-opt {
+        text-transform: uppercase;
+    }
+    /* Estilo unificado para opciones de filtros avanzados (igual al main) */
+    .aux-adv-opt {
+        padding: 8px 12px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        color: #1e293b !important;
+        cursor: pointer;
+        border-radius: 6px;
+    }
+    .aux-adv-opt[data-val=""] {
+        font-size: 13px !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+    }
+    /* Texto del input del filtro (Frente/Tipo/Serial) en oscuro como equipos.
+       Sin esto el browser usa un gris muy claro por defecto que se percibia
+       lavado vs el modulo de Vehiculos. */
+    #auxFiltersForm input[type="text"] {
+        color: #1e293b;
+    }
+    #auxFiltersForm input[type="text"]::placeholder {
+        color: #94a3b8;
+        opacity: 1;
+    }
+    /* Filtro Tipo: texto del input en MAYUSCULAS para coincidir con como se
+       guardan los tipos en BD ("COMPRESOR_DE_AIRE" etc.). Se aplica solo al
+       campo Tipo; Frente y Serial mantienen su capitalizacion natural. */
+    #aux_main_txt_tipo {
+        text-transform: uppercase;
+    }
+    #aux_main_txt_tipo::placeholder {
         text-transform: uppercase;
     }
 
@@ -157,6 +194,10 @@
                 <div id="aux_main_list_frente" class="aux-main-list">
                     <div class="aux-main-opt placeholder" data-val="all" data-label="TODOS LOS FRENTES"
                          onmousedown="event.preventDefault();auxMainSelect('frente','all','TODOS LOS FRENTES');cargarAuxiliares();">TODOS LOS FRENTES</div>
+                    {{-- Sentinel "none": auxiliares sin ID_FRENTE_ACTUAL en BD --}}
+                    <div class="aux-main-opt" data-val="none" data-label="SIN ASIGNAR"
+                         style="font-style: italic; color: #94a3b8;"
+                         onmousedown="event.preventDefault();auxMainSelect('frente','none','SIN ASIGNAR');cargarAuxiliares();">SIN ASIGNAR</div>
                     @foreach($frentes as $frente)
                         @php $frenteNombreUpper = mb_strtoupper(trim($frente->NOMBRE_FRENTE)); @endphp
                         <div class="aux-main-opt" data-val="{{ $frente->ID_FRENTE }}" data-label="{{ $frenteNombreUpper }}"
@@ -204,8 +245,11 @@
             {{-- Serial --}}
             <div class="search-wrapper" style="flex:1;min-width:200px;max-width:260px;border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};display:flex;align-items:center;height:45px;overflow:hidden;">
                 <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
-                <input type="text" id="auxSearchInput" name="search" value="{{ request('search') }}" placeholder="Filtrar Serial..."
-                       oninput="window._auxDebounce && clearTimeout(window._auxDebounce); window._auxDebounce = setTimeout(cargarAuxiliares, 300);"
+                {{-- Busqueda Serial: solo dispara consulta auto con 4+ caracteres o cuando se vacia
+                     el campo (para limpiar resultados). Enter fuerza la busqueda inmediata. --}}
+                <input type="text" id="auxSearchInput" name="search" value="{{ request('search') }}" placeholder="Filtrar Serial (min. 4 chars)..."
+                       oninput="window._auxDebounce && clearTimeout(window._auxDebounce); const __v=this.value.trim(); if(__v.length===0||__v.length>=4){ window._auxDebounce = setTimeout(cargarAuxiliares, 300); }"
+                       onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._auxDebounce && clearTimeout(window._auxDebounce); cargarAuxiliares(); }"
                        style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;" autocomplete="off">
                 <i class="material-icons"
                    style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('search') ? 'block' : 'none' }};"
@@ -360,12 +404,24 @@
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
                         <span>Exportación de Data</span>
                     </a>
-                    <a href="#" onclick="event.preventDefault(); if(window.showToast){window.showToast('Catálogo por Modelo en desarrollo.', 'info');} document.getElementById('auxAccionesDropdown').style.display='none';"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
+                    <a href="{{ route('equipos-auxiliares.catalogo') }}"
+                       onclick="document.getElementById('auxAccionesDropdown').style.display='none';"
+                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;{{ auth()->user()?->can('super.admin') ? 'border-bottom:1px solid #f1f5f9;' : '' }}"
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                         <div style="background:#eff6ff;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">menu_book</i></div>
                         <span>Catálogo por Modelo</span>
                     </a>
+
+                    @can('super.admin')
+                    {{-- Eliminar Auxiliares Seleccionados (soft-delete con auditoria
+                         de quien borro). Visible solo para super.admin. --}}
+                    <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.bulkDeleteAuxiliaresSeleccionados();"
+                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
+                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#dc2626;">delete_outline</i></div>
+                        <span>Eliminar Seleccionados</span>
+                    </a>
+                    @endcan
                 </div>
             </div>
         </form>
@@ -608,23 +664,39 @@
             return;
         }
 
-        // Sin franja-expansion: fetch primero, modal se abre COMPLETO de una vez.
+        // Data pre-cargada en window.auxDetailsMap por el controller (seed
+        // inicial) y por cargarAuxiliares (AJAX de paginacion/filtro). El modal
+        // abre INSTANTANEO sin fetch ni preloader — todos los datos del
+        // auxiliar visible ya estan en memoria.
+        const map = window.auxDetailsMap || {};
+        const data = map[id] || map[String(id)];
+        if (data) {
+            window.renderAuxDetailsModal(data);
+            modal.style.display = '';
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            return;
+        }
+
+        // Fallback de seguridad: si por alguna razon el ID no esta en el map
+        // (cache stale, navegacion SPA con datos parciales), hace fetch con
+        // preloader global y SIN spinner interno en el modal.
+        if (typeof window.showPreloader === 'function') window.showPreloader();
         fetch('/admin/equipos-auxiliares/' + id + '/details', {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             credentials: 'same-origin'
         })
-        .then(r => {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-        })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(d => {
+            (window.auxDetailsMap = window.auxDetailsMap || {})[id] = d;
             window.renderAuxDetailsModal(d);
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
             modal.style.display = '';
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
         })
         .catch(err => {
-            console.error('openAuxDetailsModal:', err);
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
             if (typeof window.showToast === 'function') {
                 window.showToast('Error al cargar detalles. ' + (err.message || ''), 'error');
             }
@@ -811,6 +883,11 @@
         .then(data => {
             document.getElementById('auxTableBody').innerHTML = data.html;
             document.getElementById('auxPagination').innerHTML = data.pagination;
+            // Refrescar el mapa de detalles para que los nuevos auxiliares
+            // visibles tras paginacion/filtro abran el modal del ojo instant.
+            if (data.auxDetailsMap) {
+                window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxDetailsMap);
+            }
             if (data.stats) {
                 const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? 0; };
                 set('auxStatsTotal',       data.stats.total);
@@ -935,13 +1012,20 @@
         const items = ids.map(k => window._auxSelectedMap[k].codigo);
         if (sum) sum.innerHTML = '<strong>' + ids.length + '</strong> equipo(s) a movilizar: <span style="color:#334155;">' + items.slice(0,6).join(', ') + (items.length > 6 ? ', +' + (items.length - 6) + ' más' : '') + '</span>';
         document.getElementById('auxMovilizarFrente').value = '';
-        modal.style.display = 'flex';
+        // Usar la clase .active (CSS global maneja display:flex + opacity:1).
+        // El display:none inline del HTML necesita limpiarse para que .active
+        // pueda tomar control de la visibilidad.
+        modal.style.display = '';
+        modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     };
 
     window.closeAuxMovilizarModal = function () {
         const modal = document.getElementById('auxMovilizarModal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
         document.body.style.overflow = '';
     };
 
@@ -1275,79 +1359,201 @@
         if (ids.length === 0) return;
         let overlay = document.getElementById('auxAnclarBulkOverlay');
         if (overlay) overlay.remove();
+        // Modal con la misma estructura/estilo del modal de anclaje en
+        // /admin/equipos (equipos_index.js L1568): width 90% / max-width 440px,
+        // header 1e293b centrado, lista bg #f8fafc con padding 8px.
         overlay = document.createElement('div');
         overlay.id = 'auxAnclarBulkOverlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000010;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
         overlay.innerHTML = `
-            <div style="background:white;border-radius:14px;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);">
-                <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:14px 18px;color:white;display:flex;justify-content:space-between;align-items:center;">
+            <div style="background:white;border-radius:16px;width:90%;max-width:400px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <div style="background:rgba(16,185,129,0.2);padding:6px;border-radius:8px;display:flex;"><i class="material-icons" style="font-size:18px;color:#10b981;">anchor</i></div>
-                        <div>
-                            <h3 style="margin:0;font-size:15px;font-weight:700;">Anclar Auxiliares</h3>
-                            <p style="margin:2px 0 0 0;font-size:11px;color:#94a3b8;">${ids.length} auxiliar${ids.length>1?'es':''} seleccionado${ids.length>1?'s':''}</p>
-                        </div>
+                        <i class="material-icons" style="color:#10b981;font-size:20px;">anchor</i>
+                        <h2 style="margin:0;font-size:16px;font-weight:700;">Anclar Auxiliares</h2>
                     </div>
-                    <button type="button" onclick="document.getElementById('auxAnclarBulkOverlay').remove();" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;display:flex;padding:4px;"><i class="material-icons">close</i></button>
+                    <button type="button" onclick="document.getElementById('auxAnclarBulkOverlay').remove();" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                        <i class="material-icons">close</i>
+                    </button>
                 </div>
-                <div style="padding:14px 16px;background:#f8fafc;display:flex;flex-direction:column;gap:10px;overflow:hidden;flex:1;min-height:0;">
-                    <div style="display:flex;align-items:center;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow:hidden;flex-shrink:0;" id="auxABBox">
-                        <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:20px;">search</i>
-                        <input type="text" id="auxABInput" placeholder="Buscar host por placa, serial chasis o motor..." autocomplete="off" style="flex:1;border:none;outline:none;padding:11px 6px;font-size:13.5px;background:transparent;">
+                <div style="padding:20px;">
+                    <div style="font-size:11px;color:#64748b;margin-bottom:8px;text-align:center;">${ids.length} auxiliar${ids.length>1?'es':''} a anclar</div>
+                    <!-- Buscador (mismo patron que /admin/equipos) -->
+                    <div style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;margin-bottom:12px;transition:border-color 0.2s;" id="auxABBox">
+                        <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
+                        <input type="text" id="auxABInput" placeholder="Buscar por tipo, marca, serial..." autocomplete="off" style="flex:1;border:none;outline:none;padding:9px 6px;font-size:13px;background:transparent;">
                     </div>
-                    <div id="auxABList" style="overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:white;flex:1;min-height:140px;">
-                        <div style="padding:24px;text-align:center;color:#94a3b8;font-size:12.5px;"><i class="material-icons" style="font-size:28px;display:block;margin:0 auto 8px;color:#cbd5e0;">search</i>Escribe al menos 2 caracteres.</div>
+                    <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px;" id="auxABRecommendLabel">
+                        <i class="material-icons" style="font-size:14px;color:#10b981;">recommend</i>
+                        Recomendados (Flota Liviana)
                     </div>
+                    <div id="auxABList" style="max-height:340px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;margin-bottom:14px;">
+                        <div style="padding:20px;text-align:center;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;color:#94a3b8;">sync</i></div>
+                    </div>
+                    <button id="auxABConfirmBtn" type="button" disabled
+                            style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#10b981;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;opacity:0.5;cursor:not-allowed;transition:all 0.2s;">
+                        <i class="material-icons">check_circle</i> Confirmar Anclaje
+                    </button>
                 </div>
             </div>`;
         document.body.appendChild(overlay);
         const input = document.getElementById('auxABInput');
         const list  = document.getElementById('auxABList');
+        const label = document.getElementById('auxABRecommendLabel');
         let timer = null;
-        input.focus();
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-        input.addEventListener('input', () => {
-            const q = input.value.trim();
-            if (q.length < 2) {
-                list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12.5px;"><i class="material-icons" style="font-size:28px;display:block;margin:0 auto 8px;color:#cbd5e0;">search</i>Escribe al menos 2 caracteres.</div>';
-                return;
-            }
-            clearTimeout(timer);
+        // Carga inicial: recomendaciones (flota liviana). Si el usuario teclea
+        // 2+ caracteres, se reemplaza por busqueda libre.
+        const fetchAndRender = (urlParams, isRecommend) => {
             list.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>';
-            timer = setTimeout(() => {
-                fetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), {
-                    headers: {'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
-                })
-                .then(r => r.json())
+            if (label) {
+                if (isRecommend) {
+                    label.style.display = 'flex';
+                    label.innerHTML = '<i class="material-icons" style="font-size:14px;color:#10b981;">recommend</i>Recomendados (Flota Liviana)';
+                } else {
+                    label.style.display = 'flex';
+                    label.innerHTML = '<i class="material-icons" style="font-size:14px;color:#0067b1;">search</i>Resultados de búsqueda';
+                }
+            }
+            fetch('{{ route("equipos-auxiliares.searchHosts") }}?' + urlParams, {
+                headers: {'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
+            })
+            .then(r => r.json())
                 .then(rows => {
-                    if (!rows || !rows.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px;">Sin resultados.</div>'; return; }
+                    if (!rows || !rows.length) {
+                        list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="font-size:32px;display:block;margin:0 auto 10px;">search_off</i>Sin resultados</div>';
+                        return;
+                    }
+                    // Tarjeta 1:1 con la del modal de anclaje en /admin/equipos
+                    // (equipos_index.js L1667): foto 40x40 + TIPO uppercase +
+                    // MARCA + [fingerprint serial] [featured_play_list placa]
+                    // + location_on frente.
+                    const esc = (s) => (s || '').toString().replace(/"/g, '&quot;').replace(/'/g, "\\'");
                     list.innerHTML = rows.map(r => {
-                        const idStr = r.placa || r.serial_chasis || ('#' + r.id);
-                        const lbl = r.placa ? 'Placa' : (r.serial_chasis ? 'Chasis' : 'ID');
-                        const dis = r.disponible ? '' : 'opacity:0.55;pointer-events:none;';
+                        const dis = r.disponible ? '' : 'cursor:not-allowed;opacity:0.6;';
                         const badge = r.disponible
-                            ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>'
-                            : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
-                        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;${dis}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" onclick="window.auxAnclarBulkConfirm(${r.id}, '${(idStr+'').replace(/'/g,"\\'")}')">
-                            <div style="flex:1;min-width:0;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px;">
-                                    <strong style="color:#1e293b;font-size:13px;"><span style="color:#94a3b8;font-size:9.5px;font-weight:600;text-transform:uppercase;">${lbl}:</span> ${idStr}</strong>
-                                    ${badge}
+                            ? ''
+                            : `<i class="material-icons" style="color:#cbd5e0;font-size:18px;margin-left:auto;" title="Lleno (${r.auxiliares_anclados}/2)">lock</i>`;
+                        // object-fit:contain para mostrar la foto COMPLETA (sin recortar
+                        // el largo del equipo). Background blanco rellena el sobrante
+                        // del cuadrado para que se vea limpia.
+                        const fotoHtml = r.foto
+                            ? `<img src="${esc(r.foto)}" style="width:100%;height:100%;object-fit:contain;background:white;" onerror="this.outerHTML='<i class=&quot;material-icons&quot; style=&quot;font-size:20px;color:#cbd5e0;&quot;>image_not_supported</i>'">`
+                            : `<i class="material-icons" style="font-size:20px;color:#cbd5e0;">image_not_supported</i>`;
+                        const placaPart = r.placa
+                            ? `<span style="font-size:10px;color:#0067b1;font-weight:700;display:flex;align-items:center;gap:2px;"><i class="material-icons" style="font-size:10px;">featured_play_list</i>${esc(r.placa)}</span>`
+                            : '';
+                        const frenteBadge = r.frente_nombre
+                            ? `<div style="font-size:10px;color:#f97316;font-weight:700;display:flex;align-items:center;gap:2px;margin-top:2px;"><i class="material-icons" style="font-size:10px;">location_on</i>${esc(r.frente_nombre)}</div>`
+                            : '';
+                        // Selection-then-confirm: click marca la card como seleccionada
+                        // (verde + check) y habilita el boton Confirmar Anclaje. NO
+                        // dispara el anclaje hasta que el usuario presione Confirmar.
+                        const clickHandler = r.disponible
+                            ? `onclick="window.auxABSelectHost(this, ${r.id}, '${esc(r.placa || r.serial_chasis || ('#' + r.id))}')"`
+                            : '';
+                        return `
+                            <div class="aux-ab-host-card" style="padding:10px;border-radius:8px;background:white;border:1px solid #e2e8f0;margin-bottom:6px;display:flex;align-items:center;gap:12px;transition:all 0.2s;position:relative;${dis}"
+                                 onmouseover="if(!this.dataset.locked && !this.dataset.selected){this.style.borderColor='#10b981';this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.05)';}"
+                                 onmouseout="if(!this.dataset.locked && !this.dataset.selected){this.style.borderColor='#e2e8f0';this.style.boxShadow='none';}"
+                                 ${!r.disponible ? 'data-locked="1"' : ''}
+                                 ${clickHandler}>
+                                <div style="width:40px;height:40px;background:#f1f5f9;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${fotoHtml}</div>
+                                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                    <span style="font-weight:800;font-size:13px;color:#1e293b;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.tipo || 'S/TIPO')}</span>
+                                    <div style="font-size:11px;color:#475569;font-weight:600;">${esc(r.marca || '')}</div>
+                                    <div style="display:flex;align-items:center;gap:8px;margin-top:1px;">
+                                        <span style="font-size:10px;color:#64748b;display:flex;align-items:center;gap:2px;"><i class="material-icons" style="font-size:10px;">fingerprint</i>${esc(r.serial_chasis || 'S/S')}</span>
+                                        ${placaPart}
+                                    </div>
+                                    ${frenteBadge}
                                 </div>
-                                <div style="font-size:11.5px;color:#475569;">${r.tipo || ''}${r.tipo && r.marca ? ' · ' : ''}${r.marca || ''}</div>
-                            </div>
-                        </div>`;
+                                ${badge}
+                            </div>`;
                     }).join('');
                 });
+        };
+
+        // Carga inicial: recomendaciones FLOTA LIVIANA
+        fetchAndRender('recommend=1', true);
+
+        // Busqueda libre: 2+ chars, debounce 280ms
+        input.addEventListener('input', () => {
+            const q = input.value.trim();
+            clearTimeout(timer);
+            if (q.length < 2) {
+                // Si vacian el input, recargamos recomendaciones
+                if (q.length === 0) fetchAndRender('recommend=1', true);
+                else list.innerHTML = '<div style="padding:18px;text-align:center;color:#94a3b8;font-size:12px;">Escribe al menos 2 caracteres...</div>';
+                window._auxABSelected = null;
+                _auxABRefreshConfirmBtn();
+                return;
+            }
+            timer = setTimeout(() => {
+                fetchAndRender('q=' + encodeURIComponent(q), false);
             }, 280);
         });
+
+        // Boton Confirmar Anclaje
+        const confirmBtn = document.getElementById('auxABConfirmBtn');
+        if (confirmBtn) {
+            confirmBtn.onclick = function () {
+                if (!window._auxABSelected) return;
+                window.auxAnclarBulkConfirm(
+                    window._auxABSelected.id,
+                    window._auxABSelected.label
+                );
+            };
+        }
     };
+
+    // Selecciona un host en el modal: highlight verde + check + habilita Confirmar.
+    window.auxABSelectHost = function (cardEl, hostId, hostLabel) {
+        // Limpia seleccion previa
+        document.querySelectorAll('.aux-ab-host-card[data-selected="1"]').forEach(c => {
+            c.dataset.selected = '';
+            c.style.borderColor = '#e2e8f0';
+            c.style.background = 'white';
+            const chk = c.querySelector('.aux-ab-check');
+            if (chk) chk.remove();
+        });
+        // Marca la nueva
+        cardEl.dataset.selected = '1';
+        cardEl.style.borderColor = '#10b981';
+        cardEl.style.background = '#f0fdf4';
+        cardEl.style.boxShadow = '0 4px 6px -1px rgba(16,185,129,0.15)';
+        if (!cardEl.querySelector('.aux-ab-check')) {
+            const ck = document.createElement('div');
+            ck.className = 'aux-ab-check';
+            ck.style.cssText = 'color:#10b981;flex-shrink:0;display:flex;align-items:center;';
+            ck.innerHTML = '<i class="material-icons" style="font-size:22px;">check_circle</i>';
+            cardEl.appendChild(ck);
+        }
+        window._auxABSelected = { id: hostId, label: hostLabel };
+        _auxABRefreshConfirmBtn();
+    };
+
+    function _auxABRefreshConfirmBtn() {
+        const btn = document.getElementById('auxABConfirmBtn');
+        if (!btn) return;
+        if (window._auxABSelected) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+        }
+    }
 
     window.auxAnclarBulkConfirm = function (hostId, hostLabel) {
         const ids = Object.keys(window._auxSelectedMap || {});
         if (!ids.length) return;
-        if (!confirm(`Anclar ${ids.length} auxiliar(es) al host ${hostLabel}?`)) return;
+        // Sin confirm() nativo: el flujo ya es explicito (seleccionar host +
+        // click en "Confirmar Anclaje"); el browser-modal feo solo agregaba
+        // una capa de friccion innecesaria.
         document.getElementById('auxAnclarBulkOverlay')?.remove();
         if (window.showPreloader) window.showPreloader();
         const csrf = document.querySelector('meta[name="csrf-token"]').content;
@@ -1559,4 +1765,71 @@
 
 })();
 </script>
+
+{{-- Seed inicial de window.auxDetailsMap: TODOS los detalles de los auxiliares
+     visibles en esta pagina. El modal del ojo abre instantaneamente porque la
+     data ya esta en memoria. Las cargas AJAX de cargarAuxiliares hacen
+     Object.assign para refrescar el mapa al paginar/filtrar (ver L920+). --}}
+@if(!empty($auxDetailsMap))
+<script>
+    window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, @json($auxDetailsMap));
+</script>
+@endif
+
+@can('super.admin')
+{{-- Bulk delete de auxiliares (soft-delete con auditoria). Lee el set de
+     IDs seleccionados desde window._auxSelectedMap (que el row-click ya
+     mantiene actualizado). Reusa el preloader/showToast/showModal globales. --}}
+<script>
+window.bulkDeleteAuxiliaresSeleccionados = function () {
+    var ids = Object.keys(window._auxSelectedMap || {}).map(function (x) { return parseInt(x, 10); });
+    if (!ids.length) {
+        if (window.showToast) window.showToast('Selecciona al menos un auxiliar (checkbox) antes de eliminar.', 'warning');
+        else alert('Selecciona al menos un auxiliar antes de eliminar.');
+        return;
+    }
+    var proceed = function () {
+        if (window.showPreloader) window.showPreloader();
+        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        fetch('{{ route("equipos-auxiliares.bulkDelete") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ ids: ids })
+        })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (res.ok && res.body.success) {
+                if (window.showToast) window.showToast(res.body.message || 'Auxiliares eliminados.', 'success');
+                if (typeof window.auxClearSelection === 'function') window.auxClearSelection();
+                if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
+            } else {
+                if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
+            }
+        })
+        .catch(function () {
+            if (window.hidePreloader) window.hidePreloader();
+            if (window.showToast) window.showToast('Error de red al eliminar.', 'error');
+        });
+    };
+    if (typeof window.showModal === 'function') {
+        window.showModal({
+            type: 'warning',
+            title: 'Eliminar Auxiliares',
+            message: '¿Eliminar ' + ids.length + ' auxiliar(es) seleccionado(s)?\n\nLos datos quedan en papelera y pueden recuperarse.',
+            confirmText: 'Sí, eliminar',
+            cancelText: 'Cancelar',
+            onConfirm: proceed
+        });
+    } else if (confirm('¿Eliminar ' + ids.length + ' auxiliar(es)?')) {
+        proceed();
+    }
+};
+</script>
+@endcan
 @endsection

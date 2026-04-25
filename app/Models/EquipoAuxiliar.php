@@ -3,17 +3,24 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EquipoAuxiliar extends Model
 {
+    use SoftDeletes;
+
     protected $table      = 'equipos_auxiliares';
     protected $primaryKey = 'ID_AUXILIAR';
+    // deleted_at + deleted_by para papelera con auditoria de quien borro.
+    protected $dates = ['deleted_at'];
 
     protected $fillable = [
         'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD',
-        'ANIO', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'ID_EQUIPO_HOST',
+        'ANIO', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'DETALLE_UBICACION_ACTUAL',
+        'ID_EQUIPO_HOST',
         'FOTO', 'OBSERVACIONES', 'CREADO_POR',
         'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT',
+        'deleted_by',
     ];
 
     protected $casts = [

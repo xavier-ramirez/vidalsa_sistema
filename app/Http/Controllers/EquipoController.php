@@ -67,7 +67,10 @@ class EquipoController extends Controller
 
         if (!in_array('id_frente', $exclude)) {
             $raw = trim((string) $request->input('id_frente', ''));
-            if ($raw !== '' && $raw !== 'all') {
+            if ($raw === 'none') {
+                // Sentinel "SIN ASIGNAR": equipos sin ID_FRENTE_ACTUAL en BD.
+                $query->whereNull('ID_FRENTE_ACTUAL');
+            } elseif ($raw !== '' && $raw !== 'all') {
                 // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL).
                 $query->where('ID_FRENTE_ACTUAL', $raw);
             } else {
@@ -207,6 +210,9 @@ class EquipoController extends Controller
                 'ancladoA.tipo',
                 'ancladoA.documentacion',
                 'ancladoA.frenteActual',
+                // Especificaciones del equipo anclado para obtener FOTO_REFERENCIAL
+                // que se muestra en la seccion "Equipo Anclado" del modal de detalles.
+                'ancladoA.especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
             ])
             ->withCount('equiposAuxiliares')
             ->orderBy('tipo_equipos.nombre', 'asc')
@@ -371,6 +377,15 @@ class EquipoController extends Controller
                     'anchorTipoNombre'=> optional(optional($eq->ancladoA)->tipo)->nombre ?? 'Equipo',
                     'anchorPlaca'     => optional(optional($eq->ancladoA)->documentacion)->PLACA ?? '',
                     'anchorSerial'    => optional($eq->ancladoA)->SERIAL_CHASIS ?? '',
+                    'anchorMarca'     => optional($eq->ancladoA)->MARCA ?? '',
+                    // Foto del equipo anclado: prioriza FOTO_REFERENCIAL del catalogo,
+                    // cae a FOTO_EQUIPO propia. La seccion "Equipo Anclado" del modal
+                    // de detalles la muestra si existe; si no, placeholder con icono.
+                    'anchorFoto'      => $eq->ancladoA
+                        ? (optional(optional($eq->ancladoA)->especificaciones)->FOTO_REFERENCIAL
+                            ?? $eq->ancladoA->FOTO_EQUIPO
+                            ?? '')
+                        : '',
                     'subCount'        => $eq->equipos_auxiliares_count ?? 0,
                     'detalleUbicacion'=> $eq->DETALLE_UBICACION_ACTUAL ?? '',
                 ];
@@ -495,7 +510,10 @@ class EquipoController extends Controller
         }
 
         // Apply same filters
-        if ($request->filled('id_frente') && $request->id_frente != 'all') {
+        if ($request->filled('id_frente') && $request->id_frente === 'none') {
+            // Sentinel "SIN ASIGNAR": equipos sin ID_FRENTE_ACTUAL en BD.
+            $equipos->whereNull('ID_FRENTE_ACTUAL');
+        } elseif ($request->filled('id_frente') && $request->id_frente != 'all') {
             $equipos->where('ID_FRENTE_ACTUAL', $request->id_frente);
         } else {
             $equipos->excludeEspecial();
@@ -584,7 +602,9 @@ class EquipoController extends Controller
 
         // Determinar nombre del frente para el encabezado
         $nombreFrente = 'TODOS LOS FRENTES';
-        if ($request->filled('id_frente') && $request->id_frente !== 'all') {
+        if ($request->filled('id_frente') && $request->id_frente === 'none') {
+            $nombreFrente = 'SIN ASIGNAR';
+        } elseif ($request->filled('id_frente') && $request->id_frente !== 'all') {
             $frente = FrenteTrabajo::find($request->id_frente);
             if ($frente) $nombreFrente = mb_strtoupper($frente->NOMBRE_FRENTE);
         }
@@ -1528,8 +1548,119 @@ class EquipoController extends Controller
             'codigo_patio'  => $equipo->CODIGO_PATIO,
             'serial_chasis' => $equipo->SERIAL_CHASIS,
         ]);
-        $equipo->delete();
+        // Soft-delete con auditoria: deleted_by guarda quien lo borro, lo cual
+        // alimenta la papelera (vista "Equipos Eliminados") con quien y cuando.
+        $equipo->deleted_by = auth()->id();
+        $equipo->save();
+        $equipo->delete(); // SoftDeletes: setea deleted_at, NO borra fisicamente.
         return redirect()->route('equipos.index')->with('success', 'Equipo eliminado.');
+    }
+
+    /**
+     * Borrado masivo (soft-delete) por IDs. Usado desde el menu Acciones del
+     * index cuando hay equipos seleccionados via checkbox. Cada equipo queda
+     * con deleted_at + deleted_by (auth user) y desaparece de listas normales.
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:equipos,ID_EQUIPO',
+        ]);
+
+        $userId = auth()->id();
+        $borrados = 0;
+        DB::transaction(function () use ($request, $userId, &$borrados) {
+            $equipos = Equipo::whereIn('ID_EQUIPO', $request->ids)->lockForUpdate()->get();
+            foreach ($equipos as $eq) {
+                \App\Models\EquipoAuditLog::registrar($eq->ID_EQUIPO, 'delete', [
+                    'codigo_patio'  => $eq->CODIGO_PATIO,
+                    'serial_chasis' => $eq->SERIAL_CHASIS,
+                    'bulk'          => true,
+                ]);
+                $eq->deleted_by = $userId;
+                $eq->save();
+                $eq->delete();
+                $borrados++;
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => "Se eliminaron {$borrados} equipo(s). Puede recuperarlos desde la Papelera.",
+            'count'   => $borrados,
+        ]);
+    }
+
+    /**
+     * Papelera: lista los equipos soft-deleted con info de auditoria
+     * (quien borro y cuando). Endpoint JSON para el modal "Ver Papelera".
+     */
+    public function papelera(Request $request)
+    {
+        $items = Equipo::onlyTrashed()
+            ->with(['tipo:id,nombre', 'documentacion:ID_EQUIPO,PLACA', 'frenteActual:ID_FRENTE,NOMBRE_FRENTE'])
+            ->orderByDesc('deleted_at')
+            ->get();
+
+        // Resolver nombres de los usuarios que borraron (en una sola query).
+        $userIds = $items->pluck('deleted_by')->filter()->unique()->values()->all();
+        $usuarios = !empty($userIds)
+            ? \App\Models\Usuario::whereIn('ID_USUARIO', $userIds)
+                ->pluck('NOMBRE_COMPLETO', 'ID_USUARIO')->toArray()
+            : [];
+
+        $rows = $items->map(function ($e) use ($usuarios) {
+            return [
+                'id'             => $e->ID_EQUIPO,
+                'tipo'           => optional($e->tipo)->nombre,
+                'codigo'         => $e->CODIGO_PATIO,
+                'placa'          => optional($e->documentacion)->PLACA,
+                'serial_chasis'  => $e->SERIAL_CHASIS,
+                'marca'          => $e->MARCA,
+                'modelo'         => $e->MODELO,
+                'frente'         => optional($e->frenteActual)->NOMBRE_FRENTE,
+                'foto'           => $e->FOTO_EQUIPO ? asset($e->FOTO_EQUIPO) : null,
+                'eliminado_por'  => $e->deleted_by ? ($usuarios[$e->deleted_by] ?? ('Usuario #' . $e->deleted_by)) : 'Desconocido',
+                'eliminado_en'   => optional($e->deleted_at)->format('d/m/Y H:i'),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'count'   => $rows->count(),
+            'items'   => $rows,
+        ]);
+    }
+
+    /**
+     * Recupera (restaura) un equipo soft-deleted: limpia deleted_at y
+     * deleted_by, regresandolo al listado activo.
+     */
+    public function restoreEquipo($id)
+    {
+        $equipo = Equipo::onlyTrashed()->where('ID_EQUIPO', $id)->first();
+        if (!$equipo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Equipo no encontrado en la papelera.',
+            ], 404);
+        }
+
+        $equipo->restore();
+        $equipo->deleted_by = null;
+        $equipo->save();
+
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'edit', [
+            'accion'        => 'restore',
+            'codigo_patio'  => $equipo->CODIGO_PATIO,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Equipo recuperado correctamente.',
+            'equipo'  => ['id' => $equipo->ID_EQUIPO, 'codigo' => $equipo->CODIGO_PATIO],
+        ]);
     }
 
     public function changeStatus(Request $request, $id)

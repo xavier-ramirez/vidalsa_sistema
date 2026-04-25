@@ -33,6 +33,10 @@ Route::middleware(['auth'])->group(function () {
 
             Route::resource('usuarios', App\Http\Controllers\UserController::class)->except(['show']);
             Route::get('frentes/buscar', [App\Http\Controllers\FrenteTrabajoController::class, 'search'])->name('frentes.search');
+            // Frentes "papelera": listado de finalizados + restore. Definidos antes del
+            // resource para que el segmento literal /finalizados no choque con {frente}.
+            Route::get('frentes/finalizados', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizados'])->name('frentes.finalizados');
+            Route::patch('frentes/{frente}/restore', [App\Http\Controllers\FrenteTrabajoController::class, 'restore'])->name('frentes.restore');
             Route::resource('frentes', App\Http\Controllers\FrenteTrabajoController::class)->except(['show']);
 
             // Catalog Linking API Routes (Must be before resource to avoid ID conflict)
@@ -66,6 +70,11 @@ Route::middleware(['auth'])->group(function () {
             Route::get('equipos/bulk-template', [App\Http\Controllers\EquipoController::class, 'bulkTemplate'])->name('equipos.bulkTemplate');
             Route::post('equipos/bulk-preview', [App\Http\Controllers\EquipoController::class, 'bulkPreview'])->name('equipos.bulkPreview');
             Route::post('equipos/bulk-store-batch', [App\Http\Controllers\EquipoController::class, 'bulkStoreBatch'])->name('equipos.bulkStoreBatch');
+            // Papelera de equipos (soft-delete + restore con auditoria de quien borro).
+            // Definidos ANTES del resource para que /papelera no choque con {id}.
+            Route::get  ('equipos/papelera',          [App\Http\Controllers\EquipoController::class, 'papelera'])->name('equipos.papelera');
+            Route::post ('equipos/bulk-delete',       [App\Http\Controllers\EquipoController::class, 'bulkDelete'])->middleware('can:super.admin')->name('equipos.bulkDelete');
+            Route::patch('equipos/{id}/restore',      [App\Http\Controllers\EquipoController::class, 'restoreEquipo'])->middleware('can:super.admin')->name('equipos.restore');
             Route::resource('equipos', App\Http\Controllers\EquipoController::class);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
             Route::post('movilizaciones/recepcion-directa', [App\Http\Controllers\MovilizacionController::class, 'recepcionDirecta'])->name('movilizaciones.recepcionDirecta');
@@ -112,6 +121,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('equipos-auxiliares/by-host/{id}',   [App\Http\Controllers\EquipoAuxiliarController::class, 'byHost']) ->name('equipos-auxiliares.byHost');
             Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');
             Route::get   ('equipos-auxiliares/hosts/search',   [App\Http\Controllers\EquipoAuxiliarController::class, 'searchHosts'])->name('equipos-auxiliares.searchHosts');
+            // Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD (vista de solo lectura)
+            Route::get   ('equipos-auxiliares/catalogo',       [App\Http\Controllers\EquipoAuxiliarController::class, 'catalogo'])->name('equipos-auxiliares.catalogo');
+            Route::post  ('equipos-auxiliares/bulk-delete',    [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkDelete'])->middleware('can:super.admin')->name('equipos-auxiliares.bulkDelete');
             Route::get   ('equipos-auxiliares/create',         [App\Http\Controllers\EquipoAuxiliarController::class, 'create'])->middleware('can:equipos.create')->name('equipos-auxiliares.create');
             Route::post  ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'store']) ->middleware('can:equipos.create')->name('equipos-auxiliares.store');
             Route::get   ('equipos-auxiliares/{id}/edit',      [App\Http\Controllers\EquipoAuxiliarController::class, 'edit']) ->middleware('can:equipos.edit')->name('equipos-auxiliares.edit');

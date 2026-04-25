@@ -120,6 +120,15 @@
                              onclick="selectOption('frenteFilterSelect', 'all', '{{ $isLocalUser ? 'Todos Mis Frentes' : 'TODOS LOS FRENTES' }}'); loadEquipos();">
                             {{ $isLocalUser ? 'TODOS MIS FRENTES' : 'TODOS LOS FRENTES' }}
                         </div>
+                        {{-- Sentinel "none": filtra equipos sin ID_FRENTE_ACTUAL en BD --}}
+                        @if(!$isLocalUser)
+                        <div class="dropdown-item {{ $currentFrenteId == 'none' ? 'selected' : '' }}"
+                             data-value="none"
+                             onclick="selectOption('frenteFilterSelect', 'none', 'SIN ASIGNAR'); loadEquipos();"
+                             style="font-style: italic; color: #94a3b8;">
+                            SIN ASIGNAR
+                        </div>
+                        @endif
                         @foreach($frentesDropdown as $frente)
                             <div class="dropdown-item {{ $currentFrenteId == $frente->ID_FRENTE ? 'selected' : '' }}"
                                  data-value="{{ $frente->ID_FRENTE }}"
@@ -309,39 +318,9 @@
                     </div>
 
 
-                    <!-- Año Filter (Rebuilt like Tipo) -->
-                    <div>
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Año</span>
-                        <div class="custom-dropdown" id="anioAdvFilter" data-filter-type="anio" data-default-label="Seleccionar Año..." style="font-size: 12px;">
-                            <input type="hidden" name="anio" data-filter-value value="{{ request('anio') }}">
-                            
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('anio') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">search</i>
-                                </div>
-                                <input type="text" name="filter_search_dropdown" data-filter-search 
-                                    placeholder="{{ request('anio') ?: 'Seleccionar Año...' }}" 
-                                    aria-label="Filtrar Año"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    oninput="window.filterDropdownOptions(this)"
-                                    autocomplete="off">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('anio') ? 'block' : 'none' }};" 
-                                   onclick="event.stopPropagation(); clearDropdownFilter('anioAdvFilter'); loadEquipos();">close</i>
-                            </div>
-
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
-                                    @if(isset($availableAnios))
-                                        @foreach($availableAnios as $anio)
-                                            @if(trim($anio) !== '')
-                                                <div class="dropdown-item {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
-                                            @endif
-                                        @endforeach
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {{-- Año + GPS movidos a una fila combinada al final del panel
+                         (ambos son filtros cortos y no requieren ancho completo).
+                         Ver bloque "Año + GPS Filter (2 columnas)" mas abajo. --}}
 
                     <!-- Categoría Flota Filter -->
                     <div style="margin-top: 15px;">
@@ -404,31 +383,69 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Tiene GPS Filter -->
-                    <div style="margin-top: 15px;">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Rastreo Satelital (GPS)</span>
-                        <div class="custom-dropdown" id="gpsAdvFilter" data-filter-type="gps" data-default-label="Seleccionar Estatus..." style="font-size: 12px;">
-                            <input type="hidden" name="gps" data-filter-value value="{{ request('gps') }}">
-                            
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('gps') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">gps_fixed</i>
-                                </div>
-                                <input type="text" readonly
-                                    id="filter_display_gps"
-                                    name="filter_display_gps"
-                                    placeholder="{{ request('gps') === 'SI' ? 'Tienen GPS' : (request('gps') === 'NO' ? 'No Tienen GPS' : 'Seleccionar Estatus...') }}" 
-                                    aria-label="Filtrar Estatus GPS"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    onclick="this.closest('.custom-dropdown').classList.toggle('active')">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('gps') ? 'block' : 'none' }};" 
-                                   onclick="event.stopPropagation(); clearDropdownFilter('gpsAdvFilter'); loadEquipos();">close</i>
-                            </div>
+                    {{-- Año + GPS Filter (2 columnas): ambos son selectores cortos
+                         (4 digitos / SI-NO), no requieren ancho completo del panel. --}}
+                    <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <!-- Año Filter -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Año</span>
+                            <div class="custom-dropdown" id="anioAdvFilter" data-filter-type="anio" data-default-label="Seleccionar Año..." style="font-size: 12px;">
+                                <input type="hidden" name="anio" data-filter-value value="{{ request('anio') }}">
 
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list">
-                                    <div class="dropdown-item {{ request('gps') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('gpsAdvFilter', 'SI', 'Tienen GPS'); loadEquipos();">Tienen GPS</div>
-                                    <div class="dropdown-item {{ request('gps') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('gpsAdvFilter', 'NO', 'No Tienen GPS'); loadEquipos();">No Tienen GPS</div>
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('anio') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">event</i>
+                                    </div>
+                                    <input type="text" name="filter_search_dropdown" data-filter-search
+                                        placeholder="{{ request('anio') ?: 'Año...' }}"
+                                        aria-label="Filtrar Año"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
+                                        oninput="window.filterDropdownOptions(this)"
+                                        autocomplete="off">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('anio') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('anioAdvFilter'); loadEquipos();">close</i>
+                                </div>
+
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
+                                        @if(isset($availableAnios))
+                                            @foreach($availableAnios as $anio)
+                                                @if(trim($anio) !== '')
+                                                    <div class="dropdown-item {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
+                                                @endif
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GPS Filter -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">GPS</span>
+                            <div class="custom-dropdown" id="gpsAdvFilter" data-filter-type="gps" data-default-label="Seleccionar Estatus..." style="font-size: 12px;">
+                                <input type="hidden" name="gps" data-filter-value value="{{ request('gps') }}">
+
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('gps') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">gps_fixed</i>
+                                    </div>
+                                    <input type="text" readonly
+                                        id="filter_display_gps"
+                                        name="filter_display_gps"
+                                        placeholder="{{ request('gps') === 'SI' ? 'Tienen GPS' : (request('gps') === 'NO' ? 'No Tienen GPS' : 'Estatus...') }}"
+                                        aria-label="Filtrar Estatus GPS"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none; cursor: pointer;"
+                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('gps') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('gpsAdvFilter'); loadEquipos();">close</i>
+                                </div>
+
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list">
+                                        <div class="dropdown-item {{ request('gps') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('gpsAdvFilter', 'SI', 'Tienen GPS'); loadEquipos();">Tienen GPS</div>
+                                        <div class="dropdown-item {{ request('gps') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('gpsAdvFilter', 'NO', 'No Tienen GPS'); loadEquipos();">No Tienen GPS</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -513,6 +530,17 @@
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Catálogo de Modelos</span>
                 </a>
+
+                @can('super.admin')
+                <!-- Eliminar Seleccionados (soft-delete + auditoria de quien borro).
+                     "Ver Papelera" se accede desde /admin/historial-documentos. --}}
+                <button type="button" onclick="window.bulkDeleteEquiposSeleccionados()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent; border: none; width: 100%; text-align: left;">
+                    <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #dc2626;">delete_outline</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Eliminar Seleccionados</span>
+                </button>
+                @endcan
 
                 <!-- Nuevo -->
                 <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
@@ -698,7 +726,10 @@
 <!-- Hidden Datalist for Dynamic Modal (Autocomplete Source) -->
 <datalist id="dynamicFrentesList" style="display: none;">
     @foreach($frentes as $f)
-        <option value="{{ $f->NOMBRE_FRENTE }}" data-id="{{ $f->ID_FRENTE }}"></option>
+        {{-- data-ubicacion permite al modal de movilizacion saber si el
+             frente registrado ya tiene ubicacion en BD; si esta vacia, el
+             modal solicita una nueva para no perder la trazabilidad. --}}
+        <option value="{{ $f->NOMBRE_FRENTE }}" data-id="{{ $f->ID_FRENTE }}" data-ubicacion="{{ $f->UBICACION }}"></option>
     @endforeach
 </datalist>
 
@@ -1366,6 +1397,81 @@
     window.equiposData = Object.assign(window.equiposData || {}, @json($jsonPayload));
 </script>
 @endif
+
+@can('super.admin')
+{{-- ═══════════════════════════════════════════════════════════
+     PAPELERA DE EQUIPOS — soft-delete con auditoria de quien borro.
+     - bulkDeleteEquiposSeleccionados: borra los equipos checkboxeados.
+     - abrirPapeleraEquipos: abre modal con la lista de eliminados +
+       boton "Recuperar" por fila (PATCH /equipos/{id}/restore).
+     ═══════════════════════════════════════════════════════════ --}}
+<script>
+(function () {
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    function getSelectedIds() {
+        // Reusa el selectedEquipos global (selection bar de equipos_index.js).
+        return Object.keys(window.selectedEquipos || {});
+    }
+
+    window.bulkDeleteEquiposSeleccionados = function () {
+        document.getElementById('splitDropdownMenu').style.display = 'none';
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            if (window.showToast) window.showToast('Selecciona al menos un equipo (checkbox) antes de eliminar.', 'warning');
+            else alert('Selecciona al menos un equipo antes de eliminar.');
+            return;
+        }
+        const proceed = function () {
+            if (window.showPreloader) window.showPreloader();
+            fetch('{{ route("equipos.bulkDelete") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ids: ids.map(x => parseInt(x, 10)) })
+            })
+            .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, body: d })))
+            .then(res => {
+                if (window.hidePreloader) window.hidePreloader();
+                if (res.ok && res.body.success) {
+                    if (window.showToast) window.showToast(res.body.message || 'Equipos eliminados.', 'success');
+                    if (typeof window.clearSelection === 'function') window.clearSelection();
+                    if (typeof window.loadEquipos === 'function') window.loadEquipos();
+                } else {
+                    const msg = (res.body && res.body.message) || 'No se pudo eliminar.';
+                    if (window.showToast) window.showToast(msg, 'error');
+                    else alert(msg);
+                }
+            })
+            .catch(() => {
+                if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) window.showToast('Error de red al eliminar.', 'error');
+            });
+        };
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: 'warning',
+                title: 'Eliminar Equipos',
+                message: '¿Eliminar ' + ids.length + ' equipo(s) seleccionado(s)?\n\nLos datos quedan en la Papelera y pueden recuperarse.',
+                confirmText: 'Sí, eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: proceed
+            });
+        } else if (confirm('¿Eliminar ' + ids.length + ' equipo(s)?')) {
+            proceed();
+        }
+    };
+
+    // abrirPapeleraEquipos / cargarPapelera / recuperarEquipo: movidos a
+    // /admin/historial-documentos donde el usuario los necesita junto con
+    // el resto del audit trail. Aqui solo queda bulkDeleteEquiposSeleccionados.
+})();
+</script>
+@endcan
 
 @endsection
 @section('extra_js')

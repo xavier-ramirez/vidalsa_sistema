@@ -697,11 +697,15 @@ window.addEventListener('spa:contentLoaded', function () {
             })
             .then(({ status, body }) => {
                 if (status === 200 || status === 201) {
-                    if (window.hidePreloader) window.hidePreloader();
-
                     // Check if it's Edit or Create
                     const isEdit = form.querySelector('input[name="_method"][value="PUT"]') ||
                         form.querySelector('input[name="_method"][value="PATCH"]');
+
+                    // En CREATE el usuario se queda en la pagina, apagamos el
+                    // preloader. En EDIT vamos a navegar al index manteniendo
+                    // el preloader visible (sin parpadeo) hasta completar la
+                    // transicion - se vera un solo spinner de inicio a fin.
+                    if (!isEdit && window.hidePreloader) window.hidePreloader();
 
                     if (!isEdit) {
                         // CREATE MODE: Reset Form without reload
@@ -749,30 +753,31 @@ window.addEventListener('spa:contentLoaded', function () {
                         // No reload needed. User can register another immediately.
 
                     } else {
-                        // EDIT MODE: Redirect to index
-                        if (window.showToast) {
-                            window.showToast(body.message || 'Usuario actualizado correctamente.', 'success');
-                        } else {
-                            window.showModal({
-                                type: 'success',
-                                title: '¡Éxito!',
+                        // EDIT MODE: navegar al index manteniendo el preloader
+                        // activo durante la transicion (un solo spinner). El
+                        // toast de exito se muestra al cargar el destino via
+                        // sessionStorage flash (estructura_base.blade.php lo lee
+                        // y dispara showToast). Asi se evita el "doble spinner":
+                        // antes ocurria preloader OFF -> toast -> preloader ON
+                        // (al navegar) -> destino. Ahora: preloader ON sostenido
+                        // -> destino con toast.
+                        try {
+                            sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
                                 message: body.message || 'Usuario actualizado correctamente.',
-                                confirmText: 'Aceptar',
-                                hideCancel: true
-                            });
-                        }
+                                type: 'success'
+                            }));
+                        } catch (_) { /* silencioso si sessionStorage no disponible */ }
 
-                        setTimeout(() => {
-                            if (body.redirect) {
-                                if (window.navigateTo) {
-                                    window.navigateTo(body.redirect);
-                                } else {
-                                    window.location.href = body.redirect;
-                                }
+                        window.__vidalsaRedirecting = true;
+                        if (body.redirect) {
+                            if (window.navigateTo) {
+                                window.navigateTo(body.redirect);
                             } else {
-                                window.location.reload();
+                                window.location.href = body.redirect;
                             }
-                        }, 1500);
+                        } else {
+                            window.location.reload();
+                        }
                     }
 
                 } else if (status === 422) {

@@ -227,13 +227,19 @@ class HistorialDocumentosController extends Controller
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha_raw')->values();
 
-        // 4. Apply filters
-        if ($request->filled('search_correo') || $request->filled('search_equipo') || $request->filled('search_tipo')) {
+        // 4. Apply filters (correo / equipo / tipo / rango de fechas)
+        $hasFilter = $request->filled('search_correo') || $request->filled('search_equipo')
+                  || $request->filled('search_tipo')
+                  || $request->filled('fecha_desde') || $request->filled('fecha_hasta');
+        if ($hasFilter) {
             $search_correo = strtolower($request->search_correo);
             $search_equipo = strtolower($request->search_equipo);
             $search_tipo = strtolower($request->search_tipo);
+            // Rango de fechas: comparamos con fecha_raw (Carbon) usando solo dia.
+            $fechaDesde = $request->filled('fecha_desde') ? Carbon::parse($request->fecha_desde)->startOfDay() : null;
+            $fechaHasta = $request->filled('fecha_hasta') ? Carbon::parse($request->fecha_hasta)->endOfDay() : null;
 
-            $events = $events->filter(function ($event) use ($search_correo, $search_equipo, $search_tipo) {
+            $events = $events->filter(function ($event) use ($search_correo, $search_equipo, $search_tipo, $fechaDesde, $fechaHasta) {
                 if ($search_correo && strpos(strtolower($event->autor), $search_correo) === false) {
                     return false;
                 }
@@ -244,6 +250,13 @@ class HistorialDocumentosController extends Controller
                     $equipoMatch = strpos(strtolower($event->equipo_nombre), $search_equipo) !== false ||
                                    strpos(strtolower($event->equipo_id), $search_equipo) !== false;
                     if (!$equipoMatch) return false;
+                }
+                if ($fechaDesde || $fechaHasta) {
+                    $eventoFecha = $event->fecha_raw instanceof \Carbon\Carbon
+                        ? $event->fecha_raw
+                        : Carbon::parse($event->fecha_raw);
+                    if ($fechaDesde && $eventoFecha->lt($fechaDesde)) return false;
+                    if ($fechaHasta && $eventoFecha->gt($fechaHasta)) return false;
                 }
                 return true;
             })->values();
@@ -263,8 +276,12 @@ class HistorialDocumentosController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
-        // Fetch blocked IPs
-        $blockedIps = BloqueoIp::orderBy('ULTIMO_INTENTO', 'desc')->get();
+        // Fetch blocked IPs (solo las EFECTIVAMENTE bloqueadas: >= 10 intentos
+        // fallidos). Antes salian todas las IPs trackeadas, incluyendo las
+        // que aun estaban en seguimiento sin alcanzar el umbral de bloqueo.
+        $blockedIps = BloqueoIp::where('CANTIDAD_INTENTOS', '>=', 10)
+            ->orderBy('ULTIMO_INTENTO', 'desc')
+            ->get();
 
         // Usuarios con sesion activa en los ultimos 30 min (driver database).
         // Se lee directamente la tabla `sessions` (Laravel la crea cuando SESSION_DRIVER=database).

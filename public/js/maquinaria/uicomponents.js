@@ -952,6 +952,50 @@ window.showDetailsImproved = function (target, event) {
 
     window.activeEquipoButton = target;
 
+    // ── Equipo Anclado (REMOLCADOR/REMOLCABLE) ───────────────
+    // Solo se muestra si d.anchorId es valido (el equipo esta anclado a otro).
+    const anclajeAccordion = document.getElementById('anclaje_accordion');
+    const anclajeCard      = document.getElementById('anclaje_card');
+    const hasAnchor = isValid(d.anchorId);
+    if (anclajeAccordion && anclajeCard) {
+        if (hasAnchor) {
+            const anchorTipo   = d.anchorTipoNombre || 'Equipo';
+            const anchorMarca  = d.anchorMarca || '';
+            const anchorPlaca  = (d.anchorPlaca && d.anchorPlaca !== 'N/A') ? d.anchorPlaca : '';
+            const anchorSerial = (d.anchorSerial && d.anchorSerial !== 'N/A') ? d.anchorSerial : '';
+            const anchorCode   = d.anchorCode || '';
+            const anchorRol    = d.anchorRol || '';
+            const anchorFoto   = d.anchorFoto || '';
+            const idPrincipal  = anchorPlaca || anchorSerial || anchorCode || ('#' + d.anchorId);
+            const idLabel      = anchorPlaca ? 'Placa' : (anchorSerial ? 'Chasis' : (anchorCode ? 'Código' : 'ID'));
+            const rolBadge = anchorRol
+                ? `<span style="background:#e0e7ff;color:#3730a3;font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.4px;">${anchorRol}</span>`
+                : '';
+            const fotoHtml = isValid(anchorFoto)
+                ? `<img src="${anchorFoto}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:contain;background:white;border:1px solid #cbd5e0;flex-shrink:0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #cbd5e0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:22px;&quot;>directions_car</i></div>'">`
+                : `<div style="width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #cbd5e0;"><i class="material-icons" style="font-size:22px;">directions_car</i></div>`;
+            anclajeCard.innerHTML = `
+                ${fotoHtml}
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
+                        <strong style="font-size:13px;color:#1e293b;text-transform:uppercase;letter-spacing:0.3px;">${anchorTipo}</strong>
+                        ${rolBadge}
+                    </div>
+                    <div style="font-size:12px;color:#475569;font-weight:600;">${anchorMarca || '<em style=\"color:#94a3b8;font-weight:400;\">Sin marca</em>'}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;font-size:11px;color:#64748b;">
+                        <span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">${anchorPlaca?'featured_play_list':(anchorSerial?'fingerprint':'tag')}</i><strong style="color:#1e293b;">${idLabel}:</strong> ${idPrincipal}</span>
+                        ${anchorCode && idLabel !== 'Código' ? `<span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">qr_code_2</i>${anchorCode}</span>` : ''}
+                    </div>
+                </div>
+                <i class="material-icons" style="color:#10b981;font-size:18px;flex-shrink:0;" title="Anclado">link</i>
+            `;
+            anclajeAccordion.style.display = 'block';
+        } else {
+            anclajeAccordion.style.display = 'none';
+            anclajeCard.innerHTML = '';
+        }
+    }
+
     // ── Cargar Sub-activos vinculados ────────────────────────
     const saAccordion = document.getElementById('sa_accordion');
     const saList      = document.getElementById('sa_list');
@@ -1000,10 +1044,17 @@ window.showDetailsImproved = function (target, event) {
                     const estadoColor = sa.estado === 'OPERATIVO' ? '#16a34a' : (sa.estado === 'INOPERATIVO' ? '#dc2626' : '#64748b');
                     const estadoBg    = sa.estado === 'OPERATIVO' ? '#f0fdf4'  : (sa.estado === 'INOPERATIVO' ? '#fef2f2'  : '#f1f5f9');
 
-                    // Foto: placeholder gris sin fondo colorido amarillento
-                    const foto = `<div style="width:44px;height:44px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e0;flex-shrink:0;">
-                                      <span class="material-icons" style="font-size:22px;color:#94a3b8;">${tc.icon}</span>
-                                  </div>`;
+                    // Foto: si el auxiliar tiene foto propia se muestra (object-fit:cover
+                    // para llenar el cuadrado 44x44); si no, placeholder gris con icono
+                    // del tipo. onerror cae al placeholder si la URL falla.
+                    const foto = sa.foto
+                        ? `<div style="width:44px;height:44px;border-radius:9px;overflow:hidden;border:1px solid #cbd5e0;flex-shrink:0;background:#f1f5f9;">
+                                <img src="${sa.foto}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"
+                                     onerror="this.outerHTML='<span class=&quot;material-icons&quot; style=&quot;font-size:22px;color:#94a3b8;display:flex;align-items:center;justify-content:center;width:100%;height:100%;&quot;>${tc.icon}</span>'">
+                           </div>`
+                        : `<div style="width:44px;height:44px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e0;flex-shrink:0;">
+                                <span class="material-icons" style="font-size:22px;color:#94a3b8;">${tc.icon}</span>
+                           </div>`;
 
                     const infoExtra = [sa.marca, sa.modelo, sa.capacidad, sa.anio].filter(Boolean).join(' · ');
 

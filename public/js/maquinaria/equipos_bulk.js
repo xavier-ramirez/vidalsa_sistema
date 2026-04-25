@@ -75,7 +75,9 @@ function initEquiposBulk() {
             {key:'marca', label:'Marca', type:'text'},
             {key:'modelo', label:'Modelo', type:'text'},
             {key:'anio', label:'Año', type:'number'},
-            {key:'numero_etiqueta', label:'N° Etiqueta', type:'text'},
+            // Etiqueta es un numero corto (3-4 digitos): no necesita ser tan ancho
+            // como las columnas de marca/modelo. width:90px hace la celda compacta.
+            {key:'numero_etiqueta', label:'N° Etiqueta', type:'text', style:'width:90px;min-width:90px;'},
             {key:'serial_chasis', label:'Serial de Chasis', type:'text'},
             {key:'serial_de_motor', label:'Serial de Motor', type:'text'},
             {key:'frente_trabajo', label:'Frente de Trabajo', type:'select', optionsKey:'frentes', optionValue:o=>o.nombre},
@@ -91,10 +93,14 @@ function initEquiposBulk() {
         tiposList.forEach(t => { datalistHtml += `<option value="${escapeHtml(t)}"></option>`; });
         datalistHtml += '</datalist>';
 
-        // thead
+        // thead — soporta `style` opcional por columna para ajustar ancho.
         let thead = '<thead><tr>';
         thead += '<th style="width:50px;">#</th>';
-        columns.forEach(c => { thead += `<th>${c.label}</th>`; });
+        columns.forEach(c => {
+            const styleAttr = c.style ? ` style="${c.style}"` : '';
+            thead += `<th${styleAttr}>${c.label}</th>`;
+        });
+        thead += '<th style="width:40px;" title="Eliminar fila"></th>';
         thead += '</tr></thead>';
 
         // tbody
@@ -106,7 +112,8 @@ function initEquiposBulk() {
                 const val = row.data[col.key] ?? '';
                 const err = (row.errors && row.errors[col.key]) || '';
                 const errClass = err ? 'cell-error' : '';
-                tbody += `<td class="${errClass}" data-field="${col.key}" title="${escapeHtml(err)}">`;
+                const styleAttr = col.style ? ` style="${col.style}"` : '';
+                tbody += `<td class="${errClass}" data-field="${col.key}" title="${escapeHtml(err)}"${styleAttr}>`;
                 if (col.type === 'select') {
                     const list = col.optionsKey
                         ? options[col.optionsKey].map(o => (col.optionValue ? col.optionValue(o) : o))
@@ -131,12 +138,42 @@ function initEquiposBulk() {
                 if (err) { tbody += `<div class="cell-error-msg">${escapeHtml(err)}</div>`; }
                 tbody += '</td>';
             });
+            // Boton X para eliminar la fila completa del preview antes de guardar
+            // (mismo patron que en /admin/equipos-auxiliares bulk).
+            tbody += `<td class="row-delete" style="text-align:center;">
+                <button type="button" class="bulk-row-delete" title="Eliminar fila"
+                    style="background:transparent;border:none;color:#94a3b8;cursor:pointer;width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;"
+                    onmouseover="this.style.background='#fee2e2';this.style.color='#dc2626';"
+                    onmouseout="this.style.background='transparent';this.style.color='#94a3b8';">
+                    <i class="material-icons" style="font-size:18px;">close</i>
+                </button>
+            </td>`;
             tbody += '</tr>';
         });
         tbody += '</tbody>';
 
         tableEl.innerHTML = thead + tbody + datalistHtml;
         panel.style.display = 'block';
+
+        // Boton X: elimina la fila del preview, renumera y actualiza el header.
+        // Si quedan 0 filas, cierra el panel (no tiene sentido seguir con un
+        // preview vacio).
+        tableEl.querySelectorAll('.bulk-row-delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tr = btn.closest('tr');
+                if (!tr) return;
+                tr.remove();
+                renumberRows();
+                updateErrorCount();
+                if (!tableEl.querySelectorAll('tbody tr').length) {
+                    panel.style.display = 'none';
+                    tableEl.innerHTML = '';
+                    headerEl.innerHTML = '';
+                    const formCard = document.getElementById('formEquipoCard');
+                    if (formCard) formCard.style.display = '';
+                }
+            });
+        });
 
         // Ocultar el card del formulario de equipo individual mientras se ve el preview
         const formCard = document.getElementById('formEquipoCard');
@@ -183,6 +220,21 @@ function initEquiposBulk() {
             rows.push(data);
         });
         return rows;
+    }
+
+    // Re-numera la columna # despues de eliminar filas en el preview.
+    function renumberRows() {
+        tableEl.querySelectorAll('tbody tr').forEach((tr, i) => {
+            const cell = tr.querySelector('.row-num');
+            if (cell) cell.textContent = i + 1;
+        });
+    }
+
+    // Actualiza el header con el conteo actual de filas y filas con error.
+    function updateErrorCount() {
+        const trs = tableEl.querySelectorAll('tbody tr');
+        const errorCount = Array.from(trs).filter(tr => tr.querySelector('td.cell-error')).length;
+        headerEl.innerHTML = `<strong>${trs.length}</strong> filas cargadas. <strong style="color:${errorCount?'#e53e3e':'#38a169'}">${errorCount}</strong> con errores.`;
     }
 
     function applyServerErrors(errorsMap) {

@@ -34,6 +34,16 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
             }
         }
 
+        // 4. Filtros avanzados: rango de fechas (panel "Filtros Avanzados")
+        const fDesde = document.getElementById('hdFechaDesde');
+        if (fDesde && fDesde.value) {
+            params.append('fecha_desde', fDesde.value);
+        }
+        const fHasta = document.getElementById('hdFechaHasta');
+        if (fHasta && fHasta.value) {
+            params.append('fecha_hasta', fHasta.value);
+        }
+
         // Página (para paginación AJAX)
         if (pageUrl && typeof pageUrl === 'string') {
             try {

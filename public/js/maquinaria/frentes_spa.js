@@ -97,6 +97,14 @@ function populateFrenteForm(data) {
         const clearIcon = document.getElementById("btn_clear_search_frente");
         if (clearIcon) clearIcon.style.display = "block";
     }
+
+    // Mostrar boton Eliminar y actualizar dataset con el frente cargado
+    const btnEliminar = document.getElementById("btnEliminarFrente");
+    if (btnEliminar) {
+        btnEliminar.dataset.frenteId = data.ID_FRENTE;
+        btnEliminar.dataset.frenteNombre = data.NOMBRE_FRENTE || "";
+        btnEliminar.style.display = "inline-flex";
+    }
 }
 
 // --- 2. SEARCH & DROPDOWN LOGIC ---
@@ -261,6 +269,14 @@ window.resetFrentesForm = function () {
         const btnIcon = document.getElementById("submitBtnIcon");
         if (btnIcon) btnIcon.innerText = "add_circle";
 
+        // Ocultar boton Eliminar al volver a modo "Registrar nuevo"
+        const btnEliminar = document.getElementById("btnEliminarFrente");
+        if (btnEliminar) {
+            btnEliminar.dataset.frenteId = "";
+            btnEliminar.dataset.frenteNombre = "";
+            btnEliminar.style.display = "none";
+        }
+
         document.getElementById("input_tipo").value = "";
         document.getElementById("label_tipo").innerText = "Seleccione Tipo...";
         document.getElementById("input_estatus").value = "";
@@ -332,7 +348,14 @@ window.addToSearchList = function (frente) {
 // Bind Confirm Button
 
 function showNotification(type, message) {
-    if (typeof window.showModal === "function") {
+    // Toast efimero (auto-cierra en ~3s) en vez de modal con "Aceptar":
+    // las confirmaciones de exito/error de operaciones puntuales no requieren
+    // que el usuario tenga que cerrar manualmente. Mismo patron que el resto
+    // de modulos (equipos, auxiliares, catalogo).
+    if (typeof window.showToast === "function") {
+        window.showToast(message, type);
+    } else if (typeof window.showModal === "function") {
+        // Fallback: si no hay toast disponible, modal sin boton Cancelar.
         window.showModal({
             type: type,
             title: type === "success" ? "Éxito" : "Error",

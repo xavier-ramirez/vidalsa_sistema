@@ -116,21 +116,21 @@
             $frenteCurr = $frentes->firstWhere('ID_FRENTE', (int) $frenteVal);
         @endphp
         <span style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
-            Frente de Trabajo
+            Frente de Trabajo <span style="color: var(--maquinaria-red);">*</span>
         </span>
         <div class="custom-dropdown @error('ID_FRENTE_ACTUAL') is-invalid @enderror" id="auxFrenteSelect">
-            <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_aux_frente" data-filter-value value="{{ $frenteVal }}" aria-label="Frente de Trabajo">
+            <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_aux_frente" data-filter-value value="{{ $frenteVal }}" aria-label="Frente de Trabajo" required>
             <div class="dropdown-trigger" id="trigger_aux_frente" onclick="toggleDropdown('auxFrenteSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" style="cursor: default;">
-                <span id="label_aux_frente" data-filter-label>{{ $frenteCurr ? $frenteCurr->NOMBRE_FRENTE : 'Sin asignar' }}</span>
+                <span id="label_aux_frente" data-filter-label>{{ $frenteCurr ? $frenteCurr->NOMBRE_FRENTE : 'Seleccione un frente...' }}</span>
                 <i class="material-icons">expand_more</i>
             </div>
             <div class="dropdown-content">
-                <div class="dropdown-item" onclick="selectOption('auxFrenteSelect', '', 'Sin asignar', 'aux_frente')">Sin asignar</div>
                 @foreach($frentes as $f)
                     <div class="dropdown-item" onclick="selectOption('auxFrenteSelect', '{{ $f->ID_FRENTE }}', '{{ addslashes($f->NOMBRE_FRENTE) }}', 'aux_frente')">{{ $f->NOMBRE_FRENTE }}</div>
                 @endforeach
             </div>
         </div>
+        @error('ID_FRENTE_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
     <div>
@@ -276,6 +276,28 @@
 
 <script>
 (function () {
+    // ── Uppercase auto: TIPO/CODIGO_INTERNO/SERIAL/MARCA/MODELO/CAPACIDAD ──
+    // El backend ya normaliza a UPPER al guardar, pero el usuario debe ver lo
+    // que escribe en MAYUSCULAS al instante (mismo patron que /admin/equipos).
+    const upperFields = ['TIPO', 'CODIGO_INTERNO', 'SERIAL', 'MARCA', 'MODELO', 'CAPACIDAD'];
+    upperFields.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.upperBound === '1') return;
+        el.dataset.upperBound = '1';
+        // CSS visual + transformacion al teclear (preserva caret position).
+        el.style.textTransform = 'uppercase';
+        el.addEventListener('input', function () {
+            const start = el.selectionStart, end = el.selectionEnd;
+            const upper = el.value.toLocaleUpperCase('es-ES');
+            if (el.value !== upper) {
+                el.value = upper;
+                try { el.setSelectionRange(start, end); } catch (_) {}
+            }
+        });
+        // Forzar UPPER al cargar (por si viene old() en minusculas)
+        if (el.value) el.value = el.value.toLocaleUpperCase('es-ES');
+    });
+
     // ── Tipo combobox (app style) ──
     window.auxTipoOpen = function (input) {
         const cont = document.getElementById('auxTipoContent');

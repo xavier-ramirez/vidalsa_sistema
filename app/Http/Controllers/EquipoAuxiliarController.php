@@ -16,17 +16,75 @@ class EquipoAuxiliarController extends Controller
         $this->middleware('auth');
     }
 
+    /**
+     * Devuelve [isLocalUser, frentesPermitidos]. Aplicado en cualquier query
+     * que liste auxiliares para usuarios con NIVEL_ACCESO=2 (LOCAL).
+     */
+    private function userScope(): array
+    {
+        $user = auth()->user();
+        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
+        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
+        return [$isLocalUser, $frentesPermitidos];
+    }
+
+    /**
+     * Aborta con 404 si el auxiliar pertenece a un frente fuera del scope
+     * del usuario LOCAL. Usado para no filtrar la existencia del registro
+     * via URLs directas (mismo patron que findAndAuthorizeEquipo).
+     */
+    private function authorizeAuxScope(EquipoAuxiliar $aux): void
+    {
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        if (!$isLocalUser) return;
+        $auxFrente = $aux->ID_FRENTE_ACTUAL !== null ? (string) $aux->ID_FRENTE_ACTUAL : null;
+        $permitidos = array_map('strval', $frentesPermitidos);
+        if (!in_array($auxFrente, $permitidos, true)) {
+            abort(404);
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════
     // LISTADO
     // ═══════════════════════════════════════════════════════════
     public function index(Request $request)
     {
-        $applyFilters = function ($q) use ($request) {
+        // Acceso global (NIVEL_ACCESO=1) ve todo. Local (NIVEL_ACCESO=2) queda
+        // limitado a sus frentes asignados; si seleccionara un frente fuera
+        // de su scope el filtro se ignora silenciosamente.
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+
+        // Buscar por serial/codigo/marca/modelo bypassa el scope LOCAL: el
+        // filtro de seriales debe encontrar el equipo aunque no este asignado
+        // a ninguno de los frentes del usuario (mismo patron que /admin/equipos).
+        $bypassScope = trim((string) $request->input('search', '')) !== '';
+
+        $applyFilters = function ($q) use ($request, $isLocalUser, $frentesPermitidos, $bypassScope) {
+            if ($isLocalUser && !$bypassScope) {
+                if (count($frentesPermitidos) > 0) {
+                    $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+            }
             if ($request->filled('tipo') && $request->tipo !== 'all') {
                 $q->where('TIPO', $request->tipo);
             }
-            if ($request->filled('id_frente') && $request->id_frente !== 'all') {
-                $q->where('ID_FRENTE_ACTUAL', $request->id_frente);
+            if ($request->filled('id_frente') && $request->id_frente === 'none') {
+                // Sentinel "SIN ASIGNAR": auxiliares sin ID_FRENTE_ACTUAL.
+                // Para usuario LOCAL no aplica (su scope ya excluye nulls).
+                if (!$isLocalUser) {
+                    $q->whereNull('ID_FRENTE_ACTUAL');
+                }
+            } elseif ($request->filled('id_frente') && $request->id_frente !== 'all') {
+                if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
+                    $q->where('ID_FRENTE_ACTUAL', $request->id_frente);
+                }
+            }
+            // Filtro adicional: detalle_ubicacion (sub-zona dentro de un frente
+            // ESPECIAL). Solo se aplica si tambien hay un frente especifico.
+            if ($request->filled('detalle_ubicacion')) {
+                $q->where('DETALLE_UBICACION_ACTUAL', trim($request->detalle_ubicacion));
             }
             if ($request->filled('estado') && $request->estado !== 'all') {
                 $q->where('ESTADO_OPERATIVO', $request->estado);
@@ -53,7 +111,17 @@ class EquipoAuxiliarController extends Controller
                   || $request->filled('marca') || $request->filled('modelo')
                   || $request->filled('capacidad');
 
-        $query = EquipoAuxiliar::with(['frente', 'equipoHost.documentacion']);
+        // Eager-loads ampliados: incluyen TODO lo que necesita buildAuxDetailsArray
+        // para que window.auxDetailsMap se construya en una sola query (no N+1).
+        // Asi el modal del ojo abre instant sin fetch.
+        $query = EquipoAuxiliar::with([
+            'frente',
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            'equipoHost.especificaciones',
+            'equipoHost.frenteActual',
+            'creador',
+        ]);
         $applyFilters($query);
 
         if ($hasFilter) {
@@ -66,20 +134,42 @@ class EquipoAuxiliarController extends Controller
             );
         }
 
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
+        // Frentes para el dropdown: usuario LOCAL solo ve los que tiene asignados
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+            } else {
+                $frentesQuery->whereRaw('1 = 0');
+            }
+        }
+        $frentes = $frentesQuery->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
-        // Listas para los dropdowns de filtros avanzados
+        // Listas para los dropdowns de filtros avanzados.
+        // Para usuario LOCAL se restringen a su scope de frentes.
+        $advBaseScope = function ($q) use ($isLocalUser, $frentesPermitidos) {
+            if ($isLocalUser) {
+                if (count($frentesPermitidos) > 0) {
+                    $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+            }
+        };
         $availableMarcas = EquipoAuxiliar::select('MARCA')
             ->whereNotNull('MARCA')->where('MARCA', '!=', '')
+            ->tap($advBaseScope)
             ->distinct()->orderBy('MARCA')->pluck('MARCA');
         $availableModelos = EquipoAuxiliar::select('MODELO')
             ->whereNotNull('MODELO')->where('MODELO', '!=', '')
+            ->tap($advBaseScope)
             ->distinct()->orderBy('MODELO')->pluck('MODELO');
         $availableCapacidades = EquipoAuxiliar::select('CAPACIDAD')
             ->whereNotNull('CAPACIDAD')->where('CAPACIDAD', '!=', '')
+            ->tap($advBaseScope)
             ->distinct()->orderBy('CAPACIDAD')->pluck('CAPACIDAD');
 
         // Catalogo implicito de FOTO por MARCA|MODEL: si un auxiliar no tiene
@@ -99,11 +189,27 @@ class EquipoAuxiliarController extends Controller
         // Stats: total/operativos/inoperativos/mantenimiento respetando los filtros
         // activos excepto el propio filtro de estado (para mostrar el breakdown real).
         $statsBase = EquipoAuxiliar::query();
+        if ($isLocalUser && !$bypassScope) {
+            if (count($frentesPermitidos) > 0) {
+                $statsBase->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $statsBase->whereRaw('1 = 0');
+            }
+        }
         if ($request->filled('tipo') && $request->tipo !== 'all')         $statsBase->where('TIPO', $request->tipo);
-        if ($request->filled('id_frente') && $request->id_frente !== 'all')$statsBase->where('ID_FRENTE_ACTUAL', $request->id_frente);
+        if ($request->filled('id_frente') && $request->id_frente === 'none') {
+            if (!$isLocalUser) {
+                $statsBase->whereNull('ID_FRENTE_ACTUAL');
+            }
+        } elseif ($request->filled('id_frente') && $request->id_frente !== 'all') {
+            if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
+                $statsBase->where('ID_FRENTE_ACTUAL', $request->id_frente);
+            }
+        }
         if ($request->filled('marca'))     $statsBase->where('MARCA', 'like', '%' . trim($request->marca) . '%');
         if ($request->filled('modelo'))    $statsBase->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
         if ($request->filled('capacidad')) $statsBase->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
+        if ($request->filled('detalle_ubicacion')) $statsBase->where('DETALLE_UBICACION_ACTUAL', trim($request->detalle_ubicacion));
         if ($request->filled('search')) {
             $s = trim($request->search);
             $statsBase->where(function ($qq) use ($s) {
@@ -127,6 +233,43 @@ class EquipoAuxiliarController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        // Mapa pre-calculado de detalles para los auxiliares visibles.
+        // Se inyecta en window.auxDetailsMap para que el modal del ojo abra
+        // instantaneamente (sin fetch ni spinner). Llave: ID_AUXILIAR.
+        $auxDetailsMap = [];
+        foreach ($auxiliares->items() as $aux) {
+            $auxDetailsMap[$aux->ID_AUXILIAR] = $this->buildAuxDetailsArray($aux, $tipos);
+        }
+
+        // ── ASIGNACIONES ESPECIALES (mismo patron que /admin/equipos) ──
+        // Si el frente seleccionado es TIPO_FRENTE='ESPECIAL', exponemos a la
+        // vista las ubicaciones (sub-zonas) disponibles para el filtro y el
+        // listado de stats por ubicacion.
+        $frenteEspecial = null;
+        $availableUbicaciones = collect();
+        $ubicacionesStats = collect();
+        if ($request->filled('id_frente') && $request->id_frente !== 'all' && $request->id_frente !== 'none') {
+            $frenteEspecial = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
+                ->where('TIPO_FRENTE', 'ESPECIAL')
+                ->first();
+            if ($frenteEspecial) {
+                // Ubicaciones distintas presentes en este frente especial
+                $availableUbicaciones = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
+                    ->whereNotNull('DETALLE_UBICACION_ACTUAL')
+                    ->where('DETALLE_UBICACION_ACTUAL', '!=', '')
+                    ->distinct()
+                    ->orderBy('DETALLE_UBICACION_ACTUAL')
+                    ->pluck('DETALLE_UBICACION_ACTUAL');
+
+                // Stats por ubicacion: conteo de auxiliares en cada sub-zona
+                $ubicacionesStats = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
+                    ->selectRaw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), 'SIN UBICACIÓN') as detalle, COUNT(*) as total")
+                    ->groupBy('detalle')
+                    ->orderByDesc('total')
+                    ->get();
+            }
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos', 'photoByModel'))->render(),
@@ -135,12 +278,21 @@ class EquipoAuxiliarController extends Controller
                 'stats'        => $stats,
                 'distribucion' => $distribucion,
                 'hasFilter'    => $hasFilter,
+                // El frontend (cargarAuxiliares) hace Object.assign(window.auxDetailsMap, ...)
+                // para que el modal del ojo siga abriendo instant tras paginacion/filtro.
+                'auxDetailsMap'    => $auxDetailsMap,
+                // Asignaciones especiales: solo presentes cuando el frente es ESPECIAL.
+                'showUbicaciones'      => $frenteEspecial !== null,
+                'frenteEspecialNombre' => $frenteEspecial ? $frenteEspecial->NOMBRE_FRENTE : null,
+                'availableUbicaciones' => $availableUbicaciones->values(),
+                'ubicacionesStats'     => $ubicacionesStats,
             ]);
         }
 
         return view('admin.equipos_auxiliares.index', compact(
             'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel',
-            'availableMarcas', 'availableModelos', 'availableCapacidades'
+            'availableMarcas', 'availableModelos', 'availableCapacidades', 'auxDetailsMap',
+            'frenteEspecial', 'availableUbicaciones', 'ubicacionesStats'
         ));
     }
 
@@ -155,13 +307,37 @@ class EquipoAuxiliarController extends Controller
         set_time_limit(180);
         $query = EquipoAuxiliar::with('frente');
 
+        // Acceso global vs local: el usuario LOCAL solo exporta sus frentes.
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
         // Capturar filtros activos para reflejarlos en el titulo
         $tipoFiltro   = ($request->filled('tipo') && $request->tipo !== 'all') ? $request->tipo : null;
         $frenteFiltro = ($request->filled('id_frente') && $request->id_frente !== 'all') ? $request->id_frente : null;
         $estadoFiltro = ($request->filled('estado') && $request->estado !== 'all') ? $request->estado : null;
+        $sinAsignarFiltro = ($frenteFiltro === 'none');
+
+        // Si LOCAL pide un frente fuera de su scope o "SIN ASIGNAR" (su scope no
+        // contiene nulls), ignoramos el filtro para no devolver vacio.
+        if ($isLocalUser && $frenteFiltro !== null
+            && ($sinAsignarFiltro
+                || !in_array((string) $frenteFiltro, array_map('strval', $frentesPermitidos), true))) {
+            $frenteFiltro = null;
+            $sinAsignarFiltro = false;
+        }
 
         if ($tipoFiltro)   $query->where('TIPO', $tipoFiltro);
-        if ($frenteFiltro) $query->where('ID_FRENTE_ACTUAL', $frenteFiltro);
+        if ($sinAsignarFiltro) {
+            $query->whereNull('ID_FRENTE_ACTUAL');
+        } elseif ($frenteFiltro) {
+            $query->where('ID_FRENTE_ACTUAL', $frenteFiltro);
+        }
         if ($estadoFiltro) $query->where('ESTADO_OPERATIVO', $estadoFiltro);
         if ($request->filled('search')) {
             $s = trim($request->search);
@@ -177,7 +353,9 @@ class EquipoAuxiliarController extends Controller
         // Resolver nombres legibles de los filtros activos
         $nombreTipo = $tipoFiltro ? mb_strtoupper($tipos[$tipoFiltro] ?? $tipoFiltro) : 'TODOS';
         $nombreFrente = 'TODOS LOS FRENTES';
-        if ($frenteFiltro) {
+        if ($sinAsignarFiltro) {
+            $nombreFrente = 'SIN ASIGNAR';
+        } elseif ($frenteFiltro) {
             $f = \App\Models\FrenteTrabajo::find($frenteFiltro);
             if ($f) $nombreFrente = mb_strtoupper($f->NOMBRE_FRENTE);
         }
@@ -218,8 +396,8 @@ class EquipoAuxiliarController extends Controller
 
         // Titulo central con filtros aplicados (C1:E3)
         $partes = [];
-        if ($frenteFiltro) $partes[] = 'FRENTE: ' . $nombreFrente;
-        if ($tipoFiltro)   $partes[] = 'TIPO: '   . $nombreTipo;
+        if ($frenteFiltro || $sinAsignarFiltro) $partes[] = 'FRENTE: ' . $nombreFrente;
+        if ($tipoFiltro)                        $partes[] = 'TIPO: '   . $nombreTipo;
         $subTitle = $partes ? implode(' — ', $partes) : 'COPIA DE BASE DE DATOS DEL SISTEMA DE GESTION DE EQUIPOS OPERACIONALES';
         $titleText = "LISTADO DE EQUIPOS AUXILIARES\n" . $subTitle;
         $sheet->mergeCells('C1:E3');
@@ -317,22 +495,117 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
-     * Detalles completos del auxiliar (para modal de "Ver detalles").
+     * Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD. Vista de solo lectura
+     * que agrupa los auxiliares existentes por modelo y muestra una foto
+     * representativa, total de unidades y conteo por estado. No requiere
+     * tabla aparte: deriva todo de equipos_auxiliares (igual al concepto de
+     * /admin/catalogo pero sin entidad maestro separada).
      */
-    public function details($id)
+    public function catalogo(Request $request)
     {
-        $aux = EquipoAuxiliar::with([
-            'frente',
-            'equipoHost.documentacion',
-            'equipoHost.tipo',
-            'equipoHost.especificaciones',
-            'equipoHost.frenteActual',
-            'creador',
-        ])->findOrFail($id);
-        $tiposMap = $this->getTiposDinamicos();
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
-        // Foto del host: prioriza FOTO_REFERENCIAL del catalogo del modelo,
-        // cae a FOTO_EQUIPO propia.
+        $base = EquipoAuxiliar::query();
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $base->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $base->whereRaw('1 = 0');
+            }
+        }
+
+        // Filtros opcionales
+        if ($request->filled('tipo') && $request->tipo !== 'all') {
+            $base->where('TIPO', $request->tipo);
+        }
+        if ($request->filled('marca') && $request->marca !== 'all') {
+            $base->where('MARCA', $request->marca);
+        }
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $base->where(function ($q) use ($s) {
+                $q->where('MARCA', 'like', "%{$s}%")
+                  ->orWhere('MODELO', 'like', "%{$s}%")
+                  ->orWhere('CAPACIDAD', 'like', "%{$s}%");
+            });
+        }
+
+        // Agrupar por TIPO+MARCA+MODELO+CAPACIDAD. Una foto representativa por
+        // grupo (la mas reciente con FOTO no nula). Conteos por estado.
+        $grupos = (clone $base)
+            ->selectRaw("
+                TIPO,
+                COALESCE(NULLIF(TRIM(MARCA), ''), '—') as MARCA_KEY,
+                COALESCE(NULLIF(TRIM(MODELO), ''), '—') as MODELO_KEY,
+                COALESCE(NULLIF(TRIM(CAPACIDAD), ''), '') as CAPACIDAD_KEY,
+                COUNT(*) as total,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as operativos,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' THEN 1 ELSE 0 END) as inoperativos,
+                SUM(CASE WHEN ESTADO_OPERATIVO = 'EN_ALMACEN' THEN 1 ELSE 0 END) as en_almacen,
+                MIN(ANIO) as anio_min,
+                MAX(ANIO) as anio_max
+            ")
+            ->groupBy('TIPO', 'MARCA_KEY', 'MODELO_KEY', 'CAPACIDAD_KEY')
+            ->orderBy('TIPO')->orderBy('MARCA_KEY')->orderBy('MODELO_KEY')
+            ->get();
+
+        // Foto representativa por grupo (separado para no romper el GROUP BY).
+        $fotos = (clone $base)
+            ->whereNotNull('FOTO')->where('FOTO', '!=', '')
+            ->selectRaw('TIPO, MARCA, MODELO, CAPACIDAD, FOTO, ID_AUXILIAR')
+            ->orderByDesc('ID_AUXILIAR')
+            ->get()
+            ->reduce(function ($carry, $a) {
+                $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->CAPACIDAD ?? '')));
+                if (!isset($carry[$key])) $carry[$key] = $a->FOTO;
+                return $carry;
+            }, []);
+
+        $tipos = $this->getTiposDinamicos();
+
+        $items = $grupos->map(function ($g) use ($fotos, $tipos) {
+            $key = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->CAPACIDAD_KEY ?? '')));
+            $rangoAnios = ($g->anio_min && $g->anio_max && $g->anio_min !== $g->anio_max)
+                ? $g->anio_min . '–' . $g->anio_max
+                : ($g->anio_min ?: ($g->anio_max ?: null));
+            return [
+                'tipo'         => $g->TIPO,
+                'tipo_label'   => $tipos[$g->TIPO] ?? $g->TIPO,
+                'marca'        => $g->MARCA_KEY,
+                'modelo'       => $g->MODELO_KEY,
+                'capacidad'    => $g->CAPACIDAD_KEY,
+                'total'        => (int) $g->total,
+                'operativos'   => (int) $g->operativos,
+                'inoperativos' => (int) $g->inoperativos,
+                'en_almacen'   => (int) $g->en_almacen,
+                'foto'         => $fotos[$key] ?? null,
+                'rango_anios'  => $rangoAnios,
+            ];
+        });
+
+        // Listas para los filtros
+        $marcas = (clone $base)
+            ->whereNotNull('MARCA')->where('MARCA', '!=', '')
+            ->distinct()->orderBy('MARCA')->pluck('MARCA');
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'items' => $items]);
+        }
+
+        return view('admin.equipos_auxiliares.catalogo', [
+            'items'  => $items,
+            'tipos'  => $tipos,
+            'marcas' => $marcas,
+        ]);
+    }
+
+    /**
+     * Construye el payload de detalles para un auxiliar. Compartido entre
+     * details() (endpoint AJAX legacy) y el seed inline de window.auxDetailsMap
+     * en index() — asi el modal del ojo puede abrir INSTANT sin fetch.
+     */
+    private function buildAuxDetailsArray(EquipoAuxiliar $aux, array $tiposMap): array
+    {
         $hostFoto = null;
         if ($aux->equipoHost) {
             if ($aux->equipoHost->especificaciones && $aux->equipoHost->especificaciones->FOTO_REFERENCIAL) {
@@ -341,8 +614,7 @@ class EquipoAuxiliarController extends Controller
                 $hostFoto = asset($aux->equipoHost->FOTO_EQUIPO);
             }
         }
-
-        return response()->json([
+        return [
             'id'             => $aux->ID_AUXILIAR,
             'tipo'           => $aux->TIPO,
             'tipo_label'     => $tiposMap[$aux->TIPO] ?? $aux->TIPO,
@@ -359,9 +631,10 @@ class EquipoAuxiliarController extends Controller
             'foto_drive_id'  => $aux->FOTO ? basename(str_replace('/storage/google/', '', $aux->FOTO)) : null,
             'link_doc_propiedad'     => $aux->LINK_DOC_PROPIEDAD ?? null,
             'link_certificado'       => $aux->LINK_CERTIFICADO ?? null,
-            'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT ?? null,
+            'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT
+                ? (string) $aux->FECHA_VENCIMIENTO_CERT->format('Y-m-d')
+                : null,
             'frente'         => optional($aux->frente)->NOMBRE_FRENTE,
-            // Host (equipo vinculado)
             'host_id'            => $aux->ID_EQUIPO_HOST,
             'host_codigo'        => optional($aux->equipoHost)->CODIGO_PATIO,
             'host_placa'         => optional(optional($aux->equipoHost)->documentacion)->PLACA,
@@ -371,18 +644,34 @@ class EquipoAuxiliarController extends Controller
             'host_modelo'        => optional($aux->equipoHost)->MODELO,
             'host_foto'          => $hostFoto,
             'host_frente'        => optional(optional($aux->equipoHost)->frenteActual)->NOMBRE_FRENTE,
-            // Auditoria
             'creado_por'     => optional($aux->creador)->NOMBRE_COMPLETO,
             'created_at'     => optional($aux->created_at)->format('d/m/Y H:i'),
             'edit_url'       => route('equipos-auxiliares.edit', $aux->ID_AUXILIAR),
-            // Permisos del usuario actual para que el frontend renderice
-            // condicionalmente los botones de accion del modal.
             'can_edit'       => auth()->user() && auth()->user()->can('equipos.edit'),
             'can_assign'     => auth()->user() && auth()->user()->can('equipos.assign'),
-            // Upload/eliminacion de PDFs requiere user.edit (mismo permiso que el
-            // PDF preview modal de /admin/equipos via window.CAN_UPDATE_INFO).
             'can_upload_pdf' => auth()->user() && auth()->user()->can('user.edit'),
-        ]);
+        ];
+    }
+
+    /**
+     * Detalles completos del auxiliar (para modal de "Ver detalles").
+     * Endpoint legacy: el index() ahora ya pre-carga el mapa de detalles via
+     * window.auxDetailsMap y el modal abre instant sin fetch. Este endpoint
+     * sigue activo como fallback (cache miss / refresco manual).
+     */
+    public function details($id)
+    {
+        $aux = EquipoAuxiliar::with([
+            'frente',
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            'equipoHost.especificaciones',
+            'equipoHost.frenteActual',
+            'creador',
+        ])->findOrFail($id);
+        $this->authorizeAuxScope($aux);
+        $tiposMap = $this->getTiposDinamicos();
+        return response()->json($this->buildAuxDetailsArray($aux, $tiposMap));
     }
 
     /**
@@ -392,7 +681,16 @@ class EquipoAuxiliarController extends Controller
      */
     public function byHost($hostId)
     {
-        $auxiliares = EquipoAuxiliar::where('ID_EQUIPO_HOST', $hostId)
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $auxQuery = EquipoAuxiliar::where('ID_EQUIPO_HOST', $hostId);
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $auxQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $auxQuery->whereRaw('1 = 0');
+            }
+        }
+        $auxiliares = $auxQuery
             ->orderBy('TIPO')
             ->get()
             ->map(function ($a) {
@@ -405,6 +703,9 @@ class EquipoAuxiliarController extends Controller
                     'capacidad' => $a->CAPACIDAD,
                     'anio'      => $a->ANIO,
                     'estado'    => $a->ESTADO_OPERATIVO,
+                    // Foto del auxiliar para el modal de detalles del equipo host
+                    // (seccion "Sub-activos vinculados"). Null si no hay foto.
+                    'foto'      => $a->FOTO ? asset($a->FOTO) : null,
                 ];
             });
 
@@ -416,7 +717,16 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function create()
     {
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+            } else {
+                $frentesQuery->whereRaw('1 = 0');
+            }
+        }
+        $frentes = $frentesQuery->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
@@ -427,6 +737,14 @@ class EquipoAuxiliarController extends Controller
     public function store(Request $request)
     {
         $data = $this->validateData($request);
+
+        // LOCAL: solo puede crear auxiliares en sus frentes asignados
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        if ($isLocalUser && !empty($data['ID_FRENTE_ACTUAL'])) {
+            if (!in_array((string) $data['ID_FRENTE_ACTUAL'], array_map('strval', $frentesPermitidos), true)) {
+                abort(403, 'No tiene permisos para registrar auxiliares en este frente.');
+            }
+        }
 
         $data['CREADO_POR'] = auth()->id();
         // Todos los campos de texto (select o input) se guardan en MAYUSCULAS
@@ -461,7 +779,17 @@ class EquipoAuxiliarController extends Controller
     public function edit($id)
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
-        $frentes  = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get();
+        $this->authorizeAuxScope($auxiliar);
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+            } else {
+                $frentesQuery->whereRaw('1 = 0');
+            }
+        }
+        $frentes = $frentesQuery->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos    = $this->getTiposDinamicos();
         $estados  = EquipoAuxiliar::estadosLabel();
@@ -492,7 +820,16 @@ class EquipoAuxiliarController extends Controller
     public function update(Request $request, $id)
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($auxiliar);
         $data = $this->validateData($request, false);
+
+        // LOCAL: tampoco puede mover el auxiliar a un frente fuera de su scope
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        if ($isLocalUser && !empty($data['ID_FRENTE_ACTUAL'])) {
+            if (!in_array((string) $data['ID_FRENTE_ACTUAL'], array_map('strval', $frentesPermitidos), true)) {
+                abort(403, 'No tiene permisos para reasignar a este frente.');
+            }
+        }
 
         // Todos los campos de texto se normalizan a MAYUSCULAS (consistencia
         // con store y con el resto de la app).
@@ -523,12 +860,46 @@ class EquipoAuxiliarController extends Controller
     public function destroy(Request $request, $id)
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($auxiliar);
+        // Soft-delete con auditoria de quien borro (mismo patron que equipos).
+        $auxiliar->deleted_by = auth()->id();
+        $auxiliar->save();
         $auxiliar->delete();
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true]);
         }
         return redirect()->route('equipos-auxiliares.index')->with('success', 'Equipo auxiliar eliminado.');
+    }
+
+    /**
+     * Borrado masivo (soft-delete) por IDs. Usado desde el menu Acciones del
+     * index cuando hay auxiliares seleccionados via checkbox.
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:equipos_auxiliares,ID_AUXILIAR',
+        ]);
+
+        $userId = auth()->id();
+        $borrados = 0;
+        DB::transaction(function () use ($request, $userId, &$borrados) {
+            $auxiliares = EquipoAuxiliar::whereIn('ID_AUXILIAR', $request->ids)->lockForUpdate()->get();
+            foreach ($auxiliares as $aux) {
+                $aux->deleted_by = $userId;
+                $aux->save();
+                $aux->delete();
+                $borrados++;
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => "Se eliminaron {$borrados} auxiliar(es). Recuperables desde la papelera.",
+            'count'   => $borrados,
+        ]);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -543,6 +914,7 @@ class EquipoAuxiliarController extends Controller
         try {
             DB::transaction(function () use ($request, $id) {
                 $auxiliar = EquipoAuxiliar::lockForUpdate()->findOrFail($id);
+                $this->authorizeAuxScope($auxiliar);
                 $hostId   = $request->id_equipo_host;
 
                 // Verificar tope: no mas de N auxiliares por equipo host (excluyendo este mismo)
@@ -573,6 +945,7 @@ class EquipoAuxiliarController extends Controller
     public function unanchor($id)
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($auxiliar);
         $auxiliar->update(['ID_EQUIPO_HOST' => null]);
         return response()->json(['success' => true, 'message' => 'Equipo auxiliar desanclado.']);
     }
@@ -609,8 +982,26 @@ class EquipoAuxiliarController extends Controller
             return response()->json(['success' => false, 'message' => 'Frente destino requerido.'], 422);
         }
 
-        $affected = EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids'])
-            ->update(['ID_FRENTE_ACTUAL' => $frenteId]);
+        // LOCAL: solo puede operar sobre auxiliares de sus frentes y el destino
+        // tambien debe estar en su scope.
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $bulkQuery = EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids']);
+        if ($isLocalUser) {
+            $permitidosStr = array_map('strval', $frentesPermitidos);
+            if (!in_array((string) $frenteId, $permitidosStr, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tiene permisos para movilizar a este frente.'
+                ], 403);
+            }
+            if (count($frentesPermitidos) > 0) {
+                $bulkQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $bulkQuery->whereRaw('1 = 0');
+            }
+        }
+
+        $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId]);
 
         return response()->json([
             'success'  => true,
@@ -631,6 +1022,7 @@ class EquipoAuxiliarController extends Controller
         ]);
 
         $aux = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
         $aux->ESTADO_OPERATIVO = $request->input('ESTADO_OPERATIVO');
         $aux->save();
 
@@ -650,13 +1042,22 @@ class EquipoAuxiliarController extends Controller
         if (strlen($q) < 2) return response()->json([]);
 
         $tiposMap = $this->getTiposDinamicos();
-        $results = EquipoAuxiliar::with('equipoHost.documentacion')
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $searchQuery = EquipoAuxiliar::with('equipoHost.documentacion')
             ->where(function ($w) use ($q) {
                 $w->where('SERIAL', 'like', "%{$q}%")
                   ->orWhere('CODIGO_INTERNO', 'like', "%{$q}%")
                   ->orWhere('MARCA', 'like', "%{$q}%")
                   ->orWhere('MODELO', 'like', "%{$q}%");
-            })
+            });
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $searchQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $searchQuery->whereRaw('1 = 0');
+            }
+        }
+        $results = $searchQuery
             ->limit(20)
             ->get()
             ->map(function ($a) use ($tiposMap) {
@@ -679,23 +1080,46 @@ class EquipoAuxiliarController extends Controller
     public function searchHosts(Request $request)
     {
         $q = trim($request->get('q', ''));
-        if (strlen($q) < 2) return response()->json([]);
+        $recommend = $request->boolean('recommend');
+
+        // Modo busqueda: requiere min 2 chars. Modo recommend: vacio OK.
+        if (!$recommend && strlen($q) < 2) return response()->json([]);
+
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
         // Busqueda ampliada: serial chasis, serial motor, placa (docum.),
         // codigo patio, marca y modelo. Join con documentacion para PLACA.
-        $results = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares', 'especificaciones')
+        $hostQuery = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares', 'especificaciones', 'frenteActual')
             ->leftJoin('documentacion as doc_host', 'equipos.ID_EQUIPO', '=', 'doc_host.ID_EQUIPO')
-            ->select('equipos.*')
-            ->where(function ($w) use ($q) {
+            ->select('equipos.*');
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $hostQuery->whereIn('equipos.ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $hostQuery->whereRaw('1 = 0');
+            }
+        }
+
+        // Modo recomendacion: FLOTA LIVIANA con cupo disponible. Los auxiliares
+        // (compresores, soldadoras, etc.) tipicamente se anclan a unidades de
+        // flota liviana que las transportan, asi que sugerimos esas primero.
+        if ($recommend) {
+            $hostQuery->where('equipos.CATEGORIA_FLOTA', 'FLOTA LIVIANA');
+        } elseif ($q !== '') {
+            $hostQuery->where(function ($w) use ($q) {
                 $w->where('equipos.CODIGO_PATIO', 'like', "%{$q}%")
                   ->orWhere('equipos.SERIAL_CHASIS', 'like', "%{$q}%")
                   ->orWhere('equipos.SERIAL_DE_MOTOR', 'like', "%{$q}%")
                   ->orWhere('equipos.MARCA', 'like', "%{$q}%")
                   ->orWhere('equipos.MODELO', 'like', "%{$q}%")
                   ->orWhere('doc_host.PLACA', 'like', "%{$q}%");
-            })
+            });
+        }
+
+        $results = $hostQuery
             ->distinct()
-            ->limit(20)
+            ->orderBy('equipos.CODIGO_PATIO')
+            ->limit($recommend ? 30 : 20)
             ->get()
             ->map(function ($e) {
                 // Foto: prioriza la del catalogo del modelo (FOTO_REFERENCIAL),
@@ -717,6 +1141,7 @@ class EquipoAuxiliarController extends Controller
                     'modelo'         => $e->MODELO,
                     'marca_modelo'   => trim(($e->MARCA ?? '') . ' ' . ($e->MODELO ?? '')),
                     'foto'           => $foto,
+                    'frente_nombre'  => optional($e->frenteActual)->NOMBRE_FRENTE,
                     'auxiliares_anclados' => $e->equiposAuxiliares->count(),
                     'disponible'     => $e->equiposAuxiliares->count() < EquipoAuxiliar::ANCHOR_MAX_PER_HOST,
                 ];
@@ -741,6 +1166,7 @@ class EquipoAuxiliarController extends Controller
         ]);
 
         $aux  = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
         $type = $request->input('doc_type');
         $file = $request->file('file');
         $name = $type . '_' . time() . '.pdf';
@@ -774,6 +1200,7 @@ class EquipoAuxiliarController extends Controller
             'fecha_vencimiento_cert' => 'nullable|date',
         ]);
         $aux = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
         $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert') ?: null;
         $aux->save();
         return response()->json([
@@ -859,7 +1286,7 @@ class EquipoAuxiliarController extends Controller
             'CODIGO_INTERNO'   => 'nullable|string|max:50|unique:equipos_auxiliares,CODIGO_INTERNO' . ($currentId ? ',' . $currentId . ',ID_AUXILIAR' : ''),
             'CAPACIDAD'        => 'nullable|string|max:80',
             'ANIO'             => 'nullable|integer|min:1950|max:2100',
-            'ID_FRENTE_ACTUAL' => 'nullable|exists:frentes_trabajo,ID_FRENTE',
+            'ID_FRENTE_ACTUAL' => 'required|exists:frentes_trabajo,ID_FRENTE',
             'ID_EQUIPO_HOST'   => 'nullable|exists:equipos,ID_EQUIPO',
             'OBSERVACIONES'    => 'nullable|string|max:500',
             // Documentacion (opcional). En UPDATE aceptamos fecha pasada para no

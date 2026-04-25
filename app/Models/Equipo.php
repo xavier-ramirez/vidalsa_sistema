@@ -3,11 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Equipo extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'equipos';
     protected $primaryKey = 'ID_EQUIPO';
+    // SoftDeletes filtra deleted_at != NULL automaticamente. deleted_by guarda
+    // el ID_USUARIO que ejecuto el borrado (auditoria + papelera).
+    protected $dates = ['deleted_at'];
 
     /**
      * Mass-assignment seguro. ID_FRENTE_ACTUAL y ID_ANCLAJE fueron removidos:
@@ -33,6 +39,7 @@ class Equipo extends Model
         'CONFIRMADO_EN_SITIO',
         'ESTADO_OPERATIVO',
         'CREADO_POR',
+        'deleted_by',
     ];
 
     /**

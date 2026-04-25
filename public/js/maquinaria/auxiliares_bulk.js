@@ -88,6 +88,7 @@ function initAuxiliaresBulk() {
 
         let thead = '<thead><tr><th style="width:50px;">#</th>';
         columns.forEach(c => { thead += `<th>${c.label}</th>`; });
+        thead += '<th style="width:40px;" title="Eliminar fila"></th>';
         thead += '</tr></thead>';
 
         let tbody = '<tbody>';
@@ -125,12 +126,40 @@ function initAuxiliaresBulk() {
                 if (err) { tbody += `<div class="cell-error-msg">${escapeHtml(err)}</div>`; }
                 tbody += '</td>';
             });
+            // Boton X para eliminar la fila completa del preview antes de guardar.
+            tbody += `<td class="row-delete" style="text-align:center;">
+                <button type="button" class="bulk-row-delete" title="Eliminar fila"
+                    style="background:transparent;border:none;color:#94a3b8;cursor:pointer;width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;"
+                    onmouseover="this.style.background='#fee2e2';this.style.color='#dc2626';"
+                    onmouseout="this.style.background='transparent';this.style.color='#94a3b8';">
+                    <i class="material-icons" style="font-size:18px;">close</i>
+                </button>
+            </td>`;
             tbody += '</tr>';
         });
         tbody += '</tbody>';
 
         tableEl.innerHTML = thead + tbody + datalistHtml;
         panel.style.display = 'block';
+
+        // Boton X: elimina la fila del preview y renumera. Si quedan 0 filas,
+        // cierra el panel (no tiene sentido seguir con un preview vacio).
+        tableEl.querySelectorAll('.bulk-row-delete').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tr = btn.closest('tr');
+                if (!tr) return;
+                tr.remove();
+                renumberRows();
+                updateErrorCount();
+                if (!tableEl.querySelectorAll('tbody tr').length) {
+                    panel.style.display = 'none';
+                    tableEl.innerHTML = '';
+                    headerEl.innerHTML = '';
+                    const formCard = document.getElementById('formEquipoAuxiliarCard');
+                    if (formCard) formCard.style.display = '';
+                }
+            });
+        });
 
         // Ocultar form individual mientras preview esta activo
         const formCard = document.getElementById('formEquipoAuxiliarCard');
@@ -212,15 +241,76 @@ function initAuxiliaresBulk() {
         return rows;
     }
 
+    // Re-numera la columna # despues de eliminar filas en el preview.
+    function renumberRows() {
+        tableEl.querySelectorAll('tbody tr').forEach((tr, i) => {
+            const cell = tr.querySelector('.row-num');
+            if (cell) cell.textContent = i + 1;
+        });
+    }
+
+    // Actualiza el header con el conteo actual de filas y filas con error.
+    function updateErrorCount() {
+        const trs = tableEl.querySelectorAll('tbody tr');
+        const errorCount = Array.from(trs).filter(tr => tr.querySelector('td.cell-error')).length;
+        headerEl.innerHTML = `<strong>${trs.length}</strong> filas cargadas. <strong style="color:${errorCount?'#e53e3e':'#38a169'}">${errorCount}</strong> con errores.`;
+    }
+
+    // Mapeo de campos del backend (validator + custom) a las claves de las
+    // celdas del preview (data-field). El backend valida con keys como
+    // "rows.0.tipo_codigo" o "rows.5.id_frente_resuelto"; en el preview cada
+    // celda tiene data-field="tipo" o "frente". Sin este mapeo los errores
+    // del server jamas se aplicaban a las celdas y por eso desaparecian al
+    // reintentar guardar.
+    const SERVER_FIELD_MAP = {
+        'tipo_codigo':         'tipo',
+        'tipo':                'tipo',
+        'marca':               'marca',
+        'modelo':              'modelo',
+        'serial':              'serial',
+        'capacidad':           'capacidad',
+        'anio':                'anio',
+        'id_frente_resuelto':  'frente',
+        'frente_de_trabajo':   'frente',
+        'frente':              'frente',
+        'estado':              'estado',
+    };
+
     function applyServerErrors(errorsMap) {
+        // 1) Limpiar errores previos del DOM
         tableEl.querySelectorAll('td.cell-error').forEach(td => {
             td.classList.remove('cell-error');
             const msg = td.querySelector('.cell-error-msg');
             if (msg) msg.remove();
             td.removeAttribute('title');
         });
+
+        // 2) Reagrupar las claves planas de Laravel ("rows.{idx}.{field}")
+        //    a una estructura {idx: {fieldUI: msg}} para iterarlas por fila.
+        //    Soporta tambien la forma vieja ya anidada {idx:{field:msg}}.
+        const grouped = {};
+        Object.entries(errorsMap || {}).forEach(([key, val]) => {
+            const m = String(key).match(/^rows\.(\d+)\.(.+)$/);
+            if (m) {
+                const idx = m[1];
+                const rawField = m[2];
+                const uiField = SERVER_FIELD_MAP[rawField] || rawField;
+                const msg = Array.isArray(val) ? val[0] : String(val);
+                if (!grouped[idx]) grouped[idx] = {};
+                grouped[idx][uiField] = msg;
+            } else if (val && typeof val === 'object') {
+                // Forma anidada: {idx:{field:msg}} (compatibilidad)
+                grouped[key] = grouped[key] || {};
+                Object.entries(val).forEach(([field, msg]) => {
+                    const uiField = SERVER_FIELD_MAP[field] || field;
+                    grouped[key][uiField] = Array.isArray(msg) ? msg[0] : String(msg);
+                });
+            }
+        });
+
+        // 3) Aplicar al DOM
         let firstErrorTr = null;
-        Object.entries(errorsMap).forEach(([idx, fieldErrors]) => {
+        Object.entries(grouped).forEach(([idx, fieldErrors]) => {
             const tr = tableEl.querySelector(`tr[data-row-idx="${idx}"]`);
             if (!tr) return;
             if (!firstErrorTr) firstErrorTr = tr;
@@ -238,6 +328,8 @@ function initAuxiliaresBulk() {
                 }
             });
         });
+
+        updateErrorCount();
         if (firstErrorTr) firstErrorTr.scrollIntoView({behavior:'smooth', block:'center'});
     }
 
@@ -272,7 +364,14 @@ function initAuxiliaresBulk() {
                 }, 800);
             } else if (status === 422 && body.errors) {
                 applyServerErrors(body.errors);
-                window.showModal && window.showModal({type:'warning',title:'Corrige los errores',message: body.message || 'Algunas filas tienen errores. Revísalas y reintenta.',confirmText:'Entendido',hideCancel:true});
+                // Toast efimero (auto-cierra) en vez de modal con boton: el
+                // detalle de los errores ya se ve en cada celda; el resumen
+                // basta como notificacion rapida.
+                if (window.showToast) {
+                    window.showToast(body.message || 'Algunas filas tienen errores. Revísalas y reintenta.', 'warning');
+                } else if (window.showModal) {
+                    window.showModal({type:'warning',title:'Corrige los errores',message: body.message || 'Algunas filas tienen errores.',confirmText:'Entendido',hideCancel:true});
+                }
             } else {
                 window.showModal && window.showModal({type:'error',title:'Error',message:body.message||'No se pudo guardar.',confirmText:'Cerrar',hideCancel:true});
             }

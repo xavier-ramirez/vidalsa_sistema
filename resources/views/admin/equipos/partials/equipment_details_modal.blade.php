@@ -228,7 +228,24 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Seccion 4: Sub-activos vinculados --}}
+                {{-- Seccion 4: Equipo Anclado (REMOLCADOR/REMOLCABLE).
+                     Solo visible si el equipo tiene ID_ANCLAJE. La poblacion la
+                     hace fillEquipoAnclajeSection() en uicomponents.js. --}}
+                <details id="anclaje_accordion" name="equipment_accordion"
+                    style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
+                    <summary
+                        style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
+                        <i class="material-icons" style="font-size: 20px; color: #64748b;">link</i>
+                        <span>Equipo Anclado</span>
+                    </summary>
+                    <div style="padding: 16px 20px; border-top: 1px solid #e2e8f0;">
+                        <div id="anclaje_card" style="display:flex; align-items:center; gap:12px; padding:12px 14px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0;">
+                            {{-- Llenado por JS --}}
+                        </div>
+                    </div>
+                </details>
+
+                {{-- Seccion 5: Sub-activos vinculados --}}
                 <details id="sa_accordion" name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; display: none;">
                     <summary
@@ -284,9 +301,11 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 style="position:absolute; inset:0; background:white; z-index:10; display:flex; align-items:center; justify-content:center;">
                 <div class="spinner-circle"></div>
             </div>
+            {{-- Solo se usa 'allow="...fullscreen..."'; 'allowfullscreen' es
+                 redundante y dispara warning en consola ("Allow attribute will
+                 take precedence over allowfullscreen"). --}}
             <iframe id="gps_iframe" src="about:blank"
                 style="width:100%; height:100%; border:none; display:none; min-height:540px; opacity:0; transition:opacity 0.35s ease-in;"
-                allowfullscreen
                 allow="geolocation; fullscreen"
                 onload="if (window.handleGpsIframeLoad) window.handleGpsIframeLoad(this);"></iframe>
         </div>

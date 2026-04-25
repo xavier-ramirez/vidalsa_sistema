@@ -1,38 +1,37 @@
 
-    {{-- Session Timeout Modal — Estilo moderno consistente con modales de /admin/equipos --}}
+    {{-- Session Timeout Modal — Layout centrado, compacto y limpio. --}}
     <div id="sessionTimeoutModal" class="modal-overlay" style="display: none; z-index: 1000002 !important;">
-        <div class="modal-content" style="width: 90%; max-width: 380px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); border: 1px solid #e2e8f0;">
+        <div class="modal-content" style="width: 90%; max-width: 320px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); border: 1px solid #e2e8f0; text-align: center;">
 
-            {{-- HEADER con gradiente + icono circular --}}
-            <div style="background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%); padding: 20px 22px; display: flex; align-items: center; gap: 14px;">
-                <div style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="material-icons" style="color: #f59e0b; font-size: 24px;">warning_amber</i>
+            {{-- HEADER: icono al lado del texto, ambos centrados como grupo --}}
+            <div style="background: linear-gradient(135deg,#1e293b 0%,#0f172a 100%); padding: 14px 18px; display: flex; align-items: center; justify-content: center; gap: 12px;">
+                <div style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="material-icons" style="color: #f59e0b; font-size: 22px;">warning_amber</i>
                 </div>
-                <div style="flex: 1; min-width: 0;">
-                    <h3 style="margin: 0; color: #fff; font-size: 15px; font-weight: 700; line-height: 1.25;">Tu sesión está por expirar</h3>
-                    <p style="margin: 3px 0 0 0; color: #94a3b8; font-size: 12px;">Inactividad detectada</p>
+                <div style="text-align: left;">
+                    <h3 style="margin: 0; color: #fff; font-size: 14.5px; font-weight: 700; line-height: 1.25;">Tu sesión está por expirar</h3>
+                    <p style="margin: 2px 0 0 0; color: #94a3b8; font-size: 11.5px;">Inactividad detectada</p>
                 </div>
             </div>
 
-            {{-- BODY --}}
-            <div style="padding: 22px 24px; background: #f8fafc;">
-                <p style="margin: 0 0 14px 0; font-size: 14px; color: #334155; line-height: 1.55; text-align: center;">
-                    Se cerrará automáticamente en
-                    <strong id="sessionCountdown" style="color: #dc2626; font-size: 22px; font-weight: 800; display: block; margin: 6px 0;">60</strong>
-                    <span style="color:#64748b; font-size:12.5px;">segundos por inactividad.</span>
-                </p>
+            {{-- BODY centrado: countdown + barra + boton --}}
+            <div style="padding: 16px 22px 18px; background: #f8fafc;">
+                <div style="margin: 0 0 12px 0; display: flex; align-items: baseline; justify-content: center; gap: 6px;">
+                    <strong id="sessionCountdown" style="color: #dc2626; font-size: 32px; font-weight: 800; line-height: 1;">60</strong>
+                    <span style="color:#64748b; font-size:13px; font-weight:600;">seg</span>
+                </div>
 
                 {{-- Barra de progreso --}}
-                <div style="background: #e2e8f0; height: 6px; border-radius: 999px; overflow: hidden; margin-bottom: 18px;">
+                <div style="background: #e2e8f0; height: 5px; border-radius: 999px; overflow: hidden; margin-bottom: 14px;">
                     <div id="sessionCountdownBar" style="height: 100%; width: 100%; background: linear-gradient(90deg,#ef4444 0%,#f59e0b 100%); border-radius: 999px; transition: width 1s linear;"></div>
                 </div>
 
                 {{-- Boton principal --}}
                 <button id="btnExtendSession" type="button" onclick="extendSession()"
-                        style="width: 100%; padding: 11px 16px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg,#0067b1 0%,#0284c7 100%); color: white; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(2,132,199,0.3); transition: transform 0.15s, box-shadow 0.15s;"
+                        style="width: 100%; padding: 9px 14px; font-size: 13.5px; font-weight: 700; background: linear-gradient(135deg,#0067b1 0%,#0284c7 100%); color: white; border: none; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(2,132,199,0.3); transition: transform 0.15s, box-shadow 0.15s;"
                         onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(2,132,199,0.45)';"
                         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(2,132,199,0.3)';">
-                    <i class="material-icons" style="font-size: 18px;">refresh</i>
+                    <i class="material-icons" style="font-size: 17px;">refresh</i>
                     <span>Mantener Sesión</span>
                 </button>
             </div>

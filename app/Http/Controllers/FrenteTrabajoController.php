@@ -93,7 +93,35 @@ class FrenteTrabajoController extends Controller
     {
         $frente = FrenteTrabajo::findOrFail($id);
         $validated = $request->validated();
-        
+
+        // Guard: bloquea pasar a FINALIZADO si el frente tiene equipos o
+        // auxiliares asignados. La transicion solo se permite cuando el
+        // frente esta vacio (preserva integridad referencial sin FK fisicas).
+        $vaAFinalizar = ($validated['ESTATUS_FRENTE'] ?? null) === 'FINALIZADO'
+                     && $frente->ESTATUS_FRENTE !== 'FINALIZADO';
+        if ($vaAFinalizar) {
+            $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
+            $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
+            if ($equiposAsignados > 0 || $auxiliaresAsignados > 0) {
+                $partes = [];
+                if ($equiposAsignados > 0)    $partes[] = "{$equiposAsignados} equipo(s)";
+                if ($auxiliaresAsignados > 0) $partes[] = "{$auxiliaresAsignados} auxiliar(es)";
+                $msg = 'No se puede marcar el frente como FINALIZADO: tiene ' .
+                       implode(' y ', $partes) . ' asignados. Reasignelos primero a otro frente.';
+
+                if ($request->wantsJson() || $request->has('json')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $msg,
+                        'errors'  => ['ESTATUS_FRENTE' => [$msg]],
+                        'equipos_asignados'    => $equiposAsignados,
+                        'auxiliares_asignados' => $auxiliaresAsignados,
+                    ], 422);
+                }
+                return redirect()->back()->with('error', $msg)->withInput();
+            }
+        }
+
         $frente->update($validated);
 
         if ($request->wantsJson() || $request->has('json')) {
@@ -107,6 +135,99 @@ class FrenteTrabajoController extends Controller
         return redirect()->route('frentes.create')->with('success', 'Frente de trabajo actualizado correctamente.');
     }
 
+
+    /**
+     * Elimina un frente fisicamente de la BD. Bloquea si tiene equipos o
+     * auxiliares asignados (preserva integridad referencial sin FK fisicas —
+     * el campo ID_FRENTE_ACTUAL es nullable).
+     *
+     * Para "archivar" un frente sin borrarlo el usuario tiene el campo
+     * "Estatus del Proyecto" en el formulario que permite marcarlo como
+     * FINALIZADO manualmente; el modal "Finalizados" lista esos proyectos.
+     */
+    public function destroy(Request $request, string $id)
+    {
+        $frente = FrenteTrabajo::findOrFail($id);
+
+        $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
+        $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
+
+        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0) {
+            $partes = [];
+            if ($equiposAsignados > 0)    $partes[] = "{$equiposAsignados} equipo(s)";
+            if ($auxiliaresAsignados > 0) $partes[] = "{$auxiliaresAsignados} auxiliar(es)";
+            $msg = 'No se puede eliminar el frente: tiene ' . implode(' y ', $partes) .
+                   ' asignados. Reasignelos primero a otro frente.';
+
+            if ($request->wantsJson() || $request->has('json')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $msg,
+                    'equipos_asignados'    => $equiposAsignados,
+                    'auxiliares_asignados' => $auxiliaresAsignados,
+                ], 422);
+            }
+            return redirect()->route('frentes.create')->with('error', $msg);
+        }
+
+        $nombre = $frente->NOMBRE_FRENTE;
+        $frente->delete();
+
+        if ($request->wantsJson() || $request->has('json')) {
+            return response()->json([
+                'success'  => true,
+                'message'  => "Frente \"{$nombre}\" eliminado correctamente.",
+                'redirect' => route('frentes.create'),
+            ]);
+        }
+        return redirect()->route('frentes.create')->with('success', "Frente \"{$nombre}\" eliminado correctamente.");
+    }
+
+    /**
+     * Lista los frentes en estado FINALIZADO para el modal "Acciones >
+     * Frentes Finalizados". Devuelve estructura JSON minima para render.
+     */
+    public function finalizados(Request $request)
+    {
+        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'FINALIZADO')
+            ->orderBy('NOMBRE_FRENTE')
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE', 'updated_at']);
+        return response()->json([
+            'success' => true,
+            'count'   => $frentes->count(),
+            'frentes' => $frentes->map(fn($f) => [
+                'id'            => $f->ID_FRENTE,
+                'nombre'        => $f->NOMBRE_FRENTE,
+                'ubicacion'     => $f->UBICACION,
+                'tipo'          => $f->TIPO_FRENTE,
+                'finalizado_en' => optional($f->updated_at)->format('d/m/Y H:i'),
+            ]),
+        ]);
+    }
+
+    /**
+     * Recupera un frente FINALIZADO marcandolo ACTIVO de nuevo. Endpoint
+     * usado desde el modal de finalizados.
+     */
+    public function restore(Request $request, string $id)
+    {
+        $frente = FrenteTrabajo::findOrFail($id);
+        if ($frente->ESTATUS_FRENTE !== 'FINALIZADO') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo se pueden recuperar frentes en estado FINALIZADO.',
+            ], 422);
+        }
+        $frente->update(['ESTATUS_FRENTE' => 'ACTIVO']);
+        return response()->json([
+            'success' => true,
+            'message' => "Frente \"{$frente->NOMBRE_FRENTE}\" recuperado correctamente.",
+            'frente'  => [
+                'id'     => $frente->ID_FRENTE,
+                'nombre' => $frente->NOMBRE_FRENTE,
+            ],
+        ]);
+    }
 
     // ─── MOBILE API ────────────────────────────────────────────────────────────
     public function mobileIndex()

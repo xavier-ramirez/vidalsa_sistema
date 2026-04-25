@@ -2273,8 +2273,12 @@ input:-webkit-autofill:active {
 }
 
 /* ── EQUIPOS PAGE LAYOUT (was inline style - moved here for SPA compat.) ── */
-/* Tooltip Burbuja para Subdivisión */
-.tooltip-wrapper:hover .tooltip-bubble {
+/* Tooltip Burbuja para Subdivisión: aparece al hacer hover sobre la celda
+   del frente Y TAMBIEN al hacer hover sobre cualquier parte de la fila
+   (ergonomico en escritorio: el usuario no tiene que apuntar exactamente
+   al texto del frente). */
+.tooltip-wrapper:hover .tooltip-bubble,
+.admin-table tr:hover .tooltip-bubble {
     opacity: 1 !important;
     visibility: visible !important;
     transform: translateX(-50%) translateY(0) !important;

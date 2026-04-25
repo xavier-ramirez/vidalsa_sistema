@@ -1140,14 +1140,17 @@ window.openBulkModal = function (event) {
     const selectedList = Object.values(window.selectedEquipos);
     const count = selectedList.length;
 
-    // 4. Collect frentes from datalist in DOM
+    // 4. Collect frentes from datalist in DOM. data-ubicacion permite saber
+    // si el frente registrado tiene ubicacion en BD: si esta vacia, el modal
+    // tambien pide ubicacion (escenario "frente registrado sin ubicacion").
     const frentesData = [];
     const dl = document.querySelector("#dynamicFrentesList");
     if (dl) {
         dl.querySelectorAll("option").forEach((opt) => {
             const nombre = opt.getAttribute("value") || "";
             const id = opt.getAttribute("data-id") || "";
-            if (nombre) frentesData.push({ nombre, id });
+            const ubicacion = (opt.getAttribute("data-ubicacion") || "").trim();
+            if (nombre) frentesData.push({ nombre, id, ubicacion });
         });
     }
 
@@ -1298,7 +1301,9 @@ window.openBulkModal = function (event) {
                     // Re-evaluar el picker de ubicacion: si el usuario abrio
                     // "Frente nuevo" mientras escribia y luego selecciono uno
                     // registrado de la lista, hay que ocultar el wrapper.
-                    toggleUbicacionPicker();
+                    // immediate=true: la seleccion es accion explicita, no
+                    // tiene sentido esperar 500ms aqui.
+                    toggleUbicacionPicker(true);
                 };
                 listBox.appendChild(item);
             });
@@ -1315,15 +1320,27 @@ window.openBulkModal = function (event) {
     const clearBtn = overlay.querySelector('#bm-frente-clear');
     const inputBox = overlay.querySelector('#bm-input-box');
 
-    // Helper: muestra/oculta el campo de UBICACION cuando el frente escrito NO existe aun.
-    // `frentesData` contiene { nombre, ... } con los frentes ya registrados.
+    // Helper: muestra/oculta el campo de UBICACION segun el texto tecleado.
+    // Trigger conditions (cualquiera):
+    //   1) El frente NO esta registrado (no hay match exacto por nombre).
+    //   2) El frente SI esta registrado pero su data-ubicacion esta vacia.
+    // Se ejecuta DEBOUNCED 500ms tras la ultima tecla para evitar el flicker
+    // de "Frente nuevo detectado" mientras el usuario aun esta escribiendo.
     const ubicacionWrapper = overlay.querySelector('#bm-ubicacion-wrapper');
     const ubicacionInput   = overlay.querySelector('#bm-ubicacion-input');
-    function toggleUbicacionPicker() {
-        const typed = (searchInput.value || '').trim().toUpperCase();
-        if (!typed) { ubicacionWrapper.style.display = 'none'; return; }
-        const match = frentesData.some(f => (f.nombre || '').toUpperCase() === typed);
-        ubicacionWrapper.style.display = match ? 'none' : 'block';
+    let _ubicTimer = null;
+    function toggleUbicacionPicker(immediate) {
+        const run = () => {
+            const typed = (searchInput.value || '').trim().toUpperCase();
+            if (!typed) { ubicacionWrapper.style.display = 'none'; return; }
+            const match = frentesData.find(f => (f.nombre || '').toUpperCase() === typed);
+            // Mostrar si: no hay match (frente nuevo) O match sin ubicacion en BD.
+            const needsUbicacion = !match || !match.ubicacion;
+            ubicacionWrapper.style.display = needsUbicacion ? 'block' : 'none';
+        };
+        clearTimeout(_ubicTimer);
+        if (immediate) { run(); return; }
+        _ubicTimer = setTimeout(run, 500);
     }
 
     searchInput.addEventListener('focus', () => {
@@ -1334,6 +1351,9 @@ window.openBulkModal = function (event) {
         hiddenInput.value = searchInput.value.trim();
         clearBtn.style.display = searchInput.value ? 'flex' : 'none';
         renderFrenteList(searchInput.value);
+        // Mientras escribe, ocultamos el wrapper (limpio) y debounceamos la
+        // evaluacion. Asi nunca se ve un flicker entre tecla y tecla.
+        ubicacionWrapper.style.display = 'none';
         toggleUbicacionPicker();
     });
     searchInput.addEventListener('blur', () => {
@@ -1365,17 +1385,23 @@ window.openBulkModal = function (event) {
             return;
         }
 
-        // Si el frente escrito NO existe, obligar a capturar su ubicacion (zona/municipio/estado).
+        // Validar ubicacion si el frente es nuevo O si esta registrado pero
+        // sin ubicacion en BD (mismo criterio que dispara el wrapper).
         const destUpper = dest.toUpperCase();
-        const isNewFrente = !frentesData.some(f => (f.nombre || '').toUpperCase() === destUpper);
+        const matchedFrente = frentesData.find(f => (f.nombre || '').toUpperCase() === destUpper);
+        const isNewFrente = !matchedFrente;
+        const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
         let destUbicacion = '';
-        if (isNewFrente) {
+        if (needsUbicacion) {
             destUbicacion = (ubicacionInput.value || '').trim();
             if (!destUbicacion) {
                 const box = overlay.querySelector('#bm-ubicacion-box');
                 if (box) box.style.borderColor = '#ef4444';
                 ubicacionInput.focus();
-                if (window.showToast) window.showToast('Ingresa la ubicación del nuevo frente (zona, municipio o estado).', 'error');
+                const msg = isNewFrente
+                    ? 'Ingresa la ubicación del nuevo frente (zona, municipio o estado).'
+                    : 'Este frente no tiene ubicación registrada. Ingresa una para incluirla en los informes.';
+                if (window.showToast) window.showToast(msg, 'error');
                 return;
             }
         }
