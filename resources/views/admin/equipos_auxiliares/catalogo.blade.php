@@ -198,10 +198,17 @@
             Una tarjeta por modelo+año. La foto representa a TODAS las unidades de ese modelo y año.
         </p>
     </div>
-    <a href="{{ route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary"
-       style="padding:10px 16px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;height:45px;">
-        <i class="material-icons" style="font-size:18px;">arrow_back</i>
-        Volver
+    {{-- Boton "Nuevo" — mismo patron que /admin/catalogo (modulo de equipos):
+         siempre visible, valida permiso al click. Redirige al form de
+         creacion de auxiliar — no existe entidad "modelo" separada para
+         auxiliares; el catalogo se auto-construye a partir de equipos_auxiliares. --}}
+    <a href="{{ route('equipos-auxiliares.create') }}" class="btn-primary-maquinaria"
+       style="height:45px;display:inline-flex;align-items:center;padding:0 15px;text-decoration:none;gap:8px;"
+       @cannot('equipos.create')
+           onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos auxiliares.', 'error');"
+       @endcannot>
+        <i class="material-icons" style="font-size:18px;">add_circle</i>
+        Nuevo
     </a>
 </div>
 

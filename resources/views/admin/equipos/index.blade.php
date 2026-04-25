@@ -1238,14 +1238,17 @@
         document.getElementById('anclajesLoading').style.display = 'block';
         document.getElementById('anclajesBody').style.display = 'none';
 
-        // Fetch active front
-        let fValue = '';
+        // Hereda los filtros activos del listado principal (id_frente, id_tipo).
+        let fValue = '', tValue = '';
         const fInput = document.querySelector('input[name="id_frente"][data-filter-value]');
-        if (fInput && fInput.value && fInput.value !== 'all') {
-            fValue = fInput.value;
-        }
+        const tInput = document.querySelector('input[name="id_tipo"][data-filter-value]');
+        if (fInput && fInput.value && fInput.value !== 'all') fValue = fInput.value;
+        if (tInput && tInput.value && tInput.value !== 'all') tValue = tInput.value;
+        const _qsAnch = new URLSearchParams();
+        if (fValue) _qsAnch.set('frente_id', fValue);
+        if (tValue) _qsAnch.set('id_tipo', tValue);
 
-        fetch('{{ route("equipos.getAnchors") }}?frente_id=' + fValue)
+        fetch('{{ route("equipos.getAnchors") }}' + (_qsAnch.toString() ? ('?' + _qsAnch.toString()) : ''))
             .then(res => res.json())
             .then(data => {
                 window.lastAnclajesData = data; // Store globally for export
@@ -1328,9 +1331,17 @@
             }
             return;
         }
+        // Hereda los filtros activos (frente + tipo) del listado principal —
+        // si el modal mostro N pares filtrados, el Excel descarga esos N
+        // pares (no toda la flota). Mismo comportamiento del modulo de aux.
         const fValueElement = document.querySelector('input[name="id_frente"][data-filter-value]');
+        const tValueElement = document.querySelector('input[name="id_tipo"][data-filter-value]');
         const fValue = (fValueElement && fValueElement.value && fValueElement.value !== 'all') ? fValueElement.value : '';
-        const url = '{{ route("equipos.exportAnclajes") }}' + (fValue ? ('?frente_id=' + encodeURIComponent(fValue)) : '');
+        const tValue = (tValueElement && tValueElement.value && tValueElement.value !== 'all') ? tValueElement.value : '';
+        const _qsExp = new URLSearchParams();
+        if (fValue) _qsExp.set('frente_id', fValue);
+        if (tValue) _qsExp.set('id_tipo', tValue);
+        const url = '{{ route("equipos.exportAnclajes") }}' + (_qsExp.toString() ? ('?' + _qsExp.toString()) : '');
 
         // Fetch + blob en lugar de <a href>.click(): evita el spinner nativo
         // de la pestaña del navegador. Mostramos el preloader global propio

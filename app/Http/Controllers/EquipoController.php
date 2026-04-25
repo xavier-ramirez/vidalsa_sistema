@@ -2768,6 +2768,7 @@ class EquipoController extends Controller
     public function getAnchoredEquipos(Request $request)
     {
         $frenteId = $request->input('frente_id');
+        $tipoId   = $request->input('id_tipo');
         $query = Equipo::with(['ancladoA', 'tipo', 'especificaciones', 'documentacion'])->whereNotNull('ID_ANCLAJE');
 
         if ($frenteId && $frenteId !== 'all') {
@@ -2775,6 +2776,14 @@ class EquipoController extends Controller
         } else {
             // Listado global: excluir frentes ESPECIAL (no son flota propia).
             $query->excludeEspecial();
+        }
+
+        // Filtro por tipo del listado principal: si esta activo, restringe los
+        // pares a aquellos cuyo "remolcador" (eq_a) sea de ese tipo. La pareja
+        // mutua se conserva intacta — la deduplicacion por ID minimo se hace
+        // mas abajo y respeta el resultado filtrado.
+        if ($tipoId && $tipoId !== 'all') {
+            $query->where('ID_TIPO', $tipoId);
         }
 
         $anchored = $query->get()->map(function ($eq) {
@@ -2845,6 +2854,7 @@ class EquipoController extends Controller
         set_time_limit(180);
 
         $frenteId = $request->input('frente_id');
+        $tipoId   = $request->input('id_tipo');
 
         // Reutilizar la lógica de getAnchoredEquipos: obtener pares únicos
         $query = Equipo::with(['ancladoA', 'tipo', 'ancladoA.tipo', 'documentacion', 'ancladoA.documentacion', 'frenteActual'])
@@ -2854,6 +2864,12 @@ class EquipoController extends Controller
             $query->where('ID_FRENTE_ACTUAL', $frenteId);
         } else {
             $query->excludeEspecial();
+        }
+
+        // Filtro por tipo: hereda el filtro del listado principal cuando esta
+        // activo. Mismo comportamiento que getAnchoredEquipos.
+        if ($tipoId && $tipoId !== 'all') {
+            $query->where('ID_TIPO', $tipoId);
         }
 
         $anchored = $query->get();
