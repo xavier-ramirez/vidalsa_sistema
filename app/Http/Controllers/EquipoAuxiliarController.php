@@ -379,6 +379,9 @@ class EquipoAuxiliarController extends Controller
             // condicionalmente los botones de accion del modal.
             'can_edit'       => auth()->user() && auth()->user()->can('equipos.edit'),
             'can_assign'     => auth()->user() && auth()->user()->can('equipos.assign'),
+            // Upload/eliminacion de PDFs requiere user.edit (mismo permiso que el
+            // PDF preview modal de /admin/equipos via window.CAN_UPDATE_INFO).
+            'can_upload_pdf' => auth()->user() && auth()->user()->can('user.edit'),
         ]);
     }
 
@@ -722,6 +725,44 @@ class EquipoAuxiliarController extends Controller
         return response()->json($results);
     }
 
+
+    /**
+     * Sube/reemplaza un PDF puntual desde el modal de detalles.
+     * Endpoint: POST /admin/equipos-auxiliares/{id}/upload-doc
+     * Permiso: equipos.edit (gateado en routes/web.php).
+     * doc_type: propiedad | certificado
+     */
+    public function uploadDoc(Request $request, $id)
+    {
+        $request->validate([
+            'file'     => 'required|file|mimes:pdf|max:51200',
+            'doc_type' => 'required|in:propiedad,certificado',
+            'fecha_vencimiento_cert' => 'nullable|date',
+        ]);
+
+        $aux  = EquipoAuxiliar::findOrFail($id);
+        $type = $request->input('doc_type');
+        $file = $request->file('file');
+        $name = $type . '_' . time() . '.pdf';
+        $path = $file->storeAs('equipos_auxiliares/' . $aux->ID_AUXILIAR, $name, 'public');
+
+        if ($type === 'propiedad') {
+            $aux->LINK_DOC_PROPIEDAD = '/storage/' . $path;
+        } else {
+            $aux->LINK_CERTIFICADO = '/storage/' . $path;
+            if ($request->filled('fecha_vencimiento_cert')) {
+                $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert');
+            }
+        }
+        $aux->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'PDF cargado correctamente.',
+            'link'    => $type === 'propiedad' ? $aux->LINK_DOC_PROPIEDAD : $aux->LINK_CERTIFICADO,
+            'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT,
+        ]);
+    }
 
     /**
      * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en

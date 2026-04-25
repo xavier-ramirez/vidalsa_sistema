@@ -513,7 +513,6 @@
             <!-- Configuraciones Dropdown -->
             <a href="{{ route('consumibles.graficos') }}"
                 class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
-                data-no-spa="true"
                 style="display:flex; align-items:center;">
                 <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
             </a>
@@ -655,8 +654,7 @@
             <i class="material-icons">report_problem</i> Reporte de Fallas
         </a>
         <a href="{{ route('consumibles.graficos') }}"
-            class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
-            data-no-spa="true">
+            class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
             <i class="material-icons">local_gas_station</i> Consumibles
         </a>
 
@@ -1388,7 +1386,7 @@
                 }, 800);
             };
 
-            window.openPdfPreview = function (url, docType, label, equipoId) {
+            window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata) {
                 const modal = document.getElementById('pdfPreviewModal');
                 const iframe = document.getElementById('pdfPreviewFrame');
                 const title = document.getElementById('pdfPreviewTitle');
@@ -1515,19 +1513,24 @@
                 }
 
                 // Store current context for metadata panel
-                window.currentPdfContext = { equipoId, docType, label };
+                window.currentPdfContext = { equipoId, docType, label, uploadUrl };
 
                 // Auto-open metadata panel on desktop only (no ocultar el PDF en móviles)
+                // Si skipMetadata=true (modulos no equipos como auxiliares), el panel
+                // queda colapsado y no se llama loadMetadata para evitar mostrar campos
+                // de la tabla equivocada.
                 const panel = document.getElementById('pdfMetadataPanel');
                 if (panel) {
                     panel.style.width = '0';
-                    setTimeout(() => {
-                        const isMobile = window.innerWidth <= 768;
-                        if (!isMobile) {
-                            panel.style.width = '300px';
-                            loadMetadata();
-                        }
-                    }, 400);
+                    if (!skipMetadata) {
+                        setTimeout(() => {
+                            const isMobile = window.innerWidth <= 768;
+                            if (!isMobile) {
+                                panel.style.width = '300px';
+                                loadMetadata();
+                            }
+                        }, 400);
+                    }
                 }
             };
 
@@ -1696,7 +1699,13 @@
                 formData.append('doc_type', type);
 
                 const xhr = new XMLHttpRequest();
-                xhr.open('POST', `/admin/equipos/${equipoId}/upload-doc`, true);
+                // uploadUrl override desde window.currentPdfContext (otros modulos
+                // como aux pueden inyectar su propio endpoint). Si no, fallback a
+                // /admin/equipos/{id}/upload-doc.
+                const targetUrl = (window.currentPdfContext && window.currentPdfContext.uploadUrl)
+                    ? window.currentPdfContext.uploadUrl
+                    : `/admin/equipos/${equipoId}/upload-doc`;
+                xhr.open('POST', targetUrl, true);
                 xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
                 xhr.setRequestHeader('Accept', 'application/json');
 

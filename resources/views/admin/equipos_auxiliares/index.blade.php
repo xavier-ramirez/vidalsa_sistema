@@ -484,6 +484,12 @@
             <span class="desktop-text">Limpiar</span>
         </button>
         @can('equipos.assign')
+        <button type="button" onclick="window.openAuxAnclarBulkModal()" class="btn-bulk-action" style="background: #10b981;">
+            <i class="material-icons" style="font-size: 18px;">anchor</i>
+            <span class="desktop-text">Anclar</span>
+        </button>
+        @endcan
+        @can('equipos.assign')
         <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
             <span class="desktop-text">Asignar</span>
@@ -602,21 +608,7 @@
             return;
         }
 
-        // Apertura INSTANTANEA: header pre-poblado desde data-* del boton,
-        // body con placeholders compactos. El fetch corre en paralelo y al
-        // resolver re-renderiza el cuerpo completo. Sin spinner.
-        const titleEl = document.getElementById('auxDetailsTitle');
-        const subEl   = document.getElementById('auxDetailsSubtitle');
-        if (titleEl) titleEl.textContent = (btn.dataset.tipoLabel || 'Auxiliar').toUpperCase();
-        if (subEl) {
-            const ms = ((btn.dataset.marca || '') + ' ' + (btn.dataset.modelo || '')).trim();
-            subEl.textContent = ms || '—';
-        }
-        body.innerHTML = '';
-        modal.style.display = '';
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-
+        // Sin franja-expansion: fetch primero, modal se abre COMPLETO de una vez.
         fetch('/admin/equipos-auxiliares/' + id + '/details', {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             credentials: 'same-origin'
@@ -625,7 +617,12 @@
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         })
-        .then(d => window.renderAuxDetailsModal(d))
+        .then(d => {
+            window.renderAuxDetailsModal(d);
+            modal.style.display = '';
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        })
         .catch(err => {
             console.error('openAuxDetailsModal:', err);
             if (typeof window.showToast === 'function') {
@@ -677,22 +674,56 @@
                 </div>
             </details>`;
 
-        // Badge de fecha de vencimiento del certificado
-        let vencHtml = '<span style="color:#94a3b8;">Sin fecha</span>';
+
+        // Boton PDF (idem form_fields del modulo equipos):
+        // - Si hay PDF: gradiente azul circular 30x30 con icono description (Ver).
+        // - Si NO hay PDF y tiene permiso user.edit: dashed circular 30x30 con cloud_upload (Subir).
+        // - Si NO hay PDF y NO hay permiso: span gris "No cargado".
+        const pdfBtn = (url, docType) => {
+            if (url) {
+                // Abre la ventana de PDF preview interna (definida en estructura_base.blade.php).
+                // Pasamos equipoId=null para que el panel de metadata muestre el mensaje
+                // generico (no aplica a auxiliares — solo se usa el visor del PDF).
+                const labelHr = docType === 'propiedad' ? 'Doc. Propiedad' : 'Certificado';
+                const safeUrl = url.replace(/'/g, "\\'");
+                // uploadUrl: endpoint propio de aux para que el boton de
+                // subir/reemplazar dentro del visor SI funcione en este modulo.
+                const uploadUrl = '/admin/equipos-auxiliares/' + d.id + '/upload-doc';
+                return `<button type="button" title="Ver PDF" onclick="window.openPdfPreview('${safeUrl}', '${docType}', '${labelHr}', ${d.id}, '${uploadUrl}', true)" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#0067b1; box-shadow:0 2px 6px rgba(0,103,177,0.35); border:none; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:17px; color:white;">description</i></button>`;
+            }
+            if (d.can_upload_pdf && docType) {
+                return `<label title="Subir PDF" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#fff; border:1.5px dashed #cbd5e1; color:#0067b1; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:16px;">cloud_upload</i><input type="file" accept="application/pdf" style="display:none;" onchange="window.auxUploadDoc(${d.id}, '${docType}', this)"></label>`;
+            }
+            return '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
+        };
+
+        // Fila Doc. Propiedad: label + boton (sin fecha)
+        const rowPropiedad = `
+            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed #f1f5f9;">
+                <span style="color:#64748b; font-size:12px; white-space:nowrap;">Doc. Propiedad</span>
+                ${pdfBtn(d.link_doc_propiedad, 'propiedad')}
+            </div>`;
+
+        // Fila Certificado: label + fecha de vencimiento + boton (todo en linea)
+        let fechaInline = '<span style="color:#94a3b8; font-size:12px;">Sin fecha</span>';
         if (d.fecha_vencimiento_cert) {
             const venc = new Date(d.fecha_vencimiento_cert);
             const hoy = new Date(); hoy.setHours(0,0,0,0);
             const diff = Math.floor((venc - hoy) / (1000*60*60*24));
-            let color = '#16a34a', bg = '#f0fdf4', txt = d.fecha_vencimiento_cert;
-            if (diff < 0)       { color = '#dc2626'; bg = '#fef2f2'; txt += ' (VENCIDO)'; }
-            else if (diff < 30) { color = '#d97706'; bg = '#fffbeb'; txt += ' (' + diff + ' días)'; }
-            vencHtml = `<span style="background:${bg}; color:${color}; padding:3px 10px; border-radius:6px; font-weight:700; font-size:12px;">${txt}</span>`;
+            const txt  = d.fecha_vencimiento_cert;
+            let bg='#f0fdf4', co='#16a34a', extra='';
+            if (diff < 0)       { bg='#fef2f2'; co='#dc2626'; extra=' (VENCIDO)'; }
+            else if (diff < 30) { bg='#fffbeb'; co='#d97706'; extra=' ('+diff+' días)'; }
+            fechaInline = `<span style="background:${bg}; color:${co}; padding:3px 8px; border-radius:6px; font-weight:700; font-size:12px; white-space:nowrap;">${txt}${extra}</span>`;
         }
-
-        // Links a PDFs
-        const pdfLink = (url, label, color) => url
-            ? `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:4px; color:${color}; font-weight:700; text-decoration:none; font-size:12px;"><i class="material-icons" style="font-size:16px;">picture_as_pdf</i>${label}</a>`
-            : '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
+        const rowCertificado = `
+            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed #f1f5f9;">
+                <span style="color:#64748b; font-size:12px; white-space:nowrap;">Certificado</span>
+                <div style="display:inline-flex; align-items:center; gap:8px;">
+                    ${fechaInline}
+                    ${pdfBtn(d.link_certificado, 'certificado')}
+                </div>
+            </div>`;
 
         // Tarjeta del equipo vinculado (host) - estilo "etiqueta" del modal de anclajes /admin/equipos
         let hostCard;
@@ -728,9 +759,7 @@
         const body = document.getElementById('auxDetailsBody');
         body.innerHTML = `
             ${section('Documentación Legal y Soportes', 'description',
-                row('Doc. Propiedad',       pdfLink(d.link_doc_propiedad, 'Ver PDF', '#16a34a')) +
-                row('Certificado',          pdfLink(d.link_certificado, 'Ver PDF', '#1e40af')) +
-                row('Vencimiento Certif.',  vencHtml)
+                rowPropiedad + rowCertificado
             )}
 
             ${section('Información Adicional', 'info',
@@ -1075,8 +1104,8 @@
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200) {
+                // UI ya actualizada optimisticamente arriba. Sin recarga ni spinner.
                 if (window.showToast) window.showToast('Estado actualizado.', 'success');
-                cargarAuxiliares();
             } else {
                 throw new Error(body.message || 'Error');
             }
@@ -1226,6 +1255,151 @@
     window.auxMainClear = function (prefix) {
         window.auxMainSelect(prefix, '', prefix === 'frente' ? 'Filtrar Frente...' : 'Filtrar Tipo...');
     };
+
+    // ═══════════════════════════════════════════════════════════
+    // ANCLAR MASIVO desde la barra flotante: el usuario elige UN host y
+    // el frontend itera POST /anchor por cada aux seleccionado.
+    // ═══════════════════════════════════════════════════════════
+    window.openAuxAnclarBulkModal = function () {
+        const ids = Object.keys(window._auxSelectedMap || {});
+        if (ids.length === 0) return;
+        let overlay = document.getElementById('auxAnclarBulkOverlay');
+        if (overlay) overlay.remove();
+        overlay = document.createElement('div');
+        overlay.id = 'auxAnclarBulkOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000010;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);';
+        overlay.innerHTML = `
+            <div style="background:white;border-radius:14px;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.4);">
+                <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:14px 18px;color:white;display:flex;justify-content:space-between;align-items:center;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="background:rgba(16,185,129,0.2);padding:6px;border-radius:8px;display:flex;"><i class="material-icons" style="font-size:18px;color:#10b981;">anchor</i></div>
+                        <div>
+                            <h3 style="margin:0;font-size:15px;font-weight:700;">Anclar Auxiliares</h3>
+                            <p style="margin:2px 0 0 0;font-size:11px;color:#94a3b8;">${ids.length} auxiliar${ids.length>1?'es':''} seleccionado${ids.length>1?'s':''}</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="document.getElementById('auxAnclarBulkOverlay').remove();" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;display:flex;padding:4px;"><i class="material-icons">close</i></button>
+                </div>
+                <div style="padding:14px 16px;background:#f8fafc;display:flex;flex-direction:column;gap:10px;overflow:hidden;flex:1;min-height:0;">
+                    <div style="display:flex;align-items:center;background:white;border:2px solid #e2e8f0;border-radius:10px;overflow:hidden;flex-shrink:0;" id="auxABBox">
+                        <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:20px;">search</i>
+                        <input type="text" id="auxABInput" placeholder="Buscar host por placa, serial chasis o motor..." autocomplete="off" style="flex:1;border:none;outline:none;padding:11px 6px;font-size:13.5px;background:transparent;">
+                    </div>
+                    <div id="auxABList" style="overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:white;flex:1;min-height:140px;">
+                        <div style="padding:24px;text-align:center;color:#94a3b8;font-size:12.5px;"><i class="material-icons" style="font-size:28px;display:block;margin:0 auto 8px;color:#cbd5e0;">search</i>Escribe al menos 2 caracteres.</div>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const input = document.getElementById('auxABInput');
+        const list  = document.getElementById('auxABList');
+        let timer = null;
+        input.focus();
+        overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+        input.addEventListener('input', () => {
+            const q = input.value.trim();
+            if (q.length < 2) {
+                list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12.5px;"><i class="material-icons" style="font-size:28px;display:block;margin:0 auto 8px;color:#cbd5e0;">search</i>Escribe al menos 2 caracteres.</div>';
+                return;
+            }
+            clearTimeout(timer);
+            list.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>';
+            timer = setTimeout(() => {
+                fetch('{{ route("equipos-auxiliares.searchHosts") }}?q=' + encodeURIComponent(q), {
+                    headers: {'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
+                })
+                .then(r => r.json())
+                .then(rows => {
+                    if (!rows || !rows.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px;">Sin resultados.</div>'; return; }
+                    list.innerHTML = rows.map(r => {
+                        const idStr = r.placa || r.serial_chasis || ('#' + r.id);
+                        const lbl = r.placa ? 'Placa' : (r.serial_chasis ? 'Chasis' : 'ID');
+                        const dis = r.disponible ? '' : 'opacity:0.55;pointer-events:none;';
+                        const badge = r.disponible
+                            ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>'
+                            : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
+                        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;${dis}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" onclick="window.auxAnclarBulkConfirm(${r.id}, '${(idStr+'').replace(/'/g,"\\'")}')">
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px;">
+                                    <strong style="color:#1e293b;font-size:13px;"><span style="color:#94a3b8;font-size:9.5px;font-weight:600;text-transform:uppercase;">${lbl}:</span> ${idStr}</strong>
+                                    ${badge}
+                                </div>
+                                <div style="font-size:11.5px;color:#475569;">${r.tipo || ''}${r.tipo && r.marca ? ' · ' : ''}${r.marca || ''}</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                });
+            }, 280);
+        });
+    };
+
+    window.auxAnclarBulkConfirm = function (hostId, hostLabel) {
+        const ids = Object.keys(window._auxSelectedMap || {});
+        if (!ids.length) return;
+        if (!confirm(`Anclar ${ids.length} auxiliar(es) al host ${hostLabel}?`)) return;
+        document.getElementById('auxAnclarBulkOverlay')?.remove();
+        if (window.showPreloader) window.showPreloader();
+        const csrf = document.querySelector('meta[name="csrf-token"]').content;
+        let ok = 0, fail = 0;
+        Promise.allSettled(ids.map(auxId => fetch('/admin/equipos-auxiliares/' + auxId + '/anchor', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','Accept':'application/json','X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':csrf},
+            body: JSON.stringify({id_equipo_host: hostId})
+        }).then(r => r.json().then(b => r.status === 200 && b.success ? ok++ : fail++))))
+        .then(() => {
+            if (window.hidePreloader) window.hidePreloader();
+            if (window.showToast) {
+                if (fail === 0) window.showToast(`${ok} auxiliar(es) anclado(s) a ${hostLabel}.`, 'success');
+                else window.showToast(`${ok} ok / ${fail} fallidos.`, 'warning');
+            }
+            window.auxClearSelection && window.auxClearSelection();
+            if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
+        });
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // SUBIR/ELIMINAR PDF DEL MODAL DE DETALLES (require equipos.edit)
+    // ═══════════════════════════════════════════════════════════
+    window.auxUploadDoc = function (auxId, docType, input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('doc_type', docType);
+        if (window.showPreloader) window.showPreloader();
+        fetch('/admin/equipos-auxiliares/' + auxId + '/upload-doc', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: fd
+        })
+        .then(r => r.json().then(b => ({status:r.status, body:b})))
+        .then(({status, body}) => {
+            if (window.hidePreloader) window.hidePreloader();
+            input.value = '';
+            if (status === 200 && body.success) {
+                if (window.showToast) window.showToast(body.message || 'PDF cargado.', 'success');
+                const trigger = document.querySelector('.btn-details-mini[data-aux-id="'+auxId+'"]');
+                if (trigger) {
+                    window.closeAuxDetailsModal();
+                    setTimeout(() => window.openAuxDetailsModal(trigger), 100);
+                }
+            } else {
+                if (window.showToast) window.showToast(body.message || 'No se pudo cargar el PDF.', 'error');
+            }
+        })
+        .catch(err => {
+            if (window.hidePreloader) window.hidePreloader();
+            input.value = '';
+            console.error('uploadDoc:', err);
+            if (window.showToast) window.showToast('Error de red al cargar el PDF.', 'error');
+        });
+    };
+
 
     // ═══════════════════════════════════════════════════════════
     // MODAL "VER ANCLAJES" - Muestra aux anclados a equipos host
