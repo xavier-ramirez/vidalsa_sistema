@@ -561,46 +561,83 @@
 
 {{-- ═══════════════════════════════════════════════════════════
      MODAL MOVILIZACION MASIVA (pick frente destino)
+     Mismo patron visual que /admin/equipos: header centrado con icono
+     azul, chips de equipos seleccionados, dropdown con buscador para
+     el frente destino, un solo boton "Confirmar Movilización" full-width.
      ═══════════════════════════════════════════════════════════ --}}
-<div id="auxMovilizarModal" class="modal-overlay" style="display:none;"
+<div id="auxMovilizarModal" class="modal-overlay"
      onclick="if(event.target===this) window.closeAuxMovilizarModal()">
     <div class="modal-content"
-         style="width: 90%; max-width: 480px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: white; margin: auto; max-height: 95vh; display: flex; flex-direction: column;">
-        <div style="background: var(--maquinaria-dark-blue); color: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
-                <i class="material-icons">local_shipping</i>
-                Movilización de Auxiliares
-            </h2>
-            <button type="button" onclick="window.closeAuxMovilizarModal()"
-                    style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
-                <i class="material-icons" style="font-size:18px;">close</i>
+         style="width: 90%; max-width: 480px; max-height: 92vh; padding: 0; border-radius: 16px; overflow: hidden; background: white; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.30); display: flex; flex-direction: column;">
+
+        {{-- Header centrado: icono + titulo en el centro, close absoluto a la derecha --}}
+        <div style="background:#1e293b; padding:18px; color:white; display:flex; justify-content:center; align-items:center; position:relative;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="material-icons" style="color:#0067b1; font-size:20px;">local_shipping</i>
+                <h2 style="margin:0; font-size:16px; font-weight:700;">Movilización</h2>
+            </div>
+            <button type="button" onclick="window.closeAuxMovilizarModal()" aria-label="Cerrar"
+                    style="position:absolute; right:15px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"
+                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                <i class="material-icons">close</i>
             </button>
         </div>
-        <div style="padding: 20px;">
-            <div id="auxMovilizarSummary" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px; color:#475569;">
-                {{-- poblado via JS --}}
+
+        {{-- Body --}}
+        <div style="padding:22px 24px; display:flex; flex-direction:column; gap:18px; overflow-y:auto; flex:1;">
+
+            {{-- Chips de auxiliares seleccionados (poblados por JS) --}}
+            <div>
+                <p style="margin:0 0 8px; font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares a movilizar</p>
+                <div id="auxMovilizarChips" style="display:flex; flex-wrap:wrap; gap:6px; padding:10px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0; max-height:120px; overflow-y:auto;">
+                    {{-- poblado via JS --}}
+                </div>
             </div>
 
-            <label for="auxMovilizarFrente" style="display:block; font-weight:700; margin-bottom:6px; color:var(--maquinaria-dark-blue); font-size:13px;">
-                <i class="material-icons" style="font-size:14px; vertical-align:middle;">place</i>
-                Frente de Destino <span style="color:var(--maquinaria-red);">*</span>
-            </label>
-            <select id="auxMovilizarFrente" class="form-input-custom" style="width:100%;">
-                <option value="">— Seleccione un frente —</option>
-                @foreach($frentes as $f)
-                    <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
-                @endforeach
-            </select>
-
-            <div style="display:flex; gap:10px; margin-top:18px; justify-content:flex-end;">
-                <button type="button" onclick="window.closeAuxMovilizarModal()" class="btn-primary-maquinaria btn-secondary">
-                    Cancelar
-                </button>
-                <button type="button" onclick="window.auxSubmitMovilizar()" class="btn-primary-maquinaria">
-                    <i class="material-icons" style="font-size:16px;">send</i>
-                    Confirmar
-                </button>
+            {{-- Frente destino con buscador (mismo patron visual que /admin/equipos) --}}
+            <div>
+                <label style="display:block; font-size:13px; font-weight:700; color:#475569; margin-bottom:8px;">
+                    <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:4px;">place</i>
+                    Frente de Destino <span style="color:#ef4444;">*</span>
+                </label>
+                <div style="position:relative;">
+                    <div style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:10px; background:white; overflow:hidden; transition:border-color 0.2s;" id="auxMovilizarBox">
+                        <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:20px; flex-shrink:0;">search</i>
+                        <input type="text" id="auxMovilizarSearch"
+                               placeholder="Buscar frente de destino..."
+                               autocomplete="off"
+                               oninput="auxMovFilterList(this.value)"
+                               onfocus="auxMovOpenList()"
+                               onblur="setTimeout(auxMovCloseList, 200)"
+                               style="flex:1; border:none; outline:none; padding:11px 6px; font-size:14px; background:transparent;">
+                        <i class="material-icons" id="auxMovilizarClear"
+                           onclick="auxMovClear()"
+                           style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer; display:none;">close</i>
+                    </div>
+                    <input type="hidden" id="auxMovilizarFrente" value="">
+                    <div id="auxMovilizarList"
+                         style="position:absolute; top:calc(100% + 4px); left:0; right:0; background:white; border:1px solid #cbd5e0; border-radius:10px; box-shadow:0 4px 12px rgba(15,23,42,0.10); max-height:240px; overflow-y:auto; z-index:50; display:none;">
+                        @foreach($frentes as $f)
+                            <div class="aux-mov-opt"
+                                 data-id="{{ $f->ID_FRENTE }}"
+                                 data-label="{{ mb_strtoupper($f->NOMBRE_FRENTE) }}"
+                                 onmousedown="event.preventDefault(); auxMovSelect({{ $f->ID_FRENTE }}, '{{ addslashes(mb_strtoupper($f->NOMBRE_FRENTE)) }}');"
+                                 style="padding:10px 14px; font-size:13px; color:#334155; cursor:pointer; border-bottom:1px solid #f1f5f9;"
+                                 onmouseover="this.style.background='#f1f5f9'"
+                                 onmouseout="this.style.background='white'">
+                                {{ mb_strtoupper($f->NOMBRE_FRENTE) }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
+
+            {{-- Boton unico full-width: "Confirmar Movilización" --}}
+            <button type="button" onclick="window.auxSubmitMovilizar()" id="auxMovilizarSubmitBtn"
+                    style="width:100%; height:48px; border-radius:10px; font-weight:700; font-size:15px; background:#1e293b; color:white; border:none; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; transition:background 0.2s;"
+                    onmouseover="this.style.background='#0f172a'" onmouseout="this.style.background='#1e293b'">
+                <i class="material-icons" style="font-size:18px;">send</i> Confirmar Movilización
+            </button>
         </div>
     </div>
 </div>
@@ -1018,26 +1055,71 @@
             return;
         }
         const modal = document.getElementById('auxMovilizarModal');
-        const sum   = document.getElementById('auxMovilizarSummary');
         if (!modal) return;
-        const items = ids.map(k => window._auxSelectedMap[k].codigo);
-        if (sum) sum.innerHTML = '<strong>' + ids.length + '</strong> equipo(s) a movilizar: <span style="color:#334155;">' + items.slice(0,6).join(', ') + (items.length > 6 ? ', +' + (items.length - 6) + ' más' : '') + '</span>';
+
+        // Poblar chips: 1 chip por auxiliar seleccionado (codigo/serial).
+        const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const chips = document.getElementById('auxMovilizarChips');
+        if (chips) {
+            chips.innerHTML = ids.map(k => {
+                const lbl = window._auxSelectedMap[k].codigo || ('#' + k);
+                return '<span style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;">' + esc(lbl) + '</span>';
+            }).join('');
+        }
+
+        // Reset del input de frente
         document.getElementById('auxMovilizarFrente').value = '';
-        // Usar la clase .active (CSS global maneja display:flex + opacity:1).
-        // El display:none inline del HTML necesita limpiarse para que .active
-        // pueda tomar control de la visibilidad.
-        modal.style.display = '';
+        const search = document.getElementById('auxMovilizarSearch');
+        if (search) { search.value = ''; }
+        const clr = document.getElementById('auxMovilizarClear');
+        if (clr) clr.style.display = 'none';
+        const list = document.getElementById('auxMovilizarList');
+        if (list) {
+            list.style.display = 'none';
+            list.querySelectorAll('.aux-mov-opt').forEach(o => o.style.display = '');
+        }
+
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     };
 
     window.closeAuxMovilizarModal = function () {
         const modal = document.getElementById('auxMovilizarModal');
-        if (modal) {
-            modal.classList.remove('active');
-            modal.style.display = 'none';
-        }
+        if (modal) modal.classList.remove('active');
         document.body.style.overflow = '';
+    };
+
+    // Helpers del autocomplete del frente destino (mismo patron que el bulk
+    // modal de /admin/equipos). Filtra options en el dropdown sin reload.
+    window.auxMovOpenList = function () {
+        const list = document.getElementById('auxMovilizarList');
+        if (list) list.style.display = 'block';
+    };
+    window.auxMovCloseList = function () {
+        const list = document.getElementById('auxMovilizarList');
+        if (list) list.style.display = 'none';
+    };
+    window.auxMovFilterList = function (q) {
+        const list = document.getElementById('auxMovilizarList');
+        if (!list) return;
+        list.style.display = 'block';
+        const qu = (q || '').toUpperCase().trim();
+        list.querySelectorAll('.aux-mov-opt').forEach(opt => {
+            const lbl = (opt.dataset.label || '').toUpperCase();
+            opt.style.display = (!qu || lbl.indexOf(qu) !== -1) ? '' : 'none';
+        });
+    };
+    window.auxMovSelect = function (id, label) {
+        document.getElementById('auxMovilizarFrente').value = id;
+        document.getElementById('auxMovilizarSearch').value = label;
+        document.getElementById('auxMovilizarClear').style.display = 'block';
+        window.auxMovCloseList();
+    };
+    window.auxMovClear = function () {
+        document.getElementById('auxMovilizarFrente').value = '';
+        document.getElementById('auxMovilizarSearch').value = '';
+        document.getElementById('auxMovilizarClear').style.display = 'none';
+        document.getElementById('auxMovilizarList').querySelectorAll('.aux-mov-opt').forEach(o => o.style.display = '');
     };
 
     window.auxSubmitMovilizar = function () {
@@ -1347,7 +1429,12 @@
         var box    = document.getElementById('aux_main_box_' + prefix);
         var list   = document.getElementById('aux_main_list_' + prefix);
         var isReal = value && value !== 'all' && value !== '';
-        if (hidden) hidden.value = isReal ? value : '';
+        // Importante: cuando el usuario elige explicitamente "TODOS" (value='all')
+        // preservamos 'all' en el hidden — asi el backend reconoce que hay UNA
+        // seleccion activa (hasFilter=true) y carga todos los registros sin
+        // aplicar where. Si guardaramos vacio, el listado mostraria 0 filas
+        // (patron empty-when-no-filter para evitar dump masivo en initial load).
+        if (hidden) hidden.value = isReal ? value : (value === 'all' ? 'all' : '');
         if (txt)    { txt.value = isReal ? label : ''; txt.placeholder = label; }
         if (clr)    clr.style.display = isReal ? 'block' : 'none';
         if (box)    {
