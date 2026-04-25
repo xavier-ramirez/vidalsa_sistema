@@ -495,6 +495,247 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Lista TODOS los auxiliares anclados con info de su equipo host.
+     * Usado por el modal "Anclaje de Auxiliares" del menu Acciones.
+     */
+    public function anchoredList(Request $request)
+    {
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $tipos = $this->getTiposDinamicos();
+
+        $query = EquipoAuxiliar::with([
+            'frente',
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            'equipoHost.frenteActual',
+            'equipoHost.especificaciones',
+        ])->whereNotNull('ID_EQUIPO_HOST');
+
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        // Filtros opcionales (heredados del listado principal): si el usuario
+        // tiene un frente o tipo activo en la URL del index, el modal de
+        // anclajes debe respetarlo para mostrar solo los anclajes en scope.
+        if ($request->filled('id_frente') && $request->id_frente !== 'all' && $request->id_frente !== 'none') {
+            if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
+                $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
+            }
+        }
+        if ($request->filled('tipo') && $request->tipo !== 'all') {
+            $query->where('TIPO', $request->tipo);
+        }
+
+        $items = $query->orderBy('TIPO')->get()->map(function ($a) use ($tipos) {
+            $host = $a->equipoHost;
+            $hostFoto = null;
+            if ($host) {
+                if ($host->especificaciones && $host->especificaciones->FOTO_REFERENCIAL) {
+                    $hostFoto = asset($host->especificaciones->FOTO_REFERENCIAL);
+                } elseif ($host->FOTO_EQUIPO) {
+                    $hostFoto = asset($host->FOTO_EQUIPO);
+                }
+            }
+            return [
+                'id'             => $a->ID_AUXILIAR,
+                'tipo'           => $a->TIPO,
+                'tipo_label'     => $tipos[$a->TIPO] ?? $a->TIPO,
+                'marca'          => $a->MARCA,
+                'modelo'         => $a->MODELO,
+                'serial'         => $a->SERIAL,
+                'capacidad'      => $a->CAPACIDAD,
+                'foto'           => $a->FOTO ? asset($a->FOTO) : null,
+                'frente'         => optional($a->frente)->NOMBRE_FRENTE,
+                'host_id'        => $host?->ID_EQUIPO,
+                'host_codigo'    => $host?->CODIGO_PATIO,
+                'host_placa'     => optional($host?->documentacion)->PLACA,
+                'host_serial'    => $host?->SERIAL_CHASIS,
+                'host_tipo'      => optional($host?->tipo)->nombre,
+                'host_marca'     => $host?->MARCA,
+                'host_modelo'    => $host?->MODELO,
+                'host_frente'    => optional($host?->frenteActual)->NOMBRE_FRENTE,
+                'host_foto'      => $hostFoto,
+            ];
+        });
+
+        return response()->json(['success' => true, 'count' => $items->count(), 'items' => $items]);
+    }
+
+    /**
+     * Exporta a XLSX la lista de auxiliares anclados a equipos host.
+     * Encabezado corporativo identico al export() y al export anclajes de
+     * /admin/equipos: logo izquierda, titulo central, edicion/revision/fecha
+     * a la derecha, "Exportado por" en fila 4.
+     */
+    public function exportAnclajes(Request $request)
+    {
+        set_time_limit(180);
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $tipos = $this->getTiposDinamicos();
+
+        $query = EquipoAuxiliar::with(['equipoHost.documentacion', 'equipoHost.tipo', 'frente'])
+            ->whereNotNull('ID_EQUIPO_HOST');
+
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        // Mismos filtros que anchoredList: respetar el frente/tipo del listado
+        // principal cuando el usuario los tiene activos.
+        if ($request->filled('id_frente') && $request->id_frente !== 'all' && $request->id_frente !== 'none') {
+            if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
+                $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
+            }
+        }
+        if ($request->filled('tipo') && $request->tipo !== 'all') {
+            $query->where('TIPO', $request->tipo);
+        }
+
+        $currentDate = now()->format('d/m/Y');
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getProperties()
+            ->setCreator('Sistema de Gestión de Equipos Operacionales')
+            ->setTitle('Anclajes de Auxiliares')
+            ->setCompany('Constructora Vidalsa 27, C.A.');
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Anclajes Auxiliares');
+        $lastCol = 'I'; // 9 columnas
+
+        // Logo (A1:B3)
+        $logoPath = public_path('img/imagen_uno.jpg');
+        if (file_exists($logoPath)) {
+            try {
+                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                $drawing->setName('Logo CVIDALSA')->setDescription('Logo')
+                    ->setPath($logoPath)->setCoordinates('A1')
+                    ->setOffsetX(45)->setOffsetY(12)->setHeight(135)
+                    ->setWorksheet($sheet);
+            } catch (\Exception $e) { /* silently ignore */ }
+        }
+        $sheet->mergeCells('A1:B3');
+        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        // Titulo central (C1:E3)
+        $sheet->mergeCells('C1:E3');
+        $sheet->setCellValue('C1', "LISTADO DE ANCLAJES DE AUXILIARES\nAUXILIARES VINCULADOS A EQUIPOS OPERATIVOS");
+        $sheet->getStyle('C1')->getAlignment()->setWrapText(true)
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)
+            ->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        // Metadatos (F1:I3)
+        foreach ([['F1','EDICION: 1'],['F2','REVISION: 0'],['F3','FECHA: '.$currentDate]] as [$cell, $text]) {
+            $row = substr($cell, 1);
+            $sheet->mergeCells("F{$row}:{$lastCol}{$row}");
+            $sheet->setCellValue($cell, $text);
+            $sheet->getStyle($cell)->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+            $sheet->getStyle("F{$row}:{$lastCol}{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        }
+        foreach ([1,2,3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
+
+        // Fila 4 — Exportado por
+        $sheet->mergeCells("A4:{$lastCol}4");
+        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
+        $sheet->getStyle("A4:{$lastCol}4")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle("A4:{$lastCol}4")->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A4:{$lastCol}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+        $sheet->getRowDimension(4)->setRowHeight(20);
+
+        $sheet->getStyle("A1:{$lastCol}4")->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]],
+        ]);
+
+        // Fila 5 — Headers (orden: host primero, luego aux, para que el merge
+        // por host quede natural y el lector vea "1 host => N aux")
+        $headers = ['EQUIPO HOST', 'PLACA HOST', 'SERIAL CHASIS HOST', 'FRENTE HOST', 'CÓDIGO PATIO', 'TIPO AUXILIAR', 'MARCA', 'MODELO', 'SERIAL AUX.'];
+        $sheet->fromArray($headers, null, 'A5');
+        $sheet->getStyle("A5:{$lastCol}5")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle("A5:{$lastCol}5")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(5)->setRowHeight(22);
+
+        // Agrupar por host (carga unica, ordenada). Cargar todo en memoria es
+        // razonable: una flota tiene ~cientos de auxiliares anclados maximo.
+        $all = $query->orderBy('ID_EQUIPO_HOST')->orderBy('TIPO')->get();
+        $groups = [];
+        foreach ($all as $a) {
+            $hid = $a->ID_EQUIPO_HOST;
+            if (!isset($groups[$hid])) $groups[$hid] = ['host' => $a->equipoHost, 'auxes' => []];
+            $groups[$hid]['auxes'][] = $a;
+        }
+
+        // Filas data: 1 host = N filas (una por aux). Merge vertical en columnas
+        // del host para visualizar "1 sola tarjeta" por equipo.
+        $row = 6;
+        foreach ($groups as $g) {
+            $h = $g['host'];
+            $first = $row;
+            foreach ($g['auxes'] as $a) {
+                $sheet->setCellValue("A{$row}", $h ? trim((optional($h->tipo)->nombre ?? '') . ' ' . ($h->MARCA ?? '') . ' ' . ($h->MODELO ?? '')) : '');
+                $sheet->setCellValue("B{$row}", optional(optional($h)->documentacion)->PLACA);
+                $sheet->setCellValue("C{$row}", optional($h)->SERIAL_CHASIS);
+                $sheet->setCellValue("D{$row}", optional(optional($h)->frenteActual)->NOMBRE_FRENTE);
+                $sheet->setCellValue("E{$row}", optional($h)->CODIGO_PATIO);
+                $sheet->setCellValue("F{$row}", mb_strtoupper($tipos[$a->TIPO] ?? $a->TIPO));
+                $sheet->setCellValue("G{$row}", $a->MARCA);
+                $sheet->setCellValue("H{$row}", $a->MODELO);
+                $sheet->setCellValue("I{$row}", $a->SERIAL);
+                $row++;
+            }
+            $last = $row - 1;
+            if ($last > $first) {
+                // Merge vertical de las columnas del host para que se vea como 1 sola tarjeta
+                foreach (['A', 'B', 'C', 'D', 'E'] as $col) {
+                    $sheet->mergeCells("{$col}{$first}:{$col}{$last}");
+                }
+            }
+            // Alineacion de las celdas merged: centro vertical
+            if ($last >= $first) {
+                $sheet->getStyle("A{$first}:E{$last}")->getAlignment()
+                    ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+                    ->setWrapText(true);
+            }
+        }
+
+        if ($row > 6) {
+            $sheet->getStyle("A5:{$lastCol}" . ($row - 1))->getBorders()->getAllBorders()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                ->getColor()->setARGB('FFCBD5E0');
+        }
+        foreach (range('A', $lastCol) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'Anclajes_Auxiliares_' . date('Y-m-d_H-i') . '.xlsx';
+        $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($spreadsheet) {
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+        });
+        $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $response->headers->set('Cache-Control', 'max-age=0');
+        return $response;
+    }
+
+    /**
      * Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD. Vista de solo lectura
      * que agrupa los auxiliares existentes por modelo y muestra una foto
      * representativa, total de unidades y conteo por estado. No requiere

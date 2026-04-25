@@ -74,9 +74,9 @@ function initEquiposBulk() {
             {key:'categoria_flota', label:'Categoría de Flota', type:'select', options:options.categorias},
             {key:'marca', label:'Marca', type:'text'},
             {key:'modelo', label:'Modelo', type:'text'},
-            {key:'anio', label:'Año', type:'number'},
-            // Etiqueta es un numero corto (3-4 digitos): no necesita ser tan ancho
-            // como las columnas de marca/modelo. width:90px hace la celda compacta.
+            // Año: 4 digitos. N° Etiqueta: 3-4 digitos. Ambos numericos cortos —
+            // no necesitan ancho de columna de marca/modelo. width fijo compacto.
+            {key:'anio', label:'Año', type:'number', style:'width:62px;min-width:62px;max-width:62px;'},
             {key:'numero_etiqueta', label:'N° Etiqueta', type:'text', style:'width:90px;min-width:90px;'},
             {key:'serial_chasis', label:'Serial de Chasis', type:'text'},
             {key:'serial_de_motor', label:'Serial de Motor', type:'text'},
@@ -95,7 +95,7 @@ function initEquiposBulk() {
 
         // thead — soporta `style` opcional por columna para ajustar ancho.
         let thead = '<thead><tr>';
-        thead += '<th style="width:50px;">#</th>';
+        thead += '<th style="width:32px;min-width:32px;max-width:32px;padding-left:4px;padding-right:4px;text-align:center;">#</th>';
         columns.forEach(c => {
             const styleAttr = c.style ? ` style="${c.style}"` : '';
             thead += `<th${styleAttr}>${c.label}</th>`;
@@ -107,7 +107,7 @@ function initEquiposBulk() {
         let tbody = '<tbody>';
         rows.forEach((row, idx) => {
             tbody += `<tr data-row-idx="${idx}">`;
-            tbody += `<td class="row-num">${idx+1}</td>`;
+            tbody += `<td class="row-num" style="text-align:center;padding-left:4px;padding-right:4px;">${idx+1}</td>`;
             columns.forEach(col => {
                 const val = row.data[col.key] ?? '';
                 const err = (row.errors && row.errors[col.key]) || '';

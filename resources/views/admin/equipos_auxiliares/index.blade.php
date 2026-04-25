@@ -1687,71 +1687,127 @@
             modal.className = 'modal-overlay';
             modal.style.zIndex = '10000';
             modal.innerHTML = `
-                <div class="modal-content" style="width:90%; max-width:800px; max-height:90vh; background:#fff; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-                    <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+                <div class="modal-content" style="width:90%; max-width:820px; max-height:90vh; background:#fff; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+                    <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%); padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
                         <div style="display:flex; align-items:center; gap:12px;">
                             <div style="background:rgba(255,255,255,0.1); padding:8px; border-radius:8px;"><i class="material-icons" style="color:#fff; font-size:20px;">link</i></div>
                             <h3 style="margin:0; color:#fff; font-size:16px; font-weight:600;">Anclaje de Auxiliares</h3>
+                            <span id="auxAnclajesCount" style="background:#10b981;color:white;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;">0</span>
                         </div>
-                        <button type="button" onclick="document.getElementById('auxAnclajesModal').classList.remove('active')" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; display:flex; padding:4px;">
-                            <i class="material-icons">close</i>
-                        </button>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" id="btnAuxAnclajesExport" title="Exportar a Excel"
+                                style="background:#10b981; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700;"
+                                onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                <i class="material-icons" style="font-size:16px;">download</i>
+                                Exportar
+                            </button>
+                            <button type="button" onclick="document.getElementById('auxAnclajesModal').classList.remove('active')" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; display:flex; padding:4px;">
+                                <i class="material-icons">close</i>
+                            </button>
+                        </div>
                     </div>
                     <div id="auxAnclajesLoading" style="padding:40px; text-align:center; color:#64748b;">
                         <i class="material-icons" style="font-size:32px; animation:fleetSpin 1s linear infinite;">refresh</i>
                         <p style="margin-top:10px; font-size:14px;">Cargando anclajes...</p>
                     </div>
                     <div id="auxAnclajesBody" style="display:none; padding:14px 16px; overflow-y:auto; flex:1; background:#f8fafc;">
-                        <div id="auxAnclajesGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px;"></div>
+                        <div id="auxAnclajesGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px;"></div>
                     </div>
                 </div>`;
             document.body.appendChild(modal);
+            // Boton de export — abre el endpoint en una pestana nueva (descarga directa).
+            // Hereda los filtros del listado principal (id_frente, tipo) si estan activos.
+            document.getElementById('btnAuxAnclajesExport').addEventListener('click', function () {
+                var sp = new URLSearchParams(window.location.search);
+                var qs = new URLSearchParams();
+                ['id_frente','tipo'].forEach(function(k){ var v = sp.get(k); if (v && v !== 'all' && v !== 'none') qs.set(k, v); });
+                var url = '{{ route("equipos-auxiliares.exportAnclajes") }}' + (qs.toString() ? ('?' + qs.toString()) : '');
+                window.open(url, '_blank');
+            });
         }
         modal.classList.add('active');
         document.getElementById('auxAnclajesLoading').style.display = 'block';
         document.getElementById('auxAnclajesBody').style.display = 'none';
 
-        fetch('{{ route("equipos-auxiliares.index") }}?anchored=1', {
+        // Hereda los filtros del listado principal (id_frente, tipo) si los tiene activos.
+        var _spIn = new URLSearchParams(window.location.search);
+        var _qsIn = new URLSearchParams();
+        ['id_frente','tipo'].forEach(function(k){ var v = _spIn.get(k); if (v && v !== 'all' && v !== 'none') _qsIn.set(k, v); });
+        var _urlIn = '{{ route("equipos-auxiliares.anchoredList") }}' + (_qsIn.toString() ? ('?' + _qsIn.toString()) : '');
+        fetch(_urlIn, {
             headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
             credentials: 'same-origin'
         })
         .then(r => r.ok ? r.json() : Promise.reject('HTTP ' + r.status))
         .then(data => {
-            const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
-            const anchored = list.filter(a => a.ID_EQUIPO_HOST || a.id_equipo_host || a.host_id);
+            const items = Array.isArray(data.items) ? data.items : [];
             document.getElementById('auxAnclajesLoading').style.display = 'none';
             document.getElementById('auxAnclajesBody').style.display = 'block';
             const grid = document.getElementById('auxAnclajesGrid');
-            if (anchored.length === 0) {
+            const countBadge = document.getElementById('auxAnclajesCount');
+            if (countBadge) countBadge.textContent = items.length;
+            if (items.length === 0) {
                 grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:#94a3b8; background:#fff; border-radius:8px; border:1px dashed #cbd5e1;">No hay auxiliares anclados actualmente.</div>';
                 return;
             }
-            grid.innerHTML = anchored.map(a => {
-                const tipo = (a.TIPO || a.tipo || 'Auxiliar').toString().toUpperCase();
-                const marca = a.MARCA || a.marca || '';
-                const modelo = a.MODELO || a.modelo || '';
-                const serial = a.SERIAL || a.serial || '';
-                const hostCodigo = a.host_codigo || a.HOST_CODIGO || '#' + (a.ID_EQUIPO_HOST || a.host_id);
-                const hostPlaca = a.host_placa || a.HOST_PLACA || '';
-                return `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-                    <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#f8fafc; border-radius:6px;">
-                        <div style="background:#fff7ed; padding:5px; border-radius:5px; display:flex;"><i class="material-icons" style="font-size:14px; color:#f59e0b;">construction</i></div>
+            const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+            // Agrupar por host: 1 tarjeta por equipo host con TODOS sus auxiliares anclados.
+            // Antes se renderizaba 1 tarjeta por (auxiliar, host) — duplicaba el host.
+            const groups = {};
+            items.forEach(a => {
+                const key = a.host_id ?? ('NOHOST_'+ (a.host_codigo||'') + (a.host_serial||''));
+                if (!groups[key]) {
+                    groups[key] = {
+                        host_id:    a.host_id,
+                        host_codigo:a.host_codigo,
+                        host_placa: a.host_placa,
+                        host_serial:a.host_serial,
+                        host_tipo:  a.host_tipo,
+                        host_marca: a.host_marca,
+                        host_modelo:a.host_modelo,
+                        host_frente:a.host_frente,
+                        host_foto:  a.host_foto,
+                        auxes:      []
+                    };
+                }
+                groups[key].auxes.push(a);
+            });
+
+            grid.innerHTML = Object.values(groups).map(g => {
+                const hostLabel = g.host_placa || g.host_serial || g.host_codigo || ('#' + g.host_id);
+                const hostType  = (g.host_tipo || 'Equipo').toString();
+                const hostMarca = g.host_marca ? esc(g.host_marca) : '';
+                const hostFotoHtml = g.host_foto
+                    ? `<img src="${esc(g.host_foto)}" alt="" style="width:100%;height:100%;object-fit:contain;background:white;" onerror="this.outerHTML='<i class=&quot;material-icons&quot; style=&quot;font-size:22px;color:#1e40af;&quot;>directions_car</i>'">`
+                    : '<i class="material-icons" style="font-size:22px;color:#1e40af;">directions_car</i>';
+
+                const auxRowsHtml = g.auxes.map(a => {
+                    const auxLabel   = a.serial || ((a.marca || '') + ' ' + (a.modelo || '')).trim() || '—';
+                    const auxFotoHtml = a.foto
+                        ? `<img src="${esc(a.foto)}" alt="" style="width:100%;height:100%;object-fit:contain;background:white;" onerror="this.outerHTML='<i class=&quot;material-icons&quot; style=&quot;font-size:16px;color:#f59e0b;&quot;>construction</i>'">`
+                        : '<i class="material-icons" style="font-size:16px;color:#f59e0b;">construction</i>';
+                    return `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#fff7ed; border-radius:6px; border:1px solid #fed7aa;">
+                        <div style="background:#fff;padding:0;border-radius:5px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid #fed7aa;">${auxFotoHtml}</div>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.4px;">${tipo}</div>
-                            <div style="font-size:12px; font-weight:800; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${serial || (marca + ' ' + modelo).trim() || '—'}</div>
+                            <div style="font-size:9px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.3px;">${esc(a.tipo_label || a.tipo || 'AUXILIAR')}</div>
+                            <div style="font-size:12px; font-weight:800; color:#7c2d12; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(auxLabel)}</div>
+                            ${a.marca || a.modelo ? `<div style="font-size:10px; color:#9a3412;">${esc(a.marca||'')} ${esc(a.modelo||'')}</div>` : ''}
                         </div>
-                    </div>
-                    <div style="display:flex; justify-content:center; height:14px; position:relative;">
-                        <div style="position:absolute; inset:0 calc(50% - 1px); background:#e2e8f0; width:1px; margin:0 auto;"></div>
-                        <div style="background:#dbeafe; width:18px; height:18px; border-radius:50%; color:#2563eb; z-index:2; border:2px solid #fff; display:flex; align-items:center; justify-content:center; position:relative;"><i class="material-icons" style="font-size:10px; transform:rotate(90deg);">link</i></div>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#f8fafc; border-radius:6px;">
-                        <div style="background:#eff6ff; padding:5px; border-radius:5px; display:flex;"><i class="material-icons" style="font-size:14px; color:#1e40af;">directions_car</i></div>
+                    </div>`;
+                }).join('');
+
+                return `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                    <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe;">
+                        <div style="background:#fff;padding:0;border-radius:6px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid #bfdbfe;">${hostFotoHtml}</div>
                         <div style="flex:1; min-width:0;">
-                            <div style="font-size:9px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.4px;">EQUIPO HOST</div>
-                            <div style="font-size:12px; font-weight:800; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${hostPlaca || hostCodigo}</div>
+                            <div style="font-size:9.5px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.4px;">${esc(hostType)}</div>
+                            <div style="font-size:14px; font-weight:800; color:#1e3a8a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(hostLabel)}</div>
+                            ${hostMarca ? `<div style="font-size:10.5px; color:#1d4ed8; margin-top:1px;">${hostMarca} ${esc(g.host_modelo||'')}</div>` : ''}
                         </div>
+                        <span style="background:#10b981;color:white;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;flex-shrink:0;">${g.auxes.length}</span>
                     </div>
+                    <div style="display:flex; flex-direction:column; gap:5px;">${auxRowsHtml}</div>
                 </div>`;
             }).join('');
         })
