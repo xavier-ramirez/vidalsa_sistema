@@ -57,9 +57,9 @@
         inset: 0;
         background: linear-gradient(
             to right,
-            rgba(0, 8, 44, 0.92) 0%,
-            rgba(0, 8, 44, 0.65) 45%,
-            rgba(0, 8, 44, 0.35) 100%
+            rgba(0, 8, 44, 0.72) 0%,
+            rgba(0, 8, 44, 0.45) 45%,
+            rgba(0, 8, 44, 0.18) 100%
         );
         pointer-events: none;
         z-index: 1;
@@ -628,12 +628,9 @@
     {{-- ── Hero moderno: 3 imágenes con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
         <div class="menu-hero-stripes">
-            @php
-                $heroImg = asset('images/maquinaria_login_new.webp');
-            @endphp
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: right center;"></div>
+            <div><img src="{{ asset('images/menu_hero_3.jpeg') }}" alt="" draggable="false" style="object-position: center center;"></div>
+            <div><img src="{{ asset('images/menu_hero_1.jpeg') }}" alt="" draggable="false" style="object-position: center center;"></div>
+            <div><img src="{{ asset('images/menu_hero_2.jpeg') }}" alt="" draggable="false" style="object-position: center center;"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">
