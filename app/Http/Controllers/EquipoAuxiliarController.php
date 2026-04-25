@@ -771,56 +771,50 @@ class EquipoAuxiliarController extends Controller
             });
         }
 
-        // Agrupar por TIPO+MARCA+MODELO+CAPACIDAD. Una foto representativa por
-        // grupo (la mas reciente con FOTO no nula). Conteos por estado.
+        // Agrupar por TIPO+MARCA+MODELO+ANIO — una sola tarjeta por modelo+ano
+        // (un MODELO 2020 y el mismo MODELO 2023 son tarjetas distintas porque
+        // suelen tener fichas tecnicas diferentes). La foto se aplica a TODOS
+        // los auxiliares de ese modelo+ano. CAPACIDAD ya no es clave de
+        // agrupacion: queda como dato representativo del primer registro.
         $grupos = (clone $base)
             ->selectRaw("
                 TIPO,
                 COALESCE(NULLIF(TRIM(MARCA), ''), '—') as MARCA_KEY,
                 COALESCE(NULLIF(TRIM(MODELO), ''), '—') as MODELO_KEY,
-                COALESCE(NULLIF(TRIM(CAPACIDAD), ''), '') as CAPACIDAD_KEY,
-                COUNT(*) as total,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as operativos,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' THEN 1 ELSE 0 END) as inoperativos,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'EN_ALMACEN' THEN 1 ELSE 0 END) as en_almacen,
-                MIN(ANIO) as anio_min,
-                MAX(ANIO) as anio_max
+                COALESCE(ANIO, 0) as ANIO_KEY,
+                COUNT(*) as total
             ")
-            ->groupBy('TIPO', 'MARCA_KEY', 'MODELO_KEY', 'CAPACIDAD_KEY')
-            ->orderBy('TIPO')->orderBy('MARCA_KEY')->orderBy('MODELO_KEY')
+            ->groupBy('TIPO', 'MARCA_KEY', 'MODELO_KEY', 'ANIO_KEY')
+            ->orderBy('TIPO')->orderBy('MARCA_KEY')->orderBy('MODELO_KEY')->orderBy('ANIO_KEY', 'desc')
             ->get();
 
-        // Foto representativa por grupo (separado para no romper el GROUP BY).
+        // Foto representativa por grupo (modelo+ano). Tomamos la mas reciente
+        // (mayor ID) que tenga foto no nula.
         $fotos = (clone $base)
             ->whereNotNull('FOTO')->where('FOTO', '!=', '')
-            ->selectRaw('TIPO, MARCA, MODELO, CAPACIDAD, FOTO, ID_AUXILIAR')
+            ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, CAPACIDAD, ID_AUXILIAR')
             ->orderByDesc('ID_AUXILIAR')
             ->get()
             ->reduce(function ($carry, $a) {
-                $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->CAPACIDAD ?? '')));
-                if (!isset($carry[$key])) $carry[$key] = $a->FOTO;
+                $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->ANIO ?? 0)));
+                if (!isset($carry[$key])) $carry[$key] = ['foto' => $a->FOTO, 'capacidad' => $a->CAPACIDAD];
                 return $carry;
             }, []);
 
         $tipos = $this->getTiposDinamicos();
 
         $items = $grupos->map(function ($g) use ($fotos, $tipos) {
-            $key = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->CAPACIDAD_KEY ?? '')));
-            $rangoAnios = ($g->anio_min && $g->anio_max && $g->anio_min !== $g->anio_max)
-                ? $g->anio_min . '–' . $g->anio_max
-                : ($g->anio_min ?: ($g->anio_max ?: null));
+            $key = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->ANIO_KEY ?? 0)));
+            $info = $fotos[$key] ?? ['foto' => null, 'capacidad' => null];
             return [
-                'tipo'         => $g->TIPO,
-                'tipo_label'   => $tipos[$g->TIPO] ?? $g->TIPO,
-                'marca'        => $g->MARCA_KEY,
-                'modelo'       => $g->MODELO_KEY,
-                'capacidad'    => $g->CAPACIDAD_KEY,
-                'total'        => (int) $g->total,
-                'operativos'   => (int) $g->operativos,
-                'inoperativos' => (int) $g->inoperativos,
-                'en_almacen'   => (int) $g->en_almacen,
-                'foto'         => $fotos[$key] ?? null,
-                'rango_anios'  => $rangoAnios,
+                'tipo'        => $g->TIPO,
+                'tipo_label'  => $tipos[$g->TIPO] ?? $g->TIPO,
+                'marca'       => $g->MARCA_KEY,
+                'modelo'      => $g->MODELO_KEY,
+                'anio'        => $g->ANIO_KEY ? (int) $g->ANIO_KEY : null,
+                'capacidad'   => $info['capacidad'],
+                'total'       => (int) $g->total,
+                'foto'        => $info['foto'],
             ];
         });
 

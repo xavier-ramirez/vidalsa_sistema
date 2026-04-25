@@ -522,9 +522,11 @@
 
 </div>{{-- /page-layout-grid --}}
 
-@can('equipos.edit')
 {{-- ═══════════════════════════════════════════════════════════
      BARRA FLOTANTE DE SELECCION MASIVA (estilo /admin/equipos)
+     SIEMPRE visible — los botones validan permiso en JS y muestran
+     toast si el usuario no tiene equipos.assign (mismo patron que
+     /admin/equipos con CAN_ASSIGN_EQUIPOS).
      ═══════════════════════════════════════════════════════════ --}}
 <div id="auxBulkBar" class="selection-floating-bar">
     <div class="selection-counter">
@@ -539,20 +541,23 @@
                 onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
             <span class="desktop-text">Limpiar</span>
         </button>
-        @can('equipos.assign')
         <button type="button" onclick="window.openAuxAnclarBulkModal()" class="btn-bulk-action" style="background: #10b981;">
             <i class="material-icons" style="font-size: 18px;">anchor</i>
             <span class="desktop-text">Anclar</span>
         </button>
-        @endcan
-        @can('equipos.assign')
         <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
             <span class="desktop-text">Asignar</span>
         </button>
-        @endcan
     </div>
 </div>
+
+{{-- Globals de permiso para los handlers JS de la barra bulk. Igual al
+     patron de /admin/equipos (window.CAN_ASSIGN_EQUIPOS). --}}
+<script>
+    window.CAN_ASSIGN_AUX = {{ auth()->user() && (auth()->user()->can('equipos.assign') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+    window.CAN_EDIT_AUX   = {{ auth()->user() && (auth()->user()->can('equipos.edit')   || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+</script>
 
 {{-- ═══════════════════════════════════════════════════════════
      MODAL MOVILIZACION MASIVA (pick frente destino)
@@ -599,7 +604,6 @@
         </div>
     </div>
 </div>
-@endcan
 
 {{-- ═══════════════════════════════════════════════════════════
      MODAL DETALLES DE EQUIPO AUXILIAR
@@ -1006,6 +1010,13 @@
     window.openAuxMovilizarModal = function () {
         const ids = Object.keys(window._auxSelectedMap);
         if (ids.length === 0) return;
+        // Permiso: la barra es siempre visible para mostrar el conteo, pero la
+        // accion solo se ejecuta si el usuario tiene equipos.assign.
+        if (window.CAN_ASSIGN_AUX === false || window.CAN_ASSIGN_AUX === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para movilizar auxiliares.', 'error');
+            else alert('No tienes permiso para movilizar auxiliares.');
+            return;
+        }
         const modal = document.getElementById('auxMovilizarModal');
         const sum   = document.getElementById('auxMovilizarSummary');
         if (!modal) return;
@@ -1357,6 +1368,12 @@
     window.openAuxAnclarBulkModal = function () {
         const ids = Object.keys(window._auxSelectedMap || {});
         if (ids.length === 0) return;
+        // Mismo gating que movilizar: barra visible siempre, accion gated.
+        if (window.CAN_ASSIGN_AUX === false || window.CAN_ASSIGN_AUX === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para anclar auxiliares.', 'error');
+            else alert('No tienes permiso para anclar auxiliares.');
+            return;
+        }
         let overlay = document.getElementById('auxAnclarBulkOverlay');
         if (overlay) overlay.remove();
         // Modal con la misma estructura/estilo del modal de anclaje en
