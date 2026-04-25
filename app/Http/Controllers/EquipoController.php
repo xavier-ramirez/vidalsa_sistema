@@ -2783,7 +2783,8 @@ class EquipoController extends Controller
         // mutua se conserva intacta — la deduplicacion por ID minimo se hace
         // mas abajo y respeta el resultado filtrado.
         if ($tipoId && $tipoId !== 'all') {
-            $query->where('ID_TIPO', $tipoId);
+            // Columna real en `equipos` es id_tipo_equipo (FK a tipo_equipos.id)
+            $query->where('id_tipo_equipo', $tipoId);
         }
 
         $anchored = $query->get()->map(function ($eq) {
@@ -2826,18 +2827,101 @@ class EquipoController extends Controller
         $seen = [];
         foreach ($anchored as $item) {
             if (!$item['eq_b']) continue;
-            
+
             $id1 = $item['ID_A'];
             $id2 = $item['ID_B'];
             $key = $id1 < $id2 ? "{$id1}_{$id2}" : "{$id2}_{$id1}";
-            
+
             if (!isset($seen[$key])) {
                 $seen[$key] = true;
                 $uniquePairs[] = $item;
             }
         }
 
-        return response()->json($uniquePairs);
+        // ─── Anclajes equipo→auxiliar ──────────────────────────────────
+        // El modal del modulo equipos tambien debe mostrar los equipos que
+        // tienen auxiliares anclados (anchorage 1:N). Una sola tarjeta por
+        // equipo host con todos sus aux — mismo formato visual que el modal
+        // de /admin/equipos-auxiliares.
+        $auxQuery = \App\Models\EquipoAuxiliar::with([
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            'equipoHost.especificaciones',
+            'equipoHost.frenteActual',
+        ])->whereNotNull('ID_EQUIPO_HOST');
+
+        if ($frenteId && $frenteId !== 'all') {
+            $auxQuery->where('ID_FRENTE_ACTUAL', $frenteId);
+        }
+        if ($tipoId && $tipoId !== 'all') {
+            // El filtro de tipo del listado de equipos aplica al HOST: solo
+            // pares cuyo equipo host sea del tipo seleccionado.
+            $auxQuery->whereHas('equipoHost', function ($q) use ($tipoId) {
+                $q->where('id_tipo_equipo', $tipoId);
+            });
+        }
+
+        $tiposAuxMap = $this->auxTiposLabelMap();
+        $byHost = $auxQuery->get()->groupBy('ID_EQUIPO_HOST');
+        $auxAnchorages = [];
+        foreach ($byHost as $hostId => $auxes) {
+            $host = $auxes->first()->equipoHost;
+            if (!$host) continue;
+            $hostFoto = null;
+            if ($host->especificaciones && $host->especificaciones->FOTO_REFERENCIAL) {
+                $hostFoto = asset($host->especificaciones->FOTO_REFERENCIAL);
+            } elseif ($host->FOTO_EQUIPO) {
+                $hostFoto = asset($host->FOTO_EQUIPO);
+            }
+            $auxAnchorages[] = [
+                'host' => [
+                    'id'          => $host->ID_EQUIPO,
+                    'codigo'      => $host->CODIGO_PATIO ?? null,
+                    'placa'       => optional($host->documentacion)->PLACA ?? null,
+                    'serial'      => $host->SERIAL_CHASIS ?? null,
+                    'tipo'        => optional($host->tipo)->nombre ?? 'EQUIPO',
+                    'marca'       => $host->MARCA ?? '',
+                    'modelo'      => $host->MODELO ?? '',
+                    'foto'        => $hostFoto,
+                ],
+                'auxes' => $auxes->map(function ($a) use ($tiposAuxMap) {
+                    return [
+                        'id'         => $a->ID_AUXILIAR,
+                        'tipo'       => $a->TIPO,
+                        'tipo_label' => $tiposAuxMap[$a->TIPO] ?? $a->TIPO,
+                        'marca'      => $a->MARCA,
+                        'modelo'     => $a->MODELO,
+                        'serial'     => $a->SERIAL,
+                        'foto'       => $a->FOTO ? asset($a->FOTO) : null,
+                    ];
+                })->values(),
+            ];
+        }
+
+        return response()->json([
+            'pairs' => $uniquePairs,
+            'aux'   => $auxAnchorages,
+        ]);
+    }
+
+    /**
+     * Mapa TIPO=>label de auxiliares (enum + tipos custom). Replicado del
+     * EquipoAuxiliarController::getTiposDinamicos para evitar duplicar la
+     * dependencia. Solo se usa para etiquetar tipos en la respuesta del
+     * modal de anclajes.
+     */
+    private function auxTiposLabelMap(): array
+    {
+        $base = \App\Models\EquipoAuxiliar::tiposLabel();
+        try {
+            $custom = \App\Models\EquipoAuxiliar::query()
+                ->select('TIPO')->whereNotNull('TIPO')->where('TIPO', '!=', '')
+                ->distinct()->pluck('TIPO');
+            foreach ($custom as $t) {
+                if (!isset($base[$t])) $base[$t] = mb_strtoupper((string) $t);
+            }
+        } catch (\Throwable $e) { /* silencioso: si la tabla no existe, usa solo enum */ }
+        return $base;
     }
 
     /**
@@ -2869,7 +2953,8 @@ class EquipoController extends Controller
         // Filtro por tipo: hereda el filtro del listado principal cuando esta
         // activo. Mismo comportamiento que getAnchoredEquipos.
         if ($tipoId && $tipoId !== 'all') {
-            $query->where('ID_TIPO', $tipoId);
+            // Columna real en `equipos` es id_tipo_equipo (FK a tipo_equipos.id)
+            $query->where('id_tipo_equipo', $tipoId);
         }
 
         $anchored = $query->get();
@@ -3037,6 +3122,91 @@ class EquipoController extends Controller
         if ($startDataRow < $rowNum) {
             $sheet->getStyle('A' . $startDataRow . ':G' . ($rowNum - 1))
                   ->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        }
+
+        // ─── Sub-bloque: Anclajes Equipo→Auxiliar ─────────────────────
+        // Mismo formato pero con merge vertical en columnas del host (1 host
+        // se ve como 1 sola fila visual con N filas de aux). Solo se imprime
+        // si hay anclajes equipo→aux que respeten los filtros activos.
+        $auxQuery = \App\Models\EquipoAuxiliar::with(['equipoHost.documentacion','equipoHost.tipo','equipoHost.frenteActual'])
+            ->whereNotNull('ID_EQUIPO_HOST');
+        if ($frenteId && $frenteId !== 'all') {
+            $auxQuery->where('ID_FRENTE_ACTUAL', $frenteId);
+        }
+        if ($tipoId && $tipoId !== 'all') {
+            $auxQuery->whereHas('equipoHost', function ($q) use ($tipoId) {
+                $q->where('id_tipo_equipo', $tipoId);
+            });
+        }
+        $byHost = $auxQuery->orderBy('ID_EQUIPO_HOST')->orderBy('TIPO')->get()->groupBy('ID_EQUIPO_HOST');
+
+        if ($byHost->count() > 0) {
+            // Subtitulo entre secciones
+            $rowNum++; // espacio
+            $sheet->setCellValue('A' . $rowNum, 'EQUIPOS CON AUXILIARES ANCLADOS');
+            $sheet->mergeCells('A' . $rowNum . ':G' . $rowNum);
+            $sheet->getStyle('A' . $rowNum)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB('FFFFFFFF');
+            $sheet->getStyle('A' . $rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E40AF');
+            $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $rowNum++;
+
+            // Cabecera del sub-bloque
+            $auxHeaders = [
+                'A' => '#',
+                'B' => 'TIPO HOST',
+                'C' => 'PLACA / SERIAL HOST',
+                'D' => 'MARCA / MODELO',
+                'E' => 'TIPO AUXILIAR',
+                'F' => 'SERIAL AUX.',
+                'G' => 'FRENTE',
+            ];
+            foreach ($auxHeaders as $col => $title) $sheet->setCellValue($col . $rowNum, $title);
+            $sheet->getStyle('A' . $rowNum . ':G' . $rowNum)->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+            $sheet->getStyle('A' . $rowNum . ':G' . $rowNum)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');
+            $sheet->getStyle('A' . $rowNum . ':G' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $rowNum++;
+
+            $auxStart = $rowNum;
+            $hostCounter = 1;
+            $tiposAuxMap = $this->auxTiposLabelMap();
+            foreach ($byHost as $hostId => $auxes) {
+                $host = $auxes->first()->equipoHost;
+                if (!$host) continue;
+                $hostFirst = $rowNum;
+                $hostLabel = optional($host->documentacion)->PLACA;
+                if (!$hostLabel || strtoupper(trim($hostLabel)) === 'S/P') {
+                    $hostLabel = $host->SERIAL_CHASIS ?: ('#' . $host->ID_EQUIPO);
+                }
+                $hostMM = trim(($host->MARCA ?? '') . ' ' . ($host->MODELO ?? '')) ?: 'S/M';
+                $hostFrente = optional($host->frenteActual)->NOMBRE_FRENTE ?? '—';
+                $hostTipo = optional($host->tipo)->nombre ?? 'EQUIPO';
+
+                foreach ($auxes as $a) {
+                    $sheet->setCellValue('A' . $rowNum, $hostCounter);
+                    $sheet->setCellValue('B' . $rowNum, mb_strtoupper($hostTipo));
+                    $sheet->setCellValue('C' . $rowNum, mb_strtoupper((string) $hostLabel));
+                    $sheet->setCellValue('D' . $rowNum, mb_strtoupper($hostMM));
+                    $sheet->setCellValue('E' . $rowNum, mb_strtoupper($tiposAuxMap[$a->TIPO] ?? $a->TIPO));
+                    $sheet->setCellValue('F' . $rowNum, mb_strtoupper((string) ($a->SERIAL ?? '—')));
+                    $sheet->setCellValue('G' . $rowNum, mb_strtoupper($hostFrente));
+                    $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                    $rowNum++;
+                }
+                $hostLast = $rowNum - 1;
+                if ($hostLast > $hostFirst) {
+                    foreach (['A','B','C','D','G'] as $col) {
+                        $sheet->mergeCells($col . $hostFirst . ':' . $col . $hostLast);
+                    }
+                    $sheet->getStyle('A' . $hostFirst . ':G' . $hostLast)->getAlignment()
+                        ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+                        ->setWrapText(true);
+                }
+                $hostCounter++;
+            }
+            if ($auxStart < $rowNum) {
+                $sheet->getStyle('A' . $auxStart . ':G' . ($rowNum - 1))
+                      ->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            }
         }
 
         // Columnas: A (numero) fija, el resto auto-size

@@ -1254,15 +1254,24 @@
                 window.lastAnclajesData = data; // Store globally for export
                 document.getElementById('anclajesLoading').style.display = 'none';
                 document.getElementById('anclajesBody').style.display = 'block';
-                
+
+                // Backend ahora retorna { pairs, aux }: pairs = anclajes equipo↔equipo,
+                // aux = grupos equipo→auxiliares (1 host con N aux). Antes era array
+                // plano de pares — defensivo: si el backend devuelve array (legacy),
+                // lo tratamos como pairs sin aux.
+                const pairs = Array.isArray(data) ? data : (Array.isArray(data.pairs) ? data.pairs : []);
+                const auxGroups = (data && Array.isArray(data.aux)) ? data.aux : [];
+
                 const grid = document.getElementById('anclajesGrid');
-                if (data.length === 0) {
+                if (pairs.length === 0 && auxGroups.length === 0) {
                     grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: #94a3b8; background: #fff; border-radius: 8px; border: 1px dashed #cbd5e1;">No hay equipos anclados en este frente.</div>';
                     return;
                 }
 
+                const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
                 let html = '';
-                data.forEach(pair => {
+                pairs.forEach(pair => {
                     const a = pair.eq_a;
                     const b = pair.eq_b;
                     if(!a || !b) return;
@@ -1309,6 +1318,50 @@
 
                     </div>`;
                 });
+
+                // ─── Anclajes equipo→auxiliares (1 tarjeta por host con sus aux) ───
+                // Mismo patron visual que el modal de /admin/equipos-auxiliares:
+                // host arriba (azul), lista de auxiliares abajo (ambar).
+                auxGroups.forEach(g => {
+                    const h = g.host || {};
+                    const auxes = Array.isArray(g.auxes) ? g.auxes : [];
+                    if (!h.id || auxes.length === 0) return;
+                    const hostLabel = h.placa || h.serial || h.codigo || ('#' + h.id);
+                    const hostType  = (h.tipo || 'Equipo').toString();
+                    const hostMarca = h.marca ? esc(h.marca) : '';
+                    const hostFotoHtml = h.foto
+                        ? `<img src="${esc(h.foto)}" alt="" style="width:100%;height:100%;object-fit:contain;background:white;" onerror="this.outerHTML='<i class=&quot;material-icons&quot; style=&quot;font-size:22px;color:#1e40af;&quot;>directions_car</i>'">`
+                        : '<i class="material-icons" style="font-size:22px;color:#1e40af;">directions_car</i>';
+
+                    const auxRowsHtml = auxes.map(a => {
+                        const auxLabel = a.serial || ((a.marca || '') + ' ' + (a.modelo || '')).trim() || '—';
+                        const auxFotoHtml = a.foto
+                            ? `<img src="${esc(a.foto)}" alt="" style="width:100%;height:100%;object-fit:contain;background:white;" onerror="this.outerHTML='<i class=&quot;material-icons&quot; style=&quot;font-size:16px;color:#f59e0b;&quot;>construction</i>'">`
+                            : '<i class="material-icons" style="font-size:16px;color:#f59e0b;">construction</i>';
+                        return `<div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:#fff7ed; border-radius:6px; border:1px solid #fed7aa;">
+                            <div style="background:#fff;padding:0;border-radius:5px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid #fed7aa;">${auxFotoHtml}</div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:9px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.3px;">${esc(a.tipo_label || a.tipo || 'AUXILIAR')}</div>
+                                <div style="font-size:12px; font-weight:800; color:#7c2d12; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(auxLabel)}</div>
+                                ${a.marca || a.modelo ? `<div style="font-size:10px; color:#9a3412;">${esc(a.marca||'')} ${esc(a.modelo||'')}</div>` : ''}
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    html += `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                        <div style="display:flex; align-items:center; gap:10px; padding:8px 10px; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe;">
+                            <div style="background:#fff;padding:0;border-radius:6px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid #bfdbfe;">${hostFotoHtml}</div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-size:9.5px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.4px;">${esc(hostType)}</div>
+                                <div style="font-size:14px; font-weight:800; color:#1e3a8a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(hostLabel)}</div>
+                                ${hostMarca ? `<div style="font-size:10.5px; color:#1d4ed8; margin-top:1px;">${hostMarca} ${esc(h.modelo||'')}</div>` : ''}
+                            </div>
+                            <span style="background:#10b981;color:white;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;flex-shrink:0;">${auxes.length}</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:5px;">${auxRowsHtml}</div>
+                    </div>`;
+                });
+
                 grid.innerHTML = html;
             })
             .catch(err => {
@@ -1322,8 +1375,10 @@
     // Exporta los anclajes a XLSX generado por PhpSpreadsheet (backend) con el
     // mismo encabezado corporativo de los demas reportes del sistema.
     window.exportAnclajesToExcel = function() {
-        const data = window.lastAnclajesData;
-        if (!data || data.length === 0) {
+        const data = window.lastAnclajesData || {};
+        const _pairs = Array.isArray(data) ? data : (Array.isArray(data.pairs) ? data.pairs : []);
+        const _aux   = (data && Array.isArray(data.aux)) ? data.aux : [];
+        if (_pairs.length === 0 && _aux.length === 0) {
             if (typeof window.showToast === 'function') {
                 window.showToast('No hay equipos anclados para exportar.', 'warning');
             } else {
