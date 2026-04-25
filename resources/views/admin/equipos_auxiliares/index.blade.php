@@ -470,7 +470,7 @@
 {{-- ═══════════════════════════════════════════════════════════
      BARRA FLOTANTE DE SELECCION MASIVA (estilo /admin/equipos)
      ═══════════════════════════════════════════════════════════ --}}
-<div id="auxBulkBar" class="selection-floating-bar" style="display:none;">
+<div id="auxBulkBar" class="selection-floating-bar">
     <div class="selection-counter">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
             <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
@@ -883,7 +883,10 @@
         if (!bar) return;
         const n = Object.keys(window._auxSelectedMap).length;
         if (count) count.textContent = String(n);
-        bar.style.display = n > 0 ? 'flex' : 'none';
+        // La barra usa la clase .active para animar entrada (CSS .selection-floating-bar
+        // controla opacity/transform; display NO la oculta por si solo).
+        if (n > 0) bar.classList.add('active');
+        else       bar.classList.remove('active');
     };
 
     window.auxClearSelection = function () {
@@ -910,8 +913,10 @@
         document.addEventListener('click', function (e) {
             const tr = e.target.closest('#auxTableBody tr.aux-row-clickable');
             if (!tr) return;
-            // Ignorar clicks en elementos interactivos dentro de la fila
-            if (e.target.closest('button, a, input, .aux-status-trigger, .material-icons, .btn-details-mini')) return;
+            // Ignorar clicks en elementos interactivos o en la celda de acciones
+            // (asi el click sobre el boton del ojo NO selecciona la fila aunque
+            // caiga sobre el padding del TD).
+            if (e.target.closest('button, a, input, .aux-status-trigger, .material-icons, .btn-details-mini, .aux-action-cell')) return;
             window.auxToggleRow(tr);
         });
     }

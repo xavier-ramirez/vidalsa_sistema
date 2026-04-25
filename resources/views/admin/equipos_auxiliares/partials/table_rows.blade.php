@@ -97,8 +97,8 @@
             @endcan
         </td>
 
-        {{-- 6. Acciones: ojo (detalles) --}}
-        <td class="table-cell-center" style="padding: 8px 5px; width: 72px; text-align: center; vertical-align: middle;">
+        {{-- 6. Acciones: ojo (detalles). Click anywhere en este TD NO selecciona la fila. --}}
+        <td class="table-cell-center aux-action-cell" style="padding: 8px 5px; width: 72px; text-align: center; vertical-align: middle;">
             <div style="display:flex; justify-content:center; align-items:center; gap:4px;">
                 <button type="button"
                     data-aux-id="{{ $aux->ID_AUXILIAR }}"
