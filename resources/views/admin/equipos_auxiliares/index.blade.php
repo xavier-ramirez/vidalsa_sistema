@@ -1679,6 +1679,26 @@
     // MODAL "VER ANCLAJES" - Muestra aux anclados a equipos host
     // Mismo patron visual que /admin/equipos (openAnclajesListModal)
     // ═══════════════════════════════════════════════════════════
+
+    // Helper compartido: construye el querystring de filtros heredados
+    // del listado principal (frente/tipo) leyendo los hidden inputs que
+    // el AJAX del listado mantiene actualizados. La URL del browser no
+    // siempre refleja el estado del filtro (cuando se filtra via AJAX
+    // sin pushState), por eso priorizamos los hidden inputs.
+    window._auxBuildAnclajesFilterQS = function () {
+        var qs = new URLSearchParams();
+        var fEl = document.getElementById('aux_main_val_frente');
+        var tEl = document.getElementById('aux_main_val_tipo');
+        var f = fEl ? (fEl.value || '').trim() : '';
+        var t = tEl ? (tEl.value || '').trim() : '';
+        // Fallback a la URL por si los hidden no estan presentes (defensivo)
+        if (!f) { var sp = new URLSearchParams(window.location.search); f = sp.get('id_frente') || ''; }
+        if (!t) { var sp2 = new URLSearchParams(window.location.search); t = sp2.get('tipo') || ''; }
+        if (f && f !== 'all' && f !== 'none') qs.set('id_frente', f);
+        if (t && t !== 'all' && t !== 'none') qs.set('tipo', t);
+        return qs.toString();
+    };
+
     window.openAuxAnclajesModal = function () {
         let modal = document.getElementById('auxAnclajesModal');
         if (!modal) {
@@ -1695,11 +1715,10 @@
                             <span id="auxAnclajesCount" style="background:#10b981;color:white;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;">0</span>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <button type="button" id="btnAuxAnclajesExport" title="Exportar a Excel"
-                                style="background:#10b981; border:none; color:white; cursor:pointer; padding:6px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700;"
-                                onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-                                <i class="material-icons" style="font-size:16px;">download</i>
-                                Exportar
+                            <button type="button" id="btnAuxAnclajesExport" title="Exportar a Excel (.xlsx)"
+                                style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.28); color:#ffffff; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:6px; border-radius:6px; transition:all 0.2s;"
+                                onmouseover="this.style.background='rgba(255,255,255,0.22)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+                                <i class="material-icons" style="font-size:18px;">download</i>
                             </button>
                             <button type="button" onclick="document.getElementById('auxAnclajesModal').classList.remove('active')" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; display:flex; padding:4px;">
                                 <i class="material-icons">close</i>
@@ -1715,14 +1734,18 @@
                     </div>
                 </div>`;
             document.body.appendChild(modal);
-            // Boton de export — abre el endpoint en una pestana nueva (descarga directa).
+            // Boton de export — descarga via blob (mismo patron que /admin/equipos)
+            // para usar el preloader global y evitar el spinner nativo del navegador.
             // Hereda los filtros del listado principal (id_frente, tipo) si estan activos.
             document.getElementById('btnAuxAnclajesExport').addEventListener('click', function () {
-                var sp = new URLSearchParams(window.location.search);
-                var qs = new URLSearchParams();
-                ['id_frente','tipo'].forEach(function(k){ var v = sp.get(k); if (v && v !== 'all' && v !== 'none') qs.set(k, v); });
-                var url = '{{ route("equipos-auxiliares.exportAnclajes") }}' + (qs.toString() ? ('?' + qs.toString()) : '');
-                window.open(url, '_blank');
+                var qs = window._auxBuildAnclajesFilterQS ? window._auxBuildAnclajesFilterQS() : '';
+                var url = '{{ route("equipos-auxiliares.exportAnclajes") }}' + (qs ? ('?' + qs) : '');
+                if (typeof window.showPreloader === 'function') window.showPreloader();
+                fetch(url, { credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'} })
+                    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); var cd=r.headers.get('content-disposition')||''; var m=cd.match(/filename="?([^";]+)"?/i); var fname=m?m[1]:('Anclajes_Auxiliares_'+new Date().toISOString().slice(0,10)+'.xlsx'); return r.blob().then(function(b){return {blob:b, fname:fname};}); })
+                    .then(function(o){ var u=URL.createObjectURL(o.blob); var a=document.createElement('a'); a.href=u; a.download=o.fname; a.style.display='none'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a); URL.revokeObjectURL(u);},300); if(window.showToast) window.showToast('Descarga lista: '+o.fname,'success'); })
+                    .catch(function(err){ console.error('[exportAuxAnclajes]', err); if(window.showToast) window.showToast('Error al descargar el Excel.','error'); })
+                    .finally(function(){ if(typeof window.hidePreloader==='function') window.hidePreloader(); });
             });
         }
         modal.classList.add('active');
@@ -1730,10 +1753,10 @@
         document.getElementById('auxAnclajesBody').style.display = 'none';
 
         // Hereda los filtros del listado principal (id_frente, tipo) si los tiene activos.
-        var _spIn = new URLSearchParams(window.location.search);
-        var _qsIn = new URLSearchParams();
-        ['id_frente','tipo'].forEach(function(k){ var v = _spIn.get(k); if (v && v !== 'all' && v !== 'none') _qsIn.set(k, v); });
-        var _urlIn = '{{ route("equipos-auxiliares.anchoredList") }}' + (_qsIn.toString() ? ('?' + _qsIn.toString()) : '');
+        // Lee de los hidden inputs (#aux_main_val_frente / #aux_main_val_tipo) que el
+        // listado AJAX mantiene actualizados — la URL no siempre tiene los params.
+        var _qsIn = window._auxBuildAnclajesFilterQS ? window._auxBuildAnclajesFilterQS() : '';
+        var _urlIn = '{{ route("equipos-auxiliares.anchoredList") }}' + (_qsIn ? ('?' + _qsIn) : '');
         fetch(_urlIn, {
             headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
             credentials: 'same-origin'
