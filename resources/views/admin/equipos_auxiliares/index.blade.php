@@ -689,7 +689,12 @@
                 // uploadUrl: endpoint propio de aux para que el boton de
                 // subir/reemplazar dentro del visor SI funcione en este modulo.
                 const uploadUrl = '/admin/equipos-auxiliares/' + d.id + '/upload-doc';
-                return `<button type="button" title="Ver PDF" onclick="window.openPdfPreview('${safeUrl}', '${docType}', '${labelHr}', ${d.id}, '${uploadUrl}', true)" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#0067b1; box-shadow:0 2px 6px rgba(0,103,177,0.35); border:none; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:17px; color:white;">description</i></button>`;
+                // Para certificado, despues de abrir el visor inyectamos un editor
+                // de fecha de vencimiento (no aplica a propiedad).
+                const fechaActual = (docType === 'certificado' && d.fecha_vencimiento_cert) ? d.fecha_vencimiento_cert : '';
+                const onclickHandler = `window.openPdfPreview('${safeUrl}','${docType}','${labelHr}',${d.id},'${uploadUrl}',true);` +
+                    (docType === 'certificado' && d.can_upload_pdf ? `window.auxInjectCertExpiryEditor(${d.id},'${fechaActual}');` : '');
+                return `<button type="button" title="Ver PDF" onclick="${onclickHandler}" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#0067b1; box-shadow:0 2px 6px rgba(0,103,177,0.35); border:none; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:17px; color:white;">description</i></button>`;
             }
             if (d.can_upload_pdf && docType) {
                 return `<label title="Subir PDF" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#fff; border:1.5px dashed #cbd5e1; color:#0067b1; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:16px;">cloud_upload</i><input type="file" accept="application/pdf" style="display:none;" onchange="window.auxUploadDoc(${d.id}, '${docType}', this)"></label>`;
@@ -1361,6 +1366,64 @@
             window.auxClearSelection && window.auxClearSelection();
             if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
         });
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // EDITOR DE FECHA DE VENCIMIENTO DEL CERTIFICADO (dentro del visor PDF)
+    // Se inyecta como mini banner sobre el iframe del visor; PATCH a
+    // /admin/equipos-auxiliares/{id}/cert-expiry (require user.edit).
+    // ═══════════════════════════════════════════════════════════
+    window.auxInjectCertExpiryEditor = function (auxId, fechaActual) {
+        // Esperar a que el visor de PDF este montado
+        setTimeout(() => {
+            const modal = document.getElementById('pdfPreviewModal');
+            if (!modal) return;
+            // Limpiar instancia previa
+            const old = document.getElementById('auxCertExpiryBanner');
+            if (old) old.remove();
+            const banner = document.createElement('div');
+            banner.id = 'auxCertExpiryBanner';
+            banner.style.cssText = 'position:absolute; top:14px; right:80px; z-index:10; background:rgba(15,23,42,0.92); color:white; padding:8px 14px; border-radius:10px; display:flex; align-items:center; gap:10px; box-shadow:0 4px 14px rgba(0,0,0,0.35); font-size:12.5px;';
+            banner.innerHTML = `
+                <i class="material-icons" style="font-size:18px; color:#fcd34d;">event</i>
+                <label style="font-weight:700;">Vence:</label>
+                <input type="date" id="auxCertExpiryInput" value="${fechaActual || ''}" style="padding:5px 8px; border-radius:6px; border:1px solid #475569; background:#1e293b; color:white; font-size:12.5px; outline:none;">
+                <button type="button" id="auxCertExpirySave" style="padding:5px 10px; border-radius:6px; background:#0067b1; color:white; border:none; cursor:pointer; font-weight:700; font-size:12px;">Guardar</button>
+            `;
+            modal.querySelector('.modal-content').appendChild(banner);
+            document.getElementById('auxCertExpirySave').onclick = () => {
+                const v = document.getElementById('auxCertExpiryInput').value;
+                const csrf = document.querySelector('meta[name="csrf-token"]').content;
+                const fd = new FormData();
+                fd.append('_method', 'PATCH');
+                fd.append('fecha_vencimiento_cert', v || '');
+                fetch('/admin/equipos-auxiliares/' + auxId + '/cert-expiry', {
+                    method: 'POST',
+                    headers: {'Accept':'application/json','X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':csrf},
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(b => {
+                    if (b.success) {
+                        if (window.showToast) window.showToast(b.message || 'Fecha actualizada.', 'success');
+                    } else {
+                        if (window.showToast) window.showToast(b.message || 'No se pudo actualizar.', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('updateCertExpiry:', err);
+                    if (window.showToast) window.showToast('Error de red al guardar la fecha.', 'error');
+                });
+            };
+            // Limpiar el banner al cerrar el visor
+            const closeObserver = new MutationObserver(() => {
+                if (!modal.classList.contains('active')) {
+                    banner.remove();
+                    closeObserver.disconnect();
+                }
+            });
+            closeObserver.observe(modal, { attributes: true, attributeFilter: ['class'] });
+        }, 350);
     };
 
     // ═══════════════════════════════════════════════════════════

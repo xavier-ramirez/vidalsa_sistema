@@ -765,6 +765,25 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Actualiza solo la fecha de vencimiento del certificado, sin reemplazar
+     * el PDF. Endpoint llamado desde el visor del PDF. Permiso: user.edit.
+     */
+    public function updateCertExpiry(Request $request, $id)
+    {
+        $request->validate([
+            'fecha_vencimiento_cert' => 'nullable|date',
+        ]);
+        $aux = EquipoAuxiliar::findOrFail($id);
+        $aux->FECHA_VENCIMIENTO_CERT = $request->input('fecha_vencimiento_cert') ?: null;
+        $aux->save();
+        return response()->json([
+            'success' => true,
+            'message' => 'Fecha de vencimiento actualizada.',
+            'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT,
+        ]);
+    }
+
+    /**
      * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en
      * storage/app/public/equipos_auxiliares/{id}/. Actualiza las
      * columnas LINK_DOC_PROPIEDAD / LINK_CERTIFICADO. Idempotente:
