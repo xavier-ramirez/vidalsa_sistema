@@ -52,6 +52,11 @@
         transform: scale(1.08);
         filter: brightness(1.1);
     }
+    /* Panel con clip especial: mantiene el desplazamiento horizontal para
+       ocultar la marca de agua de Gemini IA en la esquina inferior derecha */
+    .menu-hero-stripes > div.menu-hero-stripe-clip:hover img {
+        transform: scale(1.13) translateX(8%);
+    }
     .menu-hero-overlay {
         position: absolute;
         inset: 0;
@@ -631,7 +636,7 @@
             @php $heroImg = asset('images/maquinaria_login_new.webp'); @endphp
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: 75% center;"></div>
+            <div class="menu-hero-stripe-clip"><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: right top; transform: scale(1.08) translateX(8%);"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">

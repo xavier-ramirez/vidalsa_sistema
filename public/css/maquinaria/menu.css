@@ -42,9 +42,9 @@
 
 /* Logo */
 .header-logo img {
-    height: 72px;
+    height: 80px;
     width: auto;
-    max-width: 240px;
+    max-width: 260px;
     object-fit: contain;
 }
 

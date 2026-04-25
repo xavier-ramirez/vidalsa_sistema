@@ -27,6 +27,11 @@
         }
     }
 
+    /* ── Reservar el espacio del scrollbar para evitar el "salto" de la tabla
+       al abrir/cerrar el modal de detalles (cuando overflow:hidden remueve la
+       barra de scroll del body). --- */
+    html { scrollbar-gutter: stable; }
+
     /* ── Lista desplegable de autocomplete para Frente/Tipo/Serial ── */
     .aux-main-list {
         display: none;
@@ -597,8 +602,21 @@
             return;
         }
 
-        // Sin spinner ni dinamismo: fetch en silencio, abrimos el modal solo
-        // cuando los datos estan listos (igual que el modal de /admin/equipos).
+        // Apertura INSTANTANEA: header pre-poblado desde data-* del boton,
+        // body con placeholders compactos. El fetch corre en paralelo y al
+        // resolver re-renderiza el cuerpo completo. Sin spinner.
+        const titleEl = document.getElementById('auxDetailsTitle');
+        const subEl   = document.getElementById('auxDetailsSubtitle');
+        if (titleEl) titleEl.textContent = (btn.dataset.tipoLabel || 'Auxiliar').toUpperCase();
+        if (subEl) {
+            const ms = ((btn.dataset.marca || '') + ' ' + (btn.dataset.modelo || '')).trim();
+            subEl.textContent = ms || '—';
+        }
+        body.innerHTML = '';
+        modal.style.display = '';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
         fetch('/admin/equipos-auxiliares/' + id + '/details', {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             credentials: 'same-origin'
@@ -607,12 +625,7 @@
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         })
-        .then(d => {
-            window.renderAuxDetailsModal(d);
-            modal.style.display = '';
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        })
+        .then(d => window.renderAuxDetailsModal(d))
         .catch(err => {
             console.error('openAuxDetailsModal:', err);
             if (typeof window.showToast === 'function') {
@@ -681,20 +694,27 @@
             ? `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:4px; color:${color}; font-weight:700; text-decoration:none; font-size:12px;"><i class="material-icons" style="font-size:16px;">picture_as_pdf</i>${label}</a>`
             : '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
 
-        // Tarjeta del equipo vinculado (host) - estilo "etiqueta" compacta del modal de anclajes /admin/equipos
+        // Tarjeta del equipo vinculado (host) - estilo "etiqueta" del modal de anclajes /admin/equipos
         let hostCard;
         if (d.host_id) {
             const idPrincipal = d.host_placa || d.host_serial_chasis || ('#' + d.host_id);
             const tipoUpper   = (d.host_tipo || 'Sin Tipo').toUpperCase();
+            const marca       = d.host_marca || '';
+            const frente      = d.host_frente || '';
             const fotoThumb = d.host_foto
-                ? `<img src="${d.host_foto}" alt="" style="width:32px;height:26px;object-fit:contain;border-radius:5px;background:#fff;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML='<div style=&quot;width:32px;height:26px;border-radius:5px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0;&quot;><i class=&quot;material-icons&quot; style=&quot;color:#cbd5e1;font-size:14px;&quot;>directions_car</i></div>'">`
-                : `<div style="width:32px;height:26px;border-radius:5px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0;"><i class="material-icons" style="color:#cbd5e1;font-size:14px;">directions_car</i></div>`;
+                ? `<img src="${d.host_foto}" alt="" style="width:48px;height:40px;object-fit:contain;border-radius:6px;background:#fff;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:40px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0;&quot;><i class=&quot;material-icons&quot; style=&quot;color:#cbd5e1;font-size:20px;&quot;>directions_car</i></div>'">`
+                : `<div style="width:48px;height:40px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;flex-shrink:0;"><i class="material-icons" style="color:#cbd5e1;font-size:20px;">directions_car</i></div>`;
+            // Tipo y marca van en la MISMA linea (separados por punto medio)
+            const tipoMarcaLine = marca
+                ? `${tipoUpper} <span style="color:#cbd5e1;font-weight:600;">·</span> ${marca.toUpperCase()}`
+                : tipoUpper;
             hostCard = `
-                <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;padding:5px 8px;border-radius:6px;border:1px solid #f1f5f9;">
+                <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;padding:8px 10px;border-radius:8px;border:1px solid #e2e8f0;">
                     ${fotoThumb}
-                    <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-                        <span style="font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">${tipoUpper}</span>
-                        <span style="font-size:12px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${idPrincipal}</span>
+                    <div style="display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;">
+                        <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
+                        <span style="font-size:14px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${idPrincipal}</span>
+                        ${frente ? `<span style="font-size:11px;color:#059669;font-weight:600;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">place</i>${frente}</span>` : `<span style="font-size:11px;color:#94a3b8;font-style:italic;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">location_off</i>Sin frente</span>`}
                     </div>
                 </div>`;
         } else {
