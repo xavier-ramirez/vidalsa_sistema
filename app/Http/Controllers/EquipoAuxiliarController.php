@@ -146,14 +146,23 @@ class EquipoAuxiliarController extends Controller
 
     /**
      * Exportar listado (XLSX) respetando los filtros activos.
+     * Encabezado corporativo identico al resto de exportaciones: logo VIDALSA
+     * a la izquierda, titulo + filtro activo al centro, metadatos (edicion,
+     * revision, fecha) a la derecha, "Exportado por" en fila 4.
      */
     public function export(Request $request)
     {
         set_time_limit(180);
         $query = EquipoAuxiliar::with('frente');
-        if ($request->filled('tipo') && $request->tipo !== 'all')          $query->where('TIPO', $request->tipo);
-        if ($request->filled('id_frente') && $request->id_frente !== 'all')$query->where('ID_FRENTE_ACTUAL', $request->id_frente);
-        if ($request->filled('estado') && $request->estado !== 'all')      $query->where('ESTADO_OPERATIVO', $request->estado);
+
+        // Capturar filtros activos para reflejarlos en el titulo
+        $tipoFiltro   = ($request->filled('tipo') && $request->tipo !== 'all') ? $request->tipo : null;
+        $frenteFiltro = ($request->filled('id_frente') && $request->id_frente !== 'all') ? $request->id_frente : null;
+        $estadoFiltro = ($request->filled('estado') && $request->estado !== 'all') ? $request->estado : null;
+
+        if ($tipoFiltro)   $query->where('TIPO', $tipoFiltro);
+        if ($frenteFiltro) $query->where('ID_FRENTE_ACTUAL', $frenteFiltro);
+        if ($estadoFiltro) $query->where('ESTADO_OPERATIVO', $estadoFiltro);
         if ($request->filled('search')) {
             $s = trim($request->search);
             $query->where(function ($qq) use ($s) {
@@ -162,39 +171,110 @@ class EquipoAuxiliarController extends Controller
             });
         }
 
-        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
-        $tipos = $this->getTiposDinamicos();
+        $tipos   = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
+        // Resolver nombres legibles de los filtros activos
+        $nombreTipo = $tipoFiltro ? mb_strtoupper($tipos[$tipoFiltro] ?? $tipoFiltro) : 'TODOS';
+        $nombreFrente = 'TODOS LOS FRENTES';
+        if ($frenteFiltro) {
+            $f = \App\Models\FrenteTrabajo::find($frenteFiltro);
+            if ($f) $nombreFrente = mb_strtoupper($f->NOMBRE_FRENTE);
+        }
+        $currentDate = now()->format('d/m/Y');
+
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getProperties()
+            ->setCreator('Sistema de Gestión de Equipos Operacionales')
+            ->setLastModifiedBy('Sistema de Gestión de Equipos Operacionales')
+            ->setTitle('Listado de Equipos Auxiliares')
+            ->setCompany('Constructora Vidalsa 27, C.A.');
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Equipos Auxiliares');
 
-        // Titulo
-        $sheet->setCellValue('A1', 'LISTADO DE EQUIPOS AUXILIARES');
-        $sheet->mergeCells('A1:I1');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF0067B1');
-        $sheet->getStyle('A1')->getFont()->getColor()->setARGB('FFFFFFFF');
-        $sheet->getRowDimension(1)->setRowHeight(28);
+        $lastCol = 'I'; // 9 columnas
 
-        // Subtitulo con fecha
-        $sheet->setCellValue('A2', 'Generado: ' . now()->format('d/m/Y H:i'));
-        $sheet->mergeCells('A2:I2');
-        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A2')->getFont()->setItalic(true)->setSize(10);
+        // Logo corporativo (A1:B3)
+        $logoPath = public_path('img/imagen_uno.jpg');
+        if (file_exists($logoPath)) {
+            try {
+                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                $drawing->setName('Logo CVIDALSA');
+                $drawing->setDescription('Logo');
+                $drawing->setPath($logoPath);
+                $drawing->setCoordinates('A1');
+                $drawing->setOffsetX(45);
+                $drawing->setOffsetY(12);
+                $drawing->setHeight(135);
+                $drawing->setWorksheet($sheet);
+            } catch (\Exception $e) {
+                // silently ignore
+            }
+        }
+        $sheet->mergeCells('A1:B3');
+        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
-        // Headers
+        // Titulo central con filtros aplicados (C1:E3)
+        $partes = [];
+        if ($frenteFiltro) $partes[] = 'FRENTE: ' . $nombreFrente;
+        if ($tipoFiltro)   $partes[] = 'TIPO: '   . $nombreTipo;
+        $subTitle = $partes ? implode(' — ', $partes) : 'COPIA DE BASE DE DATOS DEL SISTEMA DE GESTION DE EQUIPOS OPERACIONALES';
+        $titleText = "LISTADO DE EQUIPOS AUXILIARES\n" . $subTitle;
+        $sheet->mergeCells('C1:E3');
+        $sheet->setCellValue('C1', $titleText);
+        $sheet->getStyle('C1')->getAlignment()->setWrapText(true)->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        // Metadatos a la derecha (F1:I3)
+        $meta = [
+            ['F1', 'EDICION: 1'],
+            ['F2', 'REVISION: 0'],
+            ['F3', 'FECHA: ' . $currentDate],
+        ];
+        foreach ($meta as [$cell, $text]) {
+            $row = substr($cell, 1);
+            $sheet->mergeCells("F{$row}:{$lastCol}{$row}");
+            $sheet->setCellValue($cell, $text);
+            $sheet->getStyle($cell)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+            $sheet->getStyle("F{$row}:{$lastCol}{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        }
+
+        $sheet->getRowDimension(1)->setRowHeight(40);
+        $sheet->getRowDimension(2)->setRowHeight(40);
+        $sheet->getRowDimension(3)->setRowHeight(40);
+
+        // Fila 4 - Exportado por
+        $sheet->mergeCells("A4:{$lastCol}4");
+        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales');
+        $sheet->getStyle("A4:{$lastCol}4")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle("A4:{$lastCol}4")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle("A4:{$lastCol}4")->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+        $sheet->getRowDimension(4)->setRowHeight(20);
+
+        // Bordes al encabezado
+        $sheet->getStyle("A1:{$lastCol}4")->applyFromArray([
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => 'FF000000'],
+                ],
+            ],
+        ]);
+
+        // Fila 5 - Headers de tabla
         $headers = ['TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CÓDIGO INTERNO', 'CAPACIDAD', 'AÑO', 'FRENTE', 'ESTADO'];
-        $sheet->fromArray($headers, null, 'A4');
-        $sheet->getStyle('A4:I4')->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
-        $sheet->getStyle('A4:I4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');
-        $sheet->getStyle('A4:I4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getRowDimension(4)->setRowHeight(22);
+        $sheet->fromArray($headers, null, 'A5');
+        $sheet->getStyle("A5:{$lastCol}5")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle("A5:{$lastCol}5")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');
+        $sheet->getStyle("A5:{$lastCol}5")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(5)->setRowHeight(22);
 
-        // Rows
-        $row = 5;
+        // Filas de data
+        $row = 6;
         $query->orderBy('TIPO')->chunk(300, function ($rows) use ($sheet, $tipos, $estados, &$row) {
             foreach ($rows as $r) {
                 $sheet->setCellValue("A{$row}", mb_strtoupper($tipos[$r->TIPO] ?? $r->TIPO));
@@ -210,13 +290,12 @@ class EquipoAuxiliarController extends Controller
             }
         });
 
-        // Bordes + autosize
-        if ($row > 5) {
-            $sheet->getStyle("A4:I" . ($row - 1))->getBorders()->getAllBorders()
+        if ($row > 6) {
+            $sheet->getStyle("A5:{$lastCol}" . ($row - 1))->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setARGB('FFCBD5E0');
         }
-        foreach (range('A', 'I') as $col) {
+        foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -571,7 +650,7 @@ class EquipoAuxiliarController extends Controller
 
         // Busqueda ampliada: serial chasis, serial motor, placa (docum.),
         // codigo patio, marca y modelo. Join con documentacion para PLACA.
-        $results = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares')
+        $results = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares', 'especificaciones')
             ->leftJoin('documentacion as doc_host', 'equipos.ID_EQUIPO', '=', 'doc_host.ID_EQUIPO')
             ->select('equipos.*')
             ->where(function ($w) use ($q) {
@@ -586,6 +665,14 @@ class EquipoAuxiliarController extends Controller
             ->limit(20)
             ->get()
             ->map(function ($e) {
+                // Foto: prioriza la del catalogo del modelo (FOTO_REFERENCIAL),
+                // cae a la propia del equipo (FOTO_EQUIPO).
+                $foto = null;
+                if ($e->especificaciones && $e->especificaciones->FOTO_REFERENCIAL) {
+                    $foto = asset($e->especificaciones->FOTO_REFERENCIAL);
+                } elseif ($e->FOTO_EQUIPO) {
+                    $foto = asset($e->FOTO_EQUIPO);
+                }
                 return [
                     'id'             => $e->ID_EQUIPO,
                     'codigo'         => $e->CODIGO_PATIO,
@@ -593,7 +680,10 @@ class EquipoAuxiliarController extends Controller
                     'serial_chasis'  => $e->SERIAL_CHASIS,
                     'serial_motor'   => $e->SERIAL_DE_MOTOR,
                     'tipo'           => optional($e->tipo)->nombre,
+                    'marca'          => $e->MARCA,
+                    'modelo'         => $e->MODELO,
                     'marca_modelo'   => trim(($e->MARCA ?? '') . ' ' . ($e->MODELO ?? '')),
+                    'foto'           => $foto,
                     'auxiliares_anclados' => $e->equiposAuxiliares->count(),
                     'disponible'     => $e->equiposAuxiliares->count() < EquipoAuxiliar::ANCHOR_MAX_PER_HOST,
                 ];
@@ -735,12 +825,12 @@ class EquipoAuxiliarController extends Controller
      */
     private function bulkHeaderKeys(): array
     {
-        return ['tipo', 'marca', 'modelo', 'serial', 'codigo interno', 'capacidad', 'año', 'frente de trabajo', 'estado', 'observaciones'];
+        return ['tipo', 'marca', 'modelo', 'serial', 'capacidad', 'año', 'frente de trabajo', 'estado'];
     }
 
     private function bulkHeaderLabels(): array
     {
-        return ['Tipo', 'Marca', 'Modelo', 'Serial', 'Codigo Interno', 'Capacidad', 'Año', 'Frente de Trabajo', 'Estado', 'Observaciones'];
+        return ['Tipo', 'Marca', 'Modelo', 'Serial', 'Capacidad', 'Año', 'Frente de Trabajo', 'Estado'];
     }
 
     /**
@@ -758,15 +848,15 @@ class EquipoAuxiliarController extends Controller
         $sheet->setTitle('Auxiliares');
         $sheet->fromArray([$this->bulkHeaderLabels()], null, 'A1');
 
-        $sheet->getStyle('A1:J1')->applyFromArray([
+        $sheet->getStyle('A1:H1')->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
             'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF0067B1']],
             'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]],
         ]);
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:J1');
+        $sheet->setAutoFilter('A1:H1');
 
-        $colWidths = ['A' => 22, 'B' => 16, 'C' => 16, 'D' => 18, 'E' => 16, 'F' => 14, 'G' => 8, 'H' => 25, 'I' => 16, 'J' => 30];
+        $colWidths = ['A' => 22, 'B' => 16, 'C' => 16, 'D' => 18, 'E' => 14, 'F' => 8, 'G' => 25, 'H' => 16];
         foreach ($colWidths as $col => $w) {
             $sheet->getColumnDimension($col)->setWidth($w);
         }
@@ -812,9 +902,9 @@ class EquipoAuxiliarController extends Controller
             $addListValidation('A', '_listas!$A$2:$A$' . (count($tiposArr) + 1), true, 'Selecciona de la lista o escribe uno nuevo (se creara al guardar).');
         }
         if (count($frentesArr) > 0) {
-            $addListValidation('H', '_listas!$B$2:$B$' . (count($frentesArr) + 1));
+            $addListValidation('G', '_listas!$B$2:$B$' . (count($frentesArr) + 1));
         }
-        $addListValidation('I', '_listas!$C$2:$C$' . (count($estadosArr) + 1));
+        $addListValidation('H', '_listas!$C$2:$C$' . (count($estadosArr) + 1));
 
         $spreadsheet->setActiveSheetIndex(0);
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -848,7 +938,7 @@ class EquipoAuxiliarController extends Controller
         // Headers
         $expected = $this->bulkHeaderKeys();
         $actual = [];
-        foreach (range('A', 'J') as $col) {
+        foreach (range('A', 'H') as $col) {
             $actual[] = mb_strtolower(trim((string) $sheet->getCell($col . '1')->getValue()));
         }
         if ($actual !== $expected) {
@@ -899,12 +989,10 @@ class EquipoAuxiliarController extends Controller
             $rawMarca   = trim((string) $sheet->getCell('B' . $n)->getValue());
             $rawModelo  = trim((string) $sheet->getCell('C' . $n)->getValue());
             $rawSerial  = trim((string) $sheet->getCell('D' . $n)->getValue());
-            $rawCodigo  = trim((string) $sheet->getCell('E' . $n)->getValue());
-            $rawCap     = trim((string) $sheet->getCell('F' . $n)->getValue());
-            $rawAnio    = $sheet->getCell('G' . $n)->getValue();
-            $rawFrente  = trim((string) $sheet->getCell('H' . $n)->getValue());
-            $rawEstado  = trim((string) $sheet->getCell('I' . $n)->getValue());
-            $rawObs     = trim((string) $sheet->getCell('J' . $n)->getValue());
+            $rawCap     = trim((string) $sheet->getCell('E' . $n)->getValue());
+            $rawAnio    = $sheet->getCell('F' . $n)->getValue();
+            $rawFrente  = trim((string) $sheet->getCell('G' . $n)->getValue());
+            $rawEstado  = trim((string) $sheet->getCell('H' . $n)->getValue());
 
             // Skip filas vacias
             if ($rawTipo === '' && $rawMarca === '' && $rawModelo === '' && $rawSerial === '') continue;
@@ -970,13 +1058,11 @@ class EquipoAuxiliarController extends Controller
                     'marca'              => mb_strtoupper($rawMarca),
                     'modelo'             => mb_strtoupper($rawModelo),
                     'serial'             => $serialUpper,
-                    'codigo_interno'     => mb_strtoupper($rawCodigo),
                     'capacidad'          => mb_strtoupper($rawCap),
                     'anio'               => $anio,
                     'frente'             => mb_strtoupper($rawFrente),
                     'id_frente_resuelto' => $idFrenteResuelto,
                     'estado'             => $estadoUpper,
-                    'observaciones'      => mb_strtoupper($rawObs),
                 ],
                 'errors' => $errors,
             ];
@@ -1006,19 +1092,56 @@ class EquipoAuxiliarController extends Controller
     {
         set_time_limit(600);
 
-        $data = $request->validate([
+        $validator = \Validator::make($request->all(), [
             'rows'                       => 'required|array|min:1|max:500',
             'rows.*.tipo_codigo'         => 'required|string|max:30',
             'rows.*.marca'               => 'required|string|max:80',
             'rows.*.modelo'              => 'required|string|max:80',
             'rows.*.serial'              => 'required|string|max:100',
-            'rows.*.codigo_interno'      => 'nullable|string|max:50',
             'rows.*.capacidad'           => 'nullable|string|max:80',
             'rows.*.anio'                => 'nullable|integer|min:1950|max:2100',
             'rows.*.id_frente_resuelto'  => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
             'rows.*.estado'              => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
-            'rows.*.observaciones'       => 'nullable|string|max:500',
+        ], [
+            // Mensajes en español por fila (regla :input/:position se reemplaza por el numero de fila +2 = numero real en el Excel)
+            'rows.*.tipo_codigo.required'        => 'Fila :position: el Tipo es obligatorio.',
+            'rows.*.tipo_codigo.max'             => 'Fila :position: el Tipo no puede exceder 30 caracteres.',
+            'rows.*.marca.required'              => 'Fila :position: la Marca es obligatoria.',
+            'rows.*.marca.max'                   => 'Fila :position: la Marca no puede exceder 80 caracteres.',
+            'rows.*.modelo.required'             => 'Fila :position: el Modelo es obligatorio.',
+            'rows.*.modelo.max'                  => 'Fila :position: el Modelo no puede exceder 80 caracteres.',
+            'rows.*.serial.required'             => 'Fila :position: el Serial es obligatorio.',
+            'rows.*.serial.max'                  => 'Fila :position: el Serial no puede exceder 100 caracteres.',
+            'rows.*.capacidad.max'               => 'Fila :position: la Capacidad no puede exceder 80 caracteres.',
+            'rows.*.anio.integer'                => 'Fila :position: el Año debe ser un número entero.',
+            'rows.*.anio.min'                    => 'Fila :position: el Año debe ser mayor o igual a 1950.',
+            'rows.*.anio.max'                    => 'Fila :position: el Año debe ser menor o igual a 2100.',
+            'rows.*.id_frente_resuelto.integer'  => 'Fila :position: el Frente seleccionado no es válido.',
+            'rows.*.id_frente_resuelto.exists'   => 'Fila :position: el Frente seleccionado no existe o está inactivo.',
+            'rows.*.estado.required'             => 'Fila :position: el Estado es obligatorio.',
+            'rows.*.estado.in'                   => 'Fila :position: el Estado seleccionado no es válido.',
+            'rows.required'                      => 'Debes incluir al menos una fila para cargar.',
+            'rows.array'                         => 'El formato del lote es inválido.',
+            'rows.min'                           => 'Debes incluir al menos una fila para cargar.',
+            'rows.max'                           => 'Solo se pueden cargar hasta 500 filas por lote.',
         ]);
+
+        if ($validator->fails()) {
+            $errs   = $validator->errors();
+            $first  = $errs->first();
+            $count  = count($errs->all());
+            $summary = $first;
+            if ($count > 1) {
+                $extra = $count - 1;
+                $summary .= ' (y ' . $extra . ' error' . ($extra > 1 ? 'es' : '') . ' más)';
+            }
+            return response()->json([
+                'success' => false,
+                'message' => $summary,
+                'errors'  => $errs->toArray(),
+            ], 422);
+        }
+        $data = $validator->validated();
 
         // Unicidad de SERIAL cross-batch y contra BD (defensa final server-side)
         $seriales = array_map(fn($r) => mb_strtoupper(trim($r['serial'])), $data['rows']);
@@ -1051,12 +1174,10 @@ class EquipoAuxiliarController extends Controller
                     'MARCA'            => mb_strtoupper(trim($row['marca'])),
                     'MODELO'           => mb_strtoupper(trim($row['modelo'])),
                     'SERIAL'           => mb_strtoupper(trim($row['serial'])),
-                    'CODIGO_INTERNO'   => !empty($row['codigo_interno']) ? mb_strtoupper(trim($row['codigo_interno'])) : null,
                     'CAPACIDAD'        => !empty($row['capacidad']) ? mb_strtoupper(trim($row['capacidad'])) : null,
                     'ANIO'             => $row['anio'] ?? null,
                     'ID_FRENTE_ACTUAL' => $row['id_frente_resuelto'] ?? null,
                     'ESTADO_OPERATIVO' => $row['estado'],
-                    'OBSERVACIONES'    => !empty($row['observaciones']) ? mb_strtoupper(trim($row['observaciones'])) : null,
                     'CREADO_POR'       => $creadoPor,
                     'created_at'       => $now,
                     'updated_at'       => $now,

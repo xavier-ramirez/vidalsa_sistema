@@ -72,12 +72,10 @@ function initAuxiliaresBulk() {
             {key:'marca',          label:'Marca',           type:'text'},
             {key:'modelo',         label:'Modelo',          type:'text'},
             {key:'serial',         label:'Serial',          type:'text'},
-            {key:'codigo_interno', label:'Código Interno',  type:'text'},
             {key:'capacidad',      label:'Capacidad',       type:'text'},
             {key:'anio',           label:'Año',             type:'number'},
             {key:'frente',         label:'Frente',          type:'select', optionsKey:'frentes', optionValue:o=>o.nombre},
             {key:'estado',         label:'Estado',          type:'select', options: options.estados},
-            {key:'observaciones',  label:'Observaciones',   type:'text'},
         ];
 
         const errorCount = rows.reduce((acc,r)=>acc+(Object.keys(r.errors||{}).length?1:0),0);
