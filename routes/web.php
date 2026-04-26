@@ -9,25 +9,6 @@ Route::get('/login', [App\Http\Controllers\SystemController::class, 'loginRedire
 // Lightweight route to refresh CSRF token (Handshake)
 Route::get('/refresh-csrf', [App\Http\Controllers\SystemController::class, 'refreshCsrf']);
 
-// Service Worker servido con CACHE_VERSION inyectado a partir del filemtime
-// del archivo. Cada cambio en sw.js, en assets pre-cacheados o despliegue
-// nuevo bumpea la version => el SW activa, descarta los caches anteriores y
-// los browsers ven los assets nuevos sin que el usuario tenga que limpiar
-// cache manualmente. Sirve con Service-Worker-Allowed: / para scope global.
-Route::get('/sw.js', function () {
-    $path = public_path('sw.js');
-    if (!file_exists($path)) abort(404);
-    $version = (string) (@filemtime($path) ?: time());
-    $content = str_replace('__CACHE_VERSION__', $version, file_get_contents($path));
-    return response($content, 200, [
-        'Content-Type'            => 'application/javascript',
-        'Cache-Control'           => 'no-cache, no-store, must-revalidate',
-        'Pragma'                  => 'no-cache',
-        'Expires'                 => '0',
-        'Service-Worker-Allowed'  => '/',
-    ]);
-});
-
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 Route::redirect('/home', '/menu');
 
@@ -168,8 +149,6 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
             Route::post  ('equipos-auxiliares/{id}/upload-doc',[App\Http\Controllers\EquipoAuxiliarController::class, 'uploadDoc'])->middleware('can:user.edit')->name('equipos-auxiliares.uploadDoc');
             Route::patch ('equipos-auxiliares/{id}/cert-expiry',[App\Http\Controllers\EquipoAuxiliarController::class, 'updateCertExpiry'])->middleware('can:user.edit')->name('equipos-auxiliares.updateCertExpiry');
-            Route::get   ('equipos-auxiliares/{id}/metadata',  [App\Http\Controllers\EquipoAuxiliarController::class, 'metadata'])->name('equipos-auxiliares.metadata');
-            Route::post  ('equipos-auxiliares/{id}/update-metadata', [App\Http\Controllers\EquipoAuxiliarController::class, 'updateMetadata'])->middleware('can:user.edit')->name('equipos-auxiliares.updateMetadata');
             Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkMove');
             Route::post  ('equipos-auxiliares/bulk-ubicacion', [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkUbicacion'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkUbicacion');
 
@@ -178,22 +157,15 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('equipos-auxiliares/bulk-preview',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkPreview'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkPreview');
             Route::post  ('equipos-auxiliares/bulk-store-batch', [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkStoreBatch'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkStoreBatch');
 
-            // ── Reporte de Fallas (placeholder: modulo pendiente de definicion) ──
-            // El usuario pidio el boton en el navbar pero aun no confirmo alcance
-            // (opciones A/B/C/D en propuesta anterior). Ruta temporal que muestra
-            // vista "En construccion" para evitar 404 desde el boton.
-            // ── Reportes de Fallas ──────────────────────────────────────────
-            // Modulo gateado por equipos.edit (super.admin pasa via Gate::before).
-            // Soporta dos modalidades: corto (registro rapido) y extenso (PDF).
-            // Adicional: changeEstado para actualizar OPERATIVO/INOPERATIVO/
-            // EN MANTENIMIENTO sin crear reporte (audit log queda en
-            // fallas_audit_log via FallaController::changeEstado).
-            Route::get   ('fallas',                          [App\Http\Controllers\FallaController::class, 'index'])->name('fallas.index');
-            Route::post  ('fallas',                          [App\Http\Controllers\FallaController::class, 'store'])->name('fallas.store');
-            Route::patch ('fallas/{id}/close',               [App\Http\Controllers\FallaController::class, 'close'])->name('fallas.close');
-            Route::post  ('fallas/change-estado',            [App\Http\Controllers\FallaController::class, 'changeEstado'])->name('fallas.changeEstado');
-            Route::get   ('fallas/search-activos',           [App\Http\Controllers\FallaController::class, 'searchActivos'])->name('fallas.searchActivos');
-            Route::get   ('fallas/{id}/pdf',                 [App\Http\Controllers\FallaController::class, 'pdf'])->name('fallas.pdf');
+            // ── Reporte de Fallas ────────────────────────────────────────────────
+            // Permiso global: equipos.edit (gateado en FallaController::__construct).
+            // Rutas estáticas ANTES de wildcards para evitar colisiones de segmento.
+            Route::get ('fallas/search-activos',  [App\Http\Controllers\FallaController::class, 'searchActivos'])->name('fallas.searchActivos');
+            Route::post('fallas/change-estado',   [App\Http\Controllers\FallaController::class, 'changeEstado']) ->name('fallas.changeEstado');
+            Route::post('fallas',                 [App\Http\Controllers\FallaController::class, 'store'])        ->name('fallas.store');
+            Route::get ('fallas/{id}/pdf',        [App\Http\Controllers\FallaController::class, 'pdf'])          ->name('fallas.pdf');
+            Route::post('fallas/{id}/close',      [App\Http\Controllers\FallaController::class, 'close'])        ->name('fallas.close');
+            Route::get ('fallas',                 [App\Http\Controllers\FallaController::class, 'index'])        ->name('fallas.index');
 
 
 

@@ -39,6 +39,10 @@ class FrenteRequest extends FormRequest
             'RESP_4_CAR'    => mb_strtoupper($this->input('RESP_4_CAR')),
             'RESP_4_CED'    => mb_strtoupper($this->input('RESP_4_CED', '')),
             'RESP_4_EQU'    => mb_strtoupper($this->input('RESP_4_EQU')),
+            'RESP_5_NOM'    => mb_strtoupper($this->input('RESP_5_NOM')),
+            'RESP_5_CAR'    => mb_strtoupper($this->input('RESP_5_CAR')),
+            'RESP_5_CED'    => mb_strtoupper($this->input('RESP_5_CED', '')),
+            'RESP_5_EQU'    => mb_strtoupper($this->input('RESP_5_EQU')),
         ]);
     }
 
@@ -72,6 +76,10 @@ class FrenteRequest extends FormRequest
             'RESP_4_CAR'    => 'nullable|string|max:40',
             'RESP_4_CED'    => 'nullable|string|max:20',
             'RESP_4_EQU'    => 'nullable|string|max:40',
+            'RESP_5_NOM'    => 'nullable|string|max:80',
+            'RESP_5_CAR'    => 'nullable|string|max:60',
+            'RESP_5_CED'    => 'nullable|string|max:20',
+            'RESP_5_EQU'    => 'nullable|string|max:40',
         ];
     }
 

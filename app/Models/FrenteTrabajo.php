@@ -37,22 +37,16 @@ class FrenteTrabajo extends Model
         'TIPO_FRENTE',
         'ESTATUS_FRENTE',
         'SUBDIVISIONES',
-        'RESP_1_NOM',
-        'RESP_1_CAR',
-        'RESP_1_CED',
-        'RESP_1_EQU',
-        'RESP_2_NOM',
-        'RESP_2_CAR',
-        'RESP_2_CED',
-        'RESP_2_EQU',
-        'RESP_3_NOM',
-        'RESP_3_CAR',
-        'RESP_3_CED',
-        'RESP_3_EQU',
-        'RESP_4_NOM',
-        'RESP_4_CAR',
-        'RESP_4_CED',
-        'RESP_4_EQU',
+        // Responsable 1 (Solicitado - Coord. Liviana con filtro FLOTA LIVIANA)
+        'RESP_1_NOM', 'RESP_1_CAR', 'RESP_1_CED', 'RESP_1_EQU',
+        // Responsable 2 (Solicitado alt - Coord. Pesada con filtro FLOTA PESADA)
+        'RESP_2_NOM', 'RESP_2_CAR', 'RESP_2_CED', 'RESP_2_EQU',
+        // Responsable 3 (Elaborado - Transporte y Logística, sin filtro EQU)
+        'RESP_3_NOM', 'RESP_3_CAR', 'RESP_3_CED', 'RESP_3_EQU',
+        // Responsable 4 (Revisado - Sub-gerente, sin filtro EQU)
+        'RESP_4_NOM', 'RESP_4_CAR', 'RESP_4_CED', 'RESP_4_EQU',
+        // Responsable 5 (Aprobado - Gerente, sin filtro EQU)
+        'RESP_5_NOM', 'RESP_5_CAR', 'RESP_5_CED', 'RESP_5_EQU',
     ];
 
     public function usuarios()

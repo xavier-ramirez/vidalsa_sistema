@@ -133,9 +133,10 @@
                 </div>
 
                 <!-- Responsable 1 -->
-                <div
-                    style="grid-column: span 2; border-bottom: 2px solid #f1f5f9; padding: 10px 0; margin-top: 20px; color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">
-                    Responsable Principal
+                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 1</span>
+                    <span style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; text-transform:uppercase;">SOLICITADO</span>
+                    <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Liviana &mdash; usar Filtro Firma: <b>FLOTA LIVIANA</b></span>
                 </div>
 
                 <!-- Responsable 1 Inputs -->
@@ -180,9 +181,10 @@
                 </div>
 
                 <!-- Responsable 2 -->
-                <div
-                    style="grid-column: span 2; border-bottom: 2px solid #f1f5f9; padding: 10px 0; margin-top: 20px; color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">
-                    Segundo Responsable
+                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 2</span>
+                    <span style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; text-transform:uppercase;">SOLICITADO Alt.</span>
+                    <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Pesada &mdash; usar Filtro Firma: <b>FLOTA PESADA</b></span>
                 </div>
 
                 <!-- Responsable 2 Inputs -->
@@ -227,9 +229,10 @@
                 </div>
 
                 <!-- Responsable 3 -->
-                <div
-                    style="grid-column: span 2; border-bottom: 2px solid #f1f5f9; padding: 10px 0; margin-top: 20px; color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">
-                    Tercer Responsable
+                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 3</span>
+                    <span style="background:#fef9c3; color:#854d0e; border:1px solid #fde68a; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; text-transform:uppercase;">ELABORADO</span>
+                    <span style="color:#64748b; font-size:11px; font-style:italic;">Transporte y Log&iacute;stica &mdash; sin Filtro Firma (aplica a todos)</span>
                 </div>
 
                 <!-- Responsable 3 Inputs -->
@@ -274,9 +277,10 @@
                 </div>
 
                 <!-- Responsable 4 -->
-                <div
-                    style="grid-column: span 2; border-bottom: 2px solid #f1f5f9; padding: 10px 0; margin-top: 20px; color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">
-                    Cuarto Responsable
+                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 4</span>
+                    <span style="background:#e0f2fe; color:#075985; border:1px solid #bae6fd; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; text-transform:uppercase;">REVISADO</span>
+                    <span style="color:#64748b; font-size:11px; font-style:italic;">Sub-gerente &mdash; sin Filtro Firma (aplica a todos)</span>
                 </div>
 
                 <!-- Responsable 4 Inputs -->
@@ -314,6 +318,53 @@
                                 <div class="dropdown-item" onclick="selectOption('resp4EquSelect', '', 'SIN FILTRO', 'resp4_equ')">SIN FILTRO</div>
                                 @foreach($categorias as $cat)
                                     <div class="dropdown-item" onclick="selectOption('resp4EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp4_equ')">{{ $cat }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 5</span>
+                    <span style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; text-transform:uppercase;">APROBADO</span>
+                    <span style="color:#64748b; font-size:11px; font-style:italic;">Gerente &mdash; sin Filtro Firma (aplica a todos)</span>
+                </div>
+
+                <!-- Responsable 5 Inputs -->
+                <div class="resp-grid" style="grid-column: span 2;">
+                    <div>
+                        <label for="RESP_5_NOM" class="form-label">Nombre Completo</label>
+                        <input type="text" id="RESP_5_NOM" name="RESP_5_NOM" class="form-input-custom"
+                            style="background: white;" placeholder="Nombre"
+                            value="{{ old('RESP_5_NOM', $frente->RESP_5_NOM ?? '') }}" autocomplete="off">
+                    </div>
+
+                    <div>
+                        <label for="RESP_5_CAR" class="form-label">Cargo</label>
+                        <input type="text" id="RESP_5_CAR" name="RESP_5_CAR" class="form-input-custom"
+                            style="background: white;" placeholder="Ej: Gerente General"
+                            value="{{ old('RESP_5_CAR', $frente->RESP_5_CAR ?? '') }}" autocomplete="off">
+                    </div>
+
+                    <div>
+                        <label for="RESP_5_CED" class="form-label">Cédula</label>
+                        <input type="text" id="RESP_5_CED" name="RESP_5_CED" class="form-input-custom"
+                            style="background: white; text-transform: uppercase;" placeholder="Ej: V-12345678"
+                            value="{{ old('RESP_5_CED', $frente->RESP_5_CED ?? '') }}" maxlength="20" autocomplete="off">
+                    </div>
+
+                    <div>
+                        <span class="form-label">Filtro Firma</span>
+                        <div class="custom-dropdown" id="resp5EquSelect">
+                            <input type="hidden" name="RESP_5_EQU" id="input_resp5_equ" value="{{ old('RESP_5_EQU', $frente->RESP_5_EQU ?? '') }}">
+                            <div class="dropdown-trigger" onclick="toggleDropdown('resp5EquSelect', event)" style="background: white; cursor: default;">
+                                <span id="label_resp5_equ">{{ old('RESP_5_EQU', $frente->RESP_5_EQU ?? 'SIN FILTRO') }}</span>
+                                <i class="material-icons">expand_more</i>
+                            </div>
+                            <div class="dropdown-content">
+                                <div class="dropdown-item" onclick="selectOption('resp5EquSelect', '', 'SIN FILTRO', 'resp5_equ')">SIN FILTRO</div>
+                                @foreach($categorias as $cat)
+                                    <div class="dropdown-item" onclick="selectOption('resp5EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp5_equ')">{{ $cat }}</div>
                                 @endforeach
                             </div>
                         </div>

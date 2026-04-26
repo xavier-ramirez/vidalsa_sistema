@@ -52,14 +52,17 @@
         $ubicacionDestino = trim($frenteDestino->UBICACION ?? '');
     @endphp
 
-    <!-- ===================== CUERPO DEL TEXTO =====================
-         IMPORTANTE: TCPDF respeta el whitespace inicial dentro del <td>,
-         asi que el texto NO debe tener indentacion ni saltos antes del
-         "Por medio..." (eso producia una sangria visible en la primera
-         linea del PDF). Mantener todo el bloque al inicio de la columna. -->
+    <!-- ===================== CUERPO DEL TEXTO ===================== -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
-<td align="justify" style="font-size: 10pt; line-height: 1.5;">Por medio del presente documento, {{ $labelOrigen }} <b>{{ strtoupper($frenteOrigen->NOMBRE_FRENTE ?? 'OFICINA PRINCIPAL') }}</b> de la CONSTRUCTORA VIDALSA 27, C.A., deja constancia formal del despacho y traslado de los equipos detallados a continuación hacia {{ $labelDestino }} <b>{{ strtoupper($frenteDestino->NOMBRE_FRENTE ?? 'DESTINO DESCONOCIDO') }}</b>@if($ubicacionDestino), ubicado en {{ strtoupper($ubicacionDestino) }}@endif.</td>
+            <td align="justify" style="font-size: 10pt; line-height: 1.5;">
+                Por medio del presente documento, {{ $labelOrigen }}
+                <b>{{ strtoupper($frenteOrigen->NOMBRE_FRENTE ?? 'OFICINA PRINCIPAL') }}</b> de la
+                CONSTRUCTORA VIDALSA 27, C.A., deja constancia formal del despacho y traslado de los equipos
+                detallados a continuación hacia {{ $labelDestino }}
+                <b>{{ strtoupper($frenteDestino->NOMBRE_FRENTE ?? 'DESTINO DESCONOCIDO') }}</b>@if($ubicacionDestino), ubicado en
+                {{ strtoupper($ubicacionDestino) }}@endif.
+            </td>
         </tr>
     </table>
 
@@ -75,85 +78,99 @@
      - nobr="true" en cada fila: evita que UNA fila quede partida a mitad
      - thead: TCPDF repite el encabezado automáticamente en cada página nueva
 -->
-    <table width="100%" border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
+    {{-- TCPDF: border="1" en la tabla (atributo HTML, no CSS).
+         Se usa <td> en el thead en lugar de <th> porque TCPDF calcula
+         el ancho de <th> de forma distinta a <td>, provocando que el
+         encabezado repetido en pagina 2+ aparezca desalineado. --}}
+    <table width="100%" border="1" cellpadding="5" cellspacing="0">
         <thead>
             <tr bgcolor="#e6f2ff">
-                <th width="5%" align="center" style="font-size: 8.5pt; font-weight: bold;">N°</th>
-                <th width="50%" align="center" style="font-size: 8.5pt; font-weight: bold;">DESCRIPCIÓN / EQUIPO</th>
-                <th width="20%" align="center" style="font-size: 8.5pt; font-weight: bold;">MARCA</th>
-                <th width="25%" align="center" style="font-size: 8.5pt; font-weight: bold;">SERIAL / PLACA</th>
+                <td width="5%"  align="center" style="font-size:8.5pt;"><b>N°</b></td>
+                <td width="50%" align="center" style="font-size:8.5pt;"><b>DESCRIPCIÓN / EQUIPO</b></td>
+                <td width="20%" align="center" style="font-size:8.5pt;"><b>MARCA</b></td>
+                <td width="25%" align="center" style="font-size:8.5pt;"><b>SERIAL / PLACA</b></td>
             </tr>
         </thead>
         <tbody>
             @foreach($equipos as $index => $item)
-                @php
-                    // SERIAL / PLACA: prioriza PLACA si existe (vehiculos con
-                    // documentacion); fallback a SERIAL_CHASIS. Antes solo
-                    // mostraba SERIAL_CHASIS y el header era engañoso.
-                    $placa = trim((string) (optional($item->documentacion)->PLACA ?? ''));
-                    $serial = trim((string) ($item->SERIAL_CHASIS ?? ''));
-                    if ($placa !== '' && strtoupper($placa) !== 'S/P' && strtoupper($placa) !== 'N/A') {
-                        $serialPlacaCell = $placa;
-                    } elseif ($serial !== '') {
-                        $serialPlacaCell = $serial;
-                    } else {
-                        $serialPlacaCell = '---';
-                    }
-                @endphp
                 <tr nobr="true">
-                    <td width="5%" align="center" style="font-size: 8.5pt;">{{ $index + 1 }}</td>
-                    <td width="50%" align="center" style="font-size: 8.5pt;">
-                        {{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}
-                    </td>
-                    <td width="20%" align="center" style="font-size: 8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
-                    <td width="25%" align="center" style="font-size: 8.5pt;">{{ strtoupper($serialPlacaCell) }}
-                    </td>
+                    <td width="5%"  align="center" style="font-size:8.5pt;">{{ $index + 1 }}</td>
+                    <td width="50%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}</td>
+                    <td width="20%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
+                    <td width="25%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
 
     <!-- ===================== BLOQUE COMPLETO DE FIRMAS =====================
-     nobr="true" en la tabla maestra: garantiza que las 3 firmas (Aprobado 1,
-     Aprobado 2 y Recibido) NUNCA queden solas en otra hoja.
-     Si no caben en la página actual, TCPDF las mueve completas a la siguiente.
+     nobr="true" en la tabla maestra: garantiza que todo el bloque de firmas
+     NUNCA quede partido entre dos páginas. TCPDF lo mueve completo a la siguiente.
+
+     ORDEN DE FIRMAS:
+       RESP_1 → SOLICITADO  (Coord. Mecánica Liviana o Pesada según equipo)
+       RESP_2 → ELABORADO   (Dpto. Transporte y Logística — solo Patio Maturín)
+       RESP_3 → REVISADO    (Sub-Gerente — solo Patio Maturín)
+       RESP_4 → APROBADO    (Gerente)
+       + RECIBIDO POR (destino, siempre al final)
+
+     PATIO MATURÍN (frente origen con PATIO/SEDE/TALLER/ALMACEN en el nombre):
+       Muestra grid 2×2: [Solicitado | Elaborado] / [Revisado | Aprobado] + Recibido
+     OTROS PROYECTOS:
+       Muestra máximo 2 firmas + Recibido
 -->
     @php
-        $categoriesInActa = $equipos->pluck('CATEGORIA_FLOTA')->unique()->filter()->values()->toArray();
+        // ── Categorías de los equipos en el acta ──────────────────────────────
+        // Equipos Auxiliares (CATEGORIA_FLOTA null o '') → FLOTA LIVIANA.
+        // Operador ?: captura null Y string vacío.
+        $categoriesInActa = $equipos->pluck('CATEGORIA_FLOTA')->map(function($cat) {
+            return $cat ?: 'FLOTA LIVIANA';
+        })->unique()->filter()->values()->toArray();
 
-        $responsablesToShow = [];
-        for ($i = 1; $i <= 4; $i++) {
-            $nomKey = "RESP_{$i}_NOM";
-            $carKey = "RESP_{$i}_CAR";
-            $equKey = "RESP_{$i}_EQU";
-            $cedKey = "RESP_{$i}_CED";
+        if (empty($categoriesInActa)) {
+            $categoriesInActa = ['FLOTA LIVIANA', 'FLOTA PESADA'];
+        }
 
-            $nom = trim($frenteOrigen->$nomKey ?? '');
-            $car = trim($frenteOrigen->$carKey ?? 'RESPONSABLE');
-            $equ = trim($frenteOrigen->$equKey ?? '');
-            $ced = trim($frenteOrigen->$cedKey ?? '');
+        // ── Leer y filtrar responsables (slots 1–4) ───────────────────────────
+        // Sólo se incluye un slot si:
+        //   a) Tiene nombre real (no placeholder)
+        //   b) Su RESP_N_EQU está vacío (aplica a todos) O coincide con la
+        //      categoría de los equipos del acta.
+        // IMPORTANTE: el array resultante ($firmasList) es plano; las etiquetas
+        // se asignan POR ORDEN DE APARICIÓN tras el filtro, NO por slot BD.
+        // Esto permite que si RESP_1=Liviana y RESP_2=Pesada, el que pasa el
+        // filtro siempre obtenga la etiqueta SOLICITADO correctamente.
+        $firmasFiltradas = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $nom = trim($frenteOrigen->{"RESP_{$i}_NOM"} ?? '');
+            $car = trim($frenteOrigen->{"RESP_{$i}_CAR"} ?? 'RESPONSABLE');
+            $equ = trim($frenteOrigen->{"RESP_{$i}_EQU"} ?? '');
+            $ced = trim($frenteOrigen->{"RESP_{$i}_CED"} ?? '');
 
-            $isPlaceholder = empty($nom) || 
-                             strtolower($nom) === 'nombre y apellido' ||
-                             strtolower($nom) === 'por definir' ||
-                             strtolower($nom) === 'n/a';
+            $isPlaceholder = empty($nom)
+                || strtolower($nom) === 'nombre y apellido'
+                || strtolower($nom) === 'por definir'
+                || strtolower($nom) === 'n/a';
 
-            if (!$isPlaceholder) {
-                if ($equ) {
-                    if (in_array($equ, $categoriesInActa)) {
-                        $responsablesToShow[] = ['nom' => $nom, 'car' => $car, 'ced' => $ced];
-                    }
-                } else {
-                    $responsablesToShow[] = ['nom' => $nom, 'car' => $car, 'ced' => $ced];
-                }
+            if ($isPlaceholder) continue;
+
+            $pasaFiltro = $equ === '' || in_array($equ, $categoriesInActa);
+            if ($pasaFiltro) {
+                $firmasFiltradas[] = ['nom' => $nom, 'car' => $car, 'ced' => $ced];
             }
         }
 
-        // Agrupar en filas de a 2
-        $rows = array_chunk($responsablesToShow, 2);
-    @endphp
+        // Asignar etiquetas en orden secuencial al resultado filtrado
+        $labelsSeq  = ['SOLICITADO:', 'ELABORADO:', 'REVISADO:', 'APROBADO:', 'APROBADO:'];
+        $firmasList = [];
+        foreach ($firmasFiltradas as $k => $f) {
+            $firmasList[] = array_merge($f, ['label' => $labelsSeq[$k] ?? 'APROBADO:']);
+        }
+        $totalFirmas = count($firmasList);
 
-    @php $totalResp = count($responsablesToShow); @endphp
+        // ── Detección de Patio Maturín ─────────────────────────────────────────
+        $isPatio = $isResguardoOrigen;
+    @endphp
 
     <table width="100%" border="0" cellpadding="0" cellspacing="0" nobr="true">
 
@@ -162,26 +179,47 @@
             <td colspan="3" height="20">&nbsp;</td>
         </tr>
 
-        @if($totalResp === 1)
-            {{-- ── Caso especial: 1 responsable → APROBADO izquierda | RECIBIDO derecha ── --}}
-            @php $resp = $responsablesToShow[0]; @endphp
+        @if($totalFirmas === 0)
+            {{-- ── Sin responsables configurados → solo Recibido Por ── --}}
             <tr>
-                {{-- APROBADO POR (izquierda) --}}
+                <td colspan="3" align="center">
+                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
+                        <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
+                        <tr><td height="35">&nbsp;</td></tr>
+                        <tr>
+                            <td>
+                                <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
+                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
+                                    <tr><td height="1">&nbsp;</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+
+        @elseif($totalFirmas === 1)
+            {{-- ── 1 firma: izquierda | RECIBIDO POR derecha ── --}}
+            @php $f = $firmasList[0]; @endphp
+            <tr>
+                {{-- Firma única (izquierda) --}}
                 <td width="45%" align="center" valign="bottom">
                     <table width="100%" border="0" cellpadding="0" cellspacing="0">
-                        <tr><td align="center" style="font-size: 9pt;"><b>APROBADO POR (ORIGEN):</b></td></tr>
+                        <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
                         <tr><td height="35">&nbsp;</td></tr>
                         <tr>
                             <td>
                                 <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($resp['car']) }}</b></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($resp['nom']) }}</td></tr>
+                                    <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                                     <tr>
                                         <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                            @if(!empty($resp['ced']))
+                                            @if(!empty($f['ced']))
                                                 @php
-                                                    $cedNum = preg_replace('/[^0-9]/', '', $resp['ced']);
+                                                    $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
                                                     $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
                                                 @endphp
                                                 C.I.: {{ $cedFmt }}
@@ -218,26 +256,146 @@
                 </td>
             </tr>
 
-        @else
-            {{-- ── Caso normal: 2+ responsables → loop de APROBADO POR ── --}}
-            @foreach($rows as $row)
+        @elseif($isPatio && $totalFirmas >= 3)
+            {{-- ════════════════════════════════════════════════════════════
+                 PATIO MATURÍN — Grid 2×2 con roles diferenciados:
+                 Fila 1:  SOLICITADO  |  ELABORADO
+                 Fila 2:  REVISADO    |  APROBADO
+                 Fila 3:  (centrado)     RECIBIDO POR
+                 ════════════════════════════════════════════════════════════ --}}
+            @php
+                // Grid 2×2 construido desde la lista secuencial filtrada.
+                // Posición 0→SOLICITADO, 1→ELABORADO, 2→REVISADO, 3→APROBADO.
+                $filaA = [$firmasList[0] ?? null, $firmasList[1] ?? null];
+                $filaB = [$firmasList[2] ?? null, $firmasList[3] ?? null];
+            @endphp
+
+            {{-- Fila 1 y Fila 2 del grid --}}
+            @foreach([$filaA, $filaB] as $fila)
                 <tr>
-                    @foreach($row as $index => $resp)
+                    @foreach($fila as $f)
+                        <td width="45%" align="center" valign="bottom">
+                            @if($f)
+                                <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                                    <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
+                                    <tr><td height="35">&nbsp;</td></tr>
+                                    <tr>
+                                        <td>
+                                            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
+                                                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
+                                                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
+                                                <tr>
+                                                    <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
+                                                        @if(!empty($f['ced']))
+                                                            @php
+                                                                $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
+                                                                $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
+                                                            @endphp
+                                                            C.I.: {{ $cedFmt }}
+                                                        @else
+                                                            C.I.: _______________
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            @endif
+                        </td>
+                        @if($loop->first)
+                            <td width="10%"></td>
+                        @endif
+                    @endforeach
+                </tr>
+                <tr><td colspan="3" height="30">&nbsp;</td></tr>
+            @endforeach
+
+            {{-- Fila 3 opcional: 5ta firma centrada (cuando totalFirmas = 5) --}}
+            @if(isset($firmasList[4]))
+                @php $f5 = $firmasList[4]; @endphp
+                <tr>
+                    <td colspan="3" align="center">
+                        <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
+                            <tr><td align="center" style="font-size: 9pt;"><b>{{ $f5['label'] }}</b></td></tr>
+                            <tr><td height="35">&nbsp;</td></tr>
+                            <tr>
+                                <td>
+                                    <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
+                                        <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                        <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f5['car']) }}</b></td></tr>
+                                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f5['nom']) }}</td></tr>
+                                        <tr>
+                                            <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
+                                                @if(!empty($f5['ced']))
+                                                    @php
+                                                        $cedNum5 = preg_replace('/[^0-9]/', '', $f5['ced']);
+                                                        $cedFmt5 = strrev(implode('.', str_split(strrev($cedNum5), 3)));
+                                                    @endphp
+                                                    C.I.: {{ $cedFmt5 }}
+                                                @else
+                                                    C.I.: _______________
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr><td colspan="3" height="30">&nbsp;</td></tr>
+            @endif
+
+            {{-- Fila siguiente: RECIBIDO POR centrado --}}
+            <tr>
+                <td colspan="3" align="center">
+                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
+                        <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
+                        <tr><td height="35">&nbsp;</td></tr>
+                        <tr>
+                            <td align="center">
+                                <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
+                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
+                                    <tr><td height="1">&nbsp;</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+
+        @else
+            {{-- ════════════════════════════════════════════════════════════
+                 OTROS PROYECTOS (no Patio) o Patio con menos de 3 firmas:
+                 Máximo 2 firmas en una fila + RECIBIDO POR centrado abajo.
+                 ════════════════════════════════════════════════════════════ --}}
+            @php
+                $firmasOtros = array_slice($firmasList, 0, 2);
+                $rowsOtros   = array_chunk($firmasOtros, 2);
+            @endphp
+
+            @foreach($rowsOtros as $row)
+                <tr>
+                    @foreach($row as $f)
                         <td width="45%" align="center" valign="bottom">
                             <table width="100%" border="0" cellpadding="0" cellspacing="0">
-                                <tr><td align="center" style="font-size: 9pt;"><b>APROBADO POR (ORIGEN):</b></td></tr>
+                                <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
                                 <tr><td height="35">&nbsp;</td></tr>
                                 <tr>
                                     <td>
                                         <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                             <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                            <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($resp['car']) }}</b></td></tr>
-                                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($resp['nom']) }}</td></tr>
+                                            <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
+                                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                                             <tr>
                                                 <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                                    @if(!empty($resp['ced']))
+                                                    @if(!empty($f['ced']))
                                                         @php
-                                                            $cedNum = preg_replace('/[^0-9]/', '', $resp['ced']);
+                                                            $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
                                                             $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
                                                         @endphp
                                                         C.I.: {{ $cedFmt }}
@@ -262,7 +420,7 @@
                 <tr><td colspan="3" height="30">&nbsp;</td></tr>
             @endforeach
 
-            {{-- ── RECIBIDO POR centrado debajo (2+ responsables) ── --}}
+            {{-- RECIBIDO POR centrado debajo --}}
             <tr>
                 <td colspan="3" align="center">
                     <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
@@ -271,7 +429,7 @@
                         <tr>
                             <td align="center">
                                 <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                    <tr><td bgcolor="#000000" height="1">&nbsp;</td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
                                     <tr><td height="1">&nbsp;</td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>

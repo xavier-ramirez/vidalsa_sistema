@@ -285,7 +285,7 @@
             <span class="page-title-line2" style="color:#000;">Catálogo de Auxiliares</span>
         </h1>
         <p style="margin:0;font-size:12px;color:#64748b;font-weight:500;line-height:1.3;">
-            Una tarjeta por modelo+año. La foto representa a TODAS las unidades de ese modelo y año.
+            La foto representa a TODAS las unidades de ese modelo y año.
         </p>
     </div>
     {{-- Boton "Nuevo" se desplazo dentro del row de filtros (al lado del
@@ -394,7 +394,7 @@
         {{-- Boton "Nuevo" — al lado del ultimo filtro (mismo patron de
              /admin/catalogo). Visible siempre, valida permiso al click. --}}
         <a href="{{ route('equipos-auxiliares.create') }}" class="btn-primary-maquinaria"
-           style="height:45px;display:inline-flex;align-items:center;padding:0 15px;text-decoration:none;gap:8px;flex:0 0 auto;"
+           style="height:45px;display:flex;align-items:center;padding:0 15px;text-decoration:none;gap:8px;flex:0 0 auto;"
            @cannot('equipos.create')
                onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos auxiliares.', 'error');"
            @endcannot>

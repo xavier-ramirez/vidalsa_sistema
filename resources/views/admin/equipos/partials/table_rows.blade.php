@@ -1,4 +1,6 @@
 @forelse($equipos as $equipo)
+{{-- Mobile-only: oculta MODELO, AÑO y SERIAL_CHASIS en tarjetas pequeñas --}}
+<style>.eq-hide-mobile{} @media(max-width:900px){.eq-hide-mobile{display:none!important;}}</style>
     @php
         // Foto: prioriza FOTO_REFERENCIAL del catalogo (ID_ESPEC), cae a FOTO_EQUIPO
         $fotoToShow = ($equipo->especificaciones && $equipo->especificaciones->FOTO_REFERENCIAL)
@@ -82,12 +84,12 @@
                 {{ $equipo->MARCA ?: '—' }}
             </div>
             @if($equipo->MODELO)
-                <div style="font-size: 13.5px; color: #475569; font-weight: 500; text-transform: uppercase; margin-top: 4px; line-height: 1.3;">
+                <div class="eq-hide-mobile" style="font-size: 13.5px; color: #475569; font-weight: 500; text-transform: uppercase; margin-top: 4px; line-height: 1.3;">
                     {{ $equipo->MODELO }}
                 </div>
             @endif
             @if($equipo->ANIO)
-                <div style="font-size: 12.5px; color: #64748b; margin-top: 5px; font-weight: 500;">
+                <div class="eq-hide-mobile" style="font-size: 12.5px; color: #64748b; margin-top: 5px; font-weight: 500;">
                     Año: {{ $equipo->ANIO }}
                 </div>
             @endif
@@ -97,14 +99,14 @@
              La placa se destaca en azul cuando existe. Tamaño 14px (subido
              de 12.5 por feedback de legibilidad en pantalla grande). --}}
         <td class="table-cell-custom" style="font-size: 14px; color: #4a5568;">
-            <div style="line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div class="eq-hide-mobile" style="line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 <strong style="color:#64748b;">S:</strong>
                 <span style="color:#1e293b; font-weight:600; text-transform:uppercase;">{{ $equipo->SERIAL_CHASIS ?: '—' }}</span>
             </div>
             @if($equipo->SERIAL_DE_MOTOR)
-                <div style="line-height: 1.4; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="line-height: 1.5; margin-top: 3px; word-break: break-all;">
                     <strong style="color:#64748b;">M:</strong>
-                    <span style="color:#475569; text-transform:uppercase;">{{ $equipo->SERIAL_DE_MOTOR }}</span>
+                    <span style="color:#1e293b; font-weight:600; text-transform:uppercase;">{{ $equipo->SERIAL_DE_MOTOR }}</span>
                 </div>
             @endif
             @if($equipo->documentacion && $equipo->documentacion->PLACA)
