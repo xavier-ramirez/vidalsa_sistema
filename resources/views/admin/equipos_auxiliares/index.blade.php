@@ -964,8 +964,8 @@
 
         // Fila Doc. Propiedad: label + boton (sin fecha)
         const rowPropiedad = `
-            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed #f1f5f9;">
-                <span style="color:#64748b; font-size:12px; white-space:nowrap;">Doc. Propiedad</span>
+            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0;">
+                <span style="color:#64748b; font-size:12px; white-space:nowrap; flex-shrink:0;">Doc. Propiedad</span>
                 ${pdfBtn(d.link_doc_propiedad, 'propiedad')}
             </div>`;
 
@@ -978,14 +978,14 @@
             const txt  = d.fecha_vencimiento_cert;
             let bg='#f0fdf4', co='#16a34a', extra='';
             if (diff < 0)       { bg='#fef2f2'; co='#dc2626'; extra=' (VENCIDO)'; }
-            else if (diff < 30) { bg='#fffbeb'; co='#d97706'; extra=' ('+diff+' días)'; }
-            fechaInline = `<span style="background:${bg}; color:${co}; padding:3px 8px; border-radius:6px; font-weight:700; font-size:12px; white-space:nowrap;">${txt}${extra}</span>`;
+            else if (diff < 30) { bg='#fffbeb'; co='#d97706'; extra=' ('+diff+'d)'; }
+            fechaInline = `<span style="background:${bg}; color:${co}; padding:2px 6px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;" title="${txt}${extra}">${txt}${extra}</span>`;
         }
         const rowCertificado = `
-            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed #f1f5f9;">
-                <span style="color:#64748b; font-size:12px; white-space:nowrap;">Certificado</span>
-                <div style="display:inline-flex; align-items:center; gap:8px;">
-                    ${fechaInline}
+            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0;">
+                <span style="color:#64748b; font-size:12px; white-space:nowrap; flex-shrink:0;">Certificado</span>
+                <div style="display:flex; align-items:center; gap:6px; flex-shrink:1; min-width:0; overflow:hidden;">
+                    <div style="flex-shrink:1; min-width:0; overflow:hidden;">${fechaInline}</div>
                     ${pdfBtn(d.link_certificado, 'certificado')}
                 </div>
             </div>`;
