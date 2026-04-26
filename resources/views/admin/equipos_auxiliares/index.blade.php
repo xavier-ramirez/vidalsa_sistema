@@ -406,27 +406,27 @@
                             </div>
                         </div>
 
-                        {{-- Checks de documentacion: filtra auxiliares que tienen
-                             el PDF cargado en LINK_DOC_PROPIEDAD / LINK_CERTIFICADO.
-                             El value '1' al check se traduce a where != null en el
-                             controller — los aux sin PDF quedan fuera. --}}
-                        <div style="border-top:1px dashed #cbd5e1; padding-top:10px;">
-                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;">Documentación cargada</span>
-                            <label style="display:flex; align-items:center; gap:8px; padding:6px 4px; cursor:pointer; font-size:12.5px; color:#334155; font-weight:600;">
+                    </div>
+
+                    <!-- Documentation Filters (mismo patron que /admin/equipos) -->
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #cbd5e1;">
+                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">Documentación Cargada</span>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <label for="aux_chk_propiedad" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="aux_chk_propiedad" name="con_propiedad" value="1"
                                        {{ request('con_propiedad') ? 'checked' : '' }}
                                        onchange="cargarAuxiliares()"
-                                       style="width:16px; height:16px; cursor:pointer; accent-color:#0067b1;">
-                                <i class="material-icons" style="font-size:16px; color:#0284c7;">description</i>
-                                Con PDF Propiedad
+                                       style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                                Propiedad
                             </label>
-                            <label style="display:flex; align-items:center; gap:8px; padding:6px 4px; cursor:pointer; font-size:12.5px; color:#334155; font-weight:600;">
+
+                            <label for="aux_chk_certificado" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="aux_chk_certificado" name="con_certificado" value="1"
                                        {{ request('con_certificado') ? 'checked' : '' }}
                                        onchange="cargarAuxiliares()"
-                                       style="width:16px; height:16px; cursor:pointer; accent-color:#16a34a;">
-                                <i class="material-icons" style="font-size:16px; color:#16a34a;">verified</i>
-                                Con Certificado
+                                       style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                                Certificado
                             </label>
                         </div>
 
