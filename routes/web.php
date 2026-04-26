@@ -182,9 +182,18 @@ Route::middleware(['auth'])->group(function () {
             // El usuario pidio el boton en el navbar pero aun no confirmo alcance
             // (opciones A/B/C/D en propuesta anterior). Ruta temporal que muestra
             // vista "En construccion" para evitar 404 desde el boton.
-            Route::get('fallas', function () {
-                return view('admin.fallas.placeholder');
-            })->name('fallas.index');
+            // ── Reportes de Fallas ──────────────────────────────────────────
+            // Modulo gateado por equipos.edit (super.admin pasa via Gate::before).
+            // Soporta dos modalidades: corto (registro rapido) y extenso (PDF).
+            // Adicional: changeEstado para actualizar OPERATIVO/INOPERATIVO/
+            // EN MANTENIMIENTO sin crear reporte (audit log queda en
+            // fallas_audit_log via FallaController::changeEstado).
+            Route::get   ('fallas',                          [App\Http\Controllers\FallaController::class, 'index'])->name('fallas.index');
+            Route::post  ('fallas',                          [App\Http\Controllers\FallaController::class, 'store'])->name('fallas.store');
+            Route::patch ('fallas/{id}/close',               [App\Http\Controllers\FallaController::class, 'close'])->name('fallas.close');
+            Route::post  ('fallas/change-estado',            [App\Http\Controllers\FallaController::class, 'changeEstado'])->name('fallas.changeEstado');
+            Route::get   ('fallas/search-activos',           [App\Http\Controllers\FallaController::class, 'searchActivos'])->name('fallas.searchActivos');
+            Route::get   ('fallas/{id}/pdf',                 [App\Http\Controllers\FallaController::class, 'pdf'])->name('fallas.pdf');
 
 
 
