@@ -161,29 +161,62 @@
         font-size: 18px;
         cursor: pointer;
     }
+    /* Mismo estilo que .aux-main-list / .aux-main-opt del listado principal
+       para que la lista de filtros del catalogo se vea identica al resto del
+       modulo. Padding 5px del wrapper, opciones con border-radius. */
     .aux-cat-list {
         position: absolute;
-        top: calc(100% + 4px);
+        top: 100%;
         left: 0; right: 0;
         background: white;
-        border: 1px solid #cbd5e0;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(15,23,42,0.08);
-        max-height: 240px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        max-height: 260px;
         overflow-y: auto;
-        z-index: 50;
+        margin-top: 4px;
+        padding: 5px;
+        z-index: 9999;
         display: none;
     }
     .aux-cat-opt {
-        padding: 10px 14px;
-        font-size: 13px;
-        color: #334155;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
         cursor: pointer;
-        border-bottom: 1px solid #f1f5f9;
+        border-radius: 6px;
     }
-    .aux-cat-opt:last-child { border-bottom: none; }
-    .aux-cat-opt:hover { background: #f1f5f9; }
-    .aux-cat-opt.placeholder { color: #94a3b8; font-style: italic; }
+    .aux-cat-opt:hover { background: #f0f4f8; }
+    .aux-cat-opt.placeholder {
+        font-size: 13px;
+        color: #475569;
+        font-weight: 600;
+    }
+    #auxCatListTipo .aux-cat-opt { text-transform: uppercase; }
+    /* Overlay "Cambiar foto" sobre la foto al hacer hover. Indica que se
+       puede subir una nueva foto representativa para este modelo+ano. */
+    .aux-cat-photo-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        pointer-events: none;
+    }
+    .aux-cat-photo-overlay .material-icons { font-size: 28px; }
+    .aux-cat-card:hover .aux-cat-photo-overlay { opacity: 1; }
+
     @media (max-width: 600px) {
         .aux-cat-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     }
@@ -226,19 +259,6 @@
     @endphp
     <form id="auxCatFilters" method="GET" action="{{ route('equipos-auxiliares.catalogo') }}"
           onsubmit="event.preventDefault(); auxCatSubmit();">
-
-        {{-- Search libre --}}
-        <div class="aux-cat-filter {{ $reqSearch ? 'active' : '' }}">
-            <div class="aux-cat-filter-box">
-                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
-                <input type="text" id="auxCatSearch" name="search" value="{{ $reqSearch }}"
-                       placeholder="Marca, modelo o capacidad..." autocomplete="off"
-                       oninput="auxCatDebounce()">
-                @if($reqSearch)
-                    <i class="material-icons filter-clear" onclick="document.getElementById('auxCatSearch').value=''; auxCatSubmit();">close</i>
-                @endif
-            </div>
-        </div>
 
         {{-- Tipo --}}
         <div class="aux-cat-filter {{ $reqTipo && $reqTipo !== 'all' ? 'active' : '' }}" data-cat-role="dropdown">
@@ -311,8 +331,14 @@
                         'modelo'=> $it['modelo'] !== '—' ? $it['modelo'] : null,
                     ]);
                 @endphp
-                <a class="aux-cat-card" href="{{ $linkFiltro }}" style="text-decoration:none;color:inherit;" title="Ver auxiliares de este modelo">
-                    <div class="aux-cat-photo">
+                <div class="aux-cat-card" style="position:relative;">
+                    <div class="aux-cat-photo" style="cursor:pointer;"
+                         data-tipo="{{ $it['tipo'] }}"
+                         data-marca="{{ $it['marca'] }}"
+                         data-modelo="{{ $it['modelo'] }}"
+                         data-anio="{{ $it['anio'] ?? '' }}"
+                         onclick="event.preventDefault(); event.stopPropagation(); auxCatUploadPhoto(this);"
+                         title="Click para cambiar la foto del modelo">
                         @if($foto)
                             <img src="{{ asset($foto) }}" alt="{{ $it['marca'] }} {{ $it['modelo'] }}"
                                  onerror="this.outerHTML='<i class=&quot;material-icons placeholder&quot;>image_not_supported</i>'">
@@ -324,8 +350,14 @@
                             <i class="material-icons" style="font-size:13px;">inventory</i>
                             {{ $it['total'] }}
                         </span>
+                        @can('equipos.create')
+                            <div class="aux-cat-photo-overlay">
+                                <i class="material-icons">photo_camera</i>
+                                <span>Cambiar foto</span>
+                            </div>
+                        @endcan
                     </div>
-                    <div class="aux-cat-body">
+                    <a href="{{ $linkFiltro }}" class="aux-cat-body" style="text-decoration:none;color:inherit;" title="Ver auxiliares de este modelo">
                         <span class="aux-cat-marca">{{ $it['marca'] }}</span>
                         <span class="aux-cat-modelo">{{ $it['modelo'] }}</span>
                         <div class="aux-cat-meta">
@@ -336,27 +368,21 @@
                                 <span class="aux-cat-chip"><i class="material-icons" style="font-size:13px;">bolt</i>{{ $it['capacidad'] }}</span>
                             @endif
                         </div>
-                    </div>
-                </a>
+                    </a>
+                </div>
             @endforeach
         </div>
     @endif
 </div>
 
 <script>
-    // Submit del form (sin boton "Aplicar"). Reusa la URL actual + nuevos params.
+    // Submit del form (sin boton "Aplicar"). Activa el preloader global de la
+    // app antes de enviar — asi el usuario ve el spinner mientras Laravel
+    // recarga la pagina con los nuevos filtros (mismo patron que el resto del
+    // sistema usa con showPreloader/hidePreloader).
     function auxCatSubmit() {
+        if (typeof window.showPreloader === 'function') window.showPreloader();
         document.getElementById('auxCatFilters').submit();
-    }
-
-    // Debounce sobre el input de busqueda libre — submit automatico tras 350ms
-    // de inactividad. Para search vacio, dispara inmediato (limpiar resultados).
-    var _auxCatDebTimer = null;
-    function auxCatDebounce() {
-        clearTimeout(_auxCatDebTimer);
-        var v = document.getElementById('auxCatSearch').value.trim();
-        var delay = v.length === 0 ? 0 : 350;
-        _auxCatDebTimer = setTimeout(auxCatSubmit, delay);
     }
 
     // Dropdown helpers (mismo patron que auxMain* del listado principal).
@@ -389,5 +415,76 @@
         auxCatCloseList(prefix);
         auxCatSubmit();
     }
+
+    // ─── Upload de foto representativa por modelo+ano ──────────────────
+    // Click en la foto de una tarjeta abre el file picker. La foto se
+    // convierte a WebP en el servidor y se aplica a TODAS las unidades
+    // del mismo TIPO+MARCA+MODELO+ANIO (mismo patron que /admin/catalogo).
+    @can('equipos.create')
+    window.auxCatUploadPhoto = function (photoEl) {
+        var tipo   = photoEl.dataset.tipo   || '';
+        var marca  = photoEl.dataset.marca  || '';
+        var modelo = photoEl.dataset.modelo || '';
+        var anio   = photoEl.dataset.anio   || '';
+        if (!tipo || !marca || !modelo) {
+            if (window.showToast) window.showToast('Datos del modelo incompletos.', 'error');
+            return;
+        }
+
+        // Crear un input file invisible y disparar el click
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
+        input.style.display = 'none';
+        input.addEventListener('change', function () {
+            if (!input.files || !input.files[0]) return;
+            var file = input.files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                if (window.showToast) window.showToast('La foto supera los 5MB.', 'error');
+                return;
+            }
+            var fd = new FormData();
+            fd.append('foto', file);
+            fd.append('tipo', tipo);
+            fd.append('marca', marca);
+            fd.append('modelo', modelo);
+            if (anio) fd.append('anio', anio);
+            var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            if (typeof window.showPreloader === 'function') window.showPreloader();
+            fetch('{{ route("equipos-auxiliares.catalogo.uploadPhoto") }}', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: fd,
+                credentials: 'same-origin'
+            })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+            .then(function (res) {
+                if (res.ok && res.body.success) {
+                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada.', 'success');
+                    // Recarga la pagina para que se refresquen TODAS las
+                    // tarjetas de ese modelo (defensa simple, sin reescribir
+                    // el grid en JS).
+                    setTimeout(function () { window.location.reload(); }, 600);
+                } else {
+                    if (window.hidePreloader) window.hidePreloader();
+                    var msg = (res.body && res.body.message) || 'No se pudo subir la foto.';
+                    if (window.showToast) window.showToast(msg, 'error');
+                }
+            })
+            .catch(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) window.showToast('Error de red al subir la foto.', 'error');
+            });
+        });
+        document.body.appendChild(input);
+        input.click();
+        setTimeout(function () { document.body.removeChild(input); }, 1000);
+    };
+    @else
+    window.auxCatUploadPhoto = function () {
+        if (window.showToast) window.showToast('No tienes permiso para cambiar la foto del modelo.', 'error');
+    };
+    @endcan
 </script>
 @endsection

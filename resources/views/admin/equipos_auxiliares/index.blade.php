@@ -412,16 +412,16 @@
                         <span>Catálogo por Modelo</span>
                     </a>
 
-                    @can('super.admin')
-                    {{-- Eliminar Auxiliares Seleccionados (soft-delete con auditoria
-                         de quien borro). Visible solo para super.admin. --}}
+                    {{-- Eliminar Auxiliares Seleccionados — siempre visible. La
+                         validacion del permiso (user.delete) la hace JS al click.
+                         La eliminacion es soft-delete con auditoria de quien
+                         borro y queda en la papelera de /admin/historial-documentos. --}}
                     <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.bulkDeleteAuxiliaresSeleccionados();"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;"
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                         <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#dc2626;">delete_outline</i></div>
                         <span>Eliminar Seleccionados</span>
                     </a>
-                    @endcan
                 </div>
             </div>
         </form>
@@ -1959,12 +1959,21 @@
 </script>
 @endif
 
-@can('super.admin')
 {{-- Bulk delete de auxiliares (soft-delete con auditoria). Lee el set de
      IDs seleccionados desde window._auxSelectedMap (que el row-click ya
-     mantiene actualizado). Reusa el preloader/showToast/showModal globales. --}}
+     mantiene actualizado). Reusa el preloader/showToast/showModal globales.
+     El boton es siempre visible; el permiso (user.delete) se valida en JS
+     y tambien en el middleware can:user.delete de la ruta. --}}
+<script>
+    window.CAN_DELETE_AUX = {{ auth()->user() && (auth()->user()->can('user.delete') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+</script>
 <script>
 window.bulkDeleteAuxiliaresSeleccionados = function () {
+    if (window.CAN_DELETE_AUX === false || window.CAN_DELETE_AUX === 'false') {
+        if (window.showToast) window.showToast('No tienes permiso para eliminar auxiliares.', 'error');
+        else alert('No tienes permiso para eliminar auxiliares.');
+        return;
+    }
     var ids = Object.keys(window._auxSelectedMap || {}).map(function (x) { return parseInt(x, 10); });
     if (!ids.length) {
         if (window.showToast) window.showToast('Selecciona al menos un auxiliar (checkbox) antes de eliminar.', 'warning');
@@ -2014,5 +2023,4 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
     }
 };
 </script>
-@endcan
 @endsection

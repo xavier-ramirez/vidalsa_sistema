@@ -755,20 +755,14 @@ class EquipoAuxiliarController extends Controller
             }
         }
 
-        // Filtros opcionales
+        // Filtros opcionales (search libre eliminado: el catalogo se filtra
+        // solo por tipo y marca — son los unicos atributos relevantes para
+        // agrupar modelos).
         if ($request->filled('tipo') && $request->tipo !== 'all') {
             $base->where('TIPO', $request->tipo);
         }
         if ($request->filled('marca') && $request->marca !== 'all') {
             $base->where('MARCA', $request->marca);
-        }
-        if ($request->filled('search')) {
-            $s = trim($request->search);
-            $base->where(function ($q) use ($s) {
-                $q->where('MARCA', 'like', "%{$s}%")
-                  ->orWhere('MODELO', 'like', "%{$s}%")
-                  ->orWhere('CAPACIDAD', 'like', "%{$s}%");
-            });
         }
 
         // Agrupar por TIPO+MARCA+MODELO+ANIO — una sola tarjeta por modelo+ano
@@ -832,6 +826,121 @@ class EquipoAuxiliarController extends Controller
             'tipos'  => $tipos,
             'marcas' => $marcas,
         ]);
+    }
+
+    /**
+     * Sube/actualiza la foto representativa de un grupo del catalogo
+     * (tipo+marca+modelo+anio). Misma logica que CaracteristicaModeloController:
+     * convierte la imagen a WebP, sube a Google Drive (catalog_folder) y aplica
+     * la URL resultante a TODAS las unidades de ese modelo+anio en una sola
+     * UPDATE bulk. Permiso requerido: equipos.create.
+     */
+    public function uploadCatalogoPhoto(Request $request)
+    {
+        $validated = $request->validate([
+            'tipo'   => 'required|string|max:60',
+            'marca'  => 'required|string|max:80',
+            'modelo' => 'required|string|max:80',
+            'anio'   => 'nullable|integer',
+            'foto'   => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        // Scope LOCAL: solo si tiene auxiliares de ese modelo+ano en su scope.
+        // Sin esa pertenencia, no puede modificar la foto del catalogo.
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+
+        $tipoKey   = $validated['tipo'];
+        $marcaKey  = mb_strtoupper(trim($validated['marca']));
+        $modeloKey = mb_strtoupper(trim($validated['modelo']));
+        $anio      = $validated['anio'] ?? null;
+
+        // Convertir a WebP en disco temporal
+        $webpResult = $this->convertToWebp($request->file('foto'));
+        $webpFile    = $webpResult['file'];
+        $tempWebpPath = $webpResult['tempPath'];
+
+        try {
+            // Subir a Google Drive en la misma carpeta de catalogo (reuso)
+            $driveService = \App\Services\GoogleDriveService::getInstance();
+            $folderId = config('filesystems.disks.google.catalog_folder');
+            $filename = 'aux_catalog_' . time() . '_' . preg_replace('/[^A-Za-z0-9_]/', '_', $tipoKey . '_' . $marcaKey . '_' . $modeloKey . '_' . ($anio ?? 'NA')) . '.webp';
+            $driveFile = $driveService->uploadFile($folderId, $webpFile, $filename, 'image/webp');
+
+            if (!$driveFile || !isset($driveFile->id)) {
+                return response()->json(['success' => false, 'message' => 'No se pudo subir la foto a Google Drive.'], 500);
+            }
+            $fotoUrl = '/storage/google/' . $driveFile->id;
+
+            // Bulk UPDATE: todos los aux del mismo tipo+marca+modelo+ano reciben la foto
+            $q = EquipoAuxiliar::query()
+                ->where('TIPO', $tipoKey)
+                ->whereRaw('UPPER(TRIM(COALESCE(MARCA,?))) = ?', ['—', $marcaKey])
+                ->whereRaw('UPPER(TRIM(COALESCE(MODELO,?))) = ?', ['—', $modeloKey]);
+            if ($anio !== null) {
+                $q->where('ANIO', $anio);
+            } else {
+                $q->whereNull('ANIO');
+            }
+            if ($isLocalUser) {
+                if (count($frentesPermitidos) > 0) {
+                    $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+                } else {
+                    return response()->json(['success' => false, 'message' => 'No tienes auxiliares en tu scope para este modelo.'], 403);
+                }
+            }
+            $updated = $q->update(['FOTO' => $fotoUrl]);
+        } finally {
+            if ($tempWebpPath && file_exists($tempWebpPath)) @unlink($tempWebpPath);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Foto actualizada para {$updated} unidad(es).",
+            'foto'    => $fotoUrl,
+            'updated' => $updated,
+        ]);
+    }
+
+    /**
+     * Convierte una imagen subida a WebP (calidad 85) en archivo temporal.
+     * Replica el helper de CaracteristicaModeloController. Devuelve
+     * ['file' => UploadedFile-like, 'tempPath' => string|null] para que el
+     * caller pueda subirlo a Drive y limpiar el temp despues.
+     */
+    private function convertToWebp($file): array
+    {
+        $mime      = $file->getMimeType();
+        $imagePath = $file->getRealPath();
+
+        if ($mime === 'image/webp') {
+            return ['file' => $file, 'tempPath' => null];
+        }
+
+        $image = null;
+        if (in_array($mime, ['image/jpeg', 'image/jpg'])) {
+            $image = @imagecreatefromjpeg($imagePath);
+        } elseif ($mime === 'image/png') {
+            $image = @imagecreatefrompng($imagePath);
+            if ($image) {
+                imagepalettetotruecolor($image);
+                imagealphablending($image, false);
+                imagesavealpha($image, true);
+            }
+        }
+
+        if (!$image) {
+            // Fallback: subir el archivo original tal cual
+            return ['file' => $file, 'tempPath' => null];
+        }
+
+        $tempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('webp_') . '.webp';
+        imagewebp($image, $tempPath, 85);
+        imagedestroy($image);
+
+        $uploadedFile = new \Illuminate\Http\UploadedFile(
+            $tempPath, 'converted.webp', 'image/webp', null, true
+        );
+        return ['file' => $uploadedFile, 'tempPath' => $tempPath];
     }
 
     /**

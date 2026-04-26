@@ -531,16 +531,16 @@
                     <span style="font-size: 14px; font-weight: 500;">Catálogo de Modelos</span>
                 </a>
 
-                @can('super.admin')
-                <!-- Eliminar Seleccionados (soft-delete + auditoria de quien borro).
-                     "Ver Papelera" se accede desde /admin/historial-documentos. --}}
+                {{-- Eliminar Seleccionados — siempre visible. La validacion del
+                     permiso (user.delete) la hace JS al click. La eliminacion
+                     queda registrada en /admin/historial-documentos via
+                     auditoria de soft-delete (deleted_by + deleted_at). --}}
                 <button type="button" onclick="window.bulkDeleteEquiposSeleccionados()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent; border: none; width: 100%; text-align: left;">
                     <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
                         <i class="material-icons" style="font-size: 18px; color: #dc2626;">delete_outline</i>
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Eliminar Seleccionados</span>
                 </button>
-                @endcan
 
                 <!-- Nuevo -->
                 <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
@@ -1464,13 +1464,15 @@
 </script>
 @endif
 
-@can('super.admin')
 {{-- ═══════════════════════════════════════════════════════════
      PAPELERA DE EQUIPOS — soft-delete con auditoria de quien borro.
-     - bulkDeleteEquiposSeleccionados: borra los equipos checkboxeados.
-     - abrirPapeleraEquipos: abre modal con la lista de eliminados +
-       boton "Recuperar" por fila (PATCH /equipos/{id}/restore).
+     El boton "Eliminar Seleccionados" del dropdown es siempre visible:
+     la validacion del permiso (user.delete) la hace JS al click. La
+     ruta tambien valida via middleware can:user.delete (defensa en capas).
      ═══════════════════════════════════════════════════════════ --}}
+<script>
+    window.CAN_DELETE_EQUIPOS = {{ auth()->user() && (auth()->user()->can('user.delete') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+</script>
 <script>
 (function () {
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -1482,6 +1484,13 @@
 
     window.bulkDeleteEquiposSeleccionados = function () {
         document.getElementById('splitDropdownMenu').style.display = 'none';
+        // Permiso: el boton es siempre visible para mostrar la accion en el
+        // menu, pero solo se ejecuta si el usuario tiene user.delete.
+        if (window.CAN_DELETE_EQUIPOS === false || window.CAN_DELETE_EQUIPOS === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para eliminar equipos.', 'error');
+            else alert('No tienes permiso para eliminar equipos.');
+            return;
+        }
         const ids = getSelectedIds();
         if (ids.length === 0) {
             if (window.showToast) window.showToast('Selecciona al menos un equipo (checkbox) antes de eliminar.', 'warning');
@@ -1537,7 +1546,6 @@
     // el resto del audit trail. Aqui solo queda bulkDeleteEquiposSeleccionados.
 })();
 </script>
-@endcan
 
 @endsection
 @section('extra_js')

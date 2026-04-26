@@ -900,6 +900,12 @@
         #standardModal .modal-message {
             font-size: 0.85rem !important;
             margin-bottom: 15px !important;
+            max-height: 50vh;
+            overflow-y: auto;
+            word-break: break-word;
+            white-space: pre-wrap;
+            text-align: left;
+            padding: 0 4px;
         }
         #standardModal .modal-icon {
             font-size: 40px !important;
