@@ -42,7 +42,7 @@
 
             @if($driveFileId)
                 <div class="table-image-wrapper" style="cursor:default;">
-                    <img data-src="https://drive.google.com/thumbnail?id={{ $driveFileId }}&sz=w300"
+                    <img data-src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
                          alt="Foto"
                          style="width:100%; height:100%; object-fit:contain; opacity:0; transition:opacity 0.4s;">
                 </div>

@@ -28,7 +28,7 @@
                      aparecen progresivamente segun el browser las baja, en
                      lugar de bloquearse esperando todas. opacity:0 inicial
                      evita el flash de img rota mientras carga. --}}
-                <img src="https://drive.google.com/thumbnail?id={{ $driveFileId }}&sz=w300"
+                <img src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
                      alt="{{ $catalogo->MODELO }}"
                      loading="lazy"
                      decoding="async"

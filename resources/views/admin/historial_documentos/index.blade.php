@@ -201,27 +201,30 @@
                      user.delete; el modal valida + el endpoint via middleware) --}}
                 {{-- Papelera buttons compactos: solo icono + label corto.
                      Tooltip explica el alcance (vehiculos vs auxiliares). --}}
+                {{-- Papelera buttons icon-only (45x45) — alineados y compactos.
+                     Tooltip explica el alcance. Iconos distintos: directions_car
+                     para vehiculos, construction para auxiliares. Mismo bg
+                     neutro que el resto de la barra para no romper el ritmo
+                     visual del row de filtros. --}}
                 @can('user.delete')
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraEquipos"
                         onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
                         title="Papelera de Vehículos — recuperar vehículos eliminados"
-                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: #fef3c7; border: 1px solid #d97706; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                        onmouseover="this.style.background='#fde68a'"
-                        onmouseout="this.style.background='#fef3c7'">
-                        <i class="material-icons" style="font-size: 17px;">directions_car</i>
-                        <span>Papelera Veh.</span>
+                        style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
+                        onmouseover="this.style.background='#fef3c7'"
+                        onmouseout="this.style.background='white'">
+                        <i class="material-icons">directions_car</i>
                     </button>
                 </div>
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraAux"
                         onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
                         title="Papelera de Auxiliares — recuperar auxiliares eliminados"
-                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: #fff7ed; border: 1px solid #c2410c; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                        onmouseover="this.style.background='#fed7aa'"
-                        onmouseout="this.style.background='#fff7ed'">
-                        <i class="material-icons" style="font-size: 17px;">construction</i>
-                        <span>Papelera Aux.</span>
+                        style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
+                        onmouseover="this.style.background='#fff7ed'"
+                        onmouseout="this.style.background='white'">
+                        <i class="material-icons">construction</i>
                     </button>
                 </div>
                 @endcan
@@ -415,7 +418,11 @@
 {{-- Mobile: ocultar marca/modelo dentro de "Equipo Asociado" para reducir
      densidad. La info completa queda accesible al tap (modal de detalles). --}}
 <style>
-    @media (max-width: 768px) {
+    /* Solo en mobile real (<=600px) ocultamos marca/modelo de la columna
+       "Equipo Asociado" para reducir densidad. La info completa queda al
+       tap (modal de detalles). Antes era 768px pero eso afectaba laptops
+       chicos en PC desordenando la vista. */
+    @media (max-width: 600px) {
         #historialDocumentosTable .hd-equipo-marca-modelo { display: none; }
     }
 </style>
