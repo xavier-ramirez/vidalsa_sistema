@@ -583,11 +583,13 @@ class MovilizacionController extends Controller
                     $synthetic->tipo            = (object) ['nombre' => $a->TIPO ?? 'AUXILIAR'];
                     $synthetic->documentacion   = (object) ['PLACA' => 'S/P'];
                     $synthetic->especificaciones= null;
-                    // CATEGORIA_FLOTA = 'AUXILIAR' permite que la vista del acta
-                    // (responsables filtrados por RESP_X_EQU contra CATEGORIA_FLOTA)
-                    // matchee correctamente. Antes quedaba null y los responsables
-                    // con categoria asignada no aparecian en actas 100% de aux.
-                    $synthetic->CATEGORIA_FLOTA = 'AUXILIAR';
+                    // CATEGORIA_FLOTA = 'FLOTA LIVIANA' hace que los responsables del frente
+                    // configurados con RESP_N_EQU='FLOTA LIVIANA' (o vacío) pasen el filtro
+                    // en acta_traslado_pdf igual que para vehiculos livianos.
+                    // Antes era 'AUXILIAR' pero ningún RESP_N_EQU tiene ese valor en BD,
+                    // causando que RESP_1 (Coordinador Liviana) quedara fuera y RESP_2
+                    // (elaborador) recibiera la etiqueta 'SOLICITADO:' incorrectamente.
+                    $synthetic->CATEGORIA_FLOTA = 'FLOTA LIVIANA';
                     // Inyectamos en el modelo para que las refs ->equipo en la
                     // plantilla y el map() de abajo funcionen igual.
                     $mov->setRelation('equipo', $synthetic);
