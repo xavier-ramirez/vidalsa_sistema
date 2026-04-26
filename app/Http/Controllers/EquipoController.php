@@ -124,6 +124,9 @@ class EquipoController extends Controller
         // y el card "Ubicación por Frente" mostraba el conteo sin tener en
         // cuenta estos filtros. Usamos whereHas para evitar conflicto con los
         // leftJoin existentes (doc_search, doc_filter) en el query principal.
+        // IMPORTANTE: !=null Y !='': el LINK_* puede quedar como string vacio
+        // tras un borrado y un whereNotNull solo no lo descarta. Sin esto el
+        // filtro "Propiedad" devolvia equipos sin PDF cargado realmente.
         $docFlags = [
             'filter_propiedad' => 'LINK_DOC_PROPIEDAD',
             'filter_poliza'    => 'LINK_POLIZA_SEGURO',
@@ -133,7 +136,7 @@ class EquipoController extends Controller
         foreach ($docFlags as $param => $col) {
             if (!in_array($param, $exclude) && $request->filled($param) && $request->input($param) === 'true') {
                 $query->whereHas('documentacion', function ($q) use ($col) {
-                    $q->whereNotNull($col);
+                    $q->whereNotNull($col)->where($col, '!=', '');
                 });
             }
         }
@@ -554,19 +557,21 @@ class EquipoController extends Controller
                         ($request->filled('filter_racda') && $request->filter_racda === 'true');
 
         if ($hasDocFilter) {
+            // Mismo patron que applyEquipoFilters/index: !=null Y !=''
+            // (los LINK_* pueden quedar como string vacio tras un borrado).
             $equipos->leftJoin('documentacion AS doc_filter', 'equipos.ID_EQUIPO', '=', 'doc_filter.ID_EQUIPO')
                      ->where(function ($q) use ($request) {
                          if ($request->filled('filter_propiedad') && $request->filter_propiedad === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_DOC_PROPIEDAD');
+                             $q->whereNotNull('doc_filter.LINK_DOC_PROPIEDAD')->where('doc_filter.LINK_DOC_PROPIEDAD', '!=', '');
                          }
                          if ($request->filled('filter_poliza') && $request->filter_poliza === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_POLIZA_SEGURO');
+                             $q->whereNotNull('doc_filter.LINK_POLIZA_SEGURO')->where('doc_filter.LINK_POLIZA_SEGURO', '!=', '');
                          }
                          if ($request->filled('filter_rotc') && $request->filter_rotc === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_ROTC');
+                             $q->whereNotNull('doc_filter.LINK_ROTC')->where('doc_filter.LINK_ROTC', '!=', '');
                          }
                          if ($request->filled('filter_racda') && $request->filter_racda === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_RACDA');
+                             $q->whereNotNull('doc_filter.LINK_RACDA')->where('doc_filter.LINK_RACDA', '!=', '');
                          }
                      });
         }
