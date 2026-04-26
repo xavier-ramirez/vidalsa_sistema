@@ -1246,6 +1246,55 @@ class EquipoAuxiliarController extends Controller
         ]);
     }
 
+    /**
+     * Lista de auxiliares en papelera (soft-deleted) con metadata de quien
+     * borro y cuando — para mostrar en /admin/historial-documentos. Endpoint
+     * JSON simple, no pagina (la papelera no suele crecer demasiado).
+     */
+    public function papelera(Request $request)
+    {
+        $items = EquipoAuxiliar::onlyTrashed()
+            ->with(['frente:ID_FRENTE,NOMBRE_FRENTE'])
+            ->orderByDesc('deleted_at')
+            ->get();
+
+        $userIds = $items->pluck('deleted_by')->filter()->unique()->values()->all();
+        $usuarios = !empty($userIds)
+            ? \App\Models\Usuario::whereIn('ID_USUARIO', $userIds)
+                ->pluck('NOMBRE_COMPLETO', 'ID_USUARIO')->toArray()
+            : [];
+
+        $tipos = $this->getTiposDinamicos();
+        $rows = $items->map(function ($a) use ($usuarios, $tipos) {
+            return [
+                'id'             => $a->ID_AUXILIAR,
+                'tipo'           => $tipos[$a->TIPO] ?? $a->TIPO,
+                'marca'          => $a->MARCA,
+                'modelo'         => $a->MODELO,
+                'serial'         => $a->SERIAL,
+                'frente'         => optional($a->frente)->NOMBRE_FRENTE,
+                'deleted_at'     => optional($a->deleted_at)->format('d/m/Y H:i'),
+                'deleted_by'     => $a->deleted_by ? ($usuarios[$a->deleted_by] ?? '#' . $a->deleted_by) : null,
+            ];
+        });
+
+        return response()->json(['success' => true, 'items' => $rows]);
+    }
+
+    /**
+     * Restaura un auxiliar borrado (soft-delete -> activo). Limpia deleted_by
+     * para que el audit trail quede consistente.
+     */
+    public function restoreAuxiliar(Request $request, $id)
+    {
+        $aux = EquipoAuxiliar::onlyTrashed()->where('ID_AUXILIAR', $id)->firstOrFail();
+        $aux->deleted_by = null;
+        $aux->save();
+        $aux->restore();
+
+        return response()->json(['success' => true, 'message' => 'Auxiliar restaurado.']);
+    }
+
     // ═══════════════════════════════════════════════════════════
     // ANCHOR 1:N (tope 2 auxiliares por equipo host)
     // ═══════════════════════════════════════════════════════════

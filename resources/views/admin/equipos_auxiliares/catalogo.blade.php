@@ -217,6 +217,33 @@
     .aux-cat-photo-overlay .material-icons { font-size: 28px; }
     .aux-cat-card:hover .aux-cat-photo-overlay { opacity: 1; }
 
+    /* Boton flotante "Editar foto" — siempre visible (descubrible en touch
+       donde el hover no aplica). Esquina inferior derecha de la foto. */
+    .aux-cat-edit-btn {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #e2e8f0;
+        color: #0067b1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(15,23,42,0.18);
+        transition: background 0.15s, transform 0.15s;
+        z-index: 3;
+    }
+    .aux-cat-edit-btn:hover {
+        background: #0067b1;
+        color: #fff;
+        transform: scale(1.05);
+    }
+    .aux-cat-edit-btn .material-icons { font-size: 18px; }
+
     @media (max-width: 600px) {
         .aux-cat-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     }
@@ -231,18 +258,9 @@
             Una tarjeta por modelo+año. La foto representa a TODAS las unidades de ese modelo y año.
         </p>
     </div>
-    {{-- Boton "Nuevo" — mismo patron que /admin/catalogo (modulo de equipos):
-         siempre visible, valida permiso al click. Redirige al form de
-         creacion de auxiliar — no existe entidad "modelo" separada para
-         auxiliares; el catalogo se auto-construye a partir de equipos_auxiliares. --}}
-    <a href="{{ route('equipos-auxiliares.create') }}" class="btn-primary-maquinaria"
-       style="height:45px;display:inline-flex;align-items:center;padding:0 15px;text-decoration:none;gap:8px;"
-       @cannot('equipos.create')
-           onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos auxiliares.', 'error');"
-       @endcannot>
-        <i class="material-icons" style="font-size:18px;">add_circle</i>
-        Nuevo
-    </a>
+    {{-- Boton "Nuevo" se desplazo dentro del row de filtros (al lado del
+         filtro de Marca) para mantener el patron de /admin/catalogo y para
+         que en mobile siga aparte sin estorbar el titulo. --}}
 </div>
 
 <div class="admin-card" style="margin:0;min-height:60vh;padding:14px;">
@@ -311,6 +329,17 @@
                 @endforeach
             </div>
         </div>
+
+        {{-- Boton "Nuevo" — al lado del ultimo filtro (mismo patron de
+             /admin/catalogo). Visible siempre, valida permiso al click. --}}
+        <a href="{{ route('equipos-auxiliares.create') }}" class="btn-primary-maquinaria"
+           style="height:45px;display:inline-flex;align-items:center;padding:0 15px;text-decoration:none;gap:8px;flex:0 0 auto;"
+           @cannot('equipos.create')
+               onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos auxiliares.', 'error');"
+           @endcannot>
+            <i class="material-icons" style="font-size:18px;">add_circle</i>
+            Nuevo
+        </a>
     </form>
 
     @if($items->isEmpty())
@@ -355,6 +384,14 @@
                                 <i class="material-icons">photo_camera</i>
                                 <span>Cambiar foto</span>
                             </div>
+                            {{-- Boton de edicion explicito (visible siempre): el overlay solo
+                                 aparece al hover, este boton hace la accion descubrible en
+                                 mobile/touch donde no hay hover. --}}
+                            <button type="button" class="aux-cat-edit-btn"
+                                    onclick="event.preventDefault(); event.stopPropagation(); auxCatUploadPhoto(this.parentElement);"
+                                    title="Cambiar foto del modelo">
+                                <i class="material-icons">edit</i>
+                            </button>
                         @endcan
                     </div>
                     <a href="{{ $linkFiltro }}" class="aux-cat-body" style="text-decoration:none;color:inherit;" title="Ver auxiliares de este modelo">

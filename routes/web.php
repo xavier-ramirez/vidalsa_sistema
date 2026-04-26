@@ -125,6 +125,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('equipos-auxiliares/catalogo',       [App\Http\Controllers\EquipoAuxiliarController::class, 'catalogo'])->name('equipos-auxiliares.catalogo');
             Route::post  ('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadCatalogoPhoto'])->middleware('can:equipos.create')->name('equipos-auxiliares.catalogo.uploadPhoto');
             Route::post  ('equipos-auxiliares/bulk-delete',    [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos-auxiliares.bulkDelete');
+            Route::get   ('equipos-auxiliares/papelera',       [App\Http\Controllers\EquipoAuxiliarController::class, 'papelera'])->middleware('can:user.delete')->name('equipos-auxiliares.papelera');
+            Route::patch ('equipos-auxiliares/{id}/restore',   [App\Http\Controllers\EquipoAuxiliarController::class, 'restoreAuxiliar'])->middleware('can:user.delete')->name('equipos-auxiliares.restore');
             // Listado y export de auxiliares anclados a equipos host (modal Acciones).
             Route::get   ('equipos-auxiliares/anchored',          [App\Http\Controllers\EquipoAuxiliarController::class, 'anchoredList'])->name('equipos-auxiliares.anchoredList');
             Route::get   ('equipos-auxiliares/export-anclajes',   [App\Http\Controllers\EquipoAuxiliarController::class, 'exportAnclajes'])->name('equipos-auxiliares.exportAnclajes');

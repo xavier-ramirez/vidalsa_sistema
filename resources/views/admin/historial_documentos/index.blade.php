@@ -187,17 +187,29 @@
                      boton aparecia siempre que hubiera permiso super.admin).
                      La lista de IPs sigue visible en el sidebar derecho. --}}
 
-                @can('super.admin')
-                <!-- Boton Papelera de Equipos -->
+                {{-- Botones de Papelera (siempre visibles para usuarios con
+                     user.delete; el modal valida + el endpoint via middleware) --}}
+                @can('user.delete')
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraEquipos"
                         onclick="window.abrirPapeleraEquipos()"
-                        title="Ver Papelera de Equipos"
+                        title="Papelera de Vehiculos eliminados"
                         style="height: 45px; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700;"
                         onmouseover="this.style.background='#fef3c7'"
                         onmouseout="this.style.background='white'">
                         <i class="material-icons" style="font-size: 18px;">history</i>
-                        <span>Papelera</span>
+                        <span>Papelera Vehículos</span>
+                    </button>
+                </div>
+                <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
+                    <button type="button" id="btnVerPapeleraAux"
+                        onclick="window.abrirPapeleraAuxiliares()"
+                        title="Papelera de Auxiliares eliminados"
+                        style="height: 45px; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700;"
+                        onmouseover="this.style.background='#fff7ed'"
+                        onmouseout="this.style.background='white'">
+                        <i class="material-icons" style="font-size: 18px;">history</i>
+                        <span>Papelera Auxiliares</span>
                     </button>
                 </div>
                 @endcan
@@ -388,7 +400,7 @@
      cuando $blockedIps->count() era 0 — la funcion JS se renderizaba bajo
      la condicion count > 0 pero el boton aparecia siempre. --}}
 
-@can('super.admin')
+@can('user.delete')
 {{-- ═══════════════════════════════════════════════════════════
      PAPELERA DE EQUIPOS — soft-deleted con auditoria de quien borro.
      Movida a /admin/historial-documentos donde tiene sentido junto al
@@ -508,6 +520,116 @@
                 onConfirm: proceed
             });
         } else if (confirm('¿Recuperar el equipo "' + label + '"?')) {
+            proceed();
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // PAPELERA DE AUXILIARES — mismo patron que la de equipos
+    // ═══════════════════════════════════════════════════════════
+    window.abrirPapeleraAuxiliares = function () {
+        var old = document.getElementById('papeleraAuxOverlay');
+        if (old) old.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'papeleraAuxOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
+        overlay.innerHTML = '<div style="background:white;border-radius:16px;width:90%;max-width:680px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
+            '<div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
+                '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<i class="material-icons" style="color:#f59e0b;font-size:20px;">history</i>' +
+                    '<h2 style="margin:0;font-size:16px;font-weight:700;">Papelera de Auxiliares</h2>' +
+                '</div>' +
+                '<button type="button" id="btnClosePapeleraAux" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7"><i class="material-icons">close</i></button>' +
+            '</div>' +
+            '<div style="padding:18px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;">' +
+                '<p style="margin:0 0 12px;font-size:12px;color:#64748b;text-align:center;">Auxiliares eliminados. Click en "Recuperar" para reactivarlos.</p>' +
+                '<div id="papeleraAuxList" style="overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;flex:1;min-height:200px;">' +
+                    '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:24px;">sync</i></div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+        document.getElementById('btnClosePapeleraAux').onclick = function () { overlay.remove(); };
+
+        cargarPapeleraAux();
+    };
+
+    function cargarPapeleraAux() {
+        var list = document.getElementById('papeleraAuxList');
+        if (!list) return;
+        fetch('{{ route("equipos-auxiliares.papelera") }}', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.items || data.items.length === 0) {
+                list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="font-size:32px;display:block;margin:0 auto 10px;">inbox</i>La papelera está vacía</div>';
+                return;
+            }
+            list.innerHTML = data.items.map(function (it) {
+                var idStr = it.serial || ('#' + it.id);
+                var meta = [esc(it.marca || ''), esc(it.modelo || '')].filter(Boolean).join(' · ');
+                return '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:white;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:6px;">' +
+                    '<div style="width:48px;height:48px;border-radius:8px;background:#fff7ed;color:#c2410c;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #fed7aa;">' +
+                        '<i class="material-icons" style="font-size:22px;">construction</i>' +
+                    '</div>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-weight:700;color:#1e293b;font-size:13px;text-transform:uppercase;line-height:1.2;">' + esc(it.tipo || 'AUXILIAR') + '</div>' +
+                        (meta ? '<div style="font-size:12px;color:#475569;margin-top:2px;">' + meta + '</div>' : '') +
+                        '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;font-size:11px;color:#64748b;">' +
+                            '<span><strong style="color:#334155;">Serial:</strong> ' + esc(idStr) + '</span>' +
+                            (it.frente ? '<span style="color:#f97316;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">place</i> ' + esc(it.frente) + '</span>' : '') +
+                        '</div>' +
+                        '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">' +
+                            (it.deleted_by ? '<i class="material-icons" style="font-size:11px;vertical-align:middle;">person</i> ' + esc(it.deleted_by) : '') +
+                            (it.deleted_at ? ' · <i class="material-icons" style="font-size:11px;vertical-align:middle;">schedule</i> ' + esc(it.deleted_at) : '') +
+                        '</div>' +
+                    '</div>' +
+                    '<button type="button" onclick="window.recuperarAuxiliar(' + it.id + ', \'' + esc(idStr).replace(/\'/g, "\\\'") + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;background:#10b981;border-color:#10b981;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">' +
+                        '<i class="material-icons" style="font-size:14px;">restore</i>Recuperar' +
+                    '</button>' +
+                '</div>';
+            }).join('');
+        })
+        .catch(function () {
+            list.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:13px;">Error al cargar la papelera.</div>';
+        });
+    }
+
+    window.recuperarAuxiliar = function (id, label) {
+        var proceed = function () {
+            if (window.showPreloader) window.showPreloader();
+            fetch('{{ url("admin/equipos-auxiliares") }}/' + id + '/restore', {
+                method: 'PATCH',
+                headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
+            .then(function (res) {
+                if (window.hidePreloader) window.hidePreloader();
+                if (res.ok && res.body.success) {
+                    if (window.showToast) window.showToast(res.body.message || 'Auxiliar recuperado.', 'success');
+                    cargarPapeleraAux();
+                } else {
+                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo recuperar.', 'error');
+                }
+            })
+            .catch(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) window.showToast('Error de red al recuperar.', 'error');
+            });
+        };
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: 'info',
+                title: 'Recuperar Auxiliar',
+                message: '¿Restaurar el auxiliar "' + label + '"?\n\nVolverá a aparecer en el listado activo.',
+                confirmText: 'Sí, recuperar',
+                cancelText: 'Cancelar',
+                onConfirm: proceed
+            });
+        } else if (confirm('¿Recuperar el auxiliar "' + label + '"?')) {
             proceed();
         }
     };
