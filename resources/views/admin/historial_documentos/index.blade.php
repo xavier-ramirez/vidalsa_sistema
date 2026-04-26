@@ -57,13 +57,17 @@
         align-items: stretch;
     }
     .hd-filter-row > .filter-item.responsive-filter-item {
-        flex: 1 1 240px !important;
+        flex: 1 1 200px !important;
         max-width: none !important;
-        min-width: 240px;
+        min-width: 180px;
+    }
+    .hd-adv-filter-wrap {
+        position: relative;
+        flex: 0 0 auto;
     }
     .hd-papelera-group {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         flex: 0 0 auto;
     }
     .hd-papelera-group .filter-item {
@@ -86,37 +90,39 @@
         }
     }
 
-    /* Mobile: en la tarjeta de la tabla (table-usuarios-mobile transforma td
-       en lineas), mover el correo del autor a la misma fila que la fecha
-       en lugar de bajo. La data viene en el TD #2, por eso lo absolute para
-       que aparezca al lado del TD #1 (fecha). */
+    /* Mobile: tarjetas mas compactas — pedido del usuario:
+       "solo muestra el tipo de equipo (vehiculo/aux) con su serial".
+       Ocultamos: TD#1 (fecha+hora), TD#2 (autor), TD#3 (tipo doc), TD#5 (boton PDF).
+       Mostramos: TD#4 (Equipo Asociado) que ya contiene tipo + serial.
+
+       Las reglas .table-usuarios-mobile globales convierten cada td en
+       bloque al 100% — aqui solo agregamos display:none a las que el
+       usuario no quiere ver. El boton PDF se mueve al footer si existe
+       (queda accesible via boton flotante absolute). */
     @media (max-width: 768px) {
         #historialDocumentosTable.table-usuarios-mobile tbody tr {
             position: relative;
-            padding-top: 50px !important;
+            padding: 12px 14px !important;
+            min-height: 50px;
         }
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(1) {
-            position: absolute;
-            top: 12px;
-            left: 12px;
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(1),
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(2),
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(3) {
+            display: none !important;
+        }
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(4) {
+            text-align: left !important;
             padding: 0 !important;
-            background: transparent !important;
+            font-size: 13px;
         }
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(2) {
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(5) {
             position: absolute;
-            top: 12px;
+            top: 50%;
             right: 12px;
-            text-align: right;
+            transform: translateY(-50%);
             padding: 0 !important;
             background: transparent !important;
-            border-bottom: none !important;
-        }
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(2) .badge-autor {
-            background: transparent;
-            padding: 0;
-            color: #475569;
-            font-size: 11px;
-            font-weight: 600;
+            border: none !important;
         }
     }
 </style>
@@ -222,6 +228,41 @@
                     </div>
                 </div>
 
+                {{-- Boton Filtros Avanzados (rango de fechas en popover).
+                     Se resalta en rojo si hay algun filtro activo. --}}
+                @php
+                    $hasAdvHd = request()->filled('fecha_desde') || request()->filled('fecha_hasta');
+                @endphp
+                <div class="hd-adv-filter-wrap">
+                    <button type="button" id="btnHdAdvancedFilter"
+                        onclick="event.stopPropagation(); var p=document.getElementById('hdAdvancedFilterPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none';"
+                        title="Filtros Avanzados (fechas)"
+                        style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: {{ $hasAdvHd ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAdvHd ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAdvHd ? '#ef4444' : '#64748b' }}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="material-icons">filter_list</i>
+                    </button>
+                    <div id="hdAdvancedFilterPanel" style="display:none; position:absolute; top:100%; right:0; width:280px; max-width:calc(100vw - 24px); background:#e2e8f0; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); margin-top:8px; padding:14px; z-index:100;">
+                        <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
+                            Filtros Avanzados
+                            <span style="font-size:11px; color:#64748b; font-weight:400; text-decoration:underline; cursor:pointer;"
+                                  onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; window.loadHistorialDocumentos && window.loadHistorialDocumentos();">Limpiar</span>
+                        </h4>
+                        <div style="margin-bottom:10px;">
+                            <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha desde</span>
+                            <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
+                                onchange="window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
+                                onclick="try { this.showPicker(); } catch(e) {}"
+                                style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                        </div>
+                        <div>
+                            <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha hasta</span>
+                            <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
+                                onchange="window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
+                                onclick="try { this.showPicker(); } catch(e) {}"
+                                style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Papelera buttons agrupados con label — desktop: lado a lado
                      en el row de filtros, mobile: full width compartido 50/50. --}}
                 @can('user.delete')
@@ -295,8 +336,23 @@
             </div>
         </div>
 
-        <!-- IPs Bloqueadas Card -->
-        @if(isset($blockedIps) && $blockedIps->count() > 0 && auth()->check() && auth()->user()->can('super.admin'))
+        {{-- IPs Bloqueadas Card — siempre visible para super.admin (incluso con 0 IPs).
+             Muestra empty state si no hay bloqueadas; con datos permite filtrar
+             y desbloquear individualmente con el icono de bote. --}}
+        @if(auth()->check() && auth()->user()->can('super.admin'))
+        @php $bipsCount = isset($blockedIps) ? $blockedIps->count() : 0; @endphp
+        @if($bipsCount === 0)
+        <div style="background: white; border-radius: 12px; padding: 14px 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="color: #16a34a; font-size: 18px;">verified_user</i>
+                    <h3 style="margin: 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
+                </div>
+                <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700;">0</span>
+            </div>
+            <p style="margin: 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 4px 0;">Sin IPs bloqueadas (umbral: 10 intentos fallidos).</p>
+        </div>
+        @else
         <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; z-index: 20;" id="blocked-ips-container">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -346,7 +402,8 @@
                 @endforeach
             </div>
         </div>
-        @endif
+        @endif {{-- bipsCount > 0 --}}
+        @endif {{-- can super.admin --}}
 
         {{-- ─── Usuarios Activos (sesiones últimos 30 min) ─── --}}
         @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
@@ -427,6 +484,20 @@
         border-right-color: #93c5fd !important;
     }
 </style>
+
+{{-- Cierre del panel "Filtros Avanzados" al click fuera. Idempotente. --}}
+<script>
+    (function () {
+        if (window._hdAdvFilterOutsideAttached) return;
+        window._hdAdvFilterOutsideAttached = true;
+        document.addEventListener('click', function (ev) {
+            var panel = document.getElementById('hdAdvancedFilterPanel');
+            var wrap  = ev.target.closest('.hd-adv-filter-wrap');
+            if (!panel || panel.style.display === 'none') return;
+            if (!wrap) panel.style.display = 'none';
+        });
+    })();
+</script>
 
 {{-- ═══════════════════════════════════════════════════════════
      PAPELERA — modales de vehículos + auxiliares soft-deleted.
