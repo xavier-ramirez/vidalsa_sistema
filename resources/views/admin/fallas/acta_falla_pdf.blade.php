@@ -155,20 +155,14 @@
     <tr>
         <!-- REPORTADO POR -->
         <td width="45%" align="center" valign="bottom">
-            <table width="100%" border="0" cellpadding="0" cellspacing="0">
+            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                 <tr><td align="center" style="font-size: 9pt;"><b>REPORTADO POR:</b></td></tr>
-                <tr><td height="35">&nbsp;</td></tr>
-                <tr>
-                    <td>
-                        <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                            <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-<tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($falla->CARGO_REPORTA ?: 'RESPONSABLE') }}</b></td></tr>
-<tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($falla->NOMBRE_REPORTA ?? '') }}</td></tr>
-<tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ $falla->EMAIL_REPORTA ?? '' }}</td></tr>
-<tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ $falla->FECHA_EMISION->format('d/m/Y H:i') }}</td></tr>
-                        </table>
-                    </td>
-                </tr>
+                <tr><td height="30">&nbsp;</td></tr>
+                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($falla->CARGO_REPORTA ?: 'RESPONSABLE') }}</b></td></tr>
+                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($falla->NOMBRE_REPORTA ?? '') }}</td></tr>
+                <tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ $falla->EMAIL_REPORTA ?? '' }}</td></tr>
+                <tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ $falla->FECHA_EMISION->format('d/m/Y H:i') }}</td></tr>
             </table>
         </td>
 
@@ -176,27 +170,21 @@
 
         <!-- AUTORIZA / CIERRE -->
         <td width="45%" align="center" valign="bottom">
-            <table width="100%" border="0" cellpadding="0" cellspacing="0">
-<tr><td align="center" style="font-size: 9pt;"><b>{{ $falla->ESTADO_REPORTE === 'cerrado' ? 'AUTORIZA CIERRE:' : 'AUTORIZA / SUPERVISOR:' }}</b></td></tr>
-                <tr><td height="35">&nbsp;</td></tr>
-                <tr>
-                    <td>
-                        <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                            <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                            @if($falla->ESTADO_REPORTE === 'cerrado')
-<tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($falla->CARGO_CIERRA ?: 'RESPONSABLE') }}</b></td></tr>
-<tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($falla->NOMBRE_CIERRA ?? '') }}</td></tr>
-<tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ optional($falla->FECHA_CIERRE)->format('d/m/Y H:i') }}</td></tr>
-                            @else
-                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                            <tr><td height="2">&nbsp;</td></tr>
-                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
-                            <tr><td height="2">&nbsp;</td></tr>
-                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Firma: _____________________________</td></tr>
-                            @endif
-                        </table>
-                    </td>
-                </tr>
+            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
+                <tr><td align="center" style="font-size: 9pt;"><b>{{ $falla->ESTADO_REPORTE === 'cerrado' ? 'AUTORIZA CIERRE:' : 'AUTORIZA / SUPERVISOR:' }}</b></td></tr>
+                <tr><td height="30">&nbsp;</td></tr>
+                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                @if($falla->ESTADO_REPORTE === 'cerrado')
+                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($falla->CARGO_CIERRA ?: 'RESPONSABLE') }}</b></td></tr>
+                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($falla->NOMBRE_CIERRA ?? '') }}</td></tr>
+                <tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ optional($falla->FECHA_CIERRE)->format('d/m/Y H:i') }}</td></tr>
+                @else
+                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
+                <tr><td height="2">&nbsp;</td></tr>
+                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                <tr><td height="2">&nbsp;</td></tr>
+                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Firma: _____________________________</td></tr>
+                @endif
             </table>
         </td>
     </tr>

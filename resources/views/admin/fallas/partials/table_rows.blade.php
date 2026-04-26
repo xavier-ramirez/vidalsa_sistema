@@ -55,7 +55,8 @@
                 </a>
             @endif
             @if($f->ESTADO_REPORTE === 'abierto')
-                <button type="button" class="falla-btn" onclick="window.cerrarFalla({{ $f->ID_FALLA }}, true)" title="Cerrar reporte y restaurar a OPERATIVO">
+                <button type="button" class="falla-btn" title="Cerrar reporte"
+                    onclick="window.cerrarFalla({{ $f->ID_FALLA }}, '{{ $f->CODIGO_REPORTE }}', '{{ addslashes($marcaModelo) }}')">
                     <i class="material-icons" style="font-size:16px;">check_circle</i> Cerrar
                 </button>
             @endif

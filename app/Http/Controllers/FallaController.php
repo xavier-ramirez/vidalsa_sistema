@@ -415,7 +415,7 @@ class FallaController extends Controller
         $html = view('admin.fallas.acta_falla_pdf', compact('falla', 'activo'))->render();
         $pdf->writeHTML($html, true, false, true, false, '');
 
-        return $pdf->Output('Reporte_Falla_' . $falla->CODIGO_REPORTE . '.pdf', 'D');
+        return $pdf->Output('Reporte_Falla_' . $falla->CODIGO_REPORTE . '.pdf', 'I');
     }
 }
 

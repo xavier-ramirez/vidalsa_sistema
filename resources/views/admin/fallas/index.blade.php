@@ -139,6 +139,14 @@
 
                 <input type="date" id="fallasFechaDesde" class="fl-input" style="width:auto; height:45px;" value="{{ request('fecha_desde') }}" onchange="window.cargarFallas()">
                 <input type="date" id="fallasFechaHasta" class="fl-input" style="width:auto; height:45px;" value="{{ request('fecha_hasta') }}" onchange="window.cargarFallas()">
+                @if($responsables->count() > 0)
+                <select id="fallasResponsable" class="fl-select" style="width:auto; height:45px; min-width:160px;" onchange="window.cargarFallas()">
+                    <option value="">Todos los responsables</option>
+                    @foreach($responsables as $r)
+                        <option value="{{ $r->ID_USUARIO }}" {{ request('responsable') == $r->ID_USUARIO ? 'selected' : '' }}>{{ $r->NOMBRE_COMPLETO }}</option>
+                    @endforeach
+                </select>
+                @endif
 
                 <div style="margin-left:auto; display:flex; gap:8px;">
                     <button type="button" id="btnCambiarEstado" onclick="window.openCambioEstadoModal()" class="falla-btn" style="height:45px;">
@@ -345,6 +353,38 @@
     </div>
 </div>
 
+{{-- ─── Modal: Cerrar Reporte de Falla ─────────────────────────── --}}
+<div id="cierreReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCierreModal()">
+    <div class="fl-modal" style="max-width:520px;">
+        <div class="fl-modal-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="material-icons">check_circle</i>
+                <h3 style="margin:0; font-size:15px; font-weight:700;">Cerrar Reporte de Falla</h3>
+            </div>
+            <button type="button" onclick="window.closeCierreModal()" style="background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i class="material-icons">close</i></button>
+        </div>
+        <div class="fl-modal-body">
+            <div id="cierreInfoMsg" style="padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#475569;"></div>
+            <div>
+                <label class="fl-field-label">Observaciones de cierre <span style="font-weight:400; color:#94a3b8;">(opcional)</span></label>
+                <textarea id="cierreObservaciones" class="fl-textarea" placeholder="Describe las acciones correctivas realizadas..."></textarea>
+            </div>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:#e1effa; border-radius:8px; border:1px solid #93c5fd;">
+                <input type="checkbox" id="cierreRestaurar" checked style="width:16px; height:16px; cursor:pointer; accent-color:#0067b1;">
+                <span style="font-size:13px; font-weight:600; color:#0067b1;">Restaurar equipo a estado <strong>OPERATIVO</strong></span>
+            </label>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="window.closeCierreModal()" class="falla-btn" style="height:44px; flex:1; justify-content:center;">
+                    <i class="material-icons" style="font-size:16px;">close</i> Cancelar
+                </button>
+                <button type="button" id="btnConfirmarCierre" onclick="window.submitCierreReporte()" class="falla-btn falla-btn-primary" style="height:44px; flex:2; justify-content:center;">
+                    <i class="material-icons" style="font-size:16px;">check_circle</i> Confirmar Cierre
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('extra_js')
@@ -363,11 +403,13 @@
         const ta = document.getElementById('fallasTipoActivo')?.value || '';
         const fd = document.getElementById('fallasFechaDesde')?.value || '';
         const fh = document.getElementById('fallasFechaHasta')?.value || '';
+        const resp = document.getElementById('fallasResponsable')?.value || '';
         if (sv) params.set('search', sv);
         if (es) params.set('estatus', es);
         if (ta) params.set('tipo_activo', ta);
         if (fd) params.set('fecha_desde', fd);
         if (fh) params.set('fecha_hasta', fh);
+        if (resp) params.set('responsable', resp);
 
         if (window.showPreloader) window.showPreloader();
         fetch('{{ route("fallas.index") }}?' + params.toString(), {
@@ -535,14 +577,33 @@
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // ─── Cerrar reporte ───
-    window.cerrarFalla = function (id, restaurar) {
-        if (!confirm('¿Confirmas el cierre del reporte? ' + (restaurar ? 'El equipo regresará a OPERATIVO.' : ''))) return;
+    // ─── Cerrar reporte (modal con observaciones + opción restaurar) ───
+    let _cierreId = null;
+
+    window.cerrarFalla = function (id, codigo, equipo) {
+        _cierreId = id;
+        const msg = document.getElementById('cierreInfoMsg');
+        if (msg) msg.innerHTML = '<i class="material-icons" style="font-size:16px; vertical-align:middle; color:#d97706;">report_problem</i> Cerrando reporte <strong>' + (codigo || '#' + id) + '</strong>' + (equipo ? ' · ' + equipo : '');
+        document.getElementById('cierreObservaciones').value = '';
+        document.getElementById('cierreRestaurar').checked = true;
+        document.getElementById('cierreReporteOverlay').classList.add('active');
+    };
+
+    window.closeCierreModal = function () {
+        document.getElementById('cierreReporteOverlay').classList.remove('active');
+        _cierreId = null;
+    };
+
+    window.submitCierreReporte = function () {
+        if (!_cierreId) return;
+        const btn = document.getElementById('btnConfirmarCierre');
         const fd = new FormData();
         fd.append('_method', 'PATCH');
-        fd.append('restaurar_estado', restaurar ? '1' : '0');
+        fd.append('restaurar_estado', document.getElementById('cierreRestaurar').checked ? '1' : '0');
+        fd.append('observaciones_cierre', document.getElementById('cierreObservaciones').value);
+        btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        fetch('{{ url("admin/fallas") }}/' + id + '/close', {
+        fetch('{{ url("admin/fallas") }}/' + _cierreId + '/close', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
             body: fd
@@ -551,12 +612,14 @@
         .then(body => {
             if (body.success) {
                 if (window.showToast) window.showToast(body.message, 'success');
+                window.closeCierreModal();
                 window.cargarFallas();
             } else {
                 if (window.showToast) window.showToast(body.message || 'Error al cerrar', 'error');
             }
         })
-        .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
+        .catch(e => { console.error(e); if (window.showToast) window.showToast('Error de red', 'error'); })
+        .finally(() => { btn.disabled = false; if (window.hidePreloader) window.hidePreloader(); });
     };
 })();
 </script>
