@@ -760,14 +760,14 @@
         };
 
         function _cargarDatosLocal() {
-            // Preloader global SIEMPRE (inicial + subsecuente). Antes solo se
-            // mostraba en subsecuente confiando en el preloader del SPA, pero
-            // el SPA hide antes de que la fetch /graficos-data termine — por
-            // eso el usuario veia "spinner se quita pero los graficos aun no
-            // estan". Ahora extendemos el preloader hasta el primer paint
-            // real de los renderXxx via 300ms post-render (mas robusto que
-            // 2x requestAnimationFrame).
-            if (typeof window.showPreloader === 'function') {
+            // Preloader global SOLO en cambios de filtro subsecuentes. En la
+            // carga inicial confiamos en el preloader del SPA — mostrar
+            // tambien el nuestro causaba "doble parpadeo": SPA spinner =>
+            // vista breve => nuestro spinner => vista final. Los spinners
+            // locales por seccion (loadingTotalFrente, etc) dan feedback
+            // granular durante la primera carga sin overlay global.
+            const isSubsequent = window._graficosFirstRunDone === true;
+            if (isSubsequent && typeof window.showPreloader === 'function') {
                 window.showPreloader();
             }
             const params = getParams();
