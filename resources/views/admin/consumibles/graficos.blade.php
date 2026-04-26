@@ -716,7 +716,7 @@
 
         window.chartTipoEq = window.chartTipoEq || null;
         window.chartEqFrente = window.chartEqFrente || null;
-        window.chartCauchoModelo = window.chartCauchoModelo || null;
+        // chartCauchoModelo declarado removido junto con el panel de Cauchos.
 
         if (window.chartCheckInterval) clearInterval(window.chartCheckInterval);
         window.chartCheckInterval = setInterval(() => {
@@ -731,7 +731,6 @@
         var TIPO_LABEL = window.TIPO_LABEL;
         var chartTipoEq = window.chartTipoEq;
         var chartEqFrente = window.chartEqFrente;
-        var chartCauchoModelo = window.chartCauchoModelo;
 
         function getParams() {
             var p = new URLSearchParams();
