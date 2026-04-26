@@ -687,6 +687,12 @@
                     class="mobile-nav-link {{ request()->is('admin/catalogo*') ? 'active' : '' }}">
                     <i class="material-icons">menu_book</i> Catálogo de Modelos
                 </a>
+                @can('super.admin')
+                <a href="{{ route('historial-documentos.index') }}"
+                    class="mobile-nav-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">
+                    <i class="material-icons">fact_check</i> Control de Auditoría
+                </a>
+                @endcan
             </div>
         </div>
 
@@ -1111,7 +1117,12 @@
         <script>
             function toggleMobileMenu() {
                 const menu = document.getElementById('mobileMenu');
-                if (menu) menu.classList.toggle('active');
+                if (!menu) return;
+                const willOpen = !menu.classList.contains('active');
+                menu.classList.toggle('active');
+                // Handshake: si abrimos el menu hamburguesa, cerramos el dropdown
+                // de notificaciones para evitar que ambos paneles esten visibles a la vez.
+                if (willOpen && typeof window._notifClose === 'function') window._notifClose();
             }
 
             // Cerrar el menu movil al hacer click fuera (ni en el menu ni en el hamburger).
@@ -2251,12 +2262,21 @@
                     isOpen = true;
                     bellBtn.setAttribute('aria-expanded', 'true');
                     if (Date.now() - lastFetchedAt > STALE_MS) fetchNotifs(false);
+                    // Handshake: si el menu hamburguesa esta abierto, lo cerramos
+                    // para evitar que ambos paneles esten visibles a la vez.
+                    const mobMenu = document.getElementById('mobileMenu');
+                    if (mobMenu && mobMenu.classList.contains('active')) {
+                        mobMenu.classList.remove('active');
+                    }
                 }
                 function closeDropdown() {
                     dropdown.hidden = true;
                     isOpen = false;
                     bellBtn.setAttribute('aria-expanded', 'false');
                 }
+                // Expone closeDropdown para que toggleMobileMenu pueda invocarlo
+                // sin acoplarse a la IIFE interna del centro de notificaciones.
+                window._notifClose = closeDropdown;
 
                 bellBtn.addEventListener('click', (e) => {
                     e.stopPropagation();

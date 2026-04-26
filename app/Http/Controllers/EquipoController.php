@@ -117,6 +117,26 @@ class EquipoController extends Controller
                 });
             }
         }
+
+        // Filtros de documentacion (Propiedad/Poliza/ROTC/RACDA). Antes vivian
+        // SOLO en index() aplicandose al query principal, asi que las stats
+        // ($statsBase, $tiposQuery, $frentesQuery, $ubicQuery) NO los reflejaban
+        // y el card "Ubicación por Frente" mostraba el conteo sin tener en
+        // cuenta estos filtros. Usamos whereHas para evitar conflicto con los
+        // leftJoin existentes (doc_search, doc_filter) en el query principal.
+        $docFlags = [
+            'filter_propiedad' => 'LINK_DOC_PROPIEDAD',
+            'filter_poliza'    => 'LINK_POLIZA_SEGURO',
+            'filter_rotc'      => 'LINK_ROTC',
+            'filter_racda'     => 'LINK_RACDA',
+        ];
+        foreach ($docFlags as $param => $col) {
+            if (!in_array($param, $exclude) && $request->filled($param) && $request->input($param) === 'true') {
+                $query->whereHas('documentacion', function ($q) use ($col) {
+                    $q->whereNotNull($col);
+                });
+            }
+        }
     }
 
     public function index(Request $request)
@@ -176,29 +196,9 @@ class EquipoController extends Controller
 
 
 
-        // --- Documentation Filters ---
-        $hasDocFilter = ($request->filled('filter_propiedad') && $request->filter_propiedad === 'true') ||
-                        ($request->filled('filter_poliza') && $request->filter_poliza === 'true') ||
-                        ($request->filled('filter_rotc') && $request->filter_rotc === 'true') ||
-                        ($request->filled('filter_racda') && $request->filter_racda === 'true');
-
-        if ($hasDocFilter) {
-            $equipos->leftJoin('documentacion AS doc_filter', 'equipos.ID_EQUIPO', '=', 'doc_filter.ID_EQUIPO')
-                     ->where(function ($q) use ($request) {
-                         if ($request->filled('filter_propiedad') && $request->filter_propiedad === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_DOC_PROPIEDAD');
-                         }
-                         if ($request->filled('filter_poliza') && $request->filter_poliza === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_POLIZA_SEGURO');
-                         }
-                         if ($request->filled('filter_rotc') && $request->filter_rotc === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_ROTC');
-                         }
-                         if ($request->filled('filter_racda') && $request->filter_racda === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_RACDA');
-                         }
-                     });
-        }
+        // Filtros de documentacion (filter_propiedad/poliza/rotc/racda) ya
+        // estan unificados dentro de applyEquipoFilters() — se aplican via
+        // whereHas a $equipos Y a todos los stats queries automaticamente.
 
         $equipos->select('equipos.*')
             ->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id')
