@@ -29,10 +29,19 @@
         data-frente="{{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
         class="aux-row-selectable aux-row-clickable"
         style="cursor:pointer;">
-        {{-- 1. FRENTE + FOTO (patron vehiculos: /admin/equipos) --}}
+        {{-- 1. FRENTE + FOTO (patron vehiculos: /admin/equipos)
+             tooltip-bubble con DETALLE_UBICACION_ACTUAL en hover de fila (CSS
+             global .admin-table tr:hover .tooltip-bubble lo hace visible). --}}
         <td class="table-cell-custom table-cell-center" style="padding: 6px 4px; width: 150px;">
-            <div style="font-size: 11px; color: #000; margin-bottom: 5px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word;">
+            <div class="tooltip-wrapper" style="font-size: 11px; color: #000; margin-bottom: 5px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word; position: relative; cursor: default;">
                 {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+
+                @if($aux->DETALLE_UBICACION_ACTUAL)
+                    <div class="tooltip-bubble" style="pointer-events:none; opacity:0; visibility:hidden; position:absolute; bottom:100%; left:50%; transform:translateX(-50%) translateY(5px); background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:500; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;">
+                        📍 {{ $aux->DETALLE_UBICACION_ACTUAL }}
+                        <div style="position:absolute; top:100%; left:50%; margin-left:-4px; border-width:4px; border-style:solid; border-color:#1e293b transparent transparent transparent;"></div>
+                    </div>
+                @endif
             </div>
             @if($fotoDriveId)
                 <div class="table-image-wrapper" style="cursor: default;">

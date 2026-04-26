@@ -1580,13 +1580,40 @@
                 // acta usando el primer ID de movilizacion creado. Mismo
                 // patron que /admin/equipos (acta-traslado endpoint).
                 if (body.generar_pdf && Array.isArray(body.movilizacion_ids) && body.movilizacion_ids.length > 0) {
+                    // Mismo patron que /admin/equipos: fetch->blob para mantener
+                    // el preloader visible hasta que el PDF este listo (TCPDF
+                    // puede tardar varios segundos con muchos auxiliares).
                     var firstId = body.movilizacion_ids[0];
-                    var dl = document.createElement('a');
-                    dl.href = '/admin/movilizaciones/' + firstId + '/acta-traslado';
-                    dl.style.display = 'none';
-                    dl.setAttribute('data-no-spa', 'true');
-                    document.body.appendChild(dl);
-                    setTimeout(function () { dl.click(); setTimeout(function () { document.body.removeChild(dl); }, 1000); }, 100);
+                    if (window.showPreloader) window.showPreloader();
+                    fetch('/admin/movilizaciones/' + firstId + '/acta-traslado', {
+                        headers: { 'Accept': 'application/pdf' },
+                        credentials: 'same-origin'
+                    })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.blob();
+                    })
+                    .then(function (blob) {
+                        var url = URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'Acta_Traslado_' + firstId + '.pdf';
+                        a.style.display = 'none';
+                        a.setAttribute('data-no-spa', 'true');
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function () {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 1000);
+                    })
+                    .catch(function (err) {
+                        console.error('[Acta PDF aux Error]:', err);
+                        if (window.showToast) window.showToast('No se pudo descargar el acta.', 'error');
+                    })
+                    .finally(function () {
+                        if (window.hidePreloader) window.hidePreloader();
+                    });
                     if (window.showToast) window.showToast('Movilización exitosa. Descargando acta...', 'success');
                 } else if (window.showToast) {
                     window.showToast(body.message || 'Movilización exitosa.', 'success');

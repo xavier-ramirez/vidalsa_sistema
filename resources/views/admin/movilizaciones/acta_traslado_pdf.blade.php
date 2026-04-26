@@ -52,17 +52,14 @@
         $ubicacionDestino = trim($frenteDestino->UBICACION ?? '');
     @endphp
 
-    <!-- ===================== CUERPO DEL TEXTO ===================== -->
+    <!-- ===================== CUERPO DEL TEXTO =====================
+         IMPORTANTE: TCPDF respeta el whitespace inicial dentro del <td>,
+         asi que el texto NO debe tener indentacion ni saltos antes del
+         "Por medio..." (eso producia una sangria visible en la primera
+         linea del PDF). Mantener todo el bloque al inicio de la columna. -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
-            <td align="justify" style="font-size: 10pt; line-height: 1.5;">
-                Por medio del presente documento, {{ $labelOrigen }}
-                <b>{{ strtoupper($frenteOrigen->NOMBRE_FRENTE ?? 'OFICINA PRINCIPAL') }}</b> de la
-                CONSTRUCTORA VIDALSA 27, C.A., deja constancia formal del despacho y traslado de los equipos
-                detallados a continuación hacia {{ $labelDestino }}
-                <b>{{ strtoupper($frenteDestino->NOMBRE_FRENTE ?? 'DESTINO DESCONOCIDO') }}</b>@if($ubicacionDestino), ubicado en
-                {{ strtoupper($ubicacionDestino) }}@endif.
-            </td>
+<td align="justify" style="font-size: 10pt; line-height: 1.5;">Por medio del presente documento, {{ $labelOrigen }} <b>{{ strtoupper($frenteOrigen->NOMBRE_FRENTE ?? 'OFICINA PRINCIPAL') }}</b> de la CONSTRUCTORA VIDALSA 27, C.A., deja constancia formal del despacho y traslado de los equipos detallados a continuación hacia {{ $labelDestino }} <b>{{ strtoupper($frenteDestino->NOMBRE_FRENTE ?? 'DESTINO DESCONOCIDO') }}</b>@if($ubicacionDestino), ubicado en {{ strtoupper($ubicacionDestino) }}@endif.</td>
         </tr>
     </table>
 

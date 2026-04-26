@@ -1475,7 +1475,13 @@ window.openBulkModal = function (event) {
             // Refrescar tabla con preloader visible hasta completar el render inicial
             window.loadEquipos(null, false);
 
-            // Descarga del acta si aplica
+            // Descarga del acta si aplica.
+            // Antes usabamos un <a href> + click(): el navegador inicia la
+            // descarga en background y nuestro preloader se apagaba ANTES de
+            // que el PDF estuviera listo. Ahora hacemos fetch->blob: el
+            // preloader queda visible mientras el servidor genera el PDF
+            // (TCPDF puede tardar varios segundos con muchos equipos), y solo
+            // se apaga cuando el blob llega listo para guardar.
             if (data.generar_pdf) {
                 const firstId =
                     data.movilizacion_ids && data.movilizacion_ids.length > 0
@@ -1483,15 +1489,38 @@ window.openBulkModal = function (event) {
                         : null;
 
                 if (firstId) {
-                    const downloadLink = document.createElement("a");
-                    downloadLink.href = `/admin/movilizaciones/${firstId}/acta-traslado`;
-                    downloadLink.style.display = "none";
-                    downloadLink.setAttribute("data-no-spa", "true");
-                    document.body.appendChild(downloadLink);
-                    setTimeout(() => {
-                        downloadLink.click();
-                        setTimeout(() => document.body.removeChild(downloadLink), 1000);
-                    }, 100);
+                    if (typeof window.showPreloader === 'function') window.showPreloader();
+                    fetch(`/admin/movilizaciones/${firstId}/acta-traslado`, {
+                        headers: { 'Accept': 'application/pdf' },
+                        credentials: 'same-origin'
+                    })
+                        .then(r => {
+                            if (!r.ok) throw new Error('HTTP ' + r.status);
+                            return r.blob();
+                        })
+                        .then(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Acta_Traslado_${firstId}.pdf`;
+                            a.style.display = 'none';
+                            a.setAttribute('data-no-spa', 'true');
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(() => {
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }, 1000);
+                        })
+                        .catch(err => {
+                            console.error('[Acta PDF Error]:', err);
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('No se pudo descargar el acta de traslado.', 'error');
+                            }
+                        })
+                        .finally(() => {
+                            if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                        });
                 }
             }
 
