@@ -837,13 +837,14 @@
         };
 
         function _cargarDatosLocal() {
-            // Preloader global SOLO en cambios de filtro subsecuentes. En la
-            // carga inicial (al navegar a /admin/consumibles/graficos), el SPA
-            // ya mostro su preloader y disparar otro aqui causaria el parpadeo
-            // "spinner -> vista -> spinner otra vez".
-            // Los spinners locales de cada seccion siguen dando feedback granular.
-            const isSubsequent = window._graficosFirstRunDone === true;
-            if (isSubsequent && typeof window.showPreloader === 'function') {
+            // Preloader global SIEMPRE (inicial + subsecuente). Antes solo se
+            // mostraba en subsecuente confiando en el preloader del SPA, pero
+            // el SPA hide antes de que la fetch /graficos-data termine — por
+            // eso el usuario veia "spinner se quita pero los graficos aun no
+            // estan". Ahora extendemos el preloader hasta el primer paint
+            // real de los renderXxx via 300ms post-render (mas robusto que
+            // 2x requestAnimationFrame).
+            if (typeof window.showPreloader === 'function') {
                 window.showPreloader();
             }
             const params = getParams();
@@ -941,15 +942,16 @@
                     }
                 })
                 .finally(() => {
-                    // Apagar preloader DESPUES de que el browser pinte al menos un
-                    // frame con el contenido renderizado. Antes el finally disparaba
-                    // hidePreloader inmediatamente tras los renderXxx y el usuario
-                    // veia desaparecer el spinner antes de ver los graficos pintados.
-                    // Dos requestAnimationFrame = garantiza que el layout + paint
-                    // del primer frame terminaron.
+                    // Apagar preloader DESPUES de que charts y DOM esten pintados.
+                    // Chart.js no expone un hook "termine de pintar" deterministico —
+                    // 2x requestAnimationFrame era insuficiente con muchos canvas.
+                    // Sumamos un buffer de 300ms para que canvas + datalabels +
+                    // animaciones iniciales tengan tiempo de salir en pantalla.
                     const _afterPaint = () => {
-                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                        window._graficosFirstRunDone = true;
+                        setTimeout(() => {
+                            if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                            window._graficosFirstRunDone = true;
+                        }, 300);
                     };
                     requestAnimationFrame(() => requestAnimationFrame(_afterPaint));
                 });

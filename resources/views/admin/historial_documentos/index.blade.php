@@ -150,8 +150,11 @@
                     $hasAdvHd = request()->filled('fecha_desde') || request()->filled('fecha_hasta');
                 @endphp
 
-                <!-- Boton Filtros Avanzados (panel con rango de fechas) -->
-                <div class="filter-item aligned-filter" style="flex: 0 0 auto; position: relative;">
+                <!-- Boton Filtros Avanzados (panel con rango de fechas).
+                     El panel se cierra al click fuera (listener global mas
+                     abajo). El boton se resalta en rojo cuando hay un filtro
+                     de fecha activo ($hasAdvHd). --}}
+                <div class="filter-item aligned-filter" id="hdAdvancedFilterWrapper" style="flex: 0 0 auto; position: relative;">
                     <button type="button" id="btnHdAdvancedFilter"
                         onclick="const p=document.getElementById('hdAdvancedFilterPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none'; event.stopPropagation();"
                         title="Filtros Avanzados"
@@ -165,18 +168,25 @@
                                   onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; window.loadHistorialDocumentos();">Limpiar</span>
                         </h4>
 
+                        {{-- Inputs de fecha: showPicker() al hacer click en
+                             cualquier parte del campo (no solo el icono del
+                             calendario). Try/catch defensivo: showPicker no
+                             existe en navegadores viejos, en ese caso se cae
+                             al comportamiento nativo. --}}
                         <div style="margin-bottom: 10px;">
                             <span style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Fecha desde</span>
                             <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
                                 onchange="window.loadHistorialDocumentos()"
-                                style="width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; font-size: 13px; color: #334155; background: {{ request('fecha_desde') ? '#e1effa' : 'white' }};">
+                                onclick="try { this.showPicker(); } catch(e) {}"
+                                style="width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; font-size: 13px; color: #334155; background: {{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor: pointer;">
                         </div>
 
                         <div>
                             <span style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Fecha hasta</span>
                             <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
                                 onchange="window.loadHistorialDocumentos()"
-                                style="width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; font-size: 13px; color: #334155; background: {{ request('fecha_hasta') ? '#e1effa' : 'white' }};">
+                                onclick="try { this.showPicker(); } catch(e) {}"
+                                style="width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; font-size: 13px; color: #334155; background: {{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor: pointer;">
                         </div>
                     </div>
                 </div>
@@ -401,6 +411,23 @@
      (siempre visible para super.admin) ya que el boton causaba TypeError
      cuando $blockedIps->count() era 0 — la funcion JS se renderizaba bajo
      la condicion count > 0 pero el boton aparecia siempre. --}}
+
+{{-- Cierre del panel de Filtros Avanzados al hacer click fuera.
+     Idempotente — el listener se attacha una sola vez (window flag). --}}
+<script>
+    (function () {
+        if (window._hdAdvFilterOutsideAttached) return;
+        window._hdAdvFilterOutsideAttached = true;
+        document.addEventListener('click', function (ev) {
+            var panel = document.getElementById('hdAdvancedFilterPanel');
+            var wrap  = document.getElementById('hdAdvancedFilterWrapper');
+            if (!panel || panel.style.display === 'none' || !wrap) return;
+            if (!wrap.contains(ev.target)) {
+                panel.style.display = 'none';
+            }
+        });
+    })();
+</script>
 
 @can('user.delete')
 {{-- ═══════════════════════════════════════════════════════════
