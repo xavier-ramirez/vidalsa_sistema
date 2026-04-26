@@ -89,13 +89,27 @@
         </thead>
         <tbody>
             @foreach($equipos as $index => $item)
+                @php
+                    // SERIAL / PLACA: prioriza PLACA si existe (vehiculos con
+                    // documentacion); fallback a SERIAL_CHASIS. Antes solo
+                    // mostraba SERIAL_CHASIS y el header era engañoso.
+                    $placa = trim((string) (optional($item->documentacion)->PLACA ?? ''));
+                    $serial = trim((string) ($item->SERIAL_CHASIS ?? ''));
+                    if ($placa !== '' && strtoupper($placa) !== 'S/P' && strtoupper($placa) !== 'N/A') {
+                        $serialPlacaCell = $placa;
+                    } elseif ($serial !== '') {
+                        $serialPlacaCell = $serial;
+                    } else {
+                        $serialPlacaCell = '---';
+                    }
+                @endphp
                 <tr nobr="true">
                     <td width="5%" align="center" style="font-size: 8.5pt;">{{ $index + 1 }}</td>
                     <td width="50%" align="center" style="font-size: 8.5pt;">
                         {{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}
                     </td>
                     <td width="20%" align="center" style="font-size: 8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
-                    <td width="25%" align="center" style="font-size: 8.5pt;">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}
+                    <td width="25%" align="center" style="font-size: 8.5pt;">{{ strtoupper($serialPlacaCell) }}
                     </td>
                 </tr>
             @endforeach
