@@ -635,30 +635,9 @@ class ConsumiblesController extends Controller
                 ]);
             }
 
-            // ── 8. Cauchos por Tipo de Equipo y Medida (ESPECIFICACION) ─────────────
-            // Incluye TODOS los registros de CAUCHO (sin importar estado de match)
-            // usando LEFT JOIN para que los no identificados aparezcan como "Sin identificar".
-            $cauchosPorModelo = DB::table('consumibles')
-                ->leftJoin('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                ->where('consumibles.TIPO_CONSUMIBLE', 'CAUCHO')
-                ->when($desde, fn($q) => $q->where('consumibles.FECHA', '>=', $desde))
-                ->when($hasta, fn($q) => $q->where('consumibles.FECHA', '<=', $hasta))
-                ->when($idFrente, fn($q) => $q->where('consumibles.ID_FRENTE', $idFrente))
-                ->select(
-                    DB::raw("COALESCE(tipo_equipos.nombre, 'Sin identificar') as tipo_equipo"),
-                    DB::raw("COALESCE(NULLIF(TRIM(consumibles.ESPECIFICACION),''), 'Sin medida') as medida"),
-                    DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                    DB::raw('COUNT(*) as despachos'),
-                    DB::raw("MAX(consumibles.UNIDAD) as unidad")
-                )
-                ->groupBy('tipo_equipos.id', 'tipo_equipos.nombre', 'consumibles.ESPECIFICACION')
-                ->orderByRaw("COALESCE(tipo_equipos.nombre, 'Sin identificar')")
-                ->orderByDesc('total')
-                ->get();
-
-
-            // ── 9. Equipos Inoperativos en el frente seleccionado ────────────
+            // ── 8. Equipos Inoperativos en el frente seleccionado ────────────
+            // (Bloque "Cauchos por Tipo de Equipo y Medida" removido a pedido —
+            // el panel se elimino del modulo de graficos.)
             $inoperativos = [];
             if ($idFrente) {
                 $inoperativos = DB::table('equipos')
@@ -713,7 +692,6 @@ class ConsumiblesController extends Controller
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,
                 'equipos_asignados' => $equiposAsignados,
-                'cauchos_por_modelo' => $cauchosPorModelo,
                 'inoperativos' => $inoperativos,
             ];
         }); // fin Cache::remember

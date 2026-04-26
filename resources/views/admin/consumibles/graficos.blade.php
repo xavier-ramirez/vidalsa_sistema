@@ -645,31 +645,12 @@
         </div>
     </div>
 
-    {{-- CAUCHOS POR TIPO DE EQUIPO Y MEDIDA --}}
-    <div class="g-grid-1" id="secCauchoModelo">
-        <div class="g-card">
-            <p class="g-title" style="justify-content:space-between;">
-                <span style="display:flex;align-items:center;gap:8px;">
-                    <i class="material-icons" style="color:#1b5e20;">tire_repair</i>
-                    Cauchos por Tipo de Equipo y Medida
-                    <span class="g-subtitle">— unidades reemplazadas · solo equipos identificados</span>
-                </span>
-                <button onclick="descargarGrafico('chartCauchoModelo','cauchos_por_modelo')" title="Descargar imagen"
-                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
-                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                </button>
-            </p>
-            <div id="loadingCauchoModelo" class="loading-overlay">
-                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-            </div>
-            <div id="cauchoModeloBadges" style="display:none; flex-wrap:wrap; gap:8px; margin-bottom:14px;"></div>
-            <canvas id="chartCauchoModelo" style="display:none; max-height:340px;"></canvas>
-        </div>
-    </div>
-
-    {{-- TODOS LOS EQUIPOS — TABLA COMPLETA --}}
-    <div class="g-grid-1">
+    {{-- TODOS LOS EQUIPOS — TABLA COMPLETA. Solo visible cuando el filtro
+         de tipo es GASOIL (despachos de combustible). Para CAUCHO/ACEITE/etc
+         no aplica el concepto de "despachos por equipo" — la tabla se ocultaria
+         con valores 0 que confunden. La logica de mostrar/ocultar esta en el
+         JS (tipoFiltro === 'GASOIL'). --}}
+    <div class="g-grid-1" id="secTodosEquipos" style="display:none;">
         <div class="g-card">
             <p class="g-title">
                 <i class="material-icons">table_chart</i>
@@ -710,67 +691,10 @@
         </div>
     </div>
 
-    {{-- ══════════════════════════════════════════════════════════════
-         AUDITORIA DE CATALOGO — control de creaciones/ediciones/borrados
-         en /admin/catalogo/create y /admin/catalogo/{id}/edit
-         Solo super.admin: la auditoria contiene PII (usuarios) + trail de
-         acciones administrativas sensibles.
-         ══════════════════════════════════════════════════════════════ --}}
-    @can('super.admin')
-    <div class="g-grid-1">
-        <div class="g-card">
-            <p class="g-title">
-                <i class="material-icons">fact_check</i>
-                Auditoría de Catálogo — Creaciones y Ediciones
-                <span class="g-subtitle" id="auditCatalogoSub"></span>
-            </p>
-            <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-                <input class="eq-search" id="auditModelo" type="text" placeholder="Modelo..."
-                       oninput="window._auditDebounce && clearTimeout(window._auditDebounce); window._auditDebounce = setTimeout(cargarAuditoriaCatalogo, 300);"
-                       style="margin-bottom:0; flex:1; min-width:200px;">
-                <select id="auditAccion" class="eq-search" onchange="cargarAuditoriaCatalogo()"
-                        style="margin-bottom:0; width:auto; min-width:140px; background-color:#fbfcfd;">
-                    <option value="">Todas las acciones</option>
-                    <option value="create">Creación</option>
-                    <option value="edit">Edición</option>
-                    <option value="delete">Eliminación</option>
-                </select>
-                <input class="eq-search" id="auditDesde" type="date" onchange="cargarAuditoriaCatalogo()"
-                       style="margin-bottom:0; width:auto; min-width:140px;">
-                <input class="eq-search" id="auditHasta" type="date" onchange="cargarAuditoriaCatalogo()"
-                       style="margin-bottom:0; width:auto; min-width:140px;">
-                <button type="button" onclick="cargarAuditoriaCatalogo()"
-                        style="padding:8px 14px; border-radius:8px; border:1px solid #cbd5e1; background:#f1f5f9; color:#1e293b; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                    <i class="material-icons" style="font-size:18px;">refresh</i>
-                    Actualizar
-                </button>
-            </div>
-
-            <div id="auditResumen" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;"></div>
-
-            <div id="loadingAuditCatalogo" class="loading-overlay" style="display:none;">
-                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-            </div>
-            <div style="overflow-x:auto;">
-                <table class="admin-table" id="tablaAuditCatalogo">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Acción</th>
-                            <th>Modelo</th>
-                            <th>Año</th>
-                            <th>Usuario</th>
-                            <th>Cambios</th>
-                        </tr>
-                    </thead>
-                    <tbody id="bodyAuditCatalogo">
-                        <tr><td colspan="6" style="text-align:center; padding:24px; color:#94a3b8;">Sin registros aún.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    @endcan
+    {{-- Auditoria de Catalogo removida: la auditoria de cambios en
+         CaracteristicaModelo se accede directamente desde /admin/catalogo
+         (cada modelo tiene su historial). El panel saturaba la vista de
+         graficos sin aportar contexto de consumo. --}}
 
     <script src="{{ asset('js/chart.umd.min.js') }}"></script>
     <script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
@@ -849,22 +773,19 @@
             }
             const params = getParams();
 
+            // tipoFiltroPre se conserva por compatibilidad con codigo abajo;
+            // se usa para mostrar el preloader del panel "todos los equipos".
             const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
 
             // ── Loading: mostrar spinners de las secciones siempre visibles ──
             ['loadingTotalFrente', 'loadingEqAsig',
                 'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(show);
 
-            if (tipoFiltroPre === 'CAUCHO') {
-                show('secCauchoModelo');
-                show('loadingCauchoModelo');
-            } else {
-                hide('secCauchoModelo');
-            }
-
             // ── Ocultar contenido previo (prev carga) ────────────────────────
+            // Removido: secCauchoModelo + chartCauchoModelo + loadingCauchoModelo
+            // (panel "Cauchos por Tipo de Equipo y Medida" eliminado a pedido).
             ['totalFrenteBody', 'eqAsigBody',
-                'rankingBody', 'wrapTodosEq', 'chartCauchoModelo', 'inoperativosBody'].forEach(hide);
+                'rankingBody', 'wrapTodosEq', 'inoperativosBody'].forEach(hide);
 
             // ── Secciones de especificación: ocultar antes de cada carga ─────
             // Evita que queden datos viejos visibles durante la nueva carga.
@@ -922,10 +843,18 @@
                         document.getElementById('secInoperativos').style.display = 'none';
                     }
                     renderRanking(data.top_equipos);
-                    if (tipoFiltro === 'CAUCHO') {
-                        renderCauchosPorModelo(data.cauchos_por_modelo);
+
+                    // Tabla "Despachos por Equipo — Todos": solo visible cuando
+                    // el filtro es GASOIL (despachos de combustible). Para
+                    // CAUCHO/ACEITE/etc el concepto no aplica, asi que ocultamos
+                    // la seccion completa y skip el render para no procesar.
+                    var secTodosEq = document.getElementById('secTodosEquipos');
+                    if (tipoFiltro === 'GASOIL') {
+                        if (secTodosEq) secTodosEq.style.display = '';
+                        renderTodosEquipos(data.todos_equipos);
+                    } else {
+                        if (secTodosEq) secTodosEq.style.display = 'none';
                     }
-                    renderTodosEquipos(data.todos_equipos);
                     renderEspecFrente(data.espec_frente, data.tipo_activo);
                     renderEspecEquipo(data.espec_equipo, data.tipo_activo);
                 })
@@ -936,10 +865,6 @@
                             const el = document.getElementById(id);
                             if (el) el.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
                         });
-                    if (tipoFiltroPre === 'CAUCHO') {
-                        const elCaucho = document.getElementById('loadingCauchoModelo');
-                        if (elCaucho) elCaucho.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
-                    }
                 })
                 .finally(() => {
                     // Apagar preloader DESPUES de que charts y DOM esten pintados.
@@ -1125,122 +1050,8 @@
             '#827717', // oliva
         ];
 
-        // ── Cauchos por Tipo de Equipo y Medida ─────────────────────────────────────
-        function renderCauchosPorModelo(datos) {
-            const loadEl = document.getElementById('loadingCauchoModelo');
-            const canvEl = document.getElementById('chartCauchoModelo');
-            const secEl = document.getElementById('secCauchoModelo');
-            const badgesEl = document.getElementById('cauchoModeloBadges');
-
-            if (!datos || datos.length === 0) {
-                secEl.style.display = 'none';
-                return;
-            }
-            secEl.style.display = '';
-            loadEl.style.display = 'none';
-
-            // Tipos de equipo únicos (eje X)
-            const tipos = [...new Set(datos.map(d => d.tipo_equipo))];
-            // Medidas únicas (un dataset/color por medida) — ordenadas por total global desc
-            const totPorMedida = {};
-            datos.forEach(d => { totPorMedida[d.medida] = (totPorMedida[d.medida] || 0) + parseFloat(d.total); });
-            const medidas = [...new Set(datos.map(d => d.medida))]
-                .sort((a, b) => (totPorMedida[b] || 0) - (totPorMedida[a] || 0));
-
-            const PALETA = window.PALETA_CAUCHO_GLOBAL;
-
-            // ── Badges de total por medida encima del gráfico ─────────────
-            if (badgesEl) {
-                badgesEl.style.display = 'flex';
-                badgesEl.innerHTML = medidas.map((medida, mi) => {
-                    const color = PALETA[mi % PALETA.length];
-                    const tot = (totPorMedida[medida] || 0).toLocaleString('es-VE', { maximumFractionDigits: 0 });
-                    return `<span style="
-                    display:inline-flex; align-items:center; gap:6px;
-                    background:${color}; color:#fff;
-                    border-radius:20px; padding:5px 13px;
-                    font-size:12px; font-weight:700;
-                    box-shadow:0 2px 6px ${color}55;
-                    white-space:nowrap;
-                ">
-                    ${medida}
-                    <span style="background:rgba(255,255,255,.22);border-radius:20px;padding:1px 7px;font-size:11px;">${tot} Un</span>
-                </span>`;
-                }).join('');
-            }
-
-            canvEl.style.display = 'block';
-
-            const datasets = medidas.map((medida, mi) => ({
-                label: medida,
-                data: tipos.map(tipo => {
-                    const row = datos.find(d => d.tipo_equipo === tipo && d.medida === medida);
-                    return row ? parseFloat(row.total) : 0;
-                }),
-                backgroundColor: PALETA[mi % PALETA.length],
-                borderRadius: 0,
-                borderSkipped: false,
-            }));
-
-            const mapaInfo = {};
-            datos.forEach(d => { mapaInfo[`${d.tipo_equipo}||${d.medida}`] = d; });
-
-            let retriesC = 0;
-            const drawC = () => {
-                if (typeof Chart === 'undefined') {
-                    if (retriesC++ < 50) setTimeout(drawC, 100);
-                    return;
-                }
-                try { if (window.chartCauchoModelo) { window.chartCauchoModelo.destroy(); window.chartCauchoModelo = null; } } catch (e) { }
-                try { const existingC = Chart.getChart(canvEl); if (existingC) existingC.destroy(); } catch (e) { }
-
-                window.chartCauchoModelo = new Chart(canvEl, {
-                    type: 'bar',
-                    data: { labels: tipos, datasets },
-                    options: {
-                        responsive: true,
-                        layout: { padding: { top: 10 } },
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: { font: { size: 11 }, boxWidth: 14, padding: 12 }
-                            },
-                            datalabels: {
-                                anchor: 'center', align: 'center',
-                                color: '#fff',
-                                font: { size: 10, weight: '700' },
-                                formatter: v => v > 0 ? v.toLocaleString('es-VE', { maximumFractionDigits: 0 }) : '',
-                                display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: ctx => {
-                                        const medida = medidas[ctx.datasetIndex];
-                                        const tipo = tipos[ctx.dataIndex];
-                                        const info = mapaInfo[`${tipo}||${medida}`];
-                                        const dep = info?.despachos || 0;
-                                        const u = info?.unidad || 'Un';
-                                        return [
-                                            ` Medida: ${medida}`,
-                                            ` ${ctx.parsed.y.toLocaleString('es-VE')} ${u}`,
-                                            ` 🔧 ${dep} reemplazo${dep !== 1 ? 's' : ''}`,
-                                        ];
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
-                            y: {
-                                stacked: true, beginAtZero: true, grid: { color: '#f1f5f9' },
-                                title: { display: true, text: 'Unidades', font: { size: 11 } }
-                            }
-                        }
-                    }
-                });
-            };
-            drawC();
-        }
+        // renderCauchosPorModelo + chartCauchoModelo removidos: el panel
+        // "Cauchos por Tipo de Equipo y Medida" se elimino del modulo.
 
         // ── Equipos individuales que surtieron en el frente seleccionado ────
         function renderEquiposPorFrente(datos, frenteId) {
@@ -2020,11 +1831,17 @@
         }
 
         // ══════════════════════════════════════════════════════════════
-        // AUDITORIA DE CATALOGO — carga via AJAX independiente de los filtros
-        // de graficos. Tabla + resumen arriba. Escape HTML defensivo.
-        // Solo se inicializa si el slot HTML existe (gate super.admin a nivel Blade).
+        // Auditoria de Catalogo (removida): el IIFE original construia
+        // tabla + resumen + filtros via AJAX al endpoint
+        // consumibles.auditoriaCatalogo. Se elimino del modulo de graficos
+        // por pedido — el panel saturaba la vista sin aportar contexto de
+        // consumo. La auditoria de modelos sigue accesible desde
+        // /admin/catalogo (cada modelo tiene su historial).
+        // El bloque completo se mantiene intacto pero "muerto" via guard
+        // false-immediate; cualquier referencia futura se elimina junto al
+        // bloque cuando se borre la ruta consumibles.auditoriaCatalogo.
         // ══════════════════════════════════════════════════════════════
-        if (document.getElementById('bodyAuditCatalogo'))
+        if (false)
         (function () {
             function esc(s) {
                 if (s === null || s === undefined) return '';
