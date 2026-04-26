@@ -133,16 +133,29 @@
         text-overflow: ellipsis;
         max-width: 140px;
     }
-    /* Mobile: el boton "Nuevo" del catalog se va al final de la fila de
-       filtros y ocupa el ancho completo. Asi en pantallas chicas no queda
-       comprimido al lado de los filtros. */
+    /* Mobile: el boton "Nuevo" del catalogo se va al final de la fila de
+       filtros y ocupa el ancho completo. Filtros y boton todos al MISMO
+       ancho (100% del contenedor). box-sizing:border-box para que el
+       padding interno del boton no haga overflow del card-blanco. */
     @media (max-width: 600px) {
-        #catalogoFilters { flex-direction: column; align-items: stretch; }
-        #catalogoFilters .cat-filter { max-width: none; flex: 1 1 100%; }
-        #catalogoFilters > a.btn-primary-maquinaria {
+        #catalogoFilters {
+            flex-direction: column;
+            align-items: stretch;
             width: 100%;
+            box-sizing: border-box;
+        }
+        #catalogoFilters .cat-filter,
+        #catalogoFilters > a.btn-primary-maquinaria {
+            max-width: none !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            box-sizing: border-box !important;
+        }
+        #catalogoFilters > a.btn-primary-maquinaria {
             justify-content: center;
             order: 99;
+            padding: 0 12px !important;
         }
     }
 

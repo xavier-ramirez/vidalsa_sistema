@@ -43,6 +43,82 @@
         background: #e2e8f0;
         color: #0f172a;
     }
+
+    /* Historial — layout custom de la barra de filtros.
+       PC: filtros se reparten el ancho disponible (flex:1 1 0 + min 240px),
+           botones papelera tight al final, juntos.
+       Mobile: filtros uno bajo otro full-width, botones papelera abajo
+           lado a lado al 50/50. */
+    #historialDocumentosTable, .filter-toolbar-container { /* placeholder */ }
+    .hd-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: stretch;
+    }
+    .hd-filter-row > .filter-item.responsive-filter-item {
+        flex: 1 1 240px !important;
+        max-width: none !important;
+        min-width: 240px;
+    }
+    .hd-papelera-group {
+        display: flex;
+        gap: 8px;
+        flex: 0 0 auto;
+    }
+    .hd-papelera-group .filter-item {
+        flex: 0 0 auto;
+    }
+    @media (max-width: 768px) {
+        .hd-filter-row > .filter-item.responsive-filter-item {
+            flex: 1 1 100% !important;
+            min-width: 0 !important;
+        }
+        .hd-papelera-group {
+            flex: 1 1 100%;
+            gap: 8px;
+        }
+        .hd-papelera-group .filter-item {
+            flex: 1 1 0 !important;
+        }
+        .hd-papelera-group .filter-item button {
+            width: 100% !important;
+        }
+    }
+
+    /* Mobile: en la tarjeta de la tabla (table-usuarios-mobile transforma td
+       en lineas), mover el correo del autor a la misma fila que la fecha
+       en lugar de bajo. La data viene en el TD #2, por eso lo absolute para
+       que aparezca al lado del TD #1 (fecha). */
+    @media (max-width: 768px) {
+        #historialDocumentosTable.table-usuarios-mobile tbody tr {
+            position: relative;
+            padding-top: 50px !important;
+        }
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(1) {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 0 !important;
+            background: transparent !important;
+        }
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(2) {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            text-align: right;
+            padding: 0 !important;
+            background: transparent !important;
+            border-bottom: none !important;
+        }
+        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(2) .badge-autor {
+            background: transparent;
+            padding: 0;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 600;
+        }
+    }
 </style>
 
 <section class="page-title-card" style="text-align: left; margin: 0 auto 10px auto; width: 98%; max-width: 1600px;">
@@ -56,13 +132,13 @@
     <!-- Left Column (Main Content) -->
     <div>
         <div class="admin-card">
-            <div class="filter-toolbar-container" style="margin-bottom: 5px;">
+            <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 5px;">
                 <!-- Search Correo -->
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
-                            <i class="material-icons search-icon">person</i>
-                            <input type="text" id="searchCorreo" name="search_correo" 
+                            <i class="material-icons search-icon">search</i>
+                            <input type="text" id="searchCorreo" name="search_correo"
                                 placeholder="Buscar por correo autor..." 
                                 class="search-input-field"
                                 style="height: 100%;"
@@ -77,7 +153,7 @@
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
-                            <i class="material-icons search-icon">agriculture</i>
+                            <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchEquipo" name="search_equipo" 
                                 placeholder="Buscar por placa o serial..." 
                                 class="search-input-field"
@@ -97,7 +173,7 @@
                         <div class="dropdown-trigger" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
                             
                             <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
-                                <i class="material-icons" style="font-size: 18px;">description</i>
+                                <i class="material-icons" style="font-size: 18px;">search</i>
                             </div>
 
                             <input type="text" name="filter_search_dropdown" data-filter-search
@@ -146,28 +222,31 @@
                     </div>
                 </div>
 
-                {{-- Papelera buttons icon-only — abren modales con vehiculos /
-                     auxiliares soft-deleted. Permiso user.delete. --}}
+                {{-- Papelera buttons agrupados — desktop: lado a lado tight al
+                     final del row (estilo icon-only ancho 60px). Mobile: full
+                     width compartiendo 50/50 debajo del ultimo filtro. --}}
                 @can('user.delete')
-                <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
-                    <button type="button" id="btnVerPapeleraEquipos"
-                        onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
-                        title="Papelera de Vehículos"
-                        style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
-                        onmouseover="this.style.background='#fef3c7'"
-                        onmouseout="this.style.background='white'">
-                        <i class="material-icons">directions_car</i>
-                    </button>
-                </div>
-                <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
-                    <button type="button" id="btnVerPapeleraAux"
-                        onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
-                        title="Papelera de Auxiliares"
-                        style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
-                        onmouseover="this.style.background='#fff7ed'"
-                        onmouseout="this.style.background='white'">
-                        <i class="material-icons">construction</i>
-                    </button>
+                <div class="hd-papelera-group">
+                    <div class="filter-item aligned-filter">
+                        <button type="button" id="btnVerPapeleraEquipos"
+                            onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
+                            title="Papelera de Vehículos"
+                            style="height: 45px; min-width: 60px; width: 100%; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"
+                            onmouseover="this.style.background='#fef3c7'"
+                            onmouseout="this.style.background='white'">
+                            <i class="material-icons">directions_car</i>
+                        </button>
+                    </div>
+                    <div class="filter-item aligned-filter">
+                        <button type="button" id="btnVerPapeleraAux"
+                            onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
+                            title="Papelera de Auxiliares"
+                            style="height: 45px; min-width: 60px; width: 100%; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"
+                            onmouseover="this.style.background='#fff7ed'"
+                            onmouseout="this.style.background='white'">
+                            <i class="material-icons">construction</i>
+                        </button>
+                    </div>
                 </div>
                 @endcan
 
