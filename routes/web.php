@@ -9,6 +9,25 @@ Route::get('/login', [App\Http\Controllers\SystemController::class, 'loginRedire
 // Lightweight route to refresh CSRF token (Handshake)
 Route::get('/refresh-csrf', [App\Http\Controllers\SystemController::class, 'refreshCsrf']);
 
+// Service Worker servido con CACHE_VERSION inyectado a partir del filemtime
+// del archivo. Cada cambio en sw.js, en assets pre-cacheados o despliegue
+// nuevo bumpea la version => el SW activa, descarta los caches anteriores y
+// los browsers ven los assets nuevos sin que el usuario tenga que limpiar
+// cache manualmente. Sirve con Service-Worker-Allowed: / para scope global.
+Route::get('/sw.js', function () {
+    $path = public_path('sw.js');
+    if (!file_exists($path)) abort(404);
+    $version = (string) (@filemtime($path) ?: time());
+    $content = str_replace('__CACHE_VERSION__', $version, file_get_contents($path));
+    return response($content, 200, [
+        'Content-Type'            => 'application/javascript',
+        'Cache-Control'           => 'no-cache, no-store, must-revalidate',
+        'Pragma'                  => 'no-cache',
+        'Expires'                 => '0',
+        'Service-Worker-Allowed'  => '/',
+    ]);
+});
+
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 Route::redirect('/home', '/menu');
 
