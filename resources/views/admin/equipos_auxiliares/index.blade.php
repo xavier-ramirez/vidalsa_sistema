@@ -2159,6 +2159,9 @@
         const fd = new FormData();
         fd.append('file', file);
         fd.append('doc_type', docType);
+        // Preloader global durante upload + render del visor (mismo patron
+        // que /admin/equipos: el spinner queda visible hasta que el PDF
+        // esta listo en el iframe del visor).
         if (window.showPreloader) window.showPreloader();
         fetch('/admin/equipos-auxiliares/' + auxId + '/upload-doc', {
             method: 'POST',
@@ -2171,16 +2174,35 @@
         })
         .then(r => r.json().then(b => ({status:r.status, body:b})))
         .then(({status, body}) => {
-            if (window.hidePreloader) window.hidePreloader();
             input.value = '';
             if (status === 200 && body.success) {
                 if (window.showToast) window.showToast(body.message || 'PDF cargado.', 'success');
-                const trigger = document.querySelector('.btn-details-mini[data-aux-id="'+auxId+'"]');
-                if (trigger) {
+
+                // 1) Cerrar el modal de detalles para que el visor del PDF
+                //    no quede solapado por el card del aux.
+                if (typeof window.closeAuxDetailsModal === 'function') {
                     window.closeAuxDetailsModal();
-                    setTimeout(() => window.openAuxDetailsModal(trigger), 100);
                 }
+
+                // 2) Refrescar la tabla en background: el partial re-renderiza
+                //    el boton del PDF como "description" (azul) en vez del
+                //    cloud_upload. Asi no queda el icono de cargar pegado y
+                //    no hace falta recargar la pagina.
+                if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
+
+                // 3) Abrir el visor del PDF al instante (igual que vehiculos):
+                //    skipMetadata=false + module='auxiliar' para que el panel
+                //    lateral cargue los datos correctos.
+                if (body.link && typeof window.openPdfPreview === 'function') {
+                    const labelHr  = docType === 'propiedad' ? 'Doc. Propiedad' : 'Certificado';
+                    const uploadUrl = '/admin/equipos-auxiliares/' + auxId + '/upload-doc';
+                    window.openPdfPreview(body.link, docType, labelHr, auxId, uploadUrl, false, 'auxiliar');
+                }
+                // hidePreloader: openPdfPreview enciende su propio loader interno
+                // del iframe; apagamos el global para no dejarlo encimado.
+                if (window.hidePreloader) window.hidePreloader();
             } else {
+                if (window.hidePreloader) window.hidePreloader();
                 if (window.showToast) window.showToast(body.message || 'No se pudo cargar el PDF.', 'error');
             }
         })
