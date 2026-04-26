@@ -550,6 +550,7 @@ class MovilizacionController extends Controller
                 'equipo.tipo',
                 'equipo.documentacion',
                 'equipo.especificaciones',
+                'auxiliar',
                 'frenteOrigen',
                 'frenteDestino',
                 'usuario'
@@ -559,6 +560,34 @@ class MovilizacionController extends Controller
                 // UNIX_TIMESTAMP evita la diferencia de precisión entre Carbon (µs) y MySQL TIMESTAMP (s)
                 ->whereRaw('UNIX_TIMESTAMP(created_at) = UNIX_TIMESTAMP(?)', [$baseMov->created_at])
                 ->get();
+
+            // Para movilizaciones de auxiliares (ID_EQUIPO null + ID_AUXILIAR set),
+            // sintetizamos un objeto Equipo-like a partir del auxiliar para que el
+            // resto del flujo (vista acta_traslado_pdf, $equipos collection, etc)
+            // siga funcionando sin reescribir la plantilla. Campos no existentes
+            // en aux (PLACA, ANIO etc) quedan en cadena vacia.
+            foreach ($movilizaciones as $mov) {
+                if (!$mov->equipo && $mov->auxiliar) {
+                    $a = $mov->auxiliar;
+                    $synthetic = new \stdClass();
+                    $synthetic->ID_EQUIPO       = null;
+                    $synthetic->CODIGO_PATIO    = $a->CODIGO_INTERNO ?: $a->SERIAL;
+                    $synthetic->SERIAL_CHASIS   = $a->SERIAL ?: '—';
+                    $synthetic->SERIAL_DE_MOTOR = '';
+                    $synthetic->MARCA           = $a->MARCA ?: '';
+                    $synthetic->MODELO          = $a->MODELO ?: '';
+                    $synthetic->ANIO            = $a->ANIO ?? '';
+                    $synthetic->NUMERO_ETIQUETA = '';
+                    $synthetic->ESTADO_OPERATIVO= $a->ESTADO_OPERATIVO ?? 'OPERATIVO';
+                    $synthetic->FOTO_EQUIPO     = $a->FOTO ?? null;
+                    $synthetic->tipo            = (object) ['nombre' => $a->TIPO ?? 'AUXILIAR'];
+                    $synthetic->documentacion   = (object) ['PLACA' => 'S/P'];
+                    $synthetic->especificaciones= null;
+                    // Inyectamos en el modelo para que las refs ->equipo en la
+                    // plantilla y el map() de abajo funcionen igual.
+                    $mov->setRelation('equipo', $synthetic);
+                }
+            }
 
             if ($movilizaciones->isEmpty()) {
                 return back()->withErrors(['error' => 'No se encontraron registros para esta movilización.']);

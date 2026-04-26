@@ -222,29 +222,30 @@
                     </div>
                 </div>
 
-                {{-- Papelera buttons agrupados — desktop: lado a lado tight al
-                     final del row (estilo icon-only ancho 60px). Mobile: full
-                     width compartiendo 50/50 debajo del ultimo filtro. --}}
+                {{-- Papelera buttons agrupados con label — desktop: lado a lado
+                     en el row de filtros, mobile: full width compartido 50/50. --}}
                 @can('user.delete')
                 <div class="hd-papelera-group">
                     <div class="filter-item aligned-filter">
                         <button type="button" id="btnVerPapeleraEquipos"
                             onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
                             title="Papelera de Vehículos"
-                            style="height: 45px; min-width: 60px; width: 100%; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"
+                            style="height: 45px; width: 100%; padding: 0 12px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap;"
                             onmouseover="this.style.background='#fef3c7'"
                             onmouseout="this.style.background='white'">
-                            <i class="material-icons">directions_car</i>
+                            <i class="material-icons" style="font-size:18px;">directions_car</i>
+                            <span>Vehículos</span>
                         </button>
                     </div>
                     <div class="filter-item aligned-filter">
                         <button type="button" id="btnVerPapeleraAux"
                             onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
                             title="Papelera de Auxiliares"
-                            style="height: 45px; min-width: 60px; width: 100%; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"
+                            style="height: 45px; width: 100%; padding: 0 12px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap;"
                             onmouseover="this.style.background='#fff7ed'"
                             onmouseout="this.style.background='white'">
-                            <i class="material-icons">construction</i>
+                            <i class="material-icons" style="font-size:18px;">construction</i>
+                            <span>Auxiliares</span>
                         </button>
                     </div>
                 </div>
@@ -510,23 +511,38 @@
     };
 
     function restoreItem(url, label, refreshFn) {
-        if (!confirm('¿Restaurar "' + label + '"?')) return;
-        if (window.showPreloader) window.showPreloader();
-        fetch(url, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }})
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-            .then(function (res) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Restaurado.', 'success');
-                    refreshFn();
-                } else {
-                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo restaurar.', 'error');
-                }
-            })
-            .catch(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast('Error de red.', 'error');
+        var doRestore = function () {
+            if (window.showPreloader) window.showPreloader();
+            fetch(url, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }})
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+                .then(function (res) {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (res.ok && res.body.success) {
+                        if (window.showToast) window.showToast(res.body.message || 'Restaurado.', 'success');
+                        refreshFn();
+                    } else {
+                        if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo restaurar.', 'error');
+                    }
+                })
+                .catch(function () {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (window.showToast) window.showToast('Error de red.', 'error');
+                });
+        };
+        // Modal moderno (showModal global) en lugar del confirm() nativo
+        // del navegador — consistente con el resto del sistema.
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: 'info',
+                title: 'Restaurar',
+                message: '¿Restaurar "' + label + '"?\n\nVolverá al listado activo.',
+                confirmText: 'Restaurar',
+                cancelText: 'Cancelar',
+                onConfirm: doRestore
             });
+        } else {
+            doRestore();
+        }
     }
 
     window.recuperarEquipo = function (id, label) {

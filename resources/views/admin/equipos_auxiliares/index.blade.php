@@ -1374,7 +1374,21 @@
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200 && body.success) {
-                if (window.showToast) window.showToast(body.message || 'Movilización exitosa.', 'success');
+                // Si el usuario marco generar_pdf, disparamos la descarga del
+                // acta usando el primer ID de movilizacion creado. Mismo
+                // patron que /admin/equipos (acta-traslado endpoint).
+                if (body.generar_pdf && Array.isArray(body.movilizacion_ids) && body.movilizacion_ids.length > 0) {
+                    var firstId = body.movilizacion_ids[0];
+                    var dl = document.createElement('a');
+                    dl.href = '/admin/movilizaciones/' + firstId + '/acta-traslado';
+                    dl.style.display = 'none';
+                    dl.setAttribute('data-no-spa', 'true');
+                    document.body.appendChild(dl);
+                    setTimeout(function () { dl.click(); setTimeout(function () { document.body.removeChild(dl); }, 1000); }, 100);
+                    if (window.showToast) window.showToast('Movilización exitosa. Descargando acta...', 'success');
+                } else if (window.showToast) {
+                    window.showToast(body.message || 'Movilización exitosa.', 'success');
+                }
                 window.auxClearSelection();
                 window.closeAuxMovilizarModal();
                 cargarAuxiliares();

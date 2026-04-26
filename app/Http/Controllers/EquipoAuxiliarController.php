@@ -1481,9 +1481,10 @@ class EquipoAuxiliarController extends Controller
         $userEmail = optional(auth()->user())->CORREO_ELECTRONICO ?? 'SISTEMA';
         $now = now();
         $codigoControl = $generarPdf ? $this->generateNextCodigoControlAux() : null;
+        $movilizacionIds = [];
 
         foreach ($auxParaMover as $aux) {
-            \App\Models\Movilizacion::create([
+            $mov = \App\Models\Movilizacion::create([
                 'CODIGO_CONTROL'    => $codigoControl,
                 'ID_EQUIPO'         => null,
                 'ID_AUXILIAR'       => $aux->ID_AUXILIAR,
@@ -1493,13 +1494,17 @@ class EquipoAuxiliarController extends Controller
                 'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
                 'USUARIO_REGISTRO'  => $userEmail,
             ]);
+            $movilizacionIds[] = $mov->ID_MOVILIZACION;
         }
 
         return response()->json([
-            'success'  => true,
-            'message'  => "Se movilizaron {$affected} equipo(s) auxiliar(es) al frente destino.",
-            'affected' => $affected,
-            'codigo_control' => $codigoControl,
+            'success'           => true,
+            'message'           => "Se movilizaron {$affected} equipo(s) auxiliar(es) al frente destino.",
+            'affected'          => $affected,
+            'count'             => $affected,
+            'codigo_control'    => $codigoControl,
+            'generar_pdf'       => $generarPdf,
+            'movilizacion_ids'  => $movilizacionIds,
         ]);
     }
 
