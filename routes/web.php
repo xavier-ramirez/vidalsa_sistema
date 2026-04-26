@@ -160,12 +160,12 @@ Route::middleware(['auth'])->group(function () {
             // ── Reporte de Fallas ────────────────────────────────────────────────
             // Permiso global: equipos.edit (gateado en FallaController::__construct).
             // Rutas estáticas ANTES de wildcards para evitar colisiones de segmento.
-            Route::get ('fallas/search-activos',  [App\Http\Controllers\FallaController::class, 'searchActivos'])->name('fallas.searchActivos');
-            Route::post('fallas/change-estado',   [App\Http\Controllers\FallaController::class, 'changeEstado']) ->name('fallas.changeEstado');
-            Route::post('fallas',                 [App\Http\Controllers\FallaController::class, 'store'])        ->name('fallas.store');
-            Route::get ('fallas/{id}/pdf',        [App\Http\Controllers\FallaController::class, 'pdf'])          ->name('fallas.pdf');
-            Route::post('fallas/{id}/close',      [App\Http\Controllers\FallaController::class, 'close'])        ->name('fallas.close');
-            Route::get ('fallas',                 [App\Http\Controllers\FallaController::class, 'index'])        ->name('fallas.index');
+            Route::get  ('fallas/search-activos', [App\Http\Controllers\FallaController::class, 'searchActivos'])->name('fallas.searchActivos');
+            Route::post ('fallas/change-estado',  [App\Http\Controllers\FallaController::class, 'changeEstado']) ->name('fallas.changeEstado');
+            Route::post ('fallas',                [App\Http\Controllers\FallaController::class, 'store'])        ->name('fallas.store');
+            Route::get  ('fallas/{id}/pdf',       [App\Http\Controllers\FallaController::class, 'pdf'])          ->name('fallas.pdf');
+            Route::patch('fallas/{id}/close',     [App\Http\Controllers\FallaController::class, 'close'])        ->name('fallas.close');
+            Route::get  ('fallas',                [App\Http\Controllers\FallaController::class, 'index'])        ->name('fallas.index');
 
 
 
