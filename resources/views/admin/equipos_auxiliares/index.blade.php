@@ -123,15 +123,20 @@
             max-width: 100% !important;
             min-width: 0 !important;
         }
-        /* Serial + boton Filtros Avanzados: misma fila */
+        /* Serial + boton Filtros Avanzados: misma fila.
+           flex-basis: 0 (no auto) hace que el Serial NO use el ancho de su
+           contenido (placeholder largo) como base — asi nunca empuja al
+           boton de filtros a la fila siguiente. */
         #auxFiltersForm > .search-wrapper {
-            flex: 1 1 auto !important;
+            flex: 1 1 0 !important;
             min-width: 0 !important;
             max-width: none !important;
+            width: auto !important;
         }
         #auxFiltersForm > div[data-aux-role="adv"] {
             flex: 0 0 45px !important;
             width: 45px !important;
+            min-width: 45px !important;
         }
         /* Contenedor del boton Acciones: fila propia full-width */
         #auxFiltersForm > div[data-aux-role="acciones"] {
@@ -259,7 +264,16 @@
             </div>
 
             @php
-                $advActive = request()->filled('marca') || request()->filled('modelo') || request()->filled('estado') || request()->filled('capacidad');
+                // Mismo patron que /admin/equipos: el boton se resalta en rojo si
+                // CUALQUIER filtro avanzado esta activo, incluyendo los checks de
+                // documentacion (Propiedad/Certificado) y la ubicacion especifica.
+                $advActive = request()->filled('marca')
+                    || request()->filled('modelo')
+                    || request()->filled('estado')
+                    || request()->filled('capacidad')
+                    || request()->filled('detalle_ubicacion')
+                    || request()->boolean('con_propiedad')
+                    || request()->boolean('con_certificado');
             @endphp
             <div data-aux-role="adv" style="position:relative;flex-shrink:0;">
                 <button type="button" id="auxAdvBtn" title="Filtros Avanzados"
