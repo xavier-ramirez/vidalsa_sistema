@@ -120,35 +120,75 @@
         || request()->filled('responsable') || request()->filled('marca')
         || request()->filled('modelo') || request()->filled('fecha_desde')
         || request()->filled('fecha_hasta');
+
+    $estatusSel    = request('estatus');
+    $estatusLabels = ['abierto' => 'Abiertos', 'cerrado' => 'Cerrados'];
+    $estatusLabel  = $estatusLabels[$estatusSel] ?? 'Todos los reportes';
+
+    $tipoActivoSel    = request('tipo_activo');
+    $tipoActivoLabels = ['equipo' => '🚛 Vehículos', 'equipo_auxiliar' => '🔧 Auxiliares'];
+    $tipoActivoLabel  = $tipoActivoLabels[$tipoActivoSel] ?? 'Todos los activos';
+
+    $frenteSel    = request('id_frente');
+    $frenteObj    = $frenteSel ? $frentes->firstWhere('ID_FRENTE', (int) $frenteSel) : null;
+    $frenteLabel  = $frenteObj ? $frenteObj->NOMBRE_FRENTE : 'Todos los frentes';
+
+    $respSel   = request('responsable');
+    $respObj   = $respSel ? $responsables->firstWhere('ID_USUARIO', (int) $respSel) : null;
+    $respLabel = $respObj ? $respObj->NOMBRE_COMPLETO : 'Todos los responsables';
 @endphp
 
-{{-- Toolbar --}}
-<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
+{{-- Toolbar (estilo /admin/equipos: custom-dropdown) --}}
+<div class="filter-toolbar-container" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
+
     {{-- Buscar por serial / placa --}}
-    <div class="search-wrapper" style="flex:1; min-width:200px; max-width:320px; border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; background:{{ request('search') ? '#e1effa' : '#fbfcfd' }}; display:flex; align-items:center; height:45px; overflow:hidden;">
-        <div style="padding:0 12px; color:#64748b; display:flex; align-items:center;"><i class="material-icons" style="font-size:18px;">search</i></div>
-        <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
-               placeholder="Placa, serial chasis, motor, etiqueta..."
-               oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 350);"
-               style="flex:1; border:none; background:transparent; padding:12px 5px; font-size:13px; outline:none; min-width:0;" autocomplete="off">
-        <i id="fallasSearchClear" class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer; display:{{ request('search') ? 'block' : 'none' }};" onclick="document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>
+    <div class="filter-item aligned-filter" style="flex:1.5; min-width:200px;">
+        <div class="search-wrapper" style="width:100%; border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }}; background:{{ request('search') ? '#e1effa' : '#fff' }};">
+            <i class="material-icons search-icon">search</i>
+            <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
+                   placeholder="Buscar Seriales / Placa..." class="search-input-field" autocomplete="off"
+                   oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 350);">
+            <i id="fallasSearchClear" class="material-icons clear-icon"
+               style="display:{{ request('search') ? 'block' : 'none' }};"
+               onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>
+        </div>
     </div>
 
-    {{-- Estatus --}}
-    <select id="fallasEstatus" class="fl-select" style="width:auto; height:45px; min-width:130px;" onchange="window.cargarFallas()">
-        <option value="">Todos los reportes</option>
-        <option value="abierto" {{ request('estatus')=='abierto' ? 'selected' : '' }}>Abiertos</option>
-        <option value="cerrado" {{ request('estatus')=='cerrado' ? 'selected' : '' }}>Cerrados</option>
-    </select>
+    {{-- Estatus (custom-dropdown) --}}
+    <div class="filter-item aligned-filter" style="flex:1; min-width:140px; max-width:200px;">
+        <div class="custom-dropdown" id="fallasEstatusDD" data-filter-type="estatus" data-default-label="Todos los reportes">
+            <input type="hidden" id="fallasEstatus" data-filter-value value="{{ $estatusSel }}">
+            <div class="dropdown-trigger {{ $estatusSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $estatusSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $estatusSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
+                <div style="padding:0 10px; color:#64748b;"><i class="material-icons" style="font-size:18px;">flag</i></div>
+                <input type="text" name="filter_search_dropdown" data-filter-search
+                       placeholder="{{ $estatusLabel }}" aria-label="Filtrar Estatus"
+                       style="width:100%; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none;"
+                       oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                <i class="material-icons" data-clear-btn
+                   style="padding:0 5px; color:#64748b; font-size:18px; display:{{ $estatusSel ? 'block' : 'none' }};"
+                   onclick="event.stopPropagation(); window.clearDropdownFilter('fallasEstatusDD'); window.cargarFallas();">close</i>
+            </div>
+            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                <div class="dropdown-item-list">
+                    <div class="dropdown-item {{ !$estatusSel ? 'selected' : '' }}" data-value=""
+                         onclick="window.selectOption('fallasEstatusDD','','Todos los reportes'); window.cargarFallas();">Todos los reportes</div>
+                    <div class="dropdown-item {{ $estatusSel=='abierto' ? 'selected' : '' }}" data-value="abierto"
+                         onclick="window.selectOption('fallasEstatusDD','abierto','Abiertos'); window.cargarFallas();">Abiertos</div>
+                    <div class="dropdown-item {{ $estatusSel=='cerrado' ? 'selected' : '' }}" data-value="cerrado"
+                         onclick="window.selectOption('fallasEstatusDD','cerrado','Cerrados'); window.cargarFallas();">Cerrados</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    {{-- Filtros Avanzados (botón tradicional de la app) --}}
+    {{-- Boton Filtros Avanzados --}}
     <div style="position:relative; flex-shrink:0;">
-        <button type="button" id="fallasAdvBtn"
+        <button type="button" id="fallasAdvBtn" class="btn-primary-maquinaria"
                 onclick="const p=document.getElementById('fallasAdvPanel'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; event.stopPropagation();"
                 title="Filtros Avanzados"
                 style="height:45px; width:45px; min-width:45px; padding:0; display:flex; align-items:center; justify-content:center;
                        background:{{ $advActive ? '#fee2e2' : 'white' }}; border:1px solid {{ $advActive ? '#ef4444' : '#cbd5e0' }};
-                       color:{{ $advActive ? '#ef4444' : '#64748b' }}; border-radius:10px; cursor:pointer;">
+                       color:{{ $advActive ? '#ef4444' : '#64748b' }}; box-shadow:none;">
             <i class="material-icons">filter_list</i>
         </button>
 
@@ -164,65 +204,147 @@
 
             <div style="display:flex; flex-direction:column; gap:10px;">
 
-                {{-- Tipo de activo --}}
+                {{-- Tipo de activo (custom-dropdown) --}}
                 <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Tipo de Activo</span>
-                    <select id="fallasTipoActivo" class="fl-select" style="height:36px; font-size:13px;" onchange="window.cargarFallas()">
-                        <option value="">Todos los activos</option>
-                        <option value="equipo" {{ request('tipo_activo')=='equipo' ? 'selected' : '' }}>🚛 Vehículos</option>
-                        <option value="equipo_auxiliar" {{ request('tipo_activo')=='equipo_auxiliar' ? 'selected' : '' }}>🔧 Auxiliares</option>
-                    </select>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Tipo de Activo</span>
+                    <div class="custom-dropdown" id="fallasTipoActivoDD" data-filter-type="tipo_activo" data-default-label="Todos los activos" style="font-size:12px;">
+                        <input type="hidden" id="fallasTipoActivo" data-filter-value value="{{ $tipoActivoSel }}">
+                        <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $tipoActivoSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
+                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">category</i></div>
+                            <input type="text" name="filter_search_dropdown" data-filter-search
+                                   placeholder="{{ $tipoActivoLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
+                                   oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                            <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ $tipoActivoSel ? 'block' : 'none' }};"
+                               onclick="event.stopPropagation(); window.clearDropdownFilter('fallasTipoActivoDD'); window.cargarFallas();">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                            <div class="dropdown-item-list">
+                                <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
+                                     onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
+                                <div class="dropdown-item {{ $tipoActivoSel=='equipo' ? 'selected' : '' }}" data-value="equipo"
+                                     onclick="window.selectOption('fallasTipoActivoDD','equipo','🚛 Vehículos'); window.cargarFallas();">🚛 Vehículos</div>
+                                <div class="dropdown-item {{ $tipoActivoSel=='equipo_auxiliar' ? 'selected' : '' }}" data-value="equipo_auxiliar"
+                                     onclick="window.selectOption('fallasTipoActivoDD','equipo_auxiliar','🔧 Auxiliares'); window.cargarFallas();">🔧 Auxiliares</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {{-- Frente --}}
+                {{-- Frente (custom-dropdown buscable) --}}
                 <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;"><i class="material-icons" style="font-size:13px; vertical-align:middle; color:#0067b1;">place</i> Frente</span>
-                    <select id="fallasFrente" class="fl-select" style="height:36px; font-size:13px;" onchange="window.cargarFallas()">
-                        <option value="">Todos los frentes</option>
-                        @foreach($frentes as $fr)
-                            <option value="{{ $fr->ID_FRENTE }}" {{ request('id_frente') == $fr->ID_FRENTE ? 'selected' : '' }}>{{ $fr->NOMBRE_FRENTE }}</option>
-                        @endforeach
-                    </select>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;"><i class="material-icons" style="font-size:13px; vertical-align:middle; color:#0067b1;">place</i> Frente</span>
+                    <div class="custom-dropdown" id="fallasFrenteDD" data-filter-type="id_frente" data-default-label="Todos los frentes" style="font-size:12px;">
+                        <input type="hidden" id="fallasFrente" data-filter-value value="{{ $frenteSel }}">
+                        <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $frenteSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
+                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
+                            <input type="text" name="filter_search_dropdown" data-filter-search
+                                   placeholder="{{ $frenteLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
+                                   oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                            <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ $frenteSel ? 'block' : 'none' }};"
+                               onclick="event.stopPropagation(); window.clearDropdownFilter('fallasFrenteDD'); window.cargarFallas();">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                            <div class="dropdown-item-list" style="max-height:160px; overflow-y:auto;">
+                                <div class="dropdown-item {{ !$frenteSel ? 'selected' : '' }}" data-value=""
+                                     onclick="window.selectOption('fallasFrenteDD','','Todos los frentes'); window.cargarFallas();">Todos los frentes</div>
+                                @foreach($frentes as $fr)
+                                    <div class="dropdown-item {{ $frenteSel == $fr->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $fr->ID_FRENTE }}"
+                                         onclick="window.selectOption('fallasFrenteDD','{{ $fr->ID_FRENTE }}','{{ addslashes(trim($fr->NOMBRE_FRENTE)) }}'); window.cargarFallas();">{{ $fr->NOMBRE_FRENTE }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {{-- Responsable --}}
+                {{-- Responsable (custom-dropdown buscable) --}}
                 @if($responsables->count() > 0)
                 <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Responsable</span>
-                    <select id="fallasResponsable" class="fl-select" style="height:36px; font-size:13px;" onchange="window.cargarFallas()">
-                        <option value="">Todos los responsables</option>
-                        @foreach($responsables as $r)
-                            <option value="{{ $r->ID_USUARIO }}" {{ request('responsable') == $r->ID_USUARIO ? 'selected' : '' }}>{{ $r->NOMBRE_COMPLETO }}</option>
-                        @endforeach
-                    </select>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Responsable</span>
+                    <div class="custom-dropdown" id="fallasResponsableDD" data-filter-type="responsable" data-default-label="Todos los responsables" style="font-size:12px;">
+                        <input type="hidden" id="fallasResponsable" data-filter-value value="{{ $respSel }}">
+                        <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $respSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
+                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">person</i></div>
+                            <input type="text" name="filter_search_dropdown" data-filter-search
+                                   placeholder="{{ $respLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
+                                   oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                            <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ $respSel ? 'block' : 'none' }};"
+                               onclick="event.stopPropagation(); window.clearDropdownFilter('fallasResponsableDD'); window.cargarFallas();">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                            <div class="dropdown-item-list" style="max-height:160px; overflow-y:auto;">
+                                <div class="dropdown-item {{ !$respSel ? 'selected' : '' }}" data-value=""
+                                     onclick="window.selectOption('fallasResponsableDD','','Todos los responsables'); window.cargarFallas();">Todos los responsables</div>
+                                @foreach($responsables as $r)
+                                    <div class="dropdown-item {{ $respSel == $r->ID_USUARIO ? 'selected' : '' }}" data-value="{{ $r->ID_USUARIO }}"
+                                         onclick="window.selectOption('fallasResponsableDD','{{ $r->ID_USUARIO }}','{{ addslashes(trim($r->NOMBRE_COMPLETO)) }}'); window.cargarFallas();">{{ $r->NOMBRE_COMPLETO }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 @endif
 
-                {{-- Marca --}}
-                <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Marca</span>
-                    <input type="text" id="fallasMarca" class="fl-input" placeholder="Ej: CATERPILLAR" value="{{ request('marca') }}"
-                           style="height:36px; font-size:13px;"
-                           oninput="window._flMarcaDebounce && clearTimeout(window._flMarcaDebounce); window._flMarcaDebounce = setTimeout(window.cargarFallas, 400);">
-                </div>
-
-                {{-- Modelo --}}
-                <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Modelo</span>
-                    <input type="text" id="fallasModelo" class="fl-input" placeholder="Ej: 320D" value="{{ request('modelo') }}"
-                           style="height:36px; font-size:13px;"
-                           oninput="window._flModeloDebounce && clearTimeout(window._flModeloDebounce); window._flModeloDebounce = setTimeout(window.cargarFallas, 400);">
+                {{-- Marca + Modelo: dropdowns con autocomplete sobre datos reales --}}
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div>
+                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Marca</span>
+                        <div class="custom-dropdown" id="fallasMarcaDD" data-filter-type="marca" data-default-label="Marca..." style="font-size:12px;">
+                            <input type="hidden" id="fallasMarca" data-filter-value value="{{ request('marca') }}">
+                            <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ request('marca') ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
+                                <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
+                                <input type="text" name="filter_search_dropdown" data-filter-search
+                                       placeholder="{{ request('marca') ?: 'Marca...' }}" style="width:100%; min-width:0; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
+                                       oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                                <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ request('marca') ? 'block' : 'none' }};"
+                                   onclick="event.stopPropagation(); window.clearDropdownFilter('fallasMarcaDD'); window.cargarFallas();">close</i>
+                            </div>
+                            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                                <div class="dropdown-item-list" style="max-height:150px; overflow-y:auto;">
+                                    @foreach($availableMarcas as $m)
+                                        @if(trim($m) !== '')
+                                            <div class="dropdown-item {{ request('marca') == $m ? 'selected' : '' }}" data-value="{{ $m }}"
+                                                 onclick="window.selectOption('fallasMarcaDD','{{ addslashes(trim($m)) }}','{{ addslashes(trim($m)) }}'); window.cargarFallas();">{{ $m }}</div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Modelo</span>
+                        <div class="custom-dropdown" id="fallasModeloDD" data-filter-type="modelo" data-default-label="Modelo..." style="font-size:12px;">
+                            <input type="hidden" id="fallasModelo" data-filter-value value="{{ request('modelo') }}">
+                            <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ request('modelo') ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
+                                <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
+                                <input type="text" name="filter_search_dropdown" data-filter-search
+                                       placeholder="{{ request('modelo') ?: 'Modelo...' }}" style="width:100%; min-width:0; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
+                                       oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                                <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ request('modelo') ? 'block' : 'none' }};"
+                                   onclick="event.stopPropagation(); window.clearDropdownFilter('fallasModeloDD'); window.cargarFallas();">close</i>
+                            </div>
+                            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                                <div class="dropdown-item-list" style="max-height:150px; overflow-y:auto;">
+                                    @foreach($availableModelos as $mo)
+                                        @if(trim($mo) !== '')
+                                            <div class="dropdown-item {{ request('modelo') == $mo ? 'selected' : '' }}" data-value="{{ $mo }}"
+                                                 onclick="window.selectOption('fallasModeloDD','{{ addslashes(trim($mo)) }}','{{ addslashes(trim($mo)) }}'); window.cargarFallas();">{{ $mo }}</div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Fechas --}}
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                     <div>
-                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Desde</span>
-                        <input type="date" id="fallasFechaDesde" class="fl-input" style="height:36px; font-size:12px; width:100%;" value="{{ request('fecha_desde') }}" onchange="window.cargarFallas()">
+                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Desde</span>
+                        <input type="date" id="fallasFechaDesde" class="fl-input" style="height:32px; font-size:12px; width:100%;" value="{{ request('fecha_desde') }}" onchange="window.cargarFallas()">
                     </div>
                     <div>
-                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Hasta</span>
-                        <input type="date" id="fallasFechaHasta" class="fl-input" style="height:36px; font-size:12px; width:100%;" value="{{ request('fecha_hasta') }}" onchange="window.cargarFallas()">
+                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Hasta</span>
+                        <input type="date" id="fallasFechaHasta" class="fl-input" style="height:32px; font-size:12px; width:100%;" value="{{ request('fecha_hasta') }}" onchange="window.cargarFallas()">
                     </div>
                 </div>
 

@@ -151,7 +151,26 @@ class FallaController extends Controller
 
         $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
-        return view('admin.fallas.index', compact('fallas', 'stats', 'responsables', 'frentes'));
+        // Catalogo de Marcas / Modelos para el filtro avanzado.
+        // Cuando el usuario filtra por tipo_activo, solo recomendamos
+        // los valores de esa familia (vehiculos o auxiliares); si no, union.
+        $tipoSel = $request->input('tipo_activo');
+        $eqMarcas = ($tipoSel === 'equipo_auxiliar') ? collect()
+            : Equipo::whereNotNull('MARCA')->where('MARCA','!=','')->distinct()->orderBy('MARCA')->pluck('MARCA');
+        $auxMarcas = ($tipoSel === 'equipo') ? collect()
+            : EquipoAuxiliar::whereNotNull('MARCA')->where('MARCA','!=','')->distinct()->orderBy('MARCA')->pluck('MARCA');
+        $availableMarcas = $eqMarcas->merge($auxMarcas)->unique()->sort()->values();
+
+        $eqModelos = ($tipoSel === 'equipo_auxiliar') ? collect()
+            : Equipo::whereNotNull('MODELO')->where('MODELO','!=','')->distinct()->orderBy('MODELO')->pluck('MODELO');
+        $auxModelos = ($tipoSel === 'equipo') ? collect()
+            : EquipoAuxiliar::whereNotNull('MODELO')->where('MODELO','!=','')->distinct()->orderBy('MODELO')->pluck('MODELO');
+        $availableModelos = $eqModelos->merge($auxModelos)->unique()->sort()->values();
+
+        return view('admin.fallas.index', compact(
+            'fallas', 'stats', 'responsables', 'frentes',
+            'availableMarcas', 'availableModelos'
+        ));
     }
 
     /**

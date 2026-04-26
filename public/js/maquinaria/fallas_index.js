@@ -59,11 +59,18 @@
     };
 
     // ─── Limpiar filtros avanzados ───
+    // Los dropdowns son custom-dropdown (estilo /admin/equipos): para resetearlos
+    // se debe usar window.clearDropdownFilter para que tambien se limpie el
+    // placeholder, el clear-btn y el highlight visual del trigger.
     window.flClearAdv = function () {
-        ['fallasTipoActivo','fallasFrente','fallasResponsable'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.value = '';
+        const advDDs = ['fallasTipoActivoDD','fallasFrenteDD','fallasResponsableDD','fallasMarcaDD','fallasModeloDD'];
+        advDDs.forEach(ddId => {
+            if (document.getElementById(ddId) && typeof window.clearDropdownFilter === 'function') {
+                window.clearDropdownFilter(ddId);
+            }
         });
-        ['fallasMarca','fallasModelo','fallasFechaDesde','fallasFechaHasta'].forEach(id => {
+        // Inputs nativos (date)
+        ['fallasFechaDesde','fallasFechaHasta'].forEach(id => {
             const el = document.getElementById(id); if (el) el.value = '';
         });
         const panel = document.getElementById('fallasAdvPanel');

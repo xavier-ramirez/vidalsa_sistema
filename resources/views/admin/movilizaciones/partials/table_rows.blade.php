@@ -106,8 +106,12 @@
         <td class="mv-col-op mv-mobile-hidden">
             <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
                 @if($mov->CODIGO_CONTROL)
+                    {{-- Defensa: stripear posible prefijo "MV-" en valor crudo
+                         para evitar render "MV-MV-XXXXX" en registros antiguos
+                         de aux que se guardaron con prefijo. --}}
+                    @php $cc = preg_replace('/[^0-9]/', '', (string) $mov->CODIGO_CONTROL); @endphp
                     <span
-                        style="font-weight: 800; color: #1e293b; font-size: 13px;">MV-{{ str_pad($mov->CODIGO_CONTROL, 5, '0', STR_PAD_LEFT) }}</span>
+                        style="font-weight: 800; color: #1e293b; font-size: 13px;">MV-{{ str_pad($cc, 5, '0', STR_PAD_LEFT) }}</span>
                 @else
                     <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">--</span>
                 @endif

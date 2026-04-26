@@ -1528,9 +1528,10 @@ class EquipoAuxiliarController extends Controller
 
     /**
      * Genera el siguiente CODIGO_CONTROL para una movilizacion de aux.
-     * Reusa el mismo numerador global que equipos para mantener una unica
-     * secuencia de actas (mismas tablas) — replica el patron de
-     * MovilizacionController::generateNextCodigoControl.
+     * Devuelve solo los digitos (sin prefijo "MV-") para que sea consistente
+     * con MovilizacionController::generateNextCodigoControl. La vista (tabla
+     * de movilizaciones) ya antepone "MV-" al renderizar — incluir el prefijo
+     * aqui causaba el bug "MV-MV-XXXXX" en /admin/movilizaciones.
      */
     private function generateNextCodigoControlAux(): string
     {
@@ -1541,7 +1542,7 @@ class EquipoAuxiliarController extends Controller
             $digits = preg_replace('/[^0-9]/', '', $last);
             if ($digits !== '') $n = ((int) $digits) + 1;
         }
-        return 'MV-' . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
+        return (string) $n;
     }
 
     /**

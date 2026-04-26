@@ -137,10 +137,10 @@
         max-width: 160px;
     }
     /* Mobile: el boton "Nuevo" del catalogo se va al final de la fila de
-       filtros y ocupa el ancho completo. Filtros y boton todos al MISMO
-       ancho (100% del contenedor). box-sizing:border-box para que el
-       padding interno del boton no haga overflow del card-blanco. */
-    @media (max-width: 600px) {
+       filtros y ocupa el ancho completo. Breakpoint subido a 768px para que
+       en telefonos medianos (~601-768px) tampoco se vea "muy finito".
+       height:48px + font 14px para mejor area de tap. */
+    @media (max-width: 768px) {
         #catalogoFilters {
             flex-direction: column;
             align-items: stretch;
@@ -158,7 +158,10 @@
         #catalogoFilters > a.btn-primary-maquinaria {
             justify-content: center;
             order: 99;
-            padding: 0 12px !important;
+            height: 48px !important;
+            padding: 0 14px !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
         }
     }
 

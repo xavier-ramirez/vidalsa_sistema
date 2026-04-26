@@ -148,7 +148,9 @@
             justify-content: center !important;
         }
         /* Panel Filtros Avanzados en mobile: bottom-sheet fijo al fondo
-           en vez de dropdown absoluto que se desbordaba horizontalmente. */
+           en vez de dropdown absoluto que se desbordaba horizontalmente.
+           Ajuste: padding reducido + max-height 55vh para que no ocupe
+           tanto verticalmente y no se vea "muy ancho/largo" al redimensionar. */
         #auxAdvPanel {
             position: fixed !important;
             left: 0 !important;
@@ -157,13 +159,26 @@
             top: auto !important;
             width: 100% !important;
             max-width: 100% !important;
-            max-height: 70vh !important;
+            max-height: 55vh !important;
             overflow-y: auto !important;
             border-radius: 16px 16px 0 0 !important;
             margin-top: 0 !important;
+            padding: 12px !important;
             z-index: 9999 !important;
             box-shadow: 0 -4px 24px rgba(0,0,0,0.18) !important;
         }
+        /* Compactar campos del panel para que no ocupen tanto vertical */
+        #auxAdvPanel > h4 { margin: 0 0 10px 0 !important; font-size: 13px !important; }
+        #auxAdvPanel > div[style*="flex-direction:column"] { gap: 8px !important; }
+        #auxAdvPanel span { font-size: 11.5px !important; margin-bottom: 3px !important; }
+        #auxAdvPanel input[type="text"] { font-size: 13px !important; }
+        /* Filtros doc Propiedad/Certificado (chips redondos): mas compactos */
+        #auxAdvPanel label[style*="cursor:pointer"] { padding: 6px 10px !important; font-size: 12px !important; }
+    }
+    /* Tablets / pantallas medias: limitar el ancho del panel para que no
+       se vea desproporcionado al redimensionar entre 769-1100px */
+    @media (min-width: 769px) and (max-width: 1100px) {
+        #auxAdvPanel { width: 280px !important; padding: 12px !important; }
     }
 </style>
 
