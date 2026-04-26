@@ -52,18 +52,18 @@
 </section>
 
 <div class="maquinaria-layout-container" style="display: grid; grid-template-columns: 1fr 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto;">
-
+    
     <!-- Left Column (Main Content) -->
     <div>
         <div class="admin-card">
-            <div class="filter-toolbar-container" style="margin-bottom: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-                <!-- Search Correo: flex 1 1 250px → crece para ocupar espacio disponible. -->
-                <div class="filter-item aligned-filter" style="flex: 1 1 250px; min-width: 220px;">
+            <div class="filter-toolbar-container" style="margin-bottom: 5px;">
+                <!-- Search Correo -->
+                <div class="filter-item aligned-filter responsive-filter-item">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
                             <i class="material-icons search-icon">person</i>
-                            <input type="text" id="searchCorreo" name="search_correo"
-                                placeholder="Buscar por correo autor..."
+                            <input type="text" id="searchCorreo" name="search_correo" 
+                                placeholder="Buscar por correo autor..." 
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
@@ -74,12 +74,12 @@
                 </div>
 
                 <!-- Search Equipo (Placa/Serial) -->
-                <div class="filter-item aligned-filter" style="flex: 1 1 250px; min-width: 220px;">
+                <div class="filter-item aligned-filter responsive-filter-item">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
                             <i class="material-icons search-icon">agriculture</i>
-                            <input type="text" id="searchEquipo" name="search_equipo"
-                                placeholder="Buscar por placa o serial..."
+                            <input type="text" id="searchEquipo" name="search_equipo" 
+                                placeholder="Buscar por placa o serial..." 
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
@@ -90,7 +90,7 @@
                 </div>
 
                 <!-- Filter Tipo Documento -->
-                <div class="filter-item aligned-filter" style="flex: 1 1 250px; min-width: 220px;">
+                <div class="filter-item aligned-filter responsive-filter-item">
                     <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Tipo Doc..." style="width: 100%;">
                         <input type="hidden" name="search_tipo" data-filter-value value="">
                         
@@ -146,71 +146,13 @@
                     </div>
                 </div>
 
-                @php
-                    $hasAdvHd = request()->filled('fecha_desde') || request()->filled('fecha_hasta');
-                @endphp
-
-                <!-- Boton Filtros Avanzados (panel con rango de fechas).
-                     El panel se cierra al click fuera (listener global mas
-                     abajo). El boton se resalta en rojo cuando hay un filtro
-                     de fecha activo ($hasAdvHd). --}}
-                <div class="filter-item aligned-filter" id="hdAdvancedFilterWrapper" style="flex: 0 0 auto; position: relative;">
-                    <button type="button" id="btnHdAdvancedFilter"
-                        onclick="const p=document.getElementById('hdAdvancedFilterPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none'; event.stopPropagation();"
-                        title="Filtros Avanzados"
-                        style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: {{ $hasAdvHd ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAdvHd ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAdvHd ? '#ef4444' : '#64748b' }}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
-                        <i class="material-icons">filter_list</i>
-                    </button>
-                    <div id="hdAdvancedFilterPanel" style="display: none; position: absolute; top: 100%; right: 0; width: 280px; max-width: calc(100vw - 24px); background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); margin-top: 8px; padding: 14px; z-index: 100;">
-                        <h4 style="margin: 0 0 12px 0; font-size: 13px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
-                            Filtros Avanzados
-                            <span style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;"
-                                  onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; window.loadHistorialDocumentos();">Limpiar</span>
-                        </h4>
-
-                        {{-- Inputs de fecha: showPicker() al hacer click en
-                             cualquier parte del campo (no solo el icono del
-                             calendario). Try/catch defensivo: showPicker no
-                             existe en navegadores viejos, en ese caso se cae
-                             al comportamiento nativo. --}}
-                        <div style="margin-bottom: 10px;">
-                            <span style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Fecha desde</span>
-                            <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
-                                onchange="window.loadHistorialDocumentos()"
-                                onclick="try { this.showPicker(); } catch(e) {}"
-                                style="width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; font-size: 13px; color: #334155; background: {{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor: pointer;">
-                        </div>
-
-                        <div>
-                            <span style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Fecha hasta</span>
-                            <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
-                                onchange="window.loadHistorialDocumentos()"
-                                onclick="try { this.showPicker(); } catch(e) {}"
-                                style="width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius: 8px; font-size: 13px; color: #334155; background: {{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor: pointer;">
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Boton IPs Bloqueadas removido a pedido del usuario:
-                     causaba TypeError cuando $blockedIps estaba vacio (la
-                     funcion JS solo se renderizaba con count > 0, pero el
-                     boton aparecia siempre que hubiera permiso super.admin).
-                     La lista de IPs sigue visible en el sidebar derecho. --}}
-
-                {{-- Botones de Papelera (siempre visibles para usuarios con
-                     user.delete; el modal valida + el endpoint via middleware) --}}
-                {{-- Papelera buttons compactos: solo icono + label corto.
-                     Tooltip explica el alcance (vehiculos vs auxiliares). --}}
-                {{-- Papelera buttons icon-only (45x45) — alineados y compactos.
-                     Tooltip explica el alcance. Iconos distintos: directions_car
-                     para vehiculos, construction para auxiliares. Mismo bg
-                     neutro que el resto de la barra para no romper el ritmo
-                     visual del row de filtros. --}}
+                {{-- Papelera buttons icon-only — abren modales con vehiculos /
+                     auxiliares soft-deleted. Permiso user.delete. --}}
                 @can('user.delete')
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraEquipos"
                         onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
-                        title="Papelera de Vehículos — recuperar vehículos eliminados"
+                        title="Papelera de Vehículos"
                         style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
                         onmouseover="this.style.background='#fef3c7'"
                         onmouseout="this.style.background='white'">
@@ -220,7 +162,7 @@
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraAux"
                         onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
-                        title="Papelera de Auxiliares — recuperar auxiliares eliminados"
+                        title="Papelera de Auxiliares"
                         style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;"
                         onmouseover="this.style.background='#fff7ed'"
                         onmouseout="this.style.background='white'">
@@ -273,9 +215,62 @@
             </div>
         </div>
 
+        <!-- IPs Bloqueadas Card -->
+        @if(isset($blockedIps) && $blockedIps->count() > 0 && auth()->check() && auth()->user()->can('super.admin'))
+        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; z-index: 20;" id="blocked-ips-container">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="color: #ef4444; font-size: 20px;">gpp_bad</i>
+                    <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
+                </div>
+                <span class="badge" style="background: #fee2e2; color: #ef4444; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $blockedIps->count() }}</span>
+            </div>
+
+            {{-- ─── Filtro de búsqueda de IPs ────────────────────────────── --}}
+            <div style="position: relative; margin-bottom: 10px;">
+                <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
+                <input
+                    type="text"
+                    id="ip-filter-input"
+                    placeholder="Filtrar por IP..."
+                    autocomplete="off"
+                    oninput="window.filterBlockedIps(this.value)"
+                    style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #334155; background: #f8fafc; outline: none; transition: border-color 0.2s;"
+                    onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'"
+                    onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"
+                >
+            </div>
+            {{-- Mensaje sin resultados --}}
+            <div id="ip-filter-empty" style="display: none; text-align: center; font-size: 12px; color: #94a3b8; padding: 8px 0;">Sin coincidencias</div>
+            
+            <div id="blocked-ips-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                @foreach($blockedIps as $ip)
+                <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->DIRECCION_IP }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
+                        <span style="font-size: 11px; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
+                    </div>
+                    @can('super.admin')
+                    <button 
+                            class="btn-unlock-ip"
+                            data-ip-id="{{ $ip->ID_BLOQUEO }}"
+                            data-ip-address="{{ $ip->DIRECCION_IP }}"
+                            style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30; margin-left: 10px;" 
+                            onmouseover="this.style.background='#fee2e2'" 
+                            onmouseout="this.style.background='transparent'" 
+                            title="Desbloquear IP">
+                        <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
+                    </button>
+                    @endcan
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
         {{-- ─── Usuarios Activos (sesiones últimos 30 min) ─── --}}
         @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
-        <div style="background: white; border-radius: 12px; padding: 13px 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="background: white; border-radius: 12px; padding: 13px 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-top: 10px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="material-icons" style="color: #10b981; font-size: 18px;">radio_button_checked</i>
@@ -305,63 +300,6 @@
             @endif
         </div>
         @endif
-
-        {{-- IPs Bloqueadas Card del sidebar: SIEMPRE visible para super.admin
-             (incluso con 0 IPs muestra empty state). Las IPs solo se cuentan
-             como bloqueadas con >= 10 intentos fallidos (filtro en controller). --}}
-        @can('super.admin')
-        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; z-index: 20; margin-top: 10px;" id="blocked-ips-container">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="material-icons" style="color: #ef4444; font-size: 20px;">gpp_bad</i>
-                    <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
-                </div>
-                <span class="badge" style="background: {{ ($blockedIps ?? collect())->count() > 0 ? '#fee2e2' : '#f1f5f9' }}; color: {{ ($blockedIps ?? collect())->count() > 0 ? '#ef4444' : '#64748b' }}; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ ($blockedIps ?? collect())->count() }}</span>
-            </div>
-
-            @if(isset($blockedIps) && $blockedIps->count() > 0)
-                {{-- ─── Filtro de búsqueda de IPs ────────────────────────────── --}}
-                <div style="position: relative; margin-bottom: 10px;">
-                    <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
-                    <input
-                        type="text"
-                        id="ip-filter-input"
-                        placeholder="Filtrar por IP..."
-                        autocomplete="off"
-                        oninput="window.filterBlockedIps(this.value)"
-                        style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #334155; background: #f8fafc; outline: none; transition: border-color 0.2s;"
-                        onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'"
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"
-                    >
-                </div>
-                {{-- Mensaje sin resultados --}}
-                <div id="ip-filter-empty" style="display: none; text-align: center; font-size: 12px; color: #94a3b8; padding: 8px 0;">Sin coincidencias</div>
-
-                <div id="blocked-ips-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
-                    @foreach($blockedIps as $ip)
-                    <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->DIRECCION_IP }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
-                            <span style="font-size: 11px; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
-                        </div>
-                        <button
-                                class="btn-unlock-ip"
-                                data-ip-id="{{ $ip->ID_BLOQUEO }}"
-                                data-ip-address="{{ $ip->DIRECCION_IP }}"
-                                style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30; margin-left: 10px;"
-                                onmouseover="this.style.background='#fee2e2'"
-                                onmouseout="this.style.background='transparent'"
-                                title="Desbloquear IP">
-                            <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
-                        </button>
-                    </div>
-                    @endforeach
-                </div>
-            @else
-                <p style="margin: 4px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 4px 0;">Sin IPs bloqueadas (umbral: 10 intentos fallidos).</p>
-            @endif
-        </div>
-        @endcan
     </div>
 </div>
 
@@ -410,260 +348,113 @@
     }
 </style>
 
-{{-- Modal "IPs Bloqueadas" eliminado: se reemplazo por la card del sidebar
-     (siempre visible para super.admin) ya que el boton causaba TypeError
-     cuando $blockedIps->count() era 0 — la funcion JS se renderizaba bajo
-     la condicion count > 0 pero el boton aparecia siempre. --}}
-
-{{-- Cierre del panel de Filtros Avanzados al hacer click fuera.
-     Idempotente — el listener se attacha una sola vez (window flag). --}}
-<script>
-    (function () {
-        if (window._hdAdvFilterOutsideAttached) return;
-        window._hdAdvFilterOutsideAttached = true;
-        document.addEventListener('click', function (ev) {
-            var panel = document.getElementById('hdAdvancedFilterPanel');
-            var wrap  = document.getElementById('hdAdvancedFilterWrapper');
-            if (!panel || panel.style.display === 'none' || !wrap) return;
-            if (!wrap.contains(ev.target)) {
-                panel.style.display = 'none';
-            }
-        });
-    })();
-</script>
-
-@can('user.delete')
 {{-- ═══════════════════════════════════════════════════════════
-     PAPELERA DE EQUIPOS — soft-deleted con auditoria de quien borro.
-     Movida a /admin/historial-documentos donde tiene sentido junto al
-     resto del audit trail. Endpoints: equipos.papelera + equipos.restore.
+     PAPELERA — modales de vehículos + auxiliares soft-deleted.
+     Cargados via AJAX, respetan el permiso user.delete via middleware.
      ═══════════════════════════════════════════════════════════ --}}
+@can('user.delete')
 <script>
 (function () {
-    var csrfTok = function () {
-        return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    };
-    var esc = function (s) {
-        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-            .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    };
+    var csrfTok = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
+    var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
 
-    window.abrirPapeleraEquipos = function () {
-        var old = document.getElementById('papeleraEquiposOverlay');
+    function buildModal(id, title) {
+        var old = document.getElementById(id + 'Overlay');
         if (old) old.remove();
-
         var overlay = document.createElement('div');
-        overlay.id = 'papeleraEquiposOverlay';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
-        overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
+        overlay.id = id + 'Overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;';
+        overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:540px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
             '<div style="background:#1e293b;padding:12px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                     '<i class="material-icons" style="color:#f59e0b;font-size:18px;">history</i>' +
-                    '<h2 style="margin:0;font-size:14px;font-weight:700;">Papelera de Vehículos</h2>' +
+                    '<h2 style="margin:0;font-size:14px;font-weight:700;">' + title + '</h2>' +
                 '</div>' +
-                '<button type="button" id="btnClosePapelera" style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7"><i class="material-icons" style="font-size:18px;">close</i></button>' +
+                '<button type="button" onclick="document.getElementById(\'' + id + 'Overlay\').remove();" style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;"><i class="material-icons" style="font-size:18px;">close</i></button>' +
             '</div>' +
-            '<div style="padding:10px 12px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;">' +
-                '<div id="papeleraList" style="overflow-y:auto;background:#f8fafc;padding:6px;flex:1;min-height:160px;border-radius:10px;border:1px solid #e2e8f0;">' +
-                    '<div style="padding:24px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>' +
-                '</div>' +
+            '<div id="' + id + 'List" style="overflow-y:auto;background:#f8fafc;padding:10px;flex:1;min-height:160px;">' +
+                '<div style="padding:24px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>' +
             '</div>' +
         '</div>';
         document.body.appendChild(overlay);
         overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
-        document.getElementById('btnClosePapelera').onclick = function () { overlay.remove(); };
+        return overlay;
+    }
 
-        cargarPapelera();
+    function renderRow(it, kind) {
+        var idStr = it.placa || it.serial_chasis || it.serial || it.codigo || ('#' + it.id);
+        var iconCol = kind === 'aux' ? '#c2410c' : '#1e40af';
+        var iconBg  = kind === 'aux' ? '#fff7ed' : '#eff6ff';
+        var iconNm  = kind === 'aux' ? 'construction' : 'directions_car';
+        var fotoHtml = it.foto_drive_id
+            ? '<img src="https://drive.google.com/thumbnail?id=' + esc(it.foto_drive_id) + '&sz=w120" style="width:42px;height:42px;border-radius:6px;object-fit:contain;background:white;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML=\'<div style=&quot;width:42px;height:42px;border-radius:6px;background:' + iconBg + ';color:' + iconCol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:20px;&quot;>' + iconNm + '</i></div>\'">'
+            : '<div style="width:42px;height:42px;border-radius:6px;background:' + iconBg + ';color:' + iconCol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;"><i class="material-icons" style="font-size:20px;">' + iconNm + '</i></div>';
+        var fn = kind === 'aux' ? 'window.recuperarAuxiliar' : 'window.recuperarEquipo';
+        var meta = [esc(it.marca || ''), esc(it.modelo || '')].filter(Boolean).join(' ');
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:5px;">' +
+            fotoHtml +
+            '<div style="flex:1;min-width:0;">' +
+                '<div style="font-weight:700;color:#1e293b;font-size:12px;text-transform:uppercase;line-height:1.2;">' + esc(it.tipo || (kind === 'aux' ? 'AUXILIAR' : 'EQUIPO')) + (meta ? ' · <span style="color:#64748b;font-weight:500;">' + meta + '</span>' : '') + '</div>' +
+                '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + esc(idStr) + (it.frente ? ' · <span style="color:#f97316;">' + esc(it.frente) + '</span>' : '') + '</div>' +
+                '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">' + esc(it.eliminado_por || it.deleted_by || '') + (it.eliminado_en || it.deleted_at ? ' · ' + esc(it.eliminado_en || it.deleted_at) : '') + '</div>' +
+            '</div>' +
+            '<button type="button" onclick="' + fn + '(' + it.id + ', \'' + esc(idStr).replace(/\'/g, "\\\'") + '\')" style="padding:5px 8px;font-size:11px;background:#10b981;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:700;">' +
+                '<i class="material-icons" style="font-size:13px;">restore</i>' +
+            '</button>' +
+        '</div>';
+    }
+
+    function loadList(url, kind, listElId) {
+        var list = document.getElementById(listElId);
+        fetch(url, { headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' }})
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var items = data.items || [];
+                if (!items.length) {
+                    list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">inbox</i>Papelera vacía</div>';
+                    return;
+                }
+                list.innerHTML = items.map(function (it) { return renderRow(it, kind); }).join('');
+            })
+            .catch(function () {
+                list.innerHTML = '<div style="padding:24px;text-align:center;color:#ef4444;font-size:12px;">Error al cargar la papelera.</div>';
+            });
+    }
+
+    window.abrirPapeleraEquipos = function () {
+        buildModal('papeleraEquipos', 'Papelera de Vehículos');
+        loadList('{{ route("equipos.papelera") }}', 'eq', 'papeleraEquiposList');
+    };
+    window.abrirPapeleraAuxiliares = function () {
+        buildModal('papeleraAux', 'Papelera de Auxiliares');
+        loadList('{{ route("equipos-auxiliares.papelera") }}', 'aux', 'papeleraAuxList');
     };
 
-    function cargarPapelera() {
-        var list = document.getElementById('papeleraList');
-        if (!list) return;
-        fetch('{{ route("equipos.papelera") }}', {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.items || data.items.length === 0) {
-                list.innerHTML = '<div style="padding:24px 16px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">inbox</i>Papelera vacía</div>';
-                return;
-            }
-            list.innerHTML = data.items.map(function (it) {
-                var idStr = it.placa || it.serial_chasis || it.codigo || ('#' + it.id);
-                var idLabel = it.placa ? 'Placa' : (it.serial_chasis ? 'Chasis' : (it.codigo ? 'Cód.' : 'ID'));
-                // Foto desde Drive thumbnail (mismo patron que el listado principal)
-                var fotoHtml = it.foto_drive_id
-                    ? '<img src="https://drive.google.com/thumbnail?id=' + esc(it.foto_drive_id) + '&sz=w120" alt="" style="width:42px;height:42px;border-radius:6px;object-fit:contain;background:white;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML=\'<div style=&quot;width:42px;height:42px;border-radius:6px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:20px;&quot;>directions_car</i></div>\'">'
-                    : '<div style="width:42px;height:42px;border-radius:6px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;"><i class="material-icons" style="font-size:20px;">directions_car</i></div>';
-                return '<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:5px;">' +
-                    fotoHtml +
-                    '<div style="flex:1;min-width:0;">' +
-                        '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">' +
-                            '<span style="font-weight:700;color:#1e293b;font-size:11.5px;text-transform:uppercase;line-height:1.2;">' + esc(it.tipo || 'EQUIPO') + '</span>' +
-                            '<span style="font-size:11px;color:#64748b;font-weight:500;text-transform:uppercase;">' + esc(it.marca || '') + (it.marca && it.modelo ? ' ' : '') + esc(it.modelo || '') + '</span>' +
-                        '</div>' +
-                        '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:2px;font-size:10.5px;color:#64748b;">' +
-                            '<span><strong style="color:#334155;">' + idLabel + ':</strong> ' + esc(idStr) + '</span>' +
-                            (it.frente ? '<span style="color:#f97316;"><i class="material-icons" style="font-size:10px;vertical-align:middle;">place</i> ' + esc(it.frente) + '</span>' : '') +
-                            '<span style="color:#94a3b8;"><i class="material-icons" style="font-size:10px;vertical-align:middle;">person</i> ' + esc(it.eliminado_por) + '</span>' +
-                            '<span style="color:#94a3b8;"><i class="material-icons" style="font-size:10px;vertical-align:middle;">schedule</i> ' + esc(it.eliminado_en) + '</span>' +
-                        '</div>' +
-                    '</div>' +
-                    '<button type="button" onclick="window.recuperarEquipo(' + it.id + ', \'' + esc(idStr).replace(/'/g, "\\'") + '\')" title="Recuperar" style="padding:5px 8px;font-size:11px;height:auto;background:#10b981;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;flex-shrink:0;cursor:pointer;font-weight:700;">' +
-                        '<i class="material-icons" style="font-size:13px;">restore</i>' +
-                    '</button>' +
-                '</div>';
-            }).join('');
-        })
-        .catch(function () {
-            list.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:13px;">Error al cargar la papelera.</div>';
-        });
+    function restoreItem(url, label, refreshFn) {
+        if (!confirm('¿Restaurar "' + label + '"?')) return;
+        if (window.showPreloader) window.showPreloader();
+        fetch(url, { method: 'PATCH', headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }})
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+            .then(function (res) {
+                if (window.hidePreloader) window.hidePreloader();
+                if (res.ok && res.body.success) {
+                    if (window.showToast) window.showToast(res.body.message || 'Restaurado.', 'success');
+                    refreshFn();
+                } else {
+                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo restaurar.', 'error');
+                }
+            })
+            .catch(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) window.showToast('Error de red.', 'error');
+            });
     }
 
     window.recuperarEquipo = function (id, label) {
-        var proceed = function () {
-            if (window.showPreloader) window.showPreloader();
-            fetch('{{ url("admin/equipos") }}/' + id + '/restore', {
-                method: 'PATCH',
-                headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
-            .then(function (res) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Equipo recuperado.', 'success');
-                    cargarPapelera();
-                } else {
-                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo recuperar.', 'error');
-                }
-            })
-            .catch(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast('Error de red al recuperar.', 'error');
-            });
-        };
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'info',
-                title: 'Recuperar Equipo',
-                message: '¿Restaurar el equipo "' + label + '"?\n\nVolverá a aparecer en el listado activo.',
-                confirmText: 'Sí, recuperar',
-                cancelText: 'Cancelar',
-                onConfirm: proceed
-            });
-        } else if (confirm('¿Recuperar el equipo "' + label + '"?')) {
-            proceed();
-        }
+        restoreItem('{{ url("admin/equipos") }}/' + id + '/restore', label, window.abrirPapeleraEquipos);
     };
-
-    // ═══════════════════════════════════════════════════════════
-    // PAPELERA DE AUXILIARES — mismo patron que la de equipos
-    // ═══════════════════════════════════════════════════════════
-    window.abrirPapeleraAuxiliares = function () {
-        var old = document.getElementById('papeleraAuxOverlay');
-        if (old) old.remove();
-
-        var overlay = document.createElement('div');
-        overlay.id = 'papeleraAuxOverlay';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
-        overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
-            '<div style="background:#1e293b;padding:12px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    '<i class="material-icons" style="color:#f59e0b;font-size:18px;">history</i>' +
-                    '<h2 style="margin:0;font-size:14px;font-weight:700;">Papelera de Auxiliares</h2>' +
-                '</div>' +
-                '<button type="button" id="btnClosePapeleraAux" style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7"><i class="material-icons" style="font-size:18px;">close</i></button>' +
-            '</div>' +
-            '<div style="padding:10px 12px;overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0;">' +
-                '<div id="papeleraAuxList" style="overflow-y:auto;background:#f8fafc;padding:6px;flex:1;min-height:160px;border-radius:10px;border:1px solid #e2e8f0;">' +
-                    '<div style="padding:24px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
-        document.body.appendChild(overlay);
-        overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
-        document.getElementById('btnClosePapeleraAux').onclick = function () { overlay.remove(); };
-
-        cargarPapeleraAux();
-    };
-
-    function cargarPapeleraAux() {
-        var list = document.getElementById('papeleraAuxList');
-        if (!list) return;
-        fetch('{{ route("equipos-auxiliares.papelera") }}', {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (!data.items || data.items.length === 0) {
-                list.innerHTML = '<div style="padding:24px 16px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">inbox</i>Papelera vacía</div>';
-                return;
-            }
-            list.innerHTML = data.items.map(function (it) {
-                var idStr = it.serial || ('#' + it.id);
-                var meta = [esc(it.marca || ''), esc(it.modelo || '')].filter(Boolean).join(' ');
-                var fotoHtml = it.foto_drive_id
-                    ? '<img src="https://drive.google.com/thumbnail?id=' + esc(it.foto_drive_id) + '&sz=w120" alt="" style="width:42px;height:42px;border-radius:6px;object-fit:contain;background:white;border:1px solid #fed7aa;flex-shrink:0;" onerror="this.outerHTML=\'<div style=&quot;width:42px;height:42px;border-radius:6px;background:#fff7ed;color:#c2410c;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #fed7aa;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:20px;&quot;>construction</i></div>\'">'
-                    : '<div style="width:42px;height:42px;border-radius:6px;background:#fff7ed;color:#c2410c;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #fed7aa;"><i class="material-icons" style="font-size:20px;">construction</i></div>';
-                return '<div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:5px;">' +
-                    fotoHtml +
-                    '<div style="flex:1;min-width:0;">' +
-                        '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">' +
-                            '<span style="font-weight:700;color:#1e293b;font-size:11.5px;text-transform:uppercase;line-height:1.2;">' + esc(it.tipo || 'AUXILIAR') + '</span>' +
-                            (meta ? '<span style="font-size:11px;color:#64748b;font-weight:500;text-transform:uppercase;">' + meta + '</span>' : '') +
-                        '</div>' +
-                        '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:2px;font-size:10.5px;color:#64748b;">' +
-                            '<span><strong style="color:#334155;">Serial:</strong> ' + esc(idStr) + '</span>' +
-                            (it.frente ? '<span style="color:#f97316;"><i class="material-icons" style="font-size:10px;vertical-align:middle;">place</i> ' + esc(it.frente) + '</span>' : '') +
-                            (it.deleted_by ? '<span style="color:#94a3b8;"><i class="material-icons" style="font-size:10px;vertical-align:middle;">person</i> ' + esc(it.deleted_by) + '</span>' : '') +
-                            (it.deleted_at ? '<span style="color:#94a3b8;"><i class="material-icons" style="font-size:10px;vertical-align:middle;">schedule</i> ' + esc(it.deleted_at) + '</span>' : '') +
-                        '</div>' +
-                    '</div>' +
-                    '<button type="button" onclick="window.recuperarAuxiliar(' + it.id + ', \'' + esc(idStr).replace(/\'/g, "\\\'") + '\')" title="Recuperar" style="padding:5px 8px;font-size:11px;height:auto;background:#10b981;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;flex-shrink:0;cursor:pointer;font-weight:700;">' +
-                        '<i class="material-icons" style="font-size:13px;">restore</i>' +
-                    '</button>' +
-                '</div>';
-            }).join('');
-        })
-        .catch(function () {
-            list.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:13px;">Error al cargar la papelera.</div>';
-        });
-    }
-
     window.recuperarAuxiliar = function (id, label) {
-        var proceed = function () {
-            if (window.showPreloader) window.showPreloader();
-            fetch('{{ url("admin/equipos-auxiliares") }}/' + id + '/restore', {
-                method: 'PATCH',
-                headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
-            .then(function (res) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Auxiliar recuperado.', 'success');
-                    cargarPapeleraAux();
-                } else {
-                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo recuperar.', 'error');
-                }
-            })
-            .catch(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast('Error de red al recuperar.', 'error');
-            });
-        };
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'info',
-                title: 'Recuperar Auxiliar',
-                message: '¿Restaurar el auxiliar "' + label + '"?\n\nVolverá a aparecer en el listado activo.',
-                confirmText: 'Sí, recuperar',
-                cancelText: 'Cancelar',
-                onConfirm: proceed
-            });
-        } else if (confirm('¿Recuperar el auxiliar "' + label + '"?')) {
-            proceed();
-        }
+        restoreItem('{{ url("admin/equipos-auxiliares") }}/' + id + '/restore', label, window.abrirPapeleraAuxiliares);
     };
 })();
 </script>
