@@ -36,9 +36,17 @@
             </div>
             @if($fotoDriveId)
                 <div class="table-image-wrapper" style="cursor: default;">
-                    <img data-src="{{ url('/storage/google/' . $fotoDriveId . '?sz=w300') }}"
+                    {{-- src directo (no data-src lazy): el aux module no tiene
+                         IntersectionObserver para promover data-src=>src, asi
+                         que las fotos quedaban transparentes. El proxy local
+                         /storage/google/{id}?sz=w300 cachea 21 dias en disco
+                         + browser, asi que el render directo es rapido. --}}
+                    <img src="{{ url('/storage/google/' . $fotoDriveId . '?sz=w300') }}"
                          alt="Foto"
-                         style="width:100%; height:100%; object-fit:contain; opacity:0; transition:opacity 0.4s;">
+                         loading="lazy"
+                         decoding="async"
+                         style="width:100%; height:100%; object-fit:contain;"
+                         onerror="this.style.opacity='0.3';">
                 </div>
             @else
                 <div class="table-image-wrapper placeholder">
