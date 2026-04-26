@@ -205,29 +205,23 @@
             <tr>
                 {{-- Firma única (izquierda) --}}
                 <td width="45%" align="center" valign="bottom">
-                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                         <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
-                        <tr><td height="35">&nbsp;</td></tr>
+                        <tr><td height="30">&nbsp;</td></tr>
+                        <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                        <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
+                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                         <tr>
-                            <td>
-                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
-                                    <tr>
-                                        <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                            @if(!empty($f['ced']))
-                                                @php
-                                                    $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
-                                                    $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
-                                                @endphp
-                                                C.I.: {{ $cedFmt }}
-                                            @else
-                                                C.I.: _______________
-                                            @endif
-                                        </td>
-                                    </tr>
-                                </table>
+                            <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
+                                @if(!empty($f['ced']))
+                                    @php
+                                        $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
+                                        $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
+                                    @endphp
+                                    C.I.: {{ $cedFmt }}
+                                @else
+                                    C.I.: _______________
+                                @endif
                             </td>
                         </tr>
                     </table>
@@ -238,18 +232,12 @@
 
                 {{-- RECIBIDO POR (derecha) --}}
                 <td width="45%" align="center" valign="bottom">
-                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                         <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
                         <tr><td height="25">&nbsp;</td></tr>
-                        <tr>
-                            <td>
-                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
-                                </table>
-                            </td>
-                        </tr>
+                        <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
+                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
                     </table>
                 </td>
             </tr>
@@ -274,29 +262,23 @@
                     @foreach($fila as $f)
                         <td width="45%" align="center" valign="bottom">
                             @if($f)
-                                <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
-                                    <tr><td height="35">&nbsp;</td></tr>
+                                    <tr><td height="30">&nbsp;</td></tr>
+                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                    <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                                     <tr>
-                                        <td>
-                                            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
-                                                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
-                                                <tr>
-                                                    <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                                        @if(!empty($f['ced']))
-                                                            @php
-                                                                $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
-                                                                $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
-                                                            @endphp
-                                                            C.I.: {{ $cedFmt }}
-                                                        @else
-                                                            C.I.: _______________
-                                                        @endif
-                                                    </td>
-                                                </tr>
-                                            </table>
+                                        <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
+                                            @if(!empty($f['ced']))
+                                                @php
+                                                    $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
+                                                    $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
+                                                @endphp
+                                                C.I.: {{ $cedFmt }}
+                                            @else
+                                                C.I.: _______________
+                                            @endif
                                         </td>
                                     </tr>
                                 </table>
@@ -317,27 +299,21 @@
                     <td colspan="3" align="center">
                         <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
                             <tr><td align="center" style="font-size: 9pt;"><b>{{ $f5['label'] }}</b></td></tr>
-                            <tr><td height="35">&nbsp;</td></tr>
+                            <tr><td height="30">&nbsp;</td></tr>
+                            <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                            <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f5['car']) }}</b></td></tr>
+                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f5['nom']) }}</td></tr>
                             <tr>
-                                <td>
-                                    <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                        <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                        <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f5['car']) }}</b></td></tr>
-                                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f5['nom']) }}</td></tr>
-                                        <tr>
-                                            <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                                @if(!empty($f5['ced']))
-                                                    @php
-                                                        $cedNum5 = preg_replace('/[^0-9]/', '', $f5['ced']);
-                                                        $cedFmt5 = strrev(implode('.', str_split(strrev($cedNum5), 3)));
-                                                    @endphp
-                                                    C.I.: {{ $cedFmt5 }}
-                                                @else
-                                                    C.I.: _______________
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    </table>
+                                <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
+                                    @if(!empty($f5['ced']))
+                                        @php
+                                            $cedNum5 = preg_replace('/[^0-9]/', '', $f5['ced']);
+                                            $cedFmt5 = strrev(implode('.', str_split(strrev($cedNum5), 3)));
+                                        @endphp
+                                        C.I.: {{ $cedFmt5 }}
+                                    @else
+                                        C.I.: _______________
+                                    @endif
                                 </td>
                             </tr>
                         </table>
@@ -379,29 +355,23 @@
                 <tr>
                     @foreach($row as $f)
                         <td width="45%" align="center" valign="bottom">
-                            <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                 <tr><td align="center" style="font-size: 9pt;"><b>{{ $f['label'] }}</b></td></tr>
-                                <tr><td height="35">&nbsp;</td></tr>
+                                <tr><td height="30">&nbsp;</td></tr>
+                                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
+                                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
+                                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                                 <tr>
-                                    <td>
-                                        <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                            <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                            <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($f['car']) }}</b></td></tr>
-                                            <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
-                                            <tr>
-                                                <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                                    @if(!empty($f['ced']))
-                                                        @php
-                                                            $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
-                                                            $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
-                                                        @endphp
-                                                        C.I.: {{ $cedFmt }}
-                                                    @else
-                                                        C.I.: _______________
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        </table>
+                                    <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
+                                        @if(!empty($f['ced']))
+                                            @php
+                                                $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
+                                                $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
+                                            @endphp
+                                            C.I.: {{ $cedFmt }}
+                                        @else
+                                            C.I.: _______________
+                                        @endif
                                     </td>
                                 </tr>
                             </table>

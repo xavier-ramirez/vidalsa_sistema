@@ -147,8 +147,10 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.assign')->name('equipos-auxiliares.anchor');
             Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.assign')->name('equipos-auxiliares.unanchor');
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
-            Route::post  ('equipos-auxiliares/{id}/upload-doc',[App\Http\Controllers\EquipoAuxiliarController::class, 'uploadDoc'])->middleware('can:user.edit')->name('equipos-auxiliares.uploadDoc');
-            Route::patch ('equipos-auxiliares/{id}/cert-expiry',[App\Http\Controllers\EquipoAuxiliarController::class, 'updateCertExpiry'])->middleware('can:user.edit')->name('equipos-auxiliares.updateCertExpiry');
+            Route::post  ('equipos-auxiliares/{id}/upload-doc',     [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadDoc'])     ->middleware('can:user.edit')->name('equipos-auxiliares.uploadDoc');
+            Route::patch ('equipos-auxiliares/{id}/cert-expiry',    [App\Http\Controllers\EquipoAuxiliarController::class, 'updateCertExpiry'])->middleware('can:user.edit')->name('equipos-auxiliares.updateCertExpiry');
+            Route::get   ('equipos-auxiliares/{id}/metadata',        [App\Http\Controllers\EquipoAuxiliarController::class, 'metadata'])       ->name('equipos-auxiliares.metadata');
+            Route::post  ('equipos-auxiliares/{id}/update-metadata', [App\Http\Controllers\EquipoAuxiliarController::class, 'updateMetadata']) ->middleware('can:user.edit')->name('equipos-auxiliares.updateMetadata');
             Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkMove');
             Route::post  ('equipos-auxiliares/bulk-ubicacion', [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkUbicacion'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkUbicacion');
 
