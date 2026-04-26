@@ -20,11 +20,15 @@
         $fotoUrl  = $aux->FOTO ?: ($photoByModel[$modelKey] ?? null);
         $fotoDriveId = $fotoUrl ? basename(str_replace('/storage/google/', '', $fotoUrl)) : null;
     @endphp
+    {{-- aux-row-clickable se aplica SIEMPRE: la seleccion (toggle del check)
+         no requiere permiso. La validacion de permiso (equipos.assign) la
+         hacen los handlers de las acciones (Anclar / Asignar / Movilizar)
+         en JS, mostrando toast "no tienes permiso" si falla. --}}
     <tr data-aux-id="{{ $aux->ID_AUXILIAR }}"
         data-codigo="{{ $aux->CODIGO_INTERNO ?: $aux->SERIAL }}"
         data-frente="{{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
-        class="aux-row-selectable @if(auth()->user() && auth()->user()->can('equipos.edit')) aux-row-clickable @endif"
-        style="{{ auth()->user() && auth()->user()->can('equipos.edit') ? 'cursor:pointer;' : '' }}">
+        class="aux-row-selectable aux-row-clickable"
+        style="cursor:pointer;">
         {{-- 1. FRENTE + FOTO (patron vehiculos: /admin/equipos) --}}
         <td class="table-cell-custom table-cell-center" style="padding: 6px 4px; width: 150px;">
             <div style="font-size: 11px; color: #000; margin-bottom: 5px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word;">
