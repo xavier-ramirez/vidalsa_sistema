@@ -4,18 +4,17 @@
 
 @section('content')
 <style>
-    /* ─── Catalogo de Modelos: card grid pattern (mismo look que
-            /admin/equipos-auxiliares/catalogo) ─── */
+    /* ─── Catalogo de Modelos: card grid compacto ─── */
     .cat-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 10px;
         margin-top: 6px;
     }
     .cat-card {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 14px;
+        border-radius: 12px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -26,9 +25,11 @@
         transform: translateY(-2px);
         box-shadow: 0 8px 18px -6px rgba(15, 23, 42, 0.12);
     }
+    /* Foto: aspect-ratio 4/3 (mas baja que 16/11), 130px maximo de alto */
     .cat-photo {
         width: 100%;
-        aspect-ratio: 16 / 11;
+        aspect-ratio: 4 / 3;
+        max-height: 130px;
         background: #f8fafc;
         display: flex;
         align-items: center;
@@ -44,26 +45,26 @@
     }
     .cat-photo .placeholder {
         color: #cbd5e0;
-        font-size: 56px;
+        font-size: 44px;
     }
     .cat-anio-badge {
         position: absolute;
-        top: 10px;
-        right: 10px;
+        top: 6px;
+        right: 6px;
         background: var(--maquinaria-blue, #0067b1);
         color: white;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 700;
-        padding: 4px 10px;
+        padding: 2px 7px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 3px;
     }
     .cat-action-btn {
         position: absolute;
-        width: 30px;
-        height: 30px;
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.95);
         border: 1px solid #e2e8f0;
@@ -77,76 +78,60 @@
         z-index: 3;
     }
     .cat-action-btn:hover { transform: scale(1.05); }
-    .cat-action-btn .material-icons { font-size: 16px; }
-    .cat-action-btn.edit  { color: #0067b1; bottom: 8px; right: 46px; }
+    .cat-action-btn .material-icons { font-size: 14px; }
+    .cat-action-btn.edit  { color: #0067b1; bottom: 6px; right: 38px; }
     .cat-action-btn.edit:hover  { background: #0067b1; color: #fff; }
-    .cat-action-btn.del   { color: #ef4444; bottom: 8px; right: 8px; }
+    .cat-action-btn.del   { color: #ef4444; bottom: 6px; right: 6px; }
     .cat-action-btn.del:hover   { background: #ef4444; color: #fff; }
     .cat-body {
-        padding: 12px 14px;
+        padding: 9px 11px 10px;
         display: flex;
         flex-direction: column;
         gap: 6px;
     }
     .cat-modelo {
-        font-size: 16px;
+        font-size: 13.5px;
         font-weight: 800;
         color: #1e293b;
         line-height: 1.2;
         text-transform: uppercase;
-    }
-    .cat-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        margin-top: 2px;
-    }
-    .cat-chip {
-        background: #f1f5f9;
-        color: #475569;
-        font-size: 11px;
-        font-weight: 600;
-        padding: 3px 9px;
-        border-radius: 8px;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .cat-chip .material-icons { font-size: 13px; }
-    .cat-section {
-        margin-top: 8px;
-        padding-top: 10px;
-        border-top: 1px dashed #e2e8f0;
-    }
-    .cat-section-title {
-        font-size: 9.5px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        color: #94a3b8;
-        margin-bottom: 6px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .cat-data-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px 10px;
-    }
-    .cat-data-cell { font-size: 11.5px; line-height: 1.3; }
-    .cat-data-label {
-        font-size: 9.5px;
-        color: #94a3b8;
-        text-transform: uppercase;
-        font-weight: 700;
-        margin-bottom: 1px;
-    }
-    .cat-data-value {
-        font-size: 12px;
-        color: #1e293b;
-        font-weight: 600;
         word-break: break-word;
+    }
+    /* Tabla compacta de specs: 1 fila por campo. Label izquierda muteado,
+       valor derecha en bold. Solo se renderizan los campos con valor. */
+    .cat-specs {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin-top: 2px;
+        border-top: 1px dashed #e2e8f0;
+        padding-top: 6px;
+    }
+    .cat-spec-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 10.5px;
+        line-height: 1.3;
+        padding: 1px 0;
+    }
+    .cat-spec-label {
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        font-size: 9.5px;
+        flex-shrink: 0;
+    }
+    .cat-spec-value {
+        color: #1e293b;
+        font-weight: 700;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
     }
     .cat-empty {
         background: white;

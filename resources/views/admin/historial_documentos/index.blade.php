@@ -194,24 +194,24 @@
                 @can('user.delete')
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraEquipos"
-                        onclick="window.abrirPapeleraEquipos()"
-                        title="Papelera de Vehículos"
-                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                        onmouseover="this.style.background='#fef3c7'"
-                        onmouseout="this.style.background='white'">
-                        <i class="material-icons" style="font-size: 17px;">history</i>
-                        <span>Vehículos</span>
+                        onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
+                        title="Papelera de Vehículos — recuperar vehículos eliminados"
+                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: #fef3c7; border: 1px solid #d97706; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
+                        onmouseover="this.style.background='#fde68a'"
+                        onmouseout="this.style.background='#fef3c7'">
+                        <i class="material-icons" style="font-size: 17px;">directions_car</i>
+                        <span>Papelera Veh.</span>
                     </button>
                 </div>
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraAux"
-                        onclick="window.abrirPapeleraAuxiliares()"
-                        title="Papelera de Auxiliares"
-                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                        onmouseover="this.style.background='#fff7ed'"
-                        onmouseout="this.style.background='white'">
-                        <i class="material-icons" style="font-size: 17px;">history</i>
-                        <span>Auxiliares</span>
+                        onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
+                        title="Papelera de Auxiliares — recuperar auxiliares eliminados"
+                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: #fff7ed; border: 1px solid #c2410c; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
+                        onmouseover="this.style.background='#fed7aa'"
+                        onmouseout="this.style.background='#fff7ed'">
+                        <i class="material-icons" style="font-size: 17px;">construction</i>
+                        <span>Papelera Aux.</span>
                     </button>
                 </div>
                 @endcan
