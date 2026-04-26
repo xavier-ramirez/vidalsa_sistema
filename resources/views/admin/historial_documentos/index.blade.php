@@ -429,12 +429,12 @@
 
 {{-- Modal de detalles del evento — abre al tap en una fila (mobile y
      desktop). Muestra todo el evento en formato lectura, sin necesidad de
-     ver columnas adicionales. --}}
-<div id="hdEventModal" class="modal-overlay"
-     style="display:none; z-index:10001;"
-     onclick="if(event.target===this){this.style.display='none';this.classList.remove('active');}">
-    <div class="modal-content"
-         style="width:90%; max-width:420px; padding:0; border-radius:14px; overflow:hidden; background:white; box-shadow:0 25px 50px -12px rgba(0,0,0,0.30); display:flex; flex-direction:column;">
+     ver columnas adicionales. position:fixed inline (sin clase .modal-overlay)
+     para evitar interferencia con cualquier rule global del overlay. --}}
+<div id="hdEventModal"
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:10001; align-items:center; justify-content:center;"
+     onclick="if(event.target===this){this.style.display='none';}">
+    <div style="width:90%; max-width:420px; padding:0; border-radius:14px; overflow:hidden; background:white; box-shadow:0 25px 50px -12px rgba(0,0,0,0.30); display:flex; flex-direction:column;">
         <div style="background:#1e293b; padding:14px 16px; color:white; display:flex; justify-content:center; align-items:center; position:relative; border-radius:14px 14px 0 0;">
             <div style="display:flex; align-items:center; gap:8px;">
                 <i class="material-icons" style="color:#a78bfa; font-size:18px;">event</i>
@@ -490,7 +490,6 @@
             }
             body.innerHTML = html;
             modal.style.display = 'flex';
-            modal.classList.add('active');
         };
     })();
 </script>
