@@ -272,7 +272,7 @@
                     <h4 style="margin:0 0 15px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
                         Filtros Avanzados
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
-                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion');cargarAuxiliares();">Limpiar Todo</span>
+                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
                     <div style="display:flex;flex-direction:column;gap:10px;">
 
@@ -404,6 +404,30 @@
                                     @endforeach
                                 </div>
                             </div>
+                        </div>
+
+                        {{-- Checks de documentacion: filtra auxiliares que tienen
+                             el PDF cargado en LINK_DOC_PROPIEDAD / LINK_CERTIFICADO.
+                             El value '1' al check se traduce a where != null en el
+                             controller — los aux sin PDF quedan fuera. --}}
+                        <div style="border-top:1px dashed #cbd5e1; padding-top:10px;">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;">Documentación cargada</span>
+                            <label style="display:flex; align-items:center; gap:8px; padding:6px 4px; cursor:pointer; font-size:12.5px; color:#334155; font-weight:600;">
+                                <input type="checkbox" id="aux_chk_propiedad" name="con_propiedad" value="1"
+                                       {{ request('con_propiedad') ? 'checked' : '' }}
+                                       onchange="cargarAuxiliares()"
+                                       style="width:16px; height:16px; cursor:pointer; accent-color:#0067b1;">
+                                <i class="material-icons" style="font-size:16px; color:#0284c7;">description</i>
+                                Con PDF Propiedad
+                            </label>
+                            <label style="display:flex; align-items:center; gap:8px; padding:6px 4px; cursor:pointer; font-size:12.5px; color:#334155; font-weight:600;">
+                                <input type="checkbox" id="aux_chk_certificado" name="con_certificado" value="1"
+                                       {{ request('con_certificado') ? 'checked' : '' }}
+                                       onchange="cargarAuxiliares()"
+                                       style="width:16px; height:16px; cursor:pointer; accent-color:#16a34a;">
+                                <i class="material-icons" style="font-size:16px; color:#16a34a;">verified</i>
+                                Con Certificado
+                            </label>
                         </div>
 
                     </div>

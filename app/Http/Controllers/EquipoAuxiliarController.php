@@ -93,6 +93,15 @@ class EquipoAuxiliarController extends Controller
             if ($request->filled('marca'))     $q->where('MARCA', 'like', '%' . trim($request->marca) . '%');
             if ($request->filled('modelo'))    $q->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
             if ($request->filled('capacidad')) $q->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
+            // Filtros booleanos por documentacion cargada (checkboxes del panel
+            // avanzado). con_propiedad=1 => solo aux con LINK_DOC_PROPIEDAD;
+            // con_certificado=1 => solo aux con LINK_CERTIFICADO. Combinables.
+            if ($request->boolean('con_propiedad')) {
+                $q->whereNotNull('LINK_DOC_PROPIEDAD')->where('LINK_DOC_PROPIEDAD', '!=', '');
+            }
+            if ($request->boolean('con_certificado')) {
+                $q->whereNotNull('LINK_CERTIFICADO')->where('LINK_CERTIFICADO', '!=', '');
+            }
             if ($request->filled('search')) {
                 $s = trim($request->search);
                 $q->where(function ($qq) use ($s) {
@@ -109,7 +118,8 @@ class EquipoAuxiliarController extends Controller
         $hasFilter = $request->filled('tipo') || $request->filled('id_frente')
                   || $request->filled('estado') || $request->filled('search')
                   || $request->filled('marca') || $request->filled('modelo')
-                  || $request->filled('capacidad');
+                  || $request->filled('capacidad') || $request->boolean('con_propiedad')
+                  || $request->boolean('con_certificado');
 
         // Eager-loads ampliados: incluyen TODO lo que necesita buildAuxDetailsArray
         // para que window.auxDetailsMap se construya en una sola query (no N+1).
@@ -210,6 +220,14 @@ class EquipoAuxiliarController extends Controller
         if ($request->filled('modelo'))    $statsBase->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
         if ($request->filled('capacidad')) $statsBase->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
         if ($request->filled('detalle_ubicacion')) $statsBase->where('DETALLE_UBICACION_ACTUAL', trim($request->detalle_ubicacion));
+        // Mismo filtro doc-cargado en stats: para que los conteos de la
+        // sidebar reflejen los aux con PDF Propiedad / Certificado activos.
+        if ($request->boolean('con_propiedad')) {
+            $statsBase->whereNotNull('LINK_DOC_PROPIEDAD')->where('LINK_DOC_PROPIEDAD', '!=', '');
+        }
+        if ($request->boolean('con_certificado')) {
+            $statsBase->whereNotNull('LINK_CERTIFICADO')->where('LINK_CERTIFICADO', '!=', '');
+        }
         if ($request->filled('search')) {
             $s = trim($request->search);
             $statsBase->where(function ($qq) use ($s) {

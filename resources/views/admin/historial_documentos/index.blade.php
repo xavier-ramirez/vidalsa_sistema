@@ -74,10 +74,30 @@
         flex: 0 0 auto;
     }
     @media (max-width: 768px) {
-        .hd-filter-row > .filter-item.responsive-filter-item {
+        /* Mobile: forzamos row-wrap (override del .filter-toolbar-container
+           global que pone column). Asi podemos tener el boton de filtros
+           avanzados al lado del filtro Tipo Documento (3er filtro). */
+        .hd-filter-row {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            align-items: stretch !important;
+        }
+        /* searchCorreo (1ro) y searchEquipo (2do): full width cada uno */
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(1),
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
             flex: 1 1 100% !important;
             min-width: 0 !important;
         }
+        /* tipoDoc (3er filtro): toma todo el ancho menos el del boton avanzado */
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
+            flex: 1 1 calc(100% - 53px) !important;
+            min-width: 0 !important;
+        }
+        /* Boton "Filtros Avanzados" lado a lado con tipoDoc */
+        .hd-adv-filter-wrap {
+            flex: 0 0 45px !important;
+        }
+        /* Papelera buttons full width compartido 50/50 */
         .hd-papelera-group {
             flex: 1 1 100%;
             gap: 8px;
@@ -271,7 +291,7 @@
                         <button type="button" id="btnVerPapeleraEquipos"
                             onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
                             title="Papelera de Vehículos"
-                            style="height: 45px; width: 100%; padding: 0 12px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap;"
+                            style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
                             onmouseover="this.style.background='#fef3c7'"
                             onmouseout="this.style.background='white'">
                             <i class="material-icons" style="font-size:18px;">directions_car</i>
@@ -282,7 +302,7 @@
                         <button type="button" id="btnVerPapeleraAux"
                             onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
                             title="Papelera de Auxiliares"
-                            style="height: 45px; width: 100%; padding: 0 12px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; white-space: nowrap;"
+                            style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
                             onmouseover="this.style.background='#fff7ed'"
                             onmouseout="this.style.background='white'">
                             <i class="material-icons" style="font-size:18px;">construction</i>
