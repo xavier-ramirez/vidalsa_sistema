@@ -31,6 +31,11 @@ class MovilizacionController extends Controller
             'equipo.tipo',
             'equipo.especificaciones:ID_ESPEC,COMBUSTIBLE,CONSUMO_PROMEDIO,FOTO_REFERENCIAL',
             'equipo.documentacion',
+            // Cargar tambien el aux cuando la movilizacion sea de un auxiliar
+            // (ID_AUXILIAR != null). Asi el listado renderiza vehiculos y
+            // auxiliares en la misma tabla, eligiendo en el partial cual
+            // mostrar segun cual de los dos venga poblado.
+            'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL,FOTO',
             'frenteOrigen',
             'frenteDestino',
             'usuario',
@@ -66,8 +71,10 @@ class MovilizacionController extends Controller
                         $qEq->where('NUMERO_ETIQUETA', 'like', "%{$tag}%")
                     );
 
-                // Patrón por defecto: serial, placa, o código de patio
-                // Todo dentro del mismo whereHas para query correcto
+                // Patrón por defecto: serial / placa / codigo (equipo) o
+                // serial / marca / modelo (aux). El OR cruzado permite que
+                // movilizaciones de auxiliares aparezcan en busquedas por
+                // texto libre igual que las de equipos.
                 } else {
                     $q->where(function ($qInner) use ($searchUpper) {
                         $qInner->whereHas('equipo', function ($qEq) use ($searchUpper) {
@@ -75,6 +82,10 @@ class MovilizacionController extends Controller
                                 ->orWhere('CODIGO_PATIO', 'like', "%{$searchUpper}%");
                         })->orWhereHas('equipo.documentacion', function ($qDoc) use ($searchUpper) {
                             $qDoc->where('PLACA', 'like', "%{$searchUpper}%");
+                        })->orWhereHas('auxiliar', function ($qAux) use ($searchUpper) {
+                            $qAux->where('SERIAL', 'like', "%{$searchUpper}%")
+                                 ->orWhere('MARCA', 'like', "%{$searchUpper}%")
+                                 ->orWhere('MODELO', 'like', "%{$searchUpper}%");
                         });
                     });
                 }

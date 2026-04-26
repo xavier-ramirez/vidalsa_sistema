@@ -1,34 +1,58 @@
 @forelse($movilizaciones as $mov)
     @php
-        $equipoFoto = optional(optional($mov->equipo)->especificaciones)->FOTO_REFERENCIAL;
+        // La movilizacion puede ser de un EQUIPO (ID_EQUIPO) o de un AUXILIAR
+        // (ID_AUXILIAR) — son mutuamente excluyentes. La celda 1 cambia segun
+        // cual venga poblado para que ambas se vean en la misma tabla.
+        $isAux = !empty($mov->ID_AUXILIAR) && $mov->auxiliar;
+        $equipoFoto = !$isAux ? optional(optional($mov->equipo)->especificaciones)->FOTO_REFERENCIAL : null;
+        $auxFoto    = $isAux ? $mov->auxiliar->FOTO : null;
+        $tiposAuxMap = $isAux ? \App\Models\EquipoAuxiliar::tiposLabel() : [];
+        $auxTipoLabel = $isAux ? ($tiposAuxMap[$mov->auxiliar->TIPO] ?? $mov->auxiliar->TIPO) : null;
     @endphp
     <tr class="mv-row-card mv-selectable-row" data-mv-id="{{ $mov->ID_MOVILIZACION }}"
-        data-equipo-codigo="{{ $mov->equipo->CODIGO_PATIO ?? '' }}">
-        {{-- 1. Equipo --}}
+        data-equipo-codigo="{{ $isAux ? '' : ($mov->equipo->CODIGO_PATIO ?? '') }}"
+        data-aux-id="{{ $isAux ? $mov->ID_AUXILIAR : '' }}">
+        {{-- 1. Equipo / Auxiliar --}}
         <td class="mv-td-equipo">
             <div style="display: flex; align-items: center; justify-content: flex-start; gap: 10px;">
-                @if($equipoFoto)
-                    <div
-                        style="width: 50px; height: 35px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
-                        <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $equipoFoto)]) }}"
-                            alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
+                @if($isAux)
+                    @php
+                        $auxDriveId = $auxFoto ? basename(str_replace('/storage/google/', '', explode('?', $auxFoto)[0])) : null;
+                    @endphp
+                    @if($auxDriveId)
+                        <div style="width: 50px; height: 35px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #fff7ed; border: 1px solid #fed7aa;">
+                            <img src="{{ url('/storage/google/' . $auxDriveId . '?sz=w120') }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
+                        </div>
+                    @else
+                        <div style="width: 50px; height: 35px; border-radius: 4px; background: #fff7ed; display: flex; align-items: center; justify-content: center; color: #c2410c; flex-shrink: 0; border: 1px dashed #fed7aa;">
+                            <i class="material-icons" style="font-size: 20px;">construction</i>
+                        </div>
+                    @endif
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                        <span style="font-size: 11px; color: #c2410c; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;">
+                            <i class="material-icons" style="font-size: 11px; vertical-align: middle;">construction</i>
+                            {{ $auxTipoLabel ?? 'AUXILIAR' }}
+                        </span>
+                        <div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> {{ $mov->auxiliar->SERIAL ?? '—' }}</div>
+                        <div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">{{ $mov->auxiliar->MARCA }} {{ $mov->auxiliar->MODELO }}</div>
                     </div>
                 @else
-                    <div
-                        style="width: 50px; height: 35px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
-                        <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
+                    @if($equipoFoto)
+                        <div style="width: 50px; height: 35px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
+                            <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $equipoFoto)]) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
+                        </div>
+                    @else
+                        <div style="width: 50px; height: 35px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
+                            <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
+                        </div>
+                    @endif
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                        <span style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">{{ $mov->equipo->tipo->nombre ?? 'N/A' }}</span>
+                        <div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> {{ $mov->equipo->SERIAL_CHASIS ?? 'S/S' }}</div>
+                        <div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> {{ $mov->equipo->documentacion->PLACA ?? 'S/P' }}</div>
+                        <div class="mv-id-field" style="color: #2d3748; font-size: 13px; font-weight: 600;"><strong>ID:</strong> {{ $mov->equipo->CODIGO_PATIO ?? 'N/D' }}</div>
                     </div>
                 @endif
-                <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
-                    <span
-                        style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">{{ $mov->equipo->tipo->nombre ?? 'N/A' }}</span>
-                    <div style="color: #4a5568; font-size: 13px;"><strong>S:</strong>
-                        {{ $mov->equipo->SERIAL_CHASIS ?? 'S/S' }}</div>
-                    <div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong>
-                        {{ $mov->equipo->documentacion->PLACA ?? 'S/P' }}</div>
-                    <div class="mv-id-field" style="color: #2d3748; font-size: 13px; font-weight: 600;"><strong>ID:</strong>
-                        {{ $mov->equipo->CODIGO_PATIO ?? 'N/D' }}</div>
-                </div>
             </div>
         </td>
 
