@@ -539,8 +539,8 @@
             </div>
         </div>
 
-        <div class="custom-scrollbar-container" style="overflow-x:auto;">
-            <table class="admin-table table-equipos-mobile" id="auxTable" style="width:100%;">
+        <div class="custom-scrollbar-container" style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+            <table class="admin-table table-equipos-mobile" id="auxTable" style="width:100%; min-width:900px; border-collapse:separate; border-spacing:0 6px;">
                 <thead>
                     <tr class="table-row-header">
                         <th class="table-header-custom" style="width: 150px;"></th>
@@ -942,29 +942,24 @@
         // - Si NO hay PDF y NO hay permiso: span gris "No cargado".
         const pdfBtn = (url, docType) => {
             if (url) {
-                // Abre la ventana de PDF preview interna (definida en estructura_base.blade.php).
-                // Pasamos equipoId=null para que el panel de metadata muestre el mensaje
-                // generico (no aplica a auxiliares — solo se usa el visor del PDF).
                 const labelHr = docType === 'propiedad' ? 'Doc. Propiedad' : 'Certificado';
                 const safeUrl = url.replace(/'/g, "\\'");
-                // uploadUrl: endpoint propio de aux para que el boton de
-                // subir/reemplazar dentro del visor SI funcione en este modulo.
                 const uploadUrl = '/admin/equipos-auxiliares/' + d.id + '/upload-doc';
-                // skipMetadata=false + module='auxiliar': el panel lateral usa
-                // las rutas /admin/equipos-auxiliares/{id}/(metadata|update-metadata)
-                // y muestra los campos del aux (incluye fecha venc. para certificado).
                 const onclickHandler = `window.openPdfPreview('${safeUrl}','${docType}','${labelHr}',${d.id},'${uploadUrl}',false,'auxiliar');`;
                 return `<button type="button" title="Ver PDF" onclick="${onclickHandler}" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#0067b1; box-shadow:0 2px 6px rgba(0,103,177,0.35); border:none; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:17px; color:white;">description</i></button>`;
             }
             if (d.can_upload_pdf && docType) {
-                return `<label title="Subir PDF" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#fff; border:1.5px dashed #cbd5e1; color:#0067b1; cursor:pointer; flex-shrink:0;"><i class="material-icons" style="font-size:16px;">cloud_upload</i><input type="file" accept="application/pdf" style="display:none;" onchange="window.auxUploadDoc(${d.id}, '${docType}', this)"></label>`;
+                // Usamos div+onclick en lugar de label para evitar que Materialize CSS
+                // sobreescriba display a block dentro del contenedor flex.
+                const uid = 'auxUp_' + d.id + '_' + docType;
+                return `<div title="Subir PDF" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#fff; border:1.5px dashed #cbd5e1; color:#0067b1; cursor:pointer; flex-shrink:0;" onclick="document.getElementById('${uid}').click()"><i class="material-icons" style="font-size:16px;">cloud_upload</i><input type="file" id="${uid}" accept="application/pdf" style="display:none;" onchange="window.auxUploadDoc(${d.id}, '${docType}', this)"></div>`;
             }
             return '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
         };
 
         // Fila Doc. Propiedad: label + boton (sin fecha)
         const rowPropiedad = `
-            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0;">
+            <div class="detail-row-basic" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
                 <span style="color:#64748b; font-size:12px; white-space:nowrap; flex-shrink:0;">Doc. Propiedad</span>
                 ${pdfBtn(d.link_doc_propiedad, 'propiedad')}
             </div>`;
@@ -982,9 +977,9 @@
             fechaInline = `<span style="background:${bg}; color:${co}; padding:2px 6px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;" title="${txt}${extra}">${txt}${extra}</span>`;
         }
         const rowCertificado = `
-            <div class="detail-row-basic" style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0;">
+            <div class="detail-row-basic" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
                 <span style="color:#64748b; font-size:12px; white-space:nowrap; flex-shrink:0;">Certificado</span>
-                <div style="display:flex; align-items:center; gap:6px; flex-shrink:1; min-width:0; overflow:hidden;">
+                <div style="display:flex !important; align-items:center; gap:6px; flex-shrink:1; min-width:0; overflow:hidden;">
                     <div style="flex-shrink:1; min-width:0; overflow:hidden;">${fechaInline}</div>
                     ${pdfBtn(d.link_certificado, 'certificado')}
                 </div>
