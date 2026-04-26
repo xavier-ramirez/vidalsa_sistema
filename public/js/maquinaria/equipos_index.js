@@ -1223,7 +1223,7 @@ window.openBulkModal = function (event) {
                         </div>
                         <div style="flex:1; min-width:0;">
                             <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;">Frente nuevo detectado</p>
-                            <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa su ubicación (zona, municipio o estado) para incluirla en los informes.</p>
+                            <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa detalle de ubicación (ciudad, zona, municipio y estado) que saldrán en el PDF.</p>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;" id="bm-ubicacion-box">
@@ -1399,8 +1399,8 @@ window.openBulkModal = function (event) {
                 if (box) box.style.borderColor = '#ef4444';
                 ubicacionInput.focus();
                 const msg = isNewFrente
-                    ? 'Ingresa la ubicación del nuevo frente (zona, municipio o estado).'
-                    : 'Este frente no tiene ubicación registrada. Ingresa una para incluirla en los informes.';
+                    ? 'Ingresa detalle de ubicación (ciudad, zona, municipio y estado) que saldrán en el PDF.'
+                    : 'Este frente no tiene detalle de ubicación. Ingresa ciudad, zona, municipio y estado para el PDF.';
                 if (window.showToast) window.showToast(msg, 'error');
                 return;
             }

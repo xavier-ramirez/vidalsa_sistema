@@ -1599,7 +1599,12 @@ class EquipoController extends Controller
     public function papelera(Request $request)
     {
         $items = Equipo::onlyTrashed()
-            ->with(['tipo:id,nombre', 'documentacion:ID_EQUIPO,PLACA', 'frenteActual:ID_FRENTE,NOMBRE_FRENTE'])
+            ->with([
+                'tipo:id,nombre',
+                'documentacion:ID_EQUIPO,PLACA',
+                'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
+                'especificaciones:ID_ESPEC,FOTO_REFERENCIAL',
+            ])
             ->orderByDesc('deleted_at')
             ->get();
 
@@ -1611,6 +1616,15 @@ class EquipoController extends Controller
             : [];
 
         $rows = $items->map(function ($e) use ($usuarios) {
+            // Foto: prioriza FOTO_REFERENCIAL del catalogo, cae a FOTO_EQUIPO.
+            // Devolvemos el drive ID extraido para que el front use el
+            // thumbnail publico (https://drive.google.com/thumbnail?id=...) en
+            // lugar del proxy local — mismo patron que el listado principal.
+            $fotoSrc = ($e->especificaciones && $e->especificaciones->FOTO_REFERENCIAL)
+                ? $e->especificaciones->FOTO_REFERENCIAL
+                : $e->FOTO_EQUIPO;
+            $fotoDriveId = $fotoSrc ? basename(str_replace('/storage/google/', '', explode('?', $fotoSrc)[0])) : null;
+
             return [
                 'id'             => $e->ID_EQUIPO,
                 'tipo'           => optional($e->tipo)->nombre,
@@ -1620,7 +1634,7 @@ class EquipoController extends Controller
                 'marca'          => $e->MARCA,
                 'modelo'         => $e->MODELO,
                 'frente'         => optional($e->frenteActual)->NOMBRE_FRENTE,
-                'foto'           => $e->FOTO_EQUIPO ? asset($e->FOTO_EQUIPO) : null,
+                'foto_drive_id'  => $fotoDriveId,
                 'eliminado_por'  => $e->deleted_by ? ($usuarios[$e->deleted_by] ?? ('Usuario #' . $e->deleted_by)) : 'Desconocido',
                 'eliminado_en'   => optional($e->deleted_at)->format('d/m/Y H:i'),
             ];

@@ -272,9 +272,43 @@
                     <h4 style="margin:0 0 15px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
                         Filtros Avanzados
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
-                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');cargarAuxiliares();">Limpiar Todo</span>
+                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion');cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
                     <div style="display:flex;flex-direction:column;gap:10px;">
+
+                        {{-- Ubicación específica — solo visible cuando el frente
+                             seleccionado es TIPO_FRENTE='ESPECIAL' (patio, almacen,
+                             taller). Mismo patron que /admin/equipos: el controller
+                             ya devuelve $availableUbicaciones y $frenteEspecial. --}}
+                        <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">
+                                <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i>
+                                Ubicación{{ isset($frenteEspecial) && $frenteEspecial ? ' (' . mb_strtoupper($frenteEspecial->NOMBRE_FRENTE) . ')' : '' }}
+                            </span>
+                            <div style="position:relative;">
+                                <input type="hidden" id="aux_val_detalle_ubicacion" name="detalle_ubicacion" value="{{ request('detalle_ubicacion') }}">
+                                <div style="display:flex;align-items:center;background:{{ request('detalle_ubicacion') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('detalle_ubicacion') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_detalle_ubicacion">
+                                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
+                                    <input type="text" id="aux_txt_detalle_ubicacion" placeholder="Seleccionar ubicación..." value="{{ request('detalle_ubicacion') }}" autocomplete="off"
+                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;text-transform:uppercase;"
+                                           oninput="auxAdvFilter('detalle_ubicacion',this.value)"
+                                           onfocus="auxAdvOpen('detalle_ubicacion')"
+                                           onblur="setTimeout(()=>auxAdvClose('detalle_ubicacion'),200)">
+                                    <i class="material-icons" id="aux_clr_detalle_ubicacion" style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('detalle_ubicacion') ? 'block' : 'none' }};"
+                                       onmousedown="event.preventDefault();auxAdvClear('detalle_ubicacion');cargarAuxiliares();">close</i>
+                                </div>
+                                <div id="aux_list_detalle_ubicacion" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('detalle_ubicacion','','Seleccionar ubicación...');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS UBICACIONES</div>
+                                    @if(isset($availableUbicaciones))
+                                        @foreach($availableUbicaciones as $ubi)
+                                            @if(trim($ubi) !== '')
+                                                <div class="aux-adv-opt" data-val="{{ $ubi }}" onmousedown="event.preventDefault();auxAdvSelect('detalle_ubicacion','{{ addslashes(trim($ubi)) }}','{{ addslashes(trim($ubi)) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;text-transform:uppercase;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $ubi }}</div>
+                                            @endif
+                                        @endforeach
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
 
                         {{-- Marca --}}
                         <div>
@@ -570,7 +604,7 @@
 <div id="auxMovilizarModal" class="modal-overlay"
      onclick="if(event.target===this) window.closeAuxMovilizarModal()">
     <div class="modal-content"
-         style="width: 90%; max-width: 480px; max-height: 92vh; padding: 0; border-radius: 16px; overflow: hidden; background: white; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.30); display: flex; flex-direction: column;">
+         style="width: 90%; max-width: 480px; max-height: 92vh; padding: 0; border-radius: 16px; overflow: visible; background: white; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.30); display: flex; flex-direction: column;">
 
         {{-- Header centrado: icono + titulo en el centro, close absoluto a la derecha --}}
         <div style="background:#1e293b; padding:18px; color:white; display:flex; justify-content:center; align-items:center; position:relative;">
@@ -585,8 +619,10 @@
             </button>
         </div>
 
-        {{-- Body --}}
-        <div style="padding:22px 24px; display:flex; flex-direction:column; gap:18px; overflow-y:auto; flex:1;">
+        {{-- Body. overflow:visible para que el dropdown del autocomplete del
+             frente no se recorte cuando se extiende debajo del modal. El
+             scroll vertical se aplica solo al modal-content via max-height. --}}
+        <div style="padding:22px 24px; display:flex; flex-direction:column; gap:18px; overflow:visible; flex:1; border-radius:0 0 16px 16px;">
 
             {{-- Chips de auxiliares seleccionados (poblados por JS) --}}
             <div>
@@ -648,7 +684,7 @@
                             </div>
                             <div style="flex:1; min-width:0;">
                                 <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;" id="auxMovilizarUbicTitle">Frente nuevo detectado</p>
-                                <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa su ubicación (zona, municipio o estado) para incluirla en los informes.</p>
+                                <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa detalle de ubicación (ciudad, zona, municipio y estado) que saldrán en el PDF.</p>
                             </div>
                         </div>
                         <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden;">
@@ -975,6 +1011,39 @@
                 set('auxStatsInoperativos',data.stats.inoperativos);
             }
             if (data.distribucion) renderDistribucion(data.distribucion);
+
+            // Toggle del filtro "Ubicación específica": solo se muestra cuando
+            // el frente seleccionado es TIPO_FRENTE='ESPECIAL'. Tambien
+            // refrescamos las opciones del dropdown segun el frente.
+            const ubicWrap = document.getElementById('aux_adv_ubic_wrapper');
+            if (ubicWrap) {
+                if (data.showUbicaciones) {
+                    ubicWrap.style.display = '';
+                    var labelSpan = ubicWrap.querySelector('span');
+                    if (labelSpan && data.frenteEspecialNombre) {
+                        labelSpan.innerHTML = '<i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i> Ubicación (' + (String(data.frenteEspecialNombre).toUpperCase()) + ')';
+                    }
+                    var listEl = document.getElementById('aux_list_detalle_ubicacion');
+                    if (listEl && Array.isArray(data.availableUbicaciones)) {
+                        var optsHtml = '<div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect(\'detalle_ubicacion\',\'\',\'Seleccionar ubicación...\');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'white\'">TODAS LAS UBICACIONES</div>';
+                        data.availableUbicaciones.forEach(function (u) {
+                            if (!u || !String(u).trim()) return;
+                            var safe = String(u).replace(/'/g, "\\'");
+                            optsHtml += '<div class="aux-adv-opt" data-val="' + u + '" onmousedown="event.preventDefault();auxAdvSelect(\'detalle_ubicacion\',\'' + safe + '\',\'' + safe + '\');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;text-transform:uppercase;" onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'white\'">' + u + '</div>';
+                        });
+                        listEl.innerHTML = optsHtml;
+                    }
+                } else {
+                    ubicWrap.style.display = 'none';
+                    var hiddenUb = document.getElementById('aux_val_detalle_ubicacion');
+                    if (hiddenUb && hiddenUb.value) {
+                        hiddenUb.value = '';
+                        var txtUb = document.getElementById('aux_txt_detalle_ubicacion');
+                        if (txtUb) txtUb.value = '';
+                    }
+                }
+            }
+
             // Restaurar checks seleccionados tras rerender del body
             if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
         })

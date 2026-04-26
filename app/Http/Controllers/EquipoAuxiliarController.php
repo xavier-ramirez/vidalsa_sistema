@@ -1309,6 +1309,7 @@ class EquipoAuxiliarController extends Controller
 
         $tipos = $this->getTiposDinamicos();
         $rows = $items->map(function ($a) use ($usuarios, $tipos) {
+            $fotoDriveId = $a->FOTO ? basename(str_replace('/storage/google/', '', explode('?', $a->FOTO)[0])) : null;
             return [
                 'id'             => $a->ID_AUXILIAR,
                 'tipo'           => $tipos[$a->TIPO] ?? $a->TIPO,
@@ -1316,6 +1317,7 @@ class EquipoAuxiliarController extends Controller
                 'modelo'         => $a->MODELO,
                 'serial'         => $a->SERIAL,
                 'frente'         => optional($a->frente)->NOMBRE_FRENTE,
+                'foto_drive_id'  => $fotoDriveId,
                 'deleted_at'     => optional($a->deleted_at)->format('d/m/Y H:i'),
                 'deleted_by'     => $a->deleted_by ? ($usuarios[$a->deleted_by] ?? '#' . $a->deleted_by) : null,
             ];
