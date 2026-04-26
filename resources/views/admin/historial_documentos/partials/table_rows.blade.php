@@ -1,23 +1,5 @@
 @forelse ($events as $event)
-    @php
-        // Separar TIPO de MARCA/MODELO para que mobile pueda ocultar el resto
-        // sin perder el TIPO. equipo_nombre = "TIPO MARCA MODELO" del controller.
-        $partes = explode(' ', trim((string) $event->equipo_nombre), 2);
-        $hdTipo  = $partes[0] ?? '—';
-        $hdResto = $partes[1] ?? '';
-    @endphp
-    <tr class="hd-selectable-row"
-        data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}"
-        data-hd-fecha="{{ $event->fecha->format('d/m/Y h:i A') }}"
-        data-hd-autor="{{ $event->autor }}"
-        data-hd-doctipo="{{ $event->tipo }}"
-        data-hd-equipo="{{ $event->equipo_nombre }}"
-        data-hd-equipo-id="{{ $event->equipo_id }}"
-        data-hd-link="{{ $event->link ?? '' }}"
-        data-hd-link-key="{{ $event->doc_key ?? '' }}"
-        data-hd-equipo-db="{{ $event->equipo_db_id ?? '' }}"
-        onclick="window.openHdEventDetails && window.openHdEventDetails(this)"
-        style="cursor:pointer;">
+    <tr class="hd-selectable-row" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
         <td>
             <div style="display: flex; flex-direction: column;">
                 <span style="font-weight: 600;">{{ $event->fecha->format('d/m/Y') }}</span>
@@ -37,17 +19,12 @@
             </span>
         </td>
         <td>
-            <div style="font-weight: 600; color: #334155; line-height: 1.3;">
-                <span class="hd-equipo-tipo">{{ $hdTipo }}</span>
-                @if($hdResto)
-                    <span class="hd-equipo-marca-modelo">{{ ' ' . $hdResto }}</span>
-                @endif
-            </div>
+            <div style="font-weight: 600; color: #334155; line-height: 1.3;">{{ $event->equipo_nombre }}</div>
             <div style="font-size: 12px; color: #94a3b8;">{{ $event->equipo_id }}</div>
         </td>
         <td style="text-align: center;">
             @if($event->link)
-                <button type="button" class="btn-view-pdf" onclick="event.stopPropagation(); openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Visualizar Documento">
+                <button type="button" class="btn-view-pdf" onclick="openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Visualizar Documento">
                     <i class="material-icons" style="font-size: 20px;">picture_as_pdf</i>
                 </button>
             @else
