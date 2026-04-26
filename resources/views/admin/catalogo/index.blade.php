@@ -25,11 +25,13 @@
         transform: translateY(-2px);
         box-shadow: 0 8px 18px -6px rgba(15, 23, 42, 0.12);
     }
-    /* Foto: aspect-ratio 4/3 (mas baja que 16/11), 130px maximo de alto */
+    /* Foto: aspect-ratio 4/3 + altura minima para que la card no quede
+       demasiado comprimida verticalmente (antes max-height:130px hacia que
+       las cards se vieran apretadas). Subimos a min/max razonables. */
     .cat-photo {
         width: 100%;
         aspect-ratio: 4 / 3;
-        max-height: 130px;
+        min-height: 160px;
         background: #f8fafc;
         display: flex;
         align-items: center;
@@ -84,44 +86,45 @@
     .cat-action-btn.del   { color: #ef4444; bottom: 6px; right: 6px; }
     .cat-action-btn.del:hover   { background: #ef4444; color: #fff; }
     .cat-body {
-        padding: 9px 11px 10px;
+        padding: 14px 14px 16px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 10px;
     }
     .cat-modelo {
-        font-size: 13.5px;
+        font-size: 15px;
         font-weight: 800;
         color: #1e293b;
-        line-height: 1.2;
+        line-height: 1.25;
         text-transform: uppercase;
         word-break: break-word;
     }
     /* Tabla compacta de specs: 1 fila por campo. Label izquierda muteado,
-       valor derecha en bold. Solo se renderizan los campos con valor. */
+       valor derecha en bold. Solo se renderizan los campos con valor.
+       Tamaños subidos para que no se vean apretadas verticalmente. */
     .cat-specs {
         display: flex;
         flex-direction: column;
-        gap: 2px;
-        margin-top: 2px;
+        gap: 5px;
+        margin-top: 4px;
         border-top: 1px dashed #e2e8f0;
-        padding-top: 6px;
+        padding-top: 9px;
     }
     .cat-spec-row {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
         gap: 8px;
-        font-size: 10.5px;
-        line-height: 1.3;
-        padding: 1px 0;
+        font-size: 12px;
+        line-height: 1.35;
+        padding: 2px 0;
     }
     .cat-spec-label {
         color: #94a3b8;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.3px;
-        font-size: 9.5px;
+        font-size: 11px;
         flex-shrink: 0;
     }
     .cat-spec-value {
@@ -131,7 +134,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 140px;
+        max-width: 160px;
     }
     /* Mobile: el boton "Nuevo" del catalogo se va al final de la fila de
        filtros y ocupa el ancho completo. Filtros y boton todos al MISMO

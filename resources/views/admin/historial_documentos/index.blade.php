@@ -71,6 +71,18 @@
         flex: 0 0 auto;
         width: auto;
     }
+    /* Mobile: el sidebar (IPs Bloqueadas, Usuarios Activos, Total) cae al
+       fondo en una sola columna. Antes el grid 1fr 280px lo dejaba apretado
+       fuera de pantalla y "IPs Bloqueadas" no era accesible. */
+    @media (max-width: 768px) {
+        .hd-layout-grid {
+            grid-template-columns: 1fr !important;
+        }
+        .hd-layout-grid .historial-sidebar {
+            position: static !important;
+            top: auto !important;
+        }
+    }
     @media (max-width: 768px) {
         /* Mobile: forzamos row-wrap (override del .filter-toolbar-container
            global que pone column). Asi podemos tener el boton de filtros
@@ -205,7 +217,7 @@
     </h1>
 </section>
 
-<div class="maquinaria-layout-container" style="display: grid; grid-template-columns: 1fr 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto;">
+<div class="maquinaria-layout-container hd-layout-grid" style="display: grid; grid-template-columns: 1fr 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto;">
     
     <!-- Left Column (Main Content) -->
     <div>

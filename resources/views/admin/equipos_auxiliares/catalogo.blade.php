@@ -252,6 +252,31 @@
     @media (max-width: 600px) {
         .aux-cat-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     }
+    /* Mobile: filtros y boton "Nuevo" todos al MISMO ancho (100%), uno
+       arriba del otro. Mismo patron que /admin/catalogo. */
+    @media (max-width: 600px) {
+        #auxCatFilters {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            gap: 8px !important;
+        }
+        #auxCatFilters .aux-cat-filter,
+        #auxCatFilters > a.btn-primary-maquinaria {
+            max-width: none !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            box-sizing: border-box !important;
+        }
+        #auxCatFilters > a.btn-primary-maquinaria {
+            justify-content: center !important;
+            order: 99;
+            padding: 0 12px !important;
+        }
+    }
 </style>
 
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:12px;">
