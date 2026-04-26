@@ -3164,11 +3164,12 @@ class EquipoController extends Controller
             $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $rowNum++;
 
-            // Cabecera del sub-bloque
+            // Cabecera del sub-bloque (sin "HOST" — la jerarquia se ve por
+            // el merge vertical y el subtitulo "EQUIPOS CON AUXILIARES ANCLADOS").
             $auxHeaders = [
                 'A' => '#',
-                'B' => 'TIPO HOST',
-                'C' => 'PLACA / SERIAL HOST',
+                'B' => 'TIPO EQUIPO',
+                'C' => 'PLACA / SERIAL',
                 'D' => 'MARCA / MODELO',
                 'E' => 'TIPO AUXILIAR',
                 'F' => 'SERIAL AUX.',

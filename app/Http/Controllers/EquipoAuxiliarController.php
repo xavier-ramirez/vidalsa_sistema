@@ -663,9 +663,11 @@ class EquipoAuxiliarController extends Controller
             'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['argb' => 'FF000000']]],
         ]);
 
-        // Fila 5 — Headers (orden: host primero, luego aux, para que el merge
-        // por host quede natural y el lector vea "1 host => N aux")
-        $headers = ['EQUIPO HOST', 'PLACA HOST', 'SERIAL CHASIS HOST', 'FRENTE HOST', 'CÓDIGO PATIO', 'TIPO AUXILIAR', 'MARCA', 'MODELO', 'SERIAL AUX.'];
+        // Fila 5 — Headers (orden: equipo primero, luego aux, para que el
+        // merge vertical por equipo quede natural y el lector vea
+        // "1 equipo => N aux"). Sin la palabra "HOST" — la columna ya queda
+        // implicita por el orden y la separacion visual.
+        $headers = ['EQUIPO', 'PLACA', 'SERIAL CHASIS', 'FRENTE', 'CÓDIGO PATIO', 'TIPO AUXILIAR', 'MARCA', 'MODELO', 'SERIAL AUX.'];
         $sheet->fromArray($headers, null, 'A5');
         $sheet->getStyle("A5:{$lastCol}5")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
         $sheet->getStyle("A5:{$lastCol}5")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1E293B');

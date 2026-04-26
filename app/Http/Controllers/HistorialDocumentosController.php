@@ -16,7 +16,13 @@ class HistorialDocumentosController extends Controller
         // AND/OR se mantenga si en el futuro se anaden filtros previos (frente,
         // rango de fechas, etc). Sin el closure, un where('algo',…) antes se
         // perderia por la "OR chain" siguiente.
-        $docs = Documentacion::with(['equipo.tipo', 'equipo.frenteActual', 'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc', 'usuarioRacda', 'usuarioAdicional', 'usuarioAdicional2'])
+        $docs = Documentacion::with([
+                // withTrashed: incluye equipos soft-deleted, asi los registros
+                // de subida/edicion de un equipo borrado siguen mostrando los
+                // datos (tipo/marca/modelo) en lugar de "Equipo Eliminado".
+                'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'frenteActual']); },
+                'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc', 'usuarioRacda', 'usuarioAdicional', 'usuarioAdicional2',
+            ])
             ->where(function ($q) {
                 $q->whereNotNull('PROPIEDAD_FECHA_SUBIDA')
                   ->orWhereNotNull('POLIZA_FECHA_SUBIDA')
@@ -166,7 +172,13 @@ class HistorialDocumentosController extends Controller
         // Se cargan desde la tabla `equipo_audit_log` con eager loading de equipo+usuario
         // para evitar N+1. Limite alto para no agotar memoria en instalaciones grandes.
         try {
-            $auditLogs = \App\Models\EquipoAuditLog::with(['equipo.tipo', 'usuario'])
+            // withTrashed: incluye equipos soft-deleted asi los logs de
+            // tipo 'delete' tambien muestran tipo/marca/modelo del equipo
+            // borrado en lugar de un generico "Equipo Eliminado".
+            $auditLogs = \App\Models\EquipoAuditLog::with([
+                    'equipo' => function ($q) { $q->withTrashed()->with('tipo'); },
+                    'usuario',
+                ])
                 ->orderByDesc('created_at')
                 ->limit(5000)
                 ->get();

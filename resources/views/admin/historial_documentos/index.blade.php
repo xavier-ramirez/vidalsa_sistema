@@ -189,27 +189,29 @@
 
                 {{-- Botones de Papelera (siempre visibles para usuarios con
                      user.delete; el modal valida + el endpoint via middleware) --}}
+                {{-- Papelera buttons compactos: solo icono + label corto.
+                     Tooltip explica el alcance (vehiculos vs auxiliares). --}}
                 @can('user.delete')
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraEquipos"
                         onclick="window.abrirPapeleraEquipos()"
-                        title="Papelera de Vehiculos eliminados"
-                        style="height: 45px; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700;"
+                        title="Papelera de Vehículos"
+                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
                         onmouseover="this.style.background='#fef3c7'"
                         onmouseout="this.style.background='white'">
-                        <i class="material-icons" style="font-size: 18px;">history</i>
-                        <span>Papelera Vehículos</span>
+                        <i class="material-icons" style="font-size: 17px;">history</i>
+                        <span>Vehículos</span>
                     </button>
                 </div>
                 <div class="filter-item aligned-filter" style="flex: 0 0 auto;">
                     <button type="button" id="btnVerPapeleraAux"
                         onclick="window.abrirPapeleraAuxiliares()"
-                        title="Papelera de Auxiliares eliminados"
-                        style="height: 45px; padding: 0 14px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700;"
+                        title="Papelera de Auxiliares"
+                        style="height: 45px; padding: 0 10px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
                         onmouseover="this.style.background='#fff7ed'"
                         onmouseout="this.style.background='white'">
-                        <i class="material-icons" style="font-size: 18px;">history</i>
-                        <span>Papelera Auxiliares</span>
+                        <i class="material-icons" style="font-size: 17px;">history</i>
+                        <span>Auxiliares</span>
                     </button>
                 </div>
                 @endcan
