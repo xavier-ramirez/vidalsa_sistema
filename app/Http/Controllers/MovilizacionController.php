@@ -812,6 +812,10 @@ class ActaTrasladoPDF extends \TCPDF
             $this->Image($image_file, 15, 8, 0, 25, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
         }
 
+        // RIF debajo del logo en letra pequeña
+        $this->SetFont('helvetica', '', 7);
+        $this->writeHTMLCell(60, 0, 15, 33, '<div style="text-align:left; color:#444444;">RIF: J-29387719-3</div>', 0, 0, 0, true, 'L', true);
+
         $this->SetFont('helvetica', '', 8.5);
         $frente = strtoupper($this->frenteOrigen ?: 'OFICINA PRINCIPAL');
         $html = '<div style="text-align: right; line-height: 1.8;"><strong>FECHA DE EMISI&Oacute;N:</strong> ' . \Carbon\Carbon::now()->format('d/m/Y') . '<br><strong>FRENTE DE ORIGEN:</strong> ' . $frente . '<br>EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>';

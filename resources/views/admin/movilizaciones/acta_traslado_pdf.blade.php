@@ -55,8 +55,7 @@
     <!-- ===================== CUERPO DEL TEXTO ===================== -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
-            <td align="justify" style="font-size: 10pt; line-height: 1.5;">
-                Por medio del presente documento, {{ $labelOrigen }}
+            <td align="justify" style="font-size: 10pt; line-height: 1.5;">Por medio del presente documento, {{ $labelOrigen }}
                 <b>{{ strtoupper($frenteOrigen->NOMBRE_FRENTE ?? 'OFICINA PRINCIPAL') }}</b> de la
                 CONSTRUCTORA VIDALSA 27, C.A., deja constancia formal del despacho y traslado de los equipos
                 detallados a continuación hacia {{ $labelDestino }}
@@ -241,13 +240,12 @@
                 <td width="45%" align="center" valign="bottom">
                     <table width="100%" border="0" cellpadding="0" cellspacing="0">
                         <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="35">&nbsp;</td></tr>
+                        <tr><td height="25">&nbsp;</td></tr>
                         <tr>
                             <td>
                                 <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                                    <tr><td height="1">&nbsp;</td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
                                 </table>
                             </td>
@@ -353,13 +351,12 @@
                 <td colspan="3" align="center">
                     <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
                         <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="35">&nbsp;</td></tr>
+                        <tr><td height="25">&nbsp;</td></tr>
                         <tr>
                             <td align="center">
-                                <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
+                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                                    <tr><td height="1">&nbsp;</td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
                                 </table>
                             </td>
@@ -425,13 +422,12 @@
                 <td colspan="3" align="center">
                     <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0">
                         <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
-                        <tr><td height="35">&nbsp;</td></tr>
+                        <tr><td height="25">&nbsp;</td></tr>
                         <tr>
                             <td align="center">
-                                <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
-                                    <tr><td bgcolor="#000000" height="1">&nbsp;</td></tr>
+                                <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
+                                    <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                                    <tr><td height="1">&nbsp;</td></tr>
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
                                 </table>
                             </td>
