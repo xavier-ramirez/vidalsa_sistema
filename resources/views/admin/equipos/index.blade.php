@@ -215,35 +215,72 @@
                         <span style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
                     </h4>
 
-                    <!-- Modelo Filter (Rebuilt like Tipo) -->
-                    <div style="margin-bottom: 15px;">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Modelo</span>
-                        <div class="custom-dropdown" id="modeloAdvFilter" data-filter-type="modelo" data-default-label="Seleccionar Modelo..." style="font-size: 12px;">
-                            <input type="hidden" name="modelo" data-filter-value value="{{ request('modelo') }}">
-                            
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('modelo') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">search</i>
-                                </div>
-                                <input type="text" name="filter_search_dropdown" data-filter-search 
-                                    placeholder="{{ request('modelo') ?: 'Seleccionar Modelo...' }}" 
-                                    aria-label="Filtrar Modelo"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    oninput="window.filterDropdownOptions(this)"
-                                    autocomplete="off">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('modelo') ? 'block' : 'none' }};" 
-                                   onclick="event.stopPropagation(); clearDropdownFilter('modeloAdvFilter'); loadEquipos();">close</i>
-                            </div>
+                    <!-- Modelo + Marca Filter (2 columnas, lado a lado) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
+                        <!-- Modelo -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Modelo</span>
+                            <div class="custom-dropdown" id="modeloAdvFilter" data-filter-type="modelo" data-default-label="Seleccionar Modelo..." style="font-size: 12px;">
+                                <input type="hidden" name="modelo" data-filter-value value="{{ request('modelo') }}">
 
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
-                                    @if(isset($availableModelos))
-                                        @foreach($availableModelos as $mod)
-                                            @if(trim($mod) !== '')
-                                                <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
-                                            @endif
-                                        @endforeach
-                                    @endif
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('modelo') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
+                                    </div>
+                                    <input type="text" name="filter_search_dropdown" data-filter-search
+                                        placeholder="{{ request('modelo') ?: 'Modelo...' }}"
+                                        aria-label="Filtrar Modelo"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
+                                        oninput="window.filterDropdownOptions(this)"
+                                        autocomplete="off">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 4px; color: #94a3b8; font-size: 16px; display: {{ request('modelo') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('modeloAdvFilter'); loadEquipos();">close</i>
+                                </div>
+
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
+                                        @if(isset($availableModelos))
+                                            @foreach($availableModelos as $mod)
+                                                @if(trim($mod) !== '')
+                                                    <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
+                                                @endif
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Marca -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Marca</span>
+                            <div class="custom-dropdown" id="marcaAdvFilter" data-filter-type="marca" data-default-label="Seleccionar Marca..." style="font-size: 12px;">
+                                <input type="hidden" name="marca" data-filter-value value="{{ request('marca') }}">
+
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('marca') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
+                                    </div>
+                                    <input type="text" name="filter_search_dropdown" data-filter-search
+                                        placeholder="{{ request('marca') ?: 'Marca...' }}"
+                                        aria-label="Filtrar Marca"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
+                                        oninput="window.filterDropdownOptions(this)"
+                                        autocomplete="off">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 4px; color: #94a3b8; font-size: 16px; display: {{ request('marca') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('marcaAdvFilter'); loadEquipos();">close</i>
+                                </div>
+
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
+                                        @if(isset($availableMarcas))
+                                            @foreach($availableMarcas as $marca)
+                                                @if(trim($marca) !== '')
+                                                    <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
+                                                @endif
+                                            @endforeach
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -282,41 +319,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Marca Filter (Rebuilt like Tipo) -->
-                    <div style="margin-bottom: 15px;">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Marca</span>
-                        <div class="custom-dropdown" id="marcaAdvFilter" data-filter-type="marca" data-default-label="Seleccionar Marca..." style="font-size: 12px;">
-                            <input type="hidden" name="marca" data-filter-value value="{{ request('marca') }}">
-                            
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('marca') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">search</i>
-                                </div>
-                                <input type="text" name="filter_search_dropdown" data-filter-search 
-                                    placeholder="{{ request('marca') ?: 'Seleccionar Marca...' }}" 
-                                    aria-label="Filtrar Marca"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    oninput="window.filterDropdownOptions(this)"
-                                    autocomplete="off">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('marca') ? 'block' : 'none' }};" 
-                                   onclick="event.stopPropagation(); clearDropdownFilter('marcaAdvFilter'); loadEquipos();">close</i>
-                            </div>
-
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
-                                    @if(isset($availableMarcas))
-                                        @foreach($availableMarcas as $marca)
-                                            @if(trim($marca) !== '')
-                                                <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
-                                            @endif
-                                        @endforeach
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
 
                     {{-- Año + GPS movidos a una fila combinada al final del panel
                          (ambos son filtros cortos y no requieren ancho completo).

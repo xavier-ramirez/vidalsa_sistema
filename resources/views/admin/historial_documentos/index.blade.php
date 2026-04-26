@@ -66,12 +66,10 @@
         flex: 0 0 auto;
     }
     .hd-papelera-group {
-        display: flex;
+        display: inline-flex;
         gap: 6px;
         flex: 0 0 auto;
-    }
-    .hd-papelera-group .filter-item {
-        flex: 0 0 auto;
+        width: auto;
     }
     @media (max-width: 768px) {
         /* Mobile: forzamos row-wrap (override del .filter-toolbar-container
@@ -99,13 +97,12 @@
         }
         /* Papelera buttons full width compartido 50/50 */
         .hd-papelera-group {
+            display: flex;
             flex: 1 1 100%;
             gap: 8px;
         }
-        .hd-papelera-group .filter-item {
+        .hd-papelera-group > button {
             flex: 1 1 0 !important;
-        }
-        .hd-papelera-group .filter-item button {
             width: 100% !important;
         }
     }
@@ -283,32 +280,30 @@
                     </div>
                 </div>
 
-                {{-- Papelera buttons agrupados con label — desktop: lado a lado
-                     en el row de filtros, mobile: full width compartido 50/50. --}}
+                {{-- Papelera buttons agrupados — desktop: pegados con gap 6px;
+                     mobile: full width compartido 50/50 (regla en .hd-papelera-group).
+                     Botones directos (sin .filter-item .aligned-filter) para evitar
+                     que el width:100% del .aligned-filter los ensanche y separe. --}}
                 @can('user.delete')
                 <div class="hd-papelera-group">
-                    <div class="filter-item aligned-filter">
-                        <button type="button" id="btnVerPapeleraEquipos"
-                            onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
-                            title="Papelera de Vehículos"
-                            style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                            onmouseover="this.style.background='#fef3c7'"
-                            onmouseout="this.style.background='white'">
-                            <i class="material-icons" style="font-size:18px;">directions_car</i>
-                            <span>Vehículos</span>
-                        </button>
-                    </div>
-                    <div class="filter-item aligned-filter">
-                        <button type="button" id="btnVerPapeleraAux"
-                            onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
-                            title="Papelera de Auxiliares"
-                            style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
-                            onmouseover="this.style.background='#fff7ed'"
-                            onmouseout="this.style.background='white'">
-                            <i class="material-icons" style="font-size:18px;">construction</i>
-                            <span>Auxiliares</span>
-                        </button>
-                    </div>
+                    <button type="button" id="btnVerPapeleraEquipos"
+                        onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
+                        title="Papelera de Vehículos"
+                        style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fcd34d; color: #d97706; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
+                        onmouseover="this.style.background='#fef3c7'"
+                        onmouseout="this.style.background='white'">
+                        <i class="material-icons" style="font-size:18px;">directions_car</i>
+                        <span>Vehículos</span>
+                    </button>
+                    <button type="button" id="btnVerPapeleraAux"
+                        onclick="window.abrirPapeleraAuxiliares && window.abrirPapeleraAuxiliares()"
+                        title="Papelera de Auxiliares"
+                        style="height: 45px; padding: 0 9px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 12px; font-weight: 700; white-space: nowrap;"
+                        onmouseover="this.style.background='#fff7ed'"
+                        onmouseout="this.style.background='white'">
+                        <i class="material-icons" style="font-size:18px;">construction</i>
+                        <span>Auxiliares</span>
+                    </button>
                 </div>
                 @endcan
 
