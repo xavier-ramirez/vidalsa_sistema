@@ -158,4 +158,27 @@ class GoogleDriveService
             return false;
         }
     }
+
+    /**
+     * Make a Drive file readable by anyone with the link. Required when the
+     * thumbnail (https://drive.google.com/thumbnail?id=...) needs to render
+     * in <img> tags without auth — we use this for catalog photos that the
+     * public listing renders directly. Idempotent: if a public permission
+     * already exists Drive returns 400 which we swallow.
+     */
+    public function makePublic($fileId)
+    {
+        try {
+            $drive = $this->getDrive();
+            $perm = new \Google\Service\Drive\Permission([
+                'role' => 'reader',
+                'type' => 'anyone',
+            ]);
+            $drive->permissions->create($fileId, $perm, ['supportsAllDrives' => true]);
+            return true;
+        } catch (\Exception $e) {
+            Log::warning("Google Drive makePublic skipped/failed for {$fileId}: " . $e->getMessage());
+            return false;
+        }
+    }
 }

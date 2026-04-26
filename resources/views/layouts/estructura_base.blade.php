@@ -904,9 +904,10 @@
             overflow-y: auto;
             word-break: break-word;
             white-space: pre-wrap;
-            text-align: left;
+            text-align: center;
             padding: 0 4px;
         }
+        #standardModal .modal-title { text-align: center; }
         #standardModal .modal-icon {
             font-size: 40px !important;
             margin-bottom: 10px !important;

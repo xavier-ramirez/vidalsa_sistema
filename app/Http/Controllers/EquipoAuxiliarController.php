@@ -853,6 +853,10 @@ class EquipoAuxiliarController extends Controller
      */
     public function uploadCatalogoPhoto(Request $request)
     {
+        // Drive uploads pueden tardar — subir el limite por si el servidor
+        // tiene una conexion lenta a la API.
+        @set_time_limit(120);
+
         $validated = $request->validate([
             'tipo'   => 'required|string|max:60',
             'marca'  => 'required|string|max:80',
@@ -862,7 +866,6 @@ class EquipoAuxiliarController extends Controller
         ]);
 
         // Scope LOCAL: solo si tiene auxiliares de ese modelo+ano en su scope.
-        // Sin esa pertenencia, no puede modificar la foto del catalogo.
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
         $tipoKey   = $validated['tipo'];
@@ -870,13 +873,39 @@ class EquipoAuxiliarController extends Controller
         $modeloKey = mb_strtoupper(trim($validated['modelo']));
         $anio      = $validated['anio'] ?? null;
 
+        // Construir el query del grupo (modelo+ano). Lo usamos primero para
+        // obtener la(s) FOTO(s) anteriores y borrar el archivo viejo de Drive
+        // antes de subir el nuevo (evita acumulacion de huerfanos).
+        $groupQ = EquipoAuxiliar::query()
+            ->where('TIPO', $tipoKey)
+            ->whereRaw('UPPER(TRIM(COALESCE(MARCA,?))) = ?', ['—', $marcaKey])
+            ->whereRaw('UPPER(TRIM(COALESCE(MODELO,?))) = ?', ['—', $modeloKey]);
+        if ($anio !== null) {
+            $groupQ->where('ANIO', $anio);
+        } else {
+            $groupQ->whereNull('ANIO');
+        }
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $groupQ->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                return response()->json(['success' => false, 'message' => 'No tienes auxiliares en tu scope para este modelo.'], 403);
+            }
+        }
+
+        // FOTOs anteriores (drive ids unicos) — para borrar despues de exito
+        $oldDriveIds = (clone $groupQ)
+            ->whereNotNull('FOTO')->where('FOTO', '!=', '')
+            ->pluck('FOTO')->unique()
+            ->map(function ($url) { return basename(str_replace('/storage/google/', '', explode('?', $url)[0])); })
+            ->filter()->values()->all();
+
         // Convertir a WebP en disco temporal
         $webpResult = $this->convertToWebp($request->file('foto'));
         $webpFile    = $webpResult['file'];
         $tempWebpPath = $webpResult['tempPath'];
 
         try {
-            // Subir a Google Drive en la misma carpeta de catalogo (reuso)
             $driveService = \App\Services\GoogleDriveService::getInstance();
             $folderId = config('filesystems.disks.google.catalog_folder');
             $filename = 'aux_catalog_' . time() . '_' . preg_replace('/[^A-Za-z0-9_]/', '_', $tipoKey . '_' . $marcaKey . '_' . $modeloKey . '_' . ($anio ?? 'NA')) . '.webp';
@@ -885,26 +914,24 @@ class EquipoAuxiliarController extends Controller
             if (!$driveFile || !isset($driveFile->id)) {
                 return response()->json(['success' => false, 'message' => 'No se pudo subir la foto a Google Drive.'], 500);
             }
-            $fotoUrl = '/storage/google/' . $driveFile->id;
 
-            // Bulk UPDATE: todos los aux del mismo tipo+marca+modelo+ano reciben la foto
-            $q = EquipoAuxiliar::query()
-                ->where('TIPO', $tipoKey)
-                ->whereRaw('UPPER(TRIM(COALESCE(MARCA,?))) = ?', ['—', $marcaKey])
-                ->whereRaw('UPPER(TRIM(COALESCE(MODELO,?))) = ?', ['—', $modeloKey]);
-            if ($anio !== null) {
-                $q->where('ANIO', $anio);
-            } else {
-                $q->whereNull('ANIO');
-            }
-            if ($isLocalUser) {
-                if (count($frentesPermitidos) > 0) {
-                    $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-                } else {
-                    return response()->json(['success' => false, 'message' => 'No tienes auxiliares en tu scope para este modelo.'], 403);
+            // CRITICO: hacer el archivo publico para que <img src="https://drive.google.com/thumbnail?id=..."
+            // funcione sin autenticacion. La carpeta puede no propagar permisos
+            // a archivos nuevos en algunos casos (Shared Drives, propietario distinto).
+            $driveService->makePublic($driveFile->id);
+
+            // Cache busting con ?v= timestamp en la URL guardada — asi al
+            // recargar la pagina, el browser no reusa la imagen vieja.
+            $fotoUrl = '/storage/google/' . $driveFile->id . '?v=' . time();
+
+            $updated = $groupQ->update(['FOTO' => $fotoUrl]);
+
+            // Borrar las fotos anteriores de Drive (best-effort, no fatal si falla)
+            foreach ($oldDriveIds as $oldId) {
+                if ($oldId && $oldId !== $driveFile->id) {
+                    try { $driveService->deleteFile($oldId); } catch (\Throwable $e) { /* silent */ }
                 }
             }
-            $updated = $q->update(['FOTO' => $fotoUrl]);
         } finally {
             if ($tempWebpPath && file_exists($tempWebpPath)) @unlink($tempWebpPath);
         }

@@ -35,7 +35,12 @@
     }
     .aux-cat-photo img {
         width: 100%; height: 100%;
-        object-fit: cover;
+        /* contain en lugar de cover: muestra la foto completa sin recortarla.
+           El background gris (#f1f5f9) del wrapper rellena los bordes cuando
+           la foto no calza el aspect-ratio 16:11. Esto evita que la foto se
+           vea "demasiado cerca" cuando la imagen original es vertical o cuadrada. */
+        object-fit: contain;
+        background: #f8fafc;
     }
     .aux-cat-photo .placeholder {
         color: #cbd5e0;
