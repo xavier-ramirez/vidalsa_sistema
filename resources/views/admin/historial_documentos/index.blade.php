@@ -412,6 +412,82 @@
      cuando $blockedIps->count() era 0 — la funcion JS se renderizaba bajo
      la condicion count > 0 pero el boton aparecia siempre. --}}
 
+{{-- Mobile: ocultar marca/modelo dentro de "Equipo Asociado" para reducir
+     densidad. La info completa queda accesible al tap (modal de detalles). --}}
+<style>
+    @media (max-width: 768px) {
+        #historialDocumentosTable .hd-equipo-marca-modelo { display: none; }
+    }
+</style>
+
+{{-- Modal de detalles del evento — abre al tap en una fila (mobile y
+     desktop). Muestra todo el evento en formato lectura, sin necesidad de
+     ver columnas adicionales. --}}
+<div id="hdEventModal" class="modal-overlay"
+     style="display:none; z-index:10001;"
+     onclick="if(event.target===this){this.style.display='none';this.classList.remove('active');}">
+    <div class="modal-content"
+         style="width:90%; max-width:420px; padding:0; border-radius:14px; overflow:hidden; background:white; box-shadow:0 25px 50px -12px rgba(0,0,0,0.30); display:flex; flex-direction:column;">
+        <div style="background:#1e293b; padding:14px 16px; color:white; display:flex; justify-content:center; align-items:center; position:relative; border-radius:14px 14px 0 0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="material-icons" style="color:#a78bfa; font-size:18px;">event</i>
+                <h2 style="margin:0; font-size:14px; font-weight:700;">Detalle del Evento</h2>
+            </div>
+            <button type="button"
+                    onclick="document.getElementById('hdEventModal').style.display='none'"
+                    style="position:absolute; right:12px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"
+                    onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">
+                <i class="material-icons" style="font-size:18px;">close</i>
+            </button>
+        </div>
+        <div id="hdEventModalBody" style="padding:16px; display:flex; flex-direction:column; gap:10px; font-size:13px; color:#1e293b;">
+            {{-- poblado via JS --}}
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var esc = function (s) {
+            return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        };
+        var row = function (label, value, colorVal) {
+            if (!value) return '';
+            return '<div style="display:flex; justify-content:space-between; gap:12px; padding:8px 10px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">' +
+                '<span style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.3px;">' + esc(label) + '</span>' +
+                '<span style="font-size:12.5px; font-weight:600; color:' + (colorVal || '#1e293b') + '; text-align:right; word-break:break-word;">' + esc(value) + '</span>' +
+            '</div>';
+        };
+
+        window.openHdEventDetails = function (tr) {
+            if (!tr) return;
+            var d = tr.dataset || {};
+            var modal = document.getElementById('hdEventModal');
+            var body  = document.getElementById('hdEventModalBody');
+            if (!modal || !body) return;
+
+            var html = '';
+            html += row('Fecha y Hora', d.hdFecha);
+            html += row('Autor',        d.hdAutor);
+            html += row('Tipo',         d.hdDoctipo, '#0067b1');
+            html += row('Equipo',       d.hdEquipo);
+            html += row('ID',           d.hdEquipoId);
+
+            if (d.hdLink) {
+                html += '<button type="button" onclick="document.getElementById(\'hdEventModal\').style.display=\'none\'; openPdfPreview(\''+
+                    esc(d.hdLink)+'\', \''+ esc(d.hdLinkKey)+'\', \''+ esc(d.hdDoctipo)+'\', \''+ esc(d.hdEquipoDb||'')+'\')" ' +
+                    'style="margin-top:6px; width:100%; height:42px; border-radius:8px; background:#0067b1; color:white; border:none; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">' +
+                    '<i class="material-icons" style="font-size:18px;">picture_as_pdf</i> Ver PDF' +
+                '</button>';
+            }
+            body.innerHTML = html;
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+        };
+    })();
+</script>
+
 {{-- Cierre del panel de Filtros Avanzados al hacer click fuera.
      Idempotente — el listener se attacha una sola vez (window flag). --}}
 <script>

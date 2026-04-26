@@ -606,8 +606,11 @@
     <div class="modal-content"
          style="width: 90%; max-width: 480px; max-height: 92vh; padding: 0; border-radius: 16px; overflow: visible; background: white; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.30); display: flex; flex-direction: column;">
 
-        {{-- Header centrado: icono + titulo en el centro, close absoluto a la derecha --}}
-        <div style="background:#1e293b; padding:18px; color:white; display:flex; justify-content:center; align-items:center; position:relative;">
+        {{-- Header centrado: icono + titulo en el centro, close absoluto a la derecha.
+             border-radius en el header (no via overflow del modal-content) porque
+             el modal usa overflow:visible para que el dropdown del frente no se
+             recorte — sin border-radius aqui las esquinas superiores quedaban cuadradas. --}}
+        <div style="background:#1e293b; padding:18px; color:white; display:flex; justify-content:center; align-items:center; position:relative; border-radius:16px 16px 0 0;">
             <div style="display:flex; align-items:center; gap:10px;">
                 <i class="material-icons" style="color:#0067b1; font-size:20px;">local_shipping</i>
                 <h2 style="margin:0; font-size:16px; font-weight:700;">Movilización</h2>

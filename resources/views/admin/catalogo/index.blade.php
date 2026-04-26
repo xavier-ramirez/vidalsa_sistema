@@ -133,6 +133,19 @@
         text-overflow: ellipsis;
         max-width: 140px;
     }
+    /* Mobile: el boton "Nuevo" del catalog se va al final de la fila de
+       filtros y ocupa el ancho completo. Asi en pantallas chicas no queda
+       comprimido al lado de los filtros. */
+    @media (max-width: 600px) {
+        #catalogoFilters { flex-direction: column; align-items: stretch; }
+        #catalogoFilters .cat-filter { max-width: none; flex: 1 1 100%; }
+        #catalogoFilters > a.btn-primary-maquinaria {
+            width: 100%;
+            justify-content: center;
+            order: 99;
+        }
+    }
+
     .cat-empty {
         background: white;
         border: 1px dashed #cbd5e0;

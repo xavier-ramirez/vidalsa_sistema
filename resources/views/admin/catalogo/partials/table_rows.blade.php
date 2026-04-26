@@ -24,10 +24,16 @@
              evita el delay del IntersectionObserver. --}}
         <div class="cat-photo">
             @if($driveFileId)
+                {{-- loading=lazy + decoding=async + fade-in onload: las fotos
+                     aparecen progresivamente segun el browser las baja, en
+                     lugar de bloquearse esperando todas. opacity:0 inicial
+                     evita el flash de img rota mientras carga. --}}
                 <img src="https://drive.google.com/thumbnail?id={{ $driveFileId }}&sz=w300"
                      alt="{{ $catalogo->MODELO }}"
-                     loading="eager"
+                     loading="lazy"
                      decoding="async"
+                     style="opacity:0; transition:opacity 0.25s ease;"
+                     onload="this.style.opacity=1"
                      onerror="this.outerHTML='<i class=&quot;material-icons placeholder&quot;>image_not_supported</i>'">
             @else
                 <i class="material-icons placeholder">precision_manufacturing</i>
