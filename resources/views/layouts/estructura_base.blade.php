@@ -1115,11 +1115,24 @@
         <script
             src="{{ asset('js/maquinaria/consumibles_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_index.js')) }}"></script>
         <script>
+            // Colapsa todos los grupos expandidos del menu mobile (Flota,
+            // Configuraciones, etc). Reusable para cuando el menu se cierra:
+            // antes el grupo abierto quedaba "recordando" su estado y al
+            // reabrir el hamburguesa seguia desplegado.
+            function _mobileNavCollapseAll() {
+                document.querySelectorAll('.mobile-nav-group.active').forEach(g => {
+                    g.classList.remove('active');
+                });
+            }
+
             function toggleMobileMenu() {
                 const menu = document.getElementById('mobileMenu');
                 if (!menu) return;
                 const willOpen = !menu.classList.contains('active');
                 menu.classList.toggle('active');
+                // Si lo estamos cerrando, colapsa todos los grupos para que el
+                // proximo open no muestre estado residual.
+                if (!willOpen) _mobileNavCollapseAll();
                 // Handshake: si abrimos el menu hamburguesa, cerramos el dropdown
                 // de notificaciones para evitar que ambos paneles esten visibles a la vez.
                 if (willOpen && typeof window._notifClose === 'function') window._notifClose();
@@ -1134,6 +1147,7 @@
                     if (!menu || !menu.classList.contains('active')) return;
                     if (e.target.closest('.mobile-menu') || e.target.closest('.menu-toggle')) return;
                     menu.classList.remove('active');
+                    _mobileNavCollapseAll();
                 });
             }
 

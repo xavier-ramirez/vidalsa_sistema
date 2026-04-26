@@ -112,10 +112,11 @@
        Ocultamos: TD#1 (fecha+hora), TD#2 (autor), TD#3 (tipo doc), TD#5 (boton PDF).
        Mostramos: TD#4 (Equipo Asociado) que ya contiene tipo + serial.
 
-       Reglas propias (no usamos .table-usuarios-mobile global porque
-       inyecta pseudo-elementos "Rol:", "Acceso:", "Frente:", "Estado:"
-       que no aplican a historial de documentos y se mezclaban con los
-       registros). El boton PDF queda flotante a la derecha del card. */
+       Card layout (pedido del usuario):
+         Linea 1: TD#1 (fecha+hora)  +  TD#2 (autor) — lado a lado
+         Linea 2: TD#4 (tipo equipo + serial)
+         Linea 3: TD#3 (accion editada / tipo doc)
+         TD#5 (boton PDF) flotante a la derecha del card. */
     @media (max-width: 768px) {
         /* Convertir tabla a stack de cards */
         .table-historial-mobile,
@@ -132,38 +133,67 @@
             gap: 12px;
         }
         .table-historial-mobile tbody tr {
-            display: block;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
+            grid-template-rows: auto auto auto;
+            grid-template-areas:
+                "date   author  pdf"
+                "equipo equipo  pdf"
+                "doc    doc     pdf";
+            column-gap: 10px;
+            row-gap: 6px;
             background: #fff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            position: relative;
             padding: 12px 14px !important;
-            min-height: 50px;
+            align-items: center;
         }
         .table-historial-mobile tbody td {
-            display: block;
             border: none !important;
             padding: 0 !important;
             text-align: left;
             border-radius: 0 !important;
+            min-width: 0;
         }
-        /* TD#1 (fecha), TD#2 (autor), TD#3 (tipo doc) ocultos: el usuario
-           solo quiere ver TD#4 (Equipo asociado: tipo + serial). */
-        .table-historial-mobile tbody td:nth-child(1),
-        .table-historial-mobile tbody td:nth-child(2),
-        .table-historial-mobile tbody td:nth-child(3) {
-            display: none !important;
+        /* Linea 1 izquierda: fecha + hora apiladas */
+        .table-historial-mobile tbody td:nth-child(1) {
+            grid-area: date;
+            font-size: 12.5px;
+            color: #475569;
+            line-height: 1.25;
         }
+        /* Linea 1 derecha: autor (correo / usuario) */
+        .table-historial-mobile tbody td:nth-child(2) {
+            grid-area: author;
+            justify-self: end;
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 55vw;
+        }
+        /* Linea 2: tipo equipo + serial */
         .table-historial-mobile tbody td:nth-child(4) {
-            font-size: 13px;
+            grid-area: equipo;
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.3;
         }
-        /* TD#5 (boton PDF) flotante al lado derecho del card */
+        /* Linea 3: accion editada (tipo doc) */
+        .table-historial-mobile tbody td:nth-child(3) {
+            grid-area: doc;
+            font-size: 12px;
+            color: #475569;
+        }
+        /* Boton PDF: columna derecha, todas las filas */
         .table-historial-mobile tbody td:nth-child(5) {
-            position: absolute;
-            top: 50%;
-            right: 12px;
-            transform: translateY(-50%);
+            grid-area: pdf;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background: transparent !important;
         }
     }
