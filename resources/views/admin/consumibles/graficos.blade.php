@@ -760,14 +760,14 @@
         };
 
         function _cargarDatosLocal() {
-            // Preloader global SOLO en cambios de filtro subsecuentes. En la
-            // carga inicial confiamos en el preloader del SPA — mostrar
-            // tambien el nuestro causaba "doble parpadeo": SPA spinner =>
-            // vista breve => nuestro spinner => vista final. Los spinners
-            // locales por seccion (loadingTotalFrente, etc) dan feedback
-            // granular durante la primera carga sin overlay global.
-            const isSubsequent = window._graficosFirstRunDone === true;
-            if (isSubsequent && typeof window.showPreloader === 'function') {
+            // Preloader global SIEMPRE durante la carga (inicial y subsecuente).
+            // Antes confiabamos en el spinner del SPA solo para la primera carga,
+            // pero el SPA spinner se apaga al recibir el HTML inicial — los
+            // gráficos (Chart.js) se renderizan despues, dejando ver canvas
+            // vacios y placeholders. showPreloader() es idempotente: si ya esta
+            // visible (del SPA) no causa flash; si no, lo enciende. hidePreloader()
+            // solo se llama en el finally cuando los charts ya estan pintados.
+            if (typeof window.showPreloader === 'function') {
                 window.showPreloader();
             }
             const params = getParams();

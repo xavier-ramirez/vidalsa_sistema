@@ -112,34 +112,59 @@
        Ocultamos: TD#1 (fecha+hora), TD#2 (autor), TD#3 (tipo doc), TD#5 (boton PDF).
        Mostramos: TD#4 (Equipo Asociado) que ya contiene tipo + serial.
 
-       Las reglas .table-usuarios-mobile globales convierten cada td en
-       bloque al 100% — aqui solo agregamos display:none a las que el
-       usuario no quiere ver. El boton PDF se mueve al footer si existe
-       (queda accesible via boton flotante absolute). */
+       Reglas propias (no usamos .table-usuarios-mobile global porque
+       inyecta pseudo-elementos "Rol:", "Acceso:", "Frente:", "Estado:"
+       que no aplican a historial de documentos y se mezclaban con los
+       registros). El boton PDF queda flotante a la derecha del card. */
     @media (max-width: 768px) {
-        #historialDocumentosTable.table-usuarios-mobile tbody tr {
+        /* Convertir tabla a stack de cards */
+        .table-historial-mobile,
+        .table-historial-mobile tbody {
+            display: block;
+            width: 100%;
+        }
+        .table-historial-mobile thead {
+            display: none;
+        }
+        .table-historial-mobile tbody {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .table-historial-mobile tbody tr {
+            display: block;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
             position: relative;
             padding: 12px 14px !important;
             min-height: 50px;
         }
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(1),
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(2),
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(3) {
+        .table-historial-mobile tbody td {
+            display: block;
+            border: none !important;
+            padding: 0 !important;
+            text-align: left;
+            border-radius: 0 !important;
+        }
+        /* TD#1 (fecha), TD#2 (autor), TD#3 (tipo doc) ocultos: el usuario
+           solo quiere ver TD#4 (Equipo asociado: tipo + serial). */
+        .table-historial-mobile tbody td:nth-child(1),
+        .table-historial-mobile tbody td:nth-child(2),
+        .table-historial-mobile tbody td:nth-child(3) {
             display: none !important;
         }
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(4) {
-            text-align: left !important;
-            padding: 0 !important;
+        .table-historial-mobile tbody td:nth-child(4) {
             font-size: 13px;
         }
-        #historialDocumentosTable.table-usuarios-mobile tbody td:nth-child(5) {
+        /* TD#5 (boton PDF) flotante al lado derecho del card */
+        .table-historial-mobile tbody td:nth-child(5) {
             position: absolute;
             top: 50%;
             right: 12px;
             transform: translateY(-50%);
-            padding: 0 !important;
             background: transparent !important;
-            border: none !important;
         }
     }
 </style>
@@ -311,7 +336,7 @@
 
             <!-- Unified Responsive Table -->
             <div class="custom-scrollbar-container">
-                <table class="admin-table table-usuarios-mobile" id="historialDocumentosTable" style="width: 100% !important;">
+                <table class="admin-table table-historial-mobile" id="historialDocumentosTable" style="width: 100% !important;">
                     <thead>
                         <tr style="background: #334155; text-align: left; color: #ffffff; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #1e293b;">
                             <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 150px;">Fecha y Hora</th>
