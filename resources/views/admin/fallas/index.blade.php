@@ -469,9 +469,11 @@
     </div>
 </div>
 
+
 @endsection
 
 @section('extra_js')
+
 <script>
 (function () {
     if (window._fallasReady) return;
@@ -751,3 +753,4 @@
 })();
 </script>
 @endsection
+

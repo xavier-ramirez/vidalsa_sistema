@@ -258,6 +258,23 @@ document.addEventListener('DOMContentLoaded', () => {
             // cada externo (CDN) antes de continuar — crítico para Chart.js, etc.
             await executeScripts(mainViewport);
 
+            // También ejecutar scripts fuera de .main-viewport del HTML descargado
+            // (ej: @section('extra_js') de Laravel). Sin esto, módulos que definen
+            // sus funciones en extra_js (fuera del viewport) nunca las registran en
+            // window cuando se llega por navegación SPA desde otro módulo.
+            // Los guards tipo _fallasReady en cada IIFE evitan la doble ejecución.
+            const extraScriptContainer = document.createElement('div');
+            const fetchedMain = doc.querySelector('.main-viewport');
+            Array.from(doc.body.querySelectorAll('script')).forEach(s => {
+                if (s.src) return;                             // externos: ya manejados arriba
+                if (fetchedMain && fetchedMain.contains(s)) return; // inline del viewport: ya ejecutados
+                extraScriptContainer.appendChild(s.cloneNode(true));
+            });
+            if (extraScriptContainer.childElementCount > 0) {
+                await executeScripts(extraScriptContainer);
+            }
+
+
             updateActiveLinks(url);
             window.dispatchEvent(new CustomEvent('spa:contentLoaded'));
 
