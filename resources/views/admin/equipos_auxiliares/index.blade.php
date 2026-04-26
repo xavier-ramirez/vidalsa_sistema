@@ -147,11 +147,22 @@
             flex: 1 !important;
             justify-content: center !important;
         }
+        /* Panel Filtros Avanzados en mobile: bottom-sheet fijo al fondo
+           en vez de dropdown absoluto que se desbordaba horizontalmente. */
         #auxAdvPanel {
-            width: calc(100vw - 24px) !important;
-            max-width: calc(100vw - 24px) !important;
+            position: fixed !important;
+            left: 0 !important;
             right: 0 !important;
-            left: auto !important;
+            bottom: 0 !important;
+            top: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: 70vh !important;
+            overflow-y: auto !important;
+            border-radius: 16px 16px 0 0 !important;
+            margin-top: 0 !important;
+            z-index: 9999 !important;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.18) !important;
         }
     }
 </style>

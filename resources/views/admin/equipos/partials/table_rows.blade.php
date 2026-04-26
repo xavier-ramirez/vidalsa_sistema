@@ -70,7 +70,7 @@
                 </div>
             @endif
             @if($equipo->CATEGORIA_FLOTA)
-                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 5px; letter-spacing: 0.3px;">
+                <div class="eq-hide-mobile" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 5px; letter-spacing: 0.3px;">
                     {{ $equipo->CATEGORIA_FLOTA }}
                 </div>
             @endif
@@ -99,7 +99,7 @@
              La placa se destaca en azul cuando existe. Tamaño 14px (subido
              de 12.5 por feedback de legibilidad en pantalla grande). --}}
         <td class="table-cell-custom" style="font-size: 14px; color: #4a5568;">
-            <div class="eq-hide-mobile" style="line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div style="line-height: 1.5; word-break: break-all;">
                 <strong style="color:#64748b;">S:</strong>
                 <span style="color:#1e293b; font-weight:600; text-transform:uppercase;">{{ $equipo->SERIAL_CHASIS ?: '—' }}</span>
             </div>
