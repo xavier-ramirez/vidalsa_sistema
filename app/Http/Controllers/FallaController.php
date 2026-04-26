@@ -396,13 +396,14 @@ class FallaController extends Controller
 
         $activo = $falla->activo();
 
-        // Reusamos la clase ActaTrasladoPDF (definida al final de
-        // MovilizacionController.php) — mismo namespace App\Http\Controllers,
-        // mismo header/footer corporativo.
-        $pdf = new ActaTrasladoPDF(
+        // Clase ReporteFallaPDF (al final de este archivo): mismo logo
+        // corporativo (imagen_uno.jpg) que el acta de movilizacion, pero
+        // con header propio "REPORTE DE FALLAS" + codigo del reporte.
+        $pdf = new ReporteFallaPDF(
             PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false
         );
-        $pdf->frenteOrigen = 'REPORTE DE FALLA';
+        $pdf->codigoReporte = $falla->CODIGO_REPORTE;
+        $pdf->fechaEmision  = $falla->FECHA_EMISION->format('d/m/Y');
         $pdf->setPrintHeader(true);
         $pdf->setPrintFooter(true);
         $pdf->SetMargins(15, 42, 15);
@@ -415,5 +416,39 @@ class FallaController extends Controller
         $pdf->writeHTML($html, true, false, true, false, '');
 
         return $pdf->Output('Reporte_Falla_' . $falla->CODIGO_REPORTE . '.pdf', 'D');
+    }
+}
+
+/**
+ * PDF para reportes de falla. Mismo logo corporativo (imagen_uno.jpg)
+ * que el acta de movilizacion. Header con codigo + fecha de emision
+ * (datos pasados via propiedades publicas para no acoplarlo al modelo).
+ */
+class ReporteFallaPDF extends \TCPDF
+{
+    public $codigoReporte = '';
+    public $fechaEmision  = '';
+
+    public function Header()
+    {
+        $image_file = public_path('img/imagen_uno.jpg');
+        if (file_exists($image_file)) {
+            $this->Image($image_file, 15, 8, 0, 25, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+        }
+        $this->SetFont('helvetica', '', 8.5);
+        $codigo = strtoupper($this->codigoReporte ?: '—');
+        $fecha  = $this->fechaEmision ?: \Carbon\Carbon::now()->format('d/m/Y');
+        $html = '<div style="text-align: right; line-height: 1.8;">'
+              . '<strong>CÓDIGO REPORTE:</strong> ' . $codigo . '<br>'
+              . '<strong>FECHA DE EMISI&Oacute;N:</strong> ' . $fecha . '<br>'
+              . 'EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>';
+        $this->writeHTMLCell(0, 0, 15, 20, $html, 0, 1, 0, true, 'R', true);
+    }
+
+    public function Footer()
+    {
+        $this->SetY(-15);
+        $this->SetFont('helvetica', 'I', 8);
+        $this->Cell(0, 10, 'Página ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'R');
     }
 }

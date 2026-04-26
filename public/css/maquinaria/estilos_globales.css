@@ -2333,7 +2333,7 @@ input:-webkit-autofill:active {
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(1) {
-    width: 240px;
+    width: 160px;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(2) {
