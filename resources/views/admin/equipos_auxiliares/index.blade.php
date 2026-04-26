@@ -186,6 +186,7 @@
                            style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
                            oninput="auxMainFilter('frente', this.value)"
                            onfocus="auxMainOpen('frente')"
+                           onclick="auxMainOpen('frente')"
                            onblur="setTimeout(()=>auxMainClose('frente'),200)">
                     <i class="material-icons" id="aux_main_clr_frente"
                        style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $frenteActual ? 'block' : 'none' }};"
@@ -225,6 +226,7 @@
                            style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
                            oninput="auxMainFilter('tipo', this.value)"
                            onfocus="auxMainOpen('tipo')"
+                           onclick="auxMainOpen('tipo')"
                            onblur="setTimeout(()=>auxMainClose('tipo'),200)">
                     <i class="material-icons" id="aux_main_clr_tipo"
                        style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $tipoActivo ? 'block' : 'none' }};"
@@ -594,7 +596,10 @@
                 </div>
             </div>
 
-            {{-- Frente destino con buscador (mismo patron visual que /admin/equipos) --}}
+            {{-- Frente destino con buscador (replica el bloque de /admin/equipos):
+                 permite escribir un frente NUEVO si no esta en la lista, y si el
+                 frente seleccionado no tiene UBICACION cargada, muestra el campo
+                 de ubicacion para que el usuario lo capture en el momento. --}}
             <div>
                 <label style="display:block; font-size:13px; font-weight:700; color:#475569; margin-bottom:8px;">
                     <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:4px;">place</i>
@@ -604,12 +609,13 @@
                     <div style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:10px; background:white; overflow:hidden; transition:border-color 0.2s;" id="auxMovilizarBox">
                         <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:20px; flex-shrink:0;">search</i>
                         <input type="text" id="auxMovilizarSearch"
-                               placeholder="Buscar frente de destino..."
+                               placeholder="Buscar o escribir frente de destino..."
                                autocomplete="off"
-                               oninput="auxMovFilterList(this.value)"
+                               oninput="auxMovOnInput(this.value)"
                                onfocus="auxMovOpenList()"
+                               onclick="auxMovOpenList()"
                                onblur="setTimeout(auxMovCloseList, 200)"
-                               style="flex:1; border:none; outline:none; padding:11px 6px; font-size:14px; background:transparent;">
+                               style="flex:1; border:none; outline:none; padding:11px 6px; font-size:14px; background:transparent; text-transform:uppercase;">
                         <i class="material-icons" id="auxMovilizarClear"
                            onclick="auxMovClear()"
                            style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer; display:none;">close</i>
@@ -621,7 +627,8 @@
                             <div class="aux-mov-opt"
                                  data-id="{{ $f->ID_FRENTE }}"
                                  data-label="{{ mb_strtoupper($f->NOMBRE_FRENTE) }}"
-                                 onmousedown="event.preventDefault(); auxMovSelect({{ $f->ID_FRENTE }}, '{{ addslashes(mb_strtoupper($f->NOMBRE_FRENTE)) }}');"
+                                 data-ubicacion="{{ trim((string) ($f->UBICACION ?? '')) }}"
+                                 onmousedown="event.preventDefault(); auxMovSelect({{ $f->ID_FRENTE }}, '{{ addslashes(mb_strtoupper($f->NOMBRE_FRENTE)) }}', '{{ addslashes(trim((string) ($f->UBICACION ?? ''))) }}');"
                                  style="padding:10px 14px; font-size:13px; color:#334155; cursor:pointer; border-bottom:1px solid #f1f5f9;"
                                  onmouseover="this.style.background='#f1f5f9'"
                                  onmouseout="this.style.background='white'">
@@ -630,6 +637,38 @@
                         @endforeach
                     </div>
                 </div>
+
+                {{-- Ubicacion (zona/municipio/estado) — aparece para frentes nuevos
+                     o cuando el frente seleccionado no tiene UBICACION cargada. --}}
+                <div id="auxMovilizarUbicWrapper" style="display:none; margin-top:14px; overflow:hidden;">
+                    <div style="background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%); border:1px solid #bfdbfe; border-left:4px solid #0067b1; border-radius:10px; padding:14px;">
+                        <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px;">
+                            <div style="width:32px; height:32px; border-radius:8px; background:#0067b1; color:white; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <i class="material-icons" style="font-size:18px;">add_location_alt</i>
+                            </div>
+                            <div style="flex:1; min-width:0;">
+                                <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;" id="auxMovilizarUbicTitle">Frente nuevo detectado</p>
+                                <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa su ubicación (zona, municipio o estado) para incluirla en los informes.</p>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden;">
+                            <i class="material-icons" style="padding:0 10px; color:#0067b1; font-size:18px; flex-shrink:0;">location_on</i>
+                            <input type="text" id="auxMovilizarUbicacion"
+                                   placeholder="Ej: PUERTO ORDAZ, BOLÍVAR"
+                                   maxlength="150" autocomplete="off"
+                                   style="flex:1; border:none; outline:none; padding:10px 6px; font-size:13.5px; background:transparent; text-transform:uppercase; color:#0f172a;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Generar Informe — checkbox opcional. Cuando esta activo, el
+                 backend asigna CODIGO_CONTROL y registra DESPACHO con fecha. --}}
+            <div style="display:flex; align-items:center; gap:8px; padding:10px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+                <input type="checkbox" id="auxMovilizarGenerarPdf" style="width:16px; height:16px; cursor:pointer; accent-color:#1e293b;">
+                <label for="auxMovilizarGenerarPdf" style="font-size:13px; font-weight:600; color:#475569; cursor:pointer; user-select:none; margin:0;">
+                    Generar Informe (Acta de Asignación)
+                </label>
             </div>
 
             {{-- Boton unico full-width: "Confirmar Movilización" --}}
@@ -1067,7 +1106,7 @@
             }).join('');
         }
 
-        // Reset del input de frente
+        // Reset de todos los campos del modal (frente + ubicacion + checkbox)
         document.getElementById('auxMovilizarFrente').value = '';
         const search = document.getElementById('auxMovilizarSearch');
         if (search) { search.value = ''; }
@@ -1078,6 +1117,12 @@
             list.style.display = 'none';
             list.querySelectorAll('.aux-mov-opt').forEach(o => o.style.display = '');
         }
+        const ubicEl = document.getElementById('auxMovilizarUbicacion');
+        if (ubicEl) ubicEl.value = '';
+        const ubicWrap = document.getElementById('auxMovilizarUbicWrapper');
+        if (ubicWrap) ubicWrap.style.display = 'none';
+        const pdfChk = document.getElementById('auxMovilizarGenerarPdf');
+        if (pdfChk) pdfChk.checked = false;
 
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -1089,8 +1134,9 @@
         document.body.style.overflow = '';
     };
 
-    // Helpers del autocomplete del frente destino (mismo patron que el bulk
-    // modal de /admin/equipos). Filtra options en el dropdown sin reload.
+    // Helpers del autocomplete del frente destino (mismo patron que /admin/equipos).
+    // Soporta texto libre (frente nuevo) y muestra el campo Ubicacion cuando
+    // el frente seleccionado/escrito no tiene UBICACION cargada.
     window.auxMovOpenList = function () {
         const list = document.getElementById('auxMovilizarList');
         if (list) list.style.display = 'block';
@@ -1109,23 +1155,91 @@
             opt.style.display = (!qu || lbl.indexOf(qu) !== -1) ? '' : 'none';
         });
     };
-    window.auxMovSelect = function (id, label) {
+
+    // Toggle del wrapper de ubicacion: lo mostramos cuando el frente NO
+    // existe (texto libre que no matchea ninguna opcion) o cuando el
+    // frente existe pero su UBICACION esta vacia.
+    function _auxMovToggleUbic(showAsNew, hasNoUbic) {
+        const wrap = document.getElementById('auxMovilizarUbicWrapper');
+        const title = document.getElementById('auxMovilizarUbicTitle');
+        if (!wrap) return;
+        const show = showAsNew || hasNoUbic;
+        wrap.style.display = show ? 'block' : 'none';
+        if (title) {
+            title.textContent = showAsNew
+                ? 'Frente nuevo detectado'
+                : 'Este frente no tiene ubicación cargada';
+        }
+    }
+
+    // Input handler: cada vez que el usuario teclea, filtramos la lista y
+    // chequeamos si lo que escribio matchea exactamente un frente existente.
+    // Si no matchea, se considera frente nuevo => pedimos ubicacion.
+    window.auxMovOnInput = function (val) {
+        const v = (val || '').toUpperCase().trim();
+        const list = document.getElementById('auxMovilizarList');
+        const hidden = document.getElementById('auxMovilizarFrente');
+        const clr = document.getElementById('auxMovilizarClear');
+        if (!list || !hidden) return;
+        list.style.display = 'block';
+
+        let exactMatch = null;
+        list.querySelectorAll('.aux-mov-opt').forEach(opt => {
+            const lbl = (opt.dataset.label || '').toUpperCase();
+            opt.style.display = (!v || lbl.indexOf(v) !== -1) ? '' : 'none';
+            if (lbl === v) exactMatch = opt;
+        });
+
+        if (exactMatch) {
+            hidden.value = exactMatch.dataset.id || '';
+            const ubic = (exactMatch.dataset.ubicacion || '').trim();
+            _auxMovToggleUbic(false, ubic === '');
+        } else if (v.length > 0) {
+            // Texto libre que no matchea: lo tratamos como frente nuevo.
+            // Limpiamos el id para que el backend lo cree.
+            hidden.value = '';
+            _auxMovToggleUbic(true, false);
+        } else {
+            hidden.value = '';
+            _auxMovToggleUbic(false, false);
+        }
+        if (clr) clr.style.display = v ? 'block' : 'none';
+    };
+
+    window.auxMovSelect = function (id, label, ubic) {
         document.getElementById('auxMovilizarFrente').value = id;
         document.getElementById('auxMovilizarSearch').value = label;
         document.getElementById('auxMovilizarClear').style.display = 'block';
+        _auxMovToggleUbic(false, !ubic || String(ubic).trim() === '');
         window.auxMovCloseList();
     };
     window.auxMovClear = function () {
         document.getElementById('auxMovilizarFrente').value = '';
         document.getElementById('auxMovilizarSearch').value = '';
         document.getElementById('auxMovilizarClear').style.display = 'none';
+        var ubicEl = document.getElementById('auxMovilizarUbicacion');
+        if (ubicEl) ubicEl.value = '';
+        _auxMovToggleUbic(false, false);
         document.getElementById('auxMovilizarList').querySelectorAll('.aux-mov-opt').forEach(o => o.style.display = '');
     };
 
     window.auxSubmitMovilizar = function () {
-        const frenteId = document.getElementById('auxMovilizarFrente').value;
-        if (!frenteId) {
-            if (window.showToast) window.showToast('Selecciona un frente destino.', 'warning');
+        // Aceptamos frente existente (id) O frente NUEVO (texto libre que no
+        // matchea). El backend lo crea via firstOrCreate.
+        const destination = (document.getElementById('auxMovilizarSearch').value || '').trim();
+        const frenteId    = document.getElementById('auxMovilizarFrente').value;
+        const ubicacion   = (document.getElementById('auxMovilizarUbicacion')?.value || '').trim();
+        const generarPdf  = !!document.getElementById('auxMovilizarGenerarPdf')?.checked;
+
+        if (!destination) {
+            if (window.showToast) window.showToast('Selecciona o escribe un frente destino.', 'warning');
+            return;
+        }
+        // Si el frente es NUEVO (sin id) y NO ingresaron ubicacion, paramos.
+        // El backend tambien valida — esto es solo UX rapida.
+        const ubicWrap = document.getElementById('auxMovilizarUbicWrapper');
+        if (ubicWrap && ubicWrap.style.display !== 'none' && ubicacion === '') {
+            if (window.showToast) window.showToast('Indica la ubicación del frente (zona, municipio o estado).', 'warning');
             return;
         }
         const ids = Object.keys(window._auxSelectedMap).map(x => parseInt(x, 10));
@@ -1140,7 +1254,13 @@
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
             },
-            body: JSON.stringify({ ids: ids, id_frente: parseInt(frenteId, 10) })
+            body: JSON.stringify({
+                ids: ids,
+                id_frente:   frenteId ? parseInt(frenteId, 10) : null,
+                destination: destination,
+                ubicacion:   ubicacion,
+                generar_pdf: generarPdf
+            })
         })
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
@@ -2013,8 +2133,8 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
         window.showModal({
             type: 'warning',
             title: 'Eliminar Auxiliares',
-            message: '¿Eliminar ' + ids.length + ' auxiliar(es) seleccionado(s)?\n\nLos datos quedan en papelera y pueden recuperarse.',
-            confirmText: 'Sí, eliminar',
+            message: '¿Eliminar ' + ids.length + ' auxiliar(es) seleccionado(s)?',
+            confirmText: 'Eliminar',
             cancelText: 'Cancelar',
             onConfirm: proceed
         });

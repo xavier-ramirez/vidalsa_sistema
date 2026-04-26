@@ -272,8 +272,10 @@
         $reqSearch = request('search');
         $reqTipo   = request('tipo');
         $reqMarca  = request('marca');
-        $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? strtoupper($tipos[$reqTipo] ?? $reqTipo) : '';
+        $reqModelo = request('modelo');
+        $tipoLabel  = ($reqTipo && $reqTipo !== 'all') ? strtoupper($tipos[$reqTipo] ?? $reqTipo) : '';
         $marcaLabel = ($reqMarca && $reqMarca !== 'all') ? $reqMarca : '';
+        $modeloLabel = ($reqModelo && $reqModelo !== 'all') ? $reqModelo : '';
     @endphp
     <form id="auxCatFilters" method="GET" action="{{ route('equipos-auxiliares.catalogo') }}"
           onsubmit="event.preventDefault(); auxCatSubmit();">
@@ -287,6 +289,7 @@
                        value="{{ $tipoLabel }}" autocomplete="off"
                        oninput="auxCatFilterList('tipo', this.value)"
                        onfocus="auxCatOpenList('tipo')"
+                       onclick="auxCatOpenList('tipo')"
                        onblur="setTimeout(()=>auxCatCloseList('tipo'),200)">
                 @if($reqTipo && $reqTipo !== 'all')
                     <i class="material-icons filter-clear" onmousedown="event.preventDefault(); auxCatSelect('tipo','','');">close</i>
@@ -313,6 +316,7 @@
                        value="{{ $marcaLabel }}" autocomplete="off"
                        oninput="auxCatFilterList('marca', this.value)"
                        onfocus="auxCatOpenList('marca')"
+                       onclick="auxCatOpenList('marca')"
                        onblur="setTimeout(()=>auxCatCloseList('marca'),200)">
                 @if($reqMarca && $reqMarca !== 'all')
                     <i class="material-icons filter-clear" onmousedown="event.preventDefault(); auxCatSelect('marca','','');">close</i>
@@ -324,6 +328,33 @@
                 @foreach($marcas as $m)
                     <div class="aux-cat-opt" data-label="{{ $m }}"
                          onmousedown="event.preventDefault(); auxCatSelect('marca','{{ $m }}','{{ addslashes($m) }}');">
+                        {{ $m }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Modelo --}}
+        <div class="aux-cat-filter {{ $reqModelo && $reqModelo !== 'all' ? 'active' : '' }}" data-cat-role="dropdown">
+            <input type="hidden" id="auxCatValModelo" name="modelo" value="{{ $reqModelo && $reqModelo !== 'all' ? $reqModelo : '' }}">
+            <div class="aux-cat-filter-box">
+                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">precision_manufacturing</i></div>
+                <input type="text" id="auxCatTxtModelo" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
+                       value="{{ $modeloLabel }}" autocomplete="off"
+                       oninput="auxCatFilterList('modelo', this.value)"
+                       onfocus="auxCatOpenList('modelo')"
+                       onclick="auxCatOpenList('modelo')"
+                       onblur="setTimeout(()=>auxCatCloseList('modelo'),200)">
+                @if($reqModelo && $reqModelo !== 'all')
+                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); auxCatSelect('modelo','','');">close</i>
+                @endif
+            </div>
+            <div id="auxCatListModelo" class="aux-cat-list">
+                <div class="aux-cat-opt placeholder" data-label="TODOS LOS MODELOS"
+                     onmousedown="event.preventDefault(); auxCatSelect('modelo','','TODOS LOS MODELOS');">TODOS LOS MODELOS</div>
+                @foreach($modelos as $m)
+                    <div class="aux-cat-opt" data-label="{{ $m }}"
+                         onmousedown="event.preventDefault(); auxCatSelect('modelo','{{ $m }}','{{ addslashes($m) }}');">
                         {{ $m }}
                     </div>
                 @endforeach
@@ -423,16 +454,24 @@
     }
 
     // Dropdown helpers (mismo patron que auxMain* del listado principal).
+    // Soporta prefijos: tipo / marca / modelo.
+    function _auxCatCap(prefix) {
+        return prefix === 'tipo' ? 'Tipo' : (prefix === 'marca' ? 'Marca' : 'Modelo');
+    }
     function auxCatOpenList(prefix) {
-        var l = document.getElementById('auxCatList' + (prefix === 'tipo' ? 'Tipo' : 'Marca'));
-        if (l) l.style.display = 'block';
+        var l = document.getElementById('auxCatList' + _auxCatCap(prefix));
+        if (l) {
+            l.style.display = 'block';
+            // Al reabrir, mostramos todas las opciones (resetea filtros previos)
+            l.querySelectorAll('.aux-cat-opt').forEach(function (o) { o.style.display = ''; });
+        }
     }
     function auxCatCloseList(prefix) {
-        var l = document.getElementById('auxCatList' + (prefix === 'tipo' ? 'Tipo' : 'Marca'));
+        var l = document.getElementById('auxCatList' + _auxCatCap(prefix));
         if (l) l.style.display = 'none';
     }
     function auxCatFilterList(prefix, query) {
-        var list = document.getElementById('auxCatList' + (prefix === 'tipo' ? 'Tipo' : 'Marca'));
+        var list = document.getElementById('auxCatList' + _auxCatCap(prefix));
         if (!list) return;
         list.style.display = 'block';
         var q = (query || '').toUpperCase().trim();
@@ -444,7 +483,7 @@
     }
     // Al elegir una opcion, fija el value en el hidden y submitea — sin boton.
     function auxCatSelect(prefix, value, label) {
-        var capPrefix = prefix === 'tipo' ? 'Tipo' : 'Marca';
+        var capPrefix = _auxCatCap(prefix);
         var hidden = document.getElementById('auxCatVal' + capPrefix);
         var txt    = document.getElementById('auxCatTxt' + capPrefix);
         if (hidden) hidden.value = value || '';

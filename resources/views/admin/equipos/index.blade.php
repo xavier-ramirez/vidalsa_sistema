@@ -1531,8 +1531,8 @@
             window.showModal({
                 type: 'warning',
                 title: 'Eliminar Equipos',
-                message: '¿Eliminar ' + ids.length + ' equipo(s) seleccionado(s)?\n\nLos datos quedan en la Papelera y pueden recuperarse.',
-                confirmText: 'Sí, eliminar',
+                message: '¿Eliminar ' + ids.length + ' equipo(s) seleccionado(s)?',
+                confirmText: 'Eliminar',
                 cancelText: 'Cancelar',
                 onConfirm: proceed
             });

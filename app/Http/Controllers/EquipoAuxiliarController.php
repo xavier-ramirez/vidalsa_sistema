@@ -756,13 +756,16 @@ class EquipoAuxiliarController extends Controller
         }
 
         // Filtros opcionales (search libre eliminado: el catalogo se filtra
-        // solo por tipo y marca — son los unicos atributos relevantes para
+        // por tipo, marca y modelo — son los unicos atributos relevantes para
         // agrupar modelos).
         if ($request->filled('tipo') && $request->tipo !== 'all') {
             $base->where('TIPO', $request->tipo);
         }
         if ($request->filled('marca') && $request->marca !== 'all') {
             $base->where('MARCA', $request->marca);
+        }
+        if ($request->filled('modelo') && $request->modelo !== 'all') {
+            $base->where('MODELO', $request->modelo);
         }
 
         // Agrupar por TIPO+MARCA+MODELO+ANIO — una sola tarjeta por modelo+ano
@@ -812,19 +815,32 @@ class EquipoAuxiliarController extends Controller
             ];
         });
 
-        // Listas para los filtros
-        $marcas = (clone $base)
+        // Listas para los filtros — se calculan SIN el filtro propio para que
+        // el dropdown muestre todas las opciones validas (no se auto-limita).
+        $listsBase = EquipoAuxiliar::query();
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $listsBase->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            } else {
+                $listsBase->whereRaw('1 = 0');
+            }
+        }
+        $marcas = (clone $listsBase)
             ->whereNotNull('MARCA')->where('MARCA', '!=', '')
             ->distinct()->orderBy('MARCA')->pluck('MARCA');
+        $modelos = (clone $listsBase)
+            ->whereNotNull('MODELO')->where('MODELO', '!=', '')
+            ->distinct()->orderBy('MODELO')->pluck('MODELO');
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'items' => $items]);
         }
 
         return view('admin.equipos_auxiliares.catalogo', [
-            'items'  => $items,
-            'tipos'  => $tipos,
-            'marcas' => $marcas,
+            'items'   => $items,
+            'tipos'   => $tipos,
+            'marcas'  => $marcas,
+            'modelos' => $modelos,
         ]);
     }
 
@@ -1353,21 +1369,42 @@ class EquipoAuxiliarController extends Controller
             'ids'            => 'required|array|min:1',
             'ids.*'          => 'integer|exists:equipos_auxiliares,ID_AUXILIAR',
             'id_frente'      => 'nullable|exists:frentes_trabajo,ID_FRENTE',
-            'nombre_frente'  => 'nullable|string|max:100',
+            'destination'    => 'nullable|string|max:150',
+            'nombre_frente'  => 'nullable|string|max:150', // legacy alias
+            'ubicacion'      => 'nullable|string|max:150',
+            'generar_pdf'    => 'nullable|boolean',
         ]);
 
-        // Si viene nombre_frente sin id_frente, intentar match o crear nuevo.
+        // Resolver el frente destino — soporta 3 modos:
+        //  1) id_frente: id existente (modo viejo)
+        //  2) destination: nombre del frente; si existe se usa, si no se crea
+        //     (firstOrCreate). Si lo crea, requiere ubicacion.
+        //  3) nombre_frente: alias historico de destination (compat)
         $frenteId = $data['id_frente'] ?? null;
-        if (!$frenteId && !empty($data['nombre_frente'])) {
-            $nombre = mb_strtoupper(trim($data['nombre_frente']));
-            $frente = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [$nombre])->first();
-            if ($frente) {
-                $frenteId = $frente->ID_FRENTE;
+        $destination = trim($data['destination'] ?? $data['nombre_frente'] ?? '');
+        $ubicacion = trim($data['ubicacion'] ?? '');
+        $generarPdf = (bool) ($data['generar_pdf'] ?? false);
+
+        if (!$frenteId && $destination !== '') {
+            $nombre = mb_strtoupper($destination);
+            $frenteExistente = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [$nombre])->first();
+            if ($frenteExistente) {
+                $frenteId = $frenteExistente->ID_FRENTE;
             } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El frente destino no existe. Crealo primero en /admin/frentes.'
-                ], 422);
+                // Frente nuevo: requerimos ubicacion para que los informes
+                // futuros tengan la zona/municipio del destino.
+                if ($ubicacion === '') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El frente "' . $nombre . '" no existe. Indica su ubicación (zona, municipio o estado) para crearlo.',
+                    ], 422);
+                }
+                $nuevo = FrenteTrabajo::create([
+                    'NOMBRE_FRENTE'  => $nombre,
+                    'ESTATUS_FRENTE' => 'ACTIVO',
+                    'UBICACION'      => mb_strtoupper($ubicacion),
+                ]);
+                $frenteId = $nuevo->ID_FRENTE;
             }
         }
 
