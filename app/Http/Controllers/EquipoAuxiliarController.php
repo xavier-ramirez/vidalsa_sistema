@@ -1875,6 +1875,67 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Asigna DETALLE_UBICACION_ACTUAL a un lote de auxiliares (mismo patron
+     * que EquipoController::bulkUbicacion). Valida:
+     *  - Permiso equipos.assign.
+     *  - Que TODOS los auxiliares esten en el mismo frente (sino la
+     *    "ubicacion especifica dentro del frente" pierde sentido).
+     *  - Scope LOCAL del usuario (descarta IDs fuera de sus frentes).
+     */
+    public function bulkUbicacion(Request $request)
+    {
+        if (! auth()->user()?->can('equipos.assign')) {
+            return response()->json(['success' => false, 'message' => 'Sin permisos'], 403);
+        }
+
+        $request->validate([
+            'ids'               => 'required|array|min:1',
+            'ids.*'             => 'exists:equipos_auxiliares,ID_AUXILIAR',
+            'detalle_ubicacion' => 'required|string|max:150',
+        ]);
+
+        $valor = mb_strtoupper(trim($request->input('detalle_ubicacion')));
+
+        return DB::transaction(function () use ($request, $valor) {
+            [$isLocalUser, $frentesPermitidos] = $this->userScope();
+
+            $auxQuery = EquipoAuxiliar::whereIn('ID_AUXILIAR', $request->ids)
+                ->lockForUpdate();
+            if ($isLocalUser) {
+                $auxQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            }
+            $auxiliares = $auxQuery->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
+
+            if ($auxiliares->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'No se encontraron los auxiliares.'], 404);
+            }
+
+            $frentesUnicos = $auxiliares->pluck('ID_FRENTE_ACTUAL')->unique();
+            if ($frentesUnicos->count() > 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Todos los auxiliares deben estar en el mismo frente.',
+                ], 422);
+            }
+            if ($frentesUnicos->first() === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Los auxiliares seleccionados no tienen un frente asignado.',
+                ], 422);
+            }
+
+            $count = EquipoAuxiliar::whereIn('ID_AUXILIAR', $auxiliares->pluck('ID_AUXILIAR'))
+                ->update(['DETALLE_UBICACION_ACTUAL' => $valor]);
+
+            return response()->json([
+                'success'                  => true,
+                'count'                    => $count,
+                'DETALLE_UBICACION_ACTUAL' => $valor,
+            ]);
+        });
+    }
+
+    /**
      * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en
      * storage/app/public/equipos_auxiliares/{id}/. Actualiza las
      * columnas LINK_DOC_PROPIEDAD / LINK_CERTIFICADO. Idempotente:

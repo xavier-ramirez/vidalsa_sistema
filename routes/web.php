@@ -171,6 +171,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('equipos-auxiliares/{id}/metadata',  [App\Http\Controllers\EquipoAuxiliarController::class, 'metadata'])->name('equipos-auxiliares.metadata');
             Route::post  ('equipos-auxiliares/{id}/update-metadata', [App\Http\Controllers\EquipoAuxiliarController::class, 'updateMetadata'])->middleware('can:user.edit')->name('equipos-auxiliares.updateMetadata');
             Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkMove');
+            Route::post  ('equipos-auxiliares/bulk-ubicacion', [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkUbicacion'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkUbicacion');
 
             // Carga masiva via Excel (patron identico a /admin/equipos)
             Route::get   ('equipos-auxiliares/bulk-template',     [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkTemplate'])->middleware('can:equipos.create')->name('equipos-auxiliares.bulkTemplate');

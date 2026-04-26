@@ -2320,11 +2320,16 @@ input:-webkit-autofill:active {
 }
 
 /* ── Tabla desktop: mismos estilos que estaban en el HTML ── */
+/* table-layout: fixed evita que las TDs anchen las columnas segun su
+ * contenido (pasaba con muchas filas largas: el thead se desalineaba
+ * con respecto al tbody). Con fixed el navegador respeta estrictamente
+ * los anchos definidos en :nth-child(N) del thead. */
 #movilizacionesTable {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0 8px;
     min-width: 700px;
+    table-layout: fixed;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(1) {

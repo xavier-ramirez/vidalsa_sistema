@@ -622,6 +622,10 @@
             <i class="material-icons" style="font-size: 18px;">anchor</i>
             <span class="desktop-text">Anclar</span>
         </button>
+        <button type="button" onclick="window.openAuxUbicacionBulkModal()" class="btn-bulk-action" style="background: #64748b;">
+            <i class="material-icons" style="font-size: 18px;">pin_drop</i>
+            <span class="desktop-text">Ubicación</span>
+        </button>
         <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
             <span class="desktop-text">Asignar</span>
@@ -1214,6 +1218,167 @@
             window.auxToggleRow(tr);
         });
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // ASIGNAR UBICACION ESPECIFICA (DETALLE_UBICACION_ACTUAL) bulk
+    // Mismo patron que window.openUbicacionBulkModal del modulo equipos:
+    // valida permiso + mismo frente, lanza modal y persiste via
+    // /admin/equipos-auxiliares/bulk-ubicacion (require equipos.assign).
+    // ═══════════════════════════════════════════════════════════
+    window.openAuxUbicacionBulkModal = function (event) {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+
+        if (window.CAN_ASSIGN_AUX === false || window.CAN_ASSIGN_AUX === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para actualizar ubicaciones.', 'error');
+            return;
+        }
+
+        const ids = Object.keys(window._auxSelectedMap || {});
+        if (ids.length === 0) {
+            if (window.showToast) window.showToast('Selecciona al menos un auxiliar.', 'error');
+            return;
+        }
+
+        // Validar mismo frente: la ubicacion especifica solo tiene sentido
+        // dentro de un frente concreto (mismo criterio que /admin/equipos).
+        const frentesUnicos = [...new Set(ids.map(k => window._auxSelectedMap[k].frente || ''))];
+        if (frentesUnicos.length > 1 || frentesUnicos[0] === '') {
+            if (typeof window.showModal === 'function') {
+                window.showModal({
+                    type: 'error',
+                    title: 'Selección no compatible',
+                    message: 'Todos los auxiliares seleccionados deben estar en el MISMO frente. Revisa tu selección e inténtalo de nuevo.',
+                    confirmText: 'Entendido',
+                    hideCancel: true,
+                });
+            } else if (typeof window.showToast === 'function') {
+                window.showToast('Todos los auxiliares deben estar en el mismo frente.', 'error');
+            }
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'auxUbicacionBulkOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+        const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const chipsHtml = ids.slice(0, 12).map(k => {
+            const lbl = window._auxSelectedMap[k].codigo || ('#' + k);
+            return `<span style="background:#e1effa;color:#0c4a6e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${esc(lbl)}</span>`;
+        }).join('') + (ids.length > 12 ? `<span style="color:#64748b;font-size:12px;">+${ids.length - 12} más</span>` : '');
+
+        overlay.innerHTML = `
+            <div style="background:white;width:100%;max-width:440px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;animation:auxUbBulkIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+                <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <i class="material-icons" style="color:#0284c7;font-size:20px;">pin_drop</i>
+                        <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Ubicación</h2>
+                    </div>
+                    <button type="button" id="auxUb-close" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+                <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+                    <div>
+                        <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">${ids.length} auxiliar${ids.length !== 1 ? 'es' : ''} seleccionado${ids.length !== 1 ? 's' : ''}</p>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;max-height:90px;overflow-y:auto;">
+                            ${chipsHtml}
+                        </div>
+                    </div>
+                    <div>
+                        <label for="auxUb-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
+                            <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
+                            Sitio específico dentro del frente
+                        </label>
+                        <div id="auxUb-inputbox" style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
+                            <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
+                            <input type="text" id="auxUb-input" maxlength="150" autocomplete="off"
+                                placeholder="Ej: PATIO 2, TALLER, ESTACIONAMIENTO A"
+                                style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
+                        </div>
+                        <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
+                            Indica la zona, patio, almacén o fila exacta dentro del frente.
+                        </small>
+                    </div>
+                    <div id="auxUb-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
+                    <button type="button" id="auxUb-submit" style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.2s;">
+                        <i class="material-icons">check_circle</i> Aplicar Ubicación
+                    </button>
+                </div>
+            </div>
+        `;
+
+        if (!document.getElementById('auxUb-keyframes')) {
+            const st = document.createElement('style');
+            st.id = 'auxUb-keyframes';
+            st.textContent = '@keyframes auxUbBulkIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } } #auxUb-inputbox:focus-within { border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,0.15); }';
+            document.head.appendChild(st);
+        }
+
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+
+        const closeModal = () => { overlay.remove(); document.body.style.overflow = ''; };
+        const input = overlay.querySelector('#auxUb-input');
+        const box   = overlay.querySelector('#auxUb-inputbox');
+        const fb    = overlay.querySelector('#auxUb-feedback');
+        const submitBtn = overlay.querySelector('#auxUb-submit');
+        setTimeout(() => input.focus(), 80);
+
+        overlay.querySelector('#auxUb-close').onclick = closeModal;
+        overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSubmit(); } });
+
+        function showFb(type, msg) {
+            const c = {
+                error:   { bg:'#fee2e2', border:'#fecaca', color:'#b91c1c' },
+                success: { bg:'#dcfce7', border:'#bbf7d0', color:'#15803d' },
+            }[type] || { bg:'#e0f2fe', border:'#bae6fd', color:'#075985' };
+            fb.style.cssText = 'display:block;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;background:' + c.bg + ';border:1px solid ' + c.border + ';color:' + c.color + ';';
+            fb.textContent = msg;
+        }
+
+        async function doSubmit() {
+            const valor = (input.value || '').trim();
+            if (!valor) {
+                box.style.borderColor = '#ef4444';
+                input.focus();
+                showFb('error', 'Ingresa el detalle de ubicación.');
+                return;
+            }
+            submitBtn.disabled = true;
+            if (typeof window.showPreloader === 'function') window.showPreloader();
+            try {
+                const res = await fetch('/admin/equipos-auxiliares/bulk-ubicacion', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valor }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || ('Error ' + res.status));
+                }
+                const data = await res.json();
+                if (typeof window.auxClearSelection === 'function') window.auxClearSelection();
+                closeModal();
+                if (typeof window.cargarAuxiliares === 'function') {
+                    await window.cargarAuxiliares();
+                }
+                if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada en ' + (data.count || ids.length) + ' auxiliar(es).', 'success');
+            } catch (err) {
+                console.error('[Aux Ubicacion bulk]', err);
+                showFb('error', err.message || 'No se pudo actualizar.');
+                submitBtn.disabled = false;
+            } finally {
+                if (typeof window.hidePreloader === 'function') window.hidePreloader();
+            }
+        }
+        overlay.querySelector('#auxUb-submit').onclick = doSubmit;
+    };
 
     window.openAuxMovilizarModal = function () {
         const ids = Object.keys(window._auxSelectedMap);
