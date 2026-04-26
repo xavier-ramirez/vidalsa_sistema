@@ -5,7 +5,8 @@
         $marcaModelo = $a ? trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) : '—';
         $serial = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
         $codigo = $a ? ($a->CODIGO_PATIO ?? $a->CODIGO_INTERNO ?? '') : '';
-        $estadoActual = $a->ESTADO_OPERATIVO ?? '';
+        $estadoActual = $a?->ESTADO_OPERATIVO ?? '';
+        $frente = $f->_frente_nombre ?? '—';
         $isAux = $f->ACTIVO_TIPO === 'equipo_auxiliar';
     @endphp
     <div class="falla-row-card">
@@ -37,6 +38,7 @@
             <div class="falla-info">
                 @if($serial) S/N: <strong>{{ $serial }}</strong> · @endif
                 Estado actual: <strong>{{ $estadoActual ?: '—' }}</strong>
+                @if($frente !== '—') · <i class="material-icons" style="font-size:12px; vertical-align:middle; color:#0067b1;">place</i> {{ $frente }} @endif
                 @if($f->SISTEMA_AFECTADO) · Sistema: {{ $f->SISTEMA_AFECTADO }} @endif
                 · Reportó: {{ $f->NOMBRE_REPORTA ?: '—' }}
             </div>
@@ -46,6 +48,7 @@
                 </div>
             @endif
         </div>
+
 
         {{-- Acciones --}}
         <div class="falla-actions">

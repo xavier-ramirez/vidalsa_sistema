@@ -115,48 +115,132 @@
     <div>
         <div class="admin-card" style="margin:0; padding:14px;">
 
-            {{-- Toolbar --}}
-            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
-                <div class="search-wrapper" style="flex:1; min-width:200px; max-width:320px; border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; background:{{ request('search') ? '#e1effa' : '#fbfcfd' }}; display:flex; align-items:center; height:45px; overflow:hidden;">
-                    <div style="padding:0 12px; color:#64748b; display:flex; align-items:center;"><i class="material-icons" style="font-size:18px;">search</i></div>
-                    <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
-                           placeholder="Buscar código, descripción, responsable..."
-                           oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 300);"
-                           style="flex:1; border:none; background:transparent; padding:12px 5px; font-size:13px; outline:none; min-width:0;" autocomplete="off">
+@php
+    $advActive = request()->filled('tipo_activo') || request()->filled('id_frente')
+        || request()->filled('responsable') || request()->filled('marca')
+        || request()->filled('modelo') || request()->filled('fecha_desde')
+        || request()->filled('fecha_hasta');
+@endphp
+
+{{-- Toolbar --}}
+<div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
+    {{-- Buscar por serial / placa --}}
+    <div class="search-wrapper" style="flex:1; min-width:200px; max-width:320px; border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; background:{{ request('search') ? '#e1effa' : '#fbfcfd' }}; display:flex; align-items:center; height:45px; overflow:hidden;">
+        <div style="padding:0 12px; color:#64748b; display:flex; align-items:center;"><i class="material-icons" style="font-size:18px;">search</i></div>
+        <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
+               placeholder="Placa, serial chasis, motor, etiqueta..."
+               oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 350);"
+               style="flex:1; border:none; background:transparent; padding:12px 5px; font-size:13px; outline:none; min-width:0;" autocomplete="off">
+        <i id="fallasSearchClear" class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:pointer; display:{{ request('search') ? 'block' : 'none' }};" onclick="document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>
+    </div>
+
+    {{-- Estatus --}}
+    <select id="fallasEstatus" class="fl-select" style="width:auto; height:45px; min-width:130px;" onchange="window.cargarFallas()">
+        <option value="">Todos los reportes</option>
+        <option value="abierto" {{ request('estatus')=='abierto' ? 'selected' : '' }}>Abiertos</option>
+        <option value="cerrado" {{ request('estatus')=='cerrado' ? 'selected' : '' }}>Cerrados</option>
+    </select>
+
+    {{-- Filtros Avanzados (botón tradicional de la app) --}}
+    <div style="position:relative; flex-shrink:0;">
+        <button type="button" id="fallasAdvBtn"
+                onclick="const p=document.getElementById('fallasAdvPanel'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; event.stopPropagation();"
+                title="Filtros Avanzados"
+                style="height:45px; width:45px; min-width:45px; padding:0; display:flex; align-items:center; justify-content:center;
+                       background:{{ $advActive ? '#fee2e2' : 'white' }}; border:1px solid {{ $advActive ? '#ef4444' : '#cbd5e0' }};
+                       color:{{ $advActive ? '#ef4444' : '#64748b' }}; border-radius:10px; cursor:pointer;">
+            <i class="material-icons">filter_list</i>
+        </button>
+
+        <div id="fallasAdvPanel" style="display:none; position:absolute; top:100%; right:0; width:300px; max-width:calc(100vw - 20px);
+             background:#e2e8f0; border:1px solid #cbd5e1; border-radius:12px;
+             box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); margin-top:10px; padding:15px; z-index:500;">
+
+            <h4 style="margin:0 0 14px 0; font-size:14px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
+                Filtros Avanzados
+                <span style="font-size:11px; color:#64748b; font-weight:400; text-decoration:underline; cursor:pointer;"
+                      onclick="window.flClearAdv()">Limpiar Todo</span>
+            </h4>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+
+                {{-- Tipo de activo --}}
+                <div>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Tipo de Activo</span>
+                    <select id="fallasTipoActivo" class="fl-select" style="height:36px; font-size:13px;" onchange="window.cargarFallas()">
+                        <option value="">Todos los activos</option>
+                        <option value="equipo" {{ request('tipo_activo')=='equipo' ? 'selected' : '' }}>🚛 Vehículos</option>
+                        <option value="equipo_auxiliar" {{ request('tipo_activo')=='equipo_auxiliar' ? 'selected' : '' }}>🔧 Auxiliares</option>
+                    </select>
                 </div>
 
-                <select id="fallasEstatus" class="fl-select" style="width:auto; height:45px; min-width:140px;" onchange="window.cargarFallas()">
-                    <option value="">Todos los reportes</option>
-                    <option value="abierto" {{ request('estatus')=='abierto' ? 'selected' : '' }}>Abiertos</option>
-                    <option value="cerrado" {{ request('estatus')=='cerrado' ? 'selected' : '' }}>Cerrados</option>
-                </select>
+                {{-- Frente --}}
+                <div>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;"><i class="material-icons" style="font-size:13px; vertical-align:middle; color:#0067b1;">place</i> Frente</span>
+                    <select id="fallasFrente" class="fl-select" style="height:36px; font-size:13px;" onchange="window.cargarFallas()">
+                        <option value="">Todos los frentes</option>
+                        @foreach($frentes as $fr)
+                            <option value="{{ $fr->ID_FRENTE }}" {{ request('id_frente') == $fr->ID_FRENTE ? 'selected' : '' }}>{{ $fr->NOMBRE_FRENTE }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-                <select id="fallasTipoActivo" class="fl-select" style="width:auto; height:45px; min-width:160px;" onchange="window.cargarFallas()">
-                    <option value="">Todos los activos</option>
-                    <option value="equipo" {{ request('tipo_activo')=='equipo' ? 'selected' : '' }}>Vehículos</option>
-                    <option value="equipo_auxiliar" {{ request('tipo_activo')=='equipo_auxiliar' ? 'selected' : '' }}>Auxiliares</option>
-                </select>
-
-                <input type="date" id="fallasFechaDesde" class="fl-input" style="width:auto; height:45px;" value="{{ request('fecha_desde') }}" onchange="window.cargarFallas()">
-                <input type="date" id="fallasFechaHasta" class="fl-input" style="width:auto; height:45px;" value="{{ request('fecha_hasta') }}" onchange="window.cargarFallas()">
+                {{-- Responsable --}}
                 @if($responsables->count() > 0)
-                <select id="fallasResponsable" class="fl-select" style="width:auto; height:45px; min-width:160px;" onchange="window.cargarFallas()">
-                    <option value="">Todos los responsables</option>
-                    @foreach($responsables as $r)
-                        <option value="{{ $r->ID_USUARIO }}" {{ request('responsable') == $r->ID_USUARIO ? 'selected' : '' }}>{{ $r->NOMBRE_COMPLETO }}</option>
-                    @endforeach
-                </select>
+                <div>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Responsable</span>
+                    <select id="fallasResponsable" class="fl-select" style="height:36px; font-size:13px;" onchange="window.cargarFallas()">
+                        <option value="">Todos los responsables</option>
+                        @foreach($responsables as $r)
+                            <option value="{{ $r->ID_USUARIO }}" {{ request('responsable') == $r->ID_USUARIO ? 'selected' : '' }}>{{ $r->NOMBRE_COMPLETO }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 @endif
 
-                <div style="margin-left:auto; display:flex; gap:8px;">
-                    <button type="button" id="btnCambiarEstado" onclick="window.openCambioEstadoModal()" class="falla-btn" style="height:45px;">
-                        <i class="material-icons" style="font-size:18px;">tune</i> Cambiar Estado
-                    </button>
-                    <button type="button" onclick="window.openNuevoReporteModal()" class="falla-btn falla-btn-primary" style="height:45px;">
-                        <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
-                    </button>
+                {{-- Marca --}}
+                <div>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Marca</span>
+                    <input type="text" id="fallasMarca" class="fl-input" placeholder="Ej: CATERPILLAR" value="{{ request('marca') }}"
+                           style="height:36px; font-size:13px;"
+                           oninput="window._flMarcaDebounce && clearTimeout(window._flMarcaDebounce); window._flMarcaDebounce = setTimeout(window.cargarFallas, 400);">
                 </div>
+
+                {{-- Modelo --}}
+                <div>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Modelo</span>
+                    <input type="text" id="fallasModelo" class="fl-input" placeholder="Ej: 320D" value="{{ request('modelo') }}"
+                           style="height:36px; font-size:13px;"
+                           oninput="window._flModeloDebounce && clearTimeout(window._flModeloDebounce); window._flModeloDebounce = setTimeout(window.cargarFallas, 400);">
+                </div>
+
+                {{-- Fechas --}}
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div>
+                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Desde</span>
+                        <input type="date" id="fallasFechaDesde" class="fl-input" style="height:36px; font-size:12px; width:100%;" value="{{ request('fecha_desde') }}" onchange="window.cargarFallas()">
+                    </div>
+                    <div>
+                        <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Hasta</span>
+                        <input type="date" id="fallasFechaHasta" class="fl-input" style="height:36px; font-size:12px; width:100%;" value="{{ request('fecha_hasta') }}" onchange="window.cargarFallas()">
+                    </div>
+                </div>
+
             </div>
+        </div>
+    </div>
+
+    {{-- Acciones --}}
+    <div style="margin-left:auto; display:flex; gap:8px;">
+        <button type="button" id="btnCambiarEstado" onclick="window.openCambioEstadoModal()" class="falla-btn" style="height:45px;"
+                title="Cambiar el estado operativo de un equipo sin crear reporte de falla">
+            <i class="material-icons" style="font-size:18px;">tune</i> Cambiar Estado
+        </button>
+        <button type="button" onclick="window.openNuevoReporteModal()" class="falla-btn falla-btn-primary" style="height:45px;">
+            <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
+        </button>
+    </div>
+</div>
 
             {{-- Cards de fallas --}}
             <div id="fallasTableBody" style="display:flex; flex-direction:column; gap:10px;">
@@ -398,18 +482,32 @@
     // ─── Listado: AJAX recarga ───
     window.cargarFallas = function () {
         const params = new URLSearchParams();
-        const sv = document.getElementById('fallasSearch')?.value || '';
-        const es = document.getElementById('fallasEstatus')?.value || '';
-        const ta = document.getElementById('fallasTipoActivo')?.value || '';
-        const fd = document.getElementById('fallasFechaDesde')?.value || '';
-        const fh = document.getElementById('fallasFechaHasta')?.value || '';
+        const sv   = document.getElementById('fallasSearch')?.value || '';
+        const es   = document.getElementById('fallasEstatus')?.value || '';
+        const ta   = document.getElementById('fallasTipoActivo')?.value || '';
+        const fr   = document.getElementById('fallasFrente')?.value || '';
         const resp = document.getElementById('fallasResponsable')?.value || '';
-        if (sv) params.set('search', sv);
-        if (es) params.set('estatus', es);
-        if (ta) params.set('tipo_activo', ta);
-        if (fd) params.set('fecha_desde', fd);
-        if (fh) params.set('fecha_hasta', fh);
+        const marca= document.getElementById('fallasMarca')?.value || '';
+        const mod  = document.getElementById('fallasModelo')?.value || '';
+        const fd   = document.getElementById('fallasFechaDesde')?.value || '';
+        const fh   = document.getElementById('fallasFechaHasta')?.value || '';
+        if (sv)   params.set('search', sv);
+        if (es)   params.set('estatus', es);
+        if (ta)   params.set('tipo_activo', ta);
+        if (fr)   params.set('id_frente', fr);
         if (resp) params.set('responsable', resp);
+        if (marca)params.set('marca', marca);
+        if (mod)  params.set('modelo', mod);
+        if (fd)   params.set('fecha_desde', fd);
+        if (fh)   params.set('fecha_hasta', fh);
+        // Indicador visual del boton avanzado
+        const hasAdv = ta || fr || resp || marca || mod || fd || fh;
+        const advBtn = document.getElementById('fallasAdvBtn');
+        if (advBtn) {
+            advBtn.style.background = hasAdv ? '#fee2e2' : 'white';
+            advBtn.style.border     = '1px solid ' + (hasAdv ? '#ef4444' : '#cbd5e0');
+            advBtn.style.color      = hasAdv ? '#ef4444' : '#64748b';
+        }
 
         if (window.showPreloader) window.showPreloader();
         fetch('{{ route("fallas.index") }}?' + params.toString(), {
@@ -429,6 +527,35 @@
         .catch(e => console.error('cargarFallas:', e))
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
+
+    // ─── Limpiar filtros avanzados ───
+    window.flClearAdv = function () {
+        ['fallasTipoActivo','fallasFrente','fallasResponsable'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        ['fallasMarca','fallasModelo','fallasFechaDesde','fallasFechaHasta'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('fallasAdvPanel').style.display = 'none';
+        window.cargarFallas();
+    };
+
+    // Cerrar panel al hacer clic fuera
+    document.addEventListener('click', function (e) {
+        const panel = document.getElementById('fallasAdvPanel');
+        const btn   = document.getElementById('fallasAdvBtn');
+        if (panel && panel.style.display !== 'none') {
+            if (!panel.contains(e.target) && !btn.contains(e.target)) {
+                panel.style.display = 'none';
+            }
+        }
+    });
+
+    // Mostrar/ocultar el 'x' del buscador
+    document.getElementById('fallasSearch')?.addEventListener('input', function () {
+        const clr = document.getElementById('fallasSearchClear');
+        if (clr) clr.style.display = this.value ? 'block' : 'none';
+    });
 
     // ─── Modal Nuevo Reporte ───
     window.openNuevoReporteModal = function () {

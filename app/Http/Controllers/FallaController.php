@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Falla;
 use App\Models\Equipo;
 use App\Models\EquipoAuxiliar;
+use App\Models\FrenteTrabajo;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,57 +40,118 @@ class FallaController extends Controller
     {
         $query = Falla::query();
 
-        // Filtros
+        // Estatus
         if ($request->filled('estatus')) {
             $query->where('ESTADO_REPORTE', $request->estatus);
         }
-        if ($request->filled('tipo_activo') && in_array($request->tipo_activo, ['equipo', 'equipo_auxiliar'])) {
-            $query->where('ACTIVO_TIPO', $request->tipo_activo);
-        }
+
+        // Fechas
         if ($request->filled('fecha_desde')) {
             $query->whereDate('FECHA_EMISION', '>=', $request->fecha_desde);
         }
         if ($request->filled('fecha_hasta')) {
             $query->whereDate('FECHA_EMISION', '<=', $request->fecha_hasta);
         }
+
+        // Responsable
         if ($request->filled('responsable')) {
             $query->where('ID_USUARIO_REPORTA', $request->responsable);
         }
+
+        // Tipo de activo
+        if ($request->filled('tipo_activo') && in_array($request->tipo_activo, ['equipo', 'equipo_auxiliar'])) {
+            $query->where('ACTIVO_TIPO', $request->tipo_activo);
+        }
+
+        // Busqueda por serial / placa / codigo / etiqueta
         if ($request->filled('search')) {
-            $s = trim($request->input('search'));
-            $query->where(function ($q) use ($s) {
-                $q->where('CODIGO_REPORTE', 'like', "%{$s}%")
-                  ->orWhere('DESCRIPCION_AVERIA', 'like', "%{$s}%")
-                  ->orWhere('NOMBRE_REPORTA', 'like', "%{$s}%");
+            $sClean = mb_strtoupper(ltrim(trim($request->input('search')), '#'));
+            $like   = "%{$sClean}%";
+
+            $eqIds = Equipo::leftJoin('documentacion AS d', 'equipos.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+                ->where(function ($w) use ($like) {
+                    $w->whereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
+                      ->orWhereRaw('UPPER(equipos.SERIAL_DE_MOTOR) like ?', [$like])
+                      ->orWhereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
+                      ->orWhereRaw('UPPER(d.PLACA) like ?', [$like]);
+                })->pluck('equipos.ID_EQUIPO')->toArray();
+
+            $auxIds = EquipoAuxiliar::where(function ($w) use ($like) {
+                $w->whereRaw('UPPER(SERIAL) like ?', [$like])
+                  ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]);
+            })->pluck('ID_AUXILIAR')->toArray();
+
+            $query->where(function ($q) use ($eqIds, $auxIds, $like) {
+                $q->where(function ($i) use ($eqIds) {
+                    $i->where('ACTIVO_TIPO', 'equipo')->whereIn('ACTIVO_ID', $eqIds ?: [0]);
+                })->orWhere(function ($i) use ($auxIds) {
+                    $i->where('ACTIVO_TIPO', 'equipo_auxiliar')->whereIn('ACTIVO_ID', $auxIds ?: [0]);
+                })->orWhere('CODIGO_REPORTE', 'like', $like);
+            });
+        }
+
+        // Marca
+        if ($request->filled('marca')) {
+            $mLike = '%' . mb_strtoupper(trim($request->marca)) . '%';
+            $eqIds  = Equipo::whereRaw('UPPER(MARCA) like ?', [$mLike])->pluck('ID_EQUIPO')->toArray();
+            $auxIds = EquipoAuxiliar::whereRaw('UPPER(MARCA) like ?', [$mLike])->pluck('ID_AUXILIAR')->toArray();
+            $query->where(function ($q) use ($eqIds, $auxIds) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+            });
+        }
+
+        // Modelo
+        if ($request->filled('modelo')) {
+            $moLike = '%' . mb_strtoupper(trim($request->modelo)) . '%';
+            $eqIds  = Equipo::whereRaw('UPPER(MODELO) like ?', [$moLike])->pluck('ID_EQUIPO')->toArray();
+            $auxIds = EquipoAuxiliar::whereRaw('UPPER(MODELO) like ?', [$moLike])->pluck('ID_AUXILIAR')->toArray();
+            $query->where(function ($q) use ($eqIds, $auxIds) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+            });
+        }
+
+        // Frente
+        if ($request->filled('id_frente')) {
+            $frId   = (int) $request->id_frente;
+            $eqIds  = Equipo::where('ID_FRENTE_ACTUAL', $frId)->pluck('ID_EQUIPO')->toArray();
+            $auxIds = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frId)->pluck('ID_AUXILIAR')->toArray();
+            $query->where(function ($q) use ($eqIds, $auxIds) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
             });
         }
 
         $fallas = $query->orderByDesc('FECHA_EMISION')->paginate(50);
 
-        // Hidrata el activo en cada fila para mostrar marca/modelo/foto
-        $fallas->getCollection()->transform(function ($f) {
-            $f->_activo = $f->activo();
+        // Hidrata activo + frente (un solo query previo para todos los frentes).
+        $allFrentes = FrenteTrabajo::pluck('NOMBRE_FRENTE', 'ID_FRENTE')->toArray();
+        $fallas->getCollection()->transform(function ($f) use ($allFrentes) {
+            $activo          = $f->activo();
+            $f->_activo      = $activo;
+            $frenteId        = $activo?->ID_FRENTE_ACTUAL;
+            $f->_frente_nombre = $frenteId ? ($allFrentes[$frenteId] ?? '—') : '—';
             return $f;
         });
 
-        // Stats globales del dashboard (TOTAL / INOPERATIVO / MANTENIMIENTO).
-        // Mezcla equipos + auxiliares.
         $stats = $this->buildStats();
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html'  => view('admin.fallas.partials.table_rows', compact('fallas'))->render(),
-                'stats' => $stats,
+                'html'       => view('admin.fallas.partials.table_rows', compact('fallas'))->render(),
+                'stats'      => $stats,
                 'pagination' => $fallas->links('vendor.pagination.custom-sliding')->toHtml(),
             ]);
         }
 
-        // Listas para filtros
         $responsables = Usuario::whereIn('ID_USUARIO',
                 Falla::distinct()->pluck('ID_USUARIO_REPORTA')->filter()
             )->orderBy('NOMBRE_COMPLETO')->get(['ID_USUARIO', 'NOMBRE_COMPLETO']);
 
-        return view('admin.fallas.index', compact('fallas', 'stats', 'responsables'));
+        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
+
+        return view('admin.fallas.index', compact('fallas', 'stats', 'responsables', 'frentes'));
     }
 
     /**
