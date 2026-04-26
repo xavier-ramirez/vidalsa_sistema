@@ -554,6 +554,17 @@
             </div>
         </div>
 
+        {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — visible solo cuando el
+             frente filtrado es TIPO_FRENTE='ESPECIAL'. Mismo patron que
+             /admin/equipos. cargarAuxiliares (AJAX) muestra/oculta segun
+             showUbicaciones del response. --}}
+        <div id="auxUbicacionesStatsCard"
+             style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
+            <div id="auxUbicacionesStatsContainer">
+                @include('admin.equipos_auxiliares.partials.ubicaciones_stats')
+            </div>
+        </div>
+
         {{-- Distribucion por tipo --}}
         <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
             <div id="auxDistribucionContainer">
@@ -1053,6 +1064,21 @@
                 }
             }
 
+            // Card "Ubicaciones" del sidebar — paralelo al filtro de arriba.
+            // Mostrar/ocultar segun showUbicaciones + reemplazar contenido
+            // con el HTML pre-renderizado del backend.
+            var ubicCard = document.getElementById('auxUbicacionesStatsCard');
+            var ubicContainer = document.getElementById('auxUbicacionesStatsContainer');
+            if (ubicCard && ubicContainer) {
+                if (data.showUbicaciones && typeof data.ubicacionesHtml === 'string') {
+                    ubicContainer.innerHTML = data.ubicacionesHtml;
+                    ubicCard.style.display = '';
+                } else {
+                    ubicCard.style.display = 'none';
+                    ubicContainer.innerHTML = '';
+                }
+            }
+
             // Restaurar checks seleccionados tras rerender del body
             if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
         })
@@ -1081,10 +1107,15 @@
     }
 
     // Helpers para filtrar desde Consolidado + Distribucion (clicks).
+    // El listado usa auxMainSelect (autocomplete custom) — antes se llamaba
+    // selectOption('auxTipoFilterSelect', ...) que ya no existe (refactor de
+    // los filtros principales). Ahora usamos auxMainSelect directo.
     window.auxFilterByTipo = function (tipo) {
         const tiposMap = @json($tipos);
         const label = tiposMap[tipo] || tipo;
-        selectOption('auxTipoFilterSelect', tipo, label);
+        if (typeof window.auxMainSelect === 'function') {
+            window.auxMainSelect('tipo', tipo, label);
+        }
         cargarAuxiliares();
     };
     window.auxFilterByEstado = function (estado) {

@@ -286,6 +286,11 @@ class EquipoAuxiliarController extends Controller
                 'frenteEspecialNombre' => $frenteEspecial ? $frenteEspecial->NOMBRE_FRENTE : null,
                 'availableUbicaciones' => $availableUbicaciones->values(),
                 'ubicacionesStats'     => $ubicacionesStats,
+                // HTML del card "Ubicaciones" pre-renderizado para que
+                // cargarAuxiliares pueda inyectarlo directamente sin
+                // re-construir las filas en JS.
+                'ubicacionesHtml'      => view('admin.equipos_auxiliares.partials.ubicaciones_stats',
+                                              compact('ubicacionesStats', 'frenteEspecial'))->render(),
             ]);
         }
 
