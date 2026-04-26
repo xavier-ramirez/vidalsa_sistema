@@ -51,13 +51,13 @@
     </h1>
 </section>
 
-<div class="maquinaria-layout-container" style="display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto;">
+<div class="maquinaria-layout-container" style="display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; width: 98%; max-width: 1600px; margin: 0 auto; box-sizing: border-box;">
 
-    <!-- Left Column (Main Content). min-width:0 evita que el contenido de la
-         tabla (que es mas ancho que la columna disponible) "explote" la
-         columna de grid hacia la derecha en pantallas chicas — un bug
-         clasico de CSS Grid donde 1fr respeta el min-content por defecto. -->
-    <div style="min-width: 0;">
+    <!-- Left Column (Main Content). min-width:0 evita el blowout clasico de
+         CSS Grid donde 1fr respeta min-content por defecto y empuja la
+         columna derecha fuera. width:100% asegura que el div ocupe todo
+         el track de la columna. -->
+    <div style="min-width: 0; width: 100%; overflow-x: hidden;">
         <div class="admin-card">
             <div class="filter-toolbar-container" style="margin-bottom: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
                 <!-- Search Correo: flex 1 1 250px → crece para ocupar espacio disponible. -->
