@@ -3,6 +3,244 @@
 @section('title', 'Catálogo de Modelos')
 
 @section('content')
+<style>
+    /* ─── Catalogo de Modelos: card grid pattern (mismo look que
+            /admin/equipos-auxiliares/catalogo) ─── */
+    .cat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px;
+        margin-top: 6px;
+    }
+    .cat-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        position: relative;
+    }
+    .cat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px -6px rgba(15, 23, 42, 0.12);
+    }
+    .cat-photo {
+        width: 100%;
+        aspect-ratio: 16 / 11;
+        background: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+    }
+    .cat-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #f8fafc;
+    }
+    .cat-photo .placeholder {
+        color: #cbd5e0;
+        font-size: 56px;
+    }
+    .cat-anio-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: var(--maquinaria-blue, #0067b1);
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .cat-action-btn {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #e2e8f0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+        transition: background 0.15s, transform 0.15s;
+        text-decoration: none;
+        z-index: 3;
+    }
+    .cat-action-btn:hover { transform: scale(1.05); }
+    .cat-action-btn .material-icons { font-size: 16px; }
+    .cat-action-btn.edit  { color: #0067b1; bottom: 8px; right: 46px; }
+    .cat-action-btn.edit:hover  { background: #0067b1; color: #fff; }
+    .cat-action-btn.del   { color: #ef4444; bottom: 8px; right: 8px; }
+    .cat-action-btn.del:hover   { background: #ef4444; color: #fff; }
+    .cat-body {
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .cat-modelo {
+        font-size: 16px;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1.2;
+        text-transform: uppercase;
+    }
+    .cat-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 2px;
+    }
+    .cat-chip {
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .cat-chip .material-icons { font-size: 13px; }
+    .cat-section {
+        margin-top: 8px;
+        padding-top: 10px;
+        border-top: 1px dashed #e2e8f0;
+    }
+    .cat-section-title {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #94a3b8;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .cat-data-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 10px;
+    }
+    .cat-data-cell { font-size: 11.5px; line-height: 1.3; }
+    .cat-data-label {
+        font-size: 9.5px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-bottom: 1px;
+    }
+    .cat-data-value {
+        font-size: 12px;
+        color: #1e293b;
+        font-weight: 600;
+        word-break: break-word;
+    }
+    .cat-empty {
+        background: white;
+        border: 1px dashed #cbd5e0;
+        border-radius: 14px;
+        padding: 60px 20px;
+        text-align: center;
+        color: #94a3b8;
+        margin-top: 20px;
+        grid-column: 1 / -1;
+    }
+    .cat-empty .material-icons {
+        font-size: 56px;
+        color: #cbd5e0;
+        display: block;
+        margin: 0 auto 10px;
+    }
+
+    /* Filtros: replica del estilo /admin/equipos-auxiliares/catalogo
+       (autocomplete con dropdown, sin boton "Aplicar") */
+    #catalogoFilters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 4px;
+    }
+    .cat-filter {
+        flex: 1 1 220px;
+        min-width: 180px;
+        max-width: 280px;
+        position: relative;
+    }
+    .cat-filter-box {
+        display: flex;
+        align-items: center;
+        background: #fbfcfd;
+        border: 1px solid #cbd5e0;
+        border-radius: 12px;
+        height: 45px;
+        overflow: hidden;
+    }
+    .cat-filter.active .cat-filter-box {
+        background: #e1effa;
+        border-color: var(--maquinaria-blue, #0067b1);
+    }
+    .cat-filter input[type="text"] {
+        flex: 1;
+        border: none;
+        background: transparent;
+        outline: none;
+        font-size: 14px;
+        color: #1e293b;
+        padding: 10px 5px;
+        min-width: 0;
+    }
+    .cat-filter .filter-clear {
+        padding: 0 8px;
+        color: #64748b;
+        font-size: 18px;
+        cursor: pointer;
+    }
+    .cat-list {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        max-height: 260px;
+        overflow-y: auto;
+        margin-top: 4px;
+        padding: 5px;
+        z-index: 9999;
+    }
+    .cat-opt {
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        cursor: pointer;
+        border-radius: 6px;
+    }
+    .cat-opt:hover { background: #f0f4f8; }
+    .cat-opt.placeholder {
+        font-size: 13px;
+        color: #475569;
+        font-weight: 600;
+    }
+</style>
+
 <section class="page-title-card" style="text-align: left; margin: 0 0 10px 0;">
     <h1 class="page-title">
         <span class="page-title-line2" style="color: #000;">Catálogo por Modelo</span>
@@ -10,120 +248,143 @@
 </section>
 
 <div class="page-layout-grid">
-    <div class="admin-card" style="margin: 0; min-height: 80vh; min-width: 0; width: 100%; padding: 6px;">
+<div class="admin-card" style="margin: 0; min-height: 80vh; min-width: 0; width: 100%; padding: 14px;">
 
-    <div class="filter-toolbar-container" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; margin-bottom: 5px;">
-    <form id="catalogoFiltersForm" onsubmit="event.preventDefault(); loadCatalogo();" style="display: contents;">
-            
-            <!-- Modelo Filter -->
-            <div class="filter-item" style="flex: 0 1 300px; min-width: 100px;">
-                <div class="custom-dropdown" id="modeloFilterSelect" data-filter-type="modelo" data-default-label="Buscar Modelo...">
-                    <input type="hidden" name="modelo" data-filter-value value="{{ request('modelo') }}">
-                    <div class="dropdown-trigger {{ request('modelo') ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; position: relative; overflow: hidden;">
-                        <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
-                            <i class="material-icons" style="font-size: 18px;">search</i>
-                        </div>
-                        <input type="text" placeholder="{{ request('modelo') ?: 'Buscar Modelo...' }}" 
-                            name="filter_search_dropdown"
-                            data-filter-search
-                            style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none;"
-                            onkeyup="filterDropdownOptions(this);"
-                            onfocus="this.closest('.custom-dropdown').classList.add('active')"
-                            autocomplete="off">
-                        <i class="material-icons" data-clear-btn style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ request('modelo') ? 'block' : 'none' }};" onclick="event.stopPropagation(); clearDropdownFilter('modeloFilterSelect'); loadCatalogo();">close</i>
-                    </div>
-                    <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                        <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
-                            <div class="dropdown-item {{ !request('modelo') || request('modelo') == 'all' ? 'selected' : '' }}" data-value="all" onclick="selectOption('modeloFilterSelect', 'all', 'TODOS LOS MODELOS'); loadCatalogo();">
-                                TODOS LOS MODELOS
-                            </div>
-                            @foreach($availableModelos as $mod)
-                                <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloFilterSelect', '{{ $mod }}', '{{ $mod }}'); loadCatalogo();">
-                                    {{ $mod }}
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
+    {{-- Filtros — autocomplete con onChange-submit, sin boton Aplicar --}}
+    @php
+        $reqModelo = request('modelo');
+        $reqAnio   = request('anio');
+        $modeloLabel = ($reqModelo && $reqModelo !== 'all') ? $reqModelo : '';
+        $anioLabel   = ($reqAnio   && $reqAnio   !== 'all') ? $reqAnio   : '';
+    @endphp
+    <form id="catalogoFilters" method="GET" action="{{ route('catalogo.index') }}"
+          onsubmit="event.preventDefault(); catSubmit();">
+
+        {{-- Modelo --}}
+        <div class="cat-filter {{ $reqModelo && $reqModelo !== 'all' ? 'active' : '' }}">
+            <input type="hidden" id="catValModelo" name="modelo" value="{{ $reqModelo && $reqModelo !== 'all' ? $reqModelo : '' }}" data-filter-value>
+            <div class="cat-filter-box">
+                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
+                    <i class="material-icons" style="font-size:18px;">search</i>
                 </div>
+                <input type="text" id="catTxtModelo" name="filter_search_dropdown_m" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
+                       value="{{ $modeloLabel }}" autocomplete="off"
+                       oninput="catFilterList('modelo', this.value)"
+                       onfocus="catOpenList('modelo')"
+                       onclick="catOpenList('modelo')"
+                       onblur="setTimeout(()=>catCloseList('modelo'),200)">
+                @if($reqModelo && $reqModelo !== 'all')
+                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
+                @endif
             </div>
+            <div id="catListModelo" class="cat-list">
+                <div class="cat-opt placeholder" data-label="TODOS LOS MODELOS"
+                     onmousedown="event.preventDefault(); catSelect('modelo','','TODOS LOS MODELOS');">TODOS LOS MODELOS</div>
+                @foreach($availableModelos as $mod)
+                    <div class="cat-opt" data-label="{{ $mod }}"
+                         onmousedown="event.preventDefault(); catSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');">
+                        {{ $mod }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
 
-            <!-- Año Filter -->
-            <div class="filter-item" style="flex: 0 0 190px;">
-                <div class="custom-dropdown" id="anioFilterSelect" data-filter-type="anio" data-default-label="Buscar Año...">
-                    <input type="hidden" name="anio" data-filter-value value="{{ request('anio') }}">
-                    <div class="dropdown-trigger {{ request('anio') ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; position: relative; overflow: hidden;">
-                        <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
-                            <i class="material-icons" style="font-size: 18px;">calendar_today</i>
-                        </div>
-                        <input type="text" placeholder="{{ request('anio') ?: 'Buscar Año...' }}" 
-                            name="filter_search_dropdown"
-                            data-filter-search
-                            style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none;"
-                            onkeyup="filterDropdownOptions(this);"
-                            onfocus="this.closest('.custom-dropdown').classList.add('active')"
-                            autocomplete="off">
-                        <i class="material-icons" data-clear-btn style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ request('anio') ? 'block' : 'none' }};" onclick="event.stopPropagation(); clearDropdownFilter('anioFilterSelect'); loadCatalogo();">close</i>
-                    </div>
-                    <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                        <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
-                            <div class="dropdown-item {{ !request('anio') || request('anio') == 'all' ? 'selected' : '' }}" data-value="all" onclick="selectOption('anioFilterSelect', 'all', 'TODOS LOS AÑOS'); loadCatalogo();">
-                                TODOS LOS AÑOS
-                            </div>
-                            @foreach($availableAnios as $a)
-                                <div class="dropdown-item {{ request('anio') == $a ? 'selected' : '' }}" data-value="{{ $a }}" onclick="selectOption('anioFilterSelect', '{{ $a }}', '{{ $a }}'); loadCatalogo();">
-                                    {{ $a }}
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
+        {{-- Año --}}
+        <div class="cat-filter {{ $reqAnio && $reqAnio !== 'all' ? 'active' : '' }}">
+            <input type="hidden" id="catValAnio" name="anio" value="{{ $reqAnio && $reqAnio !== 'all' ? $reqAnio : '' }}" data-filter-value>
+            <div class="cat-filter-box">
+                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
+                    <i class="material-icons" style="font-size:18px;">calendar_today</i>
                 </div>
+                <input type="text" id="catTxtAnio" name="filter_search_dropdown_a" placeholder="{{ $anioLabel ?: 'Filtrar Año...' }}"
+                       value="{{ $anioLabel }}" autocomplete="off"
+                       oninput="catFilterList('anio', this.value)"
+                       onfocus="catOpenList('anio')"
+                       onclick="catOpenList('anio')"
+                       onblur="setTimeout(()=>catCloseList('anio'),200)">
+                @if($reqAnio && $reqAnio !== 'all')
+                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); catSelect('anio','','');">close</i>
+                @endif
             </div>
-
-            <!-- Nuevo Button -->
-            <div class="filter-item">
-                <a href="{{ route('catalogo.create') }}"
-                    class="btn-primary-maquinaria"
-                    style="height: 45px; display: flex; align-items: center; padding: 0 15px; text-decoration: none; gap: 8px;"
-                    @cannot('equipos.create')
-                    onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: No tienes permiso para registrar nuevos modelos.', 'error');"
-                    @endcannot>
-                    <i class="material-icons" style="font-size: 18px;">add_circle</i>
-                    Nuevo
-                </a>
+            <div id="catListAnio" class="cat-list">
+                <div class="cat-opt placeholder" data-label="TODOS LOS AÑOS"
+                     onmousedown="event.preventDefault(); catSelect('anio','','TODOS LOS AÑOS');">TODOS LOS AÑOS</div>
+                @foreach($availableAnios as $a)
+                    <div class="cat-opt" data-label="{{ $a }}"
+                         onmousedown="event.preventDefault(); catSelect('anio','{{ $a }}','{{ $a }}');">
+                        {{ $a }}
+                    </div>
+                @endforeach
             </div>
+        </div>
 
+        {{-- Boton Nuevo: visible siempre, valida permiso al click --}}
+        <a href="{{ route('catalogo.create') }}" class="btn-primary-maquinaria"
+           style="height:45px; display:inline-flex; align-items:center; padding:0 15px; text-decoration:none; gap:8px; flex:0 0 auto;"
+           @cannot('equipos.create')
+               onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos modelos.', 'error');"
+           @endcannot>
+            <i class="material-icons" style="font-size:18px;">add_circle</i>
+            Nuevo
+        </a>
     </form>
+
+    {{-- Grid de tarjetas. catalogoTableBody mantiene el ID para que
+         loadCatalogo() (catalogo_index.js) replace innerHTML normalmente. --}}
+    <div id="catalogoTableBody" class="cat-grid" style="font-size:14px;">
+        @include('admin.catalogo.partials.table_rows')
     </div>
 
-    <div class="custom-scrollbar-container" style="width: 100%; overflow-x: auto; margin-top: 5px;">
-        <!-- Added catalog-specific-table class for CSS isolation -->
-        <table class="admin-table catalog-specific-table" style="width: 100%; margin: 0; border-collapse: separate; border-spacing: 0 5px;">
-            <thead>
-                <tr class="table-row-header">
-                    <th class="table-header-custom table-cell-bordered" style="width: 160px;"></th> 
-                    <th class="table-header-custom table-cell-bordered" style="width: 160px; text-align: center;">Modelo / Año</th>
-                    <th class="table-header-custom table-cell-bordered" style="width: 250px; text-align: center;">Motor / Energía / Consumo</th>
-                    <th class="table-header-custom table-cell-bordered" style="width: 290px; text-align: center;">Lubricantes y Fluidos</th>
-                    <th class="table-header-custom" style="width: 25px; text-align: center !important; padding-left: 0; padding-right: 0;">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="catalogoTableBody" style="font-size: 15px;">
-                @include('admin.catalogo.partials.table_rows')
-            </tbody>
-        </table>
-    </div>
-
-    <div style="margin-top: 25px;" id="catalogoPagination">
+    <div style="margin-top: 18px;" id="catalogoPagination">
         {{ $catalogos->links('vendor.pagination.custom-sliding') }}
     </div>
-</div> <!-- End admin-card -->
+</div>
 
-<!-- Right Sidebar: Stats -->
+{{-- Sidebar de stats (modelos count, total) --}}
 <div class="counter-sidebar" id="statsSidebarContainer" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 15px;">
     @include('admin.catalogo.partials.stats_sidebar')
 </div>
 
-</div> <!-- End page-layout-grid -->
+</div> {{-- /page-layout-grid --}}
 
+<script>
+    function catSubmit() {
+        if (typeof window.loadCatalogo === 'function') {
+            window.loadCatalogo();
+        } else {
+            document.getElementById('catalogoFilters').submit();
+        }
+    }
+    function _catCap(p) { return p === 'modelo' ? 'Modelo' : 'Anio'; }
+    function catOpenList(p) {
+        var l = document.getElementById('catList' + _catCap(p));
+        if (!l) return;
+        l.style.display = 'block';
+        l.querySelectorAll('.cat-opt').forEach(function (o) { o.style.display = ''; });
+    }
+    function catCloseList(p) {
+        var l = document.getElementById('catList' + _catCap(p));
+        if (l) l.style.display = 'none';
+    }
+    function catFilterList(p, q) {
+        var list = document.getElementById('catList' + _catCap(p));
+        if (!list) return;
+        list.style.display = 'block';
+        var qu = (q || '').toUpperCase().trim();
+        list.querySelectorAll('.cat-opt').forEach(function (opt) {
+            if (opt.classList.contains('placeholder')) return;
+            var lbl = (opt.dataset.label || '').toUpperCase();
+            opt.style.display = (!qu || lbl.indexOf(qu) !== -1) ? '' : 'none';
+        });
+    }
+    function catSelect(p, value, label) {
+        var cap = _catCap(p);
+        var hidden = document.getElementById('catVal' + cap);
+        var txt    = document.getElementById('catTxt' + cap);
+        if (hidden) hidden.value = value || '';
+        if (txt)    txt.value    = value ? label : '';
+        catCloseList(p);
+        catSubmit();
+    }
+</script>
 @endsection
-

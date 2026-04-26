@@ -599,7 +599,7 @@
                     <th class="table-header-custom" style="width: 22%;">TIPO</th>
                     <th class="table-header-custom" style="width: 15%;">MARCA / MODELO</th>
                     <th class="table-header-custom" style="width: 25%;">SERIALES / PLACA / ID</th>
-                    <th class="table-header-custom" style="width: 120px;">ESTATUS</th>
+                    <th class="table-header-custom" style="width: 145px;">ESTATUS</th>
                     <th class="table-cell-center" style="width: 72px;"></th> {{-- Acciones --}}
                 </tr>
             </thead>
