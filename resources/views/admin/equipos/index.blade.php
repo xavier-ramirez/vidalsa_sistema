@@ -592,15 +592,15 @@
 
     <div class="custom-scrollbar-container" style="margin-top: 5px; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">
 
-        <table class="admin-table table-equipos-mobile" style="width: 100%; min-width: 1000px; border-collapse: separate; border-spacing: 0 10px;">
+        <table class="admin-table table-equipos-mobile" style="width: 100%; min-width: 1000px; border-collapse: separate; border-spacing: 0 8px;">
             <thead>
                 <tr class="table-row-header">
-                    <th class="table-header-custom" style="width: 150px;"></th> <!-- Foto Fixed -->
-                    <th class="table-header-custom" style="width: 22%;">Tipo</th> <!-- Fluid (Wide) -->
-                    <th class="table-header-custom" style="width: 15%;">Marca / Modelo</th> <!-- Fluid (Narrower) -->
-                    <th class="table-header-custom" style="width: 25%;">Seriales / Placa / ID</th> <!-- Fluid (Wide) -->
-                    <th class="table-header-custom" style="width: 110px;">Estatus</th> <!-- Fixed -->
-                    <th class="table-cell-center" style="width: 50px;"></th> <!-- Fixed -->
+                    <th class="table-header-custom" style="width: 150px;"></th> {{-- Foto + Frente --}}
+                    <th class="table-header-custom" style="width: 22%;">TIPO</th>
+                    <th class="table-header-custom" style="width: 15%;">MARCA / MODELO</th>
+                    <th class="table-header-custom" style="width: 25%;">SERIALES / PLACA / ID</th>
+                    <th class="table-header-custom" style="width: 120px;">ESTATUS</th>
+                    <th class="table-cell-center" style="width: 72px;"></th> {{-- Acciones --}}
                 </tr>
             </thead>
             <tbody id="equiposTableBody" style="font-size: 15px;">
