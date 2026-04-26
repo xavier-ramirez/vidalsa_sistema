@@ -15,6 +15,7 @@ class Movilizacion extends Model
     protected $fillable = [
         'CODIGO_CONTROL',
         'ID_EQUIPO',
+        'ID_AUXILIAR',             // Movilizacion de un EquipoAuxiliar (XOR con ID_EQUIPO)
         'ID_FRENTE_ORIGEN',
         'ID_FRENTE_DESTINO',
         'DETALLE_UBICACION',       // Patio/Subdivisión específica de recepción
@@ -39,6 +40,11 @@ class Movilizacion extends Model
     public function equipo()
     {
         return $this->belongsTo(Equipo::class, 'ID_EQUIPO');
+    }
+
+    public function auxiliar()
+    {
+        return $this->belongsTo(EquipoAuxiliar::class, 'ID_AUXILIAR', 'ID_AUXILIAR');
     }
 
     public function frenteOrigen()

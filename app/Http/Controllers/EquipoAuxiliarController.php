@@ -1462,13 +1462,107 @@ class EquipoAuxiliarController extends Controller
             }
         }
 
+        // Capturamos el frente origen ANTES del UPDATE para el historial.
+        // Sin esto, despues del update todos los registros tendrian
+        // ID_FRENTE_ORIGEN = ID_FRENTE_DESTINO (porque ya cambio).
+        $auxParaMover = (clone $bulkQuery)->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
+
         $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId]);
+
+        // Registro en movilizacion_historial: 1 fila por auxiliar movilizado.
+        // Mismo patron que MovilizacionController::bulkStore para equipos.
+        // Asi el modulo de historial y el endpoint de movilizaciones de aux
+        // pueden listarlas tras la operacion.
+        $userEmail = optional(auth()->user())->CORREO_ELECTRONICO ?? 'SISTEMA';
+        $now = now();
+        $codigoControl = $generarPdf ? $this->generateNextCodigoControlAux() : null;
+
+        foreach ($auxParaMover as $aux) {
+            \App\Models\Movilizacion::create([
+                'CODIGO_CONTROL'    => $codigoControl,
+                'ID_EQUIPO'         => null,
+                'ID_AUXILIAR'       => $aux->ID_AUXILIAR,
+                'ID_FRENTE_ORIGEN'  => $aux->ID_FRENTE_ACTUAL ?? 1,
+                'ID_FRENTE_DESTINO' => $frenteId,
+                'FECHA_DESPACHO'    => $generarPdf ? $now : null,
+                'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
+                'USUARIO_REGISTRO'  => $userEmail,
+            ]);
+        }
 
         return response()->json([
             'success'  => true,
             'message'  => "Se movilizaron {$affected} equipo(s) auxiliar(es) al frente destino.",
             'affected' => $affected,
+            'codigo_control' => $codigoControl,
         ]);
+    }
+
+    /**
+     * Genera el siguiente CODIGO_CONTROL para una movilizacion de aux.
+     * Reusa el mismo numerador global que equipos para mantener una unica
+     * secuencia de actas (mismas tablas) — replica el patron de
+     * MovilizacionController::generateNextCodigoControl.
+     */
+    private function generateNextCodigoControlAux(): string
+    {
+        $last = \App\Models\Movilizacion::whereNotNull('CODIGO_CONTROL')
+            ->orderByDesc('ID_MOVILIZACION')->value('CODIGO_CONTROL');
+        $n = 1;
+        if ($last) {
+            $digits = preg_replace('/[^0-9]/', '', $last);
+            if ($digits !== '') $n = ((int) $digits) + 1;
+        }
+        return 'MV-' . str_pad((string) $n, 5, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Lista las movilizaciones de auxiliares (movilizacion_historial filtrado
+     * por ID_AUXILIAR no nulo). Usado por el modal "Historial Movilizaciones"
+     * del menu Acciones del modulo /admin/equipos-auxiliares.
+     */
+    public function historialMovilizaciones(Request $request)
+    {
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+
+        $query = \App\Models\Movilizacion::with([
+                'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL',
+                'frenteOrigen:ID_FRENTE,NOMBRE_FRENTE',
+                'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
+            ])
+            ->whereNotNull('ID_AUXILIAR')
+            ->orderByDesc('created_at');
+
+        if ($isLocalUser) {
+            if (count($frentesPermitidos) > 0) {
+                $query->where(function ($q) use ($frentesPermitidos) {
+                    $q->whereIn('ID_FRENTE_ORIGEN',  $frentesPermitidos)
+                      ->orWhereIn('ID_FRENTE_DESTINO', $frentesPermitidos);
+                });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        $tipos = $this->getTiposDinamicos();
+        $rows = $query->limit(500)->get()->map(function ($m) use ($tipos) {
+            $a = $m->auxiliar;
+            return [
+                'id'              => $m->ID_MOVILIZACION,
+                'codigo_control'  => $m->CODIGO_CONTROL,
+                'tipo_movimiento' => $m->TIPO_MOVIMIENTO,
+                'fecha'           => optional($m->created_at)->format('d/m/Y H:i'),
+                'usuario'         => $m->USUARIO_REGISTRO,
+                'frente_origen'   => optional($m->frenteOrigen)->NOMBRE_FRENTE,
+                'frente_destino'  => optional($m->frenteDestino)->NOMBRE_FRENTE,
+                'aux_tipo'        => $a ? ($tipos[$a->TIPO] ?? $a->TIPO) : null,
+                'aux_marca'       => optional($a)->MARCA,
+                'aux_modelo'      => optional($a)->MODELO,
+                'aux_serial'      => optional($a)->SERIAL,
+            ];
+        });
+
+        return response()->json(['success' => true, 'count' => $rows->count(), 'items' => $rows]);
     }
 
     /**

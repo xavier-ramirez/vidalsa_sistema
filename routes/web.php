@@ -132,6 +132,9 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('equipos-auxiliares/{id}/restore',   [App\Http\Controllers\EquipoAuxiliarController::class, 'restoreAuxiliar'])->middleware('can:user.delete')->name('equipos-auxiliares.restore');
             // Listado y export de auxiliares anclados a equipos host (modal Acciones).
             Route::get   ('equipos-auxiliares/anchored',          [App\Http\Controllers\EquipoAuxiliarController::class, 'anchoredList'])->name('equipos-auxiliares.anchoredList');
+            // Historial de movilizaciones del modulo de aux: lista las
+            // movilizaciones donde ID_AUXILIAR != null en movilizacion_historial.
+            Route::get   ('equipos-auxiliares/movilizaciones',    [App\Http\Controllers\EquipoAuxiliarController::class, 'historialMovilizaciones'])->name('equipos-auxiliares.historialMovilizaciones');
             Route::get   ('equipos-auxiliares/export-anclajes',   [App\Http\Controllers\EquipoAuxiliarController::class, 'exportAnclajes'])->name('equipos-auxiliares.exportAnclajes');
             Route::get   ('equipos-auxiliares/create',         [App\Http\Controllers\EquipoAuxiliarController::class, 'create'])->middleware('can:equipos.create')->name('equipos-auxiliares.create');
             Route::post  ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'store']) ->middleware('can:equipos.create')->name('equipos-auxiliares.store');
