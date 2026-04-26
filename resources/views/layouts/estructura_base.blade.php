@@ -1393,7 +1393,7 @@
                 }, 800);
             };
 
-            window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata) {
+            window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
                 const modal = document.getElementById('pdfPreviewModal');
                 const iframe = document.getElementById('pdfPreviewFrame');
                 const title = document.getElementById('pdfPreviewTitle');
@@ -1520,7 +1520,9 @@
                 }
 
                 // Store current context for metadata panel
-                window.currentPdfContext = { equipoId, docType, label, uploadUrl };
+                // module: 'equipo' (default) | 'auxiliar'. Determina si load/save
+                // metadata pegan a /admin/equipos/.. o a /admin/equipos-auxiliares/..
+                window.currentPdfContext = { equipoId, docType, label, uploadUrl, module: module || 'equipo' };
 
                 // Auto-open metadata panel on desktop only (no ocultar el PDF en móviles)
                 // Si skipMetadata=true (modulos no equipos como auxiliares), el panel
@@ -1571,7 +1573,10 @@
                 if (loader) loader.style.display = 'flex';
                 if (form) form.style.opacity = '0.5';
                 try {
-                    const res = await fetch(`/admin/equipos/${ctx.equipoId}/metadata?type=${ctx.docType}`);
+                    const baseUrl = ctx.module === 'auxiliar'
+                        ? `/admin/equipos-auxiliares/${ctx.equipoId}/metadata`
+                        : `/admin/equipos/${ctx.equipoId}/metadata`;
+                    const res = await fetch(`${baseUrl}?type=${ctx.docType}`);
                     const data = await res.json();
                     if (data.success) {
                         const info = data.data;
@@ -1580,6 +1585,33 @@
                         const labelStyle = "display: block; font-size: 12px; color: #cbd5e0; margin-bottom: 4px; font-weight: 600;";
                         const containerStyle = "margin-bottom: 12px;";
                         const disabledAttr = !window.CAN_UPDATE_INFO ? `disabled style="${commonInputStyle} opacity: 0.7; cursor: not-allowed;"` : `style="${commonInputStyle}"`;
+                        // Modulo auxiliares: campos propios del aux (no hay tabla
+                        // documentacion paralela). Propiedad => datos basicos;
+                        // certificado => fecha de vencimiento + datos basicos.
+                        if (ctx.module === 'auxiliar') {
+                            if (ctx.docType === 'propiedad') {
+                                html += `
+                                <div style="${containerStyle}"><label style="${labelStyle}">Serial</label><input type="text" name="serial" value="${info.serial || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Código Interno</label><input type="text" name="codigo" value="${info.codigo || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Tipo</label><input type="text" name="tipo" value="${info.tipo || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Marca</label><input type="text" name="marca" value="${info.marca || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Modelo</label><input type="text" name="modelo" value="${info.modelo || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Capacidad</label><input type="text" name="capacidad" value="${info.capacidad || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Año</label><input type="number" name="anio" value="${info.anio || ''}" ${disabledAttr} autocomplete="off"></div>
+                            `;
+                            } else if (ctx.docType === 'certificado') {
+                                html += `
+                                <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Serial</label><input type="text" value="${info.serial || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Tipo</label><input type="text" value="${info.tipo || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Marca</label><input type="text" value="${info.marca || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Modelo</label><input type="text" value="${info.modelo || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
+                                <div style="${containerStyle}"><label style="${labelStyle}">Capacidad</label><input type="text" value="${info.capacidad || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
+                            `;
+                            }
+                            container.innerHTML = html;
+                            return;
+                        }
                         if (ctx.docType === 'propiedad') {
                             html += `
                             <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${info.nro_documento || ''}" ${disabledAttr} autocomplete="off"></div>
@@ -1636,7 +1668,10 @@
                 try {
                     const formData = new FormData(e.target);
                     formData.append('doc_type', ctx.docType);
-                    const res = await fetch(`/admin/equipos/${ctx.equipoId}/update-metadata`, {
+                    const saveUrl = ctx.module === 'auxiliar'
+                        ? `/admin/equipos-auxiliares/${ctx.equipoId}/update-metadata`
+                        : `/admin/equipos/${ctx.equipoId}/update-metadata`;
+                    const res = await fetch(saveUrl, {
                         method: 'POST',
                         headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
                         body: formData
@@ -1644,6 +1679,12 @@
                     const data = await res.json();
                     if (data.success) {
                         if (window.showToast) window.showToast('Datos actualizados correctamente', 'success');
+                        // Modulo auxiliares: refresca la tabla y termina (no aplica el
+                        // flujo de showDetailsImproved/activeEquipoButton del modulo equipos).
+                        if (ctx.module === 'auxiliar') {
+                            if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
+                            return;
+                        }
                         if (window.activeEquipoButton) {
                             const d = window.activeEquipoButton.dataset;
                             if (ctx.docType === 'propiedad') {

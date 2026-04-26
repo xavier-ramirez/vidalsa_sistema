@@ -168,6 +168,8 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
             Route::post  ('equipos-auxiliares/{id}/upload-doc',[App\Http\Controllers\EquipoAuxiliarController::class, 'uploadDoc'])->middleware('can:user.edit')->name('equipos-auxiliares.uploadDoc');
             Route::patch ('equipos-auxiliares/{id}/cert-expiry',[App\Http\Controllers\EquipoAuxiliarController::class, 'updateCertExpiry'])->middleware('can:user.edit')->name('equipos-auxiliares.updateCertExpiry');
+            Route::get   ('equipos-auxiliares/{id}/metadata',  [App\Http\Controllers\EquipoAuxiliarController::class, 'metadata'])->name('equipos-auxiliares.metadata');
+            Route::post  ('equipos-auxiliares/{id}/update-metadata', [App\Http\Controllers\EquipoAuxiliarController::class, 'updateMetadata'])->middleware('can:user.edit')->name('equipos-auxiliares.updateMetadata');
             Route::post  ('equipos-auxiliares/bulk-move',      [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkMove'])->middleware('can:equipos.assign')->name('equipos-auxiliares.bulkMove');
 
             // Carga masiva via Excel (patron identico a /admin/equipos)

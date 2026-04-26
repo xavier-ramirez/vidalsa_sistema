@@ -1794,6 +1794,87 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Devuelve la metadata del aux para el panel lateral del visor PDF.
+     * Estructura imitando EquipoController::metadata: {success, data}.
+     * - propiedad: SERIAL, MARCA, MODELO, CAPACIDAD, ANIO, TIPO (datos de la
+     *   ficha del aux — no hay tabla documentacion paralela como en vehiculos).
+     * - certificado: FECHA_VENCIMIENTO_CERT + datos basicos para contexto.
+     */
+    public function metadata(Request $request, $id)
+    {
+        $aux  = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
+        $type = $request->input('type');
+        $data = [];
+
+        switch ($type) {
+            case 'propiedad':
+                $data = [
+                    'serial'    => $aux->SERIAL ?? '',
+                    'codigo'    => $aux->CODIGO_INTERNO ?? '',
+                    'tipo'      => $aux->TIPO ?? '',
+                    'marca'     => $aux->MARCA ?? '',
+                    'modelo'    => $aux->MODELO ?? '',
+                    'capacidad' => $aux->CAPACIDAD ?? '',
+                    'anio'      => $aux->ANIO ?? '',
+                ];
+                break;
+
+            case 'certificado':
+                $data = [
+                    'fecha_vencimiento' => $aux->FECHA_VENCIMIENTO_CERT
+                        ? \Carbon\Carbon::parse($aux->FECHA_VENCIMIENTO_CERT)->format('Y-m-d')
+                        : '',
+                    'serial'    => $aux->SERIAL ?? '',
+                    'tipo'      => $aux->TIPO ?? '',
+                    'marca'     => $aux->MARCA ?? '',
+                    'modelo'    => $aux->MODELO ?? '',
+                    'capacidad' => $aux->CAPACIDAD ?? '',
+                ];
+                break;
+        }
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    /**
+     * Guarda los datos editados desde el panel lateral del visor PDF.
+     * doc_type=propiedad => actualiza SERIAL/MARCA/MODELO/CAPACIDAD/ANIO/TIPO.
+     * doc_type=certificado => actualiza FECHA_VENCIMIENTO_CERT (+ datos basicos
+     * por simetria con propiedad). Permiso: user.edit (gateado en routes/web.php).
+     */
+    public function updateMetadata(Request $request, $id)
+    {
+        $aux = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
+        $type = $request->input('doc_type');
+
+        $upd = [];
+        if ($type === 'propiedad') {
+            $upd['SERIAL']         = mb_strtoupper(trim((string) $request->input('serial', '')));
+            $upd['CODIGO_INTERNO'] = mb_strtoupper(trim((string) $request->input('codigo', '')));
+            $upd['TIPO']           = mb_strtoupper(trim((string) $request->input('tipo', '')));
+            $upd['MARCA']          = mb_strtoupper(trim((string) $request->input('marca', '')));
+            $upd['MODELO']         = mb_strtoupper(trim((string) $request->input('modelo', '')));
+            $upd['CAPACIDAD']      = mb_strtoupper(trim((string) $request->input('capacidad', '')));
+            $anio = trim((string) $request->input('anio', ''));
+            $upd['ANIO']           = $anio === '' ? null : (int) $anio;
+        } elseif ($type === 'certificado') {
+            $upd['FECHA_VENCIMIENTO_CERT'] = $request->input('fecha_vencimiento') ?: null;
+        } else {
+            return response()->json(['success' => false, 'message' => 'Tipo no valido'], 400);
+        }
+
+        $aux->update($upd);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Datos actualizados.',
+            'data'    => $upd,
+        ]);
+    }
+
+    /**
      * Guarda (y reemplaza) los PDFs de documentacion del auxiliar en
      * storage/app/public/equipos_auxiliares/{id}/. Actualiza las
      * columnas LINK_DOC_PROPIEDAD / LINK_CERTIFICADO. Idempotente:
