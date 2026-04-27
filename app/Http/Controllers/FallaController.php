@@ -151,7 +151,7 @@ class FallaController extends Controller
             }
         }
         
-        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
+        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::with('especificaciones')->whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
         $auxiliaresLoaded = empty($auxiliarIds) ? collect() : EquipoAuxiliar::whereIn('ID_AUXILIAR', array_unique($auxiliarIds))->get()->keyBy('ID_AUXILIAR');
 
         // Hidrata activo + frente (un solo query previo para todos los frentes).
@@ -382,10 +382,11 @@ class FallaController extends Controller
             ->leftJoin('documentacion AS d',   'equipos.ID_EQUIPO',       '=', 'd.ID_EQUIPO')
             ->leftJoin('tipo_equipos AS te',   'equipos.id_tipo_equipo',  '=', 'te.id')
             ->leftJoin('frentes_trabajo AS ft','equipos.ID_FRENTE_ACTUAL','=', 'ft.ID_FRENTE')
+            ->leftJoin('caracteristicas_modelos AS cm', 'equipos.ID_ESPEC', '=', 'cm.ID_ESPEC')
             ->select(
                 'equipos.ID_EQUIPO', 'equipos.CODIGO_PATIO', 'equipos.MARCA',
                 'equipos.MODELO',    'equipos.SERIAL_CHASIS', 'equipos.SERIAL_DE_MOTOR',
-                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO',
+                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO', 'cm.FOTO_REFERENCIAL',
                 'd.PLACA', 'te.nombre AS TIPO_NOMBRE', 'ft.NOMBRE_FRENTE'
             )
             ->where(function ($w) use ($like) {
@@ -408,6 +409,7 @@ class FallaController extends Controller
 
         $results = [];
         foreach ($eqs as $e) {
+            $foto = $e->FOTO_EQUIPO ?: $e->FOTO_REFERENCIAL;
             $results[] = [
                 'tipo'         => 'equipo',
                 'id'           => $e->ID_EQUIPO,
@@ -419,7 +421,7 @@ class FallaController extends Controller
                 'serial_motor' => $e->SERIAL_DE_MOTOR ?? '',
                 'codigo'       => $e->CODIGO_PATIO ?? '',
                 'estado'       => $e->ESTADO_OPERATIVO ?? '',
-                'foto'         => $e->FOTO_EQUIPO ?? '',
+                'foto'         => $foto ?? '',
                 'frente'       => $e->NOMBRE_FRENTE ?? '',
             ];
         }

@@ -2,7 +2,7 @@
     @php
         $a            = $f->_activo ?? null;
         $isAux        = $f->ACTIVO_TIPO === 'equipo_auxiliar';
-        $foto         = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? null) : null;
+        $foto         = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? ($a->especificaciones?->FOTO_REFERENCIAL ?? null)) : null;
         $marcaModelo  = $a ? trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) : '—';
         $serial       = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
         $placa        = (!$isAux && $a) ? ($a->documentacion?->PLACA ?? '') : '';
