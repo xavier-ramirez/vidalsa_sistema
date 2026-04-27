@@ -431,7 +431,7 @@
                 @include('admin.fallas.partials.table_rows', compact('fallas'))
             </div>
 
-            <div id="fallasPagination" style="margin-top:12px;">{!! $fallas->links('vendor.pagination.custom-sliding') !!}</div>
+            <div id="fallasPagination" style="margin-top:12px; width: 100%; max-width: 100vw; overflow-x: auto; padding-bottom: 8px;">{!! $fallas->links('vendor.pagination.custom-sliding') !!}</div>
         </div>
 
     {{-- Columna derecha: Stats Sidebar --}}
