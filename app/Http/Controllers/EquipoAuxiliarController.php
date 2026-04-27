@@ -253,9 +253,9 @@ class EquipoAuxiliarController extends Controller
 
         if ($showFrentes) {
             $distribucionFrentes = (clone $statsBase)
-                ->leftJoin('frentes', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes.ID_FRENTE')
-                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
-                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes.NOMBRE_FRENTE')
+                ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
+                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
+                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
                 ->orderByDesc('total')
                 ->get();
         } else {
