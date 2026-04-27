@@ -71,6 +71,10 @@ function populateFrenteForm(data) {
     document.getElementById("RESP_4_CAR").value = data.RESP_4_CAR || "";
     if (document.getElementById("RESP_4_CED")) document.getElementById("RESP_4_CED").value = data.RESP_4_CED || "";
 
+    document.getElementById("RESP_5_NOM").value = data.RESP_5_NOM || "";
+    document.getElementById("RESP_5_CAR").value = data.RESP_5_CAR || "";
+    if (document.getElementById("RESP_5_CED")) document.getElementById("RESP_5_CED").value = data.RESP_5_CED || "";
+
     // Equipment Filters (Dropdown labels & hidden inputs)
     const setEquFilter = (id, val) => {
         const input = document.getElementById("input_resp" + id + "_equ");
@@ -83,6 +87,7 @@ function populateFrenteForm(data) {
     setEquFilter("2", data.RESP_2_EQU);
     setEquFilter("3", data.RESP_3_EQU);
     setEquFilter("4", data.RESP_4_EQU);
+    setEquFilter("5", data.RESP_5_EQU);
 
     // Dropdowns (Tipo/Estatus)
     document.getElementById("input_tipo").value = data.TIPO_FRENTE;
@@ -284,7 +289,7 @@ window.resetFrentesForm = function () {
             "Seleccione Estatus...";
 
         // Reset all Resp Equ and Cedula filters
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 5; i++) {
             const input = document.getElementById("input_resp" + i + "_equ");
             const label = document.getElementById("label_resp" + i + "_equ");
             const cedula = document.getElementById("RESP_" + i + "_CED");

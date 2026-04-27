@@ -140,10 +140,31 @@ class FallaController extends Controller
 
         $fallas = $query->orderByDesc('FECHA_EMISION')->paginate(50);
 
+        // N+1 Optimization: Eager load custom polymorphic manually
+        $equipoIds = [];
+        $auxiliarIds = [];
+        foreach ($fallas->items() as $falla) {
+            if ($falla->ACTIVO_TIPO === 'equipo') {
+                $equipoIds[] = $falla->ACTIVO_ID;
+            } elseif ($falla->ACTIVO_TIPO === 'equipo_auxiliar') {
+                $auxiliarIds[] = $falla->ACTIVO_ID;
+            }
+        }
+        
+        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
+        $auxiliaresLoaded = empty($auxiliarIds) ? collect() : EquipoAuxiliar::whereIn('ID_AUXILIAR', array_unique($auxiliarIds))->get()->keyBy('ID_AUXILIAR');
+
         // Hidrata activo + frente (un solo query previo para todos los frentes).
         $allFrentes = FrenteTrabajo::pluck('NOMBRE_FRENTE', 'ID_FRENTE')->toArray();
-        $fallas->getCollection()->transform(function ($f) use ($allFrentes) {
-            $activo          = $f->activo();
+        $fallas->getCollection()->transform(function ($f) use ($allFrentes, $equiposLoaded, $auxiliaresLoaded) {
+            if ($f->ACTIVO_TIPO === 'equipo') {
+                $activo = $equiposLoaded->get($f->ACTIVO_ID);
+            } elseif ($f->ACTIVO_TIPO === 'equipo_auxiliar') {
+                $activo = $auxiliaresLoaded->get($f->ACTIVO_ID);
+            } else {
+                $activo = null;
+            }
+
             $f->_activo      = $activo;
             $frenteId        = $activo?->ID_FRENTE_ACTUAL;
             $f->_frente_nombre = $frenteId ? ($allFrentes[$frenteId] ?? '—') : '—';

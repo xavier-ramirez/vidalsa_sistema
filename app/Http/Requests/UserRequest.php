@@ -47,7 +47,7 @@ class UserRequest extends FormRequest
             'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
             'NIVEL_ACCESO' => 'required|integer|in:1,2',
             'ESTATUS' => 'required|in:ACTIVO,INACTIVO',
-            'PERMISOS' => 'required|array',
+            'PERMISOS' => 'nullable|array',
             'PERMISOS.*' => 'in:user.create,user.edit,user.delete,equipos.create,equipos.edit,equipos.assign,super.admin',
         ];
 
@@ -72,7 +72,6 @@ class UserRequest extends FormRequest
             'NIVEL_ACCESO.in' => 'El nivel de acceso seleccionado no es válido.',
             'ESTATUS.required' => 'El estatus es obligatorio.',
             'ESTATUS.in' => 'El estatus seleccionado no es válido.',
-            'PERMISOS.required' => 'Debes seleccionar al menos un permiso.',
         ];
     }
 }

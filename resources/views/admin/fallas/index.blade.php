@@ -393,11 +393,11 @@
         </div>
     </div>
 
-    @can('equipos.edit')
-        <button type="button" onclick="window.openNuevoReporteModal()" class="falla-btn falla-btn-primary" style="height:45px;">
-            <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
-        </button>
-    @endcan
+    <button type="button" 
+        onclick="{{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'window.openNuevoReporteModal()' : 'if(window.showToast) window.showToast(\'No tienes los permisos requeridos para registrar fallas.\', \'error\'); else alert(\'Permiso denegado.\');' }}" 
+        class="falla-btn falla-btn-primary" style="height:45px;">
+        <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
+    </button>
     </div>
 
             {{-- Cards de fallas --}}
