@@ -2078,16 +2078,12 @@ if (!window._equiposWindowListenersReady) {
             });
         }
 
-        // 2. Manejar btnAcciones y splitDropdownMenu
-        const btnAcciones = document.getElementById('btnAcciones');
+        // 2. Manejar splitDropdownMenu
         const splitMenu = document.getElementById('splitDropdownMenu');
 
-        if (btnAcciones && splitMenu) {
-            if (e.target.closest('#btnAcciones')) {
-                // Toggle del menú al hacer clic en el botón
-                splitMenu.style.display = splitMenu.style.display === 'block' ? 'none' : 'block';
-            } else if (!e.target.closest('#splitDropdownMenu')) {
-                // Clic fuera del menú y del botón lo cierra
+        if (splitMenu) {
+            if (!e.target.closest('#splitDropdownMenu')) {
+                // Clic fuera del menú lo cierra
                 splitMenu.style.display = 'none';
             }
         }

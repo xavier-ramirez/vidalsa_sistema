@@ -272,7 +272,6 @@
         const msg = document.getElementById('cierreInfoMsg');
         if (msg) msg.innerHTML = '<i class="material-icons" style="font-size:16px; vertical-align:middle; color:#d97706;">report_problem</i> Cerrando reporte <strong>' + (codigo || '#' + id) + '</strong>' + (equipo ? ' Â· ' + equipo : '');
         document.getElementById('cierreObservaciones').value = '';
-        document.getElementById('cierreRestaurar').checked = true;
         document.getElementById('cierreReporteOverlay').classList.add('active');
     };
 
@@ -286,7 +285,7 @@
         const btn = document.getElementById('btnConfirmarCierre');
         const fd = new FormData();
         fd.append('_method', 'PATCH');
-        fd.append('restaurar_estado', document.getElementById('cierreRestaurar').checked ? '1' : '0');
+        fd.append('restaurar_estado', '1');
         fd.append('observaciones_cierre', document.getElementById('cierreObservaciones').value);
         btn.disabled = true;
         if (window.showPreloader) window.showPreloader();

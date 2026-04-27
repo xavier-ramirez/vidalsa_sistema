@@ -313,17 +313,15 @@ class FallaController extends Controller
             $falla->OBSERVACIONES_CIERRE = $request->input('observaciones_cierre');
             $falla->save();
 
-            // Restaurar estado del activo a OPERATIVO si el usuario lo pidio
-            if ($request->boolean('restaurar_estado')) {
-                $activo = $this->lockActivo($falla->ACTIVO_TIPO, $falla->ACTIVO_ID);
-                if ($activo) {
-                    $activo->ESTADO_OPERATIVO = 'OPERATIVO';
-                    $activo->save();
-                }
+            // Restaurar estado del activo a OPERATIVO siempre
+            $activo = $this->lockActivo($falla->ACTIVO_TIPO, $falla->ACTIVO_ID);
+            if ($activo) {
+                $activo->ESTADO_OPERATIVO = 'OPERATIVO';
+                $activo->save();
             }
 
             $this->logAction($falla->ID_FALLA, $falla->ACTIVO_TIPO, $falla->ACTIVO_ID, 'close_falla', [
-                'restaurar_estado' => $request->boolean('restaurar_estado'),
+                'restaurar_estado' => true,
             ]);
 
             return response()->json(['success' => true, 'message' => 'Reporte cerrado.']);

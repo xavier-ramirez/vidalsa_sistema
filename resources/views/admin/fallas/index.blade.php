@@ -13,6 +13,32 @@
     }
     @media (max-width: 768px) {
         .fallas-grid { grid-template-columns: 1fr !important; }
+        .falla-row-card {
+            grid-template-columns: 80px 1fr !important;
+            padding: 12px !important;
+            align-items: start !important;
+        }
+        .falla-foto {
+            width: 80px !important;
+            height: 80px !important;
+        }
+        .falla-foto .material-icons {
+            font-size: 24px !important;
+        }
+        .falla-actions {
+            grid-column: 1 / -1 !important;
+            flex-direction: row !important;
+            justify-content: flex-end !important;
+            align-items: center !important;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 12px !important;
+            margin-top: 8px !important;
+            width: 100%;
+        }
+        .falla-actions > div:first-child {
+            text-align: left !important;
+            margin-right: auto !important;
+        }
     }
     .stat-card {
         background: white;
@@ -593,12 +619,12 @@
 {{-- ─── Modal: Cerrar Reporte de Falla ─── --}}
 <div id="cierreReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCierreModal()">
     <div class="fl-modal" style="max-width:520px;">
-        <div class="fl-modal-header">
+        <div class="fl-modal-header" style="justify-content: center; position: relative;">
             <div style="display:flex; align-items:center; gap:8px;">
                 <i class="material-icons">check_circle</i>
                 <h3 style="margin:0; font-size:15px; font-weight:700;">Cerrar Reporte de Falla</h3>
             </div>
-            <button type="button" onclick="window.closeCierreModal()" style="background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i class="material-icons">close</i></button>
+            <button type="button" onclick="window.closeCierreModal()" style="position: absolute; right: 15px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i class="material-icons">close</i></button>
         </div>
         <div class="fl-modal-body">
             <div id="cierreInfoMsg" style="padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#475569;"></div>
@@ -606,15 +632,12 @@
                 <label class="fl-field-label" for="cierreObservaciones">Observaciones de cierre <span style="font-weight:400; color:#94a3b8;">(opcional)</span></label>
                 <textarea id="cierreObservaciones" class="fl-textarea" placeholder="Describe las acciones correctivas realizadas..."></textarea>
             </div>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:#e1effa; border-radius:8px; border:1px solid #93c5fd;">
-                <input type="checkbox" id="cierreRestaurar" checked style="width:16px; height:16px; cursor:pointer; accent-color:#0067b1;">
-                <span style="font-size:13px; font-weight:600; color:#0067b1;">Restaurar equipo a estado <strong>OPERATIVO</strong></span>
-            </label>
+
             <div style="display:flex; gap:10px;">
                 <button type="button" onclick="window.closeCierreModal()" class="falla-btn" style="height:44px; flex:1; justify-content:center;">
                     <i class="material-icons" style="font-size:16px;">close</i> Cancelar
                 </button>
-                <button type="button" id="btnConfirmarCierre" onclick="window.submitCierreReporte()" class="falla-btn falla-btn-primary" style="height:44px; flex:2; justify-content:center;">
+                <button type="button" id="btnConfirmarCierre" onclick="window.submitCierreReporte()" class="falla-btn falla-btn-primary" style="height:44px; flex:1; justify-content:center;">
                     <i class="material-icons" style="font-size:16px;">check_circle</i> Confirmar Cierre
                 </button>
             </div>

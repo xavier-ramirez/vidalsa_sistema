@@ -488,7 +488,7 @@
         <div class="filter-item aligned-filter" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
             
             <!-- Main Trigger Button -->
-            <button type="button" id="btnAcciones" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <button type="button" id="btnAcciones" onclick="const sm = document.getElementById('splitDropdownMenu'); sm.style.display = sm.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                 <i class="material-icons">settings</i>
                 <span>Acciones</span>
                 <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
