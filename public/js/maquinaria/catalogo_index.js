@@ -37,7 +37,7 @@ window.confirmDeleteCatalogo = function (id, modelName) {
                             hideCancel: true
                         });
                     }
-                    window.loadCatalogo();
+                    window.loadCatalogo(window.location.href);
                 } else {
                     throw new Error(data.message || 'Error al eliminar');
                 }
