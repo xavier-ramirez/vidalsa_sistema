@@ -368,8 +368,14 @@ class CaracteristicaModeloController extends Controller
             $snapshotAnio   = (int) $catalogo->ANIO_ESPEC;
             $snapshotId     = $catalogo->ID_ESPEC;
 
-            // Limpieza de base de datos: desvincular equipos asociados para evitar IDs huérfanos
-            \App\Models\Equipo::where('ID_ESPEC', $snapshotId)->update(['ID_ESPEC' => null]);
+            // Limpieza de base de datos: desvincular equipos asociados para evitar IDs huérfanos.
+            // Lo hacemos uno a uno para asegurar que el EquipoObserver registre la auditoría
+            // del cambio (EquipoAuditLog) y limpie las cachés del Dashboard.
+            $equiposAsociados = \App\Models\Equipo::where('ID_ESPEC', $snapshotId)->get();
+            foreach ($equiposAsociados as $eq) {
+                $eq->ID_ESPEC = null;
+                $eq->save();
+            }
 
             $catalogo->delete();
 
