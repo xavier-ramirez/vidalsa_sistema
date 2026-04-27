@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Equipo;
 use App\Models\Movilizacion;
 use App\Models\FrenteTrabajo;
+use App\Models\CaracteristicaModelo;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -51,10 +52,14 @@ class DashboardController extends Controller
             // Inoperativos = resto (INOPERATIVO + DESCONOCIDO + otros) para que los 3 chips sumen exacto
             $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
 
+            // 7. Catálogo Destacado (Modelos con foto para mostrar en el Dashboard)
+            $catalogosDestacados = CaracteristicaModelo::whereNotNull('FOTO_REFERENCIAL')->inRandomOrder()->limit(8)->get();
+
             return compact(
                 'movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity',
                 'expiredList', 'frentes', 'totalFlotaActiva',
-                'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento'
+                'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento',
+                'catalogosDestacados'
             );
         });
 

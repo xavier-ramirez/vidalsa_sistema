@@ -631,6 +631,91 @@
         background: #cbd5e1;
         border-radius: 999px;
     }
+    /* ── Catalogo en el Dashboard ── */
+    .dashboard-catalogo-section {
+        margin-top: 24px;
+    }
+    .dashboard-catalogo-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .cat-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+    }
+    .cat-mini-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .cat-mini-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px -6px rgba(15, 23, 42, 0.12);
+    }
+    .cat-mini-photo {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        background: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+    }
+    .cat-mini-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+    .cat-mini-photo .placeholder {
+        color: #cbd5e0;
+        font-size: 32px;
+    }
+    .cat-mini-anio-badge {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        background: #0067b1;
+        color: white;
+        font-size: 9px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .cat-mini-body {
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .cat-mini-modelo {
+        font-size: 12px;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1.25;
+        text-transform: uppercase;
+        word-break: break-word;
+    }
+    .cat-mini-specs {
+        font-size: 10px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 </style>
 
 <div class="dashboard-container" style="padding: 10px 20px; position: relative; z-index: 1;">
@@ -779,6 +864,53 @@
                  para que SIEMPRE quede debajo de las dos cards, nunca al lado.
                  Solo se inyecta contenido en mobile/no-standalone via pwa-install.js. --}}
             <div id="pwaInstallSlot" style="margin-top: 12px;"></div>
+
+            {{-- ── Catálogo Destacado ── --}}
+            @if(isset($catalogosDestacados) && $catalogosDestacados->count() > 0)
+                <div class="dashboard-catalogo-section">
+                    <div class="dashboard-catalogo-title">
+                        <i class="material-icons" style="color: #0067b1;">directions_car</i>
+                        Catálogo de Modelos
+                    </div>
+                    <div class="cat-mini-grid">
+                        @foreach($catalogosDestacados as $catalogo)
+                            @php
+                                $driveFileId = $catalogo->FOTO_REFERENCIAL
+                                    ? basename(str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0]))
+                                    : null;
+                            @endphp
+                            <div class="cat-mini-card">
+                                <div class="cat-mini-photo">
+                                    @if($driveFileId)
+                                        <img src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
+                                             alt="{{ $catalogo->MODELO }}"
+                                             loading="lazy"
+                                             decoding="async"
+                                             style="opacity:0; transition:opacity 0.25s ease;"
+                                             onload="this.style.opacity=1"
+                                             onerror="this.outerHTML='<i class=&quot;material-icons placeholder&quot;>image_not_supported</i>'">
+                                    @else
+                                        <i class="material-icons placeholder">precision_manufacturing</i>
+                                    @endif
+                                    
+                                    <span class="cat-mini-anio-badge">
+                                        <i class="material-icons" style="font-size:10px;">event</i>
+                                        {{ $catalogo->ANIO_ESPEC }}
+                                    </span>
+                                </div>
+                                <div class="cat-mini-body">
+                                    <span class="cat-mini-modelo">{{ $catalogo->MODELO }}</span>
+                                    @if($catalogo->MOTOR || $catalogo->COMBUSTIBLE)
+                                        <span class="cat-mini-specs">
+                                            {{ collect([$catalogo->MOTOR, $catalogo->COMBUSTIBLE])->filter()->join(' · ') }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 </div>
