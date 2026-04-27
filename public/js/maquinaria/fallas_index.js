@@ -1,4 +1,4 @@
-﻿/* fallas_index.js â€” MÃ³dulo Control de Fallas
+/* fallas_index.js â€” MÃ³dulo Control de Fallas
  * PatrÃ³n global idÃ©ntico al de equipos_index.js / movilizaciones_index.js.
  * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del mÃ³dulo.
  */
@@ -191,11 +191,13 @@
         };
     }
     window.flSearchActivos   = _buildSearcher('fl');
-window.flSelectActivo = function (prefix, tipo, id, label, info) {
+
+    window.flSelectActivo = function(prefix, tipo, id, label, info) {
         document.getElementById(prefix + '_activo_tipo').value = tipo;
         document.getElementById(prefix + '_activo_id').value = id;
+
         const box = document.getElementById(prefix + '_activo_seleccionado');
-        box.innerHTML = '<strong>âœ“ Seleccionado:</strong> ' + label + ' <span style="color:#64748b; font-size:12px; margin-left:4px;">' + (info || '') + '</span>';
+        box.innerHTML = '<strong style="display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:16px;color:#059669;">check_circle</i> Seleccionado:</strong> ' + label + ' <span style="color:#64748b; font-size:12px; margin-left:4px;">' + (info || '') + '</span>';
         box.style.display = 'block';
         document.getElementById(prefix + '_search_results').style.display = 'none';
         document.getElementById(prefix + '_search_activo').value = label;

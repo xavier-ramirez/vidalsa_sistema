@@ -2068,6 +2068,30 @@ if (!window._equiposWindowListenersReady) {
             advBtn.style.border = "1px solid #0067b1";
         }
     });
+
+    // Cerrar custom-dropdowns y el menú de Acciones al hacer clic fuera
+    document.addEventListener("click", function(e) {
+        // 1. Cerrar custom dropdowns (Filtros Avanzados)
+        if (!e.target.closest('.custom-dropdown')) {
+            document.querySelectorAll('.custom-dropdown.active').forEach(function(dd) {
+                dd.classList.remove('active');
+            });
+        }
+
+        // 2. Manejar btnAcciones y splitDropdownMenu
+        const btnAcciones = document.getElementById('btnAcciones');
+        const splitMenu = document.getElementById('splitDropdownMenu');
+
+        if (btnAcciones && splitMenu) {
+            if (e.target.closest('#btnAcciones')) {
+                // Toggle del menú al hacer clic en el botón
+                splitMenu.style.display = splitMenu.style.display === 'block' ? 'none' : 'block';
+            } else if (!e.target.closest('#splitDropdownMenu')) {
+                // Clic fuera del menú y del botón lo cierra
+                splitMenu.style.display = 'none';
+            }
+        }
+    });
 }
 
 // ==========================================

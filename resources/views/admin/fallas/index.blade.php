@@ -132,7 +132,7 @@
         || request()->filled('fecha_hasta') || request()->filled('estatus');
 
     $estatusSel    = request('estatus');
-    $estatusLabels = ['abierto' => 'Abiertos', 'cerrado' => 'Cerrados'];
+    $estatusLabels = ['abierto' => 'Reportes Abiertos', 'cerrado' => 'Reportes Cerrados'];
     $estatusLabel  = $estatusLabels[$estatusSel] ?? 'Todos los reportes';
 
     $tipoActivoSel = request('tipo_activo');
@@ -246,9 +246,9 @@
                                 <div class="dropdown-item {{ !$estatusSel ? 'selected' : '' }}" data-value=""
                                      onclick="window.selectOption('fallasEstatusDD','','Todos los reportes'); window.cargarFallas();">Todos los reportes</div>
                                 <div class="dropdown-item {{ $estatusSel=='abierto' ? 'selected' : '' }}" data-value="abierto"
-                                     onclick="window.selectOption('fallasEstatusDD','abierto','Abiertos'); window.cargarFallas();">Abiertos</div>
+                                     onclick="window.selectOption('fallasEstatusDD','abierto','Reportes Abiertos'); window.cargarFallas();">Reportes Abiertos</div>
                                 <div class="dropdown-item {{ $estatusSel=='cerrado' ? 'selected' : '' }}" data-value="cerrado"
-                                     onclick="window.selectOption('fallasEstatusDD','cerrado','Cerrados'); window.cargarFallas();">Cerrados</div>
+                                     onclick="window.selectOption('fallasEstatusDD','cerrado','Reportes Cerrados'); window.cargarFallas();">Reportes Cerrados</div>
                             </div>
                         </div>
                     </div>
@@ -424,7 +424,7 @@
                         <span id="statAbiertos" style="font-size: 36px; font-weight: 800; line-height: 1;">
                             {{ $stats['reportes_abiertos'] }}
                         </span>
-                        <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">ABIERTOS</span>
+                        <span style="font-size: 11px; opacity: 0.8; font-weight: 700; margin-top: 2px; letter-spacing: 0.5px; text-align: center; max-width: 75px; line-height: 1.1;">REPORTES ABIERTOS</span>
                     </div>
 
                     <!-- Detailed Stats Row: Inoperativo / Mantenimiento -->
