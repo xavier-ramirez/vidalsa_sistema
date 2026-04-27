@@ -57,6 +57,7 @@ class EquipoAuxiliar extends Model
         return [
             'OPERATIVO'      => 'Operativo',
             'INOPERATIVO'    => 'Inoperativo',
+            'EN MANTENIMIENTO'=> 'En Mantenimiento',
             'EN_ALMACEN'     => 'En Almacén',
             'DESINCORPORADO' => 'Desincorporado',
         ];

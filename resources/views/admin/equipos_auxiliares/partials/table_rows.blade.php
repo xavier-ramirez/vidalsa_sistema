@@ -8,6 +8,7 @@
         $statusConfig = [
             'OPERATIVO'       => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'icon' => 'check_circle',  'label' => 'OPERATIVO'],
             'INOPERATIVO'     => ['color' => '#dc2626', 'bg' => '#fef2f2', 'icon' => 'cancel',        'label' => 'INOPERATIVO'],
+            'EN MANTENIMIENTO'=> ['color' => '#eab308', 'bg' => '#fefce8', 'icon' => 'build',         'label' => 'MANTENIMIENTO'],
             'EN_ALMACEN'      => ['color' => '#1e40af', 'bg' => '#eff6ff', 'icon' => 'inventory_2',   'label' => 'EN ALMACÉN'],
             'DESINCORPORADO'  => ['color' => '#475569', 'bg' => '#f1f5f9', 'icon' => 'block',         'label' => 'DESINCORP.'],
         ];

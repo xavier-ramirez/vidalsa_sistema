@@ -1689,10 +1689,11 @@
 
     // ── Menu de cambio de estado (estilo /admin/equipos openSharedStatusMenu) ──
     const AUX_STATUS_CFG = {
-        OPERATIVO:      { color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle', label: 'Operativo' },
-        INOPERATIVO:    { color: '#dc2626', bg: '#fef2f2', icon: 'cancel',       label: 'Inoperativo' },
-        EN_ALMACEN:     { color: '#1e40af', bg: '#eff6ff', icon: 'inventory_2',  label: 'En Almacén' },
-        DESINCORPORADO: { color: '#475569', bg: '#f1f5f9', icon: 'block',        label: 'Desincorp.' },
+        'OPERATIVO':      { color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle', label: 'Operativo' },
+        'INOPERATIVO':    { color: '#dc2626', bg: '#fef2f2', icon: 'cancel',       label: 'Inoperativo' },
+        'EN MANTENIMIENTO': { color: '#eab308', bg: '#fefce8', icon: 'build',        label: 'En Mantenimiento' },
+        'EN_ALMACEN':     { color: '#1e40af', bg: '#eff6ff', icon: 'inventory_2',  label: 'En Almacén' },
+        'DESINCORPORADO': { color: '#475569', bg: '#f1f5f9', icon: 'block',        label: 'Desincorp.' },
     };
 
     function getOrCreateAuxStatusMenu() {
