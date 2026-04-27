@@ -39,6 +39,9 @@
             text-align: left !important;
             margin-right: auto !important;
         }
+        .fallas-title-card { text-align: center !important; }
+        .fallas-title-h1 { justify-content: center !important; }
+        .fallas-btn-new { justify-content: center !important; width: 100% !important; margin-top: 10px; }
     }
     .stat-card {
         background: white;
@@ -138,8 +141,8 @@
     .fl-search-result img { width:50px; height:42px; border-radius:6px; object-fit:contain; background:#f8fafc; flex-shrink:0; }
 </style>
 
-<section class="page-title-card" style="text-align:left; margin:0 auto 10px auto; width:98%; max-width:1600px;">
-    <h1 class="page-title" style="display:flex; align-items:center; gap:12px; font-size:24px;">
+<section class="page-title-card fallas-title-card" style="margin:0 auto 10px auto; width:98%; max-width:1600px;">
+    <h1 class="page-title fallas-title-h1" style="display:flex; align-items:center; gap:12px; font-size:24px;">
         <i class="material-icons" style="font-size:28px; color:#d97706;">report_problem</i>
         <span style="color:#000;">Reportes de Fallas</span>
     </h1>
@@ -421,7 +424,7 @@
 
     <button type="button" 
         onclick="{{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'window.openNuevoReporteModal()' : 'if(window.showToast) window.showToast(\'No tienes los permisos requeridos para registrar fallas.\', \'error\'); else alert(\'Permiso denegado.\');' }}" 
-        class="falla-btn falla-btn-primary" style="height:45px;">
+        class="falla-btn falla-btn-primary fallas-btn-new" style="height:45px;">
         <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
     </button>
     </div>
