@@ -259,9 +259,9 @@
         </div>
     </div>
 
-    {{-- Buscar por serial / placa --}}
-    <div class="filter-item aligned-filter" style="flex:1.5; min-width:200px;">
-        <div class="search-wrapper" style="width:100%; border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }}; background:{{ request('search') ? '#e1effa' : '#fff' }};">
+    {{-- Buscar por serial / placa + Boton Filtros Avanzados --}}
+    <div class="filter-item aligned-filter" style="flex:1.5; min-width:260px; display:flex; gap:10px; align-items:center;">
+        <div class="search-wrapper" style="flex:1; border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }}; background:{{ request('search') ? '#e1effa' : '#fff' }};">
             <i class="material-icons search-icon">search</i>
             <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
                    placeholder="Buscar Seriales / Placa..." class="search-input-field" autocomplete="off"
@@ -270,12 +270,10 @@
                style="display:{{ request('search') ? 'block' : 'none' }};"
                onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>
         </div>
-    </div>
 
-
-    {{-- Boton Filtros Avanzados --}}
-    <div style="position:relative; flex-shrink:0;">
-        <button type="button" id="fallasAdvBtn" class="btn-primary-maquinaria"
+        {{-- Boton Filtros Avanzados --}}
+        <div style="position:relative; flex-shrink:0;">
+            <button type="button" id="fallasAdvBtn" class="btn-primary-maquinaria"
                 onclick="const p=document.getElementById('fallasAdvPanel'); p.style.display=(p.style.display==='none'||!p.style.display)?'block':'none'; event.stopPropagation();"
                 title="Filtros Avanzados"
                 style="height:45px; width:45px; min-width:45px; padding:0; display:flex; align-items:center; justify-content:center;
@@ -419,6 +417,7 @@
                 </div>
 
             </div>
+        </div>
         </div>
     </div>
 
