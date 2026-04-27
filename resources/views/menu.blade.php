@@ -635,15 +635,6 @@
     .dashboard-catalogo-section {
         margin-top: 24px;
     }
-    .dashboard-catalogo-title {
-        font-size: 16px;
-        font-weight: 800;
-        color: #1e293b;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
     .cat-mini-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
