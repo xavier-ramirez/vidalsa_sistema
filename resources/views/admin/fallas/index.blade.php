@@ -393,9 +393,11 @@
         </div>
     </div>
 
+    @can('equipos.edit')
         <button type="button" onclick="window.openNuevoReporteModal()" class="falla-btn falla-btn-primary" style="height:45px;">
             <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
         </button>
+    @endcan
     </div>
 
             {{-- Cards de fallas --}}

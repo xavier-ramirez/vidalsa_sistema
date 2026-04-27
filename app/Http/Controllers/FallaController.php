@@ -31,8 +31,8 @@ class FallaController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        // Todo el modulo gateado por equipos.edit. Gate::before resuelve super.admin.
-        $this->middleware('can:equipos.edit');
+        // Todo el modulo requiere autenticacion. Operaciones de escritura gateadas por equipos.edit. Gate::before resuelve super.admin.
+        $this->middleware('can:equipos.edit')->except(['index', 'searchActivos', 'pdf']);
     }
 
     /**
