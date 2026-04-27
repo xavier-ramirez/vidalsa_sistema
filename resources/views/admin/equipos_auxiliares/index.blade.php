@@ -1095,7 +1095,13 @@
                 set('auxStatsOperativos',  data.stats.operativos);
                 set('auxStatsInoperativos',data.stats.inoperativos);
             }
-            if (data.distribucion) renderDistribucion(data.distribucion);
+            if (data.distribucion) {
+                const valTipo = document.getElementById('aux_main_val_tipo');
+                const isTipoFiltered = valTipo && valTipo.value && valTipo.value !== 'all';
+                if (!isTipoFiltered) {
+                    renderDistribucion(data.distribucion);
+                }
+            }
 
             // Toggle del filtro "Ubicación específica": solo se muestra cuando
             // el frente seleccionado es TIPO_FRENTE='ESPECIAL'. Tambien
