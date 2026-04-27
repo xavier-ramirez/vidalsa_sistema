@@ -1495,8 +1495,8 @@
         }
         const ids = getSelectedIds();
         if (ids.length === 0) {
-            if (window.showToast) window.showToast('Por favor, marca la casilla de al menos un equipo en la tabla antes de eliminar.', 'warning');
-            else alert('Por favor, marca la casilla de al menos un equipo en la tabla antes de eliminar.');
+            if (window.showToast) window.showToast('Por favor, selecciona al menos un equipo en la tabla antes de eliminar.', 'warning');
+            else alert('Por favor, selecciona al menos un equipo en la tabla antes de eliminar.');
             return;
         }
         const proceed = function () {
