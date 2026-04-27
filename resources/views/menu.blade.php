@@ -686,6 +686,21 @@
         align-items: center;
         gap: 2px;
     }
+    .cat-mini-modelo-badge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        background: rgba(255, 255, 255, 0.9);
+        color: #64748b;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        backdrop-filter: blur(4px);
+    }
     .cat-mini-body {
         padding: 10px 12px;
         display: flex;
@@ -880,13 +895,13 @@
                                         <i class="material-icons placeholder">precision_manufacturing</i>
                                     @endif
                                     
+                                    <span class="cat-mini-modelo-badge">Modelo</span>
                                     <span class="cat-mini-anio-badge">
                                         <i class="material-icons" style="font-size:10px;">event</i>
                                         {{ $catalogo->ANIO_ESPEC }}
                                     </span>
                                 </div>
                                 <div class="cat-mini-body">
-                                    <span style="font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:-2px;">Modelo</span>
                                     <span class="cat-mini-modelo">{{ $catalogo->MODELO }}</span>
                                     @if($catalogo->MOTOR || $catalogo->COMBUSTIBLE)
                                         <span class="cat-mini-specs">
