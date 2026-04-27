@@ -117,26 +117,38 @@
             gap: 10px !important;
             align-items: stretch !important;
         }
-        /* Frente y Tipo: cada uno una fila completa */
+        /* Frente y Tipo: cada uno en 2 columnas (mitad y mitad) para no verse gigantes */
         #auxFiltersForm > div[data-aux-role="dropdown"] {
-            flex: 1 0 100% !important;
-            max-width: 100% !important;
+            flex: 1 1 calc(50% - 6px) !important;
+            max-width: calc(50% - 6px) !important;
             min-width: 0 !important;
         }
-        /* Serial + boton Filtros Avanzados: misma fila.
-           flex-basis: 0 (no auto) hace que el Serial NO use el ancho de su
-           contenido (placeholder largo) como base — asi nunca empuja al
-           boton de filtros a la fila siguiente. */
+        /* Comprimir altura de cajas de texto a 40px en móvil */
+        #auxFiltersForm .search-wrapper, 
+        #auxFiltersForm div[id^="aux_main_box_"] {
+            height: 40px !important;
+        }
+        #auxFiltersForm input[type="text"] {
+            font-size: 13px !important;
+            padding: 8px 5px !important;
+        }
+        /* Serial + boton Filtros Avanzados: misma fila. */
         #auxFiltersForm > .search-wrapper {
             flex: 1 1 0 !important;
             min-width: 0 !important;
             max-width: none !important;
             width: auto !important;
         }
+        /* Boton Filtros Avanzados compacto (40px) */
         #auxFiltersForm > div[data-aux-role="adv"] {
-            flex: 0 0 45px !important;
-            width: 45px !important;
-            min-width: 45px !important;
+            flex: 0 0 40px !important;
+            width: 40px !important;
+            min-width: 40px !important;
+        }
+        #auxAdvBtn {
+            height: 40px !important;
+            width: 40px !important;
+            min-width: 40px !important;
         }
         /* Contenedor del boton Acciones: fila propia full-width */
         #auxFiltersForm > div[data-aux-role="acciones"] {
