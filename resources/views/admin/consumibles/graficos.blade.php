@@ -1,4 +1,4 @@
-﻿@extends('layouts.estructura_base')
+@extends('layouts.estructura_base')
 @section('title', 'Gráficos de Consumibles')
 
 @section('content')
@@ -71,35 +71,35 @@
                 display: none !important;
             }
         }
-
-        /* Ranking "Total de Consumo por Frente" — compactar en pantallas chicas */
+        /* Ranking "Total de Consumo por Frente" - compactar en pantallas chicas */
         @media (max-width: 640px) {
             .g-card { padding: 16px; }
             .g-title { font-size: 13px; }
             .g-title i { font-size: 16px; }
             .frow {
-                grid-template-columns: 20px minmax(0, 1fr) 60px auto;
-                gap: 6px;
-                padding: 6px 0;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 4px;
+                padding: 8px 0;
             }
-            .frow-num  { font-size: 10px; }
-            .frow-name { font-size: 11px; line-height: 1.2; }
-            .frow-val  { font-size: 11px; padding-left: 2px; }
-            .frow-dep  { font-size: 10px; }
-            .frow-bar-wrap { height: 8px; }
+            .frow-num  { flex: 0 0 20px; font-size: 10px; }
+            .frow-name { flex: 1; min-width: 100px; font-size: 11px; line-height: 1.1; }
+            .frow-val  { flex: 0 0 auto; font-size: 11px; padding-left: 2px; text-align: right; }
+            .frow-dep  { display: inline-block; margin-left: 4px; font-size: 9px; }
+            .frow-bar-wrap { flex: 0 0 100%; height: 6px; margin-top: 4px; }
         }
 
         @media (max-width: 420px) {
             .g-card { padding: 12px; }
             .g-title { font-size: 12px; }
             .frow {
-                grid-template-columns: 18px minmax(0, 1fr) 40px auto;
-                gap: 5px;
+                padding: 6px 0;
             }
             .frow-num  { font-size: 9px; }
             .frow-name { font-size: 10px; }
             .frow-val  { font-size: 10px; }
-            .frow-dep  { font-size: 9px; }
+            .frow-dep  { font-size: 8px; }
         }
 
         /* Tarjetas resumen */
