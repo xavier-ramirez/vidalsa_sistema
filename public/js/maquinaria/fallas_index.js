@@ -1,4 +1,4 @@
-/* fallas_index.js â€” MÃ³dulo Control de Fallas
+﻿/* fallas_index.js â€” MÃ³dulo Control de Fallas
  * PatrÃ³n global idÃ©ntico al de equipos_index.js / movilizaciones_index.js.
  * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del mÃ³dulo.
  */
@@ -145,8 +145,8 @@
                             : `<div style="width:50px;height:42px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:22px;">image_not_supported</i></div>`;
 
                         // â”€â”€ Cabecera: emoji tipo + nombre tipo + marca â”€â”€
-                        const emoji     = r.tipo === 'equipo' ? 'ðŸš›' : 'ðŸ”§';
-                        const tipoNom   = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÃCULO' : 'AUX');
+                        const emoji     = r.tipo === 'equipo' ? '\uD83D\uDE9B' : '\uD83D\uDD27';
+                        const tipoNom   = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÍCULO' : 'AUX');
                         const marca     = r.marca || '';
                         const modelo    = r.label ? r.label.replace(marca, '').trim() : '';
 

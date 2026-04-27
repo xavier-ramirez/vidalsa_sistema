@@ -204,6 +204,45 @@
         </div>
     </div>
 
+    {{-- Tipo de Activo (en barra principal) --}}
+    <div class="filter-item aligned-filter" style="flex:2; min-width:220px; max-width:340px;">
+        <div class="custom-dropdown" id="fallasTipoActivoDD" data-filter-type="tipo_activo" data-default-label="Todos los activos">
+            <input type="hidden" id="fallasTipoActivo" data-filter-value value="{{ $tipoActivoSel }}">
+            <div class="dropdown-trigger {{ $tipoActivoSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $tipoActivoSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $tipoActivoSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
+                <div style="padding:0 10px; color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
+                <input type="text" name="filter_search_dropdown" data-filter-search
+                       placeholder="{{ $tipoActivoLabel }}" aria-label="Filtrar Tipo de Activo"
+                       style="width:100%; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none;"
+                       oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                <i class="material-icons" data-clear-btn
+                   style="padding:0 5px; color:#64748b; font-size:18px; display:{{ $tipoActivoSel ? 'block' : 'none' }};"
+                   onclick="event.stopPropagation(); window.clearDropdownFilter('fallasTipoActivoDD'); window.cargarFallas();">close</i>
+            </div>
+            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                <div class="dropdown-item-list" style="max-height:200px; overflow-y:auto;">
+                    <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
+                         onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
+                    {{-- Grupo Vehículos --}}
+                    @if($tiposEquipo->count())
+                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÍCULOS</div>
+                        @foreach($tiposEquipo as $te)
+                            <div class="dropdown-item {{ $tipoActivoSel=='tipo_eq:'.$te->id ? 'selected' : '' }}" data-value="tipo_eq:{{ $te->id }}"
+                                 onclick="window.selectOption('fallasTipoActivoDD','tipo_eq:{{ $te->id }}','{{ addslashes($te->nombre) }}'); window.cargarFallas();">{{ $te->nombre }}</div>
+                        @endforeach
+                    @endif
+                    {{-- Grupo Auxiliares --}}
+                    @if($tiposAux->count())
+                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">AUXILIARES</div>
+                        @foreach($tiposAux as $ta)
+                            <div class="dropdown-item {{ $tipoActivoSel=='tipo_aux:'.$ta ? 'selected' : '' }}" data-value="tipo_aux:{{ $ta }}"
+                                 onclick="window.selectOption('fallasTipoActivoDD','tipo_aux:{{ $ta }}','{{ addslashes($ta) }}'); window.cargarFallas();">{{ $ta }}</div>
+                        @endforeach
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     {{-- Boton Filtros Avanzados --}}
     <div style="position:relative; flex-shrink:0;">
@@ -254,43 +293,6 @@
                     </div>
                 </div>
 
-                {{-- Tipo de Activo: tipos reales agrupados --}}
-                <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Tipo de Activo</span>
-                    <div class="custom-dropdown" id="fallasTipoActivoDD" data-filter-type="tipo_activo" data-default-label="Todos los activos" style="font-size:12px;">
-                        <input type="hidden" id="fallasTipoActivo" data-filter-value value="{{ $tipoActivoSel }}">
-                        <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $tipoActivoSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
-                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
-                            <input type="text" name="filter_search_dropdown" data-filter-search
-                                   placeholder="{{ $tipoActivoLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
-                                   oninput="window.filterDropdownOptions(this)" autocomplete="off">
-                            <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ $tipoActivoSel ? 'block' : 'none' }};"
-                               onclick="event.stopPropagation(); window.clearDropdownFilter('fallasTipoActivoDD'); window.cargarFallas();">close</i>
-                        </div>
-                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
-                            <div class="dropdown-item-list" style="max-height:220px; overflow-y:auto;">
-                                <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
-                                     onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
-                                {{-- Grupo Vehículos --}}
-                                @if($tiposEquipo->count())
-                                    <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÃCULOS</div>
-                                    @foreach($tiposEquipo as $te)
-                                        <div class="dropdown-item {{ $tipoActivoSel=='tipo_eq:'.$te->id ? 'selected' : '' }}" data-value="tipo_eq:{{ $te->id }}"
-                                             onclick="window.selectOption('fallasTipoActivoDD','tipo_eq:{{ $te->id }}','{{ addslashes($te->nombre) }}'); window.cargarFallas();">{{ $te->nombre }}</div>
-                                    @endforeach
-                                @endif
-                                {{-- Grupo Auxiliares --}}
-                                @if($tiposAux->count())
-                                    <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">AUXILIARES</div>
-                                    @foreach($tiposAux as $ta)
-                                        <div class="dropdown-item {{ $tipoActivoSel=='tipo_aux:'.$ta ? 'selected' : '' }}" data-value="tipo_aux:{{ $ta }}"
-                                             onclick="window.selectOption('fallasTipoActivoDD','tipo_aux:{{ $ta }}','{{ addslashes($ta) }}'); window.cargarFallas();">{{ $ta }}</div>
-                                    @endforeach
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
 
                 {{-- Frente movido a barra principal --}}
