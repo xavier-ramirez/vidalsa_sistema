@@ -747,6 +747,7 @@
                     style="margin-top:12px; width: 100%; max-width: 100vw; overflow-x: auto; padding-bottom: 8px;">
                     {!! $fallas->links('vendor.pagination.custom-sliding') !!}</div>
             </div>
+            </div>
 
             {{-- Columna derecha: Stats Sidebar --}}
             <div class="counter-sidebar" id="statsSidebarContainer"
