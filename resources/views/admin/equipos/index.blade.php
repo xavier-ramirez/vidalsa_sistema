@@ -653,12 +653,12 @@
                     <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                         <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
-                        <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativo</span>
+                        <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativo</span>
                     </div>
                     <div onclick="filterByStatus('EN MANTENIMIENTO')" title="Filtrar: En Mantenimiento" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
                         <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
-                        <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mantenimiento</span>
+                        <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mantenimiento</span>
                     </div>
                 </div>
             </div>
