@@ -69,7 +69,7 @@
     .fl-modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.55); backdrop-filter:blur(3px); z-index:10001; display:none; align-items:center; justify-content:center; padding:16px; }
     .fl-modal-overlay.active { display:flex; }
     .fl-modal {
-        background:white; width:100%; max-width:620px; max-height:92vh; overflow-y:auto;
+        background:white; width:100%; max-width:520px; max-height:92vh; overflow-y:auto;
         border-radius:14px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);
     }
     .fl-modal-header {

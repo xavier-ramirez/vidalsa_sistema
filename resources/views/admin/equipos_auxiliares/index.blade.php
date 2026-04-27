@@ -145,6 +145,9 @@
         }
         #auxFiltersForm #auxAccionesBtn {
             flex: 1 !important;
+            height: 48px !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
             justify-content: center !important;
         }
         /* Panel Filtros Avanzados en mobile: bottom-sheet fijo al fondo
