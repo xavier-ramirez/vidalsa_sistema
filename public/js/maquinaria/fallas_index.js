@@ -1,6 +1,6 @@
-/* fallas_index.js — Módulo Control de Fallas
- * Patrón global idéntico al de equipos_index.js / movilizaciones_index.js.
- * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del módulo.
+﻿/* fallas_index.js â€” MÃ³dulo Control de Fallas
+ * PatrÃ³n global idÃ©ntico al de equipos_index.js / movilizaciones_index.js.
+ * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del mÃ³dulo.
  */
 (function () {
     if (window._fallasReady) return;
@@ -9,7 +9,7 @@
     const cfg  = () => window.FALLAS_CFG || {};
     const csrf = () => document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    // ─── Listado: AJAX recarga ───
+    // â”€â”€â”€ Listado: AJAX recarga â”€â”€â”€
     window.cargarFallas = function () {
         const params = new URLSearchParams();
         const sv   = document.getElementById('fallasSearch')?.value || '';
@@ -30,7 +30,7 @@
         if (mod)  params.set('modelo', mod);
         if (fd)   params.set('fecha_desde', fd);
         if (fh)   params.set('fecha_hasta', fh);
-        // Indicador visual del botón avanzado
+        // Indicador visual del botÃ³n avanzado
         const hasAdv = ta || fr || resp || marca || mod || fd || fh;
         const advBtn = document.getElementById('fallasAdvBtn');
         if (advBtn) {
@@ -48,7 +48,6 @@
             document.getElementById('fallasTableBody').innerHTML = data.html;
             document.getElementById('fallasPagination').innerHTML = data.pagination || '';
             if (data.stats) {
-                document.getElementById('statTotal').textContent = data.stats.total;
                 document.getElementById('statInoperativo').textContent = data.stats.inoperativo;
                 document.getElementById('statMantenimiento').textContent = data.stats.mantenimiento;
                 document.getElementById('statAbiertos').textContent = data.stats.reportes_abiertos;
@@ -58,7 +57,7 @@
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // ─── Limpiar filtros avanzados ───
+    // â”€â”€â”€ Limpiar filtros avanzados â”€â”€â”€
     // Los dropdowns son custom-dropdown (estilo /admin/equipos): para resetearlos
     // se debe usar window.clearDropdownFilter para que tambien se limpie el
     // placeholder, el clear-btn y el highlight visual del trigger.
@@ -97,7 +96,7 @@
         }
     });
 
-    // ─── Modal Nuevo Reporte ───
+    // â”€â”€â”€ Modal Nuevo Reporte â”€â”€â”€
     window.openNuevoReporteModal = function () {
         document.getElementById('nuevoReporteOverlay').classList.add('active');
         // Reset
@@ -139,19 +138,19 @@
                         return;
                     }
                     resBox.innerHTML = data.results.map(r => {
-                        // ── Foto ──
+                        // â”€â”€ Foto â”€â”€
                         const fotoSrc  = r.foto ? (r.foto.startsWith('http') || r.foto.startsWith('/') ? r.foto : '/' + r.foto) : '';
                         const fotoHtml = fotoSrc
                             ? `<img src="${fotoSrc}" alt="" style="width:50px;height:42px;object-fit:contain;border-radius:6px;background:#f8fafc;flex-shrink:0;">`
                             : `<div style="width:50px;height:42px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:22px;">image_not_supported</i></div>`;
 
-                        // ── Cabecera: emoji tipo + nombre tipo + marca ──
-                        const emoji     = r.tipo === 'equipo' ? '🚛' : '🔧';
-                        const tipoNom   = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÍCULO' : 'AUX');
+                        // â”€â”€ Cabecera: emoji tipo + nombre tipo + marca â”€â”€
+                        const emoji     = r.tipo === 'equipo' ? 'ðŸš›' : 'ðŸ”§';
+                        const tipoNom   = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÃCULO' : 'AUX');
                         const marca     = r.marca || '';
                         const modelo    = r.label ? r.label.replace(marca, '').trim() : '';
 
-                        // ── Chips de identidad ──
+                        // â”€â”€ Chips de identidad â”€â”€
                         const icon = (name, txt) =>
                             txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#94a3b8;">${name}</i> ${txt}</span>` : '';
                         const chips = [
@@ -161,12 +160,12 @@
                             icon('tag',         r.codigo),
                         ].filter(Boolean).join('');
 
-                        // ── Frente / Ubicación (protagonista) ──
+                        // â”€â”€ Frente / UbicaciÃ³n (protagonista) â”€â”€
                         const frenteHtml = r.frente
                             ? `<div style="margin-top:5px;display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:#3b82f6;"><i class="material-icons" style="font-size:13px;color:#3b82f6;">location_on</i> ${r.frente}</div>`
-                            : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicación asignada</div>`;
+                            : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicaciÃ³n asignada</div>`;
 
-                        // ── Info para el campo de texto al seleccionar ──
+                        // â”€â”€ Info para el campo de texto al seleccionar â”€â”€
                         const displayLabel = `${tipoNom} ${r.label || ''}`.trim();
                         const displayInfo  = r.placa || r.serial || r.codigo || '';
 
@@ -198,7 +197,7 @@
         document.getElementById(prefix + '_activo_tipo').value = tipo;
         document.getElementById(prefix + '_activo_id').value = id;
         const box = document.getElementById(prefix + '_activo_seleccionado');
-        box.innerHTML = '<strong>✓ Seleccionado:</strong> ' + label + ' <span style="color:#64748b; font-size:12px; margin-left:4px;">' + (info || '') + '</span>';
+        box.innerHTML = '<strong>âœ“ Seleccionado:</strong> ' + label + ' <span style="color:#64748b; font-size:12px; margin-left:4px;">' + (info || '') + '</span>';
         box.style.display = 'block';
         document.getElementById(prefix + '_search_results').style.display = 'none';
         document.getElementById(prefix + '_search_activo').value = label;
@@ -237,7 +236,7 @@
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // ─── Modal Cambiar Estado ───
+    // â”€â”€â”€ Modal Cambiar Estado â”€â”€â”€
     window.openCambioEstadoModal = function () {
         document.getElementById('cambioEstadoOverlay').classList.add('active');
         document.getElementById('ce_search_activo').value = '';
@@ -275,13 +274,13 @@
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // ─── Cerrar reporte (modal con observaciones + opción restaurar) ───
+    // â”€â”€â”€ Cerrar reporte (modal con observaciones + opciÃ³n restaurar) â”€â”€â”€
     let _cierreId = null;
 
     window.cerrarFalla = function (id, codigo, equipo) {
         _cierreId = id;
         const msg = document.getElementById('cierreInfoMsg');
-        if (msg) msg.innerHTML = '<i class="material-icons" style="font-size:16px; vertical-align:middle; color:#d97706;">report_problem</i> Cerrando reporte <strong>' + (codigo || '#' + id) + '</strong>' + (equipo ? ' · ' + equipo : '');
+        if (msg) msg.innerHTML = '<i class="material-icons" style="font-size:16px; vertical-align:middle; color:#d97706;">report_problem</i> Cerrando reporte <strong>' + (codigo || '#' + id) + '</strong>' + (equipo ? ' Â· ' + equipo : '');
         document.getElementById('cierreObservaciones').value = '';
         document.getElementById('cierreRestaurar').checked = true;
         document.getElementById('cierreReporteOverlay').classList.add('active');

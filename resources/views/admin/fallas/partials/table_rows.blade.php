@@ -1,19 +1,22 @@
 @forelse($fallas as $f)
     @php
-        $a = $f->_activo ?? null;
-        $foto = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? null) : null;
-        $marcaModelo = $a ? trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) : '—';
-        $serial = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
-        $codigo = $a ? ($a->CODIGO_PATIO ?? $a->CODIGO_INTERNO ?? '') : '';
-        $estadoActual = $a?->ESTADO_OPERATIVO ?? '';
-        $frente = $f->_frente_nombre ?? '—';
-        $isAux = $f->ACTIVO_TIPO === 'equipo_auxiliar';
+        $a            = $f->_activo ?? null;
+        $isAux        = $f->ACTIVO_TIPO === 'equipo_auxiliar';
+        $foto         = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? null) : null;
+        $marcaModelo  = $a ? trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) : '—';
+        $serial       = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
+        $placa        = (!$isAux && $a) ? ($a->documentacion?->PLACA ?? '') : '';
+        $codigo       = $a ? ($a->CODIGO_PATIO ?? $a->CODIGO_INTERNO ?? '') : '';
+        $frente       = $f->_frente_nombre ?? '—';
+        $tipoLabel    = $isAux ? ($a->TIPO ?? '') : ($a->tipo?->nombre ?? '');
     @endphp
     <div class="falla-row-card">
+
         {{-- Foto miniatura --}}
         <div class="falla-foto">
             @if($foto)
-                <img src="{{ url($foto) }}" alt="" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'material-icons\'>{{ $isAux ? 'construction' : 'agriculture' }}</i>';">
+                <img src="{{ url($foto) }}" alt=""
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'material-icons\'>{{ $isAux ? 'construction' : 'agriculture' }}</i>';">
             @else
                 <i class="material-icons">{{ $isAux ? 'construction' : 'agriculture' }}</i>
             @endif
@@ -21,6 +24,8 @@
 
         {{-- Meta --}}
         <div class="falla-meta">
+
+            {{-- Línea 1: estado · código · fecha · prioridad --}}
             <div class="falla-codigo">
                 <span class="falla-chip {{ $f->ESTADO_REPORTE === 'abierto' ? 'falla-chip-abierto' : 'falla-chip-cerrado' }}">
                     {{ $f->ESTADO_REPORTE }}
@@ -31,24 +36,51 @@
                     <span class="falla-chip falla-chip-prioridad">{{ $f->PRIORIDAD }}</span>
                 @endif
             </div>
+
+            {{-- Línea 2: tipo · marca modelo · código --}}
             <div class="falla-equipo">
-                {{ $isAux ? '🔧' : '🚛' }} {{ $marcaModelo ?: '(sin marca/modelo)' }}
-                @if($codigo) <span style="color:#64748b; font-weight:400;">· {{ $codigo }}</span> @endif
+                @if($tipoLabel)
+                    <span style="font-size:11px; font-weight:500; color:#94a3b8; text-transform:uppercase; letter-spacing:0.4px; margin-right:5px;">{{ strtoupper($tipoLabel) }}</span>·
+                @endif
+                {{ $marcaModelo ?: '(sin marca/modelo)' }}
+                @if($codigo)
+                    <span style="color:#64748b; font-weight:400; font-size:12px;"> · {{ $codigo }}</span>
+                @endif
             </div>
-            <div class="falla-info">
-                @if($serial) S/N: <strong>{{ $serial }}</strong> · @endif
-                Estado actual: <strong>{{ $estadoActual ?: '—' }}</strong>
-                @if($frente !== '—') · <i class="material-icons" style="font-size:12px; vertical-align:middle; color:#0067b1;">place</i> {{ $frente }} @endif
-                @if($f->SISTEMA_AFECTADO) · Sistema: {{ $f->SISTEMA_AFECTADO }} @endif
-                · Reportó: {{ $f->NOMBRE_REPORTA ?: '—' }}
+
+            {{-- Línea 3: serial · placa · frente · reportó --}}
+            <div class="falla-info" style="display:flex; flex-wrap:wrap; align-items:center; gap:3px 14px;">
+                @if($serial)
+                    <span style="display:inline-flex; align-items:center; gap:3px;">
+                        <i class="material-icons" style="font-size:12px;">fingerprint</i>
+                        <strong>{{ $serial }}</strong>
+                    </span>
+                @endif
+                @if($placa)
+                    <span style="display:inline-flex; align-items:center; gap:3px;">
+                        <i class="material-icons" style="font-size:12px;">featured_play_list</i>
+                        <strong>{{ $placa }}</strong>
+                    </span>
+                @endif
+                @if($frente !== '—')
+                    <span style="display:inline-flex; align-items:center; gap:3px; color:#3b82f6; font-weight:600;">
+                        <i class="material-icons" style="font-size:12px; color:#3b82f6;">location_on</i>
+                        {{ $frente }}
+                    </span>
+                @endif
+                @if($f->SISTEMA_AFECTADO)
+                    <span>· Sistema: {{ $f->SISTEMA_AFECTADO }}</span>
+                @endif
+                <span style="color:#94a3b8;">· Reportó: {{ $f->NOMBRE_REPORTA ?: '—' }}</span>
             </div>
+
+            {{-- Descripción de la avería --}}
             @if($f->DESCRIPCION_AVERIA)
-                <div class="falla-info" style="margin-top:2px; color:#475569;">
+                <div class="falla-info" style="margin-top:3px; color:#475569; font-style:italic;">
                     "{{ \Illuminate\Support\Str::limit($f->DESCRIPCION_AVERIA, 160) }}"
                 </div>
             @endif
         </div>
-
 
         {{-- Acciones --}}
         <div class="falla-actions">

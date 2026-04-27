@@ -1,4 +1,4 @@
-@extends('layouts.estructura_base')
+﻿@extends('layouts.estructura_base')
 @section('title', 'Reportes de Fallas')
 
 @section('content')
@@ -128,7 +128,7 @@
     $estatusLabel  = $estatusLabels[$estatusSel] ?? 'Todos los reportes';
 
     $tipoActivoSel    = request('tipo_activo');
-    $tipoActivoLabels = ['equipo' => '🚛 Vehículos', 'equipo_auxiliar' => '🔧 Auxiliares'];
+    $tipoActivoLabels = ['equipo' => 'ðŸš› VehÃ­culos', 'equipo_auxiliar' => 'ðŸ”§ Auxiliares'];
     $tipoActivoLabel  = $tipoActivoLabels[$tipoActivoSel] ?? 'Todos los activos';
 
     $frenteSel    = request('id_frente');
@@ -157,7 +157,7 @@
     </div>
 
     {{-- Frente (en barra principal, junto al buscador) --}}
-    <div class="filter-item aligned-filter" style="flex:1; min-width:140px; max-width:200px;">
+    <div class="filter-item aligned-filter" style="flex:2; min-width:220px; max-width:340px;">
         <div class="custom-dropdown" id="fallasFrenteDD" data-filter-type="id_frente" data-default-label="Todos los frentes">
             <input type="hidden" id="fallasFrente" data-filter-value value="{{ $frenteSel }}">
             <div class="dropdown-trigger {{ $frenteSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $frenteSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $frenteSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
@@ -184,7 +184,7 @@
     </div>
 
     {{-- Estatus (custom-dropdown) --}}
-    <div class="filter-item aligned-filter" style="flex:1; min-width:140px; max-width:200px;">
+    <div class="filter-item aligned-filter" style="flex:2; min-width:220px; max-width:340px;">
         <div class="custom-dropdown" id="fallasEstatusDD" data-filter-type="estatus" data-default-label="Todos los reportes">
             <input type="hidden" id="fallasEstatus" data-filter-value value="{{ $estatusSel }}">
             <div class="dropdown-trigger {{ $estatusSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $estatusSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $estatusSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
@@ -251,9 +251,9 @@
                                 <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
                                      onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
                                 <div class="dropdown-item {{ $tipoActivoSel=='equipo' ? 'selected' : '' }}" data-value="equipo"
-                                     onclick="window.selectOption('fallasTipoActivoDD','equipo','🚛 Vehículos'); window.cargarFallas();">🚛 Vehículos</div>
+                                     onclick="window.selectOption('fallasTipoActivoDD','equipo','ðŸš› VehÃ­culos'); window.cargarFallas();">ðŸš› VehÃ­culos</div>
                                 <div class="dropdown-item {{ $tipoActivoSel=='equipo_auxiliar' ? 'selected' : '' }}" data-value="equipo_auxiliar"
-                                     onclick="window.selectOption('fallasTipoActivoDD','equipo_auxiliar','🔧 Auxiliares'); window.cargarFallas();">🔧 Auxiliares</div>
+                                     onclick="window.selectOption('fallasTipoActivoDD','equipo_auxiliar','ðŸ”§ Auxiliares'); window.cargarFallas();">ðŸ”§ Auxiliares</div>
                             </div>
                         </div>
                     </div>
@@ -357,12 +357,6 @@
         </div>
     </div>
 
-    {{-- Acciones --}}
-    <div style="margin-left:auto; display:flex; gap:8px;">
-        <button type="button" id="btnCambiarEstado" onclick="window.openCambioEstadoModal()" class="falla-btn" style="height:45px;"
-                title="Cambiar el estado operativo de un equipo sin crear reporte de falla">
-            <i class="material-icons" style="font-size:18px;">tune</i> Cambiar Estado
-        </button>
         <button type="button" onclick="window.openNuevoReporteModal()" class="falla-btn falla-btn-primary" style="height:45px;">
             <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
         </button>
@@ -380,17 +374,6 @@
 
     {{-- Sidebar de stats --}}
     <div class="fallas-sidebar" style="position:sticky; top:20px; display:flex; flex-direction:column; gap:14px;">
-        <div class="stat-card">
-            <div class="stat-card-row">
-                <div class="stat-card-icon" style="background:#eff6ff;">
-                    <i class="material-icons" style="color:#0067b1;">precision_manufacturing</i>
-                </div>
-                <div>
-                    <div class="stat-card-num" id="statTotal">{{ $stats['total'] }}</div>
-                    <div class="stat-card-label">Total Flota</div>
-                </div>
-            </div>
-        </div>
         <div class="stat-card">
             <div class="stat-card-row">
                 <div class="stat-card-icon" style="background:#fee2e2;">
@@ -427,7 +410,7 @@
     </div>
 </div>
 
-{{-- ─── Modal: Nuevo Reporte de Falla ───────────────────────────── --}}
+{{-- â”€â”€â”€ Modal: Nuevo Reporte de Falla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
 <div id="nuevoReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeNuevoReporteModal()">
     <div class="fl-modal">
         <div class="fl-modal-header">
@@ -443,15 +426,15 @@
             <div>
                 <label class="fl-field-label">Tipo de Reporte</label>
                 <div class="fl-toggle-row">
-                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">📝 Corto (sin acta)</div>
-                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">📄 Extenso (con PDF)</div>
+                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">ðŸ“ Corto (sin acta)</div>
+                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">ðŸ“„ Extenso (con PDF)</div>
                 </div>
                 <input type="hidden" id="fl_tipo_reporte" name="tipo_reporte" value="corto">
             </div>
 
             {{-- Buscador de activo --}}
             <div>
-                <label class="fl-field-label">Buscar Equipo (placa / serial / cód. motor)</label>
+                <label class="fl-field-label">Buscar Equipo (placa / serial / cÃ³d. motor)</label>
                 <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
                        autocomplete="off" oninput="window.flSearchActivos(this.value)">
                 <div id="fl_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>
@@ -464,7 +447,7 @@
             <div>
                 <label class="fl-field-label">Estado a aplicar al equipo</label>
                 <select id="fl_estado_al_crear" name="estado_al_crear" class="fl-select">
-                    <option value="INOPERATIVO">Inoperativo (falla crítica)</option>
+                    <option value="INOPERATIVO">Inoperativo (falla crÃ­tica)</option>
                     <option value="EN MANTENIMIENTO">En Mantenimiento</option>
                 </select>
             </div>
@@ -472,7 +455,7 @@
             {{-- Campos extensos (visibles solo si tipo=extenso) --}}
             <div id="fl_fields_extenso" style="display:none; flex-direction:column; gap:10px;">
                 <div>
-                    <label class="fl-field-label">Horómetro / Kilometraje</label>
+                    <label class="fl-field-label">HorÃ³metro / Kilometraje</label>
                     <input type="text" id="fl_horometro" name="horometro" class="fl-input" placeholder="Ej: 12500 km / 3200 hrs">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -496,7 +479,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="fl-field-label">Tipo de Intervención</label>
+                    <label class="fl-field-label">Tipo de IntervenciÃ³n</label>
                     <select id="fl_tipo_intervencion" name="tipo_intervencion" class="fl-select">
                         <option value="">Seleccionar...</option>
                         @foreach(\App\Models\Falla::tiposIntervencion() as $k => $v)
@@ -509,13 +492,13 @@
                     <textarea id="fl_repuestos" name="repuestos" class="fl-textarea"></textarea>
                 </div>
                 <div>
-                    <label class="fl-field-label">Observaciones del Mecánico</label>
+                    <label class="fl-field-label">Observaciones del MecÃ¡nico</label>
                     <textarea id="fl_observaciones" name="observaciones" class="fl-textarea"></textarea>
                 </div>
             </div>
 
             <div>
-                <label class="fl-field-label">Descripción de la Avería</label>
+                <label class="fl-field-label">DescripciÃ³n de la AverÃ­a</label>
                 <textarea id="fl_descripcion" name="descripcion" class="fl-textarea" placeholder="Describe brevemente la falla detectada..."></textarea>
             </div>
 
@@ -526,45 +509,8 @@
     </div>
 </div>
 
-{{-- ─── Modal: Cambiar Estado SIN reporte ───────────────────────── --}}
-<div id="cambioEstadoOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCambioEstadoModal()">
-    <div class="fl-modal" style="max-width:520px;">
-        <div class="fl-modal-header">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <i class="material-icons">tune</i>
-                <h3 style="margin:0; font-size:15px; font-weight:700;">Cambiar Estado del Equipo</h3>
-            </div>
-            <button type="button" onclick="window.closeCambioEstadoModal()" style="background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i class="material-icons">close</i></button>
-        </div>
-        <form id="cambioEstadoForm" class="fl-modal-body" onsubmit="event.preventDefault(); window.submitCambioEstado();">
-            <p style="margin:0; font-size:13px; color:#64748b; line-height:1.4;">
-                Actualización rápida del estado del equipo SIN crear reporte de falla. Queda registrado en el log de auditoría.
-            </p>
-            <div>
-                <label class="fl-field-label">Buscar Equipo</label>
-                <input type="text" id="ce_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
-                       autocomplete="off" oninput="window.flSearchActivosCe(this.value)">
-                <div id="ce_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>
-                <div id="ce_activo_seleccionado" style="display:none; margin-top:8px; padding:10px; background:#e1effa; border:1px solid #0067b1; border-radius:8px;"></div>
-                <input type="hidden" id="ce_activo_tipo" name="activo_tipo" value="">
-                <input type="hidden" id="ce_activo_id" name="activo_id" value="">
-            </div>
-            <div>
-                <label class="fl-field-label">Nuevo Estado</label>
-                <select id="ce_nuevo_estado" name="nuevo_estado" class="fl-select">
-                    <option value="OPERATIVO">Operativo</option>
-                    <option value="INOPERATIVO">Inoperativo</option>
-                    <option value="EN MANTENIMIENTO">En Mantenimiento</option>
-                </select>
-            </div>
-            <button type="submit" class="falla-btn falla-btn-primary" style="height:44px; width:100%; justify-content:center;">
-                <i class="material-icons">save</i> Aplicar Cambio
-            </button>
-        </form>
-    </div>
-</div>
 
-{{-- ─── Modal: Cerrar Reporte de Falla ─────────────────────────── --}}
+{{-- â”€â”€â”€ Modal: Cerrar Reporte de Falla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
 <div id="cierreReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCierreModal()">
     <div class="fl-modal" style="max-width:520px;">
         <div class="fl-modal-header">
