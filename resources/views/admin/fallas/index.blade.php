@@ -1011,8 +1011,8 @@
                     </div>
 
                     <div>
-                        <label class="fl-field-label" for="fl_descripcion">Descripción de la Avería</label>
-                        <textarea id="fl_descripcion" name="descripcion" class="fl-textarea"
+                        <label class="fl-field-label" for="fl_descripcion">Descripción de la Avería <span style="color:#ef4444;">*</span></label>
+                        <textarea id="fl_descripcion" name="descripcion" class="fl-textarea" required
                             placeholder="Describe brevemente la falla detectada..."></textarea>
                     </div>
 

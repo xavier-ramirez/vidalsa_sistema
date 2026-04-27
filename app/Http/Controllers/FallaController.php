@@ -228,7 +228,7 @@ class FallaController extends Controller
             'activo_tipo'     => 'required|in:equipo,equipo_auxiliar',
             'activo_id'       => 'required|integer',
             'estado_al_crear' => 'required|in:INOPERATIVO,EN MANTENIMIENTO',
-            'descripcion'     => 'required_if:tipo_reporte,extenso|nullable|string|max:5000',
+            'descripcion'     => 'required|string|max:5000',
             'horometro'       => 'nullable|string|max:50',
             'sistema'         => 'nullable|in:MOTOR,HIDRAULICO,ELECTRICO,NEUMATICO,TRANSMISION,ESTRUCTURAL,FRENOS,OTROS',
             'prioridad'       => 'nullable|in:CRITICA,ALTA,MEDIA,BAJA',
