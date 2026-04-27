@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -13,7 +13,7 @@ class MovilizacionController extends Controller
     public function __construct()
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
-        // Permiso para MOVER equipos (Crear movilizaciones o registrar recepción directa sin despacho previo)
+        // Permiso para MOVER equipos (Crear movilizaciones o registrar recepciÃ³n directa sin despacho previo)
         $this->middleware('can:equipos.assign')->only(['create', 'store', 'bulkStore', 'recepcionDirecta']);
     }
 
@@ -43,35 +43,35 @@ class MovilizacionController extends Controller
 
         // Eliminada la barrera de seguridad de usuario local. Todos ven todo.
 
-        // ─── Búsqueda de texto ────────────────────────────────────────────────────
+        // â”€â”€â”€ BÃºsqueda de texto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Usa whereHas() para evitar LEFT JOINs que generan columnas ambiguas
-        // (created_at, updated_at, etc.) y filas duplicadas en la paginación.
+        // (created_at, updated_at, etc.) y filas duplicadas en la paginaciÃ³n.
         if ($request->filled('search')) {
             $search      = trim($request->search);
             $searchUpper = strtoupper($search);
 
             $query->where(function ($q) use ($search, $searchUpper) {
 
-                // Patrón 1: MV-XXXXX / MVXXXXX → buscar CODIGO_CONTROL
+                // PatrÃ³n 1: MV-XXXXX / MVXXXXX â†’ buscar CODIGO_CONTROL
                 if (preg_match('/^MV-?\d+/i', $search)) {
                     $clean = ltrim(str_replace(['MV-', 'MV'], '', $searchUpper), '0');
                     $q->where('movilizacion_historial.CODIGO_CONTROL', 'like', "%{$searchUpper}%")
                       ->orWhere('movilizacion_historial.CODIGO_CONTROL', 'like', "%{$clean}%");
 
-                // Patrón 2: DD-MM-YYYY → buscar CODIGO_PATIO
+                // PatrÃ³n 2: DD-MM-YYYY â†’ buscar CODIGO_PATIO
                 } elseif (preg_match('/\d{2}-\d{2}-\d{4}/', $search)) {
                     $q->whereHas('equipo', fn ($qEq) =>
                         $qEq->where('CODIGO_PATIO', 'like', "%{$search}%")
                     );
 
-                // Patrón 3: #NÚMERO → buscar NUMERO_ETIQUETA
+                // PatrÃ³n 3: #NÃšMERO â†’ buscar NUMERO_ETIQUETA
                 } elseif (strpos($search, '#') === 0) {
                     $tag = ltrim($search, '#');
                     $q->whereHas('equipo', fn ($qEq) =>
                         $qEq->where('NUMERO_ETIQUETA', 'like', "%{$tag}%")
                     );
 
-                // Patrón por defecto: serial / placa / codigo (equipo) o
+                // PatrÃ³n por defecto: serial / placa / codigo (equipo) o
                 // serial / marca / modelo (aux). El OR cruzado permite que
                 // movilizaciones de auxiliares aparezcan en busquedas por
                 // texto libre igual que las de equipos.
@@ -93,7 +93,7 @@ class MovilizacionController extends Controller
         }
 
 
-        // ─── SHARED filter logic (applied to both main query and stats query) ───────
+        // â”€â”€â”€ SHARED filter logic (applied to both main query and stats query) â”€â”€â”€â”€â”€â”€â”€
         // Extracted into a closure to eliminate code duplication and ensure both
         // queries always use identical filtering criteria.
         $applyFrenteFilter = function ($q) use ($request) {
@@ -112,7 +112,7 @@ class MovilizacionController extends Controller
             }
         };
 
-        // ─── Apply shared filters to main query ───────────────────────────────────
+        // â”€â”€â”€ Apply shared filters to main query â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         $applyFrenteFilter($query);
 
         if ($request->filled('id_tipo') && $request->id_tipo !== 'all') {
@@ -129,7 +129,7 @@ class MovilizacionController extends Controller
             $query->whereDate('movilizacion_historial.created_at', '<=', $request->fecha_hasta);
         }
 
-        // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 páginas continuas)
+        // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 pÃ¡ginas continuas)
         $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(12);
 
         $totalTransito = $movilizaciones->total();
@@ -177,7 +177,7 @@ class MovilizacionController extends Controller
     {
         $codigo = trim((string) $request->query('codigo', ''));
         if ($codigo === '') {
-            return response()->json(['success' => false, 'message' => 'Debes indicar el N° de Operación.'], 422);
+            return response()->json(['success' => false, 'message' => 'Debes indicar el NÂ° de OperaciÃ³n.'], 422);
         }
 
         // Normaliza: quita ceros iniciales; busca tanto el valor crudo como el padded.
@@ -200,7 +200,7 @@ class MovilizacionController extends Controller
         if (!$mov) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontró ninguna movilización con ese N° de Operación.',
+                'message' => 'No se encontrÃ³ ninguna movilizaciÃ³n con ese NÂ° de OperaciÃ³n.',
             ], 404);
         }
 
@@ -244,7 +244,7 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
-            return redirect()->route('movilizaciones.index')->with('success', 'Movilización registrada correctamente.');
+            return redirect()->route('movilizaciones.index')->with('success', 'MovilizaciÃ³n registrada correctamente.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Error al registrar: ' . $e->getMessage()]);
@@ -276,7 +276,7 @@ class MovilizacionController extends Controller
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'El frente "' . $destNombre . '" no existe. Debes indicar su ubicación (zona, municipio o estado) para crearlo.',
+                    'message' => 'El frente "' . $destNombre . '" no existe. Debes indicar su ubicaciÃ³n (zona, municipio o estado) para crearlo.',
                 ], 422);
             }
 
@@ -290,7 +290,7 @@ class MovilizacionController extends Controller
 
             // Acceso a bulkStore se controla UNICAMENTE con el permiso
             // 'equipos.assign' (middleware del controller + @can en UI). El
-            // campo NIVEL_ACCESO del usuario NO limita la operacion — la
+            // campo NIVEL_ACCESO del usuario NO limita la operacion â€” la
             // filosofia del sistema es "solo la clave PERMISOS decide"
             // (ver AppServiceProvider::boot).
 
@@ -305,7 +305,7 @@ class MovilizacionController extends Controller
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
 
             // Crear movilizaciones una por una (dispara MovilizacionObserver, devuelve IDs exactos
-            // sin depender de timestamp match entre Carbon µs y MySQL TIMESTAMP sin fracción).
+            // sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
             $movilizacionIds = [];
             foreach ($equipos as $equipo) {
                 $mov = Movilizacion::create([
@@ -346,7 +346,7 @@ class MovilizacionController extends Controller
 
 
     /**
-     * RECEPCIÓN DIRECTA: Registrar equipos que llegan sin movilización previa
+     * RECEPCIÃ“N DIRECTA: Registrar equipos que llegan sin movilizaciÃ³n previa
      */
     public function recepcionDirecta(Request $request)
     {
@@ -367,7 +367,7 @@ class MovilizacionController extends Controller
             $now = now();
             $frenteDestino = FrenteTrabajo::findOrFail($request->ID_FRENTE_DESTINO);
 
-            // Sin `with('frenteActual')` — solo usamos ID_FRENTE_ACTUAL directo, no la relacion.
+            // Sin `with('frenteActual')` â€” solo usamos ID_FRENTE_ACTUAL directo, no la relacion.
             $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
@@ -375,7 +375,7 @@ class MovilizacionController extends Controller
             $insertData = [];
             foreach ($equipos as $equipo) {
                 $insertData[] = [
-                    'CODIGO_CONTROL' => null, // Recepciones directas no tienen código de control
+                    'CODIGO_CONTROL' => null, // Recepciones directas no tienen cÃ³digo de control
                     'ID_EQUIPO' => $equipo->ID_EQUIPO,
                     'ID_FRENTE_ORIGEN' => $equipo->ID_FRENTE_ACTUAL ?? $request->ID_FRENTE_DESTINO,
                     'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
@@ -404,7 +404,7 @@ class MovilizacionController extends Controller
 
             $ubicacionTexto = $frenteDestino->NOMBRE_FRENTE;
             if ($request->filled('DETALLE_UBICACION')) {
-                $ubicacionTexto .= ' → ' . $request->DETALLE_UBICACION;
+                $ubicacionTexto .= ' â†’ ' . $request->DETALLE_UBICACION;
             }
 
             return response()->json([
@@ -421,7 +421,7 @@ class MovilizacionController extends Controller
     }
 
     /**
-     * API: Buscar equipos para recepción directa
+     * API: Buscar equipos para recepciÃ³n directa
      */
     public function buscarEquiposParaRecepcion(Request $request)
     {
@@ -454,7 +454,7 @@ class MovilizacionController extends Controller
                 $query->where('CODIGO_PATIO', 'like', "%{$searchUpper}%");
 
             } else {
-                // Standard search — O/0 ambiguity applied ONLY to PLACA
+                // Standard search â€” O/0 ambiguity applied ONLY to PLACA
                 $placaVariants = collect([
                     $searchUpper,
                     str_replace('O', '0', $searchUpper),
@@ -529,7 +529,7 @@ class MovilizacionController extends Controller
      */
     public function generarActaTraslado($id)
     {
-        // PDFs grandes (muchos equipos) pueden tardar más del default de 30s
+        // PDFs grandes (muchos equipos) pueden tardar mÃ¡s del default de 30s
         @set_time_limit(300);
         @ini_set('memory_limit', '512M');
 
@@ -537,13 +537,13 @@ class MovilizacionController extends Controller
             $baseMov = Movilizacion::findOrFail($id);
 
             // Acceso a la descarga del acta: controlado solo por autenticacion
-            // (middleware 'auth'). NIVEL_ACCESO del usuario no restringe —
+            // (middleware 'auth'). NIVEL_ACCESO del usuario no restringe â€”
             // cualquier usuario autenticado puede descargar el acta PDF.
 
             // Para tandas sin CODIGO_CONTROL (recepciones directas / actualizaciones)
             // no tiene sentido generar acta agrupada.
             if (empty($baseMov->CODIGO_CONTROL)) {
-                return back()->withErrors(['error' => 'Esta movilización no tiene acta asociada (actualización o recepción directa).']);
+                return back()->withErrors(['error' => 'Esta movilizaciÃ³n no tiene acta asociada (actualizaciÃ³n o recepciÃ³n directa).']);
             }
 
             $movilizaciones = Movilizacion::with([
@@ -557,7 +557,7 @@ class MovilizacionController extends Controller
             ])
                 ->where('CODIGO_CONTROL', $baseMov->CODIGO_CONTROL)
                 ->where('ID_FRENTE_DESTINO', $baseMov->ID_FRENTE_DESTINO)
-                // UNIX_TIMESTAMP evita la diferencia de precisión entre Carbon (µs) y MySQL TIMESTAMP (s)
+                // UNIX_TIMESTAMP evita la diferencia de precisiÃ³n entre Carbon (Âµs) y MySQL TIMESTAMP (s)
                 ->whereRaw('UNIX_TIMESTAMP(created_at) = UNIX_TIMESTAMP(?)', [$baseMov->created_at])
                 ->get();
 
@@ -572,7 +572,7 @@ class MovilizacionController extends Controller
                     $synthetic = new \stdClass();
                     $synthetic->ID_EQUIPO       = null;
                     $synthetic->CODIGO_PATIO    = $a->CODIGO_INTERNO ?: $a->SERIAL;
-                    $synthetic->SERIAL_CHASIS   = $a->SERIAL ?: '—';
+                    $synthetic->SERIAL_CHASIS   = $a->SERIAL ?: 'â€”';
                     $synthetic->SERIAL_DE_MOTOR = '';
                     $synthetic->MARCA           = $a->MARCA ?: '';
                     $synthetic->MODELO          = $a->MODELO ?: '';
@@ -584,9 +584,9 @@ class MovilizacionController extends Controller
                     $synthetic->documentacion   = (object) ['PLACA' => 'S/P'];
                     $synthetic->especificaciones= null;
                     // CATEGORIA_FLOTA = 'FLOTA LIVIANA' hace que los responsables del frente
-                    // configurados con RESP_N_EQU='FLOTA LIVIANA' (o vacío) pasen el filtro
+                    // configurados con RESP_N_EQU='FLOTA LIVIANA' (o vacÃ­o) pasen el filtro
                     // en acta_traslado_pdf igual que para vehiculos livianos.
-                    // Antes era 'AUXILIAR' pero ningún RESP_N_EQU tiene ese valor en BD,
+                    // Antes era 'AUXILIAR' pero ningÃºn RESP_N_EQU tiene ese valor en BD,
                     // causando que RESP_1 (Coordinador Liviana) quedara fuera y RESP_2
                     // (elaborador) recibiera la etiqueta 'SOLICITADO:' incorrectamente.
                     $synthetic->CATEGORIA_FLOTA = 'FLOTA LIVIANA';
@@ -597,7 +597,7 @@ class MovilizacionController extends Controller
             }
 
             if ($movilizaciones->isEmpty()) {
-                return back()->withErrors(['error' => 'No se encontraron registros para esta movilización.']);
+                return back()->withErrors(['error' => 'No se encontraron registros para esta movilizaciÃ³n.']);
             }
 
             $movilizacion = $movilizaciones->first();
@@ -606,7 +606,7 @@ class MovilizacionController extends Controller
             $frenteDestino = FrenteTrabajo::find($movilizacion->ID_FRENTE_DESTINO);
 
             if (!$frenteDestino) {
-                return back()->withErrors(['error' => 'No se encontró el frente de destino']);
+                return back()->withErrors(['error' => 'No se encontrÃ³ el frente de destino']);
             }
 
             $pdf = new ActaTrasladoPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
@@ -640,7 +640,7 @@ class MovilizacionController extends Controller
         }
     }
 
-    // ─── MOBILE API ────────────────────────────────────────────────────────────
+    // â”€â”€â”€ MOBILE API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     public function mobileIndex(Request $request)
     {
         $movs = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteOrigen', 'frenteDestino'])
@@ -716,13 +716,13 @@ class MovilizacionController extends Controller
     public function destroy($id)
     {
         if (!auth()->user()->can('super.admin')) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acción.'], 403);
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acciÃ³n.'], 403);
         }
 
         try {
             $mov = Movilizacion::findOrFail($id);
             $mov->delete();
-            return response()->json(['success' => true, 'message' => 'Registro de movilización eliminado con éxito.']);
+            return response()->json(['success' => true, 'message' => 'Registro de movilizaciÃ³n eliminado con Ã©xito.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error al eliminar el registro: ' . $e->getMessage()], 500);
         }
@@ -731,7 +731,7 @@ class MovilizacionController extends Controller
     public function bulkDestroy(Request $request)
     {
         if (!auth()->user()->can('super.admin')) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acción.'], 403);
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acciÃ³n.'], 403);
         }
 
         $request->validate([
@@ -741,25 +741,25 @@ class MovilizacionController extends Controller
 
         try {
             Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
-            return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con éxito.']);
+            return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con Ã©xito.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error al eliminar registros: ' . $e->getMessage()], 500);
         }
     }
 
-    // ─── HELPERS ────────────────────────────────────────────────────────────
+    // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
-     * Genera el siguiente CODIGO_CONTROL de forma atómica.
-     * DEBE ser llamado dentro de una transacción activa (DB::beginTransaction()).
+     * Genera el siguiente CODIGO_CONTROL de forma atÃ³mica.
+     * DEBE ser llamado dentro de una transacciÃ³n activa (DB::beginTransaction()).
      */
     private function generateNextCodigoControl(): int
     {
-        // ── BLOQUEO ATÓMICO DE FILA ──────────────────────────────────────────────
-        // lockForUpdate() sobre una PRIMARY KEY específica bloquea exactamente esa
+        // â”€â”€ BLOQUEO ATÃ“MICO DE FILA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // lockForUpdate() sobre una PRIMARY KEY especÃ­fica bloquea exactamente esa
         // fila en InnoDB. Si dos transacciones llegan al mismo tiempo, la segunda
-        // espera hasta que la primera haga commit/rollback. Así NUNCA se repite un
-        // CODIGO_CONTROL, sin importar cuántos usuarios operen en simultáneo.
+        // espera hasta que la primera haga commit/rollback. AsÃ­ NUNCA se repite un
+        // CODIGO_CONTROL, sin importar cuÃ¡ntos usuarios operen en simultÃ¡neo.
         $seq = DB::table('secuencias')
             ->where('nombre', 'CODIGO_CONTROL')
             ->lockForUpdate()
@@ -767,7 +767,7 @@ class MovilizacionController extends Controller
 
         if (!$seq) {
             // Fallback de seguridad: si la fila no existe (ej: BD nueva sin migrar)
-            // Usamos CAST para evitar MAX lexicográfico en columna varchar.
+            // Usamos CAST para evitar MAX lexicogrÃ¡fico en columna varchar.
             $maxExistente = (int) DB::selectOne("SELECT MAX(CAST(CODIGO_CONTROL AS UNSIGNED)) as m FROM movilizacion_historial")->m ?: 0;
             DB::table('secuencias')->insert([
                 'nombre'     => 'CODIGO_CONTROL',
@@ -788,7 +788,7 @@ class MovilizacionController extends Controller
     }
 
     /**
-     * Fuerza la actualización del cache (útil cuando se usa Movilizacion::insert que no dispara eventos Eloquent).
+     * Fuerza la actualizaciÃ³n del cache (Ãºtil cuando se usa Movilizacion::insert que no dispara eventos Eloquent).
      */
     private function triggerDashboardCacheRefresh()
     {
@@ -814,9 +814,9 @@ class ActaTrasladoPDF extends \TCPDF
             $this->Image($image_file, 15, 8, 0, 25, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
         }
 
-        // RIF debajo del logo en letra pequeña
+        // RIF debajo del logo en letra pequeÃ±a
         $this->SetFont('helvetica', '', 7);
-        $this->writeHTMLCell(60, 0, 15, 33, '<div style="text-align:center; color:#444444;">RIF: J-29387719-3</div>', 0, 0, 0, true, 'C', true);
+        $this->writeHTMLCell(45, 0, 15, 33, '<div style="text-align:left; color:#444444; font-size:7pt;">RIF: J-29387719-3</div>', 0, 0, 0, true, 'L', true);
 
         $this->SetFont('helvetica', '', 8.5);
         $frente = strtoupper($this->frenteOrigen ?: 'OFICINA PRINCIPAL');
@@ -828,6 +828,6 @@ class ActaTrasladoPDF extends \TCPDF
     {
         $this->SetY(-15);
         $this->SetFont('helvetica', 'I', 8);
-        $this->Cell(0, 10, 'Página ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'R');
+        $this->Cell(0, 10, 'PÃ¡gina ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'R');
     }
 }

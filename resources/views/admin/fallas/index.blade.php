@@ -449,7 +449,7 @@
 
             {{-- Tipo de reporte --}}
             <div>
-                <label class="fl-field-label">Tipo de Reporte</label>
+                <span class="fl-field-label">Tipo de Reporte</span>
                 <div class="fl-toggle-row">
                     <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">Ã°Å¸â€œÂ Corto (sin acta)</div>
                     <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">Ã°Å¸â€œâ€ž Extenso (con PDF)</div>
@@ -459,7 +459,7 @@
 
             {{-- Buscador de activo --}}
             <div>
-                <label class="fl-field-label">Buscar Equipo (placa / serial / cÃƒÂ³d. motor)</label>
+                <label class="fl-field-label" for="fl_search_activo">Buscar Equipo (placa / serial / cÃƒÂ³d. motor)</label>
                 <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
                        autocomplete="off" oninput="window.flSearchActivos(this.value)">
                 <div id="fl_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>
@@ -470,7 +470,7 @@
 
             {{-- Estado a aplicar --}}
             <div>
-                <label class="fl-field-label">Estado a aplicar al equipo</label>
+                <label class="fl-field-label" for="fl_estado_al_crear">Estado a aplicar al equipo</label>
                 <select id="fl_estado_al_crear" name="estado_al_crear" class="fl-select">
                     <option value="INOPERATIVO">Inoperativo (falla crÃƒÂ­tica)</option>
                     <option value="EN MANTENIMIENTO">En Mantenimiento</option>
@@ -480,12 +480,12 @@
             {{-- Campos extensos (visibles solo si tipo=extenso) --}}
             <div id="fl_fields_extenso" style="display:none; flex-direction:column; gap:10px;">
                 <div>
-                    <label class="fl-field-label">HorÃƒÂ³metro / Kilometraje</label>
+                    <label class="fl-field-label" for="fl_horometro">HorÃƒÂ³metro / Kilometraje</label>
                     <input type="text" id="fl_horometro" name="horometro" class="fl-input" placeholder="Ej: 12500 km / 3200 hrs">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <div>
-                        <label class="fl-field-label">Sistema Afectado</label>
+                        <label class="fl-field-label" for="fl_sistema">Sistema Afectado</label>
                         <select id="fl_sistema" name="sistema" class="fl-select">
                             <option value="">Seleccionar...</option>
                             @foreach(\App\Models\Falla::sistemasAfectados() as $k => $v)
@@ -494,7 +494,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="fl-field-label">Prioridad</label>
+                        <label class="fl-field-label" for="fl_prioridad">Prioridad</label>
                         <select id="fl_prioridad" name="prioridad" class="fl-select">
                             <option value="">Seleccionar...</option>
                             @foreach(\App\Models\Falla::prioridades() as $k => $v)
@@ -504,7 +504,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="fl-field-label">Tipo de IntervenciÃƒÂ³n</label>
+                    <label class="fl-field-label" for="fl_tipo_intervencion">Tipo de IntervenciÃƒÂ³n</label>
                     <select id="fl_tipo_intervencion" name="tipo_intervencion" class="fl-select">
                         <option value="">Seleccionar...</option>
                         @foreach(\App\Models\Falla::tiposIntervencion() as $k => $v)
@@ -513,17 +513,17 @@
                     </select>
                 </div>
                 <div>
-                    <label class="fl-field-label">Repuestos Estimados</label>
+                    <label class="fl-field-label" for="fl_repuestos">Repuestos Estimados</label>
                     <textarea id="fl_repuestos" name="repuestos" class="fl-textarea"></textarea>
                 </div>
                 <div>
-                    <label class="fl-field-label">Observaciones del MecÃƒÂ¡nico</label>
+                    <label class="fl-field-label" for="fl_observaciones">Observaciones del MecÃƒÂ¡nico</label>
                     <textarea id="fl_observaciones" name="observaciones" class="fl-textarea"></textarea>
                 </div>
             </div>
 
             <div>
-                <label class="fl-field-label">DescripciÃƒÂ³n de la AverÃƒÂ­a</label>
+                <label class="fl-field-label" for="fl_descripcion">DescripciÃƒÂ³n de la AverÃƒÂ­a</label>
                 <textarea id="fl_descripcion" name="descripcion" class="fl-textarea" placeholder="Describe brevemente la falla detectada..."></textarea>
             </div>
 
@@ -548,7 +548,7 @@
         <div class="fl-modal-body">
             <div id="cierreInfoMsg" style="padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; color:#475569;"></div>
             <div>
-                <label class="fl-field-label">Observaciones de cierre <span style="font-weight:400; color:#94a3b8;">(opcional)</span></label>
+                <label class="fl-field-label" for="cierreObservaciones">Observaciones de cierre <span style="font-weight:400; color:#94a3b8;">(opcional)</span></label>
                 <textarea id="cierreObservaciones" class="fl-textarea" placeholder="Describe las acciones correctivas realizadas..."></textarea>
             </div>
             <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; background:#e1effa; border-radius:8px; border:1px solid #93c5fd;">
