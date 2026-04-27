@@ -1,4 +1,4 @@
-@extends('layouts.estructura_base')
+﻿@extends('layouts.estructura_base')
 @section('title', 'Gráficos de Consumibles')
 
 @section('content')
@@ -767,7 +767,10 @@
             // vacios y placeholders. showPreloader() es idempotente: si ya esta
             // visible (del SPA) no causa flash; si no, lo enciende. hidePreloader()
             // solo se llama en el finally cuando los charts ya estan pintados.
-            if (typeof window.showPreloader === 'function') {
+            // Solo mostrar preloader global en recargas por filtro (no en la primera carga).
+            // La primera carga la maneja el SPA; si llamamos showPreloader() aqui tambien
+            // provoca un doble-flash (spinner aparece, desaparece y vuelve a aparecer).
+            if (window._graficosFirstRunDone && typeof window.showPreloader === 'function') {
                 window.showPreloader();
             }
             const params = getParams();
