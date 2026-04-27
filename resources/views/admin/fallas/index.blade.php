@@ -128,7 +128,7 @@
     $estatusLabel  = $estatusLabels[$estatusSel] ?? 'Todos los reportes';
 
     $tipoActivoSel    = request('tipo_activo');
-    $tipoActivoLabels = ['equipo' => 'ðŸš› VehÃ­culos', 'equipo_auxiliar' => 'ðŸ”§ Auxiliares'];
+    $tipoActivoLabels = ['equipo' => 'Ã°Å¸Å¡â€º VehÃƒÂ­culos', 'equipo_auxiliar' => 'Ã°Å¸â€Â§ Auxiliares'];
     $tipoActivoLabel  = $tipoActivoLabels[$tipoActivoSel] ?? 'Todos los activos';
 
     $frenteSel    = request('id_frente');
@@ -183,32 +183,6 @@
         </div>
     </div>
 
-    {{-- Estatus (custom-dropdown) --}}
-    <div class="filter-item aligned-filter" style="flex:2; min-width:220px; max-width:340px;">
-        <div class="custom-dropdown" id="fallasEstatusDD" data-filter-type="estatus" data-default-label="Todos los reportes">
-            <input type="hidden" id="fallasEstatus" data-filter-value value="{{ $estatusSel }}">
-            <div class="dropdown-trigger {{ $estatusSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $estatusSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $estatusSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
-                <div style="padding:0 10px; color:#64748b;"><i class="material-icons" style="font-size:18px;">flag</i></div>
-                <input type="text" name="filter_search_dropdown" data-filter-search
-                       placeholder="{{ $estatusLabel }}" aria-label="Filtrar Estatus"
-                       style="width:100%; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none;"
-                       oninput="window.filterDropdownOptions(this)" autocomplete="off">
-                <i class="material-icons" data-clear-btn
-                   style="padding:0 5px; color:#64748b; font-size:18px; display:{{ $estatusSel ? 'block' : 'none' }};"
-                   onclick="event.stopPropagation(); window.clearDropdownFilter('fallasEstatusDD'); window.cargarFallas();">close</i>
-            </div>
-            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
-                <div class="dropdown-item-list">
-                    <div class="dropdown-item {{ !$estatusSel ? 'selected' : '' }}" data-value=""
-                         onclick="window.selectOption('fallasEstatusDD','','Todos los reportes'); window.cargarFallas();">Todos los reportes</div>
-                    <div class="dropdown-item {{ $estatusSel=='abierto' ? 'selected' : '' }}" data-value="abierto"
-                         onclick="window.selectOption('fallasEstatusDD','abierto','Abiertos'); window.cargarFallas();">Abiertos</div>
-                    <div class="dropdown-item {{ $estatusSel=='cerrado' ? 'selected' : '' }}" data-value="cerrado"
-                         onclick="window.selectOption('fallasEstatusDD','cerrado','Cerrados'); window.cargarFallas();">Cerrados</div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {{-- Boton Filtros Avanzados --}}
     <div style="position:relative; flex-shrink:0;">
@@ -233,7 +207,33 @@
 
             <div style="display:flex; flex-direction:column; gap:10px;">
 
-                {{-- Tipo de activo (custom-dropdown) --}}
+                {{-- Estado del Reporte --}}
+                <div>
+                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Estado del Reporte</span>
+                    <div class="custom-dropdown" id="fallasEstatusDD" data-filter-type="estatus" data-default-label="Todos los reportes" style="font-size:12px;">
+                        <input type="hidden" id="fallasEstatus" data-filter-value value="{{ $estatusSel }}">
+                        <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $estatusSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
+                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">flag</i></div>
+                            <input type="text" name="filter_search_dropdown" data-filter-search
+                                   placeholder="{{ $estatusLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
+                                   oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                            <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ $estatusSel ? 'block' : 'none' }};"
+                               onclick="event.stopPropagation(); window.clearDropdownFilter('fallasEstatusDD'); window.cargarFallas();">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                            <div class="dropdown-item-list">
+                                <div class="dropdown-item {{ !$estatusSel ? 'selected' : '' }}" data-value=""
+                                     onclick="window.selectOption('fallasEstatusDD','','Todos los reportes'); window.cargarFallas();">Todos los reportes</div>
+                                <div class="dropdown-item {{ $estatusSel=='abierto' ? 'selected' : '' }}" data-value="abierto"
+                                     onclick="window.selectOption('fallasEstatusDD','abierto','Abiertos'); window.cargarFallas();">Abiertos</div>
+                                <div class="dropdown-item {{ $estatusSel=='cerrado' ? 'selected' : '' }}" data-value="cerrado"
+                                     onclick="window.selectOption('fallasEstatusDD','cerrado','Cerrados'); window.cargarFallas();">Cerrados</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Tipo de Activo: tipos reales agrupados --}}
                 <div>
                     <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;">Tipo de Activo</span>
                     <div class="custom-dropdown" id="fallasTipoActivoDD" data-filter-type="tipo_activo" data-default-label="Todos los activos" style="font-size:12px;">
@@ -247,13 +247,38 @@
                                onclick="event.stopPropagation(); window.clearDropdownFilter('fallasTipoActivoDD'); window.cargarFallas();">close</i>
                         </div>
                         <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                            <div class="dropdown-item-list" style="max-height:220px; overflow-y:auto;">
+                                <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
+                                     onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
+                                {{-- Grupo VehÃ­culos --}}
+                                @if($tiposEquipo->count())
+                                    <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÃCULOS</div>
+                                    @foreach($tiposEquipo as $te)
+                                        <div class="dropdown-item {{ $tipoActivoSel=='tipo_eq:'.$te->id ? 'selected' : '' }}" data-value="tipo_eq:{{ $te->id }}"
+                                             onclick="window.selectOption('fallasTipoActivoDD','tipo_eq:{{ $te->id }}','{{ addslashes($te->nombre) }}'); window.cargarFallas();">{{ $te->nombre }}</div>
+                                    @endforeach
+                                @endif
+                                {{-- Grupo Auxiliares --}}
+                                @if($tiposAux->count())
+                                    <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">AUXILIARES</div>
+                                    @foreach($tiposAux as $ta)
+                                        <div class="dropdown-item {{ $tipoActivoSel=='tipo_aux:'.$ta ? 'selected' : '' }}" data-value="tipo_aux:{{ $ta }}"
+                                             onclick="window.selectOption('fallasTipoActivoDD','tipo_aux:{{ $ta }}','{{ addslashes($ta) }}'); window.cargarFallas();">{{ $ta }}</div>
+                                    @endforeach
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
                             <div class="dropdown-item-list">
                                 <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
                                      onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
                                 <div class="dropdown-item {{ $tipoActivoSel=='equipo' ? 'selected' : '' }}" data-value="equipo"
-                                     onclick="window.selectOption('fallasTipoActivoDD','equipo','ðŸš› VehÃ­culos'); window.cargarFallas();">ðŸš› VehÃ­culos</div>
+                                     onclick="window.selectOption('fallasTipoActivoDD','equipo','Ã°Å¸Å¡â€º VehÃƒÂ­culos'); window.cargarFallas();">Ã°Å¸Å¡â€º VehÃƒÂ­culos</div>
                                 <div class="dropdown-item {{ $tipoActivoSel=='equipo_auxiliar' ? 'selected' : '' }}" data-value="equipo_auxiliar"
-                                     onclick="window.selectOption('fallasTipoActivoDD','equipo_auxiliar','ðŸ”§ Auxiliares'); window.cargarFallas();">ðŸ”§ Auxiliares</div>
+                                     onclick="window.selectOption('fallasTipoActivoDD','equipo_auxiliar','Ã°Å¸â€Â§ Auxiliares'); window.cargarFallas();">Ã°Å¸â€Â§ Auxiliares</div>
                             </div>
                         </div>
                     </div>
@@ -410,7 +435,7 @@
     </div>
 </div>
 
-{{-- â”€â”€â”€ Modal: Nuevo Reporte de Falla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+{{-- Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Modal: Nuevo Reporte de Falla Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
 <div id="nuevoReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeNuevoReporteModal()">
     <div class="fl-modal">
         <div class="fl-modal-header">
@@ -426,15 +451,15 @@
             <div>
                 <label class="fl-field-label">Tipo de Reporte</label>
                 <div class="fl-toggle-row">
-                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">ðŸ“ Corto (sin acta)</div>
-                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">ðŸ“„ Extenso (con PDF)</div>
+                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">Ã°Å¸â€œÂ Corto (sin acta)</div>
+                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">Ã°Å¸â€œâ€ž Extenso (con PDF)</div>
                 </div>
                 <input type="hidden" id="fl_tipo_reporte" name="tipo_reporte" value="corto">
             </div>
 
             {{-- Buscador de activo --}}
             <div>
-                <label class="fl-field-label">Buscar Equipo (placa / serial / cÃ³d. motor)</label>
+                <label class="fl-field-label">Buscar Equipo (placa / serial / cÃƒÂ³d. motor)</label>
                 <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
                        autocomplete="off" oninput="window.flSearchActivos(this.value)">
                 <div id="fl_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>
@@ -447,7 +472,7 @@
             <div>
                 <label class="fl-field-label">Estado a aplicar al equipo</label>
                 <select id="fl_estado_al_crear" name="estado_al_crear" class="fl-select">
-                    <option value="INOPERATIVO">Inoperativo (falla crÃ­tica)</option>
+                    <option value="INOPERATIVO">Inoperativo (falla crÃƒÂ­tica)</option>
                     <option value="EN MANTENIMIENTO">En Mantenimiento</option>
                 </select>
             </div>
@@ -455,7 +480,7 @@
             {{-- Campos extensos (visibles solo si tipo=extenso) --}}
             <div id="fl_fields_extenso" style="display:none; flex-direction:column; gap:10px;">
                 <div>
-                    <label class="fl-field-label">HorÃ³metro / Kilometraje</label>
+                    <label class="fl-field-label">HorÃƒÂ³metro / Kilometraje</label>
                     <input type="text" id="fl_horometro" name="horometro" class="fl-input" placeholder="Ej: 12500 km / 3200 hrs">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -479,7 +504,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="fl-field-label">Tipo de IntervenciÃ³n</label>
+                    <label class="fl-field-label">Tipo de IntervenciÃƒÂ³n</label>
                     <select id="fl_tipo_intervencion" name="tipo_intervencion" class="fl-select">
                         <option value="">Seleccionar...</option>
                         @foreach(\App\Models\Falla::tiposIntervencion() as $k => $v)
@@ -492,13 +517,13 @@
                     <textarea id="fl_repuestos" name="repuestos" class="fl-textarea"></textarea>
                 </div>
                 <div>
-                    <label class="fl-field-label">Observaciones del MecÃ¡nico</label>
+                    <label class="fl-field-label">Observaciones del MecÃƒÂ¡nico</label>
                     <textarea id="fl_observaciones" name="observaciones" class="fl-textarea"></textarea>
                 </div>
             </div>
 
             <div>
-                <label class="fl-field-label">DescripciÃ³n de la AverÃ­a</label>
+                <label class="fl-field-label">DescripciÃƒÂ³n de la AverÃƒÂ­a</label>
                 <textarea id="fl_descripcion" name="descripcion" class="fl-textarea" placeholder="Describe brevemente la falla detectada..."></textarea>
             </div>
 
@@ -510,7 +535,7 @@
 </div>
 
 
-{{-- â”€â”€â”€ Modal: Cerrar Reporte de Falla â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
+{{-- Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Modal: Cerrar Reporte de Falla Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
 <div id="cierreReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCierreModal()">
     <div class="fl-modal" style="max-width:520px;">
         <div class="fl-modal-header">

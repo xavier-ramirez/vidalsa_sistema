@@ -6,8 +6,10 @@ use App\Models\Falla;
 use App\Models\Equipo;
 use App\Models\EquipoAuxiliar;
 use App\Models\FrenteTrabajo;
+use App\Models\TipoEquipo;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -58,9 +60,22 @@ class FallaController extends Controller
             $query->where('ID_USUARIO_REPORTA', $request->responsable);
         }
 
-        // Tipo de activo
-        if ($request->filled('tipo_activo') && in_array($request->tipo_activo, ['equipo', 'equipo_auxiliar'])) {
-            $query->where('ACTIVO_TIPO', $request->tipo_activo);
+        // Tipo de activo — acepta: 'equipo', 'equipo_auxiliar', 'tipo_eq:{id}', 'tipo_aux:{TIPO}'
+        $ta = $request->input('tipo_activo', '');
+        if ($ta !== '') {
+            if ($ta === 'equipo' || $ta === 'equipo_auxiliar') {
+                $query->where('ACTIVO_TIPO', $ta);
+            } elseif (str_starts_with($ta, 'tipo_eq:')) {
+                $tipoId = (int) substr($ta, 8);
+                $query->where('ACTIVO_TIPO', 'equipo')
+                      ->whereIn('ACTIVO_ID',
+                          Equipo::where('id_tipo_equipo', $tipoId)->select('ID_EQUIPO'));
+            } elseif (str_starts_with($ta, 'tipo_aux:')) {
+                $auxTipo = substr($ta, 9);
+                $query->where('ACTIVO_TIPO', 'equipo_auxiliar')
+                      ->whereIn('ACTIVO_ID',
+                          EquipoAuxiliar::where('TIPO', $auxTipo)->select('ID_AUXILIAR'));
+            }
         }
 
         // Busqueda por serial / placa / codigo / etiqueta
@@ -167,9 +182,17 @@ class FallaController extends Controller
             : EquipoAuxiliar::whereNotNull('MODELO')->where('MODELO','!=','')->distinct()->orderBy('MODELO')->pluck('MODELO');
         $availableModelos = $eqModelos->merge($auxModelos)->unique()->sort()->values();
 
+        // Tipos de equipo (para el filtro avanzado agrupado).
+        // Cacheados 1 hora — cambian muy raramente.
+        $tiposEquipo = Cache::remember('fallas_tipos_equipo', 3600,
+            fn () => TipoEquipo::orderBy('nombre')->get(['id', 'nombre']));
+        $tiposAux = Cache::remember('fallas_tipos_aux', 3600,
+            fn () => EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
+                ->distinct()->orderBy('TIPO')->pluck('TIPO'));
+
         return view('admin.fallas.index', compact(
             'fallas', 'stats', 'responsables', 'frentes',
-            'availableMarcas', 'availableModelos'
+            'availableMarcas', 'availableModelos', 'tiposEquipo', 'tiposAux'
         ));
     }
 

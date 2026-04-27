@@ -31,7 +31,7 @@
         if (fd)   params.set('fecha_desde', fd);
         if (fh)   params.set('fecha_hasta', fh);
         // Indicador visual del botÃ³n avanzado
-        const hasAdv = ta || fr || resp || marca || mod || fd || fh;
+        const hasAdv = es || ta || resp || marca || mod || fd || fh;
         const advBtn = document.getElementById('fallasAdvBtn');
         if (advBtn) {
             advBtn.style.background = hasAdv ? '#fee2e2' : 'white';
@@ -62,7 +62,7 @@
     // se debe usar window.clearDropdownFilter para que tambien se limpie el
     // placeholder, el clear-btn y el highlight visual del trigger.
     window.flClearAdv = function () {
-        const advDDs = ['fallasTipoActivoDD','fallasFrenteDD','fallasResponsableDD','fallasMarcaDD','fallasModeloDD'];
+        const advDDs = ['fallasEstatusDD','fallasTipoActivoDD','fallasResponsableDD','fallasMarcaDD','fallasModeloDD'];
         advDDs.forEach(ddId => {
             if (document.getElementById(ddId) && typeof window.clearDropdownFilter === 'function') {
                 window.clearDropdownFilter(ddId);
@@ -191,9 +191,7 @@
         };
     }
     window.flSearchActivos   = _buildSearcher('fl');
-    window.flSearchActivosCe = _buildSearcher('ce');
-
-    window.flSelectActivo = function (prefix, tipo, id, label, info) {
+window.flSelectActivo = function (prefix, tipo, id, label, info) {
         document.getElementById(prefix + '_activo_tipo').value = tipo;
         document.getElementById(prefix + '_activo_id').value = id;
         const box = document.getElementById(prefix + '_activo_seleccionado');
@@ -236,43 +234,6 @@
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // â”€â”€â”€ Modal Cambiar Estado â”€â”€â”€
-    window.openCambioEstadoModal = function () {
-        document.getElementById('cambioEstadoOverlay').classList.add('active');
-        document.getElementById('ce_search_activo').value = '';
-        document.getElementById('ce_activo_seleccionado').style.display = 'none';
-        document.getElementById('ce_activo_tipo').value = '';
-        document.getElementById('ce_activo_id').value = '';
-    };
-    window.closeCambioEstadoModal = function () {
-        document.getElementById('cambioEstadoOverlay').classList.remove('active');
-    };
-
-    window.submitCambioEstado = function () {
-        const fd = new FormData(document.getElementById('cambioEstadoForm'));
-        if (!fd.get('activo_id')) {
-            if (window.showToast) window.showToast('Selecciona un equipo primero.', 'error');
-            return;
-        }
-        if (window.showPreloader) window.showPreloader();
-        fetch(cfg().urlChangeEstado, {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
-            body: fd
-        })
-        .then(r => r.json().then(b => ({status: r.status, body: b})))
-        .then(({status, body}) => {
-            if (status === 200 && body.success) {
-                if (window.showToast) window.showToast(body.message, 'success');
-                window.closeCambioEstadoModal();
-                window.cargarFallas();
-            } else {
-                if (window.showToast) window.showToast(body.message || 'No se pudo cambiar el estado', 'error');
-            }
-        })
-        .catch(e => { console.error(e); if (window.showToast) window.showToast('Error de red', 'error'); })
-        .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
-    };
 
     // â”€â”€â”€ Cerrar reporte (modal con observaciones + opciÃ³n restaurar) â”€â”€â”€
     let _cierreId = null;
