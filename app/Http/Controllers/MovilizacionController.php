@@ -134,11 +134,9 @@ class MovilizacionController extends Controller
 
         $totalTransito = $movilizaciones->total();
 
-        // Solo frentes ACTIVOS en el dropdown de filtros y sugerencias.
-        // Los frentes FINALIZADOS quedan excluidos para no contaminar la lista
-        // de destinos posibles (mismo criterio que el resto de modulos).
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->orderBy('NOMBRE_FRENTE')->get();
+        // Mostramos TODOS los frentes en el historial (activos y finalizados)
+        // porque se necesita poder buscar movilizaciones de frentes antiguos.
+        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
         $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
 
         if ($request->wantsJson()) {
