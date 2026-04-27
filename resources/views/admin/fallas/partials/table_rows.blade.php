@@ -73,7 +73,6 @@
                 @if($f->SISTEMA_AFECTADO)
                     <span>· Sistema: {{ $f->SISTEMA_AFECTADO }}</span>
                 @endif
-                <span style="color:#94a3b8;">· Reportó: {{ $f->NOMBRE_REPORTA ?: '—' }}</span>
             </div>
 
             {{-- Descripción de la avería --}}
@@ -85,18 +84,24 @@
         </div>
 
         {{-- Acciones --}}
-        <div class="falla-actions">
-            @if($f->TIPO_REPORTE === 'extenso')
-                <a href="{{ route('fallas.pdf', $f->ID_FALLA) }}" target="_blank" class="falla-btn" title="Descargar PDF">
-                    <i class="material-icons" style="font-size:16px;">picture_as_pdf</i> PDF
-                </a>
-            @endif
-            @if($f->ESTADO_REPORTE === 'abierto')
-                <button type="button" class="falla-btn" title="Cerrar reporte"
-                    onclick="window.cerrarFalla({{ $f->ID_FALLA }}, '{{ $f->CODIGO_REPORTE }}', '{{ addslashes($marcaModelo) }}')">
-                    <i class="material-icons" style="font-size:16px;">check_circle</i> Cerrar
-                </button>
-            @endif
+        <div class="falla-actions" style="flex-direction: column; align-items: flex-end; gap:8px;">
+            <div style="font-size:11.5px; color:#64748b; text-align:right; line-height:1.2;">
+                Reportó:<br>
+                <span style="color:#1e293b; font-weight:700;">{{ $f->NOMBRE_REPORTA ?: '—' }}</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+                @if($f->TIPO_REPORTE === 'extenso')
+                    <a href="{{ route('fallas.pdf', $f->ID_FALLA) }}" target="_blank" class="falla-btn" title="Descargar PDF">
+                        <i class="material-icons" style="font-size:16px;">picture_as_pdf</i> PDF
+                    </a>
+                @endif
+                @if($f->ESTADO_REPORTE === 'abierto')
+                    <button type="button" class="falla-btn" title="Cerrar reporte"
+                        onclick="window.cerrarFalla({{ $f->ID_FALLA }}, '{{ $f->CODIGO_REPORTE }}', '{{ addslashes($marcaModelo) }}')">
+                        <i class="material-icons" style="font-size:16px;">check_circle</i> Cerrar
+                    </button>
+                @endif
+            </div>
         </div>
     </div>
 @empty
