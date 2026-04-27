@@ -73,33 +73,33 @@
         }
         /* Ranking "Total de Consumo por Frente" - compactar en pantallas chicas */
         @media (max-width: 640px) {
-            .g-card { padding: 16px; }
-            .g-title { font-size: 13px; }
-            .g-title i { font-size: 16px; }
+            .g-card { padding: 12px !important; }
+            .g-title { font-size: 12px !important; }
+            .g-title i { font-size: 15px !important; }
             .frow {
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                gap: 4px;
-                padding: 8px 0;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 4px !important;
+                padding: 6px 0 !important;
             }
-            .frow-num  { flex: 0 0 20px; font-size: 10px; }
-            .frow-name { flex: 1; min-width: 100px; font-size: 11px; line-height: 1.1; }
-            .frow-val  { flex: 0 0 auto; font-size: 11px; padding-left: 2px; text-align: right; }
-            .frow-dep  { display: inline-block; margin-left: 4px; font-size: 9px; }
-            .frow-bar-wrap { flex: 0 0 100%; height: 6px; margin-top: 4px; }
+            .frow-num  { flex: 0 0 16px !important; font-size: 9.5px !important; }
+            .frow-name { flex: 1 !important; min-width: 100px !important; font-size: 9.5px !important; line-height: 1.1 !important; }
+            .frow-val  { flex: 0 0 auto !important; font-size: 10px !important; padding-left: 2px !important; text-align: right !important; }
+            .frow-dep  { display: inline-block !important; margin-left: 4px !important; font-size: 8.5px !important; }
+            .frow-bar-wrap { flex: 0 0 100% !important; height: 5px !important; margin-top: 2px !important; }
         }
 
         @media (max-width: 420px) {
-            .g-card { padding: 12px; }
-            .g-title { font-size: 12px; }
+            .g-card { padding: 10px !important; }
+            .g-title { font-size: 11px !important; }
             .frow {
-                padding: 6px 0;
+                padding: 5px 0 !important;
             }
-            .frow-num  { font-size: 9px; }
-            .frow-name { font-size: 10px; }
-            .frow-val  { font-size: 10px; }
-            .frow-dep  { font-size: 8px; }
+            .frow-num  { font-size: 8.5px !important; }
+            .frow-name { font-size: 9px !important; }
+            .frow-val  { font-size: 9px !important; }
+            .frow-dep  { font-size: 8px !important; }
         }
 
         /* Tarjetas resumen */
