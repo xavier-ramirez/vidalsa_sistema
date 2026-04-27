@@ -473,8 +473,12 @@
             {{-- Buscador de activo --}}
             <div>
                 <label class="fl-field-label" for="fl_search_activo">Buscar Equipo (placa / serial / cod. motor)</label>
-                <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
-                       autocomplete="off" oninput="window.flSearchActivos(this.value)">
+                <div style="position:relative;">
+                    <style>@keyframes fl-spin { 100% { transform: translateY(-50%) rotate(360deg); } }</style>
+                    <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
+                           autocomplete="off" oninput="window.flSearchActivos(this.value)" style="padding-right: 35px;">
+                    <i id="fl_search_spinner" class="material-icons" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:18px; color:#94a3b8; animation: fl-spin 1s linear infinite;">sync</i>
+                </div>
                 <div id="fl_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>
                 <div id="fl_activo_seleccionado" style="display:none; margin-top:8px; padding:10px; background:#e1effa; border:1px solid #0067b1; border-radius:8px;"></div>
                 <input type="hidden" id="fl_activo_tipo" name="activo_tipo" value="">

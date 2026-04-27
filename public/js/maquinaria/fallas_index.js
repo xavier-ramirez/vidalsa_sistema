@@ -1,4 +1,4 @@
-﻿/* fallas_index.js â€” MÃ³dulo Control de Fallas
+/* fallas_index.js â€” MÃ³dulo Control de Fallas
  * PatrÃ³n global idÃ©ntico al de equipos_index.js / movilizaciones_index.js.
  * Las rutas se leen de window.FALLAS_CFG, definido en el Blade del mÃ³dulo.
  */
@@ -124,14 +124,22 @@
         let timer = null;
         return function (q) {
             clearTimeout(timer);
+            const spinner = document.getElementById(prefix + '_search_spinner');
+            if (spinner) spinner.style.display = 'block';
+
             timer = setTimeout(() => {
                 const resBox = document.getElementById(prefix + '_search_results');
-                if (!q || q.length < 2) { resBox.style.display = 'none'; return; }
+                if (!q || q.length < 2) { 
+                    resBox.style.display = 'none'; 
+                    if (spinner) spinner.style.display = 'none';
+                    return; 
+                }
                 fetch(cfg().urlSearch + '?q=' + encodeURIComponent(q), {
                     headers: { 'Accept': 'application/json' }
                 })
                 .then(r => r.json())
                 .then(data => {
+                    if (spinner) spinner.style.display = 'none';
                     if (!data.results || !data.results.length) {
                         resBox.innerHTML = '<div style="padding:14px; text-align:center; color:#94a3b8; font-size:13px;">Sin resultados</div>';
                         resBox.style.display = 'block';
@@ -144,13 +152,10 @@
                             ? `<img src="${fotoSrc}" alt="" style="width:50px;height:42px;object-fit:contain;border-radius:6px;background:#f8fafc;flex-shrink:0;">`
                             : `<div style="width:50px;height:42px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:22px;">image_not_supported</i></div>`;
 
-                        // â”€â”€ Cabecera: emoji tipo + nombre tipo + marca â”€â”€
-                        const emoji     = r.tipo === 'equipo' ? '\uD83D\uDE9B' : '\uD83D\uDD27';
                         const tipoNom   = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÍCULO' : 'AUX');
                         const marca     = r.marca || '';
-                        const modelo    = r.label ? r.label.replace(marca, '').trim() : '';
 
-                        // â”€â”€ Chips de identidad â”€â”€
+                        // Chips de identidad
                         const icon = (name, txt) =>
                             txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#94a3b8;">${name}</i> ${txt}</span>` : '';
                         const chips = [
@@ -160,24 +165,22 @@
                             icon('tag',         r.codigo),
                         ].filter(Boolean).join('');
 
-                        // â”€â”€ Frente / UbicaciÃ³n (protagonista) â”€â”€
+                        // Frente / Ubicación (protagonista)
                         const frenteHtml = r.frente
                             ? `<div style="margin-top:5px;display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:#3b82f6;"><i class="material-icons" style="font-size:13px;color:#3b82f6;">location_on</i> ${r.frente}</div>`
-                            : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicaciÃ³n asignada</div>`;
+                            : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicación asignada</div>`;
 
-                        // â”€â”€ Info para el campo de texto al seleccionar â”€â”€
-                        const displayLabel = `${tipoNom} ${r.label || ''}`.trim();
+                        // Info para el campo de texto al seleccionar
                         const displayInfo  = r.placa || r.serial || r.codigo || '';
 
                         return `
                             <div class="fl-search-result"
-                                 onclick="window.flSelectActivo('${prefix}', '${r.tipo}', ${r.id}, '${displayLabel.replace(/'/g,"\\'")}', '${displayInfo.replace(/'/g,"\\'")}')">
+                                 onclick="window.flSelectActivo('${prefix}', '${r.tipo}', ${r.id}, '${tipoNom.replace(/'/g,"\\'")}', '${displayInfo.replace(/'/g,"\\'")}', '${fotoSrc}')">
                                 ${fotoHtml}
                                 <div style="flex:1;min-width:0;margin-left:10px;">
                                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                        <span style="font-weight:700;color:#1e293b;font-size:13px;">${emoji} ${tipoNom}</span>
+                                        <span style="font-weight:700;color:#1e293b;font-size:13px;">${tipoNom}</span>
                                         ${marca  ? `<span style="font-size:12px;color:#475569;font-weight:600;">${marca}</span>` : ''}
-                                        ${modelo ? `<span style="font-size:11px;color:#94a3b8;">${modelo}</span>` : ''}
                                     </div>
                                     ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:11.5px;color:#64748b;">${chips}</div>` : ''}
                                     ${frenteHtml}
@@ -186,21 +189,44 @@
                         `;
                     }).join('');
                     resBox.style.display = 'block';
+                }).catch(() => {
+                    if (spinner) spinner.style.display = 'none';
                 });
-            }, 250);
+            }, 300);
         };
     }
     window.flSearchActivos   = _buildSearcher('fl');
 
-    window.flSelectActivo = function(prefix, tipo, id, label, info) {
+    window.flSelectActivo = function(prefix, tipo, id, tipoNom, info, fotoSrc) {
         document.getElementById(prefix + '_activo_tipo').value = tipo;
         document.getElementById(prefix + '_activo_id').value = id;
 
+        const fotoHtml = fotoSrc && fotoSrc !== 'undefined'
+            ? `<img src="${fotoSrc}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:6px;background:#ffffff;flex-shrink:0;">`
+            : `<div style="width:40px;height:40px;border-radius:6px;background:#ffffff;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:20px;">image_not_supported</i></div>`;
+
         const box = document.getElementById(prefix + '_activo_seleccionado');
-        box.innerHTML = '<strong style="display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:16px;color:#059669;">check_circle</i> Seleccionado:</strong> ' + label + ' <span style="color:#64748b; font-size:12px; margin-left:4px;">' + (info || '') + '</span>';
+        box.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                ${fotoHtml}
+                <div style="display:flex; flex-direction:column; flex:1;">
+                    <strong style="color:#1e293b; font-size:13.5px; line-height:1.2;">${tipoNom}</strong>
+                    <span style="color:#64748b; font-size:12px;">${info || ''}</span>
+                </div>
+                <div style="margin-left:auto;">
+                    <i class="material-icons" style="font-size:18px;color:#059669;">check_circle</i>
+                </div>
+            </div>
+        `;
         box.style.display = 'block';
+        box.style.padding = '8px 12px';
+        box.style.background = '#f0fdf4';
+        box.style.border = '1px solid #bbf7d0';
+        box.style.borderRadius = '8px';
+        
         document.getElementById(prefix + '_search_results').style.display = 'none';
-        document.getElementById(prefix + '_search_activo').value = label;
+        document.getElementById(prefix + '_search_activo').value = '';
+        document.getElementById(prefix + '_search_activo').placeholder = "Equipo seleccionado";
     };
 
     window.submitNuevoReporte = function () {
