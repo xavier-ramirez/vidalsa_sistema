@@ -42,7 +42,7 @@
             {{-- Línea 2: tipo · marca modelo · código --}}
             <div class="falla-equipo">
                 @if($tipoLabel)
-                    <span style="font-size:11px; font-weight:500; color:#94a3b8; text-transform:uppercase; letter-spacing:0.4px; margin-right:5px;">{{ strtoupper($tipoLabel) }}</span>·
+                    <span style="font-size:12px; font-weight:700; color:#000; text-transform:uppercase; letter-spacing:0.4px; margin-right:5px;">{{ strtoupper($tipoLabel) }}</span>·
                 @endif
                 {{ $marcaModelo ?: '(sin marca/modelo)' }}
                 @if($codigo)

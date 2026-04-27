@@ -32,13 +32,13 @@
     .falla-row-card {
         background:white; border:1px solid #e2e8f0; border-radius:12px;
         padding:14px 16px; display:grid;
-        grid-template-columns: 64px minmax(0,1fr) auto;
+        grid-template-columns: 100px minmax(0,1fr) auto;
         gap:14px; align-items:center;
         transition: box-shadow 0.15s;
     }
     .falla-row-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.08); }
     .falla-foto {
-        width:64px; height:64px; border-radius:8px; background:#f1f5f9;
+        width:100px; height:64px; border-radius:8px; background:#f1f5f9;
         display:flex; align-items:center; justify-content:center; overflow:hidden;
     }
     .falla-foto img { width:100%; height:100%; object-fit:cover; }
