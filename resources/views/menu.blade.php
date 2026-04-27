@@ -867,11 +867,7 @@
 
             {{-- ── Catálogo Destacado ── --}}
             @if(isset($catalogosDestacados) && $catalogosDestacados->count() > 0)
-                <div class="dashboard-catalogo-section">
-                    <div class="dashboard-catalogo-title">
-                        <i class="material-icons" style="color: #0067b1;">directions_car</i>
-                        Catálogo de Modelos
-                    </div>
+                <div class="dashboard-catalogo-section" style="margin-top: 12px;">
                     <div class="cat-mini-grid">
                         @foreach($catalogosDestacados as $catalogo)
                             @php
