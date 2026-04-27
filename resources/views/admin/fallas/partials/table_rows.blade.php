@@ -27,10 +27,12 @@
 
             {{-- Línea 1: estado · código · fecha · prioridad --}}
             <div class="falla-codigo">
-                <span class="falla-chip {{ $f->ESTADO_REPORTE === 'abierto' ? 'falla-chip-abierto' : 'falla-chip-cerrado' }}">
-                    {{ $f->ESTADO_REPORTE }}
+                <span style="font-weight: 700; color: {{ $f->ESTADO_REPORTE === 'abierto' ? '#ef4444' : '#10b981' }}; text-transform: capitalize;">
+                    Reporte {{ $f->ESTADO_REPORTE }}
                 </span>
-                · {{ $f->CODIGO_REPORTE }}
+                @if($f->TIPO_REPORTE === 'extenso')
+                    · {{ $f->CODIGO_REPORTE }}
+                @endif
                 · {{ $f->FECHA_EMISION->format('d/m/Y H:i') }}
                 @if($f->PRIORIDAD)
                     <span class="falla-chip falla-chip-prioridad">{{ $f->PRIORIDAD }}</span>
