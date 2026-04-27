@@ -49,12 +49,15 @@
                 margin-right: auto !important;
             }
 
-            .fallas-title-card {
+            .fallas-header-container {
+                justify-content: center !important;
                 text-align: center !important;
             }
 
             .fallas-title-h1 {
+                text-align: center !important;
                 justify-content: center !important;
+                width: 100%;
             }
 
             .fallas-btn-new {
@@ -376,12 +379,11 @@
         }
     </style>
 
-    <section class="page-title-card fallas-title-card" style="margin:0 auto 10px auto; width:98%; max-width:1600px;">
-        <h1 class="page-title fallas-title-h1" style="display:flex; align-items:center; gap:12px; font-size:24px;">
-            <i class="material-icons" style="font-size:28px; color:#d97706;">report_problem</i>
-            <span style="color:#000;">Reportes de Fallas</span>
+    <div class="fallas-header-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; margin-top: 5px; width: 98%; max-width: 1600px; margin-left: auto; margin-right: auto;">
+        <h1 class="page-title fallas-title-h1" style="margin: 0;">
+            <span class="page-title-line2" style="color: #000;">Reportes de Fallas</span>
         </h1>
-    </section>
+    </div>
 
     <div class="fallas-grid">
 
