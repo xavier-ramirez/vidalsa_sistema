@@ -171,6 +171,8 @@
         .falla-info {
             font-size: 12px;
             color: #64748b;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
 
         .falla-chip {
