@@ -2508,8 +2508,8 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
     }
     var ids = Object.keys(window._auxSelectedMap || {}).map(function (x) { return parseInt(x, 10); });
     if (!ids.length) {
-        if (window.showToast) window.showToast('Selecciona al menos un auxiliar (checkbox) antes de eliminar.', 'warning');
-        else alert('Selecciona al menos un auxiliar antes de eliminar.');
+        if (window.showToast) window.showToast('Por favor, selecciona al menos un auxiliar en la tabla antes de eliminar.', 'warning');
+        else alert('Por favor, selecciona al menos un auxiliar en la tabla antes de eliminar.');
         return;
     }
     var proceed = function () {
