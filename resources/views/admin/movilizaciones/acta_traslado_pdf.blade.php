@@ -84,19 +84,19 @@
     <table width="100%" border="1" cellpadding="5" cellspacing="0">
         <thead>
             <tr bgcolor="#e6f2ff">
-                <th width="5%"  align="center" style="width: 5%; font-size:8.5pt;"><b>N°</b></th>
-                <th width="50%" align="center" style="width: 50%; font-size:8.5pt;"><b>DESCRIPCIÓN / EQUIPO</b></th>
-                <th width="20%" align="center" style="width: 20%; font-size:8.5pt;"><b>MARCA</b></th>
-                <th width="25%" align="center" style="width: 25%; font-size:8.5pt;"><b>SERIAL / PLACA</b></th>
+                <td width="5%"  align="center" style="font-size:8.5pt;"><b>N°</b></td>
+                <td width="50%" align="center" style="font-size:8.5pt;"><b>DESCRIPCIÓN / EQUIPO</b></td>
+                <td width="20%" align="center" style="font-size:8.5pt;"><b>MARCA</b></td>
+                <td width="25%" align="center" style="font-size:8.5pt;"><b>SERIAL / PLACA</b></td>
             </tr>
         </thead>
         <tbody>
             @foreach($equipos as $index => $item)
                 <tr>
-                    <td align="center" style="width: 5%; font-size:8.5pt;">{{ $index + 1 }}</td>
-                    <td align="center" style="width: 50%; font-size:8.5pt;">{{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}</td>
-                    <td align="center" style="width: 20%; font-size:8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
-                    <td align="center" style="width: 25%; font-size:8.5pt;">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}</td>
+                    <td width="5%"  align="center" style="font-size:8.5pt;">{{ $index + 1 }}</td>
+                    <td width="50%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}</td>
+                    <td width="20%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
+                    <td width="25%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}</td>
                 </tr>
             @endforeach
         </tbody>
