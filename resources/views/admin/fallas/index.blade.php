@@ -743,23 +743,23 @@
                 </div>
 
                 {{-- Stats compactas solo en móvil --}}
-                <div class="fallas-mobile-stats">
+                <div class="fallas-mobile-stats" style="background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 12px; padding: 10px 14px; margin-bottom: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);">
                     <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
                         <i class="material-icons" style="font-size: 13px;">pie_chart</i>
                         Consolidado de Fallas
                     </div>
                     <div style="display: flex; gap: 8px; justify-content: space-between;">
-                        <div class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(15, 23, 42, 0.05); box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+                        <div class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
                             <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">ABIERTOS</span>
-                            <span style="font-size:22px; font-weight:800; line-height:1; color:#0f172a;">{{ $stats['reportes_abiertos'] }}</span>
+                            <span style="font-size:22px; font-weight:800; line-height:1;">{{ $stats['reportes_abiertos'] }}</span>
                         </div>
                         <div class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
-                            <span style="font-size:10px; font-weight:700; color:#ef4444; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
-                            <span style="color:#ef4444; font-size:22px; font-weight:800; line-height:1;">{{ $stats['inoperativo'] }}</span>
+                            <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
+                            <span style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['inoperativo'] }}</span>
                         </div>
                         <div class="eq-mobile-stat-block eq-block-mant" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3);">
-                            <span style="font-size:10px; font-weight:700; color:#d97706; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">engineering</i> MANT.</span>
-                            <span style="color:#d97706; font-size:22px; font-weight:800; line-height:1;">{{ $stats['mantenimiento'] }}</span>
+                            <span style="font-size:10px; font-weight:700; color:#fcd34d; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">engineering</i> MANT.</span>
+                            <span style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['mantenimiento'] }}</span>
                         </div>
                     </div>
                 </div>
