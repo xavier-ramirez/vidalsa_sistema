@@ -146,8 +146,9 @@
                         return;
                     }
                     resBox.innerHTML = data.results.map(r => {
-                        // â”€â”€ Foto â”€â”€
-                        const fotoSrc  = r.foto ? (r.foto.startsWith('http') || r.foto.startsWith('/') ? r.foto : '/' + r.foto) : '';
+                        // ——— Foto ———
+                        const rawFoto = r.foto ? r.foto.replace(/\\/g, '/') : '';
+                        const fotoSrc = rawFoto ? (rawFoto.startsWith('http') || rawFoto.startsWith('/') ? rawFoto : '/' + rawFoto) : '';
                         const fotoHtml = fotoSrc
                             ? `<img src="${fotoSrc}" alt="" style="width:50px;height:42px;object-fit:contain;border-radius:6px;background:#f8fafc;flex-shrink:0;">`
                             : `<div style="width:50px;height:42px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:22px;">image_not_supported</i></div>`;
@@ -175,7 +176,7 @@
 
                         return `
                             <div class="fl-search-result"
-                                 onclick="window.flSelectActivo('${prefix}', '${r.tipo}', ${r.id}, '${tipoNom.replace(/'/g,"\\'")}', '${displayInfo.replace(/'/g,"\\'")}', '${fotoSrc}')">
+                                 onclick="window.flSelectActivo('${prefix}', '${r.tipo}', ${r.id}, '${tipoNom.replace(/'/g,"\\'")}', '${displayInfo.replace(/'/g,"\\'")}', '${fotoSrc.replace(/'/g,"\\'")}')">
                                 ${fotoHtml}
                                 <div style="flex:1;min-width:0;margin-left:10px;">
                                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
