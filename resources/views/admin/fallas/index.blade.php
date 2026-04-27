@@ -96,10 +96,12 @@
 
     .fl-search-result {
         padding:10px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9;
-        display:flex; gap:10px; align-items:center;
+        display:flex; gap:0; align-items:flex-start; border-radius:8px;
+        transition:background 0.12s;
     }
-    .fl-search-result:hover { background:#f8fafc; }
-    .fl-search-result img { width:36px; height:36px; border-radius:6px; object-fit:cover; background:#f1f5f9; }
+    .fl-search-result:hover { background:#f0f4f8; }
+    .fl-search-result:last-child { border-bottom:none; }
+    .fl-search-result img { width:50px; height:42px; border-radius:6px; object-fit:contain; background:#f8fafc; flex-shrink:0; }
 </style>
 
 <section class="page-title-card" style="text-align:left; margin:0 auto 10px auto; width:98%; max-width:1600px;">
@@ -449,7 +451,7 @@
 
             {{-- Buscador de activo --}}
             <div>
-                <label class="fl-field-label">Buscar Equipo (placa/serial/marca)</label>
+                <label class="fl-field-label">Buscar Equipo (placa / serial / cód. motor)</label>
                 <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
                        autocomplete="off" oninput="window.flSearchActivos(this.value)">
                 <div id="fl_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>

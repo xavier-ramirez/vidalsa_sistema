@@ -134,23 +134,64 @@
                 .then(r => r.json())
                 .then(data => {
                     if (!data.results || !data.results.length) {
-                        resBox.innerHTML = '<div style="padding:12px; text-align:center; color:#94a3b8; font-size:13px;">Sin resultados</div>';
+                        resBox.innerHTML = '<div style="padding:14px; text-align:center; color:#94a3b8; font-size:13px;">Sin resultados</div>';
                         resBox.style.display = 'block';
                         return;
                     }
                     resBox.innerHTML = data.results.map(r => {
-                        const labelTipo = r.tipo === 'equipo' ? '🚛' : '🔧';
-                        const placa  = r.placa  ? ('Placa: ' + r.placa)  : '';
-                        const serial = r.serial ? ('S/N: '  + r.serial)  : '';
-                        const fotoHtml = r.foto
-                            ? `<img src="${r.foto.startsWith('http') || r.foto.startsWith('/') ? r.foto : '/' + r.foto}" alt="">`
-                            : `<div style="width:36px;height:36px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;"><i class="material-icons">image</i></div>`;
+                        // ── Foto ──
+                        const fotoSrc  = r.foto ? (r.foto.startsWith('http') || r.foto.startsWith('/') ? r.foto : '/' + r.foto) : '';
+                        const fotoHtml = fotoSrc
+                            ? `<img src="${fotoSrc}" alt="" style="width:50px;height:42px;object-fit:contain;border-radius:6px;background:#f8fafc;flex-shrink:0;">`
+                            : `<div style="width:50px;height:42px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:22px;">image_not_supported</i></div>`;
+
+                        // ── Cabecera: emoji tipo + nombre tipo + marca ──
+                        const emoji     = r.tipo === 'equipo' ? '🚛' : '🔧';
+                        const tipoNom   = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÍCULO' : 'AUX');
+                        const marca     = r.marca || '';
+                        const modelo    = r.label ? r.label.replace(marca, '').trim() : '';
+
+                        // ── Chips de identidad ──
+                        const icon = (name, txt) =>
+                            txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#64748b;">${name}</i> ${txt}</span>` : '';
+                        const chips = [
+                            icon('fingerprint', r.serial),
+                            icon('settings',    r.serial_motor),
+                            icon('featured_play_list', r.placa),
+                            icon('tag',         r.codigo),
+                        ].filter(Boolean).join('');
+
+                        // ── Frente ──
+                        const frenteHtml = r.frente
+                            ? `<div style="margin-top:3px;display:flex;align-items:center;gap:2px;font-size:11px;color:#64748b;"><i class="material-icons" style="font-size:12px;">location_on</i> ${r.frente}</div>`
+                            : '';
+
+                        // ── Badge estado ──
+                        const ec = r.estado === 'OPERATIVO'
+                            ? {bg:'#dcfce7',tx:'#166534'}
+                            : r.estado === 'INOPERATIVO'
+                                ? {bg:'#fee2e2',tx:'#991b1b'}
+                                : {bg:'#fef9c3',tx:'#854d0e'};
+
+                        // ── Info para el campo de texto al seleccionar ──
+                        const displayLabel = `${tipoNom} ${r.label || ''}`.trim();
+                        const displayInfo  = r.placa || r.serial || r.codigo || '';
+
                         return `
-                            <div class="fl-search-result" onclick="window.flSelectActivo('${prefix}', '${r.tipo}', ${r.id}, '${(r.label||'').replace(/'/g,"\\'")}', '${(placa||serial||'').replace(/'/g,"\\'")}')">
+                            <div class="fl-search-result"
+                                 onclick="window.flSelectActivo('${prefix}', '${r.tipo}', ${r.id}, '${displayLabel.replace(/'/g,"\\'")}', '${displayInfo.replace(/'/g,"\\'")}')">
                                 ${fotoHtml}
-                                <div style="flex:1; min-width:0;">
-                                    <div style="font-weight:700; color:#1e293b;">${labelTipo} ${r.label || '(sin marca/modelo)'}</div>
-                                    <div style="font-size:12px; color:#64748b;">${placa} ${serial} · Estado: ${r.estado || '—'}</div>
+                                <div style="flex:1;min-width:0;margin-left:10px;">
+                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                        <span style="font-weight:700;color:#1e293b;font-size:13px;">${emoji} ${tipoNom}</span>
+                                        ${marca  ? `<span style="font-size:12px;color:#475569;font-weight:600;">${marca}</span>` : ''}
+                                        ${modelo ? `<span style="font-size:11px;color:#94a3b8;">${modelo}</span>` : ''}
+                                    </div>
+                                    ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:12px;color:#475569;">${chips}</div>` : ''}
+                                    ${frenteHtml}
+                                </div>
+                                <div style="flex-shrink:0;margin-left:8px;align-self:flex-start;padding-top:2px;">
+                                    <span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;background:${ec.bg};color:${ec.tx};">${r.estado || '—'}</span>
                                 </div>
                             </div>
                         `;

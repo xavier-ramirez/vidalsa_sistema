@@ -334,49 +334,67 @@ class FallaController extends Controller
         $qUpper = mb_strtoupper($q);
         $like = "%{$qUpper}%";
 
+        // Equipos: busca por serial chasis, serial motor, placa, código patio.
+        // NO incluye MARCA en el search (solo en filtros avanzados).
         $eqs = Equipo::query()
-            ->leftJoin('documentacion AS d', 'equipos.ID_EQUIPO', '=', 'd.ID_EQUIPO')
-            ->select('equipos.ID_EQUIPO', 'equipos.CODIGO_PATIO', 'equipos.MARCA',
-                     'equipos.MODELO', 'equipos.SERIAL_CHASIS', 'equipos.ESTADO_OPERATIVO',
-                     'equipos.FOTO_EQUIPO', 'd.PLACA')
+            ->leftJoin('documentacion AS d',   'equipos.ID_EQUIPO',       '=', 'd.ID_EQUIPO')
+            ->leftJoin('tipo_equipos AS te',   'equipos.id_tipo_equipo',  '=', 'te.id')
+            ->leftJoin('frentes_trabajo AS ft','equipos.ID_FRENTE_ACTUAL','=', 'ft.ID_FRENTE')
+            ->select(
+                'equipos.ID_EQUIPO', 'equipos.CODIGO_PATIO', 'equipos.MARCA',
+                'equipos.MODELO',    'equipos.SERIAL_CHASIS', 'equipos.SERIAL_DE_MOTOR',
+                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO',
+                'd.PLACA', 'te.nombre AS TIPO_NOMBRE', 'ft.NOMBRE_FRENTE'
+            )
             ->where(function ($w) use ($like) {
-                $w->where('equipos.CODIGO_PATIO', 'like', $like)
-                  ->orWhere('equipos.SERIAL_CHASIS', 'like', $like)
-                  ->orWhere('equipos.MARCA', 'like', $like)
-                  ->orWhere('d.PLACA', 'like', $like);
+                $w->where('equipos.CODIGO_PATIO',       'like', $like)
+                  ->orWhere('equipos.SERIAL_CHASIS',    'like', $like)
+                  ->orWhere('equipos.SERIAL_DE_MOTOR',  'like', $like)
+                  ->orWhere('d.PLACA',                  'like', $like);
             })->limit(15)->get();
 
+        // Auxiliares: busca por serial, código interno, modelo.
         $aux = EquipoAuxiliar::query()
+            ->leftJoin('frentes_trabajo AS ft2',
+                'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'ft2.ID_FRENTE')
+            ->select('equipos_auxiliares.*', 'ft2.NOMBRE_FRENTE AS AUX_FRENTE')
             ->where(function ($w) use ($like) {
-                $w->where('SERIAL', 'like', $like)
-                  ->orWhere('CODIGO_INTERNO', 'like', $like)
-                  ->orWhere('MARCA', 'like', $like)
-                  ->orWhere('MODELO', 'like', $like);
+                $w->where('equipos_auxiliares.SERIAL',          'like', $like)
+                  ->orWhere('equipos_auxiliares.CODIGO_INTERNO','like', $like)
+                  ->orWhere('equipos_auxiliares.MODELO',        'like', $like);
             })->limit(15)->get();
 
         $results = [];
         foreach ($eqs as $e) {
             $results[] = [
-                'tipo'   => 'equipo',
-                'id'     => $e->ID_EQUIPO,
-                'label'  => trim(($e->MARCA ?? '') . ' ' . ($e->MODELO ?? '')),
-                'placa'  => $e->PLACA ?? '',
-                'serial' => $e->SERIAL_CHASIS ?? '',
-                'codigo' => $e->CODIGO_PATIO ?? '',
-                'estado' => $e->ESTADO_OPERATIVO ?? '',
-                'foto'   => $e->FOTO_EQUIPO ?? '',
+                'tipo'         => 'equipo',
+                'id'           => $e->ID_EQUIPO,
+                'tipo_nombre'  => strtoupper($e->TIPO_NOMBRE ?? 'VEHÍCULO'),
+                'marca'        => strtoupper($e->MARCA ?? ''),
+                'label'        => trim(($e->MARCA ?? '') . ' ' . ($e->MODELO ?? '')),
+                'placa'        => $e->PLACA ?? '',
+                'serial'       => $e->SERIAL_CHASIS ?? '',
+                'serial_motor' => $e->SERIAL_DE_MOTOR ?? '',
+                'codigo'       => $e->CODIGO_PATIO ?? '',
+                'estado'       => $e->ESTADO_OPERATIVO ?? '',
+                'foto'         => $e->FOTO_EQUIPO ?? '',
+                'frente'       => $e->NOMBRE_FRENTE ?? '',
             ];
         }
         foreach ($aux as $a) {
             $results[] = [
-                'tipo'   => 'equipo_auxiliar',
-                'id'     => $a->ID_AUXILIAR,
-                'label'  => trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')),
-                'placa'  => '',
-                'serial' => $a->SERIAL ?? '',
-                'codigo' => $a->CODIGO_INTERNO ?? '',
-                'estado' => $a->ESTADO_OPERATIVO ?? '',
-                'foto'   => $a->FOTO ?? '',
+                'tipo'         => 'equipo_auxiliar',
+                'id'           => $a->ID_AUXILIAR,
+                'tipo_nombre'  => strtoupper($a->TIPO ?? 'AUXILIAR'),
+                'marca'        => strtoupper($a->MARCA ?? ''),
+                'label'        => trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')),
+                'placa'        => '',
+                'serial'       => $a->SERIAL ?? '',
+                'serial_motor' => '',
+                'codigo'       => $a->CODIGO_INTERNO ?? '',
+                'estado'       => $a->ESTADO_OPERATIVO ?? '',
+                'foto'         => $a->FOTO ?? '',
+                'frente'       => $a->AUX_FRENTE ?? '',
             ];
         }
 

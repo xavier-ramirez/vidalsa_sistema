@@ -181,7 +181,7 @@
     /* Tablets / pantallas medias: limitar el ancho del panel para que no
        se vea desproporcionado al redimensionar entre 769-1100px */
     @media (min-width: 769px) and (max-width: 1100px) {
-        #auxAdvPanel { width: 280px !important; padding: 12px !important; }
+        /* Panel avanzado: en desktop mantiene 300px (definido inline); en mobile lo maneja el bottom-sheet arriba */
     }
 </style>
 
