@@ -180,20 +180,32 @@ class MovilizacionController extends Controller
             return response()->json(['success' => false, 'message' => 'Debes indicar el NÂ° de OperaciÃ³n.'], 422);
         }
 
-        // Normaliza: quita ceros iniciales; busca tanto el valor crudo como el padded.
-        $normalizado = ltrim($codigo, '0');
-        if ($normalizado === '') $normalizado = '0';
+        // Extraer solo la parte numérica para soportar formatos "MV-00125", "00125" o "125"
+        $numericPart = preg_replace('/[^0-9]/', '', $codigo);
+        if ($numericPart === '') {
+            $numericPart = '0';
+        }
+        $numericInt = (int)$numericPart;
+
+        // Construir variaciones posibles (antiguos string literal y nuevos int)
+        $padded5 = str_pad((string)$numericInt, 5, '0', STR_PAD_LEFT);
+        $padded6 = str_pad((string)$numericInt, 6, '0', STR_PAD_LEFT);
+        $mvPadded5 = 'MV-' . $padded5;
+        $mvPadded6 = 'MV-' . $padded6;
 
         // Acceso controlado por permisos (no por NIVEL_ACCESO). Cualquier
         // usuario autenticado puede buscar un acta por codigo de control.
         $query = Movilizacion::query();
 
         $mov = (clone $query)
-            ->where(function ($q) use ($codigo, $normalizado) {
-                $q->where('CODIGO_CONTROL', $codigo)
-                  ->orWhere('CODIGO_CONTROL', $normalizado)
-                  ->orWhereRaw('CAST(CODIGO_CONTROL AS UNSIGNED) = ?', [(int) $normalizado]);
-            })
+            ->whereIn('CODIGO_CONTROL', [
+                $codigo,
+                (string)$numericInt,
+                $padded5,
+                $padded6,
+                $mvPadded5,
+                $mvPadded6
+            ])
             ->orderBy('created_at', 'desc')
             ->first();
 
