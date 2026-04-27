@@ -1,4 +1,4 @@
-﻿@extends('layouts.estructura_base')
+@extends('layouts.estructura_base')
 @section('title', 'Reportes de Fallas')
 
 @section('content')
@@ -79,11 +79,20 @@
     .fl-modal-body { padding:18px; display:flex; flex-direction:column; gap:14px; }
     .fl-field-label { display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px; }
     .fl-input, .fl-select, .fl-textarea {
-        width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px;
-        font-size:13px; box-sizing:border-box; background:white; color:#1e293b; outline:none;
+        width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:10px;
+        font-size:13.5px; box-sizing:border-box; background:white; color:#1e293b; outline:none; transition: all 0.2s;
+    }
+    .fl-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 20px;
+        padding-right: 36px;
+        cursor: pointer;
     }
     .fl-input:focus, .fl-select:focus, .fl-textarea:focus { border-color:#0067b1; box-shadow:0 0 0 3px rgba(0,103,177,0.1); }
-    .fl-textarea { resize:vertical; min-height:70px; font-family:inherit; }
+    .fl-textarea { resize:vertical; min-height:80px; font-family:inherit; }
 
     .fl-toggle-row { display:flex; gap:8px; }
     .fl-toggle-btn {
@@ -110,43 +119,7 @@
     </h1>
 </section>
 
-<div style="display:flex; flex-wrap:wrap; gap:14px; margin:0 auto 20px auto; width:98%; max-width:1600px;">
-    <div class="stat-card" style="flex:1; min-width:240px;">
-        <div class="stat-card-row">
-            <div class="stat-card-icon" style="background:#fee2e2;">
-                <i class="material-icons" style="color:#dc2626;">cancel</i>
-            </div>
-            <div>
-                <div class="stat-card-num" id="statInoperativo">{{ $stats['inoperativo'] }}</div>
-                <div class="stat-card-label">Inoperativo</div>
-            </div>
-        </div>
-    </div>
-    <div class="stat-card" style="flex:1; min-width:240px;">
-        <div class="stat-card-row">
-            <div class="stat-card-icon" style="background:#fef3c7;">
-                <i class="material-icons" style="color:#d97706;">engineering</i>
-            </div>
-            <div>
-                <div class="stat-card-num" id="statMantenimiento">{{ $stats['mantenimiento'] }}</div>
-                <div class="stat-card-label">Mantenimiento</div>
-            </div>
-        </div>
-    </div>
-    <div class="stat-card" style="flex:1; min-width:240px;">
-        <div class="stat-card-row">
-            <div class="stat-card-icon" style="background:#fff7ed;">
-                <i class="material-icons" style="color:#c2410c;">report_problem</i>
-            </div>
-            <div>
-                <div class="stat-card-num" id="statAbiertos">{{ $stats['reportes_abiertos'] }}</div>
-                <div class="stat-card-label">Reportes Abiertos</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="fallas-grid" style="grid-template-columns: 1fr;">
+<div class="fallas-grid">
 
     {{-- Columna principal: filtros + tabla --}}
     <div>
@@ -431,17 +404,57 @@
             <div id="fallasPagination" style="margin-top:12px;">{!! $fallas->links('vendor.pagination.custom-sliding') !!}</div>
         </div>
     </div>
+
+    {{-- Columna derecha: Stats Sidebar --}}
+    <div class="counter-sidebar" id="statsSidebarContainer" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 15px;">
+        
+        <div style="background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+            <!-- Decorative Icon -->
+            <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">report_problem</i>
+            
+            <div style="position: relative; z-index: 2;">
+                <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                    <i class="material-icons" style="font-size: 14px;">pie_chart</i>
+                    Consolidado de Fallas
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <!-- Main Total: Reportes Abiertos -->
+                    <div title="Reportes Abiertos" style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px; border: 1px solid rgba(255,255,255,0.2);">
+                        <span id="statAbiertos" style="font-size: 36px; font-weight: 800; line-height: 1;">
+                            {{ $stats['reportes_abiertos'] }}
+                        </span>
+                        <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">ABIERTOS</span>
+                    </div>
+
+                    <!-- Detailed Stats Row: Inoperativo / Mantenimiento -->
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
+                        <div title="Inoperativos" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
+                            <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
+                            <strong id="statInoperativo" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['inoperativo'] }}</strong>
+                            <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativo</span>
+                        </div>
+                        <div title="En Mantenimiento" style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); transition: background 0.2s;">
+                            <i class="material-icons" style="font-size: 18px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
+                            <strong id="statMantenimiento" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['mantenimiento'] }}</strong>
+                            <span style="font-size: 8px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mantenimiento</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {{-- ─── Modal: Nuevo Reporte de Falla ─── --}}
 <div id="nuevoReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeNuevoReporteModal()">
     <div class="fl-modal">
-        <div class="fl-modal-header">
+        <div class="fl-modal-header" style="justify-content: center; position: relative;">
             <div style="display:flex; align-items:center; gap:8px;">
-                <i class="material-icons">report_problem</i>
-                <h3 style="margin:0; font-size:15px; font-weight:700;">Nuevo Reporte de Falla</h3>
+                <i class="material-icons" style="font-size: 20px;">report_problem</i>
+                <h3 style="margin:0; font-size:16px; font-weight:800;">Nuevo Reporte de Falla</h3>
             </div>
-            <button type="button" onclick="window.closeNuevoReporteModal()" style="background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i class="material-icons">close</i></button>
+            <button type="button" onclick="window.closeNuevoReporteModal()" style="background:transparent; border:none; color:white; cursor:pointer; opacity:0.7; position: absolute; right: 18px;"><i class="material-icons">close</i></button>
         </div>
         <form id="nuevoReporteForm" class="fl-modal-body" onsubmit="event.preventDefault(); window.submitNuevoReporte();">
 
@@ -449,8 +462,8 @@
             <div>
                 <span class="fl-field-label">Tipo de Reporte</span>
                 <div class="fl-toggle-row">
-                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">📝 Corto (sin acta)</div>
-                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">📄 Extenso (con PDF)</div>
+                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">⚡ Reporte Rápido</div>
+                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">📄 Acta Detallada (PDF)</div>
                 </div>
                 <input type="hidden" id="fl_tipo_reporte" name="tipo_reporte" value="corto">
             </div>
@@ -470,7 +483,7 @@
             <div>
                 <label class="fl-field-label" for="fl_estado_al_crear">Estado a aplicar al equipo</label>
                 <select id="fl_estado_al_crear" name="estado_al_crear" class="fl-select">
-                    <option value="INOPERATIVO">Inoperativo (falla crítica)</option>
+                    <option value="INOPERATIVO">Inoperativo</option>
                     <option value="EN MANTENIMIENTO">En Mantenimiento</option>
                 </select>
             </div>
