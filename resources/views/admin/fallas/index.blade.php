@@ -483,11 +483,20 @@
 
             {{-- Estado a aplicar --}}
             <div>
-                <label class="fl-field-label" for="fl_estado_al_crear">Estado a aplicar al equipo</label>
-                <select id="fl_estado_al_crear" name="estado_al_crear" class="fl-select">
-                    <option value="INOPERATIVO">Inoperativo</option>
-                    <option value="EN MANTENIMIENTO">En Mantenimiento</option>
-                </select>
+                <label class="fl-field-label">Estado a aplicar al equipo</label>
+                <div class="custom-dropdown" id="flEstadoCrearDD" style="width:100%;">
+                    <input type="hidden" id="fl_estado_al_crear" name="estado_al_crear" value="INOPERATIVO">
+                    <div class="dropdown-trigger" style="padding:0 12px; display:flex; align-items:center; background:white; border:1px solid #cbd5e1; border-radius:10px; height:45px; justify-content:space-between;" onclick="event.stopPropagation(); const c=this.nextElementSibling; document.querySelectorAll('.dropdown-content').forEach(el=>el!==c?el.style.display='none':null); c.style.display=(c.style.display==='none'||!c.style.display)?'block':'none';">
+                        <span id="fl_estado_al_crear_label" style="font-size:13.5px; color:#1e293b;">Inoperativo</span>
+                        <i class="material-icons" style="font-size:18px; color:#94a3b8;">expand_more</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px; margin-top:5px; border-radius:10px; z-index:1001; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);">
+                        <div class="dropdown-item-list" style="max-height:200px; overflow-y:auto;">
+                            <div class="dropdown-item selected" onclick="document.getElementById('fl_estado_al_crear').value='INOPERATIVO'; document.getElementById('fl_estado_al_crear_label').innerText='Inoperativo'; document.querySelectorAll('#flEstadoCrearDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">Inoperativo</div>
+                            <div class="dropdown-item" onclick="document.getElementById('fl_estado_al_crear').value='EN MANTENIMIENTO'; document.getElementById('fl_estado_al_crear_label').innerText='En Mantenimiento'; document.querySelectorAll('#flEstadoCrearDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">En Mantenimiento</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {{-- Campos extensos (visibles solo si tipo=extenso) --}}
@@ -498,32 +507,59 @@
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <div>
-                        <label class="fl-field-label" for="fl_sistema">Sistema Afectado</label>
-                        <select id="fl_sistema" name="sistema" class="fl-select">
-                            <option value="">Seleccionar...</option>
-                            @foreach(\App\Models\Falla::sistemasAfectados() as $k => $v)
-                                <option value="{{ $k }}">{{ $v }}</option>
-                            @endforeach
-                        </select>
+                        <label class="fl-field-label">Sistema Afectado</label>
+                        <div class="custom-dropdown" id="flSistemaDD" style="width:100%;">
+                            <input type="hidden" id="fl_sistema" name="sistema" value="">
+                            <div class="dropdown-trigger" style="padding:0 12px; display:flex; align-items:center; background:white; border:1px solid #cbd5e1; border-radius:10px; height:45px; justify-content:space-between;" onclick="event.stopPropagation(); const c=this.nextElementSibling; document.querySelectorAll('.dropdown-content').forEach(el=>el!==c?el.style.display='none':null); c.style.display=(c.style.display==='none'||!c.style.display)?'block':'none';">
+                                <span id="fl_sistema_label" style="font-size:13.5px; color:#94a3b8;">Seleccionar...</span>
+                                <i class="material-icons" style="font-size:18px; color:#94a3b8;">expand_more</i>
+                            </div>
+                            <div class="dropdown-content" style="padding:5px; margin-top:5px; border-radius:10px; z-index:1001; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);">
+                                <div class="dropdown-item-list" style="max-height:200px; overflow-y:auto;">
+                                    <div class="dropdown-item selected" onclick="document.getElementById('fl_sistema').value=''; document.getElementById('fl_sistema_label').innerText='Seleccionar...'; document.getElementById('fl_sistema_label').style.color='#94a3b8'; document.querySelectorAll('#flSistemaDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">Seleccionar...</div>
+                                    @foreach(\App\Models\Falla::sistemasAfectados() as $k => $v)
+                                        <div class="dropdown-item" onclick="document.getElementById('fl_sistema').value='{{ $k }}'; document.getElementById('fl_sistema_label').innerText='{{ $v }}'; document.getElementById('fl_sistema_label').style.color='#1e293b'; document.querySelectorAll('#flSistemaDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">{{ $v }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div>
-                        <label class="fl-field-label" for="fl_prioridad">Prioridad</label>
-                        <select id="fl_prioridad" name="prioridad" class="fl-select">
-                            <option value="">Seleccionar...</option>
-                            @foreach(\App\Models\Falla::prioridades() as $k => $v)
-                                <option value="{{ $k }}">{{ $v }}</option>
-                            @endforeach
-                        </select>
+                        <label class="fl-field-label">Prioridad</label>
+                        <div class="custom-dropdown" id="flPrioridadDD" style="width:100%;">
+                            <input type="hidden" id="fl_prioridad" name="prioridad" value="">
+                            <div class="dropdown-trigger" style="padding:0 12px; display:flex; align-items:center; background:white; border:1px solid #cbd5e1; border-radius:10px; height:45px; justify-content:space-between;" onclick="event.stopPropagation(); const c=this.nextElementSibling; document.querySelectorAll('.dropdown-content').forEach(el=>el!==c?el.style.display='none':null); c.style.display=(c.style.display==='none'||!c.style.display)?'block':'none';">
+                                <span id="fl_prioridad_label" style="font-size:13.5px; color:#94a3b8;">Seleccionar...</span>
+                                <i class="material-icons" style="font-size:18px; color:#94a3b8;">expand_more</i>
+                            </div>
+                            <div class="dropdown-content" style="padding:5px; margin-top:5px; border-radius:10px; z-index:1001; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);">
+                                <div class="dropdown-item-list" style="max-height:200px; overflow-y:auto;">
+                                    <div class="dropdown-item selected" onclick="document.getElementById('fl_prioridad').value=''; document.getElementById('fl_prioridad_label').innerText='Seleccionar...'; document.getElementById('fl_prioridad_label').style.color='#94a3b8'; document.querySelectorAll('#flPrioridadDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">Seleccionar...</div>
+                                    @foreach(\App\Models\Falla::prioridades() as $k => $v)
+                                        <div class="dropdown-item" onclick="document.getElementById('fl_prioridad').value='{{ $k }}'; document.getElementById('fl_prioridad_label').innerText='{{ $v }}'; document.getElementById('fl_prioridad_label').style.color='#1e293b'; document.querySelectorAll('#flPrioridadDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">{{ $v }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div>
-                    <label class="fl-field-label" for="fl_tipo_intervencion">Tipo de Intervencion</label>
-                    <select id="fl_tipo_intervencion" name="tipo_intervencion" class="fl-select">
-                        <option value="">Seleccionar...</option>
-                        @foreach(\App\Models\Falla::tiposIntervencion() as $k => $v)
-                            <option value="{{ $k }}">{{ $v }}</option>
-                        @endforeach
-                    </select>
+                    <label class="fl-field-label">Tipo de Intervencion</label>
+                    <div class="custom-dropdown" id="flIntervencionDD" style="width:100%;">
+                        <input type="hidden" id="fl_tipo_intervencion" name="tipo_intervencion" value="">
+                        <div class="dropdown-trigger" style="padding:0 12px; display:flex; align-items:center; background:white; border:1px solid #cbd5e1; border-radius:10px; height:45px; justify-content:space-between;" onclick="event.stopPropagation(); const c=this.nextElementSibling; document.querySelectorAll('.dropdown-content').forEach(el=>el!==c?el.style.display='none':null); c.style.display=(c.style.display==='none'||!c.style.display)?'block':'none';">
+                            <span id="fl_tipo_intervencion_label" style="font-size:13.5px; color:#94a3b8;">Seleccionar...</span>
+                            <i class="material-icons" style="font-size:18px; color:#94a3b8;">expand_more</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px; margin-top:5px; border-radius:10px; z-index:1001; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);">
+                            <div class="dropdown-item-list" style="max-height:200px; overflow-y:auto;">
+                                <div class="dropdown-item selected" onclick="document.getElementById('fl_tipo_intervencion').value=''; document.getElementById('fl_tipo_intervencion_label').innerText='Seleccionar...'; document.getElementById('fl_tipo_intervencion_label').style.color='#94a3b8'; document.querySelectorAll('#flIntervencionDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">Seleccionar...</div>
+                                @foreach(\App\Models\Falla::tiposIntervencion() as $k => $v)
+                                    <div class="dropdown-item" onclick="document.getElementById('fl_tipo_intervencion').value='{{ $k }}'; document.getElementById('fl_tipo_intervencion_label').innerText='{{ $v }}'; document.getElementById('fl_tipo_intervencion_label').style.color='#1e293b'; document.querySelectorAll('#flIntervencionDD .dropdown-item').forEach(i=>i.classList.remove('selected')); this.classList.add('selected'); this.parentElement.parentElement.style.display='none';">{{ $v }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="fl-field-label" for="fl_repuestos">Repuestos Estimados</label>
