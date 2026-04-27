@@ -500,7 +500,7 @@
             @if($activeUsers->count() === 0)
                 <p style="margin: 4px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 4px 0;">Nadie conectado en los últimos 30 min.</p>
             @else
-                <div style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                <div style="display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
                     @foreach($activeUsers as $u)
                         @php
                             $minsAgo = max(0, (int) floor((now()->timestamp - $u->last_activity) / 60));
