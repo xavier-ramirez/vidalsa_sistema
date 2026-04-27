@@ -139,6 +139,14 @@
         // se asignan POR ORDEN DE APARICIÓN tras el filtro, NO por slot BD.
         // Esto permite que si RESP_1=Liviana y RESP_2=Pesada, el que pasa el
         // filtro siempre obtenga la etiqueta SOLICITADO correctamente.
+        $labelsByResp = [
+            1 => 'SOLICITADO:',
+            2 => 'SOLICITADO:',
+            3 => 'ELABORADO:',
+            4 => 'REVISADO:',
+            5 => 'APROBADO:'
+        ];
+
         $firmasFiltradas = [];
         for ($i = 1; $i <= 5; $i++) {
             $nom = trim($frenteOrigen->{"RESP_{$i}_NOM"} ?? '');
@@ -155,16 +163,17 @@
 
             $pasaFiltro = $equ === '' || in_array($equ, $categoriesInActa);
             if ($pasaFiltro) {
-                $firmasFiltradas[] = ['nom' => $nom, 'car' => $car, 'ced' => $ced];
+                $firmasFiltradas[] = [
+                    'nom' => $nom, 
+                    'car' => $car, 
+                    'ced' => $ced, 
+                    'label' => $labelsByResp[$i]
+                ];
             }
         }
 
-        // Asignar etiquetas en orden secuencial al resultado filtrado
-        $labelsSeq  = ['SOLICITADO:', 'ELABORADO:', 'REVISADO:', 'APROBADO:', 'APROBADO:'];
-        $firmasList = [];
-        foreach ($firmasFiltradas as $k => $f) {
-            $firmasList[] = array_merge($f, ['label' => $labelsSeq[$k] ?? 'APROBADO:']);
-        }
+        // Ya no asignamos etiquetas secuenciales
+        $firmasList = $firmasFiltradas;
         $totalFirmas = count($firmasList);
 
         // ── Detección de Patio Maturín ─────────────────────────────────────────
