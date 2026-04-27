@@ -886,6 +886,7 @@
                                     </span>
                                 </div>
                                 <div class="cat-mini-body">
+                                    <span style="font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:-2px;">Modelo</span>
                                     <span class="cat-mini-modelo">{{ $catalogo->MODELO }}</span>
                                     @if($catalogo->MOTOR || $catalogo->COMBUSTIBLE)
                                         <span class="cat-mini-specs">
