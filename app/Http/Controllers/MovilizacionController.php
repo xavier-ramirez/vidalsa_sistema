@@ -816,7 +816,7 @@ class ActaTrasladoPDF extends \TCPDF
 
         // RIF debajo del logo en letra pequeña
         $this->SetFont('helvetica', '', 7);
-        $this->writeHTMLCell(60, 0, 15, 33, '<div style="text-align:left; color:#444444;">RIF: J-29387719-3</div>', 0, 0, 0, true, 'L', true);
+        $this->writeHTMLCell(60, 0, 15, 33, '<div style="text-align:center; color:#444444;">RIF: J-29387719-3</div>', 0, 0, 0, true, 'C', true);
 
         $this->SetFont('helvetica', '', 8.5);
         $frente = strtoupper($this->frenteOrigen ?: 'OFICINA PRINCIPAL');

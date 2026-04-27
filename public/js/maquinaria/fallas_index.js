@@ -153,7 +153,7 @@
 
                         // ── Chips de identidad ──
                         const icon = (name, txt) =>
-                            txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#64748b;">${name}</i> ${txt}</span>` : '';
+                            txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#94a3b8;">${name}</i> ${txt}</span>` : '';
                         const chips = [
                             icon('fingerprint', r.serial),
                             icon('settings',    r.serial_motor),
@@ -161,17 +161,10 @@
                             icon('tag',         r.codigo),
                         ].filter(Boolean).join('');
 
-                        // ── Frente ──
+                        // ── Frente / Ubicación (protagonista) ──
                         const frenteHtml = r.frente
-                            ? `<div style="margin-top:3px;display:flex;align-items:center;gap:2px;font-size:11px;color:#64748b;"><i class="material-icons" style="font-size:12px;">location_on</i> ${r.frente}</div>`
-                            : '';
-
-                        // ── Badge estado ──
-                        const ec = r.estado === 'OPERATIVO'
-                            ? {bg:'#dcfce7',tx:'#166534'}
-                            : r.estado === 'INOPERATIVO'
-                                ? {bg:'#fee2e2',tx:'#991b1b'}
-                                : {bg:'#fef9c3',tx:'#854d0e'};
+                            ? `<div style="margin-top:5px;display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:#3b82f6;"><i class="material-icons" style="font-size:13px;color:#3b82f6;">location_on</i> ${r.frente}</div>`
+                            : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicación asignada</div>`;
 
                         // ── Info para el campo de texto al seleccionar ──
                         const displayLabel = `${tipoNom} ${r.label || ''}`.trim();
@@ -187,11 +180,8 @@
                                         ${marca  ? `<span style="font-size:12px;color:#475569;font-weight:600;">${marca}</span>` : ''}
                                         ${modelo ? `<span style="font-size:11px;color:#94a3b8;">${modelo}</span>` : ''}
                                     </div>
-                                    ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:12px;color:#475569;">${chips}</div>` : ''}
+                                    ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:11.5px;color:#64748b;">${chips}</div>` : ''}
                                     ${frenteHtml}
-                                </div>
-                                <div style="flex-shrink:0;margin-left:8px;align-self:flex-start;padding-top:2px;">
-                                    <span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;background:${ec.bg};color:${ec.tx};">${r.estado || '—'}</span>
                                 </div>
                             </div>
                         `;
