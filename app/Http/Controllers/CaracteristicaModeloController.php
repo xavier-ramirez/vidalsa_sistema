@@ -150,14 +150,33 @@ class CaracteristicaModeloController extends Controller
                 @unlink($tempWebpPath);
             }
 
-            // AUTO-LINK: Find existing equipos with matching model + year and link them
+            // AUTO-LINK INTELIGENTE: Find existing equipos with matching model + year and link them
             if ($catalogo) {
-                // Performance Optimization: Use bulk UPDATE instead of individual updates
-                // This changes from N queries to 1 query (95% faster)
-                $linkedCount = Equipo::where('MODELO', $validated['MODELO'])
-                    ->where('ANIO', $validated['ANIO_ESPEC'])
-                    ->whereNull('ID_ESPEC') // Only link equipos that aren't already linked
-                    ->update(['ID_ESPEC' => $catalogo->ID_ESPEC]);
+                $query = \App\Models\Equipo::where('MODELO', $validated['MODELO'])
+                    ->where('ANIO', $validated['ANIO_ESPEC']);
+                    
+                $query->where(function ($q) use ($catalogo) {
+                    $q->whereNull('ID_ESPEC'); // Si no tienen catálogo
+                    
+                    // Si este catálogo NUEVO tiene foto, secuestramos los equipos
+                    // que estén amarrados a un catálogo viejo que NO tenga foto.
+                    if ($catalogo->FOTO_REFERENCIAL) {
+                        $q->orWhereHas('especificaciones', function ($subq) {
+                            $subq->whereNull('FOTO_REFERENCIAL');
+                        });
+                    }
+                });
+
+                $equiposToLink = $query->get();
+                $linkedCount = 0;
+                
+                foreach ($equiposToLink as $eq) {
+                    if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
+                        $eq->ID_ESPEC = $catalogo->ID_ESPEC;
+                        $eq->save(); // Dispara EquipoObserver (Auditoría + Caché)
+                        $linkedCount++;
+                    }
+                }
 
                 if ($linkedCount > 0) {
                     Log::info("Auto-linked {$linkedCount} equipos to catalog ID {$catalogo->ID_ESPEC} ({$validated['MODELO']} {$validated['ANIO_ESPEC']})");
@@ -289,20 +308,33 @@ class CaracteristicaModeloController extends Controller
                 @unlink($tempWebpPath);
             }
 
-            // AUTO-LINK: If model or year changed, link new matching equipos
-            $modeloChanged = ($oldModelo !== $validated['MODELO']);
-            $anioChanged = ($oldAnio !== $validated['ANIO_ESPEC']);
-            
-            if ($modeloChanged || $anioChanged) {
-                // Performance Optimization: Use bulk UPDATE instead of individual updates
-                $linkedCount = Equipo::where('MODELO', $validated['MODELO'])
-                    ->where('ANIO', $validated['ANIO_ESPEC'])
-                    ->whereNull('ID_ESPEC')
-                    ->update(['ID_ESPEC' => $catalogo->ID_ESPEC]);
-
-                if ($linkedCount > 0) {
-                    Log::info("Auto-linked {$linkedCount} equipos after catalog update to ID {$catalogo->ID_ESPEC} ({$validated['MODELO']} {$validated['ANIO_ESPEC']})");
+            // AUTO-LINK INTELIGENTE: Evaluar siempre (por si se subió una foto nueva o cambió modelo/año)
+            $query = \App\Models\Equipo::where('MODELO', $validated['MODELO'])
+                ->where('ANIO', $validated['ANIO_ESPEC']);
+                
+            $query->where(function ($q) use ($catalogo) {
+                $q->whereNull('ID_ESPEC');
+                
+                if ($catalogo->FOTO_REFERENCIAL) {
+                    $q->orWhereHas('especificaciones', function ($subq) {
+                        $subq->whereNull('FOTO_REFERENCIAL');
+                    });
                 }
+            });
+
+            $equiposToLink = $query->get();
+            $linkedCount = 0;
+            
+            foreach ($equiposToLink as $eq) {
+                if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
+                    $eq->ID_ESPEC = $catalogo->ID_ESPEC;
+                    $eq->save();
+                    $linkedCount++;
+                }
+            }
+
+            if ($linkedCount > 0) {
+                Log::info("Auto-linked {$linkedCount} equipos after catalog update to ID {$catalogo->ID_ESPEC} ({$validated['MODELO']} {$validated['ANIO_ESPEC']})");
             }
 
             // Auditoria: diff de campos editados (solo los que realmente cambiaron)
