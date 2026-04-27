@@ -244,12 +244,28 @@ class EquipoAuxiliarController extends Controller
             'en_almacen'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN_ALMACEN')->count(),
         ];
 
-        // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
-        $distribucion = (clone $statsBase)
-            ->selectRaw('TIPO, COUNT(*) as total')
-            ->groupBy('TIPO')
-            ->orderByDesc('total')
-            ->get();
+        $hasTipoFilter = $request->filled('tipo') && $request->tipo !== 'all';
+        $hasFrenteFilter = $request->filled('id_frente') && $request->id_frente !== 'all';
+        $showFrentes = $hasTipoFilter && !$hasFrenteFilter;
+
+        $distribucion = collect();
+        $distribucionFrentes = collect();
+
+        if ($showFrentes) {
+            $distribucionFrentes = (clone $statsBase)
+                ->leftJoin('frentes', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes.ID_FRENTE')
+                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
+                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes.NOMBRE_FRENTE')
+                ->orderByDesc('total')
+                ->get();
+        } else {
+            // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
+            $distribucion = (clone $statsBase)
+                ->selectRaw('TIPO, COUNT(*) as total')
+                ->groupBy('TIPO')
+                ->orderByDesc('total')
+                ->get();
+        }
 
         // Mapa pre-calculado de detalles para los auxiliares visibles.
         // Se inyecta en window.auxDetailsMap para que el modal del ojo abra
@@ -295,6 +311,9 @@ class EquipoAuxiliarController extends Controller
                 'count'        => $auxiliares->total(),
                 'stats'        => $stats,
                 'distribucion' => $distribucion,
+                'distribucionFrentes' => $distribucionFrentes,
+                'showFrentes'  => $showFrentes,
+                'distribucionHtml' => view('admin.equipos_auxiliares.partials.distribucion_stats', compact('distribucion', 'distribucionFrentes', 'showFrentes', 'tipos'))->render(),
                 'hasFilter'    => $hasFilter,
                 // El frontend (cargarAuxiliares) hace Object.assign(window.auxDetailsMap, ...)
                 // para que el modal del ojo siga abriendo instant tras paginacion/filtro.
@@ -313,7 +332,7 @@ class EquipoAuxiliarController extends Controller
         }
 
         return view('admin.equipos_auxiliares.index', compact(
-            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'hasFilter', 'photoByModel',
+            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'distribucionFrentes', 'showFrentes', 'hasFilter', 'photoByModel',
             'availableMarcas', 'availableModelos', 'availableCapacidades', 'auxDetailsMap',
             'frenteEspecial', 'availableUbicaciones', 'ubicacionesStats'
         ));

@@ -1095,11 +1095,10 @@
                 set('auxStatsOperativos',  data.stats.operativos);
                 set('auxStatsInoperativos',data.stats.inoperativos);
             }
-            if (data.distribucion) {
-                const valTipo = document.getElementById('aux_main_val_tipo');
-                const isTipoFiltered = valTipo && valTipo.value && valTipo.value !== 'all';
-                if (!isTipoFiltered) {
-                    renderDistribucion(data.distribucion);
+            if (data.distribucionHtml) {
+                const cont = document.getElementById('auxDistribucionContainer');
+                if (cont) {
+                    cont.innerHTML = data.distribucionHtml;
                 }
             }
 
@@ -1157,25 +1156,7 @@
         .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
 
-    function renderDistribucion(rows) {
-        const cont = document.getElementById('auxDistribucionContainer');
-        if (!cont) return;
-        if (!rows || !rows.length) {
-            cont.innerHTML = '<h4 style="margin:0 0 12px 0;font-size:12px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;">Distribución</h4><p style="color:#94a3b8;font-size:12px;margin:8px 0 0 0;">Sin datos para mostrar.</p>';
-            return;
-        }
-        const total = rows.reduce((a,r) => a + parseInt(r.total,10), 0);
-        const TIPOS = @json($tipos);
-        let html = '<h4 style="margin:0 0 12px 0;font-size:12px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;"><i class="material-icons" style="font-size:18px;color:#3b82f6;">pie_chart</i>Distribución</h4>';
-        html += '<ul style="list-style:none;padding:0;margin:0;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">';
-        rows.forEach(r => {
-            const pct = total > 0 ? (parseInt(r.total,10) / total) * 100 : 0;
-            const label = (TIPOS[r.TIPO] || r.TIPO).toUpperCase();
-            html += '<li onclick="window.auxFilterByTipo(\''+r.TIPO+'\')" style="padding:4px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'transparent\'"><div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;"><span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;">'+label+'</span><span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;">'+r.total+'</span></div><div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#3b82f6 0%,#2563eb 100%);"></div></div></li>';
-        });
-        html += '</ul>';
-        cont.innerHTML = html;
-    }
+
 
     // Helpers para filtrar desde Consolidado + Distribucion (clicks).
     // El listado usa auxMainSelect (autocomplete custom) — antes se llamaba
