@@ -73,14 +73,14 @@
     </table>
 
     <!-- ===================== TABLA DE EQUIPOS =====================
-     - Sin nobr en la tabla completa: permite que fluya entre páginas naturalmente
-     - nobr="true" en cada fila: evita que UNA fila quede partida a mitad
      - thead: TCPDF repite el encabezado automáticamente en cada página nueva
--->
-    {{-- TCPDF: border="1" en la tabla (atributo HTML, no CSS).
-         Se usa <td> en el thead en lugar de <th> porque TCPDF calcula
-         el ancho de <th> de forma distinta a <td>, provocando que el
-         encabezado repetido en pagina 2+ aparezca desalineado. --}}
+     - NOTA TCPDF: No usar nobr="true" en las filas (tr) del tbody, ya que
+       esto causa que TCPDF pierda el contexto de los anchos de columna al
+       saltar de página, desalineando el encabezado del cuerpo.
+       Los anchos (width) deben definirse estrictamente en los <th> del
+       encabezado con atributos HTML y CSS inline para garantizar la
+       sincronización perfecta entre páginas.
+    =========================================================== -->
     <table width="100%" border="1" cellpadding="5" cellspacing="0">
         <thead>
             <tr bgcolor="#e6f2ff">
