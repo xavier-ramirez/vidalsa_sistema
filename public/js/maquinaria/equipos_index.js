@@ -2082,9 +2082,17 @@ if (!window._equiposWindowListenersReady) {
         const splitMenu = document.getElementById('splitDropdownMenu');
 
         if (splitMenu) {
-            if (!e.target.closest('#splitDropdownMenu')) {
+            if (!e.target.closest('#splitDropdownMenu') && !e.target.closest('#btnAcciones')) {
                 // Clic fuera del menú lo cierra
                 splitMenu.style.display = 'none';
+            }
+        }
+
+        // 3. Manejar advancedFilterPanel
+        const advPanel = document.getElementById('advancedFilterPanel');
+        if (advPanel && advPanel.style.display === 'block') {
+            if (!e.target.closest('#advancedFilterPanel') && !e.target.closest('#btnAdvancedFilter')) {
+                advPanel.style.display = 'none';
             }
         }
     });
