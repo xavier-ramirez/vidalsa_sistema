@@ -308,6 +308,24 @@ class CaracteristicaModeloController extends Controller
                 @unlink($tempWebpPath);
             }
 
+            // AUTO-UNLINK: Si el modelo o el año cambió, desvincular los equipos que ya no coinciden
+            // para evitar que un equipo se quede con la foto/especificaciones de un modelo diferente.
+            $modeloChanged = ($oldModelo !== $validated['MODELO']);
+            $anioChanged = ($oldAnio !== $validated['ANIO_ESPEC']);
+            
+            if ($modeloChanged || $anioChanged) {
+                $equiposToUnlink = \App\Models\Equipo::where('ID_ESPEC', $catalogo->ID_ESPEC)
+                    ->where(function($q) use ($validated) {
+                        $q->where('MODELO', '!=', $validated['MODELO'])
+                          ->orWhere('ANIO', '!=', $validated['ANIO_ESPEC']);
+                    })->get();
+                    
+                foreach ($equiposToUnlink as $eq) {
+                    $eq->ID_ESPEC = null;
+                    $eq->save(); // Dispara Observer (Auditoría + Caché)
+                }
+            }
+
             // AUTO-LINK INTELIGENTE: Evaluar siempre (por si se subió una foto nueva o cambió modelo/año)
             $query = \App\Models\Equipo::where('MODELO', $validated['MODELO'])
                 ->where('ANIO', $validated['ANIO_ESPEC']);
