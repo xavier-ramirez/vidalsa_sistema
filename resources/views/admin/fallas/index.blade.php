@@ -164,20 +164,7 @@
 {{-- Toolbar (estilo /admin/equipos: custom-dropdown) --}}
 <div class="filter-toolbar-container" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
 
-    {{-- Buscar por serial / placa --}}
-    <div class="filter-item aligned-filter" style="flex:1.5; min-width:200px;">
-        <div class="search-wrapper" style="width:100%; border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }}; background:{{ request('search') ? '#e1effa' : '#fff' }};">
-            <i class="material-icons search-icon">search</i>
-            <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
-                   placeholder="Buscar Seriales / Placa..." class="search-input-field" autocomplete="off"
-                   oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 350);">
-            <i id="fallasSearchClear" class="material-icons clear-icon"
-               style="display:{{ request('search') ? 'block' : 'none' }};"
-               onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>
-        </div>
-    </div>
-
-    {{-- Frente (en barra principal, junto al buscador) --}}
+    {{-- Frente (en barra principal) --}}
     <div class="filter-item aligned-filter" style="flex:2; min-width:220px; max-width:340px;">
         <div class="custom-dropdown" id="fallasFrenteDD" data-filter-type="id_frente" data-default-label="Todos los frentes">
             <input type="hidden" id="fallasFrente" data-filter-value value="{{ $frenteSel }}">
@@ -209,7 +196,7 @@
         <div class="custom-dropdown" id="fallasTipoActivoDD" data-filter-type="tipo_activo" data-default-label="Todos los activos">
             <input type="hidden" id="fallasTipoActivo" data-filter-value value="{{ $tipoActivoSel }}">
             <div class="dropdown-trigger {{ $tipoActivoSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $tipoActivoSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $tipoActivoSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
-                <div style="padding:0 10px; color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
+                <div style="padding:0 10px; color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
                 <input type="text" name="filter_search_dropdown" data-filter-search
                        placeholder="{{ $tipoActivoLabel }}" aria-label="Filtrar Tipo de Activo"
                        style="width:100%; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none;"
@@ -240,6 +227,19 @@
                     @endif
                 </div>
             </div>
+        </div>
+    </div>
+
+    {{-- Buscar por serial / placa --}}
+    <div class="filter-item aligned-filter" style="flex:1.5; min-width:200px;">
+        <div class="search-wrapper" style="width:100%; border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }}; background:{{ request('search') ? '#e1effa' : '#fff' }};">
+            <i class="material-icons search-icon">search</i>
+            <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
+                   placeholder="Buscar Seriales / Placa..." class="search-input-field" autocomplete="off"
+                   oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 350);">
+            <i id="fallasSearchClear" class="material-icons clear-icon"
+               style="display:{{ request('search') ? 'block' : 'none' }};"
+               onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>
         </div>
     </div>
 
