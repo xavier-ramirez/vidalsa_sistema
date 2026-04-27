@@ -53,7 +53,7 @@ class DashboardController extends Controller
             $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
 
             // 7. Catálogo Destacado (Modelos con foto para mostrar en el Dashboard)
-            $catalogosDestacados = CaracteristicaModelo::whereNotNull('FOTO_REFERENCIAL')->inRandomOrder()->limit(8)->get();
+            $catalogosDestacados = CaracteristicaModelo::whereNotNull('FOTO_REFERENCIAL')->inRandomOrder()->limit(7)->get();
 
             return compact(
                 'movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity',
