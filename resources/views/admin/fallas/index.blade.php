@@ -5,7 +5,7 @@
 <style>
     .fallas-grid {
         display: grid;
-        grid-template-columns: 1fr 280px;
+        grid-template-columns: 1fr 350px;
         gap: 20px;
         width: 98%;
         max-width: 1600px;
