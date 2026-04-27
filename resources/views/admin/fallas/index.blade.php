@@ -12,10 +12,10 @@
         margin: 0 auto;
     }
     @media (max-width: 768px) {
-        .fallas-grid { grid-template-columns: minmax(0, 1fr) !important; }
+        .fallas-grid { grid-template-columns: minmax(0, 1fr) !important; width: 100% !important; }
         .falla-row-card {
             grid-template-columns: 80px minmax(0, 1fr) !important;
-            padding: 12px !important;
+            padding: 10px 8px !important;
             align-items: start !important;
         }
         .falla-foto {

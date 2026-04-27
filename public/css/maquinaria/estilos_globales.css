@@ -2895,7 +2895,8 @@ input:-webkit-autofill:active {
     }
 
     /* Reducir los márgenes laterales excesivos para dejar solo un marco minimalista 8px */
-    body:has(.page-layout-grid) .main-viewport {
+    body:has(.page-layout-grid) .main-viewport,
+    body:has(.fallas-grid) .main-viewport {
         padding-left: 8px !important;
         padding-right: 8px !important;
         width: 100% !important;
