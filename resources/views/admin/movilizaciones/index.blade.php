@@ -211,29 +211,29 @@
                 </button>
 
                 <!-- Dropdown Menu -->
-                <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: 100%; right: 0; width: 240px; background: #ffffff; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12); border: 1px solid #e2e8f0; z-index: 50; margin-top: 5px; overflow: hidden; animation: slideDown 0.2s ease-out;">
+                <div id="splitDropdownMenuMov" style="display: none; position: absolute; top: calc(100% + 5px); right: 0; min-width: 240px; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.18); z-index: 50; overflow: hidden; animation: slideDown 0.2s ease-out;">
                     {{-- Reimprimir Acta: disponible para cualquier usuario autenticado --}}
                     <div style="padding: 6px;">
                         <button type="button"
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window.openReimprimirActaModal();"
-                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #0067b1; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
-                            onmouseover="this.style.background='#e1effa'" onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size: 18px; line-height: 1;">print</i>
+                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
+                            onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                            <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0284c7;">print</i></div>
                             <span>Reimprimir Acta por Código</span>
                         </button>
                     </div>
 
                     @can('super.admin')
-                    <div style="padding: 6px; border-top: 1px solid #e2e8f0;">
+                    <div style="padding: 6px; border-top: 1px solid #cbd5e1;">
                         <button type="button"
                             onclick="document.getElementById('splitDropdownMenuMov').style.display='none'; window._eliminarSeleccionados();"
-                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #ef4444; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
-                            onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'">
-                            <i class="material-icons" style="font-size: 18px; line-height: 1;">delete</i>
+                            style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
+                            onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                            <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete</i></div>
                             <span>Eliminar seleccionados</span>
                         </button>
                     </div>
-                    <div style="padding: 8px 14px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 6px;">
+                    <div style="padding: 8px 14px; font-size: 11px; color: #64748b; border-top: 1px solid #cbd5e1; display: flex; align-items: center; gap: 6px;">
                         <i class="material-icons" style="font-size: 14px; line-height: 1;">touch_app</i>
                         <span>Haz click en las filas para seleccionarlas</span>
                     </div>
@@ -429,47 +429,47 @@ window._eliminarSeleccionados = function () {
      onclick="if(event.target===this) window.closeReimprimirActaModal()">
     <div style="background:white; width:100%; max-width:440px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); overflow:hidden; animation:reimprimirIn 0.22s cubic-bezier(0.16,1,0.3,1);">
         <!-- Header (misma paleta que el modal de Anclaje/Ubicacion: #1e293b solido) -->
-        <div style="background:#1e293b; padding:16px 20px; color:white; position:relative;">
-            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <i class="material-icons" style="font-size:22px;">print</i>
-                    <h2 style="margin:0; font-size:16px; font-weight:800;">Reimprimir Acta de Traslado</h2>
+        <div style="background:#1e293b; padding:10px 16px; color:white; position:relative;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:2px; text-align:center;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <i class="material-icons" style="font-size:20px;">print</i>
+                    <h2 style="margin:0; font-size:15px; font-weight:800;">Reimprimir Acta de Traslado</h2>
                 </div>
-                <p style="margin:2px 0 0; font-size:12px; opacity:0.85;">Busca por N° de Operación del informe</p>
+                <p style="margin:0; font-size:12px; opacity:0.85;">Busca por N° de Operación del informe</p>
             </div>
             <button type="button" onclick="window.closeReimprimirActaModal()" aria-label="Cerrar"
-                style="background:rgba(255,255,255,0.15); border:none; color:white; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:absolute; top:14px; right:16px;">
-                <i class="material-icons" style="font-size:18px;">close</i>
+                style="background:rgba(255,255,255,0.15); border:none; color:white; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:absolute; top:10px; right:12px;">
+                <i class="material-icons" style="font-size:16px;">close</i>
             </button>
         </div>
         <!-- Body -->
-        <div style="padding:22px 24px; display:flex; flex-direction:column; gap:14px;">
+        <div style="padding:16px 20px; display:flex; flex-direction:column; gap:12px;">
             <div>
-                <label for="reimprimirCodigoInput" style="display:block; font-size:13px; font-weight:700; color:#475569; margin-bottom:6px;">
-                    <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:4px; color:#1e293b;">tag</i>
+                <label for="reimprimirCodigoInput" style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">
+                    <i class="material-icons" style="font-size:14px; vertical-align:middle; margin-right:2px; color:#1e293b;">tag</i>
                     N° de Operación
                 </label>
                 <div id="reimprimirInputBox"
-                     style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:10px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;">
-                    <i class="material-icons" style="padding:0 10px; color:#94a3b8; font-size:20px; flex-shrink:0;">search</i>
+                     style="display:flex; align-items:center; border:2px solid #e2e8f0; border-radius:8px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;">
+                    <i class="material-icons" style="padding:0 8px; color:#94a3b8; font-size:18px; flex-shrink:0;">search</i>
                     <input type="text" id="reimprimirCodigoInput"
                         placeholder="Ej: 000125"
                         autocomplete="off"
-                        style="flex:1; border:none; outline:none; padding:12px 6px; font-size:14px; background:transparent; letter-spacing:0.5px;"
+                        style="flex:1; border:none; outline:none; padding:8px 6px; font-size:13px; background:transparent; letter-spacing:0.5px;"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitReimprimirActa();}">
                 </div>
             </div>
 
-            <div id="reimprimirFeedback" style="display:none; padding:10px 12px; border-radius:8px; font-size:12.5px; font-weight:600;"></div>
+            <div id="reimprimirFeedback" style="display:none; padding:8px 10px; border-radius:8px; font-size:12px; font-weight:600;"></div>
 
-            <div style="display:flex; gap:10px; justify-content:center; margin-top:4px;">
+            <div style="display:flex; gap:10px; justify-content:center; margin-top:2px;">
                 <button type="button" onclick="window.closeReimprimirActaModal()"
-                    style="padding:10px 18px; border-radius:8px; border:1px solid #e2e8f0; background:white; color:#475569; font-size:13px; font-weight:700; cursor:pointer;">
+                    style="padding:8px 16px; border-radius:8px; border:1px solid #e2e8f0; background:white; color:#475569; font-size:13px; font-weight:700; cursor:pointer;">
                     Cancelar
                 </button>
                 <button type="button" id="reimprimirSubmitBtn" onclick="window.submitReimprimirActa()"
-                    style="padding:10px 20px; border-radius:8px; border:none; background:#1e293b; color:white; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px;">
-                    <i class="material-icons" style="font-size:17px;">file_download</i> Generar
+                    style="padding:8px 16px; border-radius:8px; border:none; background:#1e293b; color:white; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <i class="material-icons" style="font-size:16px;">file_download</i> Generar
                 </button>
             </div>
         </div>

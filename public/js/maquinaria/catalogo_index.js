@@ -56,71 +56,8 @@ window.confirmDeleteCatalogo = function (id, modelName) {
 
 
 
-window.debounceTimer = null;
-window.debounceLoadCatalogo = function () {
-    if (window.debounceTimer) clearTimeout(window.debounceTimer);
-    window.debounceTimer = setTimeout(() => {
-        // Sync text inputs to hidden inputs for free text search
-        const modInput = document.getElementById('searchModeloInput');
-        const anioInput = document.getElementById('searchAnioInput');
-
-        if (modInput) document.getElementById('input_modelo_filter').value = modInput.value;
-        if (anioInput) document.getElementById('input_anio_filter').value = anioInput.value;
-
-        window.loadCatalogo();
-    }, 600); // Increased to 600ms to match Vehicles and prevent frequent preloader flashes
-};
-
 // Global AbortController to cancel pending requests
 window.currentRequestController = null;
-
-// Clear individual catalog filter (standardized function)
-window.clearCatalogoFilter = function (filterName) {
-    if (window.debounceTimer) clearTimeout(window.debounceTimer);
-
-    // Update UI Elements
-    if (filterName === 'modelo') {
-        const input = document.getElementById('searchModeloInput');
-        if (input) {
-            input.value = '';
-            input.placeholder = 'Buscar Modelo...';
-        }
-        document.getElementById('input_modelo_filter').value = '';
-        document.getElementById('btn_clear_modelo').style.display = 'none';
-
-        // Reset dropdown highlighting
-        const dropdown = document.getElementById('modeloFilterSelect');
-        if (dropdown) {
-            dropdown.querySelectorAll('.dropdown-item').forEach(item => {
-                item.classList.remove('selected');
-                item.style.fontWeight = '';
-                item.style.color = '';
-            });
-            // Re-select "Todos"
-            const allOption = dropdown.querySelector('.dropdown-item:first-child');
-            if (allOption) allOption.classList.add('selected');
-        }
-    }
-
-    if (filterName === 'anio') {
-        const input = document.getElementById('searchAnioInput');
-        if (input) {
-            input.value = '';
-            input.placeholder = 'Buscar Año...';
-        }
-        document.getElementById('input_anio_filter').value = '';
-        document.getElementById('btn_clear_anio').style.display = 'none';
-
-        // Reset dropdown highlighting
-        const dropdown = document.getElementById('anioFilterSelect');
-        if (dropdown) {
-            dropdown.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('selected'));
-        }
-    }
-
-    // Rely on standard load to fetch data with remaining filters
-    window.loadCatalogo();
-};
 
 
 // Standardized Load Function (Matches Equipos Logic)
@@ -165,13 +102,25 @@ window.loadCatalogo = async function (url = null, showSpinner = true) {
         baseUrl = baseUrl.split('?')[0];
     }
 
-    // If url passed (pagination), use its params + force ajax_load, OR merge?
-    // Usually pagination links already include params. 
-    // IF url is passed, we normally trust it but ensure ajax_load is there.
+    // If url passed (pagination), use its params + force ajax_load
     let finalUrl;
     if (url) {
         const urlObj = new URL(url, window.location.origin);
         urlObj.searchParams.set('ajax_load', '1');
+        
+        // Merge current UI filters into the pagination URL
+        // This ensures that if the user clicks a stale pagination link,
+        // it still applies the latest filters they selected.
+        Object.entries(filters).forEach(([key, value]) => {
+            if (key !== 'ajax_load') {
+                if (value && typeof value === 'string' && value.trim() !== '') {
+                    urlObj.searchParams.set(key, value.trim());
+                } else {
+                    urlObj.searchParams.delete(key);
+                }
+            }
+        });
+        
         finalUrl = urlObj.toString();
     } else {
         finalUrl = baseUrl + '?' + params.toString();
@@ -260,12 +209,9 @@ function initCatalogo() {
         });
     }
 
-    // Reload via AJAX solo si hay parámetros de búsqueda (en carga inicial)
-    var hasParams = window.location.search.length > 1;
-    if (hasParams && !window.catalogoInitialLoadDone) { 
-        window.catalogoInitialLoadDone = true;
-        window.loadCatalogo(); 
-    }
+    // Removed buggy AJAX reload on initial load. 
+    // Laravel SSR handles initial parameters perfectly.
+    window.catalogoInitialLoadDone = true;
 }
 
 // Global Event Delegation for Pagination (Solves intermittent click failures)

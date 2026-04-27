@@ -222,7 +222,7 @@ class MovilizacionController extends Controller
         try {
             $equipo = \App\Models\Equipo::lockForUpdate()->findOrFail($request->ID_EQUIPO);
 
-            $nextId = $this->generateNextCodigoControl();
+            $nextId = self::generateNextCodigoControl();
 
             $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
             $now = now();
@@ -298,7 +298,7 @@ class MovilizacionController extends Controller
             $now        = now();
             $generarPdf = (bool) $request->input('generar_pdf', true);
 
-            $nextId = $generarPdf ? $this->generateNextCodigoControl() : null;
+            $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
 
             $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
                 ->lockForUpdate()
@@ -686,7 +686,7 @@ class MovilizacionController extends Controller
         DB::beginTransaction();
         try {
             $equipo  = \App\Models\Equipo::lockForUpdate()->findOrFail($request->ID_EQUIPO);
-            $nextId = $this->generateNextCodigoControl();
+            $nextId = self::generateNextCodigoControl();
 
             $now = now();
             Movilizacion::create([
@@ -750,10 +750,10 @@ class MovilizacionController extends Controller
     // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
-     * Genera el siguiente CODIGO_CONTROL de forma atÃ³mica.
-     * DEBE ser llamado dentro de una transacciÃ³n activa (DB::beginTransaction()).
+     * Genera el siguiente CODIGO_CONTROL de forma atómica.
+     * DEBE ser llamado dentro de una transacción activa (DB::beginTransaction()).
      */
-    private function generateNextCodigoControl(): int
+    public static function generateNextCodigoControl(): int
     {
         // â”€â”€ BLOQUEO ATÃ“MICO DE FILA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // lockForUpdate() sobre una PRIMARY KEY especÃ­fica bloquea exactamente esa

@@ -1488,62 +1488,50 @@ class EquipoAuxiliarController extends Controller
         // Capturamos el frente origen ANTES del UPDATE para el historial.
         // Sin esto, despues del update todos los registros tendrian
         // ID_FRENTE_ORIGEN = ID_FRENTE_DESTINO (porque ya cambio).
-        $auxParaMover = (clone $bulkQuery)->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
-
-        $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId]);
-
-        // Registro en movilizacion_historial: 1 fila por auxiliar movilizado.
-        // Mismo patron que MovilizacionController::bulkStore para equipos.
-        // Asi el modulo de historial y el endpoint de movilizaciones de aux
-        // pueden listarlas tras la operacion.
         $userEmail = optional(auth()->user())->CORREO_ELECTRONICO ?? 'SISTEMA';
-        $now = now();
-        $codigoControl = $generarPdf ? $this->generateNextCodigoControlAux() : null;
-        $movilizacionIds = [];
 
-        foreach ($auxParaMover as $aux) {
-            $mov = \App\Models\Movilizacion::create([
-                'CODIGO_CONTROL'    => $codigoControl,
-                'ID_EQUIPO'         => null,
-                'ID_AUXILIAR'       => $aux->ID_AUXILIAR,
-                'ID_FRENTE_ORIGEN'  => $aux->ID_FRENTE_ACTUAL ?? 1,
-                'ID_FRENTE_DESTINO' => $frenteId,
-                'FECHA_DESPACHO'    => $generarPdf ? $now : null,
-                'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
-                'USUARIO_REGISTRO'  => $userEmail,
-            ]);
-            $movilizacionIds[] = $mov->ID_MOVILIZACION;
-        }
+        // Envolvemos en transaccion porque MovilizacionController::generateNextCodigoControl() hace lockForUpdate()
+        $result = DB::transaction(function () use ($bulkQuery, $frenteId, $generarPdf, $userEmail) {
+            $auxParaMover = (clone $bulkQuery)->lockForUpdate()->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
+            $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId]);
+
+            $now = now();
+            $codigoControl = $generarPdf ? \App\Http\Controllers\MovilizacionController::generateNextCodigoControl() : null;
+            $movilizacionIds = [];
+
+            foreach ($auxParaMover as $aux) {
+                $mov = \App\Models\Movilizacion::create([
+                    'CODIGO_CONTROL'    => $codigoControl,
+                    'ID_EQUIPO'         => null,
+                    'ID_AUXILIAR'       => $aux->ID_AUXILIAR,
+                    'ID_FRENTE_ORIGEN'  => $aux->ID_FRENTE_ACTUAL ?? 1,
+                    'ID_FRENTE_DESTINO' => $frenteId,
+                    'FECHA_DESPACHO'    => $generarPdf ? $now : null,
+                    'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
+                    'USUARIO_REGISTRO'  => $userEmail,
+                ]);
+                $movilizacionIds[] = $mov->ID_MOVILIZACION;
+            }
+
+            return [
+                'affected' => $affected,
+                'codigoControl' => $codigoControl,
+                'movilizacionIds' => $movilizacionIds,
+            ];
+        });
 
         return response()->json([
             'success'           => true,
-            'message'           => "Se movilizaron {$affected} equipo(s) auxiliar(es) al frente destino.",
-            'affected'          => $affected,
-            'count'             => $affected,
-            'codigo_control'    => $codigoControl,
+            'message'           => "Se movilizaron {$result['affected']} equipo(s) auxiliar(es) al frente destino.",
+            'affected'          => $result['affected'],
+            'count'             => $result['affected'],
+            'codigo_control'    => $result['codigoControl'],
             'generar_pdf'       => $generarPdf,
-            'movilizacion_ids'  => $movilizacionIds,
+            'movilizacion_ids'  => $result['movilizacionIds'],
         ]);
     }
 
-    /**
-     * Genera el siguiente CODIGO_CONTROL para una movilizacion de aux.
-     * Devuelve solo los digitos (sin prefijo "MV-") para que sea consistente
-     * con MovilizacionController::generateNextCodigoControl. La vista (tabla
-     * de movilizaciones) ya antepone "MV-" al renderizar — incluir el prefijo
-     * aqui causaba el bug "MV-MV-XXXXX" en /admin/movilizaciones.
-     */
-    private function generateNextCodigoControlAux(): string
-    {
-        $last = \App\Models\Movilizacion::whereNotNull('CODIGO_CONTROL')
-            ->orderByDesc('ID_MOVILIZACION')->value('CODIGO_CONTROL');
-        $n = 1;
-        if ($last) {
-            $digits = preg_replace('/[^0-9]/', '', $last);
-            if ($digits !== '') $n = ((int) $digits) + 1;
-        }
-        return (string) $n;
-    }
+
 
     /**
      * Lista las movilizaciones de auxiliares (movilizacion_historial filtrado

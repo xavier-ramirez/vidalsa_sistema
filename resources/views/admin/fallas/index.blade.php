@@ -13,7 +13,6 @@
     }
     @media (max-width: 768px) {
         .fallas-grid { grid-template-columns: 1fr !important; }
-        .fallas-sidebar { position: static !important; }
     }
     .stat-card {
         background: white;
@@ -111,7 +110,43 @@
     </h1>
 </section>
 
-<div class="fallas-grid">
+<div style="display:flex; flex-wrap:wrap; gap:14px; margin:0 auto 20px auto; width:98%; max-width:1600px;">
+    <div class="stat-card" style="flex:1; min-width:240px;">
+        <div class="stat-card-row">
+            <div class="stat-card-icon" style="background:#fee2e2;">
+                <i class="material-icons" style="color:#dc2626;">cancel</i>
+            </div>
+            <div>
+                <div class="stat-card-num" id="statInoperativo">{{ $stats['inoperativo'] }}</div>
+                <div class="stat-card-label">Inoperativo</div>
+            </div>
+        </div>
+    </div>
+    <div class="stat-card" style="flex:1; min-width:240px;">
+        <div class="stat-card-row">
+            <div class="stat-card-icon" style="background:#fef3c7;">
+                <i class="material-icons" style="color:#d97706;">engineering</i>
+            </div>
+            <div>
+                <div class="stat-card-num" id="statMantenimiento">{{ $stats['mantenimiento'] }}</div>
+                <div class="stat-card-label">Mantenimiento</div>
+            </div>
+        </div>
+    </div>
+    <div class="stat-card" style="flex:1; min-width:240px;">
+        <div class="stat-card-row">
+            <div class="stat-card-icon" style="background:#fff7ed;">
+                <i class="material-icons" style="color:#c2410c;">report_problem</i>
+            </div>
+            <div>
+                <div class="stat-card-num" id="statAbiertos">{{ $stats['reportes_abiertos'] }}</div>
+                <div class="stat-card-label">Reportes Abiertos</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="fallas-grid" style="grid-template-columns: 1fr;">
 
     {{-- Columna principal: filtros + tabla --}}
     <div>
@@ -121,15 +156,28 @@
     $advActive = request()->filled('tipo_activo') || request()->filled('id_frente')
         || request()->filled('responsable') || request()->filled('marca')
         || request()->filled('modelo') || request()->filled('fecha_desde')
-        || request()->filled('fecha_hasta');
+        || request()->filled('fecha_hasta') || request()->filled('estatus');
 
     $estatusSel    = request('estatus');
     $estatusLabels = ['abierto' => 'Abiertos', 'cerrado' => 'Cerrados'];
     $estatusLabel  = $estatusLabels[$estatusSel] ?? 'Todos los reportes';
 
-    $tipoActivoSel    = request('tipo_activo');
-    $tipoActivoLabels = ['equipo' => 'Ã°Å¸Å¡â€º VehÃƒÂ­culos', 'equipo_auxiliar' => 'Ã°Å¸â€Â§ Auxiliares'];
-    $tipoActivoLabel  = $tipoActivoLabels[$tipoActivoSel] ?? 'Todos los activos';
+    $tipoActivoSel = request('tipo_activo');
+    if (!$tipoActivoSel) {
+        $tipoActivoLabel = 'Todos los activos';
+    } elseif ($tipoActivoSel === 'equipo') {
+        $tipoActivoLabel = 'Vehiculos (todos)';
+    } elseif ($tipoActivoSel === 'equipo_auxiliar') {
+        $tipoActivoLabel = 'Auxiliares (todos)';
+    } elseif (str_starts_with($tipoActivoSel, 'tipo_eq:')) {
+        $teId = (int) substr($tipoActivoSel, 8);
+        $teObj = $tiposEquipo->firstWhere('id', $teId);
+        $tipoActivoLabel = $teObj ? $teObj->nombre : $tipoActivoSel;
+    } elseif (str_starts_with($tipoActivoSel, 'tipo_aux:')) {
+        $tipoActivoLabel = substr($tipoActivoSel, 9);
+    } else {
+        $tipoActivoLabel = 'Todos los activos';
+    }
 
     $frenteSel    = request('id_frente');
     $frenteObj    = $frenteSel ? $frentes->firstWhere('ID_FRENTE', (int) $frenteSel) : null;
@@ -250,7 +298,7 @@
                             <div class="dropdown-item-list" style="max-height:220px; overflow-y:auto;">
                                 <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
                                      onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
-                                {{-- Grupo VehÃ­culos --}}
+                                {{-- Grupo Vehículos --}}
                                 @if($tiposEquipo->count())
                                     <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÃCULOS</div>
                                     @foreach($tiposEquipo as $te)
@@ -271,18 +319,6 @@
                     </div>
                 </div>
 
-                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
-                            <div class="dropdown-item-list">
-                                <div class="dropdown-item {{ !$tipoActivoSel ? 'selected' : '' }}" data-value=""
-                                     onclick="window.selectOption('fallasTipoActivoDD','','Todos los activos'); window.cargarFallas();">Todos los activos</div>
-                                <div class="dropdown-item {{ $tipoActivoSel=='equipo' ? 'selected' : '' }}" data-value="equipo"
-                                     onclick="window.selectOption('fallasTipoActivoDD','equipo','Ã°Å¸Å¡â€º VehÃƒÂ­culos'); window.cargarFallas();">Ã°Å¸Å¡â€º VehÃƒÂ­culos</div>
-                                <div class="dropdown-item {{ $tipoActivoSel=='equipo_auxiliar' ? 'selected' : '' }}" data-value="equipo_auxiliar"
-                                     onclick="window.selectOption('fallasTipoActivoDD','equipo_auxiliar','Ã°Å¸â€Â§ Auxiliares'); window.cargarFallas();">Ã°Å¸â€Â§ Auxiliares</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 {{-- Frente movido a barra principal --}}
 
@@ -386,7 +422,6 @@
             <i class="material-icons" style="font-size:18px;">add_circle</i> Nuevo Reporte
         </button>
     </div>
-</div>
 
             {{-- Cards de fallas --}}
             <div id="fallasTableBody" style="display:flex; flex-direction:column; gap:10px;">
@@ -396,46 +431,9 @@
             <div id="fallasPagination" style="margin-top:12px;">{!! $fallas->links('vendor.pagination.custom-sliding') !!}</div>
         </div>
     </div>
-
-    {{-- Sidebar de stats --}}
-    <div class="fallas-sidebar" style="position:sticky; top:20px; display:flex; flex-direction:column; gap:14px;">
-        <div class="stat-card">
-            <div class="stat-card-row">
-                <div class="stat-card-icon" style="background:#fee2e2;">
-                    <i class="material-icons" style="color:#dc2626;">cancel</i>
-                </div>
-                <div>
-                    <div class="stat-card-num" id="statInoperativo">{{ $stats['inoperativo'] }}</div>
-                    <div class="stat-card-label">Inoperativo</div>
-                </div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card-row">
-                <div class="stat-card-icon" style="background:#fef3c7;">
-                    <i class="material-icons" style="color:#d97706;">engineering</i>
-                </div>
-                <div>
-                    <div class="stat-card-num" id="statMantenimiento">{{ $stats['mantenimiento'] }}</div>
-                    <div class="stat-card-label">Mantenimiento</div>
-                </div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-card-row">
-                <div class="stat-card-icon" style="background:#fff7ed;">
-                    <i class="material-icons" style="color:#c2410c;">report_problem</i>
-                </div>
-                <div>
-                    <div class="stat-card-num" id="statAbiertos">{{ $stats['reportes_abiertos'] }}</div>
-                    <div class="stat-card-label">Reportes Abiertos</div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-{{-- Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Modal: Nuevo Reporte de Falla Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
+{{-- ─── Modal: Nuevo Reporte de Falla ─── --}}
 <div id="nuevoReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeNuevoReporteModal()">
     <div class="fl-modal">
         <div class="fl-modal-header">
@@ -451,15 +449,15 @@
             <div>
                 <span class="fl-field-label">Tipo de Reporte</span>
                 <div class="fl-toggle-row">
-                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">Ã°Å¸â€œÂ Corto (sin acta)</div>
-                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">Ã°Å¸â€œâ€ž Extenso (con PDF)</div>
+                    <div class="fl-toggle-btn active" data-tipo="corto" onclick="window.flSetTipo('corto')">📝 Corto (sin acta)</div>
+                    <div class="fl-toggle-btn" data-tipo="extenso" onclick="window.flSetTipo('extenso')">📄 Extenso (con PDF)</div>
                 </div>
                 <input type="hidden" id="fl_tipo_reporte" name="tipo_reporte" value="corto">
             </div>
 
             {{-- Buscador de activo --}}
             <div>
-                <label class="fl-field-label" for="fl_search_activo">Buscar Equipo (placa / serial / cÃƒÂ³d. motor)</label>
+                <label class="fl-field-label" for="fl_search_activo">Buscar Equipo (placa / serial / cod. motor)</label>
                 <input type="text" id="fl_search_activo" class="fl-input" placeholder="Ej: ABC123 / 1HGCM82..."
                        autocomplete="off" oninput="window.flSearchActivos(this.value)">
                 <div id="fl_search_results" style="border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px; display:none; background:white;"></div>
@@ -472,7 +470,7 @@
             <div>
                 <label class="fl-field-label" for="fl_estado_al_crear">Estado a aplicar al equipo</label>
                 <select id="fl_estado_al_crear" name="estado_al_crear" class="fl-select">
-                    <option value="INOPERATIVO">Inoperativo (falla crÃƒÂ­tica)</option>
+                    <option value="INOPERATIVO">Inoperativo (falla crítica)</option>
                     <option value="EN MANTENIMIENTO">En Mantenimiento</option>
                 </select>
             </div>
@@ -480,7 +478,7 @@
             {{-- Campos extensos (visibles solo si tipo=extenso) --}}
             <div id="fl_fields_extenso" style="display:none; flex-direction:column; gap:10px;">
                 <div>
-                    <label class="fl-field-label" for="fl_horometro">HorÃƒÂ³metro / Kilometraje</label>
+                    <label class="fl-field-label" for="fl_horometro">Horometro / Kilometraje</label>
                     <input type="text" id="fl_horometro" name="horometro" class="fl-input" placeholder="Ej: 12500 km / 3200 hrs">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -504,7 +502,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="fl-field-label" for="fl_tipo_intervencion">Tipo de IntervenciÃƒÂ³n</label>
+                    <label class="fl-field-label" for="fl_tipo_intervencion">Tipo de Intervencion</label>
                     <select id="fl_tipo_intervencion" name="tipo_intervencion" class="fl-select">
                         <option value="">Seleccionar...</option>
                         @foreach(\App\Models\Falla::tiposIntervencion() as $k => $v)
@@ -517,13 +515,13 @@
                     <textarea id="fl_repuestos" name="repuestos" class="fl-textarea"></textarea>
                 </div>
                 <div>
-                    <label class="fl-field-label" for="fl_observaciones">Observaciones del MecÃƒÂ¡nico</label>
+                    <label class="fl-field-label" for="fl_observaciones">Observaciones del Mecánico</label>
                     <textarea id="fl_observaciones" name="observaciones" class="fl-textarea"></textarea>
                 </div>
             </div>
 
             <div>
-                <label class="fl-field-label" for="fl_descripcion">DescripciÃƒÂ³n de la AverÃƒÂ­a</label>
+                <label class="fl-field-label" for="fl_descripcion">Descripción de la Avería</label>
                 <textarea id="fl_descripcion" name="descripcion" class="fl-textarea" placeholder="Describe brevemente la falla detectada..."></textarea>
             </div>
 
@@ -535,7 +533,7 @@
 </div>
 
 
-{{-- Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Modal: Cerrar Reporte de Falla Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ --}}
+{{-- ─── Modal: Cerrar Reporte de Falla ─── --}}
 <div id="cierreReporteOverlay" class="fl-modal-overlay" onclick="if(event.target===this) window.closeCierreModal()">
     <div class="fl-modal" style="max-width:520px;">
         <div class="fl-modal-header">
