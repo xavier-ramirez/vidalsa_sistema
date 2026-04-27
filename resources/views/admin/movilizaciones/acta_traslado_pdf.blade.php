@@ -7,19 +7,39 @@
 
 <body>
 
-    <!-- ===================== N° OPERACIÓN ===================== -->
+    <!-- ===================== CABECERA: LOGO + RIF + N° OPERACIÓN ===================== -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
-            <td align="right" style="font-size: 9pt;">
+            {{-- Columna izquierda vacía para equilibrar --}}
+            <td width="30%" valign="top">&nbsp;</td>
+
+            {{-- Centro: Logo empresa + RIF centrados --}}
+            <td width="40%" align="center" valign="top">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                        <td align="center">
+                            <img src="{{ public_path('images/maquinaria/logo.png') }}" width="110" alt="VIDALSA">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center" style="font-size: 8.5pt; color: #333; padding-top: 3px;">
+                            <b>RIF: J-29387719-3</b>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+
+            {{-- Derecha: N° Operación --}}
+            <td width="30%" align="right" valign="top" style="font-size: 9pt;">
                 <b>N° OPERACIÓN: {{ str_pad($movilizacion->CODIGO_CONTROL ?? 0, 6, '0', STR_PAD_LEFT) }}</b>
             </td>
         </tr>
     </table>
 
-    <!-- Separador N° Operación / Título (20px) -->
+    <!-- Separador Cabecera / Título (14px) -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
-            <td height="20">&nbsp;</td>
+            <td height="14">&nbsp;</td>
         </tr>
     </table>
 
