@@ -154,6 +154,33 @@
         </div>
     </div>
 
+    {{-- Frente (en barra principal, junto al buscador) --}}
+    <div class="filter-item aligned-filter" style="flex:1; min-width:140px; max-width:200px;">
+        <div class="custom-dropdown" id="fallasFrenteDD" data-filter-type="id_frente" data-default-label="Todos los frentes">
+            <input type="hidden" id="fallasFrente" data-filter-value value="{{ $frenteSel }}">
+            <div class="dropdown-trigger {{ $frenteSel ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:{{ $frenteSel ? '#e1effa' : '#fbfcfd' }}; overflow:hidden; border:1px solid {{ $frenteSel ? '#0067b1' : '#cbd5e0' }}; border-radius:12px; height:45px;">
+                <div style="padding:0 10px; color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
+                <input type="text" name="filter_search_dropdown" data-filter-search
+                       placeholder="{{ $frenteLabel }}" aria-label="Filtrar Frente"
+                       style="width:100%; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none;"
+                       oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                <i class="material-icons" data-clear-btn
+                   style="padding:0 5px; color:#64748b; font-size:18px; display:{{ $frenteSel ? 'block' : 'none' }};"
+                   onclick="event.stopPropagation(); window.clearDropdownFilter('fallasFrenteDD'); window.cargarFallas();">close</i>
+            </div>
+            <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
+                <div class="dropdown-item-list" style="max-height:200px; overflow-y:auto;">
+                    <div class="dropdown-item {{ !$frenteSel ? 'selected' : '' }}" data-value=""
+                         onclick="window.selectOption('fallasFrenteDD','','Todos los frentes'); window.cargarFallas();">Todos los frentes</div>
+                    @foreach($frentes as $fr)
+                        <div class="dropdown-item {{ $frenteSel == $fr->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $fr->ID_FRENTE }}"
+                             onclick="window.selectOption('fallasFrenteDD','{{ $fr->ID_FRENTE }}','{{ addslashes(trim($fr->NOMBRE_FRENTE)) }}'); window.cargarFallas();">{{ $fr->NOMBRE_FRENTE }}</div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Estatus (custom-dropdown) --}}
     <div class="filter-item aligned-filter" style="flex:1; min-width:140px; max-width:200px;">
         <div class="custom-dropdown" id="fallasEstatusDD" data-filter-type="estatus" data-default-label="Todos los reportes">
@@ -210,7 +237,7 @@
                     <div class="custom-dropdown" id="fallasTipoActivoDD" data-filter-type="tipo_activo" data-default-label="Todos los activos" style="font-size:12px;">
                         <input type="hidden" id="fallasTipoActivo" data-filter-value value="{{ $tipoActivoSel }}">
                         <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $tipoActivoSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
-                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">category</i></div>
+                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
                             <input type="text" name="filter_search_dropdown" data-filter-search
                                    placeholder="{{ $tipoActivoLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
                                    oninput="window.filterDropdownOptions(this)" autocomplete="off">
@@ -230,31 +257,7 @@
                     </div>
                 </div>
 
-                {{-- Frente (custom-dropdown buscable) --}}
-                <div>
-                    <span style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:5px;"><i class="material-icons" style="font-size:13px; vertical-align:middle; color:#0067b1;">place</i> Frente</span>
-                    <div class="custom-dropdown" id="fallasFrenteDD" data-filter-type="id_frente" data-default-label="Todos los frentes" style="font-size:12px;">
-                        <input type="hidden" id="fallasFrente" data-filter-value value="{{ $frenteSel }}">
-                        <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $frenteSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
-                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
-                            <input type="text" name="filter_search_dropdown" data-filter-search
-                                   placeholder="{{ $frenteLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
-                                   oninput="window.filterDropdownOptions(this)" autocomplete="off">
-                            <i class="material-icons" data-clear-btn style="padding:0 4px; color:#94a3b8; font-size:16px; display:{{ $frenteSel ? 'block' : 'none' }};"
-                               onclick="event.stopPropagation(); window.clearDropdownFilter('fallasFrenteDD'); window.cargarFallas();">close</i>
-                        </div>
-                        <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
-                            <div class="dropdown-item-list" style="max-height:160px; overflow-y:auto;">
-                                <div class="dropdown-item {{ !$frenteSel ? 'selected' : '' }}" data-value=""
-                                     onclick="window.selectOption('fallasFrenteDD','','Todos los frentes'); window.cargarFallas();">Todos los frentes</div>
-                                @foreach($frentes as $fr)
-                                    <div class="dropdown-item {{ $frenteSel == $fr->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $fr->ID_FRENTE }}"
-                                         onclick="window.selectOption('fallasFrenteDD','{{ $fr->ID_FRENTE }}','{{ addslashes(trim($fr->NOMBRE_FRENTE)) }}'); window.cargarFallas();">{{ $fr->NOMBRE_FRENTE }}</div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {{-- Frente movido a barra principal --}}
 
                 {{-- Responsable (custom-dropdown buscable) --}}
                 @if($responsables->count() > 0)
@@ -263,7 +266,7 @@
                     <div class="custom-dropdown" id="fallasResponsableDD" data-filter-type="responsable" data-default-label="Todos los responsables" style="font-size:12px;">
                         <input type="hidden" id="fallasResponsable" data-filter-value value="{{ $respSel }}">
                         <div class="dropdown-trigger" style="padding:0; display:flex; align-items:center; background:{{ $respSel ? '#e1effa' : 'white' }}; border:1px solid #e2e8f0; border-radius:6px; height:32px;">
-                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">person</i></div>
+                            <div style="padding:0 6px; color:#94a3b8;"><i class="material-icons" style="font-size:16px;">search</i></div>
                             <input type="text" name="filter_search_dropdown" data-filter-search
                                    placeholder="{{ $respLabel }}" style="width:100%; border:none; background:transparent; padding:6px 2px; font-size:12px; outline:none;"
                                    oninput="window.filterDropdownOptions(this)" autocomplete="off">
