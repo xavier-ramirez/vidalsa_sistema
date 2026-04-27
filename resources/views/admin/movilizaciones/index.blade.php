@@ -233,10 +233,7 @@
                             <span>Eliminar seleccionados</span>
                         </button>
                     </div>
-                    <div style="padding: 8px 14px; font-size: 11px; color: #64748b; border-top: 1px solid #cbd5e1; display: flex; align-items: center; gap: 6px;">
-                        <i class="material-icons" style="font-size: 14px; line-height: 1;">touch_app</i>
-                        <span>Haz click en las filas para seleccionarlas</span>
-                    </div>
+
                     @endcan
                 </div>
             </div>
