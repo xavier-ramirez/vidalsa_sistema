@@ -281,7 +281,7 @@
                     <div style="position: relative;">
                         <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
                             style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ request('estado') || request('fecha_desde') || request('fecha_hasta') ? '#e1effa' : 'white' }}; border: 1px solid {{ request('estado') || request('fecha_desde') || request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; color: {{ request('estado') || request('fecha_desde') || request('fecha_hasta') ? '#0067b1' : '#64748b' }}; box-shadow: none;"
-                            onclick="document.getElementById('advancedFilterPanel').style.display = document.getElementById('advancedFilterPanel').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                            onclick="window.toggleAdvancedFilterConsumibles(event)">
                             <i class="material-icons">filter_list</i>
                         </button>
 
@@ -434,10 +434,27 @@
 
 
             <script>
+                window.toggleAdvancedFilterConsumibles = function (event) {
+                    if(event) { event.preventDefault(); event.stopPropagation(); }
+                    var panel = document.getElementById('advancedFilterPanel');
+                    var menuAcciones = document.getElementById('splitDropdownMenu');
+                    
+                    if (menuAcciones && menuAcciones.style.display === 'block') {
+                        menuAcciones.style.display = 'none';
+                    }
+
+                    panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+                };
+
                 window.toggleAccionesMenu = function (event) {
-                    event.preventDefault();
-                    event.stopPropagation();
+                    if(event) { event.preventDefault(); event.stopPropagation(); }
                     var menu = document.getElementById('splitDropdownMenu');
+                    var panelFiltros = document.getElementById('advancedFilterPanel');
+
+                    if (panelFiltros && panelFiltros.style.display === 'block') {
+                        panelFiltros.style.display = 'none';
+                    }
+
                     menu.style.display = (menu.style.display === 'none' || menu.style.display === '') ? 'block' : 'none';
                 };
 

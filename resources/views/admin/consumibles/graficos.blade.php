@@ -395,7 +395,7 @@
             <div style="position: relative;">
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
                     style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: white; border: 1px solid #cbd5e0; color: #64748b; box-shadow: none;"
-                    onclick="const ap = document.getElementById('advancedFilterPanel'); const am = document.getElementById('splitDropdownMenu'); if (am) am.style.display = 'none'; ap.style.display = ap.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                    onclick="window.toggleAdvancedFilterGraficos(event)">
                     <i class="material-icons">filter_list</i>
                 </button>
 
@@ -428,7 +428,7 @@
             <!-- Botón Acciones -->
             <div class="acciones-wrapper" style="position: relative; flex-shrink: 0;">
                 <button type="button" id="btnAcciones"
-                    onclick="const am = document.getElementById('splitDropdownMenu'); const ap = document.getElementById('advancedFilterPanel'); if (ap) ap.style.display = 'none'; am.style.display = am.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();"
+                    onclick="window.toggleAccionesMenuGraficos(event)"
                     class="btn-primary-maquinaria"
                     style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                     <i class="material-icons">settings</i>
@@ -474,14 +474,44 @@
         </div>
     </div>
     <script>
+        window.toggleAdvancedFilterGraficos = function(event) {
+            if(event) { event.preventDefault(); event.stopPropagation(); }
+            const ap = document.getElementById('advancedFilterPanel');
+            const am = document.getElementById('splitDropdownMenu');
+            if (am && am.style.display === 'block') {
+                am.style.display = 'none';
+            }
+            if (ap) {
+                ap.style.display = (ap.style.display === 'none' || ap.style.display === '') ? 'block' : 'none';
+            }
+        };
+
+        window.toggleAccionesMenuGraficos = function(event) {
+            if(event) { event.preventDefault(); event.stopPropagation(); }
+            const am = document.getElementById('splitDropdownMenu');
+            const ap = document.getElementById('advancedFilterPanel');
+            if (ap && ap.style.display === 'block') {
+                ap.style.display = 'none';
+            }
+            if (am) {
+                am.style.display = (am.style.display === 'none' || am.style.display === '') ? 'block' : 'none';
+            }
+        };
+
         document.addEventListener('click', function (e) {
             let accMenu = document.getElementById('splitDropdownMenu');
-            if (accMenu && accMenu.style.display === 'block' && !e.target.closest('#btnAcciones') && !e.target.closest('#splitDropdownMenu')) {
-                accMenu.style.display = 'none';
+            let btnAcciones = document.getElementById('btnAcciones');
+            if (accMenu && accMenu.style.display === 'block') {
+                if (!accMenu.contains(e.target) && btnAcciones && !btnAcciones.contains(e.target)) {
+                    accMenu.style.display = 'none';
+                }
             }
             let advMenu = document.getElementById('advancedFilterPanel');
-            if (advMenu && advMenu.style.display === 'block' && !e.target.closest('#btnAdvancedFilter') && !e.target.closest('#advancedFilterPanel')) {
-                advMenu.style.display = 'none';
+            let btnAdvanced = document.getElementById('btnAdvancedFilter');
+            if (advMenu && advMenu.style.display === 'block') {
+                if (!advMenu.contains(e.target) && btnAdvanced && !btnAdvanced.contains(e.target)) {
+                    advMenu.style.display = 'none';
+                }
             }
         });
     </script>
