@@ -1095,7 +1095,7 @@
         const form   = document.getElementById('auxFiltersForm');
         const params = new URLSearchParams(new FormData(form));
         if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), {
+        return fetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         })
         .then(r => r.json())
@@ -1300,6 +1300,17 @@
             return;
         }
 
+        // ── Leer valor actual de DETALLE_UBICACION_ACTUAL desde auxDetailsMap ──
+        // Si todos tienen el MISMO valor → pre-cargar. Si difieren → dejar vacío.
+        const valoresActuales = ids.map(id => {
+            const aux = (window.auxDetailsMap && window.auxDetailsMap[id]) ? window.auxDetailsMap[id] : null;
+            return aux ? (aux.detalle_ubicacion || '') : null;
+        });
+        const todosEnCache     = valoresActuales.every(v => v !== null);
+        const valoresUnicos    = todosEnCache ? [...new Set(valoresActuales)] : [];
+        const valorPrevioComun = (todosEnCache && valoresUnicos.length === 1) ? valoresUnicos[0] : '';
+        const hayValoresMixtos = todosEnCache && valoresUnicos.length > 1;
+
         const overlay = document.createElement('div');
         overlay.id = 'auxUbicacionBulkOverlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -1333,14 +1344,16 @@
                             <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
                             Sitio específico dentro del frente
                         </label>
-                        <div id="auxUb-inputbox" style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
+                        <div id="auxUb-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                             <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
                             <input type="text" id="auxUb-input" maxlength="150" autocomplete="off"
-                                placeholder="Ej: PATIO 2, TALLER, ESTACIONAMIENTO A"
+                                value="${esc(valorPrevioComun)}"
+                                placeholder="${hayValoresMixtos ? 'Múltiples valores — escribe para sobreescribir todos' : 'Ej: PATIO 2, TALLER, ESTACIONAMIENTO A'}"
                                 style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                         </div>
                         <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
                             Indica la zona, patio, almacén o fila exacta dentro del frente.
+                            ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar la ubicación actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los auxiliares seleccionados tienen ubicaciones distintas.</span>' : '')}
                         </small>
                     </div>
                     <div id="auxUb-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
@@ -1362,9 +1375,8 @@
         document.body.style.overflow = 'hidden';
 
         const closeModal = () => { overlay.remove(); document.body.style.overflow = ''; };
-        const input = overlay.querySelector('#auxUb-input');
-        const box   = overlay.querySelector('#auxUb-inputbox');
-        const fb    = overlay.querySelector('#auxUb-feedback');
+        const input     = overlay.querySelector('#auxUb-input');
+        const fb        = overlay.querySelector('#auxUb-feedback');
         const submitBtn = overlay.querySelector('#auxUb-submit');
         setTimeout(() => input.focus(), 80);
 
@@ -1383,12 +1395,38 @@
 
         async function doSubmit() {
             const valor = (input.value || '').trim();
-            if (!valor) {
-                box.style.borderColor = '#ef4444';
-                input.focus();
-                showFb('error', 'Ingresa el detalle de ubicación.');
+
+            // Caso 1: campo vacío + había valor previo → confirmar borrado
+            if (!valor && valorPrevioComun) {
+                if (typeof window.showModal === 'function') {
+                    window.showModal({
+                        type: 'warning',
+                        title: 'Borrar Ubicación',
+                        message: 'El campo está vacío. ¿Deseas eliminar la ubicación actual ("' + valorPrevioComun + '") de ' + ids.length + ' auxiliar(es)?',
+                        confirmText: 'Sí, borrar',
+                        cancelText: 'Cancelar',
+                        onConfirm: () => _enviarUbicacion(''),
+                    });
+                } else if (confirm('El campo está vacío. ¿Borrar la ubicación actual de ' + ids.length + ' auxiliar(es)?')) {
+                    _enviarUbicacion('');
+                }
                 return;
             }
+
+            // Caso 2: campo vacío + sin valor previo → nada que guardar
+            if (!valor && !valorPrevioComun) {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Escribe una ubicación o cierra el modal sin cambios.', 'info');
+                }
+                input.focus();
+                return;
+            }
+
+            // Caso 3: hay texto → guardar normalmente
+            _enviarUbicacion(valor);
+        }
+
+        async function _enviarUbicacion(valorFinal) {
             submitBtn.disabled = true;
             if (typeof window.showPreloader === 'function') window.showPreloader();
             try {
@@ -1399,19 +1437,35 @@
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                         'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valor }),
+                    body: JSON.stringify({ ids: ids.map(Number), detalle_ubicacion: valorFinal }),
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.message || ('Error ' + res.status));
                 }
                 const data = await res.json();
+
+                // ── Actualizar cache local INMEDIATAMENTE ──────────────────────
+                // cargarAuxiliares puede paginar y no devolver este auxiliar en
+                // la ventana actual, dejando auxDetailsMap con el valor viejo.
+                const nuevoDetalle = valorFinal ? valorFinal.toUpperCase() : '';
+                if (window.auxDetailsMap) {
+                    ids.forEach(id => {
+                        if (window.auxDetailsMap[id]) {
+                            window.auxDetailsMap[id].detalle_ubicacion = nuevoDetalle;
+                        }
+                    });
+                }
+
                 if (typeof window.auxClearSelection === 'function') window.auxClearSelection();
                 closeModal();
                 if (typeof window.cargarAuxiliares === 'function') {
                     await window.cargarAuxiliares();
                 }
-                if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada en ' + (data.count || ids.length) + ' auxiliar(es).', 'success');
+                const toastMsg = valorFinal
+                    ? 'Ubicación actualizada en ' + (data.count || ids.length) + ' auxiliar(es).'
+                    : 'Ubicación borrada en ' + (data.count || ids.length) + ' auxiliar(es).';
+                if (typeof window.showToast === 'function') window.showToast(toastMsg, 'success');
             } catch (err) {
                 console.error('[Aux Ubicacion bulk]', err);
                 showFb('error', err.message || 'No se pudo actualizar.');

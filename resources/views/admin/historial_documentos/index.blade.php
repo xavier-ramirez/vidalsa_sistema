@@ -74,15 +74,51 @@
     /* Mobile: el sidebar (IPs Bloqueadas, Usuarios Activos, Total) cae al
        fondo en una sola columna. Antes el grid 1fr 280px lo dejaba apretado
        fuera de pantalla y "IPs Bloqueadas" no era accesible. */
-    @media (max-width: 768px) {
-        .hd-layout-grid {
-            grid-template-columns: 1fr !important;
+
+    /* Botón toggle Seguridad: oculto en desktop, aparece solo en móvil
+       dentro del grid de 1 columna, entre la tabla y el sidebar. */
+    .hd-mobile-security-toggle {
+        display: none;
+    }
+
+    @media (max-width: 900px) {
+        /* El botón toggle aparece dentro del grid (1 columna) */
+        .hd-mobile-security-toggle {
+            display: block;
+            width: 100%;
         }
-        .hd-layout-grid .historial-sidebar {
-            position: static !important;
-            top: auto !important;
+        /* El sidebar arranca oculto en móvil; JS lo expande al pulsar el toggle */
+        .historial-sidebar {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.35s ease, opacity 0.25s ease;
+            opacity: 0;
+            pointer-events: none;
+            /* position:static ya viene del CSS global en móvil */
+        }
+        .historial-sidebar.hd-sidebar-open {
+            max-height: 2000px; /* suficientemente grande para cualquier contenido */
+            opacity: 1;
+            pointer-events: auto;
+            /* Override del CSS global que usa max-height:0 con !important —
+               usamos .hd-layout-grid .historial-sidebar.hd-sidebar-open
+               para mayor especificidad */
+        }
+        .hd-layout-grid .historial-sidebar.hd-sidebar-open {
+            max-height: 2000px !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+        /* Boton hover */
+        #hdSecurityToggleBtn:hover {
+            background: #f8fafc !important;
+        }
+        /* Chevron rotado cuando está abierto */
+        #hdSecurityChevron.open {
+            transform: rotate(180deg);
         }
     }
+
     @media (max-width: 768px) {
         /* Mobile: forzamos row-wrap (override del .filter-toolbar-container
            global que pone column). Asi podemos tener el boton de filtros
@@ -117,20 +153,17 @@
             flex: 1 1 0 !important;
             width: 100% !important;
         }
-    }
+        /* Tabla historial sin min-width para evitar scroll horizontal */
+        #historialDocumentosTable {
+            min-width: 0 !important;
+        }
 
-    /* Mobile: tarjetas mas compactas — pedido del usuario:
-       "solo muestra el tipo de equipo (vehiculo/aux) con su serial".
-       Ocultamos: TD#1 (fecha+hora), TD#2 (autor), TD#3 (tipo doc), TD#5 (boton PDF).
-       Mostramos: TD#4 (Equipo Asociado) que ya contiene tipo + serial.
-
-       Card layout (pedido del usuario):
-         Linea 1: TD#1 (fecha+hora)  +  TD#2 (autor) — lado a lado
-         Linea 2: TD#4 (tipo equipo + serial)
-         Linea 3: TD#3 (accion editada / tipo doc)
-         TD#5 (boton PDF) flotante a la derecha del card. */
-    @media (max-width: 768px) {
-        /* Convertir tabla a stack de cards */
+        /* ── Tabla → stack de cards en móvil ──
+           Card layout:
+             Linea 1: fecha+hora (izq) + autor (der)
+             Linea 2: tipo equipo + serial
+             Linea 3: accion / tipo doc
+             Boton PDF: columna derecha flotante */
         .table-historial-mobile,
         .table-historial-mobile tbody {
             display: block;
@@ -401,9 +434,33 @@
 
         </div>
     </div>
-    
+
+    @if(auth()->check() && auth()->user()->can('super.admin'))
+    {{-- ─── Botón toggle Seguridad (solo visible en móvil) ─── --}}
+    <div class="hd-mobile-security-toggle" id="hdSecurityToggleRow">
+        <button type="button" id="hdSecurityToggleBtn" onclick="window.hdToggleSecurityPanel()"
+            style="width:100%; background:white; border:1px solid #e2e8f0; border-radius:12px; padding:11px 16px;
+                   display:flex; align-items:center; justify-content:space-between;
+                   font-size:13px; font-weight:700; color:#1e293b; cursor:pointer;
+                   box-shadow:0 1px 3px rgba(0,0,0,0.06); transition:background 0.2s;">
+            <span style="display:flex; align-items:center; gap:8px;">
+                <i class="material-icons" style="font-size:18px; color:#6d28d9;">admin_panel_settings</i>
+                Panel de Seguridad
+                @php $bipsCountBtn = isset($blockedIps) ? $blockedIps->count() : 0; @endphp
+                @if($bipsCountBtn > 0)
+                <span style="background:#fee2e2; color:#ef4444; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700;">{{ $bipsCountBtn }} IPs</span>
+                @else
+                <span style="background:#dcfce7; color:#15803d; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700;">Sin bloqueos</span>
+                @endif
+            </span>
+            <i class="material-icons" id="hdSecurityChevron" style="font-size:20px; color:#94a3b8; transition:transform 0.25s;">expand_more</i>
+        </button>
+    </div>
+    @endif
+
     <!-- Right Sidebar -->
-    <div class="counter-sidebar historial-sidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10;">
+    <div class="counter-sidebar historial-sidebar" id="historialSidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10;">
+
         <!-- Total Card -->
         <div style="background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
             <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">history</i>
@@ -566,6 +623,30 @@
         border-right-color: #93c5fd !important;
     }
 </style>
+
+{{-- Toggle del Panel de Seguridad en móvil --}}
+<script>
+(function () {
+    if (window._hdSecurityToggleAttached) return;
+    window._hdSecurityToggleAttached = true;
+
+    window.hdToggleSecurityPanel = function () {
+        var sidebar  = document.getElementById('historialSidebar');
+        var chevron  = document.getElementById('hdSecurityChevron');
+        var btn      = document.getElementById('hdSecurityToggleBtn');
+        if (!sidebar) return;
+
+        var isOpen = sidebar.classList.contains('hd-sidebar-open');
+        sidebar.classList.toggle('hd-sidebar-open', !isOpen);
+        if (chevron) chevron.classList.toggle('open', !isOpen);
+        if (btn) {
+            btn.style.background = !isOpen ? '#f3e8ff' : 'white';
+            btn.style.borderColor = !isOpen ? '#a78bfa' : '#e2e8f0';
+            btn.style.color = !isOpen ? '#6d28d9' : '#1e293b';
+        }
+    };
+})();
+</script>
 
 {{-- Cierre del panel "Filtros Avanzados" al click fuera. Idempotente. --}}
 <script>

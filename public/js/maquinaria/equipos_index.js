@@ -975,12 +975,27 @@ window.openUbicacionBulkModal = function (event) {
         return;
     }
 
+    // ── Leer valor actual de DETALLE_UBICACION_ACTUAL desde equiposData ──
+    // Si todos los equipos seleccionados tienen el MISMO valor → pre-cargar.
+    // Si difieren (o no hay datos en cache) → dejar vacío para evitar sobreescritura accidental.
+    const ids = selections.map(s => s.id);
+    const valoresActuales = ids.map(id => {
+        const eq = (window.equiposData && window.equiposData[id]) ? window.equiposData[id] : null;
+        return eq ? (eq.detalleUbicacion || '') : null;
+    });
+    // Si algún equipo no está en cache (null), el valor previo es desconocido → no pre-cargar
+    const todosEnCache = valoresActuales.every(v => v !== null);
+    const valoresUnicos = todosEnCache ? [...new Set(valoresActuales)] : [];
+    // Valor previo común (solo si todos coinciden exactamente)
+    const valorPrevioComun = (todosEnCache && valoresUnicos.length === 1) ? valoresUnicos[0] : '';
+    // Para el hint informativo: si hay valores distintos, resumirlos
+    const hayValoresMixtos = todosEnCache && valoresUnicos.length > 1;
+
     // Construir modal
     const overlay = document.createElement('div');
     overlay.id = 'ubicacionBulkOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
 
-    const ids = selections.map(s => s.id);
     const chipsHtml = selections.slice(0, 12).map(s => {
         const label = s.placa || s.chasis || s.code || ('ID:' + s.id);
         return `<span style="background:#e1effa;color:#0c4a6e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${label}</span>`;
@@ -1010,14 +1025,16 @@ window.openUbicacionBulkModal = function (event) {
                         <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
                         Sitio específico dentro del frente
                     </label>
-                    <div id="ub-inputbox" style="display:flex;align-items:center;border:1.5px solid #e2e8f0;border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
+                    <div id="ub-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                         <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
                         <input type="text" id="ub-input" maxlength="150" autocomplete="off"
-                            placeholder="Ej: PATIO 2, TALLER, ESTACIONAMIENTO A"
+                            value="${valorPrevioComun}"
+                            placeholder="${hayValoresMixtos ? 'Múltiples valores — escribe para sobreescribir todos' : 'Ej: PATIO 2, TALLER, ESTACIONAMIENTO A'}"
                             style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
                     <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
                         Indica la zona, patio, almacén o fila exacta dentro del frente.
+                        ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar la ubicación actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen ubicaciones distintas.</span>' : '')}
                     </small>
                 </div>
                 <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
@@ -1062,12 +1079,38 @@ window.openUbicacionBulkModal = function (event) {
 
     async function doSubmit() {
         const valor = (input.value || '').trim();
-        if (!valor) {
-            box.style.borderColor = '#ef4444';
-            input.focus();
-            showFb('error', 'Ingresa el detalle de ubicación.');
+
+        // Caso 1: campo vacío + había valor previo → confirmar borrado
+        if (!valor && valorPrevioComun) {
+            if (typeof window.showModal === 'function') {
+                window.showModal({
+                    type: 'warning',
+                    title: 'Borrar Ubicación',
+                    message: 'El campo está vacío. ¿Deseas eliminar la ubicación actual ("' + valorPrevioComun + '") de ' + ids.length + ' equipo(s)?',
+                    confirmText: 'Sí, borrar',
+                    cancelText: 'Cancelar',
+                    onConfirm: () => _enviarUbicacion(''),
+                });
+            } else if (confirm('El campo está vacío. ¿Borrar la ubicación actual de ' + ids.length + ' equipo(s)?')) {
+                _enviarUbicacion('');
+            }
             return;
         }
+
+        // Caso 2: campo vacío + sin valor previo → nada que guardar, informar y cerrar
+        if (!valor && !valorPrevioComun) {
+            if (typeof window.showToast === 'function') {
+                window.showToast('Escribe una ubicación o cierra el modal sin cambios.', 'info');
+            }
+            input.focus();
+            return;
+        }
+
+        // Caso 3: hay texto → guardar normalmente
+        _enviarUbicacion(valor);
+    }
+
+    async function _enviarUbicacion(valorFinal) {
         submitBtn.disabled = true;
         // Spinner GLOBAL tradicional (fondo blanco sobre toda la pagina) en vez
         // del micro-spinner inline dentro del boton.
@@ -1080,13 +1123,28 @@ window.openUbicacionBulkModal = function (event) {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ ids: ids, detalle_ubicacion: valor }),
+                body: JSON.stringify({ ids: ids, detalle_ubicacion: valorFinal }),
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.message || ('Error ' + res.status));
             }
             const data = await res.json();
+
+            // ── Actualizar cache local INMEDIATAMENTE ──────────────────────────
+            // loadEquipos puede paginar y no devolver este equipo en la ventana
+            // actual, dejando equiposData con el valor viejo. Actualizamos aquí
+            // de forma directa para que el próximo openUbicacionBulkModal lea
+            // el valor correcto sin depender del refresh de tabla.
+            const nuevoDetalle = valorFinal ? valorFinal.toUpperCase() : '';
+            if (window.equiposData) {
+                ids.forEach(id => {
+                    if (window.equiposData[id]) {
+                        window.equiposData[id].detalleUbicacion = nuevoDetalle;
+                    }
+                });
+            }
+
             if (typeof window.clearSelection === 'function') window.clearSelection();
             closeModal();
             // Esperar a que la tabla termine el primer render antes de apagar el preloader.
@@ -1095,7 +1153,10 @@ window.openUbicacionBulkModal = function (event) {
             if (typeof window.loadEquipos === 'function') {
                 await window.loadEquipos(null, true);
             }
-            if (typeof window.showToast === 'function') window.showToast('Ubicación actualizada en ' + (data.count || selections.length) + ' equipo(s).', 'success');
+            const toastMsg = valorFinal
+                ? 'Ubicación actualizada en ' + (data.count || selections.length) + ' equipo(s).'
+                : 'Ubicación borrada en ' + (data.count || selections.length) + ' equipo(s).';
+            if (typeof window.showToast === 'function') window.showToast(toastMsg, 'success');
         } catch (err) {
             console.error('[Ubicacion bulk]', err);
             showFb('error', err.message || 'No se pudo actualizar.');

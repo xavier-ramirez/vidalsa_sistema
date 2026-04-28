@@ -1079,8 +1079,10 @@ class EquipoAuxiliarController extends Controller
             'created_at'     => optional($aux->created_at)->format('d/m/Y H:i'),
             'edit_url'       => route('equipos-auxiliares.edit', $aux->ID_AUXILIAR),
             'can_edit'       => auth()->user() && auth()->user()->can('equipos.edit'),
-            'can_assign'     => auth()->user() && auth()->user()->can('equipos.assign'),
-            'can_upload_pdf' => auth()->user() && auth()->user()->can('user.edit'),
+            'can_assign'        => auth()->user() && auth()->user()->can('equipos.assign'),
+            'can_upload_pdf'    => auth()->user() && auth()->user()->can('user.edit'),
+            // Ubicación específica dentro del frente (para pre-cargar el modal de asignación)
+            'detalle_ubicacion' => $aux->DETALLE_UBICACION_ACTUAL ?? '',
         ];
     }
 
@@ -1899,10 +1901,15 @@ class EquipoAuxiliarController extends Controller
         $request->validate([
             'ids'               => 'required|array|min:1',
             'ids.*'             => 'exists:equipos_auxiliares,ID_AUXILIAR',
-            'detalle_ubicacion' => 'required|string|max:150',
+            // nullable: permite cadena vacía para borrar la ubicación existente.
+            'detalle_ubicacion' => 'nullable|string|max:150',
         ]);
 
-        $valor = mb_strtoupper(trim($request->input('detalle_ubicacion')));
+        $rawValor = $request->input('detalle_ubicacion', '');
+        // Guardar NULL cuando el valor llega vacío (borra la ubicación en BD)
+        $valor = ($rawValor !== null && trim($rawValor) !== '')
+            ? mb_strtoupper(trim($rawValor))
+            : null;
 
         return DB::transaction(function () use ($request, $valor) {
             [$isLocalUser, $frentesPermitidos] = $this->userScope();

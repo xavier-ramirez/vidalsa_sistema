@@ -3391,10 +3391,15 @@ class EquipoController extends Controller
         $request->validate([
             'ids'               => 'required|array|min:1',
             'ids.*'             => 'exists:equipos,ID_EQUIPO',
-            'detalle_ubicacion' => 'required|string|max:150',
+            // nullable: permite cadena vacía para borrar la ubicación existente.
+            'detalle_ubicacion' => 'nullable|string|max:150',
         ]);
 
-        $valor = strtoupper(trim($request->input('detalle_ubicacion')));
+        $rawValor = $request->input('detalle_ubicacion', '');
+        // Guardar NULL cuando el valor llega vacío (borra la ubicación en BD)
+        $valor = ($rawValor !== null && trim($rawValor) !== '')
+            ? strtoupper(trim($rawValor))
+            : null;
 
         // Transaccion requerida para que lockForUpdate tenga efecto real hasta el UPDATE
         // final. Evita race entre validacion "mismo frente" y el write posterior.

@@ -2894,9 +2894,48 @@ input:-webkit-autofill:active {
         display: none !important;
     }
 
+    /* Historial-documentos: sidebar también colapsa en móvil.
+       El width:100% + box-sizing override el inline style width:98% del elemento. */
+    .hd-layout-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .hd-layout-grid .historial-sidebar {
+        /* Oculto via max-height (no display:none) para que el JS
+           pueda animarlo con la clase hd-sidebar-open */
+        max-height: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        position: static !important;
+        top: auto !important;
+    }
+    /* Título: también tiene width:98% inline — forzar full width en móvil */
+    .page-title-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    /* Título historial — en móvil la section tiene padding:8px 12px (de menu.css)
+       y margin-bottom:20px (de @media 768px line 1544). Ambos generan separación
+       excesiva entre el h1 y la tarjeta de filtros. Reducimos ambos para que
+       quede como en el módulo vehículos (título pegado al contenido). */
+    body:has(.hd-layout-grid) .page-title-card {
+        margin-bottom: 4px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+    }
+
     /* Reducir los márgenes laterales excesivos para dejar solo un marco minimalista 8px */
     body:has(.page-layout-grid) .main-viewport,
-    body:has(.fallas-grid) .main-viewport {
+    body:has(.fallas-grid) .main-viewport,
+    body:has(.hd-layout-grid) .main-viewport {
         padding-left: 8px !important;
         padding-right: 8px !important;
         width: 100% !important;
@@ -2906,15 +2945,30 @@ input:-webkit-autofill:active {
         overflow-x: hidden;
     }
 
-    .page-layout-grid>.admin-card {
+    /* Tarjeta principal — sin margen y border-radius reducido en móvil */
+    .page-layout-grid > .admin-card {
         margin: 0 !important;
         border-radius: 12px !important;
-        /* Bordes redondeados más sutiles en teléfono */
+    }
+
+    /* Historial: la columna principal (primer hijo del grid) sin margen,
+       y su tarjeta blanca con border-radius reducido — igual que equipos */
+    .hd-layout-grid > div:first-child {
+        margin: 0 !important;
+        min-width: 0;
+    }
+
+    .hd-layout-grid > div:first-child > .admin-card {
+        margin: 0 !important;
+        border-radius: 12px !important;
     }
 
     body:has(.page-layout-grid) .main-viewport>div:first-child,
     body:has(.page-layout-grid) .main-viewport>h1,
-    body:has(.page-layout-grid) .main-viewport .page-title {
+    body:has(.page-layout-grid) .main-viewport .page-title,
+    body:has(.hd-layout-grid) .main-viewport>div:first-child,
+    body:has(.hd-layout-grid) .main-viewport>section,
+    body:has(.hd-layout-grid) .main-viewport .page-title {
         padding-left: 10px !important;
         padding-right: 10px !important;
     }
