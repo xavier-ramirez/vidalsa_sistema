@@ -99,12 +99,40 @@
     // â”€â”€â”€ Modal Nuevo Reporte â”€â”€â”€
     window.openNuevoReporteModal = function () {
         document.getElementById('nuevoReporteOverlay').classList.add('active');
-        // Reset
-        document.getElementById('fl_search_activo').value = '';
-        document.getElementById('fl_activo_seleccionado').style.display = 'none';
+
+        // ── Reset completo: deja el modal en blanco para nueva operación ──
+        // 1. Input de búsqueda: vaciar valor Y restaurar placeholder original
+        const searchInput = document.getElementById('fl_search_activo');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.placeholder = 'Ej: ABC123 / 1HGCM82...';
+        }
+        // 2. Resultados de búsqueda: ocultar y limpiar contenido
+        const resBox = document.getElementById('fl_search_results');
+        if (resBox) { resBox.innerHTML = ''; resBox.style.display = 'none'; }
+        // 3. Tarjeta de equipo seleccionado: ocultar y limpiar HTML interno
+        const selBox = document.getElementById('fl_activo_seleccionado');
+        if (selBox) { selBox.innerHTML = ''; selBox.style.display = 'none'; }
+        // 4. Spinner: ocultar por si quedó visible
+        const spinner = document.getElementById('fl_search_spinner');
+        if (spinner) spinner.style.display = 'none';
+        // 5. Campos ocultos del activo seleccionado
         document.getElementById('fl_activo_tipo').value = '';
         document.getElementById('fl_activo_id').value = '';
+        // 6. Reset completo del formulario (descripción, estado, etc.)
         document.getElementById('nuevoReporteForm').reset();
+        // 6b. El dropdown custom de Estado no lo resetea form.reset() — forzarlo a INOPERATIVO
+        const estadoHidden = document.getElementById('fl_estado_al_crear');
+        const estadoLabel  = document.getElementById('fl_estado_al_crear_label');
+        if (estadoHidden) estadoHidden.value = 'INOPERATIVO';
+        if (estadoLabel)  estadoLabel.innerText = 'Inoperativo';
+        document.querySelectorAll('#flEstadoCrearDD .dropdown-item').forEach((item, i) => {
+            item.classList.toggle('selected', i === 0);
+        });
+        // Cerrar el dropdown por si quedó abierto
+        const ddContent = document.querySelector('#flEstadoCrearDD .dropdown-content');
+        if (ddContent) ddContent.style.display = 'none';
+        // 7. Tipo de reporte → corto por defecto
         window.flSetTipo('corto');
     };
     window.closeNuevoReporteModal = function () {

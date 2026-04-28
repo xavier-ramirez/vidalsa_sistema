@@ -526,8 +526,14 @@
                             style="flex:1; border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }}; background:{{ request('search') ? '#e1effa' : '#fff' }};">
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="fallasSearch" name="search" value="{{ request('search') }}"
-                                placeholder="Buscar Seriales / Placa..." class="search-input-field" autocomplete="off"
-                                oninput="window._flDebounce && clearTimeout(window._flDebounce); window._flDebounce = setTimeout(window.cargarFallas, 350);">
+                                placeholder="Buscar Seriales / Placa (mín. 3 letras)..." class="search-input-field" autocomplete="off"
+                                oninput="
+                                    window._flDebounce && clearTimeout(window._flDebounce);
+                                    const _v = this.value;
+                                    if (_v.length === 0) { window.cargarFallas(); return; }
+                                    if (_v.length < 3) return;
+                                    window._flDebounce = setTimeout(window.cargarFallas, 500);
+                                ">
                             <i id="fallasSearchClear" class="material-icons clear-icon"
                                 style="display:{{ request('search') ? 'block' : 'none' }};"
                                 onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('fallasSearch').value=''; this.style.display='none'; window.cargarFallas();">close</i>

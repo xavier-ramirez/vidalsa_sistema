@@ -15,6 +15,11 @@
         {{-- Foto miniatura --}}
         <div class="falla-foto">
             @if($foto)
+                @php
+                    if (!str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
+                        $foto = '/storage/' . ltrim($foto, '/');
+                    }
+                @endphp
                 <img src="{{ url($foto) }}" alt=""
                      onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'material-icons\'>{{ $isAux ? 'construction' : 'agriculture' }}</i>';">
             @else
@@ -91,9 +96,10 @@
             </div>
             <div style="display:flex; gap:6px;">
                 @if($f->TIPO_REPORTE === 'extenso')
-                    <a href="{{ route('fallas.pdf', $f->ID_FALLA) }}" target="_blank" class="falla-btn" title="Descargar PDF">
+                    <button type="button" class="falla-btn" title="Ver PDF"
+                        onclick="window.openPdfPreview('{{ route('fallas.pdf', $f->ID_FALLA) }}', 'falla', 'Reporte {{ $f->CODIGO_REPORTE }}', 0, '', true, 'falla')">
                         <i class="material-icons" style="font-size:16px;">picture_as_pdf</i> PDF
-                    </a>
+                    </button>
                 @endif
                 @if($f->ESTADO_REPORTE === 'abierto')
                     @can('equipos.edit')

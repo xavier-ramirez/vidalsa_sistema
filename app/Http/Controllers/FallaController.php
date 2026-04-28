@@ -378,22 +378,21 @@ class FallaController extends Controller
 
         // Equipos: busca por serial chasis, serial motor, placa, código patio.
         // NO incluye MARCA en el search (solo en filtros avanzados).
-        $eqs = Equipo::query()
+        $eqs = Equipo::with('especificaciones')
             ->leftJoin('documentacion AS d',   'equipos.ID_EQUIPO',       '=', 'd.ID_EQUIPO')
             ->leftJoin('tipo_equipos AS te',   'equipos.id_tipo_equipo',  '=', 'te.id')
             ->leftJoin('frentes_trabajo AS ft','equipos.ID_FRENTE_ACTUAL','=', 'ft.ID_FRENTE')
-            ->leftJoin('caracteristicas_modelos AS cm', 'equipos.ID_ESPEC', '=', 'cm.ID_ESPEC')
             ->select(
                 'equipos.ID_EQUIPO', 'equipos.CODIGO_PATIO', 'equipos.MARCA',
                 'equipos.MODELO',    'equipos.SERIAL_CHASIS', 'equipos.SERIAL_DE_MOTOR',
-                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO', 'cm.FOTO_REFERENCIAL',
+                'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO', 'equipos.ID_ESPEC',
                 'd.PLACA', 'te.nombre AS TIPO_NOMBRE', 'ft.NOMBRE_FRENTE'
             )
             ->where(function ($w) use ($like) {
-                $w->where('equipos.CODIGO_PATIO',       'like', $like)
-                  ->orWhere('equipos.SERIAL_CHASIS',    'like', $like)
-                  ->orWhere('equipos.SERIAL_DE_MOTOR',  'like', $like)
-                  ->orWhere('d.PLACA',                  'like', $like);
+                $w->whereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
+                  ->orWhereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
+                  ->orWhereRaw('UPPER(equipos.SERIAL_DE_MOTOR) like ?', [$like])
+                  ->orWhereRaw('UPPER(d.PLACA) like ?', [$like]);
             })->limit(15)->get();
 
         // Auxiliares: busca por serial, código interno, modelo.
@@ -402,14 +401,22 @@ class FallaController extends Controller
                 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'ft2.ID_FRENTE')
             ->select('equipos_auxiliares.*', 'ft2.NOMBRE_FRENTE AS AUX_FRENTE')
             ->where(function ($w) use ($like) {
-                $w->where('equipos_auxiliares.SERIAL',          'like', $like)
-                  ->orWhere('equipos_auxiliares.CODIGO_INTERNO','like', $like)
-                  ->orWhere('equipos_auxiliares.MODELO',        'like', $like);
+                $w->whereRaw('UPPER(equipos_auxiliares.SERIAL) like ?', [$like])
+                  ->orWhereRaw('UPPER(equipos_auxiliares.CODIGO_INTERNO) like ?', [$like])
+                  ->orWhereRaw('UPPER(equipos_auxiliares.MODELO) like ?', [$like]);
             })->limit(15)->get();
 
         $results = [];
         foreach ($eqs as $e) {
-            $foto = $e->FOTO_EQUIPO ?: $e->FOTO_REFERENCIAL;
+            // Mismo orden que el resto del sistema (Equipo model accessor + EquipoController):
+            // 1º FOTO_REFERENCIAL del catálogo del modelo → 2º FOTO_EQUIPO propia del equipo
+            $rawFoto = ($e->especificaciones && $e->especificaciones->FOTO_REFERENCIAL)
+                ? $e->especificaciones->FOTO_REFERENCIAL
+                : $e->FOTO_EQUIPO;
+            $foto = $rawFoto ?? '';
+            if ($foto && !str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
+                $foto = '/storage/' . ltrim($foto, '/');
+            }
             $results[] = [
                 'tipo'         => 'equipo',
                 'id'           => $e->ID_EQUIPO,
@@ -426,6 +433,10 @@ class FallaController extends Controller
             ];
         }
         foreach ($aux as $a) {
+            $foto = $a->FOTO ?? '';
+            if ($foto && !str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
+                $foto = '/storage/' . ltrim($foto, '/');
+            }
             $results[] = [
                 'tipo'         => 'equipo_auxiliar',
                 'id'           => $a->ID_AUXILIAR,
@@ -437,7 +448,7 @@ class FallaController extends Controller
                 'serial_motor' => '',
                 'codigo'       => $a->CODIGO_INTERNO ?? '',
                 'estado'       => $a->ESTADO_OPERATIVO ?? '',
-                'foto'         => $a->FOTO ?? '',
+                'foto'         => $foto,
                 'frente'       => $a->AUX_FRENTE ?? '',
             ];
         }
