@@ -95,8 +95,7 @@
         .then(({ status, body }) => {
             if (status === 200 || status === 201) {
                 const msg = body.message || 'Equipo auxiliar actualizado correctamente.';
-                // Toast INMEDIATO + fallback en sessionStorage para post-navigate
-                if (typeof window.showToast === 'function') window.showToast(msg, 'success');
+                // Guardarlo en sessionStorage para que el index lo dispare al cargar (SPA)
                 try {
                     sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                 } catch (_) {}

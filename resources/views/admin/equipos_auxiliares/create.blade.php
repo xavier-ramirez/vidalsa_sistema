@@ -151,9 +151,7 @@
         .then(({ status, body }) => {
             if (status === 200 || status === 201) {
                 const msg = body.message || 'Equipo auxiliar registrado correctamente.';
-                // Disparar toast INMEDIATO (si existe) ademas de guardarlo en
-                // sessionStorage como fallback para cuando navigateTo recargue.
-                if (typeof window.showToast === 'function') window.showToast(msg, 'success');
+                // Guardarlo en sessionStorage para que el index lo dispare al cargar (SPA)
                 try {
                     sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                 } catch (_) {}
