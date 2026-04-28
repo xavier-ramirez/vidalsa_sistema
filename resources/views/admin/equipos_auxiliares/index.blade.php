@@ -318,7 +318,7 @@
             @endphp
             <div data-aux-role="adv" style="position:relative;flex-shrink:0;">
                 <button type="button" id="auxAdvBtn" title="Filtros Avanzados"
-                        onclick="const p=document.getElementById('auxAdvPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none'; event.stopPropagation();"
+                        onclick="window.toggleAuxAdv(event)"
                         class="btn-primary-maquinaria"
                         style="height:45px;width:45px;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;background:{{ $advActive ? '#fee2e2' : 'white' }};border:1px solid {{ $advActive ? '#ef4444' : '#cbd5e0' }};color:{{ $advActive ? '#ef4444' : '#64748b' }};box-shadow:none;">
                     <i class="material-icons">filter_list</i>
@@ -493,7 +493,7 @@
             <div data-aux-role="acciones" style="position:relative;flex-shrink:0;">
                 <button type="button" id="auxAccionesBtn" class="btn-primary-maquinaria"
                         style="height:45px;padding:0 16px;border-radius:12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;cursor:pointer;"
-                        onclick="const d=document.getElementById('auxAccionesDropdown'); d.style.display = d.style.display==='none'||!d.style.display ? 'block' : 'none'; event.stopPropagation();">
+                        onclick="window.toggleAuxAcciones(event)">
                     <i class="material-icons" style="font-size:18px;">settings</i>
                     <span>Acciones</span>
                     <i class="material-icons" style="font-size:16px;">expand_more</i>
@@ -2554,5 +2554,54 @@ window.bulkDeleteAuxiliaresSeleccionados = function () {
         proceed();
     }
 };
+
+window.toggleAuxAdv = function(event) {
+    if(event) { event.preventDefault(); event.stopPropagation(); }
+    var advPanel = document.getElementById('auxAdvPanel');
+    var accDropdown = document.getElementById('auxAccionesDropdown');
+    
+    if (accDropdown && accDropdown.style.display === 'block') {
+        accDropdown.style.display = 'none';
+    }
+    
+    if (advPanel) {
+        advPanel.style.display = (advPanel.style.display === 'none' || !advPanel.style.display) ? 'block' : 'none';
+    }
+};
+
+window.toggleAuxAcciones = function(event) {
+    if(event) { event.preventDefault(); event.stopPropagation(); }
+    var advPanel = document.getElementById('auxAdvPanel');
+    var accDropdown = document.getElementById('auxAccionesDropdown');
+    
+    if (advPanel && advPanel.style.display === 'block') {
+        advPanel.style.display = 'none';
+    }
+    
+    if (accDropdown) {
+        accDropdown.style.display = (accDropdown.style.display === 'none' || !accDropdown.style.display) ? 'block' : 'none';
+    }
+};
+
+if (!window._auxiliarPanelClickRegistered) {
+    window._auxiliarPanelClickRegistered = true;
+    document.addEventListener('click', function(e) {
+        var advPanel = document.getElementById('auxAdvPanel');
+        var advBtn = document.getElementById('auxAdvBtn');
+        if (advPanel && advPanel.style.display === 'block') {
+            if (!advPanel.contains(e.target) && advBtn && !advBtn.contains(e.target)) {
+                advPanel.style.display = 'none';
+            }
+        }
+        
+        var accDropdown = document.getElementById('auxAccionesDropdown');
+        var accBtn = document.getElementById('auxAccionesBtn');
+        if (accDropdown && accDropdown.style.display === 'block') {
+            if (!accDropdown.contains(e.target) && accBtn && !accBtn.contains(e.target)) {
+                accDropdown.style.display = 'none';
+            }
+        }
+    });
+}
 </script>
 @endsection
