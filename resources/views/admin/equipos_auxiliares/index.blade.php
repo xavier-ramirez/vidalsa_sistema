@@ -2583,25 +2583,6 @@ window.toggleAuxAcciones = function(event) {
     }
 };
 
-if (!window._auxiliarPanelClickRegistered) {
-    window._auxiliarPanelClickRegistered = true;
-    document.addEventListener('click', function(e) {
-        var advPanel = document.getElementById('auxAdvPanel');
-        var advBtn = document.getElementById('auxAdvBtn');
-        if (advPanel && advPanel.style.display === 'block') {
-            if (!advPanel.contains(e.target) && advBtn && !advBtn.contains(e.target)) {
-                advPanel.style.display = 'none';
-            }
-        }
-        
-        var accDropdown = document.getElementById('auxAccionesDropdown');
-        var accBtn = document.getElementById('auxAccionesBtn');
-        if (accDropdown && accDropdown.style.display === 'block') {
-            if (!accDropdown.contains(e.target) && accBtn && !accBtn.contains(e.target)) {
-                accDropdown.style.display = 'none';
-            }
-        }
-    });
-}
+
 </script>
 @endsection
