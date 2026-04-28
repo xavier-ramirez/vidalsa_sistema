@@ -185,13 +185,13 @@
         /* Filtros doc Propiedad/Certificado (chips redondos): mas compactos */
         #auxAdvPanel label[style*="cursor:pointer"] { padding: 6px 10px !important; font-size: 12px !important; }
         
-        /* Ajustar los items internos de las listas para que no se corten */
+        /* Ajustar los items internos de las listas para que se ajusten bien */
         #auxAdvPanel .aux-adv-opt {
             padding: 10px 12px !important;
             font-size: 13px !important;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            line-height: 1.3 !important;
         }
     }
     /* Tablets / pantallas medias: limitar el ancho del panel para que no
@@ -335,13 +335,13 @@
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
                               onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <div style="display:flex;flex-direction:column;gap:10px;">
 
                         {{-- Ubicación específica — solo visible cuando el frente
                              seleccionado es TIPO_FRENTE='ESPECIAL' (patio, almacen,
                              taller). Mismo patron que /admin/equipos: el controller
                              ya devuelve $availableUbicaciones y $frenteEspecial. --}}
-                        <div id="aux_adv_ubic_wrapper" style="grid-column: 1 / -1; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
+                        <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">
                                 <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i>
                                 Ubicación{{ isset($frenteEspecial) && $frenteEspecial ? ' (' . mb_strtoupper($frenteEspecial->NOMBRE_FRENTE) . ')' : '' }}
@@ -351,7 +351,7 @@
                                 <div style="display:flex;align-items:center;background:{{ request('detalle_ubicacion') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('detalle_ubicacion') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_detalle_ubicacion">
                                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_detalle_ubicacion" placeholder="Seleccionar ubicación..." value="{{ request('detalle_ubicacion') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;text-transform:uppercase;"
+                                           style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;text-transform:uppercase;"
                                            oninput="auxAdvFilter('detalle_ubicacion',this.value)"
                                            onfocus="auxAdvOpen('detalle_ubicacion')"
                                            onblur="setTimeout(()=>auxAdvClose('detalle_ubicacion'),200)">
@@ -379,7 +379,7 @@
                                 <div style="display:flex;align-items:center;background:{{ request('marca') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('marca') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_marca">
                                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_marca" placeholder="Ej: Miller" value="{{ request('marca') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
+                                           style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('marca',this.value)"
                                            onfocus="auxAdvOpen('marca')"
                                            onblur="setTimeout(()=>auxAdvClose('marca'),200)">
@@ -403,7 +403,7 @@
                                 <div style="display:flex;align-items:center;background:{{ request('modelo') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('modelo') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_modelo">
                                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_modelo" placeholder="Ej: Bobcat 225" value="{{ request('modelo') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
+                                           style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('modelo',this.value)"
                                            onfocus="auxAdvOpen('modelo')"
                                            onblur="setTimeout(()=>auxAdvClose('modelo'),200)">
@@ -427,7 +427,7 @@
                                 <div style="display:flex;align-items:center;background:{{ request('capacidad') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('capacidad') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_capacidad">
                                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
                                     <input type="text" id="aux_txt_capacidad" placeholder="Ej: 300A, 20 pies" value="{{ request('capacidad') }}" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
+                                           style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('capacidad',this.value)"
                                            onfocus="auxAdvOpen('capacidad')"
                                            onblur="setTimeout(()=>auxAdvClose('capacidad'),200)">
@@ -451,7 +451,7 @@
                                 <div style="display:flex;align-items:center;background:{{ request('estado') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('estado') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_estado">
                                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">flag</i>
                                     <input type="text" id="aux_txt_estado" placeholder="{{ request('estado') ? strtoupper($estados[request('estado')] ?? request('estado')) : 'Todos los estados' }}" value="" autocomplete="off"
-                                           style="flex:1;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
+                                           style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
                                            oninput="auxAdvFilter('estado',this.value)"
                                            onfocus="auxAdvOpen('estado')"
                                            onblur="setTimeout(()=>auxAdvClose('estado'),200)">
