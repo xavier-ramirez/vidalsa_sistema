@@ -367,7 +367,7 @@
 
                     <!-- Botón Acciones -->
                     <div class="btn-acciones-wrapper" style="position: relative; flex-shrink: 0;">
-                        <button type="button" id="btnAcciones" onclick="toggleAccionesMenu(event)"
+                        <button type="button" id="btnAcciones" onclick="window.toggleAccionesConsumibles(event)"
                             class="btn-primary-maquinaria"
                             style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                             <i class="material-icons">settings</i>
@@ -446,7 +446,7 @@
                     panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
                 };
 
-                window.toggleAccionesMenu = function (event) {
+                window.toggleAccionesConsumibles = function (event) {
                     if(event) { event.preventDefault(); event.stopPropagation(); }
                     var menu = document.getElementById('splitDropdownMenu');
                     var panelFiltros = document.getElementById('advancedFilterPanel');

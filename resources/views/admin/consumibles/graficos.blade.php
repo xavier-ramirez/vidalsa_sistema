@@ -498,22 +498,25 @@
             }
         };
 
-        document.addEventListener('click', function (e) {
-            let accMenu = document.getElementById('splitDropdownMenu');
-            let btnAcciones = document.getElementById('btnAcciones');
-            if (accMenu && accMenu.style.display === 'block') {
-                if (!accMenu.contains(e.target) && btnAcciones && !btnAcciones.contains(e.target)) {
-                    accMenu.style.display = 'none';
+        if (!window._consumiblesGraficosGlobalClickBound) {
+            window._consumiblesGraficosGlobalClickBound = true;
+            document.addEventListener('click', function (e) {
+                let accMenu = document.getElementById('splitDropdownMenu');
+                let btnAcciones = document.getElementById('btnAcciones');
+                if (accMenu && accMenu.style.display === 'block') {
+                    if (!accMenu.contains(e.target) && btnAcciones && !btnAcciones.contains(e.target)) {
+                        accMenu.style.display = 'none';
+                    }
                 }
-            }
-            let advMenu = document.getElementById('advancedFilterPanel');
-            let btnAdvanced = document.getElementById('btnAdvancedFilter');
-            if (advMenu && advMenu.style.display === 'block') {
-                if (!advMenu.contains(e.target) && btnAdvanced && !btnAdvanced.contains(e.target)) {
-                    advMenu.style.display = 'none';
+                let advMenu = document.getElementById('advancedFilterPanel');
+                let btnAdvanced = document.getElementById('btnAdvancedFilter');
+                if (advMenu && advMenu.style.display === 'block') {
+                    if (!advMenu.contains(e.target) && btnAdvanced && !btnAdvanced.contains(e.target)) {
+                        advMenu.style.display = 'none';
+                    }
                 }
-            }
-        });
+            });
+        }
     </script>
 
     {{-- TARJETAS RESUMEN --}}
