@@ -28,7 +28,7 @@
                             <i class="material-icons" style="font-size: 20px;">construction</i>
                         </div>
                     @endif
-                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; overflow-wrap: break-word;">
                         <span style="font-size: 11px; color: #c2410c; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;">
                             <i class="material-icons" style="font-size: 11px; vertical-align: middle;">construction</i>
                             {{ $auxTipoLabel ?? 'AUXILIAR' }}
@@ -46,7 +46,7 @@
                             <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
                         </div>
                     @endif
-                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; overflow-wrap: break-word;">
                         <span style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">{{ $mov->equipo->tipo->nombre ?? 'N/A' }}</span>
                         <div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> {{ $mov->equipo->SERIAL_CHASIS ?? 'S/S' }}</div>
                         <div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> {{ $mov->equipo->documentacion->PLACA ?? 'S/P' }}</div>
@@ -59,9 +59,9 @@
         {{-- 2. Trayecto (Origen → Destino) --}}
         <td class="mv-td-trayecto">
             <div class="mv-trayecto-container"
-                style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+                style="display: flex; align-items: center; justify-content: center; gap: 12px; word-break: break-word; overflow-wrap: break-word;">
                 <div class="mv-trayecto-item"
-                    style="display: flex; flex-direction: column; align-items: center; max-width: 160px;">
+                    style="display: flex; flex-direction: column; align-items: center; max-width: 160px; text-align: center;">
                     <span class="mv-trayecto-label"
                         style="font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase;">Origen</span>
                     <span class="mv-frente-nombre"
@@ -72,7 +72,7 @@
                 <i class="material-icons mv-trayecto-arrow"
                     style="font-size: 18px; color: #cbd5e0; flex-shrink: 0;">east</i>
                 <div class="mv-trayecto-item"
-                    style="display: flex; flex-direction: column; align-items: center; max-width: 160px;">
+                    style="display: flex; flex-direction: column; align-items: center; max-width: 160px; text-align: center;">
                     <span class="mv-trayecto-label"
                         style="font-size: 11px; color: #0067b1; font-weight: 800; text-transform: uppercase;">Destino</span>
                     <span class="mv-frente-nombre"
