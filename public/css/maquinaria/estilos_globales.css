@@ -2333,11 +2333,11 @@ input:-webkit-autofill:active {
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(1) {
-    width: 160px;
+    width: 230px;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(2) {
-    width: 390px;
+    width: 320px;
     text-align: center;
 }
 
