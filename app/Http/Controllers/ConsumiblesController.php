@@ -101,9 +101,6 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     // CARGA DE LOTE — Formulario
     // ══════════════════════════════════════════════════════════════
-    // ══════════════════════════════════════════════════════════════
-    // CARGA DE LOTE — Formulario
-    // ══════════════════════════════════════════════════════════════
     public function cargar()
     {
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
