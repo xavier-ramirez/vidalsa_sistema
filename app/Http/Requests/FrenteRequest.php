@@ -60,8 +60,8 @@ class FrenteRequest extends FormRequest
             'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO,ESPECIAL',
             'ESTATUS_FRENTE'=> 'required|in:ACTIVO,FINALIZADO',
             'SUBDIVISIONES' => 'nullable|string',
-            'RESP_1_NOM'    => 'required|string|max:60',
-            'RESP_1_CAR'    => 'required|string|max:40',
+            'RESP_1_NOM'    => 'nullable|string|max:60',
+            'RESP_1_CAR'    => 'nullable|string|max:40',
             'RESP_1_CED'    => 'nullable|string|max:20',
             'RESP_1_EQU'    => 'nullable|string|max:40',
             'RESP_2_NOM'    => 'nullable|string|max:60',
@@ -94,8 +94,6 @@ class FrenteRequest extends FormRequest
             'UBICACION.required'     => 'La ubicación es obligatoria.',
             'TIPO_FRENTE.required'   => 'El tipo de frente es obligatorio.',
             'ESTATUS_FRENTE.required'=> 'El estatus es obligatorio.',
-            'RESP_1_NOM.required'    => 'El nombre del responsable principal es obligatorio.',
-            'RESP_1_CAR.required'    => 'El cargo del responsable principal es obligatorio.',
         ];
     }
 }

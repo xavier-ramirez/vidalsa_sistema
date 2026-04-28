@@ -142,17 +142,17 @@
                 <!-- Responsable 1 Inputs -->
                 <div class="resp-grid" style="grid-column: span 2;">
                     <div>
-                        <label for="RESP_1_NOM" class="form-label">Nombre Completo <span style="color: red;">*</span></label>
+                        <label for="RESP_1_NOM" class="form-label">Nombre Completo</label>
                         <input type="text" id="RESP_1_NOM" name="RESP_1_NOM" class="form-input-custom"
                             style="background: white;" placeholder="Nombre"
-                            value="{{ old('RESP_1_NOM', $frente->RESP_1_NOM ?? '') }}" required autocomplete="off">
+                            value="{{ old('RESP_1_NOM', $frente->RESP_1_NOM ?? '') }}" autocomplete="off">
                     </div>
 
                     <div>
-                        <label for="RESP_1_CAR" class="form-label">Cargo <span style="color: red;">*</span></label>
+                        <label for="RESP_1_CAR" class="form-label">Cargo</label>
                         <input type="text" id="RESP_1_CAR" name="RESP_1_CAR" class="form-input-custom"
                             style="background: white;" placeholder="Ej: Gerente"
-                            value="{{ old('RESP_1_CAR', $frente->RESP_1_CAR ?? '') }}" required autocomplete="off">
+                            value="{{ old('RESP_1_CAR', $frente->RESP_1_CAR ?? '') }}" autocomplete="off">
                     </div>
 
                     <div>
