@@ -440,7 +440,12 @@ window.toggleAdvancedFilter = function (e) {
     if (e) e.stopPropagation();
     const panel = document.getElementById('advancedFilterPanel');
     const btn = document.getElementById('btnAdvancedFilter');
+    const accionesMenu = document.getElementById('splitDropdownMenuMov');
     if (!panel) return;
+
+    if (accionesMenu && accionesMenu.style.display === 'block') {
+        accionesMenu.style.display = 'none';
+    }
 
     window.advancedFilterOpen = !window.advancedFilterOpen;
 
@@ -457,19 +462,40 @@ window.toggleAdvancedFilter = function (e) {
     }
 };
 
-// Cerrar panel al hacer click fuera (una sola vez)
+window.toggleAccionesMov = function (e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('splitDropdownMenuMov');
+    if (!menu) return;
+
+    if (window.advancedFilterOpen) {
+        window.toggleAdvancedFilter();
+    }
+
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+};
+
+// Cerrar panel al hacer click fuera
 if (!window._mvPanelClickListenerRegistered) {
     window._mvPanelClickListenerRegistered = true;
     document.addEventListener('click', function (e) {
         const panel = document.getElementById('advancedFilterPanel');
         const btn = document.getElementById('btnAdvancedFilter');
-        if (!panel || !window.advancedFilterOpen) return;
-        if (!panel.contains(e.target) && btn && !btn.contains(e.target)) {
-            panel.style.display = 'none';
-            btn.style.background = 'white';
-            btn.style.borderColor = '#cbd5e0';
-            btn.style.color = '#64748b';
-            window.advancedFilterOpen = false;
+        if (panel && window.advancedFilterOpen) {
+            if (!panel.contains(e.target) && btn && !btn.contains(e.target)) {
+                panel.style.display = 'none';
+                btn.style.background = 'white';
+                btn.style.borderColor = '#cbd5e0';
+                btn.style.color = '#64748b';
+                window.advancedFilterOpen = false;
+            }
+        }
+
+        const accionesMenu = document.getElementById('splitDropdownMenuMov');
+        const btnAcciones = document.getElementById('btnAccionesMov');
+        if (accionesMenu && accionesMenu.style.display === 'block') {
+            if (!accionesMenu.contains(e.target) && btnAcciones && !btnAcciones.contains(e.target)) {
+                accionesMenu.style.display = 'none';
+            }
         }
     });
 }

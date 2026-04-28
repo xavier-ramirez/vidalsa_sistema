@@ -204,7 +204,7 @@
             <div class="filter-item aligned-filter mv-acciones-btn-container" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
                 
                 <!-- Main Trigger Button -->
-                <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" onclick="const d = document.getElementById('splitDropdownMenuMov'); d.style.display = d.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" onclick="window.toggleAccionesMov(event);">
                     <i class="material-icons" style="font-size: 18px;">settings</i>
                     <span>Acciones</span>
                     <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
