@@ -162,38 +162,44 @@
             font-weight: 700 !important;
             justify-content: center !important;
         }
-        /* Panel Filtros Avanzados en mobile: bottom-sheet fijo al fondo
-           en vez de dropdown absoluto que se desbordaba horizontalmente.
-           Ajuste: padding reducido + max-height 55vh para que no ocupe
-           tanto verticalmente y no se vea "muy ancho/largo" al redimensionar. */
+        /* Panel Filtros Avanzados en mobile: alineado a la derecha como en equipos */
         #auxAdvPanel {
-            position: fixed !important;
-            left: 0 !important;
+            position: absolute !important;
+            top: 100% !important;
+            bottom: auto !important;
+            width: calc(100vw - 20px) !important;
+            max-width: calc(100vw - 20px) !important;
             right: 0 !important;
-            bottom: 0 !important;
-            top: auto !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: 55vh !important;
-            overflow-y: auto !important;
-            border-radius: 16px 16px 0 0 !important;
-            margin-top: 0 !important;
-            padding: 12px !important;
-            z-index: 9999 !important;
-            box-shadow: 0 -4px 24px rgba(0,0,0,0.18) !important;
+            left: auto !important;
+            border-radius: 12px !important;
+            margin-top: 10px !important;
+            padding: 15px !important;
+            z-index: 500 !important;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15) !important;
+            box-sizing: border-box !important;
         }
         /* Compactar campos del panel para que no ocupen tanto vertical */
         #auxAdvPanel > h4 { margin: 0 0 10px 0 !important; font-size: 13px !important; }
-        #auxAdvPanel > div[style*="flex-direction:column"] { gap: 8px !important; }
         #auxAdvPanel span { font-size: 11.5px !important; margin-bottom: 3px !important; }
         #auxAdvPanel input[type="text"] { font-size: 13px !important; }
         /* Filtros doc Propiedad/Certificado (chips redondos): mas compactos */
         #auxAdvPanel label[style*="cursor:pointer"] { padding: 6px 10px !important; font-size: 12px !important; }
+        
+        /* Ajustar los items internos de las listas para que no se corten */
+        #auxAdvPanel .aux-adv-opt {
+            padding: 10px 12px !important;
+            font-size: 13px !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     }
     /* Tablets / pantallas medias: limitar el ancho del panel para que no
        se vea desproporcionado al redimensionar entre 769-1100px */
     @media (min-width: 769px) and (max-width: 1100px) {
-        /* Panel avanzado: en desktop mantiene 300px (definido inline); en mobile lo maneja el bottom-sheet arriba */
+        #auxAdvPanel {
+            right: 0 !important;
+        }
     }
 </style>
 
@@ -329,13 +335,13 @@
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
                               onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
-                    <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
 
                         {{-- Ubicación específica — solo visible cuando el frente
                              seleccionado es TIPO_FRENTE='ESPECIAL' (patio, almacen,
                              taller). Mismo patron que /admin/equipos: el controller
                              ya devuelve $availableUbicaciones y $frenteEspecial. --}}
-                        <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
+                        <div id="aux_adv_ubic_wrapper" style="grid-column: 1 / -1; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">
                                 <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i>
                                 Ubicación{{ isset($frenteEspecial) && $frenteEspecial ? ' (' . mb_strtoupper($frenteEspecial->NOMBRE_FRENTE) . ')' : '' }}
