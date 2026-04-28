@@ -395,7 +395,7 @@
             <div style="position: relative;">
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
                     style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: white; border: 1px solid #cbd5e0; color: #64748b; box-shadow: none;"
-                    onclick="document.getElementById('advancedFilterPanel').style.display = document.getElementById('advancedFilterPanel').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                    onclick="const ap = document.getElementById('advancedFilterPanel'); const am = document.getElementById('splitDropdownMenu'); if (am) am.style.display = 'none'; ap.style.display = ap.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
                 </button>
 
@@ -428,7 +428,7 @@
             <!-- Botón Acciones -->
             <div class="acciones-wrapper" style="position: relative; flex-shrink: 0;">
                 <button type="button" id="btnAcciones"
-                    onclick="document.getElementById('splitDropdownMenu').style.display = document.getElementById('splitDropdownMenu').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();"
+                    onclick="const am = document.getElementById('splitDropdownMenu'); const ap = document.getElementById('advancedFilterPanel'); if (ap) ap.style.display = 'none'; am.style.display = am.style.display === 'none' ? 'block' : 'none'; event.stopPropagation();"
                     class="btn-primary-maquinaria"
                     style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                     <i class="material-icons">settings</i>
