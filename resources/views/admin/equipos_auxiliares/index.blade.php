@@ -117,10 +117,10 @@
             gap: 10px !important;
             align-items: stretch !important;
         }
-        /* Frente y Tipo: cada uno en 2 columnas (mitad y mitad) para no verse gigantes */
+        /* Frente y Tipo: cada uno en su propia fila (100%) para evitar que se aplasten */
         #auxFiltersForm > div[data-aux-role="dropdown"] {
-            flex: 1 1 calc(50% - 6px) !important;
-            max-width: calc(50% - 6px) !important;
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
             min-width: 0 !important;
         }
         /* Comprimir altura de cajas de texto a 40px en móvil */
