@@ -598,29 +598,6 @@
     }
 </style>
 
-{{-- Toggle del Panel de Seguridad en móvil --}}
-<script>
-(function () {
-    if (window._hdSecurityToggleAttached) return;
-    window._hdSecurityToggleAttached = true;
-
-    window.hdToggleSecurityPanel = function () {
-        var sidebar  = document.getElementById('historialSidebar');
-        var chevron  = document.getElementById('hdSecurityChevron');
-        var btn      = document.getElementById('hdSecurityToggleBtn');
-        if (!sidebar) return;
-
-        var isOpen = sidebar.classList.contains('hd-sidebar-open');
-        sidebar.classList.toggle('hd-sidebar-open', !isOpen);
-        if (chevron) chevron.classList.toggle('open', !isOpen);
-        if (btn) {
-            btn.style.background = !isOpen ? '#f3e8ff' : 'white';
-            btn.style.borderColor = !isOpen ? '#a78bfa' : '#e2e8f0';
-            btn.style.color = !isOpen ? '#6d28d9' : '#1e293b';
-        }
-    };
-})();
-</script>
 
 {{-- Cierre del panel "Filtros Avanzados" al click fuera. Idempotente. --}}
 <script>
