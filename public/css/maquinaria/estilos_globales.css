@@ -2903,12 +2903,7 @@ input:-webkit-autofill:active {
         box-sizing: border-box !important;
     }
     .hd-layout-grid .historial-sidebar {
-        /* Oculto via max-height (no display:none) para que el JS
-           pueda animarlo con la clase hd-sidebar-open */
-        max-height: 0 !important;
-        overflow: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
+        /* Se eliminó el ocultamiento forzado. Ahora es visible por defecto al final de la página */
         position: static !important;
         top: auto !important;
     }

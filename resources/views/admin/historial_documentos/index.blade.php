@@ -75,10 +75,9 @@
        fondo en una sola columna. Antes el grid 1fr 280px lo dejaba apretado
        fuera de pantalla y "IPs Bloqueadas" no era accesible. */
 
-    /* Botón toggle Seguridad: oculto en desktop, aparece solo en móvil
-       dentro del grid de 1 columna, entre la tabla y el sidebar. */
+    /* El botón toggle ya no se usa porque el panel siempre estará visible */
     .hd-mobile-security-toggle {
-        display: none;
+        display: none !important;
     }
 
     @media (max-width: 900px) {
@@ -86,40 +85,11 @@
         .hd-layout-grid {
             grid-template-columns: 1fr !important;
         }
-        /* El botón toggle aparece dentro del grid (1 columna) */
-        .hd-mobile-security-toggle {
-            display: block;
-            width: 100%;
-        }
-        /* El sidebar arranca oculto en móvil; JS lo expande al pulsar el toggle */
+        /* La sidebar fluye naturalmente hacia abajo */
         .historial-sidebar {
-            overflow: hidden;
-            max-height: 0;
-            transition: max-height 0.35s ease, opacity 0.25s ease;
-            opacity: 0;
-            pointer-events: none;
-            /* position:static ya viene del CSS global en móvil */
-        }
-        .historial-sidebar.hd-sidebar-open {
-            max-height: 2000px; /* suficientemente grande para cualquier contenido */
-            opacity: 1;
-            pointer-events: auto;
-            /* Override del CSS global que usa max-height:0 con !important —
-               usamos .hd-layout-grid .historial-sidebar.hd-sidebar-open
-               para mayor especificidad */
-        }
-        .hd-layout-grid .historial-sidebar.hd-sidebar-open {
-            max-height: 2000px !important;
-            opacity: 1 !important;
-            pointer-events: auto !important;
-        }
-        /* Boton hover */
-        #hdSecurityToggleBtn:hover {
-            background: #f8fafc !important;
-        }
-        /* Chevron rotado cuando está abierto */
-        #hdSecurityChevron.open {
-            transform: rotate(180deg);
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-top: 20px;
         }
     }
 
