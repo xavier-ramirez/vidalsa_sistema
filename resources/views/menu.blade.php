@@ -887,8 +887,8 @@
                                     </span>
                                 </div>
                                 <div class="cat-mini-body">
-                                    <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -2px;">Modelo</span>
-                                    <span class="cat-mini-modelo">{{ $catalogo->MODELO }}</span>
+                                    <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -2px;">Marca y Modelo</span>
+                                    <span class="cat-mini-modelo">{{ $catalogo->equipos->first()->MARCA ?? '' }} {{ $catalogo->MODELO }}</span>
                                     @if($catalogo->MOTOR || $catalogo->COMBUSTIBLE)
                                         <span class="cat-mini-specs">
                                             {{ collect([$catalogo->MOTOR, $catalogo->COMBUSTIBLE])->filter()->join(' · ') }}

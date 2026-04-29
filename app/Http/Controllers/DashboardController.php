@@ -52,8 +52,11 @@ class DashboardController extends Controller
             // Inoperativos = resto (INOPERATIVO + DESCONOCIDO + otros) para que los 3 chips sumen exacto
             $equiposInoperativos  = max(0, $totalFlotaActiva - $equiposOperativos - $equiposMantenimiento);
 
-            // 7. Catálogo Destacado (Modelos con foto para mostrar en el Dashboard, fijos y optimizados)
-            $catalogosDestacados = CaracteristicaModelo::whereNotNull('FOTO_REFERENCIAL')->orderBy('ID_ESPEC', 'desc')->limit(7)->get();
+            $catalogosDestacados = CaracteristicaModelo::with('equipos')
+                ->whereNotNull('FOTO_REFERENCIAL')
+                ->orderBy('ID_ESPEC', 'desc')
+                ->limit(7)
+                ->get();
 
             return compact(
                 'movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity',
