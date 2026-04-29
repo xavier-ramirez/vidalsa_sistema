@@ -2281,7 +2281,6 @@ input:-webkit-autofill:active {
 .admin-table tr:hover .tooltip-bubble {
     opacity: 1 !important;
     visibility: visible !important;
-    transform: translateX(-50%) translateY(0) !important;
 }
 
 /* Layout Responsive para Página de Equipos */
