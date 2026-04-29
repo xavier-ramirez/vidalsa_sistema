@@ -82,6 +82,10 @@
     }
 
     @media (max-width: 900px) {
+        /* Stack the grid into 1 column on mobile */
+        .hd-layout-grid {
+            grid-template-columns: 1fr !important;
+        }
         /* El botón toggle aparece dentro del grid (1 columna) */
         .hd-mobile-security-toggle {
             display: block;
