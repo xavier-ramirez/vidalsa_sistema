@@ -838,6 +838,12 @@ class ActaTrasladoPDF extends \TCPDF
     {
         $this->SetY(-15);
         $this->SetFont('helvetica', 'I', 8);
-        $this->Cell(0, 10, 'PÃ¡gina ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'R');
+        // Usar writeHTMLCell en vez de Cell(): Cell() no procesa UTF-8 con
+        // helvetica, causando que 'á' (U+00E1) se muestre como 'Ã¡'.
+        // La entidad HTML &aacute; es resuelta correctamente por TCPDF.
+        $footerHtml = '<div style="text-align:right; font-style:italic; font-size:8pt;">'
+            . 'P&aacute;gina ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages()
+            . '</div>';
+        $this->writeHTMLCell(0, 10, $this->getMargins()['left'], $this->GetY(), $footerHtml, 0, 0, false, true, 'R', true);
     }
 }
