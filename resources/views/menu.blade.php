@@ -887,7 +887,7 @@
                                     </span>
                                 </div>
                                 <div class="cat-mini-body">
-                                    <span class="cat-mini-modelo">{{ $catalogo->equipos->first()?->MARCA ?? '' }} MODELO {{ $catalogo->MODELO }}</span>
+                                    <span class="cat-mini-modelo">{{ $catalogo->marca_calculada ?? '' }} MODELO {{ $catalogo->MODELO }}</span>
                                     @if($catalogo->MOTOR || $catalogo->COMBUSTIBLE)
                                         <span class="cat-mini-specs">
                                             {{ collect([$catalogo->MOTOR, $catalogo->COMBUSTIBLE])->filter()->join(' · ') }}

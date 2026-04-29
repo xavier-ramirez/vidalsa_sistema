@@ -58,6 +58,15 @@ class DashboardController extends Controller
                 ->limit(7)
                 ->get();
 
+            // Garantizar que la MARCA se obtenga incluso si este ID_ESPEC no tiene equipos asignados directamente
+            foreach ($catalogosDestacados as $cat) {
+                if ($cat->equipos->isNotEmpty()) {
+                    $cat->marca_calculada = $cat->equipos->first()->MARCA;
+                } else {
+                    $cat->marca_calculada = Equipo::where('MODELO', $cat->MODELO)->value('MARCA');
+                }
+            }
+
             return compact(
                 'movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity',
                 'expiredList', 'frentes', 'totalFlotaActiva',
