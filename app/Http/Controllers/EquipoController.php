@@ -503,7 +503,8 @@ class EquipoController extends Controller
         $equipos = Equipo::query();
 
         // Apply Local User Scope EXCEPT when doing a global text search
-        $search = $request->input('search_query');
+        // FIX: Single $search variable — do not re-declare below to avoid losing strtoupper/trim normalization.
+        $search = strtoupper(trim((string) $request->input('search_query', '')));
         if (empty($search)) {
             if ($isLocalUser && count($frentesPermitidos) > 0) {
                 $equipos->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
@@ -576,7 +577,7 @@ class EquipoController extends Controller
                      });
         }
 
-        $search = $request->input('search_query');
+        // $search already normalized above — no re-declaration needed.
         if ($search) {
             if (strpos($search, '#') !== false) {
                 $tagSearch = str_replace('#', '', $search);
@@ -1422,6 +1423,9 @@ class EquipoController extends Controller
             $data['SERIAL_DE_MOTOR'] = (trim($data['SERIAL_DE_MOTOR'] ?? '') === '') ? null : strtoupper(trim($data['SERIAL_DE_MOTOR']));
             $equipo->update($data);
 
+            $driveService = \App\Services\GoogleDriveService::getInstance();
+            $folderId = $driveService->getRootFolderId();
+
             if ($request->filled('ID_ESPEC')) {
                 $equipo->ID_ESPEC = $request->input('ID_ESPEC');
                 $equipo->save();
@@ -1429,7 +1433,6 @@ class EquipoController extends Controller
                     $espec = CaracteristicaModelo::find($equipo->ID_ESPEC);
                     if ($espec) {
                         $catalogFolderId = config('filesystems.disks.google.catalog_folder'); // Specific folder for model photos
-                        $driveService = \App\Services\GoogleDriveService::getInstance();
                         $file = $request->file('foto_referencial');
                         $filename = 'catalog_ref_' . time() . '.' . $file->getClientOriginalExtension();
                         $driveFile = $driveService->uploadFile($catalogFolderId, $file, $filename, $file->getMimeType());
@@ -1439,9 +1442,6 @@ class EquipoController extends Controller
                     }
                 }
             }
-
-            $driveService = \App\Services\GoogleDriveService::getInstance();
-            $folderId = $driveService->getRootFolderId();
 
             if ($request->hasFile('foto_equipo')) {
                 $file = $request->file('foto_equipo');
@@ -1465,9 +1465,30 @@ class EquipoController extends Controller
                 if (isset($docData['ESTADO_POLIZA'])) {
                     unset($docData['ESTADO_POLIZA']);
                 }
-                $docData = array_filter($docData, function ($value) {
+
+                // Normalize PLACA BEFORE array_filter so that an intentionally
+                // cleared plate (empty string → null) is preserved and saved.
+                // array_key_exists is used instead of isset to detect the key even
+                // when its value is null (field was present in the request).
+                $placaWasSubmitted = array_key_exists('PLACA', $docData);
+                if ($placaWasSubmitted) {
+                    $placaVal = trim($docData['PLACA'] ?? '');
+                    $docData['PLACA'] = ($placaVal === '') ? null : strtoupper($placaVal);
+                }
+
+                if (isset($docData['NOMBRE_DEL_TITULAR']))
+                    $docData['NOMBRE_DEL_TITULAR'] = strtoupper($docData['NOMBRE_DEL_TITULAR']);
+                if (isset($docData['NRO_DE_DOCUMENTO']))
+                    $docData['NRO_DE_DOCUMENTO'] = strtoupper($docData['NRO_DE_DOCUMENTO']);
+
+                // Strip empty/null values from OTHER fields, but keep PLACA
+                // even when null so that clearing the field actually saves null.
+                $docData = array_filter($docData, function ($value, $key) use ($placaWasSubmitted) {
+                    if ($key === 'PLACA' && $placaWasSubmitted) {
+                        return true; // Always keep PLACA when it was explicitly submitted
+                    }
                     return !is_null($value) && $value !== '';
-                });
+                }, ARRAY_FILTER_USE_BOTH);
 
                 $docTypes = ['doc_propiedad' => 'LINK_DOC_PROPIEDAD', 'poliza_seguro' => 'LINK_POLIZA_SEGURO', 'doc_rotc' => 'LINK_ROTC', 'doc_racda' => 'LINK_RACDA'];
                 foreach ($docTypes as $fileKey => $dbCol) {
@@ -1496,15 +1517,6 @@ class EquipoController extends Controller
                         }
                     }
                 }
-
-                if (isset($docData['PLACA'])) {
-                    $placaVal = trim($docData['PLACA']);
-                    $docData['PLACA'] = ($placaVal === '') ? null : strtoupper($placaVal);
-                }
-                if (isset($docData['NOMBRE_DEL_TITULAR']))
-                    $docData['NOMBRE_DEL_TITULAR'] = strtoupper($docData['NOMBRE_DEL_TITULAR']);
-                if (isset($docData['NRO_DE_DOCUMENTO']))
-                    $docData['NRO_DE_DOCUMENTO'] = strtoupper($docData['NRO_DE_DOCUMENTO']);
 
                 if ($equipo->documentacion)
                     $equipo->documentacion->update($docData);
@@ -2073,10 +2085,15 @@ class EquipoController extends Controller
 
         switch ($type) {
             case 'propiedad':
+                // FIX: Normalize PLACA to null when empty so clearing the field actually saves null,
+                // consistent with the update() method fix. strtoupper('') = '' which array_filter
+                // below (strips '') would remove — but callers may not reach array_filter for PLACA
+                // if the value is already a non-empty string that was then cleared.
+                $placaRaw = trim((string) $request->input('placa', ''));
                 $updateData = [
-                    'NRO_DE_DOCUMENTO' => strtoupper($request->input('nro_documento', '')),
-                    'NOMBRE_DEL_TITULAR' => strtoupper($request->input('titular', '')),
-                    'PLACA' => strtoupper($request->input('placa', '')),
+                    'NRO_DE_DOCUMENTO'   => strtoupper($request->input('nro_documento', '')) ?: null,
+                    'NOMBRE_DEL_TITULAR' => strtoupper($request->input('titular', '')) ?: null,
+                    'PLACA'              => $placaRaw !== '' ? strtoupper($placaRaw) : null,
                 ];
 
                 // Update Equipment basic info directly
@@ -2444,9 +2461,10 @@ class EquipoController extends Controller
             $baseQuery = Equipo::query();
 
             if ($isLocal && count($frentesPermitidos) > 0) {
-                if ($requestedFrenteId && $requestedFrenteId !== 'all') {
+                if ($requestedFrenteId && $requestedFrenteId !== 'all'
+                    && in_array($requestedFrenteId, $frentesPermitidos)) {
+                    // FIX: use only where() — adding whereIn() on the same column was redundant (logical AND = same result but wastes an IN clause).
                     $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
-                    $baseQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
                     $frenteObj = FrenteTrabajo::find($requestedFrenteId);
                     $frenteNombre = $frenteObj ? mb_strtoupper($frenteObj->NOMBRE_FRENTE) : 'FRENTE VARIANTE';
                 } else {

@@ -362,6 +362,7 @@ function handleRowClick(e) {
     const code = btnDetails.dataset.codigo;
     const placa = btnDetails.dataset.placa;   // PLACA del documento
     const chasis = btnDetails.dataset.chasis; // SERIAL_CHASIS
+    const tipo = btnDetails.dataset.tipo || 'SIN TIPO'; // Nombre del tipo de equipo
     const frenteId = btnDetails.dataset.frenteId;
     const rolAnclaje = btnDetails.dataset.rolAnclaje;
     let anchorId = btnDetails.dataset.anchorId;
@@ -376,6 +377,7 @@ function handleRowClick(e) {
         targetCode,
         targetPlaca,
         targetChasis,
+        targetTipo,
         targetFrente,
         targetRol,
         targetAnchorId,
@@ -387,6 +389,7 @@ function handleRowClick(e) {
                 code: targetCode,
                 placa: targetPlaca,
                 chasis: targetChasis,
+                tipo: targetTipo,       // Nombre del tipo: EXCAVADORA, CAMIÓN VOLTEO, etc.
                 frenteId: targetFrente,
                 rolAnclaje: targetRol,
                 anchorId: targetAnchorId,
@@ -401,7 +404,7 @@ function handleRowClick(e) {
     };
 
     // Toggle main equipment
-    toggleSelection(id, code, placa, chasis, frenteId, rolAnclaje, anchorId, row);
+    toggleSelection(id, code, placa, chasis, tipo, frenteId, rolAnclaje, anchorId, row);
 
     // Toggle anchored partner if exists
     if (anchorId && anchorId !== "" && anchorId !== "null") {
@@ -416,11 +419,18 @@ function handleRowClick(e) {
         );
         const partnerRow = partnerBtn ? partnerBtn.closest("tr") : null;
 
+        // Tipo del partner: leído desde el DOM si está visible, o desde
+        // data-anchor-tipo-nombre del botón principal como fallback.
+        const partnerTipoName = partnerBtn
+            ? (partnerBtn.dataset.tipo || 'SIN TIPO')
+            : (btnDetails.dataset.anchorTipoNombre || 'SIN TIPO');
+
         toggleSelection(
             anchorId,
             partnerCode || (partnerBtn ? partnerBtn.dataset.codigo : ""),
             partnerPlaca || (partnerBtn ? partnerBtn.dataset.placa : ""),
             partnerSerial || (partnerBtn ? partnerBtn.dataset.chasis : ""),
+            partnerTipoName,
             frenteId,
             partnerRol || (partnerBtn ? partnerBtn.dataset.rolAnclaje : ""),
             partnerBtn ? partnerBtn.dataset.anchorId : id,
@@ -1242,20 +1252,30 @@ window.openBulkModal = function (event) {
     const body = document.createElement("div");
     body.style.cssText = "padding:22px 24px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;";
 
-    const chipsHtml = selectedList.map(item => {
-        const isValid = v => v && String(v).trim() !== '' && v !== 'N/A';
-        const placa  = isValid(item.placa)  ? item.placa  : null;
-        const chasis = isValid(item.chasis) ? item.chasis : null;
-        const code   = isValid(item.code)   ? item.code   : null;
-        const label  = placa || chasis || code || `ID:${item.id || '?'}`;
-        return `<span style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;">${label}</span>`;
-    }).join("");
+    // Agrupar los equipos seleccionados por tipo y contar cuántos hay de cada uno.
+    // Esto reemplaza mostrar el serial/placa individual de cada equipo por un resumen
+    // limpio: "3 × EXCAVADORA HIDRÁULICA", "2 × CAMIÓN VOLTEO", etc.
+    const tipoCount = {};
+    selectedList.forEach(item => {
+        const tipoNombre = (item.tipo && item.tipo.trim() !== '') ? item.tipo.trim().toUpperCase() : 'SIN TIPO';
+        tipoCount[tipoNombre] = (tipoCount[tipoNombre] || 0) + 1;
+    });
+
+    // Ordenar por cantidad descendente para mostrar los más numerosos primero
+    const tipoChipsHtml = Object.entries(tipoCount)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tipoNombre, cant]) => {
+            return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;">
+                <div style="min-width:22px;height:22px;background:#1e293b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">${cant}</div>
+                <span style="font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.3px;">${tipoNombre}</span>
+            </div>`;
+        }).join("");
 
     body.innerHTML = `
         <div>
-            <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos a movilizar</p>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
-                ${chipsHtml}
+            <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos a movilizar — ${count} equipo${count !== 1 ? 's' : ''}</p>
+            <div style="display:flex;flex-direction:column;gap:4px;padding:8px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                ${tipoChipsHtml}
             </div>
         </div>
         <div>

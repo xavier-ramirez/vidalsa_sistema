@@ -158,6 +158,7 @@
                     data-codigo="{{ $equipo->CODIGO_PATIO }}"
                     data-chasis="{{ $equipo->SERIAL_CHASIS }}"
                     data-placa="{{ optional($equipo->documentacion)->PLACA ?? 'N/A' }}"
+                    data-tipo="{{ optional($equipo->tipo)->nombre ?? 'SIN TIPO' }}"
                     data-anchor-id="{{ $equipo->ID_ANCLAJE ?? '' }}"
                     data-frente-id="{{ $equipo->ID_FRENTE_ACTUAL }}"
                     data-rol-anclaje="{{ optional($equipo->tipo)->ROL_ANCLAJE ?? 'NEUTRO' }}"

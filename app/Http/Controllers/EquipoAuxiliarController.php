@@ -8,6 +8,7 @@ use App\Models\FrenteTrabajo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class EquipoAuxiliarController extends Controller
 {
@@ -2017,15 +2018,35 @@ class EquipoAuxiliarController extends Controller
         // 'sometimes|required|...' en update permitiria pasar string vacio via
         // JSON y el required no dispara. Mejor mantenerlos fuera del sometimes.
         // SERIAL: unique ignorando self en update (cuando esta presente).
+        // max:60 en TIPO porque los codigos de tipos custom pueden superar 30 chars
+        // (ej. GENERADOR_DIESEL_PORTATIL = 27 chars, pero nombres mas largos existen).
         $rules = [
-            'TIPO'             => 'required|string|max:30',
+            'TIPO'             => 'required|string|max:60',
             'ESTADO_OPERATIVO' => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
             'MARCA'            => 'required|string|max:80',
             'MODELO'           => 'required|string|max:80',
-            'SERIAL'           => 'required|string|max:100|unique:equipos_auxiliares,SERIAL' . ($currentId ? ',' . $currentId . ',ID_AUXILIAR' : ''),
-            'CODIGO_INTERNO'   => 'nullable|string|max:50|unique:equipos_auxiliares,CODIGO_INTERNO' . ($currentId ? ',' . $currentId . ',ID_AUXILIAR' : ''),
+            // FIX: Use Rule::unique() instead of string rule to exclude soft-deleted records
+            // from the uniqueness check. String rule (unique:table,col) queries ALL rows
+            // including deleted_at IS NOT NULL, which causes a false 422 when a deleted
+            // auxiliary has the same SERIAL (banner appears with no visible red fields).
+            'SERIAL'         => [
+                'required', 'string', 'max:100',
+                Rule::unique('equipos_auxiliares', 'SERIAL')
+                    ->whereNull('deleted_at')
+                    ->when($currentId, fn ($r) => $r->ignore($currentId, 'ID_AUXILIAR')),
+            ],
+            'CODIGO_INTERNO' => [
+                'nullable', 'string', 'max:80',
+                Rule::unique('equipos_auxiliares', 'CODIGO_INTERNO')
+                    ->whereNull('deleted_at')
+                    ->when($currentId, fn ($r) => $r->ignore($currentId, 'ID_AUXILIAR')),
+            ],
             'CAPACIDAD'        => 'nullable|string|max:80',
             'ANIO'             => 'nullable|integer|min:1950|max:2100',
+            // FIX: exists:frentes_trabajo,ID_FRENTE without ESTATUS_FRENTE=ACTIVO filter:
+            // a record may be assigned to a frente that was deactivated later. The FK
+            // just needs to exist in the table — active-only filtering belongs in the UI,
+            // not in the save validation (otherwise editing becomes impossible).
             'ID_FRENTE_ACTUAL' => 'required|exists:frentes_trabajo,ID_FRENTE',
             'ID_EQUIPO_HOST'   => 'nullable|exists:equipos,ID_EQUIPO',
             'OBSERVACIONES'    => 'nullable|string|max:500',
@@ -2037,10 +2058,16 @@ class EquipoAuxiliarController extends Controller
         ];
 
         // En update hacemos sometimes SOLO los nullable; required se mantiene.
+        // FIX: handle both string rules and array rules (SERIAL/CODIGO_INTERNO use arrays).
         if (!$isCreate) {
             foreach ($rules as $k => $v) {
-                if (strpos($v, 'nullable') !== false) {
-                    $rules[$k] = 'sometimes|' . $v;
+                $isNullable = is_array($v)
+                    ? in_array('nullable', $v, true)
+                    : (is_string($v) && strpos($v, 'nullable') !== false);
+                if ($isNullable) {
+                    $rules[$k] = is_array($v)
+                        ? array_merge(['sometimes'], $v)
+                        : 'sometimes|' . $v;
                 }
             }
         }
@@ -2236,6 +2263,10 @@ class EquipoAuxiliarController extends Controller
         $duplicateSeriales = array_keys(array_filter(array_count_values($allSeriales), fn($c) => $c > 1));
         $existingSerialesBD = !empty($allSeriales)
             ? DB::table('equipos_auxiliares')
+                // FIX: exclude soft-deleted records from the unique check.
+                // Deleted records in the 'papelera' have the same SERIAL but are no
+                // longer active — a new import should be allowed to reuse that serial.
+                ->whereNull('deleted_at')
                 ->whereIn(DB::raw('UPPER(SERIAL)'), $allSeriales)
                 ->pluck('SERIAL')->map(fn($v) => mb_strtoupper($v))->toArray()
             : [];
@@ -2351,7 +2382,7 @@ class EquipoAuxiliarController extends Controller
 
         $validator = \Validator::make($request->all(), [
             'rows'                       => 'required|array|min:1|max:500',
-            'rows.*.tipo_codigo'         => 'required|string|max:30',
+            'rows.*.tipo_codigo'         => 'required|string|max:60',
             'rows.*.marca'               => 'required|string|max:80',
             'rows.*.modelo'              => 'required|string|max:80',
             'rows.*.serial'              => 'required|string|max:100',
@@ -2362,7 +2393,7 @@ class EquipoAuxiliarController extends Controller
         ], [
             // Mensajes en español por fila (regla :input/:position se reemplaza por el numero de fila +2 = numero real en el Excel)
             'rows.*.tipo_codigo.required'        => 'Fila :position: el Tipo es obligatorio.',
-            'rows.*.tipo_codigo.max'             => 'Fila :position: el Tipo no puede exceder 30 caracteres.',
+            'rows.*.tipo_codigo.max'             => 'Fila :position: el Tipo no puede exceder 60 caracteres.',
             'rows.*.marca.required'              => 'Fila :position: la Marca es obligatoria.',
             'rows.*.marca.max'                   => 'Fila :position: la Marca no puede exceder 80 caracteres.',
             'rows.*.modelo.required'             => 'Fila :position: el Modelo es obligatorio.',
@@ -2410,6 +2441,9 @@ class EquipoAuxiliarController extends Controller
             ], 422);
         }
         $conflictsBD = DB::table('equipos_auxiliares')
+            // FIX: exclude soft-deleted records — same fix as bulkPreview.
+            // A serial from the 'papelera' should not block a fresh import.
+            ->whereNull('deleted_at')
             ->whereIn(DB::raw('UPPER(SERIAL)'), $seriales)
             ->pluck('SERIAL')->toArray();
         if (!empty($conflictsBD)) {
