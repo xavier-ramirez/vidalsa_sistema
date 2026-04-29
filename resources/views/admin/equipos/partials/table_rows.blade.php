@@ -35,7 +35,7 @@
                 @endif
 
                 @if($equipo->DETALLE_UBICACION_ACTUAL)
-                    <div class="tooltip-bubble" style="pointer-events:none; opacity:0; visibility:hidden; position:absolute; bottom:100%; left:50%; transform:translateX(-50%) translateY(5px); background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:500; white-space:normal; max-width:220px; word-wrap:break-word; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;">
+                    <div class="tooltip-bubble" style="pointer-events:none; opacity:0; visibility:hidden; position:absolute; bottom:100%; left:0; transform:translateY(5px); background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:500; white-space:normal; width:max-content; max-width:220px; word-wrap:break-word; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;">
                         📍 {{ $equipo->DETALLE_UBICACION_ACTUAL }}
                         <div style="position:absolute; top:100%; left:50%; margin-left:-4px; border-width:4px; border-style:solid; border-color:#1e293b transparent transparent transparent;"></div>
                     </div>
