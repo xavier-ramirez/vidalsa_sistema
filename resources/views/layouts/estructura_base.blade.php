@@ -805,6 +805,18 @@
                         </label>
                     @endif
 
+                    {{-- Boton borrar documento: destructivo. Visible y funcional SOLO para super.admin.
+                         Borra el archivo del Google Drive Y limpia el registro en BD. --}}
+                    @if(auth()->user() && auth()->user()->can('super.admin'))
+                        <button id="pdfDeleteBtn" type="button"
+                            onclick="deletePdfFromPreview()"
+                            style="background: #dc2626; border: none; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: white; border-radius: 50%; transition: transform 0.2s; cursor: pointer;"
+                            onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
+                            title="Eliminar Documento (Drive + BD)">
+                            <i class="material-icons" style="font-size: 18px;">delete</i>
+                        </button>
+                    @endif
+
                     <button onclick="closePdfPreview()"
                         style="background: none; border: none; color: #cbd5e0; padding: 4px; display: flex; align-items: center; cursor: pointer;">
                         <i class="material-icons" style="font-size: 20px;">close</i>
@@ -1745,6 +1757,83 @@
                 if (modal) modal.classList.remove('active');
                 if (iframe) {
                     iframe.src = ''; // Clear source to free memory
+                }
+            };
+
+            // Permiso super.admin (renderizado server-side desde el flag de auth).
+            // El boton de borrar solo se muestra cuando el usuario tiene super.admin,
+            // pero esta variable se usa por el JS para defensa-en-profundidad ante
+            // intentos de DOM-inject. El backend tambien valida con can:super.admin.
+            window.CAN_DELETE_DOCS = {{ auth()->user() && auth()->user()->can('super.admin') ? 'true' : 'false' }};
+
+            // Borrado de PDF desde el modal de preview. Borra del Google Drive Y de la BD.
+            // Por ahora solo soporta el modulo 'equipo'; auxiliares no implementado todavia.
+            window.deletePdfFromPreview = async function () {
+                if (!window.CAN_DELETE_DOCS) {
+                    if (window.showToast) window.showToast('No tienes permisos para eliminar documentos.', 'error');
+                    return;
+                }
+                const ctx = window.currentPdfContext;
+                if (!ctx || !ctx.equipoId || !ctx.docType) {
+                    if (window.showToast) window.showToast('Contexto de documento no disponible.', 'error');
+                    return;
+                }
+                if (ctx.module === 'auxiliar') {
+                    if (window.showToast) window.showToast('El borrado de documentos de auxiliares aún no esta implementado.', 'error');
+                    return;
+                }
+
+                // Confirmacion destructiva. showModal usa el componente standardModal global.
+                const confirmed = await new Promise(resolve => {
+                    if (typeof window.showModal !== 'function') {
+                        resolve(window.confirm('¿Eliminar este documento del Drive y de la base de datos? Esta acción no se puede deshacer.'));
+                        return;
+                    }
+                    window.showModal({
+                        type: 'warning',
+                        title: 'Eliminar documento',
+                        message: '¿Estás seguro de eliminar este documento? Se borrará tanto del Google Drive como de la base de datos. Esta acción NO se puede deshacer.',
+                        confirmText: 'Eliminar',
+                        cancelText: 'Cancelar',
+                        onConfirm: () => resolve(true),
+                        onCancel: () => resolve(false),
+                    });
+                });
+                if (!confirmed) return;
+
+                const btn = document.getElementById('pdfDeleteBtn');
+                if (btn) btn.disabled = true;
+                if (typeof window.showPreloader === 'function') window.showPreloader();
+
+                try {
+                    const res = await fetch(`/admin/equipos/${ctx.equipoId}/delete-doc`, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ doc_type: ctx.docType }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok && data.success) {
+                        if (window.showToast) window.showToast(data.message || 'Documento eliminado.', 'success');
+                        window.closePdfPreview();
+                        // Refrescar las vistas que pueden estar mostrando el documento.
+                        if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
+                        if (typeof window.loadHistorialDocumentos === 'function') window.loadHistorialDocumentos();
+                        if (typeof window.cargarEquipos === 'function') window.cargarEquipos();
+                        if (typeof window.loadEquipos === 'function') window.loadEquipos();
+                    } else {
+                        const msg = (data && data.message) ? data.message : 'No se pudo eliminar el documento.';
+                        if (window.showToast) window.showToast(msg, 'error');
+                    }
+                } catch (e) {
+                    console.error('deletePdfFromPreview error:', e);
+                    if (window.showToast) window.showToast('Error de red al eliminar el documento.', 'error');
+                } finally {
+                    if (btn) btn.disabled = false;
+                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
                 }
             };
 

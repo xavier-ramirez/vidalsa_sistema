@@ -2026,14 +2026,16 @@ class EquipoController extends Controller
     }
 
     /**
-     * Delete a specific document from an equipo
+     * Delete a specific document from an equipo:
+     *  - Borra el archivo del Google Drive (si la URL apunta a /storage/google/...).
+     *  - Limpia link + fecha de subida + autor + cache asociado en BD.
+     *  - Registra audit log 'delete_X' para que aparezca en /admin/historial-documentos.
+     *
+     * Permiso: SOLO super.admin (gateado en routes/web.php). Operacion destructiva
+     * irreversible — el archivo desaparece tanto del Drive como del registro.
      */
     public function deleteDoc(Request $request, $id)
     {
-        if (!auth()->user()->can('user.edit')) {
-            return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
-        }
-
         $request->validate([
             'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
         ]);
@@ -2047,30 +2049,59 @@ class EquipoController extends Controller
 
         $type = $request->input('doc_type');
 
+        // Mapping completo de los 6 tipos: campo del LINK + fecha de subida + autor.
+        // Mantenemos los 3 campos sincronizados al borrar.
         $fieldMap = [
-            'propiedad'   => 'LINK_DOC_PROPIEDAD',
-            'poliza'      => 'LINK_POLIZA_SEGURO',
-            'rotc'        => 'LINK_ROTC',
-            'racda'       => 'LINK_RACDA',
-            'adicional'   => 'LINK_DOC_ADICIONAL',
-            'adicional_2' => 'LINK_DOC_ADICIONAL_2',
+            'propiedad'   => ['link' => 'LINK_DOC_PROPIEDAD',     'fecha' => 'PROPIEDAD_FECHA_SUBIDA',     'autor' => 'PROPIEDAD_SUBIDO_POR'],
+            'poliza'      => ['link' => 'LINK_POLIZA_SEGURO',     'fecha' => 'POLIZA_FECHA_SUBIDA',        'autor' => 'POLIZA_SUBIDO_POR'],
+            'rotc'        => ['link' => 'LINK_ROTC',              'fecha' => 'ROTC_FECHA_SUBIDA',          'autor' => 'ROTC_SUBIDO_POR'],
+            'racda'       => ['link' => 'LINK_RACDA',             'fecha' => 'RACDA_FECHA_SUBIDA',         'autor' => 'RACDA_SUBIDO_POR'],
+            'adicional'   => ['link' => 'LINK_DOC_ADICIONAL',     'fecha' => 'ADICIONAL_FECHA_SUBIDA',     'autor' => 'ADICIONAL_SUBIDO_POR'],
+            'adicional_2' => ['link' => 'LINK_DOC_ADICIONAL_2',   'fecha' => 'ADICIONAL_2_FECHA_SUBIDA',   'autor' => 'ADICIONAL_2_SUBIDO_POR'],
         ];
 
-        $field = $fieldMap[$type] ?? null;
-
-        if (!$field) {
+        $cfg = $fieldMap[$type] ?? null;
+        if (!$cfg) {
             return response()->json(['success' => false, 'message' => 'Tipo de documento no válido.'], 400);
         }
 
-        // Clear the link field
-        $doc->update([$field => null]);
+        $linkField  = $cfg['link'];
+        $oldUrl     = $doc->{$linkField};
 
-        // Clear dashboard cache
+        // ── 1. Borrar el archivo del Google Drive ──────────────────────────
+        // Solo intentamos borrar si la URL guardada apunta a /storage/google/<id>.
+        // Mismo patron que uploadDoc (linea ~1511) cuando reemplaza un archivo
+        // existente. Errores del Drive NO bloquean el borrado en BD — los
+        // registramos para revisión posterior pero la fila local se limpia.
+        if ($oldUrl && str_starts_with($oldUrl, '/storage/google/')) {
+            try {
+                $oldFileId = str_replace('/storage/google/', '', parse_url($oldUrl, PHP_URL_PATH));
+                if ($oldFileId) {
+                    $driveService = \App\Services\GoogleDriveService::getInstance();
+                    $driveService->deleteFile($oldFileId);
+                    \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $oldFileId);
+                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileId);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("deleteDoc: fallo al borrar archivo del Drive para equipo {$id} type {$type}: " . $e->getMessage());
+            }
+        }
+
+        // ── 2. Limpiar link + fecha + autor en la BD ───────────────────────
+        $doc->update([
+            $cfg['link']  => null,
+            $cfg['fecha'] => null,
+            $cfg['autor'] => null,
+        ]);
+
+        // ── 3. Invalidar caches del dashboard ──────────────────────────────
         \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
         \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
 
-        // Auditoria: registra el borrado del documento.
-        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete_' . $type, []);
+        // ── 4. Audit log ───────────────────────────────────────────────────
+        \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete_' . $type, [
+            'archivo_url' => $oldUrl,
+        ]);
 
         Log::info("Documento '{$type}' eliminado del equipo ID {$id} por usuario " . auth()->id());
 
