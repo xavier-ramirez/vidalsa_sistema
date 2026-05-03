@@ -83,12 +83,54 @@ class HistorialDocumentosController extends Controller
 
     public function index(Request $request)
     {
-        // 1. Fetch all documentation that has at least one upload.
-        // whereNotNull/orWhereNotNull agrupados en closure para que la precedencia
-        // AND/OR se mantenga si en el futuro se anaden filtros previos.
-        // El eager-load del equipo carga solo `tipo` (frenteActual no se usa en
-        // ningun campo del evento — eliminado para no traer datos sobrantes).
-        $docs = Documentacion::with([
+        // ── Scope LOCAL ─────────────────────────────────────────────────────
+        // Usuarios NIVEL_ACCESO=2 (local) solo ven el historial de equipos en
+        // los frentes que tienen asignados. Sin frentes => ven nada.
+        // Los super.admin / global ven todo el historial.
+        $user              = auth()->user();
+        $isLocalUser       = $user && $user->NIVEL_ACCESO == 2;
+        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
+
+        // Pre-filtros que se aplican en SQL (no en memoria) para escalar bien.
+        // Si el dataset crece a decenas de miles, esto evita cargar todo a RAM.
+        $fechaDesdeSql = $request->filled('fecha_desde')
+            ? Carbon::parse($request->fecha_desde)->startOfDay()
+            : null;
+        $fechaHastaSql = $request->filled('fecha_hasta')
+            ? Carbon::parse($request->fecha_hasta)->endOfDay()
+            : null;
+        $searchEquipoSql = trim((string) $request->input('search_equipo', ''));
+
+        // Helper que aplica el scope LOCAL a un query Eloquent que tiene relacion
+        // 'equipo'. Usado en Documentacion y EquipoAuditLog (que SI tienen relacion).
+        $applyLocalScopeViaWhereHas = function ($query) use ($isLocalUser, $frentesPermitidos) {
+            if (!$isLocalUser) return;
+            if (empty($frentesPermitidos)) {
+                $query->whereRaw('1 = 0'); // local sin frentes => sin resultados
+                return;
+            }
+            $query->whereHas('equipo', function ($q) use ($frentesPermitidos) {
+                $q->withTrashed()->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            });
+        };
+
+        // Helper que aplica el filtro search_equipo (placa/serial/codigo) en SQL.
+        $applySearchEquipoViaWhereHas = function ($query) use ($searchEquipoSql) {
+            if ($searchEquipoSql === '') return;
+            $like = '%' . strtoupper($searchEquipoSql) . '%';
+            $query->whereHas('equipo', function ($q) use ($like) {
+                $q->withTrashed()->where(function ($w) use ($like) {
+                    $w->whereRaw('UPPER(SERIAL_CHASIS) like ?', [$like])
+                      ->orWhereRaw('UPPER(CODIGO_PATIO) like ?', [$like])
+                      ->orWhereHas('documentacion', function ($qd) use ($like) {
+                          $qd->whereRaw('UPPER(PLACA) like ?', [$like]);
+                      });
+                });
+            });
+        };
+
+        // 1. Documentacion con upload — pre-filtros + LIMIT.
+        $docsQuery = Documentacion::with([
                 'equipo' => function ($q) { $q->withTrashed()->with('tipo'); },
                 'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc',
                 'usuarioRacda',     'usuarioAdicional', 'usuarioAdicional2',
@@ -97,8 +139,26 @@ class HistorialDocumentosController extends Controller
                 foreach (self::DOC_FIELD_MAP as $cfg) {
                     $q->orWhereNotNull($cfg['fecha_col']);
                 }
-            })
-            ->get();
+            });
+
+        $applyLocalScopeViaWhereHas($docsQuery);
+        $applySearchEquipoViaWhereHas($docsQuery);
+
+        // Filtro fecha en SQL: si hay rango, exigimos que AL MENOS una de las 6
+        // fechas de subida caiga en el rango. Acelera muchisimo en datasets grandes.
+        if ($fechaDesdeSql || $fechaHastaSql) {
+            $docsQuery->where(function ($q) use ($fechaDesdeSql, $fechaHastaSql) {
+                foreach (self::DOC_FIELD_MAP as $cfg) {
+                    $q->orWhere(function ($qq) use ($cfg, $fechaDesdeSql, $fechaHastaSql) {
+                        $qq->whereNotNull($cfg['fecha_col']);
+                        if ($fechaDesdeSql) $qq->where($cfg['fecha_col'], '>=', $fechaDesdeSql);
+                        if ($fechaHastaSql) $qq->where($cfg['fecha_col'], '<=', $fechaHastaSql);
+                    });
+                }
+            });
+        }
+
+        $docs = $docsQuery->limit(5000)->get();
 
         // 2. Parse them into a flat array of "upload events".
         // Las 6 entradas de DOC_FIELD_MAP eliminan 6 bloques foreach copiados.
@@ -135,13 +195,40 @@ class HistorialDocumentosController extends Controller
         }
 
         // Eventos de "Registro de Vehiculo" (creacion). Eager-load del creador
-        // restringido a las columnas necesarias para no cargar el modelo entero.
-        $equiposCreados = \App\Models\Equipo::with([
+        // restringido a las columnas necesarias + pre-filtros en SQL + LIMIT.
+        $equiposQuery = \App\Models\Equipo::with([
                 'tipo:id,nombre',
                 'creador:ID_USUARIO,CORREO_ELECTRONICO',
+                'documentacion:ID_EQUIPO,PLACA',
             ])
-            ->whereNotNull('CREADO_POR')
-            ->get();
+            ->whereNotNull('CREADO_POR');
+
+        // Scope LOCAL en SQL.
+        if ($isLocalUser) {
+            if (empty($frentesPermitidos)) {
+                $equiposQuery->whereRaw('1 = 0');
+            } else {
+                $equiposQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+            }
+        }
+
+        // search_equipo en SQL (placa/serial/codigo).
+        if ($searchEquipoSql !== '') {
+            $like = '%' . strtoupper($searchEquipoSql) . '%';
+            $equiposQuery->where(function ($q) use ($like) {
+                $q->whereRaw('UPPER(SERIAL_CHASIS) like ?', [$like])
+                  ->orWhereRaw('UPPER(CODIGO_PATIO) like ?', [$like])
+                  ->orWhereHas('documentacion', function ($qd) use ($like) {
+                      $qd->whereRaw('UPPER(PLACA) like ?', [$like]);
+                  });
+            });
+        }
+
+        // Filtro fecha en SQL aplicado a created_at del equipo.
+        if ($fechaDesdeSql) $equiposQuery->where('created_at', '>=', $fechaDesdeSql);
+        if ($fechaHastaSql) $equiposQuery->where('created_at', '<=', $fechaHastaSql);
+
+        $equiposCreados = $equiposQuery->orderByDesc('created_at')->limit(5000)->get();
 
         foreach ($equiposCreados as $equipo) {
             $events->push((object)[
@@ -164,13 +251,19 @@ class HistorialDocumentosController extends Controller
             // withTrashed: incluye equipos soft-deleted asi los logs de
             // tipo 'delete' tambien muestran tipo/marca/modelo del equipo
             // borrado en lugar de un generico "Equipo Eliminado".
-            $auditLogs = \App\Models\EquipoAuditLog::with([
+            $auditQuery = \App\Models\EquipoAuditLog::with([
                     'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'documentacion']); },
                     'usuario',
                 ])
-                ->orderByDesc('created_at')
-                ->limit(5000)
-                ->get();
+                ->orderByDesc('created_at');
+
+            // Scope LOCAL + search_equipo + rango de fechas en SQL.
+            $applyLocalScopeViaWhereHas($auditQuery);
+            $applySearchEquipoViaWhereHas($auditQuery);
+            if ($fechaDesdeSql) $auditQuery->where('created_at', '>=', $fechaDesdeSql);
+            if ($fechaHastaSql) $auditQuery->where('created_at', '<=', $fechaHastaSql);
+
+            $auditLogs = $auditQuery->limit(5000)->get();
             foreach ($auditLogs as $log) {
                 $eq = $log->equipo;
                 $eName = $eq ? (($eq->tipo->nombre ?? 'Equipo') . ' ' . $eq->MARCA . ' ' . $eq->MODELO) : 'Equipo Eliminado';
@@ -247,37 +340,33 @@ class HistorialDocumentosController extends Controller
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha')->values();
 
-        // 4. Apply filters (correo / equipo / tipo / rango de fechas)
-        $hasFilter = $request->filled('search_correo') || $request->filled('search_equipo')
-                  || $request->filled('search_tipo')
-                  || $request->filled('fecha_desde') || $request->filled('fecha_hasta');
-        if ($hasFilter) {
-            // Normalizador con soporte de tildes: "Póliza" → "poliza", "Edición" → "edicion".
-            // Sin esto, una busqueda por "poliza" (sin tilde) no encontraba "Póliza" porque
-            // strtolower preserva la 'ó' acentuada y strpos compara byte-a-byte.
+        // 4. Filtros finales en memoria sobre los eventos ya construidos.
+        //    - search_correo y search_tipo: NO se pueden hacer en SQL porque
+        //      'autor' es un correo derivado de 6 relaciones distintas + el label
+        //      'tipo' es un string construido en PHP (no existe en DB).
+        //    - fecha_desde/hasta: se aplico en SQL para REDUCIR el dataset, pero
+        //      hay que repetir aqui porque un Documentacion tiene 6 fechas y solo
+        //      necesitamos que UNA caiga en rango para traerlo; los eventos de las
+        //      OTRAS fechas del mismo doc deben filtrarse aqui.
+        //    - search_equipo y scope LOCAL ya se filtraron en SQL completamente.
+        $hasInMemoryFilter = $request->filled('search_correo')
+                          || $request->filled('search_tipo')
+                          || $fechaDesdeSql || $fechaHastaSql;
+        if ($hasInMemoryFilter) {
             $normalize = fn ($s) => mb_strtolower(\Illuminate\Support\Str::ascii((string) $s));
 
             $search_correo = $normalize($request->search_correo);
-            $search_equipo = $normalize($request->search_equipo);
             $search_tipo   = $normalize($request->search_tipo);
-            // Rango de fechas: comparamos contra event->fecha (siempre Carbon en este punto).
-            $fechaDesde = $request->filled('fecha_desde') ? Carbon::parse($request->fecha_desde)->startOfDay() : null;
-            $fechaHasta = $request->filled('fecha_hasta') ? Carbon::parse($request->fecha_hasta)->endOfDay() : null;
 
-            $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_equipo, $search_tipo, $fechaDesde, $fechaHasta) {
+            $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql) {
                 if ($search_correo && strpos($normalize($event->autor), $search_correo) === false) {
                     return false;
                 }
                 if ($search_tipo && $search_tipo !== 'all' && strpos($normalize($event->tipo), $search_tipo) === false) {
                     return false;
                 }
-                if ($search_equipo) {
-                    $equipoMatch = strpos($normalize($event->equipo_nombre), $search_equipo) !== false ||
-                                   strpos($normalize($event->equipo_id), $search_equipo) !== false;
-                    if (!$equipoMatch) return false;
-                }
-                if ($fechaDesde && $event->fecha->lt($fechaDesde)) return false;
-                if ($fechaHasta && $event->fecha->gt($fechaHasta)) return false;
+                if ($fechaDesdeSql && $event->fecha->lt($fechaDesdeSql)) return false;
+                if ($fechaHastaSql && $event->fecha->gt($fechaHastaSql)) return false;
                 return true;
             })->values();
         }
