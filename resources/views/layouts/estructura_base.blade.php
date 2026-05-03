@@ -1773,22 +1773,15 @@
             // Borrado de PDF desde el modal de preview. Borra del Google Drive Y de la BD.
             // Por ahora solo soporta el modulo 'equipo'; auxiliares no implementado todavia.
             // Usa confirm() nativo del browser (no window.showModal) porque el standardModal
-            // queda detras del pdfPreviewModal por el stacking context — la confirmacion
-            // no era visible y los Promise nunca resolvian, dando sensacion de que "no pasa nada".
+            // queda detras del pdfPreviewModal por el stacking context.
             window.deletePdfFromPreview = async function () {
-                console.log('[deletePdfFromPreview] click recibido');
-
                 if (!window.CAN_DELETE_DOCS) {
                     if (window.showToast) window.showToast('No tienes permisos para eliminar documentos.', 'error');
-                    console.warn('[deletePdfFromPreview] sin permiso super.admin');
                     return;
                 }
                 const ctx = window.currentPdfContext;
-                console.log('[deletePdfFromPreview] ctx =', ctx);
-
                 if (!ctx || !ctx.equipoId || !ctx.docType) {
                     if (window.showToast) window.showToast('Contexto de documento no disponible.', 'error');
-                    console.warn('[deletePdfFromPreview] ctx invalido');
                     return;
                 }
                 if (ctx.module === 'auxiliar') {
@@ -1796,34 +1789,25 @@
                     return;
                 }
 
-                // confirm() nativo: garantizado visible por encima de cualquier modal HTML.
                 const confirmed = window.confirm(
                     '¿Eliminar este documento del Google Drive y de la base de datos?\n\nEsta acción NO se puede deshacer.'
                 );
-                if (!confirmed) {
-                    console.log('[deletePdfFromPreview] cancelado por usuario');
-                    return;
-                }
+                if (!confirmed) return;
 
                 const btn = document.getElementById('pdfDeleteBtn');
                 if (btn) btn.disabled = true;
                 if (typeof window.showPreloader === 'function') window.showPreloader();
 
-                const url = `/admin/equipos/${ctx.equipoId}/delete-doc`;
-                console.log('[deletePdfFromPreview] DELETE', url, 'doc_type=', ctx.docType);
-
                 try {
                     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
                     if (!csrfMeta) {
-                        console.error('[deletePdfFromPreview] meta[name=csrf-token] no encontrada');
                         if (window.showToast) window.showToast('Token CSRF no disponible. Recarga la página.', 'error');
                         return;
                     }
                     // doc_type como query param: la ruta es DELETE, asi que enviamos
                     // los datos en la URL para evitar problemas con bodies en DELETE
-                    // (algunos middlewares y proxies los strippean). El CSRF va en
-                    // header como es estandar en Laravel SPA.
-                    const res = await fetch(`${url}?doc_type=${encodeURIComponent(ctx.docType)}`, {
+                    // (algunos middlewares y proxies los strippean).
+                    const res = await fetch(`/admin/equipos/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
                         method: 'DELETE',
                         headers: {
                             'X-CSRF-TOKEN': csrfMeta.getAttribute('content'),
@@ -1831,10 +1815,7 @@
                             'Accept': 'application/json',
                         },
                     });
-                    console.log('[deletePdfFromPreview] response status =', res.status);
-
                     const data = await res.json().catch(() => ({}));
-                    console.log('[deletePdfFromPreview] response body =', data);
 
                     if (res.ok && data.success) {
                         if (window.showToast) window.showToast(data.message || 'Documento eliminado.', 'success');
@@ -1870,10 +1851,10 @@
                     } else {
                         const msg = (data && data.message) ? data.message : `Error HTTP ${res.status}`;
                         if (window.showToast) window.showToast(msg, 'error');
-                        console.error('[deletePdfFromPreview] backend rechazo:', res.status, data);
+                        console.error('deletePdfFromPreview: backend rechazo', res.status, data);
                     }
                 } catch (e) {
-                    console.error('[deletePdfFromPreview] excepcion de red:', e);
+                    console.error('deletePdfFromPreview: excepcion de red', e);
                     if (window.showToast) window.showToast('Error de red al eliminar el documento.', 'error');
                 } finally {
                     if (btn) btn.disabled = false;
