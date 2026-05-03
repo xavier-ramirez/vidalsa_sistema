@@ -262,19 +262,19 @@
                     </form>
                 </div>
 
-                <!-- Filter Tipo Documento -->
+                <!-- Filter Tipo de Accion -->
                 <div class="filter-item aligned-filter responsive-filter-item">
-                    <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Tipo Doc..." style="width: 100%;">
+                    <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Acción..." style="width: 100%;">
                         <input type="hidden" name="search_tipo" data-filter-value value="">
-                        
+
                         <div class="dropdown-trigger" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
-                            
+
                             <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
                                 <i class="material-icons" style="font-size: 18px;">search</i>
                             </div>
 
                             <input type="text" name="filter_search_dropdown" data-filter-search
-                                placeholder="Filtrar Tipo Doc..." 
+                                placeholder="Filtrar Acción..."
                                 style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
                                 onkeyup="window.filterDropdownOptions(this)"
                                 onfocus="this.closest('.custom-dropdown').classList.add('active')"
@@ -282,38 +282,53 @@
 
                             <div style="display: flex; align-items: center; padding-right: 10px;">
                                 <i class="material-icons" data-clear-btn
-                                   style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: none;" 
+                                   style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: none;"
                                    onclick="event.stopPropagation(); clearDropdownFilter('tipoDocFilterSelect'); window.loadHistorialDocumentos();"
                                    title="Limpiar filtro">close</i>
                             </div>
                         </div>
 
                         <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                            <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
-                                <div class="dropdown-item selected" data-value="all" onclick="selectOption('tipoDocFilterSelect', 'all', 'TODOS LOS DOCUMENTOS'); window.loadHistorialDocumentos();">
-                                    TODOS LOS DOCUMENTOS
+                            <div class="dropdown-item-list" style="max-height: 320px; overflow-y: auto;">
+                                <div class="dropdown-item selected" data-value="all" onclick="selectOption('tipoDocFilterSelect', 'all', 'TODAS LAS ACCIONES'); window.loadHistorialDocumentos();">
+                                    TODAS LAS ACCIONES
                                 </div>
-                                <div class="dropdown-item" data-value="propiedad" onclick="selectOption('tipoDocFilterSelect', 'propiedad', 'Título de Propiedad'); window.loadHistorialDocumentos();">
-                                    Título de Propiedad
-                                </div>
-                                <div class="dropdown-item" data-value="poliza" onclick="selectOption('tipoDocFilterSelect', 'poliza', 'Póliza de Seguro'); window.loadHistorialDocumentos();">
-                                    Póliza de Seguro
-                                </div>
-                                <div class="dropdown-item" data-value="rotc" onclick="selectOption('tipoDocFilterSelect', 'rotc', 'ROTC'); window.loadHistorialDocumentos();">
-                                    ROTC
-                                </div>
-                                <div class="dropdown-item" data-value="racda" onclick="selectOption('tipoDocFilterSelect', 'racda', 'RACDA'); window.loadHistorialDocumentos();">
-                                    RACDA
-                                </div>
-                                <div class="dropdown-item" data-value="certificado" onclick="selectOption('tipoDocFilterSelect', 'certificado', 'Certificado Asociado'); window.loadHistorialDocumentos();">
-                                    Certificado Asociado
-                                </div>
-                                <div class="dropdown-item" data-value="compraventa" onclick="selectOption('tipoDocFilterSelect', 'compraventa', 'Compraventa'); window.loadHistorialDocumentos();">
-                                    Compraventa
-                                </div>
-                                <div class="dropdown-item" data-value="registro de vehículo" onclick="selectOption('tipoDocFilterSelect', 'registro de vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">
-                                    Registro de Vehículo
-                                </div>
+
+                                {{-- Acciones sobre el equipo (audit log) --}}
+                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SOBRE EL EQUIPO</div>
+                                <div class="dropdown-item" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
+                                <div class="dropdown-item" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
+                                <div class="dropdown-item" data-value="Cambio de Ubicación" onclick="selectOption('tipoDocFilterSelect', 'Cambio de Ubicación', 'Cambio de Ubicación'); window.loadHistorialDocumentos();">Cambio de Ubicación</div>
+                                <div class="dropdown-item" data-value="Ubicación Masiva" onclick="selectOption('tipoDocFilterSelect', 'Ubicación Masiva', 'Ubicación Masiva'); window.loadHistorialDocumentos();">Ubicación Masiva</div>
+                                <div class="dropdown-item" data-value="Cambio de Estatus" onclick="selectOption('tipoDocFilterSelect', 'Cambio de Estatus', 'Cambio de Estatus'); window.loadHistorialDocumentos();">Cambio de Estatus</div>
+                                <div class="dropdown-item" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
+
+                                {{-- Subidas de documentos --}}
+                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SUBIDAS DE DOCUMENTO</div>
+                                <div class="dropdown-item" data-value="Título de Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Título de Propiedad', 'Título de Propiedad'); window.loadHistorialDocumentos();">Título de Propiedad</div>
+                                <div class="dropdown-item" data-value="Póliza de Seguro" onclick="selectOption('tipoDocFilterSelect', 'Póliza de Seguro', 'Póliza de Seguro'); window.loadHistorialDocumentos();">Póliza de Seguro</div>
+                                <div class="dropdown-item" data-value="ROTC" onclick="selectOption('tipoDocFilterSelect', 'ROTC', 'ROTC'); window.loadHistorialDocumentos();">ROTC</div>
+                                <div class="dropdown-item" data-value="RACDA" onclick="selectOption('tipoDocFilterSelect', 'RACDA', 'RACDA'); window.loadHistorialDocumentos();">RACDA</div>
+                                <div class="dropdown-item" data-value="Certificado Asociado" onclick="selectOption('tipoDocFilterSelect', 'Certificado Asociado', 'Certificado Asociado'); window.loadHistorialDocumentos();">Certificado Asociado</div>
+                                <div class="dropdown-item" data-value="Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Compraventa', 'Compraventa'); window.loadHistorialDocumentos();">Compraventa</div>
+
+                                {{-- Borrados de documentos (audit log) --}}
+                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">BORRADOS DE DOCUMENTO</div>
+                                <div class="dropdown-item" data-value="Borrado Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Borrado Propiedad', 'Borrado Propiedad'); window.loadHistorialDocumentos();">Borrado Propiedad</div>
+                                <div class="dropdown-item" data-value="Borrado Póliza" onclick="selectOption('tipoDocFilterSelect', 'Borrado Póliza', 'Borrado Póliza'); window.loadHistorialDocumentos();">Borrado Póliza</div>
+                                <div class="dropdown-item" data-value="Borrado ROTC" onclick="selectOption('tipoDocFilterSelect', 'Borrado ROTC', 'Borrado ROTC'); window.loadHistorialDocumentos();">Borrado ROTC</div>
+                                <div class="dropdown-item" data-value="Borrado RACDA" onclick="selectOption('tipoDocFilterSelect', 'Borrado RACDA', 'Borrado RACDA'); window.loadHistorialDocumentos();">Borrado RACDA</div>
+                                <div class="dropdown-item" data-value="Borrado Certificado" onclick="selectOption('tipoDocFilterSelect', 'Borrado Certificado', 'Borrado Certificado'); window.loadHistorialDocumentos();">Borrado Certificado</div>
+                                <div class="dropdown-item" data-value="Borrado Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Borrado Compraventa', 'Borrado Compraventa'); window.loadHistorialDocumentos();">Borrado Compraventa</div>
+
+                                {{-- Edicion de metadatos (audit log) --}}
+                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">EDICIÓN DE METADATOS</div>
+                                <div class="dropdown-item" data-value="Edición Metadata Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Propiedad', 'Edición Metadata Propiedad'); window.loadHistorialDocumentos();">Edición Metadata Propiedad</div>
+                                <div class="dropdown-item" data-value="Edición Metadata Póliza" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Póliza', 'Edición Metadata Póliza'); window.loadHistorialDocumentos();">Edición Metadata Póliza</div>
+                                <div class="dropdown-item" data-value="Edición Metadata ROTC" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata ROTC', 'Edición Metadata ROTC'); window.loadHistorialDocumentos();">Edición Metadata ROTC</div>
+                                <div class="dropdown-item" data-value="Edición Metadata RACDA" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata RACDA', 'Edición Metadata RACDA'); window.loadHistorialDocumentos();">Edición Metadata RACDA</div>
+                                <div class="dropdown-item" data-value="Edición Metadata Certificado" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Certificado', 'Edición Metadata Certificado'); window.loadHistorialDocumentos();">Edición Metadata Certificado</div>
+                                <div class="dropdown-item" data-value="Edición Metadata Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Compraventa', 'Edición Metadata Compraventa'); window.loadHistorialDocumentos();">Edición Metadata Compraventa</div>
                             </div>
                         </div>
                     </div>
@@ -390,7 +405,7 @@
                         <tr style="background: #334155; text-align: left; color: #ffffff; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #1e293b;">
                             <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 150px;">Fecha y Hora</th>
                             <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 200px;">Autor</th>
-                            <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 180px;">Tipo de Documento</th>
+                            <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 180px;">Tipo de Acción</th>
                             <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 200px;">Equipo Asociado</th>
                             <th style="padding: 10px 15px; text-align: center; width: 100px;">Ver PDF</th>
                         </tr>

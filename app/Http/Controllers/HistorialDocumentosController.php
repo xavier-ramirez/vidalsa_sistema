@@ -244,23 +244,28 @@ class HistorialDocumentosController extends Controller
                   || $request->filled('search_tipo')
                   || $request->filled('fecha_desde') || $request->filled('fecha_hasta');
         if ($hasFilter) {
-            $search_correo = strtolower($request->search_correo);
-            $search_equipo = strtolower($request->search_equipo);
-            $search_tipo = strtolower($request->search_tipo);
+            // Normalizador con soporte de tildes: "Póliza" → "poliza", "Edición" → "edicion".
+            // Sin esto, una busqueda por "poliza" (sin tilde) no encontraba "Póliza" porque
+            // strtolower preserva la 'ó' acentuada y strpos compara byte-a-byte.
+            $normalize = fn ($s) => mb_strtolower(\Illuminate\Support\Str::ascii((string) $s));
+
+            $search_correo = $normalize($request->search_correo);
+            $search_equipo = $normalize($request->search_equipo);
+            $search_tipo   = $normalize($request->search_tipo);
             // Rango de fechas: comparamos con fecha_raw (Carbon) usando solo dia.
             $fechaDesde = $request->filled('fecha_desde') ? Carbon::parse($request->fecha_desde)->startOfDay() : null;
             $fechaHasta = $request->filled('fecha_hasta') ? Carbon::parse($request->fecha_hasta)->endOfDay() : null;
 
-            $events = $events->filter(function ($event) use ($search_correo, $search_equipo, $search_tipo, $fechaDesde, $fechaHasta) {
-                if ($search_correo && strpos(strtolower($event->autor), $search_correo) === false) {
+            $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_equipo, $search_tipo, $fechaDesde, $fechaHasta) {
+                if ($search_correo && strpos($normalize($event->autor), $search_correo) === false) {
                     return false;
                 }
-                if ($search_tipo && $search_tipo !== 'all' && strpos(strtolower($event->tipo), $search_tipo) === false) {
+                if ($search_tipo && $search_tipo !== 'all' && strpos($normalize($event->tipo), $search_tipo) === false) {
                     return false;
                 }
                 if ($search_equipo) {
-                    $equipoMatch = strpos(strtolower($event->equipo_nombre), $search_equipo) !== false ||
-                                   strpos(strtolower($event->equipo_id), $search_equipo) !== false;
+                    $equipoMatch = strpos($normalize($event->equipo_nombre), $search_equipo) !== false ||
+                                   strpos($normalize($event->equipo_id), $search_equipo) !== false;
                     if (!$equipoMatch) return false;
                 }
                 if ($fechaDesde || $fechaHasta) {
