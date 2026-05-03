@@ -235,10 +235,12 @@ function initEquiposForm() {
         });
 
         // FIX 2: Correct field ID mapping (dropdowns use input_* pattern)
+        // NOTA: input_frente_trabajo NO se incluye aquí porque ID_FRENTE_ACTUAL
+        // es nullable en el backend (un equipo puede estar sin frente asignado).
+        // Incluirlo causaba un falso error al editar equipos sin frente.
         const criticalFields = {
             'input_tipo_equipo': 'Tipo de Equipo',
             'input_categoria_flota': 'Categoría de Flota',
-            'input_frente_trabajo': 'Frente de Trabajo',
             'input_estatus': 'Estatus',
             'marca': 'Marca',
             'modelo': 'Modelo'

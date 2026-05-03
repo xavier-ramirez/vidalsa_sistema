@@ -278,18 +278,22 @@ class MovilizacionController extends Controller
             $destNombre    = strtoupper(trim($request->destination));
             $destUbicacion = trim((string) $request->input('destination_ubicacion', ''));
 
-            // Si el frente NO existe, exigir la ubicacion (zona/municipio/estado). Es un
-            // dato critico para los informes. El frontend ya lo valida, este guard
-            // previene llamadas directas al endpoint que intenten saltarse la regla.
+            // Buscar el frente existente (puede tener UBICACION vacía en BD).
             $frenteExistente = FrenteTrabajo::where('NOMBRE_FRENTE', $destNombre)->first();
-            if (!$frenteExistente && $destUbicacion === '') {
+            $frenteNecesitaUbicacion = !$frenteExistente || empty(trim((string)($frenteExistente->UBICACION ?? '')));
+
+            // Guardia backend: si el frente no tiene ubicación (nuevo O viejo sin ella),
+            // se exige que el usuario la proporcione. El frontend ya lo valida; este guard
+            // previene llamadas directas al endpoint que intenten saltarse la regla.
+            if ($frenteNecesitaUbicacion && $destUbicacion === '') {
                 DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El frente "' . $destNombre . '" no existe. Debes indicar su ubicaciÃ³n (zona, municipio o estado) para crearlo.',
-                ], 422);
+                $msg = $frenteExistente
+                    ? 'El frente "' . $destNombre . '" no tiene ubicación registrada. Debes indicar ciudad, zona, municipio y estado para el PDF.'
+                    : 'El frente "' . $destNombre . '" no existe. Debes indicar su ubicación (zona, municipio o estado) para crearlo.';
+                return response()->json(['success' => false, 'message' => $msg], 422);
             }
 
+            // Crear el frente si no existe, o recuperar el existente.
             $frente = FrenteTrabajo::firstOrCreate(
                 ['NOMBRE_FRENTE' => $destNombre],
                 [
@@ -297,6 +301,15 @@ class MovilizacionController extends Controller
                     'UBICACION'      => $destUbicacion !== '' ? strtoupper($destUbicacion) : null,
                 ]
             );
+
+            // ── FIX CRÍTICO: firstOrCreate SOLO aplica los valores al CREAR.
+            // Si el frente ya existía pero sin UBICACION, y el usuario proporcionó una,
+            // hay que guardarla explícitamente ahora. Sin este bloque la ubicacion
+            // se pierde silenciosamente en frentes viejos sin UBICACION registrada.
+            if (!$frente->wasRecentlyCreated && $destUbicacion !== '' && empty(trim((string)($frente->UBICACION ?? '')))) {
+                $frente->UBICACION = strtoupper($destUbicacion);
+                $frente->save();
+            }
 
             // Acceso a bulkStore se controla UNICAMENTE con el permiso
             // 'equipos.assign' (middleware del controller + @can en UI). El

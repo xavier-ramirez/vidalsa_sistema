@@ -669,7 +669,7 @@ class EquipoController extends Controller
         $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
         $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
-        $lastCol = $showFrenteCol ? 'J' : 'I';
+        $lastCol = $showFrenteCol ? 'K' : 'J';
 
         $sheet->mergeCells('F1:'.$lastCol.'1');
         $sheet->setCellValue('F1', 'EDICION: 1');
@@ -718,11 +718,11 @@ class EquipoController extends Controller
 
         // Fila 5 - Encabezados de tabla
         if ($showFrenteCol) {
-            $headers = ['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'PLACA', 'AÑO', 'ESTADO'];
-            $colMap = ['A','B','C','D','E','F','G','H','I','J'];
+            $headers = ['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'];
+            $colMap = ['A','B','C','D','E','F','G','H','I','J','K'];
         } else {
-            $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'PLACA', 'AÑO', 'ESTADO'];
-            $colMap = ['A','B','C','D','E','F','G','H','I'];
+            $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'];
+            $colMap = ['A','B','C','D','E','F','G','H','I','J'];
         }
 
         foreach($headers as $index => $hdr) {
@@ -743,9 +743,10 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('E')->setWidth(22);
             $sheet->getColumnDimension('F')->setWidth(22);
             $sheet->getColumnDimension('G')->setWidth(28);
-            $sheet->getColumnDimension('H')->setWidth(18);
-            $sheet->getColumnDimension('I')->setWidth(10);
-            $sheet->getColumnDimension('J')->setWidth(20);
+            $sheet->getColumnDimension('H')->setWidth(28);
+            $sheet->getColumnDimension('I')->setWidth(18);
+            $sheet->getColumnDimension('J')->setWidth(10);
+            $sheet->getColumnDimension('K')->setWidth(20);
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(32);
@@ -753,9 +754,10 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('D')->setWidth(22);
             $sheet->getColumnDimension('E')->setWidth(22);
             $sheet->getColumnDimension('F')->setWidth(28);
-            $sheet->getColumnDimension('G')->setWidth(18);
-            $sheet->getColumnDimension('H')->setWidth(10);
-            $sheet->getColumnDimension('I')->setWidth(20);
+            $sheet->getColumnDimension('G')->setWidth(28);
+            $sheet->getColumnDimension('H')->setWidth(18);
+            $sheet->getColumnDimension('I')->setWidth(10);
+            $sheet->getColumnDimension('J')->setWidth(20);
         }
 
         $printedIds = [];
@@ -787,6 +789,9 @@ class EquipoController extends Controller
             $chasis = trim($equipo->SERIAL_CHASIS ?? '');
             $chasisVal = $chasis !== '' ? mb_strtoupper($chasis) : '—';
             
+            $motor = trim($equipo->SERIAL_DE_MOTOR ?? '');
+            $motorVal = $motor !== '' ? mb_strtoupper($motor) : '—';
+
             $placa = $equipo->documentacion ? trim($equipo->documentacion->PLACA ?? '') : '';
             $placaVal = $placa !== '' ? mb_strtoupper($placa) : '—';
 
@@ -804,21 +809,23 @@ class EquipoController extends Controller
                 $sheet->setCellValue('E'.$rowNum, $modeloVal);
                 $sheet->setCellValue('F'.$rowNum, $categoriaVal);
                 $sheet->setCellValue('G'.$rowNum, $chasisVal);
-                $sheet->setCellValue('H'.$rowNum, $placaVal);
-                $sheet->setCellValue('I'.$rowNum, $anioVal);
-                $sheet->setCellValue('J'.$rowNum, $estadoVal);
+                $sheet->setCellValue('H'.$rowNum, $motorVal);
+                $sheet->setCellValue('I'.$rowNum, $placaVal);
+                $sheet->setCellValue('J'.$rowNum, $anioVal);
+                $sheet->setCellValue('K'.$rowNum, $estadoVal);
 
                 $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
-                $sheet->getStyle('J'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('K'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             } else {
                 $sheet->setCellValue('B'.$rowNum, $tipoVal);
                 $sheet->setCellValue('C'.$rowNum, $marcaVal);
                 $sheet->setCellValue('D'.$rowNum, $modeloVal);
                 $sheet->setCellValue('E'.$rowNum, $categoriaVal);
                 $sheet->setCellValue('F'.$rowNum, $chasisVal);
-                $sheet->setCellValue('G'.$rowNum, $placaVal);
-                $sheet->setCellValue('H'.$rowNum, $anioVal);
-                $sheet->setCellValue('I'.$rowNum, $estadoVal);
+                $sheet->setCellValue('G'.$rowNum, $motorVal);
+                $sheet->setCellValue('H'.$rowNum, $placaVal);
+                $sheet->setCellValue('I'.$rowNum, $anioVal);
+                $sheet->setCellValue('J'.$rowNum, $estadoVal);
             }
 
             // Alternancia de colores en las filas (Zebra Striping)
@@ -852,6 +859,7 @@ class EquipoController extends Controller
                 $sheet->getStyle('F'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle('I'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             } else {
                 $sheet->getStyle('C'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle('E'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -1336,7 +1344,10 @@ class EquipoController extends Controller
             'MARCA' => 'required',
             'MODELO' => 'required',
             'ANIO' => 'required|integer',
-            'ID_ESPEC' => 'nullable|exists:caracteristicas_modelo,ID_ESPEC',
+            // ID_ESPEC se gestiona desde el widget del catálogo, no desde
+            // el formulario de edición general. Se acepta cualquier valor
+            // (o null) sin validar existencia para evitar errores con vínculos huérfanos.
+            'ID_ESPEC' => 'nullable',
             'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
             'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
             'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA,' . ($equipo->documentacion ? $equipo->documentacion->ID_EQUIPO : 'NULL') . ',ID_EQUIPO',

@@ -288,6 +288,13 @@ function updateSelectionUI() {
             }
 
         } else {
+            // Resetear botones de anclaje a estado neutro antes de ocultar la barra.
+            // Sin esto, al limpiar y volver a seleccionar pueden aparecer con el
+            // display del ciclo anterior (incorrecto).
+            const anchorBtn   = document.getElementById('btnAnclar');
+            const unanchorBtn = document.getElementById('btnUnanchor');
+            if (anchorBtn)   anchorBtn.style.display   = 'none';
+            if (unanchorBtn) unanchorBtn.style.display = 'none';
             bar.classList.remove("active");
         }
     }
@@ -1509,7 +1516,7 @@ window.openBulkModal = function (event) {
                 body: JSON.stringify({
                     ids: ids,
                     destination: dest,
-                    destination_ubicacion: destUbicacion, // requerido solo si el frente es NUEVO
+                    destination_ubicacion: destUbicacion, // requerido si el frente es nuevo O si existe pero sin UBICACION
                     generar_pdf: generarPdf
                 }),
             });
@@ -1552,6 +1559,25 @@ window.openBulkModal = function (event) {
             removePortal();
             overlay.remove();
             window.clearSelection();
+
+            // ── Actualizar el frente en memoria (frentesData) si se guardó una
+            // ubicación nueva para él. Sin esto, al reabrir el modal en la misma
+            // sesión el campo de ubicación volvería a aparecer aunque ya fue guardado.
+            if (destUbicacion) {
+                const idx = frentesData.findIndex(f => (f.nombre || '').toUpperCase() === destUpper);
+                if (idx !== -1) {
+                    frentesData[idx].ubicacion = destUbicacion.toUpperCase();
+                }
+                // También actualizar el datalist del DOM para que futuras
+                // instancias del modal lean el valor correcto desde el HTML.
+                const dl = document.querySelector('#dynamicFrentesList');
+                if (dl) {
+                    const opt = Array.from(dl.querySelectorAll('option')).find(o =>
+                        (o.getAttribute('value') || '').toUpperCase() === destUpper
+                    );
+                    if (opt) opt.setAttribute('data-ubicacion', destUbicacion.toUpperCase());
+                }
+            }
 
             // Refrescar tabla con preloader visible hasta completar el render inicial
             window.loadEquipos(null, false);

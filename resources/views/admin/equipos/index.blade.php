@@ -728,9 +728,10 @@
 <!-- Hidden Datalist for Dynamic Modal (Autocomplete Source) -->
 <datalist id="dynamicFrentesList" style="display: none;">
     @foreach($frentes as $f)
-        {{-- data-ubicacion permite al modal de movilizacion saber si el
-             frente registrado ya tiene ubicacion en BD; si esta vacia, el
-             modal solicita una nueva para no perder la trazabilidad. --}}
+        {{-- data-ubicacion permite al modal de movilizacion saber si el frente
+             registrado ya tiene ubicacion en BD; si esta vacia (frente nuevo O
+             frente viejo sin ubicacion), el modal la solicita antes de confirmar
+             para no perder la trazabilidad en el PDF. --}}
         <option value="{{ $f->NOMBRE_FRENTE }}" data-id="{{ $f->ID_FRENTE }}" data-ubicacion="{{ $f->UBICACION }}"></option>
     @endforeach
 </datalist>
