@@ -9,6 +9,27 @@ use Carbon\Carbon;
 
 class HistorialDocumentosController extends Controller
 {
+    /**
+     * Construye el identificador de equipo para mostrar en la tabla del historial,
+     * consistente entre los 3 loops (docs, equipos creados, audit logs). Prefiere
+     * Placa → Serial Chasis → ID. Acepta tanto Equipo como (Equipo + placa string).
+     */
+    private function buildEquipoId($equipo, ?string $placa = null): string
+    {
+        if (!$equipo) return '#';
+        if (!empty($placa)) {
+            return 'Placa: ' . $placa;
+        }
+        // Fallback a la relacion documentacion si esta cargada.
+        if (!empty(optional($equipo->documentacion ?? null)->PLACA)) {
+            return 'Placa: ' . $equipo->documentacion->PLACA;
+        }
+        if (!empty($equipo->SERIAL_CHASIS)) {
+            return 'Serial Chasis: ' . $equipo->SERIAL_CHASIS;
+        }
+        return 'ID: ' . $equipo->ID_EQUIPO;
+    }
+
     public function index(Request $request)
     {
         // 1. Fetch all documentation that has at least one upload
@@ -38,17 +59,7 @@ class HistorialDocumentosController extends Controller
 
         foreach ($docs as $doc) {
             $eName = $doc->equipo ? ($doc->equipo->tipo->nombre ?? 'Equipo') . ' ' . $doc->equipo->MARCA . ' ' . $doc->equipo->MODELO : 'Equipo Eliminado';
-            
-            $eId = '#';
-            if ($doc->equipo) {
-                if (!empty($doc->PLACA)) {
-                    $eId = 'Placa: ' . $doc->PLACA;
-                } elseif (!empty($doc->equipo->SERIAL_CHASIS)) {
-                    $eId = 'Serial Chasis: ' . $doc->equipo->SERIAL_CHASIS;
-                } else {
-                    $eId = 'ID: ' . $doc->equipo->ID_EQUIPO;
-                }
-            }
+            $eId   = $this->buildEquipoId($doc->equipo, $doc->PLACA ?? null);
 
             if ($doc->PROPIEDAD_FECHA_SUBIDA && $doc->PROPIEDAD_SUBIDO_POR) {
                 $autor = $doc->usuarioPropiedad ? $doc->usuarioPropiedad->CORREO_ELECTRONICO : $doc->PROPIEDAD_SUBIDO_POR;
@@ -143,15 +154,7 @@ class HistorialDocumentosController extends Controller
 
         foreach ($equiposCreados as $equipo) {
             $eName = ($equipo->tipo->nombre ?? 'Equipo') . ' ' . $equipo->MARCA . ' ' . $equipo->MODELO;
-            
-            $eId = '#';
-            if (!empty($equipo->documentacion->PLACA)) {
-                $eId = 'Placa: ' . $equipo->documentacion->PLACA;
-            } elseif (!empty($equipo->SERIAL_CHASIS)) {
-                $eId = 'Serial Chasis: ' . $equipo->SERIAL_CHASIS;
-            } else {
-                $eId = 'ID: ' . $equipo->ID_EQUIPO;
-            }
+            $eId   = $this->buildEquipoId($equipo);
 
             $autor = $equipo->creador ? $equipo->creador->CORREO_ELECTRONICO : 'Usuario Desconocido';
             
@@ -169,14 +172,15 @@ class HistorialDocumentosController extends Controller
         }
 
         // Eventos de AUDITORIA de equipos (ediciones, cambios de metadata, ubicacion).
-        // Se cargan desde la tabla `equipo_audit_log` con eager loading de equipo+usuario
-        // para evitar N+1. Limite alto para no agotar memoria en instalaciones grandes.
+        // Se cargan desde la tabla `equipo_audit_log` con eager loading de
+        // equipo + tipo + documentacion + usuario para evitar N+1 y poder mostrar
+        // PLACA en el equipo_id (consistente con los otros loops).
         try {
             // withTrashed: incluye equipos soft-deleted asi los logs de
             // tipo 'delete' tambien muestran tipo/marca/modelo del equipo
             // borrado en lugar de un generico "Equipo Eliminado".
             $auditLogs = \App\Models\EquipoAuditLog::with([
-                    'equipo' => function ($q) { $q->withTrashed()->with('tipo'); },
+                    'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'documentacion']); },
                     'usuario',
                 ])
                 ->orderByDesc('created_at')
@@ -185,14 +189,7 @@ class HistorialDocumentosController extends Controller
             foreach ($auditLogs as $log) {
                 $eq = $log->equipo;
                 $eName = $eq ? (($eq->tipo->nombre ?? 'Equipo') . ' ' . $eq->MARCA . ' ' . $eq->MODELO) : 'Equipo Eliminado';
-                $eId   = '#';
-                if ($eq) {
-                    if (!empty($eq->SERIAL_CHASIS)) {
-                        $eId = 'Serial Chasis: ' . $eq->SERIAL_CHASIS;
-                    } else {
-                        $eId = 'ID: ' . $eq->ID_EQUIPO;
-                    }
-                }
+                $eId   = $this->buildEquipoId($eq);
                 $tipoLabel = [
                     'edit'                 => 'Edición de Datos',
                     'metadata_propiedad'   => 'Edición Metadata Propiedad',
@@ -235,6 +232,36 @@ class HistorialDocumentosController extends Controller
             // Tabla no existente / driver distinto → no rompe la vista, solo skip.
             \Illuminate\Support\Facades\Log::warning('audit log read failed: ' . $e->getMessage());
         }
+
+        // ── DEDUPLICACION legacy ↔ audit log ──────────────────────────────────
+        // Cada subida de documento genera DOS eventos:
+        //   1) "Título de Propiedad" desde el flag PROPIEDAD_FECHA_SUBIDA (loop docs).
+        //   2) "Subida Propiedad"   desde el audit log (loop audit).
+        // El audit log es la fuente autoritativa (mas detallada). Eliminamos los
+        // legacy duplicados: si para el mismo (equipo, doc_key, dia) existe un
+        // upload_X en el audit log, descartamos el evento legacy. Eventos legacy
+        // sin equivalente en audit log (datos antiguos pre-audit) se preservan.
+        $auditUploadKeys = [];
+        $legacyToUpload  = [
+            'propiedad'   => 'upload_propiedad',
+            'poliza'      => 'upload_poliza',
+            'rotc'        => 'upload_rotc',
+            'racda'       => 'upload_racda',
+            'adicional'   => 'upload_adicional',
+            'adicional_2' => 'upload_adicional_2',
+        ];
+        foreach ($events as $e) {
+            if (in_array($e->doc_key, $legacyToUpload, true)) {
+                $auditUploadKeys[$e->equipo_db_id . '|' . $e->doc_key . '|' . $e->fecha->format('Y-m-d')] = true;
+            }
+        }
+        $events = $events->filter(function ($e) use ($legacyToUpload, $auditUploadKeys) {
+            if (isset($legacyToUpload[$e->doc_key])) {
+                $key = $e->equipo_db_id . '|' . $legacyToUpload[$e->doc_key] . '|' . $e->fecha->format('Y-m-d');
+                return !isset($auditUploadKeys[$key]);
+            }
+            return true;
+        });
 
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha_raw')->values();
