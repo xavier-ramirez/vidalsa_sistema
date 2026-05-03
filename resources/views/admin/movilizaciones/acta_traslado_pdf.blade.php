@@ -65,10 +65,10 @@
         </tr>
     </table>
 
-    <!-- Separador Cuerpo / Tabla (14px) -->
+    <!-- Separador Cuerpo / Tabla (4px) -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
-            <td height="14">&nbsp;</td>
+            <td height="4">&nbsp;</td>
         </tr>
     </table>
 

@@ -674,6 +674,12 @@ class MovilizacionController extends Controller
             $parts = explode('<!--EQUIPOS_TABLE_PLACEHOLDER-->', $html, 2);
 
             $pdf->writeHTML($parts[0], true, false, true, false, '');
+
+            // Compensa el espacio vertical extra que TCPDF deja despues de cerrar
+            // los bloques HTML del cuerpo del acta. Sin esto la tabla queda visiblemente
+            // mas abajo de lo que necesita.
+            $pdf->SetY($pdf->GetY() - 3);
+
             $pdf->renderEquiposTable($equipos);
             if (isset($parts[1])) {
                 $pdf->writeHTML($parts[1], true, false, true, false, '');
