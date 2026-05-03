@@ -1078,7 +1078,6 @@
                 urlIndex: '{{ route("fallas.index") }}',
                 urlSearch: '{{ route("fallas.searchActivos") }}',
                 urlStore: '{{ route("fallas.store") }}',
-                urlChangeEstado: '{{ route("fallas.changeEstado") }}',
                 urlBase: '{{ url("admin/fallas") }}'
             };
         </script>

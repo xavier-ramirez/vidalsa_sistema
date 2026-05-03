@@ -21,10 +21,6 @@ use Illuminate\Support\Facades\Log;
  * Soporta dos modalidades:
  *   - corto:   solo descripcion + estado del equipo (registro rapido).
  *   - extenso: campos del formato corporativo + genera PDF acta.
- *
- * Cambio de estado SIN reporte: existe el endpoint changeEstado() para
- * actualizar OPERATIVO ↔ INOPERATIVO ↔ EN MANTENIMIENTO sin crear falla.
- * Queda registrado en fallas_audit_log con accion=change_estado.
  */
 class FallaController extends Controller
 {
@@ -324,41 +320,6 @@ class FallaController extends Controller
             $this->logAction($falla->ID_FALLA, $falla->ACTIVO_TIPO, $falla->ACTIVO_ID, 'close_falla', []);
 
             return response()->json(['success' => true, 'message' => 'Reporte cerrado.']);
-        });
-    }
-
-    /**
-     * Cambio de estado SIN reporte (actualizacion simple). Pedido del
-     * usuario: OPERATIVO ↔ INOPERATIVO ↔ EN MANTENIMIENTO sin crear falla.
-     * Queda en fallas_audit_log para trazabilidad.
-     */
-    public function changeEstado(Request $request)
-    {
-        $request->validate([
-            'activo_tipo' => 'required|in:equipo,equipo_auxiliar',
-            'activo_id'   => 'required|integer',
-            'nuevo_estado'=> 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO',
-        ]);
-
-        return DB::transaction(function () use ($request) {
-            $activo = $this->lockActivo($request->activo_tipo, $request->activo_id);
-            if (!$activo) {
-                return response()->json(['success' => false, 'message' => 'Activo no encontrado'], 404);
-            }
-            $estadoPrevio = $activo->ESTADO_OPERATIVO;
-            if ($estadoPrevio === $request->nuevo_estado) {
-                return response()->json(['success' => false, 'message' => 'El equipo ya esta en ese estado'], 422);
-            }
-
-            $activo->ESTADO_OPERATIVO = $request->nuevo_estado;
-            $activo->save();
-
-            $this->logAction(null, $request->activo_tipo, $request->activo_id, 'change_estado', [
-                'estado_previo' => $estadoPrevio,
-                'estado_nuevo'  => $request->nuevo_estado,
-            ]);
-
-            return response()->json(['success' => true, 'message' => 'Estado actualizado.']);
         });
     }
 
