@@ -30,144 +30,129 @@ class HistorialDocumentosController extends Controller
         return 'ID: ' . $equipo->ID_EQUIPO;
     }
 
+    /**
+     * Mapeo tabla-driven de los 6 tipos de documento que la tabla `documentacion`
+     * registra via flags FECHA_SUBIDA/SUBIDO_POR. Usado para evitar 6 bloques
+     * foreach copiados-pegados en index(). Cada entrada describe la columna de
+     * fecha, autor, link, la relacion del usuario y el doc_key/label legacy.
+     */
+    private const DOC_FIELD_MAP = [
+        'propiedad' => [
+            'fecha_col' => 'PROPIEDAD_FECHA_SUBIDA',
+            'autor_col' => 'PROPIEDAD_SUBIDO_POR',
+            'link_col'  => 'LINK_DOC_PROPIEDAD',
+            'user_rel'  => 'usuarioPropiedad',
+            'label'     => 'Título de Propiedad',
+        ],
+        'poliza' => [
+            'fecha_col' => 'POLIZA_FECHA_SUBIDA',
+            'autor_col' => 'POLIZA_SUBIDO_POR',
+            'link_col'  => 'LINK_POLIZA_SEGURO',
+            'user_rel'  => 'usuarioPoliza',
+            'label'     => 'Póliza de Seguro',
+        ],
+        'rotc' => [
+            'fecha_col' => 'ROTC_FECHA_SUBIDA',
+            'autor_col' => 'ROTC_SUBIDO_POR',
+            'link_col'  => 'LINK_ROTC',
+            'user_rel'  => 'usuarioRotc',
+            'label'     => 'ROTC',
+        ],
+        'racda' => [
+            'fecha_col' => 'RACDA_FECHA_SUBIDA',
+            'autor_col' => 'RACDA_SUBIDO_POR',
+            'link_col'  => 'LINK_RACDA',
+            'user_rel'  => 'usuarioRacda',
+            'label'     => 'RACDA',
+        ],
+        'adicional' => [
+            'fecha_col' => 'ADICIONAL_FECHA_SUBIDA',
+            'autor_col' => 'ADICIONAL_SUBIDO_POR',
+            'link_col'  => 'LINK_DOC_ADICIONAL',
+            'user_rel'  => 'usuarioAdicional',
+            'label'     => 'Certificado Asociado',
+        ],
+        'adicional_2' => [
+            'fecha_col' => 'ADICIONAL_2_FECHA_SUBIDA',
+            'autor_col' => 'ADICIONAL_2_SUBIDO_POR',
+            'link_col'  => 'LINK_DOC_ADICIONAL_2',
+            'user_rel'  => 'usuarioAdicional2',
+            'label'     => 'Compraventa',
+        ],
+    ];
+
     public function index(Request $request)
     {
-        // 1. Fetch all documentation that has at least one upload
+        // 1. Fetch all documentation that has at least one upload.
         // whereNotNull/orWhereNotNull agrupados en closure para que la precedencia
-        // AND/OR se mantenga si en el futuro se anaden filtros previos (frente,
-        // rango de fechas, etc). Sin el closure, un where('algo',…) antes se
-        // perderia por la "OR chain" siguiente.
+        // AND/OR se mantenga si en el futuro se anaden filtros previos.
+        // El eager-load del equipo carga solo `tipo` (frenteActual no se usa en
+        // ningun campo del evento — eliminado para no traer datos sobrantes).
         $docs = Documentacion::with([
-                // withTrashed: incluye equipos soft-deleted, asi los registros
-                // de subida/edicion de un equipo borrado siguen mostrando los
-                // datos (tipo/marca/modelo) en lugar de "Equipo Eliminado".
-                'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'frenteActual']); },
-                'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc', 'usuarioRacda', 'usuarioAdicional', 'usuarioAdicional2',
+                'equipo' => function ($q) { $q->withTrashed()->with('tipo'); },
+                'usuarioPropiedad', 'usuarioPoliza', 'usuarioRotc',
+                'usuarioRacda',     'usuarioAdicional', 'usuarioAdicional2',
             ])
             ->where(function ($q) {
-                $q->whereNotNull('PROPIEDAD_FECHA_SUBIDA')
-                  ->orWhereNotNull('POLIZA_FECHA_SUBIDA')
-                  ->orWhereNotNull('ROTC_FECHA_SUBIDA')
-                  ->orWhereNotNull('RACDA_FECHA_SUBIDA')
-                  ->orWhereNotNull('ADICIONAL_FECHA_SUBIDA')
-                  ->orWhereNotNull('ADICIONAL_2_FECHA_SUBIDA');
+                foreach (self::DOC_FIELD_MAP as $cfg) {
+                    $q->orWhereNotNull($cfg['fecha_col']);
+                }
             })
             ->get();
 
-        // 2. Parse them into a flat array of "upload events"
+        // 2. Parse them into a flat array of "upload events".
+        // Las 6 entradas de DOC_FIELD_MAP eliminan 6 bloques foreach copiados.
+        // Las fechas vienen como Carbon gracias a los casts del modelo Documentacion
+        // (PROPIEDAD_FECHA_SUBIDA, etc. = 'datetime'), no requiere Carbon::parse.
         $events = collect();
 
         foreach ($docs as $doc) {
-            $eName = $doc->equipo ? ($doc->equipo->tipo->nombre ?? 'Equipo') . ' ' . $doc->equipo->MARCA . ' ' . $doc->equipo->MODELO : 'Equipo Eliminado';
+            $eName = $doc->equipo
+                ? ($doc->equipo->tipo->nombre ?? 'Equipo') . ' ' . $doc->equipo->MARCA . ' ' . $doc->equipo->MODELO
+                : 'Equipo Eliminado';
             $eId   = $this->buildEquipoId($doc->equipo, $doc->PLACA ?? null);
 
-            if ($doc->PROPIEDAD_FECHA_SUBIDA && $doc->PROPIEDAD_SUBIDO_POR) {
-                $autor = $doc->usuarioPropiedad ? $doc->usuarioPropiedad->CORREO_ELECTRONICO : $doc->PROPIEDAD_SUBIDO_POR;
+            foreach (self::DOC_FIELD_MAP as $docKey => $cfg) {
+                $fecha = $doc->{$cfg['fecha_col']};
+                $autorId = $doc->{$cfg['autor_col']};
+                if (!$fecha || !$autorId) continue;
+
+                $autor = $doc->{$cfg['user_rel']}
+                    ? $doc->{$cfg['user_rel']}->CORREO_ELECTRONICO
+                    : $autorId;
+
                 $events->push((object)[
-                    'doc_key' => 'propiedad',
-                    'tipo' => 'Título de Propiedad',
-                    'autor' => $autor,
-                    'fecha_raw' => $doc->PROPIEDAD_FECHA_SUBIDA,
-                    'fecha' => Carbon::parse($doc->PROPIEDAD_FECHA_SUBIDA),
-                    'link' => $doc->LINK_DOC_PROPIEDAD,
-                    'equipo_nombre' => $eName,
-                    'equipo_id' => $eId,
-                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
-                ]);
-            }
-            if ($doc->POLIZA_FECHA_SUBIDA && $doc->POLIZA_SUBIDO_POR) {
-                $autor = $doc->usuarioPoliza ? $doc->usuarioPoliza->CORREO_ELECTRONICO : $doc->POLIZA_SUBIDO_POR;
-                $events->push((object)[
-                    'doc_key' => 'poliza',
-                    'tipo' => 'Póliza de Seguro',
-                    'autor' => $autor,
-                    'fecha_raw' => $doc->POLIZA_FECHA_SUBIDA,
-                    'fecha' => Carbon::parse($doc->POLIZA_FECHA_SUBIDA),
-                    'link' => $doc->LINK_POLIZA_SEGURO,
-                    'equipo_nombre' => $eName,
-                    'equipo_id' => $eId,
-                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
-                ]);
-            }
-            if ($doc->ROTC_FECHA_SUBIDA && $doc->ROTC_SUBIDO_POR) {
-                $autor = $doc->usuarioRotc ? $doc->usuarioRotc->CORREO_ELECTRONICO : $doc->ROTC_SUBIDO_POR;
-                $events->push((object)[
-                    'doc_key' => 'rotc',
-                    'tipo' => 'ROTC',
-                    'autor' => $autor,
-                    'fecha_raw' => $doc->ROTC_FECHA_SUBIDA,
-                    'fecha' => Carbon::parse($doc->ROTC_FECHA_SUBIDA),
-                    'link' => $doc->LINK_ROTC,
-                    'equipo_nombre' => $eName,
-                    'equipo_id' => $eId,
-                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
-                ]);
-            }
-            if ($doc->RACDA_FECHA_SUBIDA && $doc->RACDA_SUBIDO_POR) {
-                $autor = $doc->usuarioRacda ? $doc->usuarioRacda->CORREO_ELECTRONICO : $doc->RACDA_SUBIDO_POR;
-                $events->push((object)[
-                    'doc_key' => 'racda',
-                    'tipo' => 'RACDA',
-                    'autor' => $autor,
-                    'fecha_raw' => $doc->RACDA_FECHA_SUBIDA,
-                    'fecha' => Carbon::parse($doc->RACDA_FECHA_SUBIDA),
-                    'link' => $doc->LINK_RACDA,
-                    'equipo_nombre' => $eName,
-                    'equipo_id' => $eId,
-                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
-                ]);
-            }
-            if ($doc->ADICIONAL_FECHA_SUBIDA && $doc->ADICIONAL_SUBIDO_POR) {
-                $autor = $doc->usuarioAdicional ? $doc->usuarioAdicional->CORREO_ELECTRONICO : $doc->ADICIONAL_SUBIDO_POR;
-                $events->push((object)[
-                    'doc_key' => 'adicional',
-                    'tipo' => 'Certificado Asociado',
-                    'autor' => $autor,
-                    'fecha_raw' => $doc->ADICIONAL_FECHA_SUBIDA,
-                    'fecha' => Carbon::parse($doc->ADICIONAL_FECHA_SUBIDA),
-                    'link' => $doc->LINK_DOC_ADICIONAL,
-                    'equipo_nombre' => $eName,
-                    'equipo_id' => $eId,
-                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
-                ]);
-            }
-            if ($doc->ADICIONAL_2_FECHA_SUBIDA && $doc->ADICIONAL_2_SUBIDO_POR) {
-                $autor = $doc->usuarioAdicional2 ? $doc->usuarioAdicional2->CORREO_ELECTRONICO : $doc->ADICIONAL_2_SUBIDO_POR;
-                $events->push((object)[
-                    'doc_key' => 'adicional_2',
-                    'tipo' => 'Compraventa',
-                    'autor' => $autor,
-                    'fecha_raw' => $doc->ADICIONAL_2_FECHA_SUBIDA,
-                    'fecha' => Carbon::parse($doc->ADICIONAL_2_FECHA_SUBIDA),
-                    'link' => $doc->LINK_DOC_ADICIONAL_2,
-                    'equipo_nombre' => $eName,
-                    'equipo_id' => $eId,
-                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null
+                    'doc_key'      => $docKey,
+                    'tipo'         => $cfg['label'],
+                    'autor'        => $autor,
+                    'fecha'        => $fecha,
+                    'link'         => $doc->{$cfg['link_col']},
+                    'equipo_nombre'=> $eName,
+                    'equipo_id'    => $eId,
+                    'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null,
                 ]);
             }
         }
 
-        // Add equipment creation events
-        $equiposCreados = \App\Models\Equipo::with(['tipo', 'creador'])
+        // Eventos de "Registro de Vehiculo" (creacion). Eager-load del creador
+        // restringido a las columnas necesarias para no cargar el modelo entero.
+        $equiposCreados = \App\Models\Equipo::with([
+                'tipo:id,nombre',
+                'creador:ID_USUARIO,CORREO_ELECTRONICO',
+            ])
             ->whereNotNull('CREADO_POR')
             ->get();
 
         foreach ($equiposCreados as $equipo) {
-            $eName = ($equipo->tipo->nombre ?? 'Equipo') . ' ' . $equipo->MARCA . ' ' . $equipo->MODELO;
-            $eId   = $this->buildEquipoId($equipo);
-
-            $autor = $equipo->creador ? $equipo->creador->CORREO_ELECTRONICO : 'Usuario Desconocido';
-            
             $events->push((object)[
-                'doc_key' => 'creacion',
-                'tipo' => 'Registro de Vehículo',
-                'autor' => $autor,
-                'fecha_raw' => $equipo->created_at,
-                'fecha' => Carbon::parse($equipo->created_at),
-                'link' => null, // No document link for just creation
-                'equipo_nombre' => $eName,
-                'equipo_id' => $eId,
-                'equipo_db_id' => $equipo->ID_EQUIPO
+                'doc_key'      => 'creacion',
+                'tipo'         => 'Registro de Vehículo',
+                'autor'        => $equipo->creador ? $equipo->creador->CORREO_ELECTRONICO : 'Usuario Desconocido',
+                'fecha'        => $equipo->created_at, // Eloquent castea created_at a Carbon automaticamente
+                'link'         => null,
+                'equipo_nombre'=> ($equipo->tipo->nombre ?? 'Equipo') . ' ' . $equipo->MARCA . ' ' . $equipo->MODELO,
+                'equipo_id'    => $this->buildEquipoId($equipo),
+                'equipo_db_id' => $equipo->ID_EQUIPO,
             ]);
         }
 
@@ -217,8 +202,7 @@ class HistorialDocumentosController extends Controller
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,
                     'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
-                    'fecha_raw'     => $log->created_at,
-                    'fecha'         => $log->created_at,
+                    'fecha'         => $log->created_at, // EquipoAuditLog castea created_at a Carbon
                     'link'          => null,
                     'equipo_nombre' => $eName,
                     'equipo_id'     => $eId,
@@ -261,7 +245,7 @@ class HistorialDocumentosController extends Controller
         });
 
         // 3. Sort descending by date
-        $events = $events->sortByDesc('fecha_raw')->values();
+        $events = $events->sortByDesc('fecha')->values();
 
         // 4. Apply filters (correo / equipo / tipo / rango de fechas)
         $hasFilter = $request->filled('search_correo') || $request->filled('search_equipo')
@@ -276,7 +260,7 @@ class HistorialDocumentosController extends Controller
             $search_correo = $normalize($request->search_correo);
             $search_equipo = $normalize($request->search_equipo);
             $search_tipo   = $normalize($request->search_tipo);
-            // Rango de fechas: comparamos con fecha_raw (Carbon) usando solo dia.
+            // Rango de fechas: comparamos contra event->fecha (siempre Carbon en este punto).
             $fechaDesde = $request->filled('fecha_desde') ? Carbon::parse($request->fecha_desde)->startOfDay() : null;
             $fechaHasta = $request->filled('fecha_hasta') ? Carbon::parse($request->fecha_hasta)->endOfDay() : null;
 
@@ -292,13 +276,8 @@ class HistorialDocumentosController extends Controller
                                    strpos($normalize($event->equipo_id), $search_equipo) !== false;
                     if (!$equipoMatch) return false;
                 }
-                if ($fechaDesde || $fechaHasta) {
-                    $eventoFecha = $event->fecha_raw instanceof \Carbon\Carbon
-                        ? $event->fecha_raw
-                        : Carbon::parse($event->fecha_raw);
-                    if ($fechaDesde && $eventoFecha->lt($fechaDesde)) return false;
-                    if ($fechaHasta && $eventoFecha->gt($fechaHasta)) return false;
-                }
+                if ($fechaDesde && $event->fecha->lt($fechaDesde)) return false;
+                if ($fechaHasta && $event->fecha->gt($fechaHasta)) return false;
                 return true;
             })->values();
         }
