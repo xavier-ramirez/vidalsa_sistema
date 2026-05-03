@@ -202,7 +202,7 @@
             <!-- Advanced Filter Trigger -->
             <div style="position: relative; flex-shrink: 0;">
                 @php
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda');
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
@@ -320,67 +320,66 @@
                         </div>
                     </div>
 
-                    {{-- Año + GPS movidos a una fila combinada al final del panel
-                         (ambos son filtros cortos y no requieren ancho completo).
-                         Ver bloque "Año + GPS Filter (2 columnas)" mas abajo. --}}
+                    {{-- Categoría Flota + Estado Operativo (2 columnas, lado a lado igual que Marca/Modelo). --}}
+                    <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <!-- Categoría Flota -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Categoría Flota</span>
+                            <div class="custom-dropdown" id="categoriaAdvFilter" data-filter-type="categoria" data-default-label="Seleccionar Categoría..." style="font-size: 12px;">
+                                <input type="hidden" name="categoria" data-filter-value value="{{ request('categoria') }}">
 
-                    <!-- Categoría Flota Filter -->
-                    <div style="margin-top: 15px;">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Categoría Flota</span>
-                        <div class="custom-dropdown" id="categoriaAdvFilter" data-filter-type="categoria" data-default-label="Seleccionar Categoría..." style="font-size: 12px;">
-                            <input type="hidden" name="categoria" data-filter-value value="{{ request('categoria') }}">
-                            
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('categoria') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">local_shipping</i>
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('categoria') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">local_shipping</i>
+                                    </div>
+                                    <input type="text" readonly
+                                        id="filter_display_categoria"
+                                        name="filter_display_categoria"
+                                        placeholder="{{ request('categoria') ?: 'Categoría...' }}"
+                                        aria-label="Filtrar Categoría"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
+                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 4px; color: #94a3b8; font-size: 16px; display: {{ request('categoria') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('categoriaAdvFilter'); loadEquipos();">close</i>
                                 </div>
-                                <input type="text" readonly
-                                    id="filter_display_categoria"
-                                    name="filter_display_categoria"
-                                    placeholder="{{ request('categoria') ?: 'Seleccionar Categoría...' }}" 
-                                    aria-label="Filtrar Categoría"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    onclick="this.closest('.custom-dropdown').classList.toggle('active')">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('categoria') ? 'block' : 'none' }};" 
-                                   onclick="event.stopPropagation(); clearDropdownFilter('categoriaAdvFilter'); loadEquipos();">close</i>
-                            </div>
 
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list">
-                                    <div class="dropdown-item {{ request('categoria') == 'FLOTA LIVIANA' ? 'selected' : '' }}" data-value="FLOTA LIVIANA" onclick="selectOption('categoriaAdvFilter', 'FLOTA LIVIANA', 'FLOTA LIVIANA'); loadEquipos();">FLOTA LIVIANA</div>
-                                    <div class="dropdown-item {{ request('categoria') == 'FLOTA PESADA' ? 'selected' : '' }}" data-value="FLOTA PESADA" onclick="selectOption('categoriaAdvFilter', 'FLOTA PESADA', 'FLOTA PESADA'); loadEquipos();">FLOTA PESADA</div>
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list">
+                                        <div class="dropdown-item {{ request('categoria') == 'FLOTA LIVIANA' ? 'selected' : '' }}" data-value="FLOTA LIVIANA" onclick="selectOption('categoriaAdvFilter', 'FLOTA LIVIANA', 'FLOTA LIVIANA'); loadEquipos();">FLOTA LIVIANA</div>
+                                        <div class="dropdown-item {{ request('categoria') == 'FLOTA PESADA' ? 'selected' : '' }}" data-value="FLOTA PESADA" onclick="selectOption('categoriaAdvFilter', 'FLOTA PESADA', 'FLOTA PESADA'); loadEquipos();">FLOTA PESADA</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Estado Operativo Filter -->
-                    <div style="margin-top: 15px;">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Estado Operativo</span>
-                        <div class="custom-dropdown" id="estadoAdvFilter" data-filter-type="estado" data-default-label="Seleccionar Estado..." style="font-size: 12px;">
-                            <input type="hidden" name="estado" data-filter-value value="{{ request('estado') }}">
-                            
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('estado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">info</i>
+                        <!-- Estado Operativo -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Estado Operativo</span>
+                            <div class="custom-dropdown" id="estadoAdvFilter" data-filter-type="estado" data-default-label="Seleccionar Estado..." style="font-size: 12px;">
+                                <input type="hidden" name="estado" data-filter-value value="{{ request('estado') }}">
+
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('estado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">info</i>
+                                    </div>
+                                    <input type="text" readonly
+                                        id="filter_display_estado"
+                                        name="filter_display_estado"
+                                        placeholder="{{ request('estado') ?: 'Estado...' }}"
+                                        aria-label="Filtrar Estado Operativo"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
+                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 4px; color: #94a3b8; font-size: 16px; display: {{ request('estado') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('estadoAdvFilter'); loadEquipos();">close</i>
                                 </div>
-                                <input type="text" readonly
-                                    id="filter_display_estado"
-                                    name="filter_display_estado"
-                                    placeholder="{{ request('estado') ?: 'Seleccionar Estado...' }}" 
-                                    aria-label="Filtrar Estado Operativo"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    onclick="this.closest('.custom-dropdown').classList.toggle('active')">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('estado') ? 'block' : 'none' }};" 
-                                   onclick="event.stopPropagation(); clearDropdownFilter('estadoAdvFilter'); loadEquipos();">close</i>
-                            </div>
 
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list">
-                                    <div class="dropdown-item {{ request('estado') == 'OPERATIVO' ? 'selected' : '' }}" data-value="OPERATIVO" onclick="selectOption('estadoAdvFilter', 'OPERATIVO', 'OPERATIVO'); loadEquipos();">OPERATIVO</div>
-                                    <div class="dropdown-item {{ request('estado') == 'INOPERATIVO' ? 'selected' : '' }}" data-value="INOPERATIVO" onclick="selectOption('estadoAdvFilter', 'INOPERATIVO', 'INOPERATIVO'); loadEquipos();">INOPERATIVO</div>
-                                    <div class="dropdown-item {{ request('estado') == 'EN MANTENIMIENTO' ? 'selected' : '' }}" data-value="EN MANTENIMIENTO" onclick="selectOption('estadoAdvFilter', 'EN MANTENIMIENTO', 'EN MANTENIMIENTO'); loadEquipos();">EN MANTENIMIENTO</div>
-                                    <div class="dropdown-item {{ request('estado') == 'DESINCORPORADO' ? 'selected' : '' }}" data-value="DESINCORPORADO" onclick="selectOption('estadoAdvFilter', 'DESINCORPORADO', 'DESINCORPORADO'); loadEquipos();">DESINCORPORADO</div>
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list">
+                                        <div class="dropdown-item {{ request('estado') == 'OPERATIVO' ? 'selected' : '' }}" data-value="OPERATIVO" onclick="selectOption('estadoAdvFilter', 'OPERATIVO', 'OPERATIVO'); loadEquipos();">OPERATIVO</div>
+                                        <div class="dropdown-item {{ request('estado') == 'INOPERATIVO' ? 'selected' : '' }}" data-value="INOPERATIVO" onclick="selectOption('estadoAdvFilter', 'INOPERATIVO', 'INOPERATIVO'); loadEquipos();">INOPERATIVO</div>
+                                        <div class="dropdown-item {{ request('estado') == 'EN MANTENIMIENTO' ? 'selected' : '' }}" data-value="EN MANTENIMIENTO" onclick="selectOption('estadoAdvFilter', 'EN MANTENIMIENTO', 'EN MANTENIMIENTO'); loadEquipos();">EN MANTENIMIENTO</div>
+                                        <div class="dropdown-item {{ request('estado') == 'DESINCORPORADO' ? 'selected' : '' }}" data-value="DESINCORPORADO" onclick="selectOption('estadoAdvFilter', 'DESINCORPORADO', 'DESINCORPORADO'); loadEquipos();">DESINCORPORADO</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -476,6 +475,16 @@
                                 <input type="checkbox" id="chk_racda" onchange="toggleDocFilter('racda')" {{ request('filter_racda') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 RACDA
                             </label>
+
+                            <label for="chk_adicional" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                                <input type="checkbox" id="chk_adicional" onchange="toggleDocFilter('adicional')" {{ request('filter_adicional') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                                Certificado
+                            </label>
+
+                            <label for="chk_adicional_2" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                                <input type="checkbox" id="chk_adicional_2" onchange="toggleDocFilter('adicional_2')" {{ request('filter_adicional_2') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                                Compraventa
+                            </label>
                         </div>
                     </div>
 
@@ -566,7 +575,8 @@
                   || request('categoria') || request('estado')
                   || request('gps') || request('detalle_ubicacion')
                   || request('filter_propiedad') || request('filter_poliza')
-                  || request('filter_rotc') || request('filter_racda');
+                  || request('filter_rotc') || request('filter_racda')
+                  || request('filter_adicional') || request('filter_adicional_2');
     @endphp
 
     {{-- ── Stats compactas solo en móvil ── --}}

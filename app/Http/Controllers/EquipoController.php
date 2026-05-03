@@ -128,10 +128,12 @@ class EquipoController extends Controller
         // tras un borrado y un whereNotNull solo no lo descarta. Sin esto el
         // filtro "Propiedad" devolvia equipos sin PDF cargado realmente.
         $docFlags = [
-            'filter_propiedad' => 'LINK_DOC_PROPIEDAD',
-            'filter_poliza'    => 'LINK_POLIZA_SEGURO',
-            'filter_rotc'      => 'LINK_ROTC',
-            'filter_racda'     => 'LINK_RACDA',
+            'filter_propiedad'   => 'LINK_DOC_PROPIEDAD',
+            'filter_poliza'      => 'LINK_POLIZA_SEGURO',
+            'filter_rotc'        => 'LINK_ROTC',
+            'filter_racda'       => 'LINK_RACDA',
+            'filter_adicional'   => 'LINK_DOC_ADICIONAL',
+            'filter_adicional_2' => 'LINK_DOC_ADICIONAL_2',
         ];
         foreach ($docFlags as $param => $col) {
             if (!in_array($param, $exclude) && $request->filled($param) && $request->input($param) === 'true') {
@@ -222,7 +224,7 @@ class EquipoController extends Controller
             ->orderBy('equipos.CODIGO_PATIO', 'asc');
 
         // Check if any filter is applied (with non-empty values)
-        $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('detalle_ubicacion') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda');
+        $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('detalle_ubicacion') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda') || $request->filled('filter_adicional') || $request->filled('filter_adicional_2');
 
         // Paginación server-side con cap por página.
         // La tabla carga 150 filas por request; al final el frontend pide el siguiente lote
@@ -481,7 +483,9 @@ class EquipoController extends Controller
             || $request->filled('filter_propiedad') && $request->filter_propiedad === 'true'
             || $request->filled('filter_poliza') && $request->filter_poliza === 'true'
             || $request->filled('filter_rotc') && $request->filter_rotc === 'true'
-            || $request->filled('filter_racda') && $request->filter_racda === 'true';
+            || $request->filled('filter_racda') && $request->filter_racda === 'true'
+            || $request->filled('filter_adicional') && $request->filter_adicional === 'true'
+            || $request->filled('filter_adicional_2') && $request->filter_adicional_2 === 'true';
 
         if (!$hasFilter) {
             return redirect()->back()->with('error', 'Debe aplicar al menos un filtro antes de exportar los datos.');
@@ -550,7 +554,9 @@ class EquipoController extends Controller
         $hasDocFilter = ($request->filled('filter_propiedad') && $request->filter_propiedad === 'true') ||
                         ($request->filled('filter_poliza') && $request->filter_poliza === 'true') ||
                         ($request->filled('filter_rotc') && $request->filter_rotc === 'true') ||
-                        ($request->filled('filter_racda') && $request->filter_racda === 'true');
+                        ($request->filled('filter_racda') && $request->filter_racda === 'true') ||
+                        ($request->filled('filter_adicional') && $request->filter_adicional === 'true') ||
+                        ($request->filled('filter_adicional_2') && $request->filter_adicional_2 === 'true');
 
         if ($hasDocFilter) {
             // Mismo patron que applyEquipoFilters/index: !=null Y !=''
@@ -568,6 +574,12 @@ class EquipoController extends Controller
                          }
                          if ($request->filled('filter_racda') && $request->filter_racda === 'true') {
                              $q->whereNotNull('doc_filter.LINK_RACDA')->where('doc_filter.LINK_RACDA', '!=', '');
+                         }
+                         if ($request->filled('filter_adicional') && $request->filter_adicional === 'true') {
+                             $q->whereNotNull('doc_filter.LINK_DOC_ADICIONAL')->where('doc_filter.LINK_DOC_ADICIONAL', '!=', '');
+                         }
+                         if ($request->filled('filter_adicional_2') && $request->filter_adicional_2 === 'true') {
+                             $q->whereNotNull('doc_filter.LINK_DOC_ADICIONAL_2')->where('doc_filter.LINK_DOC_ADICIONAL_2', '!=', '');
                          }
                      });
         }

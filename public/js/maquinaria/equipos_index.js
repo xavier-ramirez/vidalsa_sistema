@@ -691,6 +691,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         filter_racda: document.getElementById("chk_racda")?.checked
             ? "true"
             : null,
+        filter_adicional: document.getElementById("chk_adicional")?.checked
+            ? "true"
+            : null,
+        filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
+            ? "true"
+            : null,
     };
 
     const params = new URLSearchParams();
@@ -698,7 +704,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.detalle_ubicacion || filters.anio || filters.categoria || filters.estado || filters.gps || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.detalle_ubicacion || filters.anio || filters.categoria || filters.estado || filters.gps || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -2079,6 +2085,14 @@ window.exportEquipos = function () {
     }
     if (document.getElementById("chk_racda")?.checked) {
         params.append("filter_racda", "true");
+        hasAnyFilter = true;
+    }
+    if (document.getElementById("chk_adicional")?.checked) {
+        params.append("filter_adicional", "true");
+        hasAnyFilter = true;
+    }
+    if (document.getElementById("chk_adicional_2")?.checked) {
+        params.append("filter_adicional_2", "true");
         hasAnyFilter = true;
     }
 

@@ -610,7 +610,7 @@ window.clearAdvancedFilters = function () {
     });
 
     // Clear Doc Filters (Equipos specific)
-    ["chk_propiedad", "chk_poliza", "chk_rotc", "chk_racda"].forEach((id) => {
+    ["chk_propiedad", "chk_poliza", "chk_rotc", "chk_racda", "chk_adicional", "chk_adicional_2"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.checked = false;
     });
