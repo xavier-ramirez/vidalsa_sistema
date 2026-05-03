@@ -657,6 +657,13 @@ class MovilizacionController extends Controller
             $pdf->SetMargins(15, 42, 15);  // top=42 para dejar espacio al header nativo
             $pdf->SetHeaderMargin(8);
             $pdf->SetAutoPageBreak(true, 15);
+
+            // Cell padding y height ratio FIJOS antes del AddPage. Evitan que
+            // TCPDF recalcule la altura de fila al saltar de pagina, lo que
+            // tambien contribuye a desalinear el thead repetido con el tbody.
+            $pdf->setCellPaddings(1, 1, 1, 1);
+            $pdf->setCellHeightRatio(1.25);
+
             $pdf->AddPage();
             $pdf->SetFont('helvetica', '', 10);
 

@@ -73,37 +73,40 @@
     </table>
 
     <!-- ===================== TABLA DE EQUIPOS =====================
-     - thead: TCPDF repite automaticamente el encabezado en cada pagina nueva.
-     - <colgroup> + <col width="X%"> es CRITICO para que TCPDF reserve los
-       anchos de columna ANTES de renderizar y no los recalcule al saltar
-       de pagina. Sin esto, en tablas largas el encabezado de la pagina 2+
-       se desalinea con las celdas del tbody (los % se reinterpretan en base
-       al contenido visible solo en esa pagina).
-     - Anchos en colgroup, thead y tbody deben coincidir exactamente.
-     - No usar nobr="true" en las filas del tbody.
+     FIX DEFINITIVO de header desalineado al saltar de pagina:
+     - Anchos en MILIMETROS ABSOLUTOS (no porcentajes). TCPDF reinterpreta
+       los % en base al contenido visible de cada pagina, lo que provoca
+       que el thead repetido se desalinee con el tbody continuado.
+     - Page A4 portrait con SetMargins(15, 42, 15) deja 180mm utiles.
+       Distribucion: 9 + 90 + 36 + 45 = 180mm.
+     - <colgroup> con los mismos mm reserva los anchos antes del primer render.
+     - thead con nobr="true" mantiene el encabezado como bloque indivisible.
+     - thead, colgroup y tbody DEBEN tener exactamente los mismos anchos.
+     - Tabla con table-layout fijo: width="180mm" total para evitar que TCPDF
+       intente repartir el espacio sobrante.
     =========================================================== -->
-    <table width="100%" border="1" cellpadding="5" cellspacing="0">
+    <table width="180mm" border="1" cellpadding="5" cellspacing="0">
         <colgroup>
-            <col width="5%">
-            <col width="50%">
-            <col width="20%">
-            <col width="25%">
+            <col width="9mm">
+            <col width="90mm">
+            <col width="36mm">
+            <col width="45mm">
         </colgroup>
         <thead>
-            <tr bgcolor="#e6f2ff">
-                <th width="5%" align="center" style="font-size:8.5pt;"><b>N°</b></th>
-                <th width="50%" align="center" style="font-size:8.5pt;"><b>DESCRIPCIÓN / EQUIPO</b></th>
-                <th width="20%" align="center" style="font-size:8.5pt;"><b>MARCA</b></th>
-                <th width="25%" align="center" style="font-size:8.5pt;"><b>SERIAL / PLACA</b></th>
+            <tr bgcolor="#e6f2ff" nobr="true">
+                <th width="9mm"  align="center" style="font-size:8.5pt;"><b>N°</b></th>
+                <th width="90mm" align="center" style="font-size:8.5pt;"><b>DESCRIPCIÓN / EQUIPO</b></th>
+                <th width="36mm" align="center" style="font-size:8.5pt;"><b>MARCA</b></th>
+                <th width="45mm" align="center" style="font-size:8.5pt;"><b>SERIAL / PLACA</b></th>
             </tr>
         </thead>
         <tbody>
             @foreach($equipos as $index => $item)
                 <tr>
-                    <td width="5%" align="center" style="font-size:8.5pt;">{{ $index + 1 }}</td>
-                    <td width="50%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}</td>
-                    <td width="20%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
-                    <td width="25%" align="center" style="font-size:8.5pt;">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}</td>
+                    <td width="9mm"  align="center" style="font-size:8.5pt;">{{ $index + 1 }}</td>
+                    <td width="90mm" align="center" style="font-size:8.5pt;">{{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}</td>
+                    <td width="36mm" align="center" style="font-size:8.5pt;">{{ strtoupper($item->MARCA ?? '---') }}</td>
+                    <td width="45mm" align="center" style="font-size:8.5pt;">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}</td>
                 </tr>
             @endforeach
         </tbody>
