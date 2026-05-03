@@ -1678,8 +1678,12 @@
                                 <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
                             </div>
                         `;
-                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || (ctx.docType === 'adicional' && info.categoria === 'FLOTA LIVIANA')) {
+                        } else if (ctx.docType === 'rotc' || ctx.docType === 'racda' || ctx.docType === 'adicional') {
                             // Compraventa (adicional_2) NO requiere fecha de vencimiento.
+                            // Antes el Certificado (adicional) solo mostraba fecha si la categoria era
+                            // FLOTA LIVIANA — los equipos FLOTA PESADA quedaban con panel vacio.
+                            // Removida esa restriccion: el campo aparece siempre, el usuario decide
+                            // si llena la fecha o la deja vacia segun corresponda al equipo.
                             html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>`;
                         }
                         container.innerHTML = html;
