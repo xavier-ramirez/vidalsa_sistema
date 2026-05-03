@@ -500,7 +500,13 @@ class EquipoController extends Controller
 
         $fileName = 'Listado_Maquinarias_Equipos_' . date('Y-m-d_H-i') . '.xlsx';
 
-        $equipos = Equipo::query();
+        // SELECT solo las columnas necesarias para el export (la tabla equipos es muy ancha: fotos, links GPS, etc.).
+        $equipos = Equipo::query()->select([
+            'ID_EQUIPO', 'ID_FRENTE_ACTUAL', 'id_tipo_equipo', 'ID_ANCLAJE',
+            'MARCA', 'MODELO', 'ANIO', 'ESTADO_OPERATIVO', 'CATEGORIA_FLOTA',
+            'SERIAL_CHASIS', 'SERIAL_DE_MOTOR',
+            'CODIGO_PATIO', 'NUMERO_ETIQUETA', 'LINK_GPS',
+        ]);
 
         // Apply Local User Scope EXCEPT when doing a global text search
         // FIX: Single $search variable — do not re-declare below to avoid losing strtoupper/trim normalization.
@@ -598,13 +604,19 @@ class EquipoController extends Controller
             }
         }
 
-        $equipos->with(['frenteActual', 'tipo', 'documentacion', 'especificaciones', 'equiposAnclados.tipo', 'equiposAnclados.documentacion', 'equiposAnclados.frenteActual', 'ancladoA.frenteActual', 'ancladoA.tipo']);
+        // Eager load solo los campos necesarios para el export (evitar SELECT * en relaciones pesadas).
+        $equipos->with([
+            'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
+            'tipo:id,nombre',
+            'documentacion:ID_EQUIPO,PLACA',
+            'equiposAnclados:ID_EQUIPO,id_tipo_equipo,ID_FRENTE_ACTUAL,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR,ANIO,ESTADO_OPERATIVO,CATEGORIA_FLOTA,ID_ANCLAJE',
+            'equiposAnclados.tipo:id,nombre',
+            'equiposAnclados.documentacion:ID_EQUIPO,PLACA',
+            'equiposAnclados.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
+            'ancladoA:ID_EQUIPO,ID_FRENTE_ACTUAL',
+            'ancladoA.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
+        ]);
         $equiposList = $equipos->get();
-
-        $equiposMap = [];
-        foreach($equiposList as $equipo) {
-            $equiposMap[$equipo->ID_EQUIPO] = $equipo;
-        }
 
         // Determinar nombre del frente para el encabezado
         $nombreFrente = 'TODOS LOS FRENTES';
