@@ -298,9 +298,7 @@
                                 <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SOBRE EL EQUIPO</div>
                                 <div class="dropdown-item" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
                                 <div class="dropdown-item" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
-                                <div class="dropdown-item" data-value="Cambio de Ubicación" onclick="selectOption('tipoDocFilterSelect', 'Cambio de Ubicación', 'Cambio de Ubicación'); window.loadHistorialDocumentos();">Cambio de Ubicación</div>
                                 <div class="dropdown-item" data-value="Ubicación Masiva" onclick="selectOption('tipoDocFilterSelect', 'Ubicación Masiva', 'Ubicación Masiva'); window.loadHistorialDocumentos();">Ubicación Masiva</div>
-                                <div class="dropdown-item" data-value="Cambio de Estatus" onclick="selectOption('tipoDocFilterSelect', 'Cambio de Estatus', 'Cambio de Estatus'); window.loadHistorialDocumentos();">Cambio de Estatus</div>
                                 <div class="dropdown-item" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
 
                                 {{-- Subidas de documentos --}}
@@ -311,15 +309,6 @@
                                 <div class="dropdown-item" data-value="RACDA" onclick="selectOption('tipoDocFilterSelect', 'RACDA', 'RACDA'); window.loadHistorialDocumentos();">RACDA</div>
                                 <div class="dropdown-item" data-value="Certificado Asociado" onclick="selectOption('tipoDocFilterSelect', 'Certificado Asociado', 'Certificado Asociado'); window.loadHistorialDocumentos();">Certificado Asociado</div>
                                 <div class="dropdown-item" data-value="Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Compraventa', 'Compraventa'); window.loadHistorialDocumentos();">Compraventa</div>
-
-                                {{-- Borrados de documentos (audit log) --}}
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">BORRADOS DE DOCUMENTO</div>
-                                <div class="dropdown-item" data-value="Borrado Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Borrado Propiedad', 'Borrado Propiedad'); window.loadHistorialDocumentos();">Borrado Propiedad</div>
-                                <div class="dropdown-item" data-value="Borrado Póliza" onclick="selectOption('tipoDocFilterSelect', 'Borrado Póliza', 'Borrado Póliza'); window.loadHistorialDocumentos();">Borrado Póliza</div>
-                                <div class="dropdown-item" data-value="Borrado ROTC" onclick="selectOption('tipoDocFilterSelect', 'Borrado ROTC', 'Borrado ROTC'); window.loadHistorialDocumentos();">Borrado ROTC</div>
-                                <div class="dropdown-item" data-value="Borrado RACDA" onclick="selectOption('tipoDocFilterSelect', 'Borrado RACDA', 'Borrado RACDA'); window.loadHistorialDocumentos();">Borrado RACDA</div>
-                                <div class="dropdown-item" data-value="Borrado Certificado" onclick="selectOption('tipoDocFilterSelect', 'Borrado Certificado', 'Borrado Certificado'); window.loadHistorialDocumentos();">Borrado Certificado</div>
-                                <div class="dropdown-item" data-value="Borrado Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Borrado Compraventa', 'Borrado Compraventa'); window.loadHistorialDocumentos();">Borrado Compraventa</div>
 
                                 {{-- Edicion de metadatos (audit log) --}}
                                 <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">EDICIÓN DE METADATOS</div>

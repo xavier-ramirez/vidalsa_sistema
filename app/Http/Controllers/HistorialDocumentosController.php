@@ -190,6 +190,11 @@ class HistorialDocumentosController extends Controller
                 $eq = $log->equipo;
                 $eName = $eq ? (($eq->tipo->nombre ?? 'Equipo') . ' ' . $eq->MARCA . ' ' . $eq->MODELO) : 'Equipo Eliminado';
                 $eId   = $this->buildEquipoId($eq);
+                // Mapping cubre solo las ACCION values que el codigo realmente
+                // registra (verificado por busqueda de EquipoAuditLog::registrar
+                // en EquipoController + EquipoObserver). Si en el futuro se agregan
+                // nuevas acciones (status_change, ubicacion individual, etc.) se
+                // deben mapear aqui Y agregar como opcion al dropdown del filtro.
                 $tipoLabel = [
                     'edit'                 => 'Edición de Datos',
                     'metadata_propiedad'   => 'Edición Metadata Propiedad',
@@ -204,15 +209,7 @@ class HistorialDocumentosController extends Controller
                     'upload_racda'         => 'Subida RACDA',
                     'upload_adicional'     => 'Subida Certificado',
                     'upload_adicional_2'   => 'Subida Compraventa',
-                    'delete_propiedad'     => 'Borrado Propiedad',
-                    'delete_poliza'        => 'Borrado Póliza',
-                    'delete_rotc'          => 'Borrado ROTC',
-                    'delete_racda'         => 'Borrado RACDA',
-                    'delete_adicional'     => 'Borrado Certificado',
-                    'delete_adicional_2'   => 'Borrado Compraventa',
-                    'ubicacion'            => 'Cambio de Ubicación',
                     'bulk_ubicacion'       => 'Ubicación Masiva',
-                    'status_change'        => 'Cambio de Estatus',
                     'delete'               => 'Eliminación de Equipo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
