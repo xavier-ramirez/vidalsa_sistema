@@ -1838,11 +1838,35 @@
 
                     if (res.ok && data.success) {
                         if (window.showToast) window.showToast(data.message || 'Documento eliminado.', 'success');
+
+                        // ── Sincronizar la UI in-memory para que NO haya que recargar la pagina ──
+                        // 1) Limpiar campos en el dataset del boton del listado (icono de PDF cargado).
+                        // 2) Limpiar campos en window.equiposData[id] (cache JS de la tabla, lo usa el AJAX paginado).
+                        // 3) Re-renderizar el modal de detalles si esta abierto.
+                        const equipoIdNum = ctx.equipoId;
+                        const activeBtn = window.activeEquipoButton;
+                        if (typeof window.clearDocFields === 'function') {
+                            if (activeBtn && activeBtn.dataset) {
+                                window.clearDocFields(activeBtn.dataset, ctx.docType);
+                            }
+                            if (window.equiposData && window.equiposData[equipoIdNum]) {
+                                window.clearDocFields(window.equiposData[equipoIdNum], ctx.docType);
+                            }
+                        }
+
                         window.closePdfPreview();
-                        // Refrescar las vistas que pueden estar mostrando el documento.
+
+                        // Si el modal de detalles esta abierto, re-renderizarlo con los datos
+                        // ya limpiados para que el icono "PDF cargado" desaparezca al instante.
+                        const detailsModal = document.getElementById('detailsModal');
+                        const detailsOpen = detailsModal && detailsModal.classList.contains('active');
+                        if (detailsOpen && activeBtn && typeof window.showDetailsImproved === 'function') {
+                            try { window.showDetailsImproved(activeBtn); } catch (_) { /* noop */ }
+                        }
+
+                        // Refrescar el resto de vistas que pueden estar mostrando el documento.
                         if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
                         if (typeof window.loadHistorialDocumentos === 'function') window.loadHistorialDocumentos();
-                        if (typeof window.loadEquipos === 'function') window.loadEquipos();
                     } else {
                         const msg = (data && data.message) ? data.message : `Error HTTP ${res.status}`;
                         if (window.showToast) window.showToast(msg, 'error');
