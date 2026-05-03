@@ -21,13 +21,9 @@ class MovilizacionController extends Controller
 
     public function index(Request $request)
     {
-        // Frente filter logic: LOCAL users always see their frente (locked).
-        // GLOBAL users get their frente as default ONLY on the initial page load (non-AJAX).
-        // When a GLOBAL user clears the filter (AJAX request), we respect the empty value.
-        $user = auth()->user();
-        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
-
+        // Sin scope LOCAL: todos los usuarios autenticados ven todo el historial
+        // de movilizaciones. La accion destructiva (borrar) ya esta gateada por
+        // can:super.admin en el middleware del constructor.
 
         $query = Movilizacion::with([
             'equipo.tipo',
@@ -690,8 +686,8 @@ class MovilizacionController extends Controller
             return $pdf->Output($filename, 'D');
 
         } catch (\Exception $e) {
-            \Log::error('Error generando Acta de Traslado: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al generar el acta: ' . $e->getMessage()]);
+            Log::error('Error generando Acta de Traslado: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'No se pudo generar el acta. Intenta de nuevo.']);
         }
     }
 

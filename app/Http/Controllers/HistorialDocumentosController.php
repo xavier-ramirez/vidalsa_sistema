@@ -461,9 +461,9 @@ class HistorialDocumentosController extends Controller
     }
 
     /**
-     * Desbloquear IP. El permiso 'super.admin' ya se valida en el middleware
-     * de la ruta (routes/web.php linea 142: middleware('can:super.admin')),
-     * no duplicamos el check aqui.
+     * Desbloquear IP. El permiso 'super.admin' ya se valida en el group de rutas
+     * en routes/web.php (Route::middleware('can:super.admin')->group), por eso
+     * no se duplica el check aqui.
      */
     public function unlockIp($id)
     {

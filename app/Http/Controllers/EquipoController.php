@@ -2119,15 +2119,14 @@ class EquipoController extends Controller
                     'SERIAL_CHASIS'   => strtoupper($request->input('serial_chasis', '')),
                     'SERIAL_DE_MOTOR' => (trim($request->input('serial_motor', '') ?? '') === '') ? null : strtoupper(trim($request->input('serial_motor', ''))),
                 ]);
-                // Captura el diff del equipo ANTES de saveQuietly para incluirlo en
-                // el payload de 'metadata_propiedad' (sino se perderia el log de
-                // cambios al equipo basico). $equipo->getDirty() devuelve los campos
-                // modificados con su valor nuevo.
+                // Captura el diff del equipo ANTES de saveQuietly. Se guarda en una
+                // variable separada (NO se mergea a $updateData) porque $updateData
+                // se pasa a $equipo->documentacion->update() y mezclar campos del
+                // equipo (MARCA, MODELO, SERIAL_*) en una update de Documentacion
+                // los ignoraria silenciosamente (no estan en su fillable), pero
+                // ensucia la intencion. El merge se hace al final, solo para el log.
                 $equipoDiff = $equipo->getDirty();
                 $equipo->saveQuietly();
-                if (!empty($equipoDiff)) {
-                    $updateData = array_merge($updateData, $equipoDiff);
-                }
                 break;
 
             case 'poliza':
@@ -2193,10 +2192,18 @@ class EquipoController extends Controller
         }
 
         // Auditoria: registra la edicion de metadata por tipo de documento.
+        // En el caso 'propiedad' tambien se modifican campos del Equipo (MARCA,
+        // MODELO, SERIAL_*); $equipoDiff fue capturado antes del saveQuietly().
+        // Lo mergeamos solo aqui para que el log refleje el cambio completo
+        // (Documentacion + Equipo) sin contaminar $updateData.
+        $logPayload = $updateData;
+        if (!empty($equipoDiff ?? [])) {
+            $logPayload = array_merge($logPayload, $equipoDiff);
+        }
         \App\Models\EquipoAuditLog::registrar(
             $equipo->ID_EQUIPO,
             'metadata_' . $type,
-            !empty($updateData) ? $updateData : []
+            $logPayload
         );
 
         // Clear Dashboard Cache to update alerts immediately

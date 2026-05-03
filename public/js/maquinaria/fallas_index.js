@@ -292,7 +292,7 @@
     };
 
 
-    // â”€â”€â”€ Cerrar reporte (modal con observaciones + opciÃ³n restaurar) â”€â”€â”€
+    // ─── Cerrar reporte (modal con observaciones; el activo siempre vuelve a OPERATIVO) ───
     let _cierreId = null;
 
     window.cerrarFalla = function (id, codigo, equipo) {
