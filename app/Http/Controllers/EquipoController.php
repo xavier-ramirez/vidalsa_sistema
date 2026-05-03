@@ -29,7 +29,8 @@ class EquipoController extends Controller
         $this->middleware('can:equipos.edit')->only(['changeStatus']);
         // Borrar un equipo es destructivo irreversible: solo super.admin.
         $this->middleware('can:super.admin')->only(['destroy']);
-        // uploadDoc/deleteDoc/updateMetadata: permission 'user.edit' (Gate::before resuelve super.admin)
+        // uploadDoc/updateMetadata: permission 'user.edit' (chequeo dentro de cada metodo).
+        // deleteDoc (borrado destructivo de PDF + Drive): solo super.admin, gateado en routes/web.php.
     }
 
     /**
