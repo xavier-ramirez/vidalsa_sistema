@@ -313,7 +313,6 @@
         const btn = document.getElementById('btnConfirmarCierre');
         const fd = new FormData();
         fd.append('_method', 'PATCH');
-        fd.append('restaurar_estado', '1');
         fd.append('observaciones_cierre', document.getElementById('cierreObservaciones').value);
         btn.disabled = true;
         if (window.showPreloader) window.showPreloader();

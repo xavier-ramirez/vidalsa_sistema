@@ -151,7 +151,7 @@ class FallaController extends Controller
             }
         }
         
-        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::with('especificaciones')->whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
+        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::with(['especificaciones', 'documentacion', 'tipo'])->whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
         $auxiliaresLoaded = empty($auxiliarIds) ? collect() : EquipoAuxiliar::whereIn('ID_AUXILIAR', array_unique($auxiliarIds))->get()->keyBy('ID_AUXILIAR');
 
         // Hidrata activo + frente (un solo query previo para todos los frentes).
@@ -171,7 +171,7 @@ class FallaController extends Controller
             return $f;
         });
 
-        $stats = $this->buildStats();
+        $stats = $this->buildStats($request);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -204,12 +204,11 @@ class FallaController extends Controller
         $availableModelos = $eqModelos->merge($auxModelos)->unique()->sort()->values();
 
         // Tipos de equipo (para el filtro avanzado agrupado).
-        // Cacheados 1 hora — cambian muy raramente.
-        $tiposEquipo = Cache::remember('fallas_tipos_equipo', 3600,
-            fn () => TipoEquipo::orderBy('nombre')->get(['id', 'nombre']));
-        $tiposAux = Cache::remember('fallas_tipos_aux', 3600,
-            fn () => EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
-                ->distinct()->orderBy('TIPO')->pluck('TIPO'));
+        // Sin cache: las tablas son chicas y los tipos se reflejan en tiempo real
+        // cuando el admin agrega/elimina un TipoEquipo o un EquipoAuxiliar nuevo.
+        $tiposEquipo = TipoEquipo::orderBy('nombre')->get(['id', 'nombre']);
+        $tiposAux = EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
 
         return view('admin.fallas.index', compact(
             'fallas', 'stats', 'responsables', 'frentes',
@@ -244,6 +243,9 @@ class FallaController extends Controller
                 return response()->json(['success' => false, 'message' => 'Activo no encontrado'], 404);
             }
             $estadoPrevio = $activo->ESTADO_OPERATIVO;
+            if ($estadoPrevio === 'DESINCORPORADO') {
+                return response()->json(['success' => false, 'message' => 'No se puede reportar falla en un equipo desincorporado.'], 422);
+            }
 
             $user = auth()->user();
 
@@ -294,7 +296,6 @@ class FallaController extends Controller
     public function close(Request $request, $id)
     {
         $request->validate([
-            'restaurar_estado' => 'nullable|boolean',
             'observaciones_cierre' => 'nullable|string|max:5000',
         ]);
 
@@ -313,16 +314,14 @@ class FallaController extends Controller
             $falla->OBSERVACIONES_CIERRE = $request->input('observaciones_cierre');
             $falla->save();
 
-            // Restaurar estado del activo a OPERATIVO siempre
+            // Al cerrar el reporte, el activo regresa SIEMPRE a OPERATIVO.
             $activo = $this->lockActivo($falla->ACTIVO_TIPO, $falla->ACTIVO_ID);
             if ($activo) {
                 $activo->ESTADO_OPERATIVO = 'OPERATIVO';
                 $activo->save();
             }
 
-            $this->logAction($falla->ID_FALLA, $falla->ACTIVO_TIPO, $falla->ACTIVO_ID, 'close_falla', [
-                'restaurar_estado' => true,
-            ]);
+            $this->logAction($falla->ID_FALLA, $falla->ACTIVO_TIPO, $falla->ACTIVO_ID, 'close_falla', []);
 
             return response()->json(['success' => true, 'message' => 'Reporte cerrado.']);
         });
@@ -388,6 +387,7 @@ class FallaController extends Controller
                 'equipos.ESTADO_OPERATIVO', 'equipos.FOTO_EQUIPO', 'equipos.ID_ESPEC',
                 'd.PLACA', 'te.nombre AS TIPO_NOMBRE', 'ft.NOMBRE_FRENTE'
             )
+            ->where('equipos.ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
             ->where(function ($w) use ($like) {
                 $w->whereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
                   ->orWhereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
@@ -400,6 +400,7 @@ class FallaController extends Controller
             ->leftJoin('frentes_trabajo AS ft2',
                 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'ft2.ID_FRENTE')
             ->select('equipos_auxiliares.*', 'ft2.NOMBRE_FRENTE AS AUX_FRENTE')
+            ->where('equipos_auxiliares.ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
             ->where(function ($w) use ($like) {
                 $w->whereRaw('UPPER(equipos_auxiliares.SERIAL) like ?', [$like])
                   ->orWhereRaw('UPPER(equipos_auxiliares.CODIGO_INTERNO) like ?', [$like])
@@ -515,27 +516,118 @@ class FallaController extends Controller
 
     /**
      * Stats del sidebar: TOTAL flota (vehiculos + aux), INOPERATIVO,
-     * EN MANTENIMIENTO. No filtra por scope LOCAL — los super.admin
-     * ven todo, los locales tambien (la accion ya esta gateada por
-     * equipos.edit).
+     * EN MANTENIMIENTO, REPORTES_ABIERTOS. Respeta los filtros del request
+     * que aplican a equipos (id_frente, tipo_activo, marca, modelo, search)
+     * para que el sidebar refleje la vista activa, igual que /admin/equipos.
      */
-    private function buildStats(): array
+    private function buildStats(Request $request): array
     {
-        $eqTotal = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
-        $auxTotal = EquipoAuxiliar::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
+        [$eqQ, $auxQ] = $this->buildActivoQueriesForStats($request);
 
-        $eqIno = Equipo::where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
-        $auxIno = EquipoAuxiliar::where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
+        $eqTotal  = (clone $eqQ)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
+        $auxTotal = (clone $auxQ)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
 
-        $eqMan = Equipo::where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
-        $auxMan = EquipoAuxiliar::where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
+        $eqIno  = (clone $eqQ)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
+        $auxIno = (clone $auxQ)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
+
+        $eqMan  = (clone $eqQ)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
+        $auxMan = (clone $auxQ)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
+
+        // Reportes abiertos: aplica los filtros equivalentes sobre la tabla fallas
+        // (id_frente, tipo_activo, marca, modelo, search se filtran por activo).
+        $eqIds  = (clone $eqQ)->pluck('equipos.ID_EQUIPO')->toArray();
+        $auxIds = (clone $auxQ)->pluck('ID_AUXILIAR')->toArray();
+
+        $reportesQ = Falla::query()->where('ESTADO_REPORTE', 'abierto');
+        if ($request->filled('fecha_desde')) {
+            $reportesQ->whereDate('FECHA_EMISION', '>=', $request->fecha_desde);
+        }
+        if ($request->filled('fecha_hasta')) {
+            $reportesQ->whereDate('FECHA_EMISION', '<=', $request->fecha_hasta);
+        }
+        if ($request->filled('responsable')) {
+            $reportesQ->where('ID_USUARIO_REPORTA', $request->responsable);
+        }
+        // Si hay filtros equipo-level activos, restringimos a las fallas que apuntan
+        // a esos activos. Sin filtros, no aplicamos restriccion (cuenta global).
+        $hasEqFilter = $request->filled('id_frente') || $request->filled('tipo_activo')
+                    || $request->filled('marca') || $request->filled('modelo')
+                    || $request->filled('search');
+        if ($hasEqFilter) {
+            $reportesQ->where(function ($q) use ($eqIds, $auxIds) {
+                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
+                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
+            });
+        }
 
         return [
-            'total'         => $eqTotal + $auxTotal,
-            'inoperativo'   => $eqIno + $auxIno,
-            'mantenimiento' => $eqMan + $auxMan,
-            'reportes_abiertos' => Falla::where('ESTADO_REPORTE', 'abierto')->count(),
+            'total'             => $eqTotal + $auxTotal,
+            'inoperativo'       => $eqIno + $auxIno,
+            'mantenimiento'     => $eqMan + $auxMan,
+            'reportes_abiertos' => $reportesQ->count(),
         ];
+    }
+
+    /**
+     * Construye queries de Equipo y EquipoAuxiliar aplicando los filtros del
+     * request que tienen sentido a nivel de activo. Usado para los conteos
+     * del sidebar.
+     */
+    private function buildActivoQueriesForStats(Request $request): array
+    {
+        $eq  = Equipo::query()->select('equipos.*');
+        $aux = EquipoAuxiliar::query();
+
+        if ($request->filled('id_frente')) {
+            $frId = (int) $request->id_frente;
+            $eq->where('ID_FRENTE_ACTUAL', $frId);
+            $aux->where('ID_FRENTE_ACTUAL', $frId);
+        }
+
+        if ($request->filled('marca')) {
+            $mLike = '%' . mb_strtoupper(trim($request->marca)) . '%';
+            $eq->whereRaw('UPPER(MARCA) like ?', [$mLike]);
+            $aux->whereRaw('UPPER(MARCA) like ?', [$mLike]);
+        }
+
+        if ($request->filled('modelo')) {
+            $moLike = '%' . mb_strtoupper(trim($request->modelo)) . '%';
+            $eq->whereRaw('UPPER(MODELO) like ?', [$moLike]);
+            $aux->whereRaw('UPPER(MODELO) like ?', [$moLike]);
+        }
+
+        $ta = $request->input('tipo_activo', '');
+        if ($ta === 'equipo') {
+            $aux->whereRaw('1 = 0');
+        } elseif ($ta === 'equipo_auxiliar') {
+            $eq->whereRaw('1 = 0');
+        } elseif (str_starts_with($ta, 'tipo_eq:')) {
+            $tipoId = (int) substr($ta, 8);
+            $eq->where('id_tipo_equipo', $tipoId);
+            $aux->whereRaw('1 = 0');
+        } elseif (str_starts_with($ta, 'tipo_aux:')) {
+            $auxTipo = substr($ta, 9);
+            $aux->where('TIPO', $auxTipo);
+            $eq->whereRaw('1 = 0');
+        }
+
+        if ($request->filled('search')) {
+            $sClean = mb_strtoupper(ltrim(trim($request->input('search')), '#'));
+            $like = "%{$sClean}%";
+            $eq->leftJoin('documentacion AS d_stats', 'equipos.ID_EQUIPO', '=', 'd_stats.ID_EQUIPO')
+               ->where(function ($w) use ($like) {
+                   $w->whereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
+                     ->orWhereRaw('UPPER(equipos.SERIAL_DE_MOTOR) like ?', [$like])
+                     ->orWhereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
+                     ->orWhereRaw('UPPER(d_stats.PLACA) like ?', [$like]);
+               });
+            $aux->where(function ($w) use ($like) {
+                $w->whereRaw('UPPER(SERIAL) like ?', [$like])
+                  ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]);
+            });
+        }
+
+        return [$eq, $aux];
     }
 
     /**

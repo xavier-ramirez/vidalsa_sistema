@@ -224,11 +224,6 @@ class EquipoController extends Controller
         // Check if any filter is applied (with non-empty values)
         $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('detalle_ubicacion') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda');
 
-        if ($isLocalUser) {
-            // Local users always show the table with their scoped frentes by default
-            $hasFilter = true;
-        }
-
         // Paginación server-side con cap por página.
         // La tabla carga 150 filas por request; al final el frontend pide el siguiente lote
         // (offset += 150) con IntersectionObserver para scroll infinito.
@@ -472,15 +467,9 @@ class EquipoController extends Controller
         $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
         $frentesPermitidos = $user ? $user->getFrentesIds() : [];
 
-        if ($isLocalUser) {
-            // Allow local user to bypass the "no filter" check because they have an implicit filter 
-            $request->merge(['_local_user_forced_filter' => true]);
-        }
-
         // CRITICAL: Prevent exporting entire database without filters.
         // 'id_frente=all' es un filtro explícito válido (el usuario seleccionó "Todos los Frentes").
         $hasFilter = $request->filled('id_frente')   // incluye 'all' como filtro válido
-            || $request->filled('_local_user_forced_filter')
             || $request->filled('id_tipo')
             || $request->filled('search_query')
             || $request->filled('modelo')
