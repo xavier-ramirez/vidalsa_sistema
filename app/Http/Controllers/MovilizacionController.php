@@ -13,8 +13,10 @@ class MovilizacionController extends Controller
     public function __construct()
     {
         $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
-        // Permiso para MOVER equipos (Crear movilizaciones o registrar recepciÃ³n directa sin despacho previo)
+        // Permiso para MOVER equipos (Crear movilizaciones o registrar recepcion directa sin despacho previo)
         $this->middleware('can:equipos.assign')->only(['create', 'store', 'bulkStore', 'recepcionDirecta']);
+        // Borrar movilizaciones es destructivo: solo super.admin (consistente con el modulo de equipos).
+        $this->middleware('can:super.admin')->only(['destroy', 'bulkDestroy']);
     }
 
     public function index(Request $request)
@@ -254,10 +256,11 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
-            return redirect()->route('movilizaciones.index')->with('success', 'MovilizaciÃ³n registrada correctamente.');
+            return redirect()->route('movilizaciones.index')->with('success', 'Movilizacion registrada correctamente.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Error al registrar: ' . $e->getMessage()]);
+            Log::error('store movilizacion error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'No se pudo registrar la movilizacion. Intenta de nuevo.']);
         }
     }
 
@@ -321,11 +324,19 @@ class MovilizacionController extends Controller
             $now        = now();
             $generarPdf = (bool) $request->input('generar_pdf', true);
 
-            $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
-
+            // Bloquear los equipos PRIMERO. Si por algun motivo (race con destroy,
+            // ids fantasma) la coleccion queda vacia abortamos antes de consumir
+            // un numero de la secuencia (evita huecos en CODIGO_CONTROL).
             $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)
                 ->lockForUpdate()
                 ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+
+            if ($equipos->isEmpty()) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'No se encontraron equipos validos para movilizar.'], 422);
+            }
+
+            $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
 
             // Crear movilizaciones una por una (dispara MovilizacionObserver, devuelve IDs exactos
             // sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
@@ -350,7 +361,10 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
-            $this->triggerDashboardCacheRefresh();
+            // No llamamos triggerDashboardCacheRefresh aqui: Movilizacion::create()
+            // dispara MovilizacionObserver::created (afterCommit=true) que ya
+            // refresca los caches. recepcionDirecta SI lo necesita porque usa
+            // insert() que no dispara eventos.
 
             return response()->json([
                 'success'          => true,
@@ -362,7 +376,7 @@ class MovilizacionController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('bulkStore movilizacion error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'No se pudo registrar la movilizacion.'], 500);
         }
     }
 
@@ -439,7 +453,7 @@ class MovilizacionController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Error en recepcionDirecta: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'No se pudo registrar la recepcion directa.'], 500);
         }
     }
 
@@ -569,6 +583,11 @@ class MovilizacionController extends Controller
                 return back()->withErrors(['error' => 'Esta movilizaciÃ³n no tiene acta asociada (actualizaciÃ³n o recepciÃ³n directa).']);
             }
 
+            // Agrupacion del bundle: SOLO por CODIGO_CONTROL + destino. El CODIGO_CONTROL
+            // ya garantiza unicidad por bundle gracias a la secuencia con lockForUpdate.
+            // Antes se filtraba tambien por UNIX_TIMESTAMP(created_at) — eso fallaba en
+            // bulks lentos (>1s entre primer y ultimo create), dejando equipos fuera del
+            // PDF. ID_FRENTE_DESTINO se mantiene como guardia defensiva.
             $movilizaciones = Movilizacion::with([
                 'equipo.tipo',
                 'equipo.documentacion',
@@ -580,8 +599,6 @@ class MovilizacionController extends Controller
             ])
                 ->where('CODIGO_CONTROL', $baseMov->CODIGO_CONTROL)
                 ->where('ID_FRENTE_DESTINO', $baseMov->ID_FRENTE_DESTINO)
-                // UNIX_TIMESTAMP evita la diferencia de precisiÃ³n entre Carbon (Âµs) y MySQL TIMESTAMP (s)
-                ->whereRaw('UNIX_TIMESTAMP(created_at) = UNIX_TIMESTAMP(?)', [$baseMov->created_at])
                 ->get();
 
             // Para movilizaciones de auxiliares (ID_EQUIPO null + ID_AUXILIAR set),
@@ -732,31 +749,27 @@ class MovilizacionController extends Controller
             return response()->json(['success' => true, 'message' => 'Despacho registrado correctamente.']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            Log::error('mobileStore movilizacion error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'No se pudo registrar el despacho.'], 500);
         }
     }
 
     public function destroy($id)
     {
-        if (!auth()->user()->can('super.admin')) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acciÃ³n.'], 403);
-        }
-
+        // Permiso super.admin gateado en el middleware del constructor.
         try {
             $mov = Movilizacion::findOrFail($id);
             $mov->delete();
-            return response()->json(['success' => true, 'message' => 'Registro de movilizaciÃ³n eliminado con Ã©xito.']);
+            return response()->json(['success' => true, 'message' => 'Registro de movilizacion eliminado con exito.']);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error al eliminar el registro: ' . $e->getMessage()], 500);
+            Log::error('destroy movilizacion error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'No se pudo eliminar el registro.'], 500);
         }
     }
 
     public function bulkDestroy(Request $request)
     {
-        if (!auth()->user()->can('super.admin')) {
-            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar esta acciÃ³n.'], 403);
-        }
-
+        // Permiso super.admin gateado en el middleware del constructor.
         $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'exists:movilizacion_historial,ID_MOVILIZACION',
@@ -764,25 +777,36 @@ class MovilizacionController extends Controller
 
         try {
             Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
-            return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con Ã©xito.']);
+            return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con exito.']);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error al eliminar registros: ' . $e->getMessage()], 500);
+            Log::error('bulkDestroy movilizacion error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'No se pudieron eliminar los registros.'], 500);
         }
     }
 
     // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
-     * Genera el siguiente CODIGO_CONTROL de forma atómica.
-     * DEBE ser llamado dentro de una transacción activa (DB::beginTransaction()).
+     * Genera el siguiente CODIGO_CONTROL de forma atomica.
+     * DEBE ser llamado dentro de una transaccion activa (DB::beginTransaction()).
+     * Lanza LogicException si se llama fuera de transaccion: sin transaccion el
+     * lockForUpdate() es silenciosamente ignorado y dos calls concurrentes podrian
+     * producir el mismo numero.
      */
     public static function generateNextCodigoControl(): int
     {
-        // â”€â”€ BLOQUEO ATÃ“MICO DE FILA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // lockForUpdate() sobre una PRIMARY KEY especÃ­fica bloquea exactamente esa
+        if (DB::transactionLevel() === 0) {
+            throw new \LogicException(
+                'generateNextCodigoControl() debe llamarse dentro de DB::transaction() '
+                . 'o DB::beginTransaction(). Sin transaccion el lock no funciona.'
+            );
+        }
+
+        // ── BLOQUEO ATOMICO DE FILA ──────────────────────────────────────────
+        // lockForUpdate() sobre una PRIMARY KEY especifica bloquea exactamente esa
         // fila en InnoDB. Si dos transacciones llegan al mismo tiempo, la segunda
-        // espera hasta que la primera haga commit/rollback. AsÃ­ NUNCA se repite un
-        // CODIGO_CONTROL, sin importar cuÃ¡ntos usuarios operen en simultÃ¡neo.
+        // espera hasta que la primera haga commit/rollback. Asi NUNCA se repite un
+        // CODIGO_CONTROL, sin importar cuantos usuarios operen en simultaneo.
         $seq = DB::table('secuencias')
             ->where('nombre', 'CODIGO_CONTROL')
             ->lockForUpdate()

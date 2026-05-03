@@ -43,18 +43,25 @@ class MovilizacionObserver
      */
     private function refreshCache(): void
     {
-        // Pendientes ya no existen, son instantáneos
+        // Pendientes ya no existen, son instantaneos.
         Cache::forever('dashboard_pendientes', 0);
-        
-        // Cache movilizaciones today (date-based, will auto-refresh when day changes)
-        Cache::forever('dashboard_movilizaciones_hoy', Movilizacion::whereDate('FECHA_DESPACHO', now()->today())->count());
-        
-        // Cache recent activity (ALL pending mobilizations for dashboard list)
+
+        // Movilizaciones de hoy: TTL hasta fin del dia (a las 00:00 expira y se
+        // recalcula al dia siguiente). Antes era forever, lo que causaba que
+        // si nadie creaba una movilizacion el cache no rotaba al cambiar la fecha.
+        Cache::put(
+            'dashboard_movilizaciones_hoy',
+            Movilizacion::whereDate('FECHA_DESPACHO', now()->today())->count(),
+            now()->endOfDay()
+        );
+
+        // Recent activity: TTL de 1 hora — defensivo aunque tambien se invalida
+        // en cada created/updated/deleted via observer.
         $recentActivity = Movilizacion::with(['equipo', 'frenteDestino'])
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();
-        
-        Cache::forever('dashboard_recent_activity', $recentActivity);
+
+        Cache::put('dashboard_recent_activity', $recentActivity, now()->addHour());
     }
 }

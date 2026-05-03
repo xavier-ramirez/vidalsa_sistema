@@ -126,7 +126,7 @@ class Equipo extends Model
 
     public function movilizaciones()
     {
-        return $this->hasMany(MovilizacionHistorial::class, 'ID_EQUIPO', 'ID_EQUIPO');
+        return $this->hasMany(Movilizacion::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
 
     /** Equipos auxiliares anclados a este equipo (ej: maquinas de soldar en un

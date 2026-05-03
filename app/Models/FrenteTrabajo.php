@@ -66,12 +66,12 @@ class FrenteTrabajo extends Model
 
     public function movilizacionesOrigen()
     {
-        return $this->hasMany(MovilizacionHistorial::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');
+        return $this->hasMany(Movilizacion::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');
     }
 
     public function movilizacionesDestino()
     {
-        return $this->hasMany(MovilizacionHistorial::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
+        return $this->hasMany(Movilizacion::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
     }
 
     /**

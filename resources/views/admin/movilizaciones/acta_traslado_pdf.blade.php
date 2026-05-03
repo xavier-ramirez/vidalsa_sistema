@@ -73,15 +73,22 @@
     </table>
 
     <!-- ===================== TABLA DE EQUIPOS =====================
-     - thead: TCPDF repite el encabezado automáticamente en cada página nueva
-     - NOTA TCPDF: No usar nobr="true" en las filas (tr) del tbody, ya que
-       esto causa que TCPDF pierda el contexto de los anchos de columna al
-       saltar de página, desalineando el encabezado del cuerpo.
-       Los anchos (width) deben definirse estrictamente en los <th> del
-       encabezado con atributos HTML y CSS inline para garantizar la
-       sincronización perfecta entre páginas.
+     - thead: TCPDF repite automaticamente el encabezado en cada pagina nueva.
+     - <colgroup> + <col width="X%"> es CRITICO para que TCPDF reserve los
+       anchos de columna ANTES de renderizar y no los recalcule al saltar
+       de pagina. Sin esto, en tablas largas el encabezado de la pagina 2+
+       se desalinea con las celdas del tbody (los % se reinterpretan en base
+       al contenido visible solo en esa pagina).
+     - Anchos en colgroup, thead y tbody deben coincidir exactamente.
+     - No usar nobr="true" en las filas del tbody.
     =========================================================== -->
     <table width="100%" border="1" cellpadding="5" cellspacing="0">
+        <colgroup>
+            <col width="5%">
+            <col width="50%">
+            <col width="20%">
+            <col width="25%">
+        </colgroup>
         <thead>
             <tr bgcolor="#e6f2ff">
                 <th width="5%" align="center" style="font-size:8.5pt;"><b>N°</b></th>
