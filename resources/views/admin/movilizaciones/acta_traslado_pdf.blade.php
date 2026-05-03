@@ -3,43 +3,6 @@
 
 <head>
     <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: helvetica;
-            font-size: 10pt;
-            color: #000;
-            line-height: 1.4;
-            margin: 0;
-            padding: 0;
-        }
-        /* Misma estrategia que reports/documentos_vencidos_pdf.blade.php (que NO se desalinea):
-           - CSS-driven (no inline align/style en cada celda).
-           - border-collapse: collapse en la tabla.
-           - page-break-inside: avoid en <tr> obliga a TCPDF a mantener cada fila
-             entera en una pagina, evitando los recalculos de ancho que causan
-             que el thead repetido se desalinee con el tbody continuado. */
-        .equipos-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .equipos-table th {
-            background-color: #e6f2ff;
-            border: 0.5pt solid #000;
-            font-weight: bold;
-            text-align: center;
-            padding: 5px;
-            font-size: 8.5pt;
-        }
-        .equipos-table td {
-            border: 0.5pt solid #000;
-            text-align: center;
-            padding: 5px;
-            font-size: 8.5pt;
-        }
-        .equipos-table tr {
-            page-break-inside: avoid;
-        }
-    </style>
 </head>
 
 <body>
@@ -109,38 +72,14 @@
         </tr>
     </table>
 
-    <!-- ===================== TABLA DE EQUIPOS =====================
-     Mismo patron que reports/documentos_vencidos_pdf (que se renderiza correcto
-     en multiples paginas). El secreto:
-       1) <style> CSS con clase .equipos-table — NO inline styles por celda.
-       2) border-collapse: collapse en la tabla.
-       3) page-break-inside: avoid en <tr> — TCPDF respeta esta regla CSS3 y
-          NO parte filas a la mitad. Esto evita los recalculos de ancho que
-          desalinean el thead repetido con el tbody continuado.
-       4) Anchos en %, pero al no partirse las filas el thead siempre queda
-          alineado con el tbody en cada pagina.
-       5) thead con cellpadding via CSS coincide con tbody — alturas estables.
-    =========================================================== -->
-    <table class="equipos-table" cellpadding="4">
-        <thead>
-            <tr>
-                <th width="5%">N°</th>
-                <th width="50%">DESCRIPCIÓN / EQUIPO</th>
-                <th width="20%">MARCA</th>
-                <th width="25%">SERIAL / PLACA</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($equipos as $index => $item)
-                <tr>
-                    <td width="5%">{{ $index + 1 }}</td>
-                    <td width="50%">{{ strtoupper($item->tipo->nombre ?? 'SIN TIPO') }}</td>
-                    <td width="20%">{{ strtoupper($item->MARCA ?? '---') }}</td>
-                    <td width="25%">{{ strtoupper($item->SERIAL_CHASIS ?? '---') }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
+    {{-- ===================== TABLA DE EQUIPOS =====================
+     Renderizada NATIVAMENTE con TCPDF::Cell() en el controller (no HTML).
+     Razon: el renderizador HTML de TCPDF re-calcula anchos del thead repetido
+     al saltar de pagina, lo que causa desalineacion en tablas largas. La API
+     nativa Cell() dibuja en mm exactos con coordenadas fijas, garantizando
+     que el header de la pagina 2+ caiga exacto sobre las columnas del tbody.
+     =============================================================== --}}
+    <!--EQUIPOS_TABLE_PLACEHOLDER-->
 
     <!-- ===================== BLOQUE COMPLETO DE FIRMAS =====================
      nobr="true" en la tabla maestra: garantiza que todo el bloque de firmas

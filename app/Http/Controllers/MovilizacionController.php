@@ -668,7 +668,16 @@ class MovilizacionController extends Controller
 
             $html = str_replace("this.closest('div[style*='position: fixed']').remove();", "", $html);
 
-            $pdf->writeHTML($html, true, false, true, false, '');
+            // Split del HTML en el placeholder de la tabla de equipos. La tabla
+            // se renderiza nativamente con Cell() para evitar el bug de TCPDF
+            // donde el thead se desalinea con el tbody al cambiar de pagina.
+            $parts = explode('<!--EQUIPOS_TABLE_PLACEHOLDER-->', $html, 2);
+
+            $pdf->writeHTML($parts[0], true, false, true, false, '');
+            $pdf->renderEquiposTable($equipos);
+            if (isset($parts[1])) {
+                $pdf->writeHTML($parts[1], true, false, true, false, '');
+            }
 
             $filename = 'Acta_Traslado_' . $movilizacion->CODIGO_CONTROL . '.pdf';
 
@@ -853,6 +862,75 @@ class MovilizacionController extends Controller
 class ActaTrasladoPDF extends \TCPDF
 {
     public $frenteOrigen = '';
+
+    /**
+     * Anchos de columna en mm. Total = 180mm (= 210mm A4 portrait - 15+15 margenes).
+     * El orden corresponde a: N°, Descripcion, Marca, Serial.
+     */
+    private $equiposColWidths = [9, 90, 36, 45];
+    private $equiposHeaders   = ['N°', 'DESCRIPCIÓN / EQUIPO', 'MARCA', 'SERIAL / PLACA'];
+    private $equiposHeaderH   = 8;  // mm
+    private $equiposRowH      = 7;  // mm
+
+    /**
+     * Renderiza la tabla de equipos del acta usando la API nativa de TCPDF (Cell).
+     * Maneja saltos de pagina manualmente, redibujando el header en cada pagina nueva.
+     * Esto evita el bug del renderizador HTML de TCPDF que recalcula los anchos
+     * del thead repetido al cambiar de pagina, desalineandolo con el tbody.
+     */
+    public function renderEquiposTable($equipos)
+    {
+        $this->renderEquiposHeader();
+
+        $this->SetFont('helvetica', '', 8.5);
+        $this->SetFillColor(255, 255, 255);
+        $this->SetTextColor(0, 0, 0);
+        $this->SetDrawColor(0, 0, 0);
+        $this->SetLineWidth(0.2);
+
+        foreach ($equipos as $i => $item) {
+            // Page-break manual: si la fila no cabe en la pagina actual,
+            // creamos pagina nueva y redibujamos el header.
+            $bottomLimit = $this->getPageHeight() - $this->getBreakMargin();
+            if ($this->GetY() + $this->equiposRowH > $bottomLimit) {
+                $this->AddPage();
+                $this->renderEquiposHeader();
+                $this->SetFont('helvetica', '', 8.5);
+                $this->SetFillColor(255, 255, 255);
+                $this->SetTextColor(0, 0, 0);
+            }
+
+            $tipoNombre = strtoupper($item->tipo->nombre ?? 'SIN TIPO');
+            $marca      = strtoupper($item->MARCA ?? '---');
+            $serial     = strtoupper($item->SERIAL_CHASIS ?? '---');
+
+            $this->Cell($this->equiposColWidths[0], $this->equiposRowH, ($i + 1),    1, 0, 'C', false);
+            $this->Cell($this->equiposColWidths[1], $this->equiposRowH, $tipoNombre, 1, 0, 'C', false);
+            $this->Cell($this->equiposColWidths[2], $this->equiposRowH, $marca,      1, 0, 'C', false);
+            $this->Cell($this->equiposColWidths[3], $this->equiposRowH, $serial,     1, 1, 'C', false);
+        }
+
+        // Pequeño espaciado despues de la tabla antes del bloque de firmas.
+        $this->Ln(4);
+    }
+
+    /**
+     * Dibuja el encabezado de la tabla de equipos (fondo azul claro + texto bold).
+     */
+    private function renderEquiposHeader()
+    {
+        $this->SetFont('helvetica', 'B', 8.5);
+        $this->SetFillColor(230, 242, 255); // #e6f2ff
+        $this->SetTextColor(0, 0, 0);
+        $this->SetDrawColor(0, 0, 0);
+        $this->SetLineWidth(0.2);
+
+        $count = count($this->equiposHeaders);
+        foreach ($this->equiposHeaders as $i => $text) {
+            $ln = ($i === $count - 1) ? 1 : 0;
+            $this->Cell($this->equiposColWidths[$i], $this->equiposHeaderH, $text, 1, $ln, 'C', true);
+        }
+    }
 
     public function Header()
     {
