@@ -310,29 +310,31 @@ class HistorialDocumentosController extends Controller
         // ── DEDUPLICACION legacy ↔ audit log ──────────────────────────────────
         // Cada subida de documento genera DOS eventos:
         //   1) "Título de Propiedad" desde el flag PROPIEDAD_FECHA_SUBIDA (loop docs).
+        //      Tiene link al PDF y label amigable.
         //   2) "Subida Propiedad"   desde el audit log (loop audit).
-        // El audit log es la fuente autoritativa (mas detallada). Eliminamos los
-        // legacy duplicados: si para el mismo (equipo, doc_key, dia) existe un
-        // upload_X en el audit log, descartamos el evento legacy. Eventos legacy
-        // sin equivalente en audit log (datos antiguos pre-audit) se preservan.
-        $auditUploadKeys = [];
-        $legacyToUpload  = [
-            'propiedad'   => 'upload_propiedad',
-            'poliza'      => 'upload_poliza',
-            'rotc'        => 'upload_rotc',
-            'racda'       => 'upload_racda',
-            'adicional'   => 'upload_adicional',
-            'adicional_2' => 'upload_adicional_2',
+        //      Sin link al PDF (audit log no guarda URL).
+        // Mantener el evento LEGACY (con link) y descartar el audit log "upload_X"
+        // cuando exista equivalente en el legacy. El boton "Ver PDF" funciona
+        // porque conserva el link del legacy. Si solo hay audit log (caso edge sin
+        // legacy), el evento se preserva pero no muestra boton PDF.
+        $legacyKeys = [];
+        $uploadToLegacy = [
+            'upload_propiedad'   => 'propiedad',
+            'upload_poliza'      => 'poliza',
+            'upload_rotc'        => 'rotc',
+            'upload_racda'       => 'racda',
+            'upload_adicional'   => 'adicional',
+            'upload_adicional_2' => 'adicional_2',
         ];
         foreach ($events as $e) {
-            if (in_array($e->doc_key, $legacyToUpload, true)) {
-                $auditUploadKeys[$e->equipo_db_id . '|' . $e->doc_key . '|' . $e->fecha->format('Y-m-d')] = true;
+            if (in_array($e->doc_key, $uploadToLegacy, true)) {
+                $legacyKeys[$e->equipo_db_id . '|' . $e->doc_key . '|' . $e->fecha->format('Y-m-d')] = true;
             }
         }
-        $events = $events->filter(function ($e) use ($legacyToUpload, $auditUploadKeys) {
-            if (isset($legacyToUpload[$e->doc_key])) {
-                $key = $e->equipo_db_id . '|' . $legacyToUpload[$e->doc_key] . '|' . $e->fecha->format('Y-m-d');
-                return !isset($auditUploadKeys[$key]);
+        $events = $events->filter(function ($e) use ($uploadToLegacy, $legacyKeys) {
+            if (isset($uploadToLegacy[$e->doc_key])) {
+                $key = $e->equipo_db_id . '|' . $uploadToLegacy[$e->doc_key] . '|' . $e->fecha->format('Y-m-d');
+                return !isset($legacyKeys[$key]);
             }
             return true;
         });

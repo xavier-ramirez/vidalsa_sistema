@@ -2108,13 +2108,26 @@ class EquipoController extends Controller
                     'PLACA'              => $placaRaw !== '' ? strtoupper($placaRaw) : null,
                 ];
 
-                // Update Equipment basic info directly
-                $equipo->update([
-                    'MARCA' => strtoupper($request->input('marca', '')),
-                    'MODELO' => strtoupper($request->input('modelo', '')),
-                    'SERIAL_CHASIS' => strtoupper($request->input('serial_chasis', '')),
+                // Update Equipment basic info directamente. Usamos saveQuietly()
+                // para NO disparar EquipoObserver::updated (que registraria un audit
+                // 'edit'). De lo contrario, una sola edicion de propiedad genera DOS
+                // eventos en el historial: "Edición de Datos" + "Edición Metadata
+                // Propiedad". Solo dejamos el segundo, que ya captura el diff completo.
+                $equipo->fill([
+                    'MARCA'           => strtoupper($request->input('marca', '')),
+                    'MODELO'          => strtoupper($request->input('modelo', '')),
+                    'SERIAL_CHASIS'   => strtoupper($request->input('serial_chasis', '')),
                     'SERIAL_DE_MOTOR' => (trim($request->input('serial_motor', '') ?? '') === '') ? null : strtoupper(trim($request->input('serial_motor', ''))),
                 ]);
+                // Captura el diff del equipo ANTES de saveQuietly para incluirlo en
+                // el payload de 'metadata_propiedad' (sino se perderia el log de
+                // cambios al equipo basico). $equipo->getDirty() devuelve los campos
+                // modificados con su valor nuevo.
+                $equipoDiff = $equipo->getDirty();
+                $equipo->saveQuietly();
+                if (!empty($equipoDiff)) {
+                    $updateData = array_merge($updateData, $equipoDiff);
+                }
                 break;
 
             case 'poliza':
