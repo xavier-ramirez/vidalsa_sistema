@@ -4,18 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Sistema de Gestión')</title>
+    <title>@hasSection('title')@yield('title') · Sistema Vidalsa@else{{ 'Sistema Vidalsa' }}@endif</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
     {{-- ===== PWA ===== --}}
     <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ @filemtime(public_path('manifest.json')) }}">
     {{-- Sin theme-color: respetamos el color nativo de la barra del navegador (gris claro por defecto). --}}
-    <meta name="application-name" content="Vidalsa">
+    <meta name="application-name" content="Sistema Vidalsa">
     <meta name="mobile-web-app-capable" content="yes">
     {{-- iOS: homescreen / standalone --}}
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Vidalsa">
+    <meta name="apple-mobile-web-app-title" content="Sistema Vidalsa">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180.png') }}">
     <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('icons/icon-152.png') }}">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ asset('icons/icon-192.png') }}">

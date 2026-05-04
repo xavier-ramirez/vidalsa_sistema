@@ -767,6 +767,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         .then((data) => {
             if (!data) return;
 
+            // Guards defensivos: si red mala devuelve respuesta parcial,
+            // evitamos TypeErrors que rompan la cadena y dejen filtros mudos.
+            data.stats = data.stats || {};
+            if (typeof data.html !== "string") data.html = "";
+            if (typeof data.distribution !== "string") data.distribution = "";
+
             // Cargar datos en memoria ANTES de tocar el DOM
             if (data.equiposData) {
                 window.equiposData = { ...window.equiposData, ...data.equiposData };
