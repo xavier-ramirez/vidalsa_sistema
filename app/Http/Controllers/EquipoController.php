@@ -3594,6 +3594,7 @@ class EquipoController extends Controller
     public function mobileShow($id)
     {
         $eq = $this->findAndAuthorizeEquipo($id, ['tipo', 'frenteActual', 'documentacion']);
+        $doc = $eq->documentacion;
         return response()->json([
             'ID_EQUIPO'       => $eq->ID_EQUIPO,
             'CODIGO_PATIO'    => $eq->CODIGO_PATIO,
@@ -3605,16 +3606,169 @@ class EquipoController extends Controller
             'SERIAL_MOTOR'    => $eq->SERIAL_DE_MOTOR,
             'NUMERO_ETIQUETA' => $eq->NUMERO_ETIQUETA,
             'ESTADO_OPERATIVO'=> $eq->ESTADO_OPERATIVO,
-            'PLACA'           => $eq->documentacion->PLACA ?? 'S/P',
+            'PLACA'           => $doc->PLACA ?? 'S/P',
             'FRENTE_ACTUAL'   => $eq->frenteActual->NOMBRE_FRENTE ?? 'Sin Asignar',
+            'ID_FRENTE_ACTUAL'=> $eq->ID_FRENTE_ACTUAL,
             'DETALLE_UBICACION' => $eq->DETALLE_UBICACION_ACTUAL,
-            'NRO_DOCUMENTO'   => $eq->documentacion->NRO_DE_DOCUMENTO ?? '',
-            'PROPIETARIO'     => $eq->documentacion->NOMBRE_DEL_TITULAR ?? '',
-            'DOC_PROPIEDAD'   => $eq->documentacion && $eq->documentacion->LINK_DOC_PROPIEDAD ? asset('storage/' . $eq->documentacion->LINK_DOC_PROPIEDAD) : null,
-            'DOC_POLIZA'      => $eq->documentacion && $eq->documentacion->LINK_POLIZA_SEGURO ? asset('storage/' . $eq->documentacion->LINK_POLIZA_SEGURO) : null,
-            'DOC_ROTC'        => $eq->documentacion && $eq->documentacion->LINK_ROTC ? asset('storage/' . $eq->documentacion->LINK_ROTC) : null,
-            'DOC_RACDA'       => $eq->documentacion && $eq->documentacion->LINK_RACDA ? asset('storage/' . $eq->documentacion->LINK_RACDA) : null,
+            'NRO_DOCUMENTO'   => $doc->NRO_DE_DOCUMENTO ?? '',
+            'PROPIETARIO'     => $doc->NOMBRE_DEL_TITULAR ?? '',
+            'DOC_PROPIEDAD'   => $doc && $doc->LINK_DOC_PROPIEDAD ? asset('storage/' . $doc->LINK_DOC_PROPIEDAD) : null,
+            'DOC_POLIZA'      => $doc && $doc->LINK_POLIZA_SEGURO ? asset('storage/' . $doc->LINK_POLIZA_SEGURO) : null,
+            'DOC_ROTC'        => $doc && $doc->LINK_ROTC ? asset('storage/' . $doc->LINK_ROTC) : null,
+            'DOC_RACDA'       => $doc && $doc->LINK_RACDA ? asset('storage/' . $doc->LINK_RACDA) : null,
+            // Timestamps por documento — APK usa esto para versionado / re-descarga selectiva
+            'DOC_PROPIEDAD_UPDATED_AT' => optional($doc->PROPIEDAD_FECHA_SUBIDA ?? null)->toIso8601String(),
+            'DOC_POLIZA_UPDATED_AT'    => optional($doc->POLIZA_FECHA_SUBIDA ?? null)->toIso8601String(),
+            'DOC_ROTC_UPDATED_AT'      => optional($doc->ROTC_FECHA_SUBIDA ?? null)->toIso8601String(),
+            'DOC_RACDA_UPDATED_AT'     => optional($doc->RACDA_FECHA_SUBIDA ?? null)->toIso8601String(),
         ]);
+    }
+
+    /**
+     * GET /api/mobile/mis-equipos (Sanctum)
+     * Lista de equipos del/los frente(s) del usuario autenticado, con metadata
+     * de versionado de PDFs (updated_at por documento) para descarga selectiva.
+     */
+    public function mobileMisEquipos(Request $request)
+    {
+        $user = $request->user();
+        $frenteIds = $user->getFrentesIds();
+
+        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion'])
+            ->excludeEspecial();
+
+        // Si el usuario es nivel GLOBAL (1) y no tiene frentes específicos,
+        // ve todos los equipos. Si tiene frentes, filtra por ellos.
+        if (!empty($frenteIds)) {
+            $query->whereIn('ID_FRENTE_ACTUAL', $frenteIds);
+        } elseif ((int) $user->NIVEL_ACCESO !== 1) {
+            // Usuario LOCAL sin frente asignado → no ve nada
+            return response()->json([]);
+        }
+
+        $equipos = $query->orderBy('CODIGO_PATIO')->get();
+
+        return response()->json($equipos->map(function ($eq) {
+            $doc = $eq->documentacion;
+            return [
+                'ID_EQUIPO'        => $eq->ID_EQUIPO,
+                'CODIGO_PATIO'     => $eq->CODIGO_PATIO,
+                'TIPO'             => $eq->tipo->nombre ?? 'N/A',
+                'MARCA'            => $eq->MARCA,
+                'MODELO'           => $eq->MODELO,
+                'ANIO'             => $eq->ANIO,
+                'CATEGORIA_FLOTA'  => $eq->CATEGORIA_FLOTA,
+                'SERIAL_CHASIS'    => $eq->SERIAL_CHASIS,
+                'SERIAL_MOTOR'     => $eq->SERIAL_DE_MOTOR,
+                'NUMERO_ETIQUETA'  => $eq->NUMERO_ETIQUETA,
+                'ESTADO_OPERATIVO' => $eq->ESTADO_OPERATIVO,
+                'PLACA'            => $doc->PLACA ?? 'S/P',
+                'FRENTE_ACTUAL'    => $eq->frenteActual->NOMBRE_FRENTE ?? 'Sin Asignar',
+                'ID_FRENTE_ACTUAL' => $eq->ID_FRENTE_ACTUAL,
+                'DETALLE_UBICACION'=> $eq->DETALLE_UBICACION_ACTUAL,
+                'CONFIRMADO'       => $eq->CONFIRMADO_EN_SITIO,
+                'docs' => [
+                    'propiedad' => [
+                        'has_file'   => (bool) ($doc && $doc->LINK_DOC_PROPIEDAD),
+                        'updated_at' => optional($doc->PROPIEDAD_FECHA_SUBIDA ?? null)->toIso8601String(),
+                    ],
+                    'poliza' => [
+                        'has_file'   => (bool) ($doc && $doc->LINK_POLIZA_SEGURO),
+                        'updated_at' => optional($doc->POLIZA_FECHA_SUBIDA ?? null)->toIso8601String(),
+                    ],
+                    'rotc' => [
+                        'has_file'   => (bool) ($doc && $doc->LINK_ROTC),
+                        'updated_at' => optional($doc->ROTC_FECHA_SUBIDA ?? null)->toIso8601String(),
+                    ],
+                    'racda' => [
+                        'has_file'   => (bool) ($doc && $doc->LINK_RACDA),
+                        'updated_at' => optional($doc->RACDA_FECHA_SUBIDA ?? null)->toIso8601String(),
+                    ],
+                ],
+            ];
+        }));
+    }
+
+    /**
+     * GET /api/mobile/equipos/{id}/pdf/{tipo} (Sanctum)
+     * Devuelve el PDF binario para que la APK lo guarde en SQLite/Filesystem local.
+     * tipo: propiedad | poliza | rotc | racda
+     */
+    public function mobilePdfBinary(Request $request, $id, $tipo)
+    {
+        $allowed = ['propiedad', 'poliza', 'rotc', 'racda'];
+        if (!in_array($tipo, $allowed, true)) {
+            return response()->json(['error' => 'Tipo de documento inválido.'], 422);
+        }
+
+        $eq = Equipo::with('documentacion')->findOrFail($id);
+        $doc = $eq->documentacion;
+        if (!$doc) {
+            return response()->json(['error' => 'Equipo sin documentación.'], 404);
+        }
+
+        $colMap = [
+            'propiedad' => 'LINK_DOC_PROPIEDAD',
+            'poliza'    => 'LINK_POLIZA_SEGURO',
+            'rotc'      => 'LINK_ROTC',
+            'racda'     => 'LINK_RACDA',
+        ];
+        $relPath = $doc->{$colMap[$tipo]} ?? null;
+        if (!$relPath) {
+            return response()->json(['error' => 'Documento no disponible.'], 404);
+        }
+
+        // Si es archivo Drive (formato '/storage/google/<fileId>') o ruta de storage local
+        if (str_starts_with($relPath, '/storage/google/')) {
+            $fileId = str_replace('/storage/google/', '', $relPath);
+            try {
+                $driveService = \App\Services\GoogleDriveService::getInstance();
+                $stream = $driveService->getStreamById($fileId);
+                return response((string) $stream, 200)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'attachment; filename="' . $tipo . '_' . $id . '.pdf"');
+            } catch (\Exception $e) {
+                \Log::warning("Drive fetch failed for {$fileId}: " . $e->getMessage());
+                return response()->json(['error' => 'No se pudo obtener el PDF del Drive.'], 502);
+            }
+        }
+
+        $absolute = storage_path('app/' . ltrim($relPath, '/'));
+        if (!file_exists($absolute)) {
+            return response()->json(['error' => 'Archivo PDF no encontrado en el servidor.'], 404);
+        }
+        return response()->file($absolute, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $tipo . '_' . $id . '.pdf"',
+        ]);
+    }
+
+    /**
+     * GET /api/mobile/equipos/{id}/movilizaciones (Sanctum)
+     * Historial de movilizaciones de un equipo para la APK.
+     */
+    public function mobileMovilizacionesByEquipo($id)
+    {
+        $eq = Equipo::findOrFail($id);
+        $movs = \App\Models\Movilizacion::with(['frenteOrigen', 'frenteDestino'])
+            ->where('ID_EQUIPO', $eq->ID_EQUIPO)
+            ->orderBy('FECHA_DESPACHO', 'desc')
+            ->get();
+
+        return response()->json($movs->map(function ($m) {
+            return [
+                'ID_MOVILIZACION'    => $m->ID_MOVILIZACION,
+                'CODIGO_CONTROL'     => $m->formatted_codigo_control,
+                'FECHA_DESPACHO'     => optional($m->FECHA_DESPACHO)->toIso8601String(),
+                'TIPO_MOVIMIENTO'    => $m->TIPO_MOVIMIENTO,
+                'ID_FRENTE_ORIGEN'   => $m->ID_FRENTE_ORIGEN,
+                'NOMBRE_ORIGEN'      => $m->frenteOrigen->NOMBRE_FRENTE ?? null,
+                'ID_FRENTE_DESTINO'  => $m->ID_FRENTE_DESTINO,
+                'NOMBRE_DESTINO'     => $m->frenteDestino->NOMBRE_FRENTE ?? null,
+                'DETALLE_UBICACION'  => $m->DETALLE_UBICACION,
+                'USUARIO_REGISTRO'   => $m->USUARIO_REGISTRO,
+            ];
+        }));
     }
     // ──────────────────────────────────────────────────────────────────────────────
 

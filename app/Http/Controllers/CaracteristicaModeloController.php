@@ -150,37 +150,9 @@ class CaracteristicaModeloController extends Controller
                 @unlink($tempWebpPath);
             }
 
-            // AUTO-LINK INTELIGENTE: Find existing equipos with matching model + year and link them
+            // AUTO-LINK INTELIGENTE: vincular equipos sin catálogo, huérfanos, o con catálogo viejo sin foto
             if ($catalogo) {
-                $query = \App\Models\Equipo::where('MODELO', $validated['MODELO'])
-                    ->where('ANIO', $validated['ANIO_ESPEC']);
-                    
-                $query->where(function ($q) use ($catalogo) {
-                    $q->whereNull('ID_ESPEC'); // Si no tienen catálogo
-                    
-                    // Si este catálogo NUEVO tiene foto, secuestramos los equipos
-                    // que estén amarrados a un catálogo viejo que NO tenga foto.
-                    if ($catalogo->FOTO_REFERENCIAL) {
-                        $q->orWhereHas('especificaciones', function ($subq) {
-                            $subq->whereNull('FOTO_REFERENCIAL');
-                        });
-                    }
-                });
-
-                $equiposToLink = $query->get();
-                $linkedCount = 0;
-                
-                foreach ($equiposToLink as $eq) {
-                    if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
-                        $eq->ID_ESPEC = $catalogo->ID_ESPEC;
-                        $eq->save(); // Dispara EquipoObserver (Auditoría + Caché)
-                        $linkedCount++;
-                    }
-                }
-
-                if ($linkedCount > 0) {
-                    Log::info("Auto-linked {$linkedCount} equipos to catalog ID {$catalogo->ID_ESPEC} ({$validated['MODELO']} {$validated['ANIO_ESPEC']})");
-                }
+                $this->autoLinkEquiposToCatalogo($catalogo, $validated['MODELO'], $validated['ANIO_ESPEC'], 'create');
 
                 // Auditoria: registro de creacion (snapshot de campos relevantes)
                 \App\Models\CatalogoAuditLog::registrar(
@@ -327,33 +299,7 @@ class CaracteristicaModeloController extends Controller
             }
 
             // AUTO-LINK INTELIGENTE: Evaluar siempre (por si se subió una foto nueva o cambió modelo/año)
-            $query = \App\Models\Equipo::where('MODELO', $validated['MODELO'])
-                ->where('ANIO', $validated['ANIO_ESPEC']);
-                
-            $query->where(function ($q) use ($catalogo) {
-                $q->whereNull('ID_ESPEC');
-                
-                if ($catalogo->FOTO_REFERENCIAL) {
-                    $q->orWhereHas('especificaciones', function ($subq) {
-                        $subq->whereNull('FOTO_REFERENCIAL');
-                    });
-                }
-            });
-
-            $equiposToLink = $query->get();
-            $linkedCount = 0;
-            
-            foreach ($equiposToLink as $eq) {
-                if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
-                    $eq->ID_ESPEC = $catalogo->ID_ESPEC;
-                    $eq->save();
-                    $linkedCount++;
-                }
-            }
-
-            if ($linkedCount > 0) {
-                Log::info("Auto-linked {$linkedCount} equipos after catalog update to ID {$catalogo->ID_ESPEC} ({$validated['MODELO']} {$validated['ANIO_ESPEC']})");
-            }
+            $this->autoLinkEquiposToCatalogo($catalogo, $validated['MODELO'], $validated['ANIO_ESPEC'], 'update');
 
             // Auditoria: diff de campos editados (solo los que realmente cambiaron)
             $diff = [];
@@ -393,42 +339,39 @@ class CaracteristicaModeloController extends Controller
 
     public function destroy(Request $request, $id)
     {
+        $catalogo = CaracteristicaModelo::findOrFail($id);
+
+        // Snapshot antes de tocar BD (auditoría + Drive)
+        $snapshotModelo = $catalogo->MODELO;
+        $snapshotAnio   = (int) $catalogo->ANIO_ESPEC;
+        $snapshotId     = $catalogo->ID_ESPEC;
+        $fileId = $catalogo->FOTO_REFERENCIAL
+            ? str_replace('/storage/google/', '', $catalogo->FOTO_REFERENCIAL)
+            : null;
+
         try {
-            $catalogo = CaracteristicaModelo::findOrFail($id);
-            
-            // DELETE FROM GOOGLE DRIVE & INVALIDATE CACHE
-            if ($catalogo->FOTO_REFERENCIAL) {
-                $fileId = str_replace('/storage/google/', '', $catalogo->FOTO_REFERENCIAL);
-                
-                try {
-                    // Delete from Google Drive
-                    $driveService = GoogleDriveService::getInstance();
-                    $driveService->deleteFile($fileId);
-                } catch (\Exception $e) {
-                    Log::warning('Failed to delete Google Drive file during catalog deletion: ' . $fileId . ' - ' . $e->getMessage());
+            // 1) Transacción atómica en BD: desvincular equipos + borrar catálogo
+            DB::transaction(function () use ($snapshotId, $catalogo) {
+                $equiposAsociados = \App\Models\Equipo::where('ID_ESPEC', $snapshotId)->get();
+                foreach ($equiposAsociados as $eq) {
+                    $eq->ID_ESPEC = null;
+                    $eq->save(); // dispara EquipoObserver (auditoría + caché)
                 }
-                
-                // Clean up local cache
-                \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
-                \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
-            }
-            
-            // Snapshot antes de borrar, para auditoria
-            $snapshotModelo = $catalogo->MODELO;
-            $snapshotAnio   = (int) $catalogo->ANIO_ESPEC;
-            $snapshotId     = $catalogo->ID_ESPEC;
+                $catalogo->delete();
+            });
 
-            // Limpieza de base de datos: desvincular equipos asociados para evitar IDs huérfanos.
-            // Lo hacemos uno a uno para asegurar que el EquipoObserver registre la auditoría
-            // del cambio (EquipoAuditLog) y limpie las cachés del Dashboard.
-            $equiposAsociados = \App\Models\Equipo::where('ID_ESPEC', $snapshotId)->get();
-            foreach ($equiposAsociados as $eq) {
-                $eq->ID_ESPEC = null;
-                $eq->save();
+            // 2) Solo si la transacción BD fue exitosa: borrar Drive (operación irreversible)
+            if ($fileId) {
+                try {
+                    GoogleDriveService::getInstance()->deleteFile($fileId);
+                    \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
+                    \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+                } catch (\Exception $e) {
+                    Log::warning("Drive delete failed after DB commit (file orphaned in Drive): {$fileId} - " . $e->getMessage());
+                }
             }
 
-            $catalogo->delete();
-
+            // 3) Auditoría tras commit
             \App\Models\CatalogoAuditLog::registrar(
                 $snapshotId,
                 'delete',
@@ -440,16 +383,55 @@ class CaracteristicaModeloController extends Controller
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Modelo eliminado del catálogo', 'redirect' => route('catalogo.index')]);
             }
-
             return redirect()->route('catalogo.index')->with('success', 'Modelo eliminado del catálogo');
         } catch (\Exception $e) {
             Log::error('Error eliminando modelo del catálogo: ' . $e->getMessage());
-            
             if ($request->wantsJson()) {
-                return response()->json(['message' => 'No se puede eliminar porque está vinculado a otros registros.'], 500);
+                return response()->json(['message' => 'Error al eliminar el modelo. Intente nuevamente.'], 500);
             }
+            return back()->with('error', 'Error al eliminar el modelo. Intente nuevamente.');
+        }
+    }
 
-            return back()->with('error', 'No se puede eliminar el modelo porque está vinculado a uno o más equipos.');
+    /**
+     * Vincula automáticamente equipos al catálogo dado, considerando 3 casos:
+     *  - Equipos sin catálogo (ID_ESPEC = NULL).
+     *  - Equipos HUÉRFANOS (ID_ESPEC apunta a un catálogo que ya no existe).
+     *  - Equipos con catálogo viejo SIN foto, si el nuevo SÍ tiene foto.
+     *
+     * Cada save() dispara EquipoObserver (auditoría + caché).
+     * @param  CaracteristicaModelo $catalogo
+     * @param  string  $modelo
+     * @param  int     $anio
+     * @param  string  $context  'create' | 'update' (solo para el log)
+     */
+    private function autoLinkEquiposToCatalogo(CaracteristicaModelo $catalogo, string $modelo, $anio, string $context = 'create'): void
+    {
+        $query = Equipo::where('MODELO', $modelo)->where('ANIO', $anio);
+
+        $query->where(function ($q) use ($catalogo) {
+            $q->whereNull('ID_ESPEC')
+              ->orWhereDoesntHave('especificaciones');
+
+            if ($catalogo->FOTO_REFERENCIAL) {
+                $q->orWhereHas('especificaciones', function ($subq) {
+                    $subq->whereNull('FOTO_REFERENCIAL');
+                });
+            }
+        });
+
+        $linkedCount = 0;
+        foreach ($query->get() as $eq) {
+            if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
+                $eq->ID_ESPEC = $catalogo->ID_ESPEC;
+                $eq->save();
+                $linkedCount++;
+            }
+        }
+
+        if ($linkedCount > 0) {
+            $contextLabel = $context === 'update' ? 'after catalog update' : '';
+            Log::info(trim("Auto-linked {$linkedCount} equipos {$contextLabel} to catalog ID {$catalogo->ID_ESPEC} ({$modelo} {$anio})"));
         }
     }
 

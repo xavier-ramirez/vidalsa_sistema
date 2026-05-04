@@ -24,6 +24,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/mobile/logout', [LoginController::class, 'mobileLogout']);
     Route::get('/mobile/user',    function (Request $request) { return $request->user(); });
 
+    // Equipos del frente del usuario (descarga selectiva con metadata de versionado de PDFs)
+    Route::get('/mobile/mis-equipos', [EquipoController::class, 'mobileMisEquipos']);
+
+    // Descarga de PDF binario por tipo: propiedad | poliza | rotc | racda
+    Route::get('/mobile/equipos/{id}/pdf/{tipo}', [EquipoController::class, 'mobilePdfBinary']);
+
+    // Historial de movilizaciones de un equipo
+    Route::get('/mobile/equipos/{id}/movilizaciones', [EquipoController::class, 'mobileMovilizacionesByEquipo']);
+
     // Movilizaciones (solo usuarios autenticados pueden registrar)
     Route::get('/mobile/movilizaciones',  [MovilizacionController::class, 'mobileIndex']);
     Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore']);

@@ -202,13 +202,20 @@ class LoginController extends Controller
 
         $token = $user->createToken('mobile-app')->plainTextToken;
 
+        // Frentes asignados (claves para descarga selectiva de PDFs en la APK)
+        $frentesIds = $user->getFrentesIds();
+        $frentes = \App\Models\FrenteTrabajo::whereIn('ID_FRENTE', $frentesIds)
+            ->select('ID_FRENTE', 'NOMBRE_FRENTE')
+            ->get();
+
         return response()->json([
             'token' => $token,
             'user'  => [
-                'id'     => $user->ID_USUARIO,
-                'nombre' => $user->NOMBRE_USUARIO,
-                'correo' => $user->CORREO_ELECTRONICO,
-                'nivel'  => $user->NIVEL_ACCESO,
+                'id'      => $user->ID_USUARIO,
+                'nombre'  => $user->NOMBRE_USUARIO,
+                'correo'  => $user->CORREO_ELECTRONICO,
+                'nivel'   => $user->NIVEL_ACCESO,
+                'frentes' => $frentes,
             ]
         ]);
     }
