@@ -133,10 +133,10 @@ class CaracteristicaModeloController extends Controller
                 if ($webpFile) {
                     $driveService = GoogleDriveService::getInstance();
                     $folderId = config('filesystems.disks.google.catalog_folder');
-                    $filename = 'catalog_' . time() . '_' . $catalogo->ID_ESPEC . '.webp';
-                    
+                    $filename = 'catalog_' . (int)(microtime(true) * 1000) . '_' . $catalogo->ID_ESPEC . '.webp';
+
                     $driveFile = $driveService->uploadFile($folderId, $webpFile, $filename, 'image/webp');
-                    
+
                     if ($driveFile && isset($driveFile->id)) {
                         $catalogo->update(['FOTO_REFERENCIAL' => '/storage/google/' . $driveFile->id]);
                     } else {
@@ -251,10 +251,10 @@ class CaracteristicaModeloController extends Controller
                     // 1. UPLOAD NEW PHOTO TO GOOGLE DRIVE
                     $driveService = GoogleDriveService::getInstance();
                     $folderId = config('filesystems.disks.google.catalog_folder');
-                    $filename = 'catalog_' . time() . '_' . $catalogo->ID_ESPEC . '.webp';
-                    
+                    $filename = 'catalog_' . (int)(microtime(true) * 1000) . '_' . $catalogo->ID_ESPEC . '.webp';
+
                     $driveFile = $driveService->uploadFile($folderId, $webpFile, $filename, 'image/webp');
-                    
+
                     if ($driveFile && isset($driveFile->id)) {
                         // 2. UPDATE DATABASE WITH NEW FILE ID
                         $catalogo->update(['FOTO_REFERENCIAL' => '/storage/google/' . $driveFile->id]);
