@@ -11,11 +11,45 @@ use Illuminate\Support\Facades\DB;
 
 class CaracteristicaModeloController extends Controller
 {
+    /** Campos string que se normalizan a MAYÚSCULAS antes de persistir. */
+    private const UPPERCASE_FIELDS = [
+        'MODELO', 'MOTOR', 'COMBUSTIBLE', 'CONSUMO_PROMEDIO',
+        'ACEITE_MOTOR', 'ACEITE_CAJA', 'LIGA_FRENO', 'REFRIGERANTE', 'TIPO_BATERIA',
+    ];
+
     public function __construct()
     {
         $this->middleware('auth');
         $this->middleware('can:equipos.create')->only(['store', 'update']);
         $this->middleware('can:super.admin')->only(['destroy']);
+    }
+
+    /** Reglas de validación compartidas por store y update. */
+    private function validationRules(): array
+    {
+        return [
+            'MODELO'             => 'required|max:50',
+            'ANIO_ESPEC'         => 'required|integer',
+            'MOTOR'              => 'nullable|max:150',
+            'COMBUSTIBLE'        => 'nullable|max:100',
+            'CONSUMO_PROMEDIO'   => 'nullable|max:50',
+            'ACEITE_MOTOR'       => 'nullable|max:100',
+            'ACEITE_CAJA'        => 'nullable|max:100',
+            'LIGA_FRENO'         => 'nullable|max:50',
+            'REFRIGERANTE'       => 'nullable|max:100',
+            'TIPO_BATERIA'       => 'nullable|max:100',
+            'foto_referencial'   => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+        ];
+    }
+
+    /** Normaliza a MAYÚSCULAS los campos definidos en UPPERCASE_FIELDS. */
+    private function applyUppercaseFields(array &$validated): void
+    {
+        foreach (self::UPPERCASE_FIELDS as $field) {
+            if (isset($validated[$field]) && is_string($validated[$field])) {
+                $validated[$field] = strtoupper($validated[$field]);
+            }
+        }
     }
 
     public function index(Request $request)
@@ -92,19 +126,11 @@ class CaracteristicaModeloController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'MODELO' => 'required|max:50',
-            'ANIO_ESPEC' => 'required|integer',
-            'MOTOR' => 'nullable|max:150',
-            'COMBUSTIBLE' => 'nullable|max:100',
-            'CONSUMO_PROMEDIO' => 'nullable|max:50',
-            'ACEITE_MOTOR' => 'nullable|max:100',
-            'ACEITE_CAJA' => 'nullable|max:100',
-            'LIGA_FRENO' => 'nullable|max:50',
-            'REFRIGERANTE' => 'nullable|max:100',
-            'TIPO_BATERIA' => 'nullable|max:100',
-            'foto_referencial' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-        ], $this->validationMessages(), $this->validationAttributes());
+        $validated = $request->validate(
+            $this->validationRules(),
+            $this->validationMessages(),
+            $this->validationAttributes()
+        );
 
         try {
             $catalogo = null;
@@ -117,17 +143,9 @@ class CaracteristicaModeloController extends Controller
                 $webpFile    = $webpResult['file'];
                 $tempWebpPath = $webpResult['tempPath'];
             }
-            
-            DB::transaction(function () use ($request, &$validated, &$catalogo, $webpFile) {
-                // Force Uppercase on all string fields
-                $fieldsToUpper = ['MODELO', 'MOTOR', 'COMBUSTIBLE', 'CONSUMO_PROMEDIO', 
-                                  'ACEITE_MOTOR', 'ACEITE_CAJA', 'LIGA_FRENO', 'REFRIGERANTE', 'TIPO_BATERIA'];
-                
-                foreach ($fieldsToUpper as $field) {
-                    if (isset($validated[$field]) && is_string($validated[$field])) {
-                        $validated[$field] = strtoupper($validated[$field]);
-                    }
-                }
+
+            DB::transaction(function () use (&$validated, &$catalogo, $webpFile) {
+                $this->applyUppercaseFields($validated);
                 $catalogo = CaracteristicaModelo::create($validated);
 
                 if ($webpFile) {
@@ -200,19 +218,11 @@ class CaracteristicaModeloController extends Controller
     {
         $catalogo = CaracteristicaModelo::findOrFail($id);
 
-        $validated = $request->validate([
-            'MODELO' => 'required|max:50',
-            'ANIO_ESPEC' => 'required|integer',
-            'MOTOR' => 'nullable|max:150',
-            'COMBUSTIBLE' => 'nullable|max:100',
-            'CONSUMO_PROMEDIO' => 'nullable|max:50',
-            'ACEITE_MOTOR' => 'nullable|max:100',
-            'ACEITE_CAJA' => 'nullable|max:100',
-            'LIGA_FRENO' => 'nullable|max:50',
-            'REFRIGERANTE' => 'nullable|max:100',
-            'TIPO_BATERIA' => 'nullable|max:100',
-            'foto_referencial' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
-        ], $this->validationMessages(), $this->validationAttributes());
+        $validated = $request->validate(
+            $this->validationRules(),
+            $this->validationMessages(),
+            $this->validationAttributes()
+        );
 
         try {
             $oldModelo = $catalogo->MODELO;
@@ -235,16 +245,8 @@ class CaracteristicaModeloController extends Controller
                 }
             }
             
-            DB::transaction(function () use ($request, &$validated, $catalogo, $webpFile, $oldFileId) {
-                // Force Uppercase on all string fields
-                $fieldsToUpper = ['MODELO', 'MOTOR', 'COMBUSTIBLE', 'CONSUMO_PROMEDIO', 
-                                  'ACEITE_MOTOR', 'ACEITE_CAJA', 'LIGA_FRENO', 'REFRIGERANTE', 'TIPO_BATERIA'];
-                
-                foreach ($fieldsToUpper as $field) {
-                    if (isset($validated[$field]) && is_string($validated[$field])) {
-                        $validated[$field] = strtoupper($validated[$field]);
-                    }
-                }
+            DB::transaction(function () use (&$validated, $catalogo, $webpFile, $oldFileId) {
+                $this->applyUppercaseFields($validated);
                 $catalogo->update($validated);
 
                 if ($webpFile) {
