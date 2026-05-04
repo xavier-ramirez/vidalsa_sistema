@@ -23,7 +23,6 @@
             originalBtnContent = submitBtn.innerHTML;
             submitBtn.style.width = submitBtn.offsetWidth + 'px';
             submitBtn.disabled = true;
-            // submitBtn.innerHTML = '<div style="display: inline-flex; align-items: center; gap: 8px;"><div class="spinner-mini-white"></div><span>Guardando...</span></div>';
         }
 
         const formData = new FormData(form);
@@ -131,8 +130,8 @@
         const form = document.getElementById('catalogoForm');
         if (!form) return;
 
-        // Ensure we don't bind multiple times, but never clone the form 
-        // because cloning destroys user file selections and DOM references
+        // Evita re-bind múltiple. NO clonamos el form porque eso destruiría las
+        // selecciones de archivos del usuario y las referencias DOM existentes.
         if (form.dataset.formInitialized === 'true') return;
         form.dataset.formInitialized = 'true';
 
@@ -146,7 +145,7 @@
             });
         }
 
-        // Re-attach preview logic since we cloned the form
+        // Preview de la foto referencial al elegir archivo
         const fileInput = form.querySelector('#foto_referencial');
         if (fileInput) {
             fileInput.addEventListener('change', function (e) {
@@ -163,8 +162,6 @@
                 }
             });
         }
-
-        console.log('Catalog Form Handler Initialized (Robust Mode)');
     }
 
     // Run on initial page load

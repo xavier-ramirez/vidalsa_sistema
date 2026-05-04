@@ -1,16 +1,14 @@
 <style>
     .catalog-form-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr); /* Changed to 4 columns */
+        grid-template-columns: repeat(4, 1fr);
         gap: 20px 15px;
         align-items: start;
     }
-    
     .catalog-field-group {
         display: flex;
         flex-direction: column;
     }
-
     /* Column Spans */
     .span-2 { grid-column: span 2; }
     .span-4 { grid-column: span 4; }
@@ -23,14 +21,13 @@
         font-size: 13px;
     }
 
-    /* Included wrapper styles */
+    /* Wrapper para input de archivo + preview */
     .file-input-wrapper {
         display: flex;
         gap: 8px;
         align-items: center;
         height: 38px;
     }
-    
     .file-preview-box {
         width: 38px;
         height: 38px;
@@ -42,61 +39,53 @@
         border-radius: 8px;
         border: 1px solid #cbd5e0;
         flex-shrink: 0;
-        flex-shrink: 0;
         transition: all 0.2s;
     }
 
+    /* Autocomplete dropdown */
+    .custom-form-autocomplete {
+        position: relative;
+        width: 100%;
+    }
+    .dropdown-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #cbd5e0;
+        border-radius: 8px;
+        margin-top: 4px;
+        max-height: 250px;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        z-index: 50;
+        display: none;
+    }
+    .dropdown-item {
+        padding: 10px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #4a5568;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover {
+        background-color: #f7fafc;
+        color: #2b6cb0;
+        padding-left: 20px;
+    }
+
     @media (max-width: 900px) {
-        .catalog-form-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .span-2 { grid-column: auto; } /* Reset spans on tablet */
+        .catalog-form-grid { grid-template-columns: repeat(2, 1fr); }
+        .span-2 { grid-column: auto; }
     }
     @media (max-width: 600px) {
-        .catalog-form-grid {
-            grid-template-columns: 1fr;
-        }
+        .catalog-form-grid { grid-template-columns: 1fr; }
     }
 </style>
 
 <div class="catalog-form-grid">
-    <style>
-        .custom-form-autocomplete {
-            position: relative;
-            width: 100%;
-        }
-        .dropdown-list {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #cbd5e0;
-            border-radius: 8px;
-            margin-top: 4px;
-            max-height: 250px;
-            overflow-y: auto;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            z-index: 50;
-            display: none;
-        }
-        .dropdown-item {
-            padding: 10px 16px;
-            border-bottom: 1px solid #f1f5f9;
-            color: #4a5568;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        .dropdown-item:last-child {
-            border-bottom: none;
-        }
-        .dropdown-item:hover {
-            background-color: #f7fafc;
-            color: #2b6cb0;
-            padding-left: 20px;
-        }
-    </style>
-
     <!-- 1. MODELO (Wider) -->
     <div class="catalog-field-group span-2">
         <label for="MODELO" class="catalog-label">Modelo</label>
@@ -195,12 +184,11 @@
     <!-- 6. CONSUMO -->
     <div class="catalog-field-group">
         <label for="CONSUMO_PROMEDIO" class="catalog-label">Consumo (L/Día)</label>
-        <input type="text" id="CONSUMO_PROMEDIO" name="CONSUMO_PROMEDIO" 
-               class="form-input-custom" 
-               value="{{ old('CONSUMO_PROMEDIO', $catalogo->CONSUMO_PROMEDIO ?? '') }}" 
-               placeholder="Ej: 120" 
-               autocomplete="off" 
-               oninput="this.value = this.value.toUpperCase()">
+        <input type="text" id="CONSUMO_PROMEDIO" name="CONSUMO_PROMEDIO"
+               class="form-input-custom"
+               value="{{ old('CONSUMO_PROMEDIO', $catalogo->CONSUMO_PROMEDIO ?? '') }}"
+               placeholder="Ej: 120"
+               autocomplete="off">
     </div>
 
     <!-- 7. ACEITE MOTOR -->
