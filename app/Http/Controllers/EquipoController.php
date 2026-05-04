@@ -1053,7 +1053,7 @@ class EquipoController extends Controller
         try {
             $validated = $request->validate([
                 'CODIGO_PATIO' => 'nullable|unique:equipos,CODIGO_PATIO',
-                'TIPO_EQUIPO' => 'required',
+                'TIPO_EQUIPO' => 'required|max:35',
                 'CATEGORIA_FLOTA' => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
                 'MARCA' => 'required',
                 'MODELO' => 'required',
