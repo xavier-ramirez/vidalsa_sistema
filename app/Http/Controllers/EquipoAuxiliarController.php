@@ -12,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 class EquipoAuxiliarController extends Controller
 {
+    use \App\Traits\ConvertsImageToWebp;
+
     public function __construct()
     {
         $this->middleware('auth');
@@ -953,7 +955,7 @@ class EquipoAuxiliarController extends Controller
         try {
             $driveService = \App\Services\GoogleDriveService::getInstance();
             $folderId = config('filesystems.disks.google.catalog_folder');
-            $filename = 'aux_catalog_' . time() . '_' . preg_replace('/[^A-Za-z0-9_]/', '_', $tipoKey . '_' . $marcaKey . '_' . $modeloKey . '_' . ($anio ?? 'NA')) . '.webp';
+            $filename = 'aux_catalog_' . (int)(microtime(true) * 1000) . '_' . preg_replace('/[^A-Za-z0-9_]/', '_', $tipoKey . '_' . $marcaKey . '_' . $modeloKey . '_' . ($anio ?? 'NA')) . '.webp';
             $driveFile = $driveService->uploadFile($folderId, $webpFile, $filename, 'image/webp');
 
             if (!$driveFile || !isset($driveFile->id)) {
@@ -989,47 +991,7 @@ class EquipoAuxiliarController extends Controller
         ]);
     }
 
-    /**
-     * Convierte una imagen subida a WebP (calidad 85) en archivo temporal.
-     * Replica el helper de CaracteristicaModeloController. Devuelve
-     * ['file' => UploadedFile-like, 'tempPath' => string|null] para que el
-     * caller pueda subirlo a Drive y limpiar el temp despues.
-     */
-    private function convertToWebp($file): array
-    {
-        $mime      = $file->getMimeType();
-        $imagePath = $file->getRealPath();
-
-        if ($mime === 'image/webp') {
-            return ['file' => $file, 'tempPath' => null];
-        }
-
-        $image = null;
-        if (in_array($mime, ['image/jpeg', 'image/jpg'])) {
-            $image = @imagecreatefromjpeg($imagePath);
-        } elseif ($mime === 'image/png') {
-            $image = @imagecreatefrompng($imagePath);
-            if ($image) {
-                imagepalettetotruecolor($image);
-                imagealphablending($image, false);
-                imagesavealpha($image, true);
-            }
-        }
-
-        if (!$image) {
-            // Fallback: subir el archivo original tal cual
-            return ['file' => $file, 'tempPath' => null];
-        }
-
-        $tempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('webp_') . '.webp';
-        imagewebp($image, $tempPath, 85);
-        imagedestroy($image);
-
-        $uploadedFile = new \Illuminate\Http\UploadedFile(
-            $tempPath, 'converted.webp', 'image/webp', null, true
-        );
-        return ['file' => $uploadedFile, 'tempPath' => $tempPath];
-    }
+    // convertToWebp() viene del trait ConvertsImageToWebp (use al inicio de la clase).
 
     /**
      * Construye el payload de detalles para un auxiliar. Compartido entre

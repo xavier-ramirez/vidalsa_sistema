@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class CaracteristicaModeloController extends Controller
 {
+    use \App\Traits\ConvertsImageToWebp;
+
     /** Campos string que se normalizan a MAYÚSCULAS antes de persistir. */
     private const UPPERCASE_FIELDS = [
         'MODELO', 'MOTOR', 'COMBUSTIBLE', 'CONSUMO_PROMEDIO',
@@ -520,57 +522,5 @@ class CaracteristicaModeloController extends Controller
             ->pluck('ANIO');
 
         return response()->json($years);
-    }
-    /**
-     * Convierte una imagen subida a formato WebP usando PHP GD nativo.
-     * Devuelve array ['file' => UploadedFile, 'tempPath' => string|null]
-     * para que el caller pueda limpiar el archivo temporal después del upload.
-     */
-    private function convertToWebp($file): array
-    {
-        $mime      = $file->getMimeType();
-        $imagePath = $file->getRealPath();
-
-        // Ya es WebP: no hay nada que convertir
-        if ($mime === 'image/webp') {
-            return ['file' => $file, 'tempPath' => null];
-        }
-
-        try {
-            $image = null;
-
-            if (in_array($mime, ['image/jpeg', 'image/jpg'])) {
-                $image = @imagecreatefromjpeg($imagePath);
-            } elseif ($mime === 'image/png') {
-                $image = @imagecreatefrompng($imagePath);
-                if ($image) {
-                    // Preservar transparencia PNG
-                    imagepalettetotruecolor($image);
-                    imagealphablending($image, false);
-                    imagesavealpha($image, true);
-                }
-            }
-
-            if ($image) {
-                $tempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('webp_') . '.webp';
-                imagewebp($image, $tempPath, 85); // calidad 85%: buen balance peso/calidad
-                imagedestroy($image);
-
-                $uploadedFile = new \Illuminate\Http\UploadedFile(
-                    $tempPath,
-                    'converted.webp',
-                    'image/webp',
-                    null,
-                    true  // test = true: evita validaciones de $_FILES en archivos temp
-                );
-
-                return ['file' => $uploadedFile, 'tempPath' => $tempPath];
-            }
-        } catch (\Throwable $e) {
-            Log::warning('convertToWebp falló, se usará el archivo original: ' . $e->getMessage());
-        }
-
-        // Fallback: si GD falla, se sube el archivo original sin conversión
-        return ['file' => $file, 'tempPath' => null];
     }
 }
