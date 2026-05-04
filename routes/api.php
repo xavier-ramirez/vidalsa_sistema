@@ -27,6 +27,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Equipos del frente del usuario (descarga selectiva con metadata de versionado de PDFs)
     Route::get('/mobile/mis-equipos', [EquipoController::class, 'mobileMisEquipos']);
 
+    // Frentes asignados al usuario (para selects de registrar/editar equipos)
+    Route::get('/mobile/frentes-asignados', [EquipoController::class, 'mobileFrentesAsignados']);
+
+    // CRUD móvil simplificado de equipos (campos básicos, sin documentos ni fotos)
+    Route::post('/mobile/equipos',       [EquipoController::class, 'mobileCreate']);
+    Route::put( '/mobile/equipos/{id}',  [EquipoController::class, 'mobileUpdate']);
+
     // Descarga de PDF binario por tipo: propiedad | poliza | rotc | racda
     Route::get('/mobile/equipos/{id}/pdf/{tipo}', [EquipoController::class, 'mobilePdfBinary']);
 

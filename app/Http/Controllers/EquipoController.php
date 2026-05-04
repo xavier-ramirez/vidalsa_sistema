@@ -3747,6 +3747,94 @@ class EquipoController extends Controller
      * GET /api/mobile/equipos/{id}/movilizaciones (Sanctum)
      * Historial de movilizaciones de un equipo para la APK.
      */
+    /**
+     * POST /api/mobile/equipos (Sanctum)
+     * Versión simplificada del store para la APK: campos básicos del equipo.
+     * NO maneja documentos ni fotos (eso queda para el formulario web).
+     */
+    public function mobileCreate(Request $request)
+    {
+        $validated = $request->validate([
+            'CODIGO_PATIO'             => 'nullable|string|max:50|unique:equipos,CODIGO_PATIO',
+            'TIPO_EQUIPO'              => 'required|string|max:35',
+            'CATEGORIA_FLOTA'          => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
+            'MARCA'                    => 'required|string|max:50',
+            'MODELO'                   => 'required|string|max:50',
+            'ANIO'                     => 'required|integer',
+            'SERIAL_CHASIS'            => 'required|string|unique:equipos,SERIAL_CHASIS',
+            'SERIAL_DE_MOTOR'          => 'nullable|string|unique:equipos,SERIAL_DE_MOTOR',
+            'NUMERO_ETIQUETA'          => 'nullable|string|max:50',
+            'ESTADO_OPERATIVO'         => 'required|string',
+            'ID_FRENTE_ACTUAL'         => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'DETALLE_UBICACION_ACTUAL' => 'nullable|string|max:150',
+        ]);
+
+        $upper = ['CODIGO_PATIO','TIPO_EQUIPO','MARCA','MODELO','SERIAL_CHASIS','SERIAL_DE_MOTOR','NUMERO_ETIQUETA','DETALLE_UBICACION_ACTUAL'];
+        foreach ($upper as $f) {
+            if (!empty($validated[$f]) && is_string($validated[$f])) {
+                $validated[$f] = strtoupper(trim($validated[$f]));
+            }
+        }
+
+        $equipo = Equipo::create($validated);
+        return response()->json([
+            'message' => 'Equipo registrado.',
+            'ID_EQUIPO' => $equipo->ID_EQUIPO,
+        ], 201);
+    }
+
+    /**
+     * PUT /api/mobile/equipos/{id} (Sanctum)
+     * Edita campos básicos del equipo desde la APK.
+     */
+    public function mobileUpdate(Request $request, $id)
+    {
+        $equipo = Equipo::findOrFail($id);
+        $validated = $request->validate([
+            'CODIGO_PATIO'             => 'nullable|string|max:50|unique:equipos,CODIGO_PATIO,' . $id . ',ID_EQUIPO',
+            'TIPO_EQUIPO'              => 'sometimes|string|max:35',
+            'CATEGORIA_FLOTA'          => 'sometimes|in:FLOTA LIVIANA,FLOTA PESADA',
+            'MARCA'                    => 'sometimes|string|max:50',
+            'MODELO'                   => 'sometimes|string|max:50',
+            'ANIO'                     => 'sometimes|integer',
+            'SERIAL_CHASIS'            => 'sometimes|string|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
+            'SERIAL_DE_MOTOR'          => 'nullable|string|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
+            'NUMERO_ETIQUETA'          => 'nullable|string|max:50',
+            'ESTADO_OPERATIVO'         => 'sometimes|string',
+            'ID_FRENTE_ACTUAL'         => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'DETALLE_UBICACION_ACTUAL' => 'nullable|string|max:150',
+        ]);
+
+        $upper = ['CODIGO_PATIO','TIPO_EQUIPO','MARCA','MODELO','SERIAL_CHASIS','SERIAL_DE_MOTOR','NUMERO_ETIQUETA','DETALLE_UBICACION_ACTUAL'];
+        foreach ($upper as $f) {
+            if (array_key_exists($f, $validated) && is_string($validated[$f]) && $validated[$f] !== '') {
+                $validated[$f] = strtoupper(trim($validated[$f]));
+            }
+        }
+
+        $equipo->update($validated);
+        return response()->json(['message' => 'Equipo actualizado.', 'ID_EQUIPO' => $equipo->ID_EQUIPO]);
+    }
+
+    /**
+     * GET /api/mobile/frentes-asignados (Sanctum)
+     * Lista de frentes a los que pertenece el usuario, para los selects de
+     * registrar/editar equipos en la APK.
+     */
+    public function mobileFrentesAsignados(Request $request)
+    {
+        $user = $request->user();
+        $ids = $user->getFrentesIds();
+        if (empty($ids) && (int) $user->NIVEL_ACCESO === 1) {
+            // GLOBAL sin frentes asignados → ve todos
+            $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE','NOMBRE_FRENTE']);
+        } else {
+            $frentes = FrenteTrabajo::whereIn('ID_FRENTE', $ids)
+                ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE','NOMBRE_FRENTE']);
+        }
+        return response()->json($frentes);
+    }
+
     public function mobileMovilizacionesByEquipo($id)
     {
         $eq = Equipo::findOrFail($id);
