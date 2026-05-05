@@ -1098,6 +1098,7 @@
         <script src="{{ asset('js/sync/scheduler.js') }}?v={{ @filemtime(public_path('js/sync/scheduler.js')) }}"></script>
         <script src="{{ asset('js/sync/auth-offline.js') }}?v={{ @filemtime(public_path('js/sync/auth-offline.js')) }}"></script>
         <script src="{{ asset('js/sync/offline-shim.js') }}?v={{ @filemtime(public_path('js/sync/offline-shim.js')) }}"></script>
+        <script src="{{ asset('js/sync/offline-equipos.js') }}?v={{ @filemtime(public_path('js/sync/offline-equipos.js')) }}"></script>
         <script>
             // Bootstrap automático tras carga: inicia DB, sync inicial si stale,
             // y arranca el scheduler de los 4 triggers (6 AM/12 PM, online,
