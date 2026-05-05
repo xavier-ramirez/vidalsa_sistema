@@ -23,6 +23,7 @@ Route::get('/mobile/frentes', [FrenteTrabajoController::class, 'mobileIndex']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/mobile/logout', [LoginController::class, 'mobileLogout']);
     Route::get('/mobile/user',    function (Request $request) { return $request->user(); });
+    Route::put('/mobile/user/password', [LoginController::class, 'mobileChangePassword']);
 
     // Equipos del frente del usuario (descarga selectiva con metadata de versionado de PDFs)
     Route::get('/mobile/mis-equipos', [EquipoController::class, 'mobileMisEquipos']);

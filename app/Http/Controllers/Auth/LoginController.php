@@ -225,6 +225,34 @@ class LoginController extends Controller
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Sesión cerrada correctamente.']);
     }
+
+    /**
+     * PUT /api/mobile/user/password (Sanctum)
+     * Cambia la contraseña del usuario autenticado desde la APK.
+     */
+    public function mobileChangePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password'     => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'current_password.required' => 'Ingresa tu contraseña actual.',
+            'new_password.required'     => 'Ingresa la nueva contraseña.',
+            'new_password.min'          => 'La nueva contraseña debe tener al menos 8 caracteres.',
+            'new_password.confirmed'    => 'La nueva contraseña y su confirmación no coinciden.',
+        ]);
+
+        $user = $request->user();
+        if (!Hash::check($request->current_password, $user->PASSWORD_HASH)) {
+            return response()->json(['error' => 'La contraseña actual es incorrecta.'], 422);
+        }
+
+        $user->PASSWORD_HASH = Hash::make($request->new_password);
+        $user->REQUIERE_CAMBIO_CLAVE = 0;
+        $user->save();
+
+        return response()->json(['message' => 'Contraseña actualizada correctamente.']);
+    }
     // ──────────────────────────────────────────────────────────────────────────
 
     public function logout(Request $request)
