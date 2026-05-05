@@ -694,17 +694,48 @@ class MovilizacionController extends Controller
     // â”€â”€â”€ MOBILE API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     public function mobileIndex(Request $request)
     {
-        $movs = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteOrigen', 'frenteDestino'])
-            ->orderBy('created_at', 'desc')
-            ->limit(100)
-            ->get();
+        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteOrigen', 'frenteDestino']);
 
-        return response()->json($movs->map(function ($m) {
+        // Filtros opcionales
+        if ($request->filled('id_equipo')) {
+            $query->where('ID_EQUIPO', $request->id_equipo);
+        }
+        if ($request->filled('id_frente_origen')) {
+            $query->where('ID_FRENTE_ORIGEN', $request->id_frente_origen);
+        }
+        if ($request->filled('id_frente_destino')) {
+            $query->where('ID_FRENTE_DESTINO', $request->id_frente_destino);
+        }
+        if ($request->filled('tipo_movimiento')) {
+            $query->where('TIPO_MOVIMIENTO', $request->tipo_movimiento);
+        }
+        if ($request->filled('codigo')) {
+            $query->where('CODIGO_CONTROL', 'like', '%' . trim($request->codigo) . '%');
+        }
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('FECHA_DESPACHO', '>=', $request->fecha_desde);
+        }
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('FECHA_DESPACHO', '<=', $request->fecha_hasta);
+        }
+
+        // Paginación con scroll infinito (offset/limit)
+        $PAGE_SIZE = 50;
+        $offset = max(0, (int) $request->input('offset', 0));
+        $totalFound = (clone $query)->count();
+        $movs = $query->orderBy('FECHA_DESPACHO', 'desc')
+            ->offset($offset)->limit($PAGE_SIZE)->get();
+        $nextOffset = $offset + $movs->count();
+        $hasMore = $nextOffset < $totalFound;
+
+        $items = $movs->map(function ($m) {
             return [
                 'ID_MOVILIZACION'  => $m->ID_MOVILIZACION,
-                'CODIGO_CONTROL'   => $m->CODIGO_CONTROL,
+                'CODIGO_CONTROL'   => $m->formatted_codigo_control,
                 'TIPO_MOVIMIENTO'  => $m->TIPO_MOVIMIENTO,
-                'FECHA_DESPACHO'   => $m->FECHA_DESPACHO,
+                'FECHA_DESPACHO'   => optional($m->FECHA_DESPACHO)->toIso8601String(),
+                'DETALLE_UBICACION'=> $m->DETALLE_UBICACION,
+                'USUARIO_REGISTRO' => $m->USUARIO_REGISTRO,
                 'equipo' => $m->equipo ? [
                     'ID_EQUIPO'     => $m->equipo->ID_EQUIPO,
                     'CODIGO_PATIO'  => $m->equipo->CODIGO_PATIO,
@@ -717,7 +748,17 @@ class MovilizacionController extends Controller
                 'frente_origen'  => $m->frenteOrigen ? ['ID_FRENTE' => $m->frenteOrigen->ID_FRENTE, 'NOMBRE_FRENTE' => $m->frenteOrigen->NOMBRE_FRENTE] : null,
                 'frente_destino' => $m->frenteDestino ? ['ID_FRENTE' => $m->frenteDestino->ID_FRENTE, 'NOMBRE_FRENTE' => $m->frenteDestino->NOMBRE_FRENTE] : null,
             ];
-        }));
+        });
+
+        return response()->json([
+            'items'      => $items,
+            'totalFound' => $totalFound,
+            'shownCount' => $movs->count(),
+            'offset'     => $offset,
+            'nextOffset' => $nextOffset,
+            'hasMore'    => $hasMore,
+            'pageSize'   => $PAGE_SIZE,
+        ]);
     }
 
     public function mobileStore(Request $request)
