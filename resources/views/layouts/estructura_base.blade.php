@@ -441,11 +441,10 @@
                 }
                 return response;
             } catch (err) {
-                // Si la conexión es rechazada por completo (ej: servidor local caído)
-                if (err.message && (err.message.includes('fetch') || err.message.includes('NetworkError'))) {
-                    // Opcionalmente podríamos redirigir al login si ocurre un error de red masivo
-                    console.warn('Error de red detectado en fetch. Posible desconexión del servidor.');
-                }
+                // Conexión rechazada (servidor caído, sin red, etc.). El error se
+                // relanza para que el caller (ej. fetchNotifs) decida qué hacer.
+                // El console.warn anterior generaba ruido en cada poll cuando no
+                // habia red — eliminado.
                 throw err;
             }
         };
@@ -2380,7 +2379,11 @@
                         }
                         lastFetchedAt = Date.now();
                     } catch (err) {
-                        console.warn('[Notif] error cargando:', err);
+                        // Es polling — no spamear consola si el server no responde.
+                        // Solo logueamos errores HTTP no-de-red (status >= 500, parse, etc).
+                        if (err && err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+                            console.warn('[Notif] error cargando:', err);
+                        }
                         renderEmpty('No se pudo cargar la información.');
                     } finally {
                         if (forceSpin) refreshBtn.classList.remove('rotating');
