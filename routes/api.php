@@ -48,6 +48,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post( '/mobile/equipos/{id}/falla',        [EquipoController::class, 'mobileReportarFalla']);
     Route::get(  '/mobile/equipos/{id}/responsables', [EquipoController::class, 'mobileResponsablesByEquipo']);
 
+    // Acciones masivas (Tarea 4 — selección múltiple en la APK)
+    Route::post('/mobile/equipos/bulk-movilizar', [EquipoController::class, 'mobileBulkMovilizar'])->middleware('can:equipos.create');
+    Route::post('/mobile/equipos/bulk-ubicacion', [EquipoController::class, 'mobileBulkUbicacion'])->middleware('can:equipos.edit');
+    Route::post('/mobile/equipos/bulk-anchor',    [EquipoController::class, 'mobileBulkAnchor'])->middleware('can:equipos.edit');
+    Route::post('/mobile/equipos/bulk-unanchor',  [EquipoController::class, 'mobileBulkUnanchor'])->middleware('can:equipos.edit');
+
     // Movilizaciones (registrar requiere mismo permiso que en la web: equipos.create).
     Route::get( '/mobile/movilizaciones', [MovilizacionController::class, 'mobileIndex']);
     Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore'])->middleware('can:equipos.create');

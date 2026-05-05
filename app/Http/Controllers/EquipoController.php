@@ -3923,6 +3923,122 @@ class EquipoController extends Controller
         }));
     }
 
+    /**
+     * POST /api/mobile/equipos/bulk-movilizar (Sanctum + can:equipos.create)
+     * Movilización masiva: cambia ID_FRENTE_ACTUAL de varios equipos a un destino,
+     * y registra una fila en movilizacion_historial por cada equipo afectado.
+     */
+    public function mobileBulkMovilizar(Request $request)
+    {
+        $request->validate([
+            'ids'              => 'required|array|min:1',
+            'ids.*'            => 'integer|exists:equipos,ID_EQUIPO',
+            'id_frente_destino'=> 'required|integer|exists:frentes_trabajo,ID_FRENTE',
+        ]);
+
+        $user = $request->user();
+        $destino = (int) $request->id_frente_destino;
+        $ids = $request->ids;
+
+        DB::beginTransaction();
+        try {
+            $afectados = 0;
+            foreach ($ids as $id) {
+                $equipo = Equipo::lockForUpdate()->find($id);
+                if (!$equipo) continue;
+                $origen = $equipo->ID_FRENTE_ACTUAL;
+                if ($origen == $destino) continue; // ya está allí, no movilizar
+
+                $next = \App\Http\Controllers\MovilizacionController::generateNextCodigoControl();
+                \App\Models\Movilizacion::create([
+                    'CODIGO_CONTROL'    => $next,
+                    'ID_EQUIPO'         => $equipo->ID_EQUIPO,
+                    'ID_FRENTE_ORIGEN'  => $origen ?? 1,
+                    'ID_FRENTE_DESTINO' => $destino,
+                    'FECHA_DESPACHO'    => now(),
+                    'TIPO_MOVIMIENTO'   => 'DESPACHO',
+                    'USUARIO_REGISTRO'  => $user->CORREO_ELECTRONICO ?? 'SISTEMA',
+                ]);
+
+                $equipo->update([
+                    'ID_FRENTE_ACTUAL'         => $destino,
+                    'DETALLE_UBICACION_ACTUAL' => null,
+                    'CONFIRMADO_EN_SITIO'      => 1,
+                ]);
+                $afectados++;
+            }
+            DB::commit();
+            return response()->json(['message' => "Movilizados {$afectados} equipo(s).", 'afectados' => $afectados]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('mobileBulkMovilizar: ' . $e->getMessage());
+            return response()->json(['error' => 'No se pudo completar la movilización masiva.'], 500);
+        }
+    }
+
+    /**
+     * POST /api/mobile/equipos/bulk-ubicacion (Sanctum + can:equipos.edit)
+     * Actualiza DETALLE_UBICACION_ACTUAL en lote.
+     */
+    public function mobileBulkUbicacion(Request $request)
+    {
+        $request->validate([
+            'ids'                => 'required|array|min:1',
+            'ids.*'              => 'integer|exists:equipos,ID_EQUIPO',
+            'detalle_ubicacion'  => 'nullable|string|max:150',
+        ]);
+        $valor = $request->detalle_ubicacion ? strtoupper(trim($request->detalle_ubicacion)) : null;
+
+        $afectados = 0;
+        foreach ($request->ids as $id) {
+            $eq = Equipo::find($id);
+            if (!$eq) continue;
+            $eq->DETALLE_UBICACION_ACTUAL = $valor;
+            $eq->save();
+            $afectados++;
+        }
+        return response()->json(['message' => "Ubicación actualizada en {$afectados} equipo(s).", 'afectados' => $afectados]);
+    }
+
+    /**
+     * POST /api/mobile/equipos/bulk-anchor (Sanctum + can:equipos.edit)
+     * Asigna ID_ANCLAJE (host) a varios equipos.
+     */
+    public function mobileBulkAnchor(Request $request)
+    {
+        $request->validate([
+            'ids'         => 'required|array|min:1',
+            'ids.*'       => 'integer|exists:equipos,ID_EQUIPO',
+            'id_anclaje'  => 'required|integer|exists:equipos,ID_EQUIPO',
+        ]);
+
+        $hostId = (int) $request->id_anclaje;
+        $afectados = 0;
+        foreach ($request->ids as $id) {
+            if ((int) $id === $hostId) continue; // no anclar a sí mismo
+            $eq = Equipo::find($id);
+            if (!$eq) continue;
+            $eq->ID_ANCLAJE = $hostId;
+            $eq->save();
+            $afectados++;
+        }
+        return response()->json(['message' => "Anclados {$afectados} equipo(s).", 'afectados' => $afectados]);
+    }
+
+    /**
+     * POST /api/mobile/equipos/bulk-unanchor (Sanctum + can:equipos.edit)
+     * Quita el ID_ANCLAJE en lote.
+     */
+    public function mobileBulkUnanchor(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:equipos,ID_EQUIPO',
+        ]);
+        $afectados = Equipo::whereIn('ID_EQUIPO', $request->ids)->update(['ID_ANCLAJE' => null]);
+        return response()->json(['message' => "Desanclados {$afectados} equipo(s).", 'afectados' => $afectados]);
+    }
+
     public function mobileMovilizacionesByEquipo($id)
     {
         $eq = Equipo::findOrFail($id);
