@@ -208,14 +208,24 @@ class LoginController extends Controller
             ->select('ID_FRENTE', 'NOMBRE_FRENTE')
             ->get();
 
+        // Permisos: array de claves (ej: 'super.admin', 'user.edit', 'equipos.create').
+        $permisos = $user->PERMISOS ?? [];
+        $hasSuper = in_array('super.admin', $permisos);
+
         return response()->json([
             'token' => $token,
             'user'  => [
-                'id'      => $user->ID_USUARIO,
-                'nombre'  => $user->NOMBRE_USUARIO,
-                'correo'  => $user->CORREO_ELECTRONICO,
-                'nivel'   => $user->NIVEL_ACCESO,
-                'frentes' => $frentes,
+                'id'             => $user->ID_USUARIO,
+                'nombre'         => $user->NOMBRE_USUARIO,
+                'correo'         => $user->CORREO_ELECTRONICO,
+                'nivel'          => $user->NIVEL_ACCESO,
+                'frentes'        => $frentes,
+                'permisos'       => $permisos,
+                // Atajos para la UI APK
+                'puede_editar'    => $hasSuper || in_array('user.edit', $permisos),
+                'puede_movilizar' => $hasSuper || in_array('equipos.create', $permisos),
+                'puede_estado'    => $hasSuper || in_array('equipos.edit', $permisos) || in_array('user.edit', $permisos),
+                'es_super_admin'  => $hasSuper,
             ]
         ]);
     }

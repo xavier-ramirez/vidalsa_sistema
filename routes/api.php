@@ -41,6 +41,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Historial de movilizaciones de un equipo
     Route::get('/mobile/equipos/{id}/movilizaciones', [EquipoController::class, 'mobileMovilizacionesByEquipo']);
 
+    // Acciones desde modal CASILLERO (Tarea 2)
+    Route::patch('/mobile/equipos/{id}/estado',     [EquipoController::class, 'mobileChangeEstado']);
+    Route::post( '/mobile/equipos/{id}/falla',      [EquipoController::class, 'mobileReportarFalla']);
+    Route::get(  '/mobile/equipos/{id}/responsables', [EquipoController::class, 'mobileResponsablesByEquipo']);
+
     // Movilizaciones (solo usuarios autenticados pueden registrar)
     Route::get('/mobile/movilizaciones',  [MovilizacionController::class, 'mobileIndex']);
     Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore']);

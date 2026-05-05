@@ -3835,6 +3835,94 @@ class EquipoController extends Controller
         return response()->json($frentes);
     }
 
+    /**
+     * PATCH /api/mobile/equipos/{id}/estado (Sanctum)
+     * Cambia ESTADO_OPERATIVO desde la APK.
+     */
+    public function mobileChangeEstado(Request $request, $id)
+    {
+        $request->validate([
+            'estado' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
+        ]);
+        $equipo = Equipo::findOrFail($id);
+        $equipo->ESTADO_OPERATIVO = $request->estado;
+        $equipo->save();
+        return response()->json([
+            'message' => 'Estado actualizado.',
+            'ESTADO_OPERATIVO' => $equipo->ESTADO_OPERATIVO,
+        ]);
+    }
+
+    /**
+     * POST /api/mobile/equipos/{id}/falla (Sanctum)
+     * Reporta una falla mínima desde la APK.
+     */
+    public function mobileReportarFalla(Request $request, $id)
+    {
+        $request->validate([
+            'descripcion' => 'required|string|min:5|max:1000',
+            'sistema_afectado' => 'nullable|string|max:80',
+            'prioridad' => 'nullable|in:BAJA,MEDIA,ALTA,CRITICA',
+            'tipo_intervencion' => 'nullable|in:CORRECTIVA,PREVENTIVA',
+        ]);
+
+        $equipo = Equipo::findOrFail($id);
+        $user = $request->user();
+
+        // Generar código RF-XXXXX siguiendo el patrón de FallaController
+        $last = \App\Models\Falla::where('CODIGO_REPORTE', 'like', 'RF-%')
+            ->orderByDesc('ID_FALLA')->value('CODIGO_REPORTE');
+        $next = 1;
+        if ($last && preg_match('/RF-(\d+)/', $last, $m)) $next = ((int) $m[1]) + 1;
+        $codigo = 'RF-' . str_pad($next, 5, '0', STR_PAD_LEFT);
+
+        $falla = \App\Models\Falla::create([
+            'CODIGO_REPORTE'      => $codigo,
+            'FECHA_EMISION'       => now(),
+            'TIPO_REPORTE'        => 'AVERIA',
+            'ESTADO_REPORTE'      => 'ABIERTO',
+            'ACTIVO_TIPO'         => 'equipo',
+            'ACTIVO_ID'           => $equipo->ID_EQUIPO,
+            'ESTADO_PREVIO'       => $equipo->ESTADO_OPERATIVO,
+            'ESTADO_AL_CREAR'     => $equipo->ESTADO_OPERATIVO,
+            'DESCRIPCION_AVERIA'  => $request->descripcion,
+            'SISTEMA_AFECTADO'    => $request->sistema_afectado,
+            'PRIORIDAD'           => $request->prioridad ?? 'MEDIA',
+            'TIPO_INTERVENCION'   => $request->tipo_intervencion ?? 'CORRECTIVA',
+            'ID_USUARIO_REPORTA'  => $user->ID_USUARIO,
+            'NOMBRE_REPORTA'      => $user->NOMBRE_USUARIO,
+            'EMAIL_REPORTA'       => $user->CORREO_ELECTRONICO,
+        ]);
+
+        return response()->json([
+            'message' => "Reporte {$codigo} creado.",
+            'CODIGO_REPORTE' => $codigo,
+            'ID_FALLA' => $falla->ID_FALLA,
+        ], 201);
+    }
+
+    /**
+     * GET /api/mobile/equipos/{id}/responsables (Sanctum)
+     * Lista de responsables del equipo (último primero).
+     */
+    public function mobileResponsablesByEquipo($id)
+    {
+        Equipo::findOrFail($id);
+        $resp = \App\Models\Responsable::where('ID_EQUIPO', $id)
+            ->orderByDesc('FECHA_ASIGNACION')
+            ->orderByDesc('ID_ASIGNACION')
+            ->limit(10)
+            ->get();
+        return response()->json($resp->map(function ($r) {
+            return [
+                'ID_ASIGNACION'      => $r->ID_ASIGNACION,
+                'CEDULA_RESPONSABLE' => $r->CEDULA_RESPONSABLE,
+                'PERSONA_ASIGNADA'   => $r->PERSONA_ASIGNADA,
+                'FECHA_ASIGNACION'   => optional($r->FECHA_ASIGNACION)->toIso8601String(),
+            ];
+        }));
+    }
+
     public function mobileMovilizacionesByEquipo($id)
     {
         $eq = Equipo::findOrFail($id);
