@@ -55,6 +55,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/mobile/equipos/bulk-unanchor',  [EquipoController::class, 'mobileBulkUnanchor'])->middleware('can:equipos.edit');
     Route::post('/mobile/equipos/bulk-delete',    [EquipoController::class, 'mobileBulkDelete'])->middleware('can:super.admin');
 
+    // Subida de PDFs (propiedad/poliza/rotc/racda) — reusa uploadDoc del web,
+    // que internamente verifica can('user.edit') y maneja Drive + tracking.
+    Route::post('/mobile/equipos/{id}/upload-doc', [EquipoController::class, 'uploadDoc'])->middleware('can:user.edit');
+
     // Movilizaciones (registrar requiere mismo permiso que en la web: equipos.create).
     Route::get( '/mobile/movilizaciones', [MovilizacionController::class, 'mobileIndex']);
     Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore'])->middleware('can:equipos.create');
