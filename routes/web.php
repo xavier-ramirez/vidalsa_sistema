@@ -22,6 +22,8 @@ Route::middleware(['auth'])->group(function () {
     // necesita arrancar el cache local apenas haya sesión válida.
     Route::post('/sync/login-local-init', [App\Http\Controllers\SyncController::class, 'loginLocalInit'])->name('sync.loginLocalInit');
     Route::get( '/sync/dump',              [App\Http\Controllers\SyncController::class, 'dump'])->name('sync.dump');
+    Route::get( '/sync/diff',              [App\Http\Controllers\SyncController::class, 'diff'])->name('sync.diff');
+    Route::post('/sync/upload-outbox',     [App\Http\Controllers\SyncController::class, 'uploadOutbox'])->name('sync.uploadOutbox');
 
     Route::middleware(['password.change.check'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');

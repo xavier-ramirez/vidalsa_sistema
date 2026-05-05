@@ -171,6 +171,127 @@ class SyncController extends Controller
         ]);
     }
 
+    /**
+     * GET /sync/diff?since=2026-05-04T12:00:00Z
+     * Cambios desde una fecha. Más liviano que /dump — solo trae lo modificado.
+     */
+    public function diff(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) return response()->json(['error' => 'No autenticado.'], 401);
+        $since = $request->input('since');
+        if (!$since) return response()->json(['error' => 'Parámetro since requerido.'], 422);
+
+        try { $sinceDt = \Carbon\Carbon::parse($since); }
+        catch (\Throwable $e) { return response()->json(['error' => 'since inválido.'], 422); }
+
+        $frentesIds = $user->getFrentesIds();
+        $isGlobal = (int) $user->NIVEL_ACCESO === 1;
+
+        // Equipos modificados
+        $equiposQ = Equipo::with(['documentacion','tipo','frenteActual','especificaciones'])
+            ->excludeEspecial()
+            ->where('updated_at', '>=', $sinceDt);
+        if (!$isGlobal && !empty($frentesIds)) {
+            $equiposQ->whereIn('ID_FRENTE_ACTUAL', $frentesIds);
+        }
+        $equipos = $equiposQ->get()->map(fn($e) => $this->serializeEquipo($e));
+        $idsEquipos = $equipos->pluck('ID_EQUIPO')->all();
+
+        $documentacion = Documentacion::whereIn('ID_EQUIPO', $idsEquipos)
+            ->where('updated_at', '>=', $sinceDt)->get()->map(fn($d) => $d->toArray());
+
+        $movs = Movilizacion::with(['frenteOrigen','frenteDestino'])
+            ->whereIn('ID_EQUIPO', $idsEquipos)
+            ->where('FECHA_DESPACHO', '>=', $sinceDt)
+            ->orderByDesc('FECHA_DESPACHO')->get()
+            ->map(function ($m) {
+                return [
+                    'ID_MOVILIZACION'   => $m->ID_MOVILIZACION,
+                    'CODIGO_CONTROL'    => $m->formatted_codigo_control,
+                    'ID_EQUIPO'         => $m->ID_EQUIPO,
+                    'ID_FRENTE_ORIGEN'  => $m->ID_FRENTE_ORIGEN,
+                    'NOMBRE_ORIGEN'    => optional($m->frenteOrigen)->NOMBRE_FRENTE,
+                    'ID_FRENTE_DESTINO' => $m->ID_FRENTE_DESTINO,
+                    'NOMBRE_DESTINO'   => optional($m->frenteDestino)->NOMBRE_FRENTE,
+                    'FECHA_DESPACHO'    => optional($m->FECHA_DESPACHO)->toIso8601String(),
+                    'TIPO_MOVIMIENTO'   => $m->TIPO_MOVIMIENTO,
+                    'DETALLE_UBICACION' => $m->DETALLE_UBICACION,
+                    'USUARIO_REGISTRO'  => $m->USUARIO_REGISTRO,
+                ];
+            });
+
+        return response()->json([
+            'meta' => [
+                'server_time' => now()->toIso8601String(),
+                'since' => $sinceDt->toIso8601String(),
+                'counts' => [
+                    'equipos' => $equipos->count(),
+                    'documentacion' => $documentacion->count(),
+                    'movilizaciones' => $movs->count(),
+                ],
+            ],
+            'equipos'        => $equipos,
+            'documentacion'  => $documentacion,
+            'movilizaciones' => $movs,
+        ]);
+    }
+
+    /**
+     * POST /sync/upload-outbox
+     * Recibe operaciones que el usuario hizo offline y las aplica en orden.
+     * Body: { operations: [{ id, op, endpoint, body }] }
+     * Devuelve por cada una: { id, success, error?, response? }
+     */
+    public function uploadOutbox(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) return response()->json(['error' => 'No autenticado.'], 401);
+
+        $request->validate([
+            'operations'              => 'required|array|max:100',
+            'operations.*.id'         => 'required',
+            'operations.*.op'         => 'required|in:POST,PUT,PATCH,DELETE',
+            'operations.*.endpoint'   => 'required|string|max:300',
+            'operations.*.body'       => 'nullable|array',
+        ]);
+
+        $results = [];
+        foreach ($request->operations as $opData) {
+            try {
+                // Crear sub-request interno para reusar las rutas existentes
+                $sub = Request::create(
+                    $opData['endpoint'],
+                    $opData['op'],
+                    $opData['body'] ?? []
+                );
+                $sub->setUserResolver(fn() => $user);
+                $sub->headers->set('Accept', 'application/json');
+
+                $response = app()->handle($sub);
+                $code = $response->getStatusCode();
+
+                $results[] = [
+                    'id'       => $opData['id'],
+                    'success'  => $code >= 200 && $code < 300,
+                    'status'   => $code,
+                    'response' => json_decode($response->getContent(), true),
+                ];
+            } catch (\Throwable $e) {
+                $results[] = [
+                    'id'      => $opData['id'],
+                    'success' => false,
+                    'error'   => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'server_time' => now()->toIso8601String(),
+            'results'     => $results,
+        ]);
+    }
+
     /** Serialización plana de un equipo (espejo de tabla). */
     private function serializeEquipo($e): array
     {
