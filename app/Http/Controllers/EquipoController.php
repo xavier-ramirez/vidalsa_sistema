@@ -3612,6 +3612,7 @@ class EquipoController extends Controller
             'DETALLE_UBICACION' => $eq->DETALLE_UBICACION_ACTUAL,
             'NRO_DOCUMENTO'   => $doc->NRO_DE_DOCUMENTO ?? '',
             'PROPIETARIO'     => $doc->NOMBRE_DEL_TITULAR ?? '',
+            'LINK_GPS'        => $eq->LINK_GPS ?? null,
             'DOC_PROPIEDAD'   => $doc && $doc->LINK_DOC_PROPIEDAD ? asset('storage/' . $doc->LINK_DOC_PROPIEDAD) : null,
             'DOC_POLIZA'      => $doc && $doc->LINK_POLIZA_SEGURO ? asset('storage/' . $doc->LINK_POLIZA_SEGURO) : null,
             'DOC_ROTC'        => $doc && $doc->LINK_ROTC ? asset('storage/' . $doc->LINK_ROTC) : null,
