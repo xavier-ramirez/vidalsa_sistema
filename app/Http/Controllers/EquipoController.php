@@ -4039,6 +4039,28 @@ class EquipoController extends Controller
         return response()->json(['message' => "Desanclados {$afectados} equipo(s).", 'afectados' => $afectados]);
     }
 
+    /**
+     * POST /api/mobile/equipos/bulk-delete (Sanctum + can:super.admin)
+     * Soft-delete masivo (igual que /admin/equipos/bulk-delete).
+     */
+    public function mobileBulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:equipos,ID_EQUIPO',
+        ]);
+        $afectados = 0;
+        foreach ($request->ids as $id) {
+            $eq = Equipo::find($id);
+            if (!$eq) continue;
+            $eq->deleted_by = auth()->id();
+            $eq->save();
+            $eq->delete();
+            $afectados++;
+        }
+        return response()->json(['message' => "Eliminados {$afectados} equipo(s).", 'afectados' => $afectados]);
+    }
+
     public function mobileMovilizacionesByEquipo($id)
     {
         $eq = Equipo::findOrFail($id);

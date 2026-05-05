@@ -53,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/mobile/equipos/bulk-ubicacion', [EquipoController::class, 'mobileBulkUbicacion'])->middleware('can:equipos.edit');
     Route::post('/mobile/equipos/bulk-anchor',    [EquipoController::class, 'mobileBulkAnchor'])->middleware('can:equipos.edit');
     Route::post('/mobile/equipos/bulk-unanchor',  [EquipoController::class, 'mobileBulkUnanchor'])->middleware('can:equipos.edit');
+    Route::post('/mobile/equipos/bulk-delete',    [EquipoController::class, 'mobileBulkDelete'])->middleware('can:super.admin');
 
     // Movilizaciones (registrar requiere mismo permiso que en la web: equipos.create).
     Route::get( '/mobile/movilizaciones', [MovilizacionController::class, 'mobileIndex']);
