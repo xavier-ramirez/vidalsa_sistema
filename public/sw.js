@@ -44,15 +44,15 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
-    // Nunca cachear rutas dinámicas
+    // Rutas dinámicas que NUNCA se cachean (cambian frecuente o son sensibles).
+    // Las rutas /admin/* sí se cachean en RUNTIME_CACHE para servir offline shell.
     if (
-        url.pathname.startsWith('/admin/') ||
         url.pathname.startsWith('/api/') ||
+        url.pathname.startsWith('/sync/') ||
         url.pathname.startsWith('/dashboard/') ||
         url.pathname.startsWith('/storage/') ||
         url.pathname.includes('/export') ||
         url.pathname.includes('/acta-traslado') ||
-        url.pathname === '/login' ||
         url.pathname === '/logout'
     ) {
         return;
