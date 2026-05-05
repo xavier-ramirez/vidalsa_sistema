@@ -593,9 +593,13 @@
             </table>
         </div>
 
-        <div id="auxPagination" style="margin-top:14px;">
-            {{ $auxiliares->links('vendor.pagination.custom-sliding') }}
+        {{-- Scroll infinito: el sentinel dispara IntersectionObserver para pedir el siguiente lote.
+             Mismo patron que /admin/equipos (offset += 150). --}}
+        <div id="auxLoadingMore" style="display:none; margin-top:14px; text-align:center; padding:20px; color:#64748b; font-size:13px;">
+            <i class="material-icons" style="font-size:18px; vertical-align:middle; animation: spin 1s linear infinite;">sync</i>
+            <span>Cargando más auxiliares…</span>
         </div>
+        <div id="auxScrollSentinel" style="height:1px;"></div>
 
     </div>{{-- /admin-card (columna izq) --}}
 
@@ -1090,22 +1094,65 @@
 
 <script>
 (function () {
-    // Carga AJAX — reemplaza tabla + paginacion + stats + distribucion
-    window.cargarAuxiliares = function () {
+    // Estado del scroll infinito — inicializado desde el SSR para que la primera
+    // carga (sin AJAX) ya conozca cuántos hay y pueda disparar el observer.
+    window._auxScrollState = {
+        offset: {{ (int) ($nextOffset ?? 0) }},
+        hasMore: {{ !empty($hasMore) ? 'true' : 'false' }},
+        loading: false
+    };
+
+    // Carga AJAX — primer lote (replace) o lote siguiente (append) con scroll infinito.
+    // opts.append=true → APPEND filas y mantener stats/distribucion.
+    // opts.append=false → REPLACE tabla, resetear offset a 0 y refrescar todo.
+    window.cargarAuxiliares = function (opts) {
+        opts = opts || {};
+        const append = opts.append === true;
         const form   = document.getElementById('auxFiltersForm');
         const params = new URLSearchParams(new FormData(form));
-        if (typeof window.showPreloader === 'function') window.showPreloader();
+
+        if (append) {
+            if (window._auxScrollState.loading || !window._auxScrollState.hasMore) return Promise.resolve();
+            window._auxScrollState.loading = true;
+            params.set('offset', String(window._auxScrollState.offset));
+            const ld = document.getElementById('auxLoadingMore');
+            if (ld) ld.style.display = '';
+        } else {
+            window._auxScrollState = { offset: 0, hasMore: false, loading: true };
+            params.set('offset', '0');
+            if (typeof window.showPreloader === 'function') window.showPreloader();
+        }
+
         return fetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         })
         .then(r => r.json())
         .then(data => {
-            document.getElementById('auxTableBody').innerHTML = data.html;
-            document.getElementById('auxPagination').innerHTML = data.pagination;
+            const tbody = document.getElementById('auxTableBody');
+            if (append) {
+                // Insertar nuevas filas al final del tbody
+                tbody.insertAdjacentHTML('beforeend', data.html || '');
+            } else {
+                tbody.innerHTML = data.html;
+            }
+
+            // Actualizar estado del scroll
+            window._auxScrollState.offset = data.nextOffset || 0;
+            window._auxScrollState.hasMore = !!data.hasMore;
+
             // Refrescar el mapa de detalles para que los nuevos auxiliares
             // visibles tras paginacion/filtro abran el modal del ojo instant.
             if (data.auxDetailsMap) {
                 window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxDetailsMap);
+            }
+            // Stats y distribucion solo en la primera carga (offset=0)
+            if (append) {
+                window._auxScrollState.loading = false;
+                const ld = document.getElementById('auxLoadingMore');
+                if (ld) ld.style.display = 'none';
+                // Restaurar selección masiva sobre las filas nuevas
+                if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
+                return;
             }
             if (data.stats) {
                 const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? 0; };
@@ -1170,9 +1217,35 @@
             // Restaurar checks seleccionados tras rerender del body
             if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
         })
-        .catch(e => console.error('auxiliares load:', e))
-        .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
+        .catch(e => {
+            console.error('auxiliares load:', e);
+            if (append) {
+                const ld = document.getElementById('auxLoadingMore');
+                if (ld) ld.style.display = 'none';
+            }
+        })
+        .finally(() => {
+            if (!append) {
+                window._auxScrollState.loading = false;
+                if (typeof window.hidePreloader === 'function') window.hidePreloader();
+            }
+        });
     };
+
+    // ── IntersectionObserver: dispara la siguiente carga cuando el sentinel
+    // entra en viewport. Idéntico patrón a /admin/equipos. ────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        const sentinel = document.getElementById('auxScrollSentinel');
+        if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+        const obs = new IntersectionObserver(function (entries) {
+            for (const entry of entries) {
+                if (entry.isIntersecting && window._auxScrollState && window._auxScrollState.hasMore) {
+                    window.cargarAuxiliares({ append: true });
+                }
+            }
+        }, { rootMargin: '300px 0px' });
+        obs.observe(sentinel);
+    });
 
 
 

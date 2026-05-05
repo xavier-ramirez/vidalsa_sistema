@@ -137,14 +137,25 @@ class EquipoAuxiliarController extends Controller
         ]);
         $applyFilters($query);
 
+        // Scroll infinito (offset += 150) con IntersectionObserver — mismo patron
+        // que /admin/equipos. Reemplaza el paginate(25) clasico para listas largas.
+        $PAGE_SIZE = 150;
+        $offset = max(0, (int) $request->input('offset', 0));
+        $totalFound = 0;
+        $nextOffset = 0;
+        $hasMore = false;
+        $truncated = false;
+
         if ($hasFilter) {
-            $auxiliares = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+            $countQuery = clone $query;
+            $totalFound = $countQuery->count();
+            $auxiliares = $query->orderByDesc('created_at')
+                ->offset($offset)->limit($PAGE_SIZE)->get();
+            $nextOffset = $offset + $auxiliares->count();
+            $hasMore = $nextOffset < $totalFound;
+            $truncated = $totalFound > $PAGE_SIZE;
         } else {
-            // Paginador vacio mantiene compatibilidad con ->links() en la vista.
-            $auxiliares = new \Illuminate\Pagination\LengthAwarePaginator(
-                collect([]), 0, 25, 1,
-                ['path' => $request->url(), 'query' => $request->query()]
-            );
+            $auxiliares = collect([]);
         }
 
         // Frentes para el dropdown: usuario LOCAL solo ve los que tiene asignados
@@ -274,7 +285,7 @@ class EquipoAuxiliarController extends Controller
         // Se inyecta en window.auxDetailsMap para que el modal del ojo abra
         // instantaneamente (sin fetch ni spinner). Llave: ID_AUXILIAR.
         $auxDetailsMap = [];
-        foreach ($auxiliares->items() as $aux) {
+        foreach ($auxiliares as $aux) {
             $auxDetailsMap[$aux->ID_AUXILIAR] = $this->buildAuxDetailsArray($aux, $tipos);
         }
 
@@ -310,8 +321,15 @@ class EquipoAuxiliarController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos', 'photoByModel'))->render(),
-                'pagination'   => $auxiliares->links('vendor.pagination.custom-sliding')->toHtml(),
-                'count'        => $auxiliares->total(),
+                // Scroll infinito: estos campos reemplazan al paginate clasico
+                'pageSize'     => $PAGE_SIZE,
+                'offset'       => $offset,
+                'nextOffset'   => $nextOffset,
+                'hasMore'      => $hasMore,
+                'totalFound'   => $totalFound,
+                'shownCount'   => $auxiliares->count(),
+                'truncated'    => $truncated,
+                'count'        => $totalFound, // back-compat: antes venía $auxiliares->total()
                 'stats'        => $stats,
                 'distribucion' => $distribucion,
                 'distribucionFrentes' => $distribucionFrentes,
@@ -326,9 +344,6 @@ class EquipoAuxiliarController extends Controller
                 'frenteEspecialNombre' => $frenteEspecial ? $frenteEspecial->NOMBRE_FRENTE : null,
                 'availableUbicaciones' => $availableUbicaciones->values(),
                 'ubicacionesStats'     => $ubicacionesStats,
-                // HTML del card "Ubicaciones" pre-renderizado para que
-                // cargarAuxiliares pueda inyectarlo directamente sin
-                // re-construir las filas en JS.
                 'ubicacionesHtml'      => view('admin.equipos_auxiliares.partials.ubicaciones_stats',
                                               compact('ubicacionesStats', 'frenteEspecial'))->render(),
             ]);
@@ -337,7 +352,8 @@ class EquipoAuxiliarController extends Controller
         return view('admin.equipos_auxiliares.index', compact(
             'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'distribucionFrentes', 'showFrentes', 'hasFilter', 'photoByModel',
             'availableMarcas', 'availableModelos', 'availableCapacidades', 'auxDetailsMap',
-            'frenteEspecial', 'availableUbicaciones', 'ubicacionesStats'
+            'frenteEspecial', 'availableUbicaciones', 'ubicacionesStats',
+            'PAGE_SIZE', 'offset', 'nextOffset', 'hasMore', 'totalFound', 'truncated'
         ));
     }
 
