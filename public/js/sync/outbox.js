@@ -73,6 +73,7 @@
                 op: it.op,
                 endpoint: it.endpoint,
                 body: it.body ? JSON.parse(it.body) : {},
+                files: it.files ? JSON.parse(it.files) : null,
             }));
 
             try {

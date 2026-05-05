@@ -10,6 +10,7 @@ use App\Models\Movilizacion;
 use App\Models\Responsable;
 use App\Models\TipoEquipo;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -249,41 +250,75 @@ class SyncController extends Controller
         if (!$user) return response()->json(['error' => 'No autenticado.'], 401);
 
         $request->validate([
-            'operations'              => 'required|array|max:100',
-            'operations.*.id'         => 'required',
-            'operations.*.op'         => 'required|in:POST,PUT,PATCH,DELETE',
-            'operations.*.endpoint'   => 'required|string|max:300',
-            'operations.*.body'       => 'nullable|array',
+            'operations'                  => 'required|array|max:100',
+            'operations.*.id'             => 'required',
+            'operations.*.op'             => 'required|in:POST,PUT,PATCH,DELETE',
+            'operations.*.endpoint'       => 'required|string|max:300',
+            'operations.*.body'           => 'nullable|array',
+            'operations.*.files'          => 'nullable|array',
+            'operations.*.files.*.name'   => 'required_with:operations.*.files|string',
+            'operations.*.files.*.type'   => 'nullable|string',
+            'operations.*.files.*.field'  => 'required_with:operations.*.files|string',
+            'operations.*.files.*.base64' => 'required_with:operations.*.files|string',
         ]);
 
-        $results = [];
-        foreach ($request->operations as $opData) {
-            try {
-                // Crear sub-request interno para reusar las rutas existentes
-                $sub = Request::create(
-                    $opData['endpoint'],
-                    $opData['op'],
-                    $opData['body'] ?? []
-                );
-                $sub->setUserResolver(fn() => $user);
-                $sub->headers->set('Accept', 'application/json');
+        $results  = [];
+        $tmpFiles = [];
+        try {
+            foreach ($request->operations as $opData) {
+                try {
+                    $files = [];
+                    if (!empty($opData['files']) && is_array($opData['files'])) {
+                        foreach ($opData['files'] as $f) {
+                            // base64 → archivo temporal → UploadedFile
+                            $bin = base64_decode(preg_replace('/^data:[^;]+;base64,/', '', $f['base64']), true);
+                            if ($bin === false) {
+                                throw new \RuntimeException("Archivo {$f['name']} con base64 inválido.");
+                            }
+                            $tmp = tempnam(sys_get_temp_dir(), 'outbox_');
+                            file_put_contents($tmp, $bin);
+                            $tmpFiles[] = $tmp;
+                            $files[$f['field']] = new UploadedFile(
+                                $tmp,
+                                $f['name'],
+                                $f['type'] ?? null,
+                                null,
+                                true // test mode → no valida is_uploaded_file()
+                            );
+                        }
+                    }
 
-                $response = app()->handle($sub);
-                $code = $response->getStatusCode();
+                    $sub = Request::create(
+                        $opData['endpoint'],
+                        $opData['op'],
+                        $opData['body'] ?? [],
+                        [],     // cookies
+                        $files, // files
+                        []      // server
+                    );
+                    $sub->setUserResolver(fn() => $user);
+                    $sub->headers->set('Accept', 'application/json');
+                    $sub->headers->set('X-Requested-With', 'XMLHttpRequest');
 
-                $results[] = [
-                    'id'       => $opData['id'],
-                    'success'  => $code >= 200 && $code < 300,
-                    'status'   => $code,
-                    'response' => json_decode($response->getContent(), true),
-                ];
-            } catch (\Throwable $e) {
-                $results[] = [
-                    'id'      => $opData['id'],
-                    'success' => false,
-                    'error'   => $e->getMessage(),
-                ];
+                    $response = app()->handle($sub);
+                    $code = $response->getStatusCode();
+
+                    $results[] = [
+                        'id'       => $opData['id'],
+                        'success'  => $code >= 200 && $code < 300,
+                        'status'   => $code,
+                        'response' => json_decode($response->getContent(), true),
+                    ];
+                } catch (\Throwable $e) {
+                    $results[] = [
+                        'id'      => $opData['id'],
+                        'success' => false,
+                        'error'   => $e->getMessage(),
+                    ];
+                }
             }
+        } finally {
+            foreach ($tmpFiles as $t) { @unlink($t); }
         }
 
         return response()->json([
