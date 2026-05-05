@@ -76,12 +76,14 @@ window.loadCatalogo = async function (url = null, showSpinner = true) {
 
     // Explicitly gather inputs (Single Source of Truth)
     const modeloInput = document.querySelector('input[name="modelo"]');
-    const anioInput = document.querySelector('input[name="anio"]');
+    const anioInput   = document.querySelector('input[name="anio"]');
+    const tipoInput   = document.querySelector('input[name="id_tipo"]');
 
     // Unified Filter Object
     const filters = {
-        modelo: (modeloInput?.value !== '') ? modeloInput?.value : null,
-        anio: (anioInput?.value !== '') ? anioInput?.value : null,
+        modelo:  (modeloInput?.value !== '') ? modeloInput?.value : null,
+        anio:    (anioInput?.value   !== '') ? anioInput?.value   : null,
+        id_tipo: (tipoInput?.value   !== '') ? tipoInput?.value   : null,
         ajax_load: '1'
     };
 
