@@ -31,6 +31,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Frentes asignados al usuario (para selects de registrar/editar equipos)
     Route::get('/mobile/frentes-asignados', [EquipoController::class, 'mobileFrentesAsignados']);
 
+    // Listas auxiliares para el form de registro/edición
+    Route::get('/mobile/catalogos-modelo', [EquipoController::class, 'mobileCatalogos']);
+    Route::get('/mobile/equipos-host',     [EquipoController::class, 'mobileEquiposHost']);
+
     // CRUD móvil de equipos — gateado por permiso (igual que /admin/equipos web).
     // 'equipos.create' para registrar, 'user.edit' para editar (Gate::before resuelve super.admin).
     Route::post('/mobile/equipos',      [EquipoController::class, 'mobileCreate'])->middleware('can:equipos.create');

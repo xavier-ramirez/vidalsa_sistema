@@ -3749,13 +3749,15 @@ class EquipoController extends Controller
      * Historial de movilizaciones de un equipo para la APK.
      */
     /**
-     * POST /api/mobile/equipos (Sanctum)
-     * Versión simplificada del store para la APK: campos básicos del equipo.
-     * NO maneja documentos ni fotos (eso queda para el formulario web).
+     * POST /api/mobile/equipos (Sanctum + can:equipos.create)
+     * Registro completo: campos básicos + catálogo + GPS + anclaje + foto +
+     * documentación PDF (4 tipos con fechas) + responsable inicial.
+     * Acepta multipart/form-data.
      */
     public function mobileCreate(Request $request)
     {
         $validated = $request->validate([
+            // Campos básicos
             'CODIGO_PATIO'             => 'nullable|string|max:50|unique:equipos,CODIGO_PATIO',
             'TIPO_EQUIPO'              => 'required|string|max:35',
             'CATEGORIA_FLOTA'          => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
@@ -3768,20 +3770,162 @@ class EquipoController extends Controller
             'ESTADO_OPERATIVO'         => 'required|string',
             'ID_FRENTE_ACTUAL'         => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
             'DETALLE_UBICACION_ACTUAL' => 'nullable|string|max:150',
+            // Vínculos opcionales
+            'ID_ESPEC'                 => 'nullable|integer|exists:caracteristicas_modelo,ID_ESPEC',
+            'LINK_GPS'                 => 'nullable|string|max:500',
+            'ID_ANCLAJE'               => 'nullable|integer|exists:equipos,ID_EQUIPO',
+            // Documentación legal (campos)
+            'NRO_DE_DOCUMENTO'         => 'nullable|string|max:50',
+            'NOMBRE_DEL_TITULAR'       => 'nullable|string|max:120',
+            'PLACA'                    => 'nullable|string|max:20',
+            // Foto del equipo
+            'foto_equipo'              => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
+            // PDFs + fechas
+            'doc_propiedad'            => 'nullable|file|mimes:pdf|max:51200',
+            'poliza_seguro'            => 'nullable|file|mimes:pdf|max:51200',
+            'FECHA_VENC_POLIZA'        => 'nullable|date',
+            'doc_rotc'                 => 'nullable|file|mimes:pdf|max:51200',
+            'FECHA_ROTC'               => 'nullable|date',
+            'doc_racda'                => 'nullable|file|mimes:pdf|max:51200',
+            'FECHA_RACDA'              => 'nullable|date',
+            // Responsable inicial
+            'resp_nombre'              => 'nullable|string|max:120',
+            'resp_cedula'              => 'nullable|string|max:30',
         ]);
 
-        $upper = ['CODIGO_PATIO','TIPO_EQUIPO','MARCA','MODELO','SERIAL_CHASIS','SERIAL_DE_MOTOR','NUMERO_ETIQUETA','DETALLE_UBICACION_ACTUAL'];
+        $upper = ['CODIGO_PATIO','TIPO_EQUIPO','MARCA','MODELO','SERIAL_CHASIS','SERIAL_DE_MOTOR','NUMERO_ETIQUETA','DETALLE_UBICACION_ACTUAL','PLACA','NOMBRE_DEL_TITULAR','NRO_DE_DOCUMENTO'];
         foreach ($upper as $f) {
             if (!empty($validated[$f]) && is_string($validated[$f])) {
                 $validated[$f] = strtoupper(trim($validated[$f]));
             }
         }
 
-        $equipo = Equipo::create($validated);
-        return response()->json([
-            'message' => 'Equipo registrado.',
-            'ID_EQUIPO' => $equipo->ID_EQUIPO,
-        ], 201);
+        DB::beginTransaction();
+        try {
+            // 1. Crear equipo (campos directos)
+            $equipo = Equipo::create([
+                'CODIGO_PATIO'             => $validated['CODIGO_PATIO'] ?? null,
+                'TIPO_EQUIPO'              => $validated['TIPO_EQUIPO'],
+                'CATEGORIA_FLOTA'          => $validated['CATEGORIA_FLOTA'],
+                'MARCA'                    => $validated['MARCA'],
+                'MODELO'                   => $validated['MODELO'],
+                'ANIO'                     => $validated['ANIO'],
+                'SERIAL_CHASIS'            => $validated['SERIAL_CHASIS'],
+                'SERIAL_DE_MOTOR'          => $validated['SERIAL_DE_MOTOR'] ?? null,
+                'NUMERO_ETIQUETA'          => $validated['NUMERO_ETIQUETA'] ?? null,
+                'ESTADO_OPERATIVO'         => $validated['ESTADO_OPERATIVO'],
+                'ID_FRENTE_ACTUAL'         => $validated['ID_FRENTE_ACTUAL'] ?? null,
+                'DETALLE_UBICACION_ACTUAL' => $validated['DETALLE_UBICACION_ACTUAL'] ?? null,
+                'ID_ESPEC'                 => $validated['ID_ESPEC'] ?? null,
+                'LINK_GPS'                 => $validated['LINK_GPS'] ?? null,
+                'ID_ANCLAJE'               => $validated['ID_ANCLAJE'] ?? null,
+            ]);
+
+            // 2. Foto del equipo (subida a Drive)
+            if ($request->hasFile('foto_equipo')) {
+                $url = $this->mobileUploadToDrive($request->file('foto_equipo'), 'foto_equipo_' . $equipo->ID_EQUIPO);
+                if ($url) $equipo->update(['FOTO_EQUIPO' => $url]);
+            }
+
+            // 3. Documentación (campos + PDFs)
+            $docData = array_filter([
+                'NRO_DE_DOCUMENTO'   => $validated['NRO_DE_DOCUMENTO']   ?? null,
+                'NOMBRE_DEL_TITULAR' => $validated['NOMBRE_DEL_TITULAR'] ?? null,
+                'PLACA'              => $validated['PLACA']              ?? null,
+                'FECHA_VENC_POLIZA'  => $validated['FECHA_VENC_POLIZA']  ?? null,
+                'FECHA_ROTC'         => $validated['FECHA_ROTC']         ?? null,
+                'FECHA_RACDA'        => $validated['FECHA_RACDA']        ?? null,
+            ], fn($v) => $v !== null && $v !== '');
+
+            $pdfMap = [
+                'doc_propiedad' => 'LINK_DOC_PROPIEDAD',
+                'poliza_seguro' => 'LINK_POLIZA_SEGURO',
+                'doc_rotc'      => 'LINK_ROTC',
+                'doc_racda'     => 'LINK_RACDA',
+            ];
+            $userId = auth()->id();
+            foreach ($pdfMap as $field => $col) {
+                if ($request->hasFile($field)) {
+                    $url = $this->mobileUploadToDrive($request->file($field), $field . '_' . $equipo->ID_EQUIPO);
+                    if ($url) {
+                        $docData[$col] = $url;
+                        if ($col === 'LINK_DOC_PROPIEDAD') { $docData['PROPIEDAD_SUBIDO_POR'] = $userId; $docData['PROPIEDAD_FECHA_SUBIDA'] = now(); }
+                        if ($col === 'LINK_POLIZA_SEGURO') { $docData['POLIZA_SUBIDO_POR']    = $userId; $docData['POLIZA_FECHA_SUBIDA']    = now(); }
+                        if ($col === 'LINK_ROTC')          { $docData['ROTC_SUBIDO_POR']      = $userId; $docData['ROTC_FECHA_SUBIDA']      = now(); }
+                        if ($col === 'LINK_RACDA')         { $docData['RACDA_SUBIDO_POR']     = $userId; $docData['RACDA_FECHA_SUBIDA']     = now(); }
+                    }
+                }
+            }
+
+            if (!empty($docData)) {
+                Documentacion::updateOrCreate(['ID_EQUIPO' => $equipo->ID_EQUIPO], $docData);
+            }
+
+            // 4. Responsable inicial
+            if (!empty($validated['resp_nombre']) && !empty($validated['resp_cedula'])) {
+                Responsable::create([
+                    'ID_EQUIPO'          => $equipo->ID_EQUIPO,
+                    'PERSONA_ASIGNADA'   => strtoupper(trim($validated['resp_nombre'])),
+                    'CEDULA_RESPONSABLE' => strtoupper(trim($validated['resp_cedula'])),
+                    'FECHA_ASIGNACION'   => now(),
+                ]);
+            }
+
+            DB::commit();
+            return response()->json([
+                'message'   => 'Equipo registrado correctamente.',
+                'ID_EQUIPO' => $equipo->ID_EQUIPO,
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('mobileCreate: ' . $e->getMessage());
+            return response()->json(['error' => 'No se pudo registrar el equipo: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Helper: sube archivo a Google Drive y devuelve URL /storage/google/<id>?v=ts
+     * Si Drive falla, devuelve null para que el caller decida.
+     */
+    private function mobileUploadToDrive($file, string $prefix): ?string
+    {
+        try {
+            $driveService = \App\Services\GoogleDriveService::getInstance();
+            $folderId = $driveService->getRootFolderId();
+            $ext = $file->getClientOriginalExtension() ?: 'bin';
+            $filename = $prefix . '_' . (int)(microtime(true) * 1000) . '.' . $ext;
+            $driveFile = $driveService->uploadFile($folderId, $file, $filename, $file->getMimeType());
+            if (!$driveFile || !isset($driveFile->id)) return null;
+            return '/storage/google/' . $driveFile->id . '?v=' . time();
+        } catch (\Exception $e) {
+            Log::warning('mobileUploadToDrive failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * GET /api/mobile/catalogos-modelo (Sanctum)
+     * Lista todos los catálogos para el select del form.
+     */
+    public function mobileCatalogos()
+    {
+        return response()->json(
+            CaracteristicaModelo::orderBy('MODELO')
+                ->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC', 'MOTOR', 'COMBUSTIBLE'])
+        );
+    }
+
+    /**
+     * GET /api/mobile/equipos-host (Sanctum)
+     * Lista equipos que pueden ser host (anclaje) — todos por simplicidad.
+     */
+    public function mobileEquiposHost()
+    {
+        return response()->json(
+            Equipo::excludeEspecial()
+                ->orderBy('CODIGO_PATIO')
+                ->get(['ID_EQUIPO', 'CODIGO_PATIO', 'MARCA', 'MODELO'])
+        );
     }
 
     /**
@@ -3804,6 +3948,9 @@ class EquipoController extends Controller
             'ESTADO_OPERATIVO'         => 'sometimes|string',
             'ID_FRENTE_ACTUAL'         => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
             'DETALLE_UBICACION_ACTUAL' => 'nullable|string|max:150',
+            'ID_ESPEC'                 => 'nullable|integer|exists:caracteristicas_modelo,ID_ESPEC',
+            'LINK_GPS'                 => 'nullable|string|max:500',
+            'ID_ANCLAJE'               => 'nullable|integer|exists:equipos,ID_EQUIPO',
         ]);
 
         $upper = ['CODIGO_PATIO','TIPO_EQUIPO','MARCA','MODELO','SERIAL_CHASIS','SERIAL_DE_MOTOR','NUMERO_ETIQUETA','DETALLE_UBICACION_ACTUAL'];
