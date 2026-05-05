@@ -31,9 +31,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Frentes asignados al usuario (para selects de registrar/editar equipos)
     Route::get('/mobile/frentes-asignados', [EquipoController::class, 'mobileFrentesAsignados']);
 
-    // CRUD móvil simplificado de equipos (campos básicos, sin documentos ni fotos)
-    Route::post('/mobile/equipos',       [EquipoController::class, 'mobileCreate']);
-    Route::put( '/mobile/equipos/{id}',  [EquipoController::class, 'mobileUpdate']);
+    // CRUD móvil de equipos — gateado por permiso (igual que /admin/equipos web).
+    // 'equipos.create' para registrar, 'user.edit' para editar (Gate::before resuelve super.admin).
+    Route::post('/mobile/equipos',      [EquipoController::class, 'mobileCreate'])->middleware('can:equipos.create');
+    Route::put( '/mobile/equipos/{id}', [EquipoController::class, 'mobileUpdate'])->middleware('can:user.edit');
 
     // Descarga de PDF binario por tipo: propiedad | poliza | rotc | racda
     Route::get('/mobile/equipos/{id}/pdf/{tipo}', [EquipoController::class, 'mobilePdfBinary']);
@@ -41,12 +42,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Historial de movilizaciones de un equipo
     Route::get('/mobile/equipos/{id}/movilizaciones', [EquipoController::class, 'mobileMovilizacionesByEquipo']);
 
-    // Acciones desde modal CASILLERO (Tarea 2)
-    Route::patch('/mobile/equipos/{id}/estado',     [EquipoController::class, 'mobileChangeEstado']);
-    Route::post( '/mobile/equipos/{id}/falla',      [EquipoController::class, 'mobileReportarFalla']);
+    // Acciones desde modal CASILLERO (Tarea 2). Reportar falla queda abierto a
+    // cualquier autenticado (todos los operadores reportan averias).
+    Route::patch('/mobile/equipos/{id}/estado',       [EquipoController::class, 'mobileChangeEstado'])->middleware('can:equipos.edit');
+    Route::post( '/mobile/equipos/{id}/falla',        [EquipoController::class, 'mobileReportarFalla']);
     Route::get(  '/mobile/equipos/{id}/responsables', [EquipoController::class, 'mobileResponsablesByEquipo']);
 
-    // Movilizaciones (solo usuarios autenticados pueden registrar)
-    Route::get('/mobile/movilizaciones',  [MovilizacionController::class, 'mobileIndex']);
-    Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore']);
+    // Movilizaciones (registrar requiere mismo permiso que en la web: equipos.create).
+    Route::get( '/mobile/movilizaciones', [MovilizacionController::class, 'mobileIndex']);
+    Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore'])->middleware('can:equipos.create');
 });
