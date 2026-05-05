@@ -17,14 +17,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/cambiar-clave', [App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])->name('password.change');
     Route::post('/admin/cambiar-clave', [App\Http\Controllers\Auth\ChangePasswordController::class, 'update'])->name('password.update');
 
-    // Sync PWA <-> Laravel (login local + dump completo).
-    // Auth web (sesión); NO va dentro de password.change.check porque la PWA
-    // necesita arrancar el cache local apenas haya sesión válida.
-    Route::post('/sync/login-local-init', [App\Http\Controllers\SyncController::class, 'loginLocalInit'])->name('sync.loginLocalInit');
-    Route::get( '/sync/dump',              [App\Http\Controllers\SyncController::class, 'dump'])->name('sync.dump');
-    Route::get( '/sync/diff',              [App\Http\Controllers\SyncController::class, 'diff'])->name('sync.diff');
-    Route::post('/sync/upload-outbox',     [App\Http\Controllers\SyncController::class, 'uploadOutbox'])->name('sync.uploadOutbox');
-
     Route::middleware(['password.change.check'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');
         Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');

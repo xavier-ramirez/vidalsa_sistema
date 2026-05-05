@@ -1088,42 +1088,6 @@
 
         {{-- Core Scripts (Always Loaded) --}}
 
-        {{-- PWA: cliente SQLite local (sql.js) + sync engine + auth offline +
-             outbox + scheduler + network-quality. Cargados antes de los demás
-             módulos para que estén disponibles globalmente. --}}
-        <script src="{{ asset('js/sync/offline-guard.js') }}?v={{ @filemtime(public_path('js/sync/offline-guard.js')) }}"></script>
-        <script src="{{ asset('js/sync/db.js') }}?v={{ @filemtime(public_path('js/sync/db.js')) }}"></script>
-        <script src="{{ asset('js/sync/sync-engine.js') }}?v={{ @filemtime(public_path('js/sync/sync-engine.js')) }}"></script>
-        <script src="{{ asset('js/sync/outbox.js') }}?v={{ @filemtime(public_path('js/sync/outbox.js')) }}"></script>
-        <script src="{{ asset('js/sync/network-quality.js') }}?v={{ @filemtime(public_path('js/sync/network-quality.js')) }}"></script>
-        <script src="{{ asset('js/sync/scheduler.js') }}?v={{ @filemtime(public_path('js/sync/scheduler.js')) }}"></script>
-        <script src="{{ asset('js/sync/auth-offline.js') }}?v={{ @filemtime(public_path('js/sync/auth-offline.js')) }}"></script>
-        <script src="{{ asset('js/sync/offline-shim.js') }}?v={{ @filemtime(public_path('js/sync/offline-shim.js')) }}"></script>
-        <script src="{{ asset('js/sync/offline-equipos.js') }}?v={{ @filemtime(public_path('js/sync/offline-equipos.js')) }}"></script>
-        <script src="{{ asset('js/sync/offline-movilizaciones.js') }}?v={{ @filemtime(public_path('js/sync/offline-movilizaciones.js')) }}"></script>
-        <script src="{{ asset('js/sync/offline-menu.js') }}?v={{ @filemtime(public_path('js/sync/offline-menu.js')) }}"></script>
-        <script>
-            // Bootstrap automático tras carga: inicia DB, sync inicial si stale,
-            // y arranca el scheduler de los 4 triggers (6 AM/12 PM, online,
-            // buena señal, manual). Todo en background, sin bloquear render.
-            document.addEventListener('DOMContentLoaded', function () {
-                if (!window.vidalsaSync) return;
-                window.vidalsaSync.bootstrap()
-                    .then((res) => {
-                        if (window.vidalsaScheduler) window.vidalsaScheduler.start();
-                        // Si fue un dump inicial (primera vez), avisar al usuario
-                        if (res && res.counts && window.showToast) {
-                            const total = (res.counts.equipos || 0);
-                            window.showToast(
-                                'Datos sincronizados (' + total + ' equipos). Ya puedes usar la app sin Internet.',
-                                'success'
-                            );
-                        }
-                    })
-                    .catch(e => console.warn('[sync bootstrap]', e));
-            });
-        </script>
-
         <script
             src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
         <script

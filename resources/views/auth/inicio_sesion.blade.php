@@ -115,105 +115,10 @@
                     <div class="button-login-container">
                         <button type="submit" class="btn-maquinaria-primary">Iniciar sesión</button>
                     </div>
-
-                    {{-- Botón "Iniciar sesión sin internet" — solo móvil con credenciales locales --}}
-                    <div id="offlineLoginWrap" style="display:none; margin-top:14px; text-align:center;">
-                        <button type="button" id="btnOfflineLogin"
-                            style="background: white; color: #0067b1; border: 2px solid #0067b1; padding: 10px 20px;
-                                   border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%;
-                                   font-family: inherit;">
-                            <i class="material-icons" style="font-size:18px; vertical-align:middle;">cloud_off</i>
-                            <span style="vertical-align:middle;">Iniciar sesión sin Internet</span>
-                        </button>
-                    </div>
                 </form>
             </div>
         </div>
     </div>
-
-    {{-- Modal informativo offline --}}
-    <div id="offlineLoginInfo" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:9000; align-items:center; justify-content:center; padding:20px;">
-        <div style="background:white; max-width:420px; width:100%; border-radius:16px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.3);">
-            <div style="text-align:center; margin-bottom:16px;">
-                <i class="material-icons" style="font-size:48px; color:#0067b1;">cloud_off</i>
-                <h3 style="margin:8px 0 4px; color:#0f172a; font-weight:800;">Modo Sin Conexión</h3>
-                <p style="color:#64748b; font-size:13px; margin:0;">Los datos provienen de la última sincronización exitosa.</p>
-            </div>
-            <div id="offlineInfoBody" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px; font-size:13px; color:#475569; margin-bottom:16px;"></div>
-            <div style="display:flex; gap:8px;">
-                <button type="button" onclick="document.getElementById('offlineLoginInfo').style.display='none';"
-                    style="flex:1; padding:12px; background:white; border:1px solid #e2e8f0; border-radius:10px; font-weight:700; cursor:pointer; color:#64748b; font-family:inherit;">
-                    Cancelar
-                </button>
-                <button type="button" id="btnConfirmOffline"
-                    style="flex:1; padding:12px; background:linear-gradient(135deg,#0067b1,#004481); border:none; border-radius:10px; font-weight:700; cursor:pointer; color:white; font-family:inherit;">
-                    Continuar offline
-                </button>
-            </div>
-        </div>
-    </div>
-
-    {{-- Carga sql.js + auth-offline para que el botón "Sin internet" funcione --}}
-    <script src="{{ asset('js/sync/db.js') }}?v={{ @filemtime(public_path('js/sync/db.js')) }}"></script>
-    <script src="{{ asset('js/sync/auth-offline.js') }}?v={{ @filemtime(public_path('js/sync/auth-offline.js')) }}"></script>
-    <script>
-        (async function () {
-            // Detección móvil — incluye PWA standalone (que a veces no tiene "Mobile" en UA)
-            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-                          || window.matchMedia('(display-mode: standalone)').matches
-                          || window.matchMedia('(max-width: 900px)').matches;
-            if (!isMobile) return;
-
-            const wrap = document.getElementById('offlineLoginWrap');
-            if (!wrap) return;
-            // SIEMPRE mostramos el botón en móvil — adentro decidimos qué hacer
-            wrap.style.display = '';
-
-            let has = false, cachedEmail = '';
-            try {
-                if (window.vidalsaDB && window.vidalsaAuthOffline) {
-                    await window.vidalsaDB.init();
-                    has = await window.vidalsaAuthOffline.hasLocalCredentials();
-                    if (has) cachedEmail = await window.vidalsaAuthOffline.cachedEmail();
-                }
-            } catch (e) { console.warn('[offline-login]', e); }
-
-            document.getElementById('btnOfflineLogin').addEventListener('click', () => {
-                if (!has) {
-                    // No hay credenciales locales — explicar qué hacer
-                    document.getElementById('offlineInfoBody').innerHTML =
-                        `<strong style="color:#dc2626;">Aún no puedes entrar sin Internet.</strong><br>` +
-                        `<small>La primera vez DEBES iniciar sesión con Internet (datos o WiFi).<br>` +
-                        `Después de eso, espera unos segundos en la pantalla principal para que se descarguen los datos del servidor.<br>` +
-                        `Una vez descargados, podrás entrar sin Internet con el mismo correo y contraseña.</small>`;
-                    document.getElementById('btnConfirmOffline').style.display = 'none';
-                } else {
-                    document.getElementById('offlineInfoBody').innerHTML =
-                        `<strong>Cuenta cacheada:</strong> ${cachedEmail || '—'}<br>` +
-                        `<small>Ingresa la misma contraseña que usaste online.</small>`;
-                    document.getElementById('btnConfirmOffline').style.display = '';
-                }
-                document.getElementById('offlineLoginInfo').style.display = 'flex';
-            });
-
-            document.getElementById('btnConfirmOffline').addEventListener('click', async () => {
-                const correo = document.getElementById('login_identifier').value.trim();
-                const password = document.getElementById('password').value;
-                if (!correo || !password) {
-                    alert('Ingresa tu correo y contraseña.');
-                    return;
-                }
-                const result = await window.vidalsaAuthOffline.verify(correo, password);
-                if (result.ok) {
-                    sessionStorage.setItem('vidalsa_offline_session', JSON.stringify(result.user));
-                    sessionStorage.setItem('vidalsa_offline_mode', '1');
-                    window.location.href = '{{ route("menu") }}?offline=1';
-                } else {
-                    alert(result.error || 'No se pudo iniciar sesión offline.');
-                }
-            });
-        })();
-    </script>
 </body>
 <script>
     function togglePassword() {
