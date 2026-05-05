@@ -485,8 +485,15 @@
         });
     }
 
+    function isOfflineMode() {
+        if (!navigator.onLine) return true;
+        if (sessionStorage.getItem('vidalsa_offline_mode') === '1') return true;
+        if (new URLSearchParams(location.search).get('offline') === '1') return true;
+        return false;
+    }
+
     async function maybeActivate() {
-        if (navigator.onLine) return;       // online: no tocamos la página real
+        if (!isOfflineMode()) return;
         if (!isSupportedPath()) return;
         await vidalsaDB.init();
         await activate();

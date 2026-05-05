@@ -114,8 +114,15 @@
         if (search) search.addEventListener('input', () => render(listMovs(search.value)));
     }
 
+    function isOfflineMode() {
+        if (!navigator.onLine) return true;
+        if (sessionStorage.getItem('vidalsa_offline_mode') === '1') return true;
+        if (new URLSearchParams(location.search).get('offline') === '1') return true;
+        return false;
+    }
+
     async function maybeActivate() {
-        if (navigator.onLine) return;
+        if (!isOfflineMode()) return;
         if (!isSupportedPath()) return;
         await vidalsaDB.init();
         await activate();

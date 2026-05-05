@@ -111,8 +111,16 @@
         `;
     }
 
+    function isOfflineMode() {
+        // Tres formas: navegador offline, modo forzado en sessionStorage, o ?offline=1 en URL
+        if (!navigator.onLine) return true;
+        if (sessionStorage.getItem('vidalsa_offline_mode') === '1') return true;
+        if (new URLSearchParams(location.search).get('offline') === '1') return true;
+        return false;
+    }
+
     async function maybeActivate() {
-        if (navigator.onLine) return;
+        if (!isOfflineMode()) return;
         if (!isSupportedPath()) return;
         await activate();
     }

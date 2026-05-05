@@ -1091,6 +1091,7 @@
         {{-- PWA: cliente SQLite local (sql.js) + sync engine + auth offline +
              outbox + scheduler + network-quality. Cargados antes de los demás
              módulos para que estén disponibles globalmente. --}}
+        <script src="{{ asset('js/sync/offline-guard.js') }}?v={{ @filemtime(public_path('js/sync/offline-guard.js')) }}"></script>
         <script src="{{ asset('js/sync/db.js') }}?v={{ @filemtime(public_path('js/sync/db.js')) }}"></script>
         <script src="{{ asset('js/sync/sync-engine.js') }}?v={{ @filemtime(public_path('js/sync/sync-engine.js')) }}"></script>
         <script src="{{ asset('js/sync/outbox.js') }}?v={{ @filemtime(public_path('js/sync/outbox.js')) }}"></script>
