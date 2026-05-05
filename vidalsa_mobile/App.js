@@ -3480,11 +3480,16 @@ function PantallaMovilizaciones({ user, onOpenMenu }) {
       if (cached) setHistorial(JSON.parse(cached));
 
       const data = await api("GET", "/movilizaciones");
-      if (Array.isArray(data)) {
-        setHistorial(data);
+      // Backend devuelve {items, hasMore, ...} (paginado). Mantenemos compat
+      // con el formato array antiguo por si vuelve algun dia.
+      const items = Array.isArray(data)
+        ? data
+        : (data && Array.isArray(data.items) ? data.items : null);
+      if (items) {
+        setHistorial(items);
         await AsyncStorage.setItem(
           "movilizaciones_historial",
-          JSON.stringify(data),
+          JSON.stringify(items),
         );
       }
     } catch (e) {
