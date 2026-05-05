@@ -1792,29 +1792,6 @@
         .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
     };
 
-    if (!window.auxPaginationAttached) {
-        window.auxPaginationAttached = true;
-        document.addEventListener('click', (e) => {
-            const link = e.target.closest('#auxPagination a');
-            if (!link) return;
-            e.preventDefault();
-            const u = new URL(link.href);
-            const form = document.getElementById('auxFiltersForm');
-            if (form) {
-                const p = new URLSearchParams(new FormData(form));
-                p.forEach((v, k) => u.searchParams.set(k, v));
-            }
-            if (typeof window.showPreloader === 'function') window.showPreloader();
-            fetch(u.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }})
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('auxTableBody').innerHTML = data.html;
-                    document.getElementById('auxPagination').innerHTML = data.pagination;
-                })
-                .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
-        });
-    }
-
     if (!window.auxAccionesOutsideBound) {
         window.auxAccionesOutsideBound = true;
         document.addEventListener('click', (e) => {
