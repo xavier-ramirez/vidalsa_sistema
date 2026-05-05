@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\EquipoController;
@@ -9,61 +8,23 @@ use App\Http\Controllers\FrenteTrabajoController;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes - Vidalsa Mobile App
+| API Routes - Vidalsa Mobile App (Expo + SQLite)
 |--------------------------------------------------------------------------
+| Endpoints minimos que la APK consume:
+|   - login/logout para autenticar (Sanctum)
+|   - GET equipos/frentes para descargar el dump al SQLite local
+|   - GET/POST movilizaciones para historial + sincronizacion del outbox
 */
 
-// ── Rutas PÚBLICAS (sin token – para descarga inicial de datos) ─────────
+// Publicas (sin token: descarga inicial post-login)
 Route::post('/mobile/login',  [LoginController::class, 'mobileLogin']);
 Route::get('/mobile/equipos', [EquipoController::class, 'mobileIndex']);
-Route::get('/mobile/equipos/{id}', [EquipoController::class, 'mobileShow']);
 Route::get('/mobile/frentes', [FrenteTrabajoController::class, 'mobileIndex']);
 
-// ── Rutas PROTEGIDAS (requieren token Sanctum) ──────────────────────────
+// Protegidas con Sanctum
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/mobile/logout', [LoginController::class, 'mobileLogout']);
-    Route::get('/mobile/user',    function (Request $request) { return $request->user(); });
-    Route::put('/mobile/user/password', [LoginController::class, 'mobileChangePassword']);
-
-    // Equipos del frente del usuario (descarga selectiva con metadata de versionado de PDFs)
-    Route::get('/mobile/mis-equipos', [EquipoController::class, 'mobileMisEquipos']);
-
-    // Frentes asignados al usuario (para selects de registrar/editar equipos)
-    Route::get('/mobile/frentes-asignados', [EquipoController::class, 'mobileFrentesAsignados']);
-
-    // Listas auxiliares para el form de registro/edición
-    Route::get('/mobile/catalogos-modelo', [EquipoController::class, 'mobileCatalogos']);
-    Route::get('/mobile/equipos-host',     [EquipoController::class, 'mobileEquiposHost']);
-
-    // CRUD móvil de equipos — gateado por permiso (igual que /admin/equipos web).
-    // 'equipos.create' para registrar, 'user.edit' para editar (Gate::before resuelve super.admin).
-    Route::post('/mobile/equipos',      [EquipoController::class, 'mobileCreate'])->middleware('can:equipos.create');
-    Route::put( '/mobile/equipos/{id}', [EquipoController::class, 'mobileUpdate'])->middleware('can:user.edit');
-
-    // Descarga de PDF binario por tipo: propiedad | poliza | rotc | racda
-    Route::get('/mobile/equipos/{id}/pdf/{tipo}', [EquipoController::class, 'mobilePdfBinary']);
-
-    // Historial de movilizaciones de un equipo
-    Route::get('/mobile/equipos/{id}/movilizaciones', [EquipoController::class, 'mobileMovilizacionesByEquipo']);
-
-    // Acciones desde modal CASILLERO (Tarea 2). Reportar falla queda abierto a
-    // cualquier autenticado (todos los operadores reportan averias).
-    Route::patch('/mobile/equipos/{id}/estado',       [EquipoController::class, 'mobileChangeEstado'])->middleware('can:equipos.edit');
-    Route::post( '/mobile/equipos/{id}/falla',        [EquipoController::class, 'mobileReportarFalla']);
-    Route::get(  '/mobile/equipos/{id}/responsables', [EquipoController::class, 'mobileResponsablesByEquipo']);
-
-    // Acciones masivas (Tarea 4 — selección múltiple en la APK)
-    Route::post('/mobile/equipos/bulk-movilizar', [EquipoController::class, 'mobileBulkMovilizar'])->middleware('can:equipos.create');
-    Route::post('/mobile/equipos/bulk-ubicacion', [EquipoController::class, 'mobileBulkUbicacion'])->middleware('can:equipos.edit');
-    Route::post('/mobile/equipos/bulk-anchor',    [EquipoController::class, 'mobileBulkAnchor'])->middleware('can:equipos.edit');
-    Route::post('/mobile/equipos/bulk-unanchor',  [EquipoController::class, 'mobileBulkUnanchor'])->middleware('can:equipos.edit');
-    Route::post('/mobile/equipos/bulk-delete',    [EquipoController::class, 'mobileBulkDelete'])->middleware('can:super.admin');
-
-    // Subida de PDFs (propiedad/poliza/rotc/racda) — reusa uploadDoc del web,
-    // que internamente verifica can('user.edit') y maneja Drive + tracking.
-    Route::post('/mobile/equipos/{id}/upload-doc', [EquipoController::class, 'uploadDoc'])->middleware('can:user.edit');
-
-    // Movilizaciones (registrar requiere mismo permiso que en la web: equipos.create).
+    Route::post('/mobile/logout',         [LoginController::class, 'mobileLogout']);
     Route::get( '/mobile/movilizaciones', [MovilizacionController::class, 'mobileIndex']);
-    Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore'])->middleware('can:equipos.create');
+    Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore'])
+        ->middleware('can:equipos.create');
 });
