@@ -209,8 +209,8 @@
             await vidalsaDB.persist();
             await vidalsaOutbox.enqueue({
                 op: 'PATCH',
-                endpoint: `/admin/equipos/${eq.ID_EQUIPO}/estado`,
-                body: { estado: valor },
+                endpoint: `/admin/equipos/${eq.ID_EQUIPO}/status`,
+                body: { status: valor },
             });
             window.showToast?.(`Estado pendiente de sincronizar: ${valor}`, 'success');
             closeModal();
@@ -244,17 +244,21 @@
             await openUploadDoc(eq);
             return;
         } else if (action === 'falla') {
-            const desc = prompt('Describe la falla (mínimo 5 caracteres):');
-            if (!desc || desc.trim().length < 5) return;
+            const desc = prompt('Describe la falla (mínimo 10 caracteres):');
+            if (!desc || desc.trim().length < 10) {
+                window.showToast?.('Descripción muy corta.', 'error'); return;
+            }
             await vidalsaOutbox.enqueue({
                 op: 'POST',
                 endpoint: `/admin/fallas`,
                 body: {
-                    ACTIVO_TIPO: 'equipo',
-                    ACTIVO_ID:   eq.ID_EQUIPO,
-                    DESCRIPCION_AVERIA: desc.trim(),
-                    PRIORIDAD: 'MEDIA',
-                    TIPO_INTERVENCION: 'CORRECTIVA',
+                    tipo_reporte:      'corto',
+                    activo_tipo:       'equipo',
+                    activo_id:         eq.ID_EQUIPO,
+                    estado_al_crear:   'INOPERATIVO',
+                    descripcion:       desc.trim(),
+                    prioridad:         'MEDIA',
+                    tipo_intervencion: 'CORRECTIVO_INMEDIATO',
                 },
             });
             window.showToast?.('Falla pendiente de sincronizar.', 'success');
@@ -334,10 +338,34 @@
             }
             await vidalsaDB.persist();
 
+            // Endpoint: PUT /admin/equipos/{id} (resource update). Necesita TODOS
+            // los campos required del validator. Mezclamos los valores existentes
+            // del equipo (eq) con lo editado para no fallar required.
+            const payload = {
+                _method:                  'PUT',
+                CODIGO_PATIO:             data.CODIGO_PATIO,
+                TIPO_EQUIPO:              eq.TIPO_EQUIPO || data.MARCA || '—',
+                CATEGORIA_FLOTA:          data.CATEGORIA_FLOTA || eq.CATEGORIA_FLOTA || 'FLOTA PESADA',
+                MARCA:                    data.MARCA,
+                MODELO:                   data.MODELO,
+                ANIO:                     data.ANIO,
+                SERIAL_CHASIS:            data.SERIAL_CHASIS,
+                SERIAL_DE_MOTOR:          data.SERIAL_DE_MOTOR,
+                DETALLE_UBICACION_ACTUAL: data.DETALLE_UBICACION_ACTUAL,
+                id_tipo_equipo:           data.id_tipo_equipo,
+                ID_FRENTE_ACTUAL:         eq.ID_FRENTE_ACTUAL,
+                ID_ESPEC:                 eq.ID_ESPEC,
+                NUMERO_ETIQUETA:          eq.NUMERO_ETIQUETA,
+                ESTADO_OPERATIVO:         eq.ESTADO_OPERATIVO,
+                documentacion: {
+                    PLACA:            data.PLACA,
+                    NRO_DE_DOCUMENTO: data.NRO_DE_DOCUMENTO,
+                },
+            };
             await vidalsaOutbox.enqueue({
-                op: 'POST',
-                endpoint: `/admin/equipos/${eq.ID_EQUIPO}/update-metadata`,
-                body: data,
+                op: 'POST', // Laravel acepta POST + _method=PUT para resource update
+                endpoint: `/admin/equipos/${eq.ID_EQUIPO}`,
+                body: payload,
             });
 
             window.showToast?.('Cambios pendientes de sincronizar.', 'success');
@@ -355,18 +383,25 @@
             <form id="off-doc-form" autocomplete="off">
                 <div style="margin-bottom:10px;">
                     <label style="display:block; font-size:11px; color:#64748b; font-weight:700; margin-bottom:3px;">Tipo de documento</label>
-                    <select name="tipo_doc" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:white; box-sizing:border-box; font-family:inherit;">
-                        <option value="FOTO">Foto del equipo</option>
-                        <option value="CARNET_CIRCULACION">Carnet de circulación</option>
-                        <option value="CERTIFICADO">Certificado</option>
-                        <option value="OTRO">Otro</option>
+                    <select name="doc_type" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:white; box-sizing:border-box; font-family:inherit;">
+                        <option value="propiedad">Documento de propiedad</option>
+                        <option value="poliza">Póliza</option>
+                        <option value="rotc">ROTC</option>
+                        <option value="racda">RACDA</option>
+                        <option value="adicional">Adicional</option>
+                        <option value="adicional_2">Adicional 2</option>
                     </select>
                 </div>
                 <div style="margin-bottom:10px;">
-                    <label style="display:block; font-size:11px; color:#64748b; font-weight:700; margin-bottom:3px;">Archivo (foto o PDF)</label>
-                    <input type="file" name="archivo" accept="image/*,application/pdf" required
+                    <label style="display:block; font-size:11px; color:#64748b; font-weight:700; margin-bottom:3px;">Vencimiento (opcional)</label>
+                    <input type="date" name="expiration_date"
+                        style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:white; box-sizing:border-box; font-family:inherit;">
+                </div>
+                <div style="margin-bottom:10px;">
+                    <label style="display:block; font-size:11px; color:#64748b; font-weight:700; margin-bottom:3px;">Archivo PDF</label>
+                    <input type="file" name="file" accept="application/pdf" required
                         style="width:100%; padding:8px; border:1px dashed #cbd5e1; border-radius:6px; font-size:13px; background:#f8fafc; box-sizing:border-box; font-family:inherit;">
-                    <div style="font-size:11px; color:#64748b; margin-top:4px;">Máx 5 MB. Se enviará al servidor cuando vuelva la red.</div>
+                    <div style="font-size:11px; color:#64748b; margin-top:4px;">Solo PDF. Máx 50 MB.</div>
                 </div>
                 <div style="display:flex; gap:8px; margin-top:14px;">
                     <button type="button" id="off-doc-cancel"
@@ -381,18 +416,25 @@
         document.getElementById('off-doc-form').addEventListener('submit', async (ev) => {
             ev.preventDefault();
             const fd = new FormData(ev.target);
-            const file = fd.get('archivo');
-            const tipoDoc = fd.get('tipo_doc');
-            if (!file || !file.size) { window.showToast?.('Selecciona un archivo.', 'error'); return; }
-            if (file.size > 5 * 1024 * 1024) { window.showToast?.('Máximo 5 MB.', 'error'); return; }
+            const file = fd.get('file');
+            const docType = fd.get('doc_type');
+            const expirationDate = fd.get('expiration_date') || null;
+            if (!file || !file.size) { window.showToast?.('Selecciona un archivo PDF.', 'error'); return; }
+            if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                window.showToast?.('Solo se aceptan archivos PDF.', 'error'); return;
+            }
+            if (file.size > 50 * 1024 * 1024) { window.showToast?.('Máximo 50 MB.', 'error'); return; }
 
             const base64 = await fileToBase64(file);
+
+            const body = { doc_type: docType };
+            if (expirationDate) body.expiration_date = expirationDate;
 
             await vidalsaOutbox.enqueue({
                 op: 'POST',
                 endpoint: `/admin/equipos/${eq.ID_EQUIPO}/upload-doc`,
-                body: { tipo_doc: tipoDoc },
-                files: [{ field: 'archivo', name: file.name, type: file.type, base64 }],
+                body,
+                files: [{ field: 'file', name: file.name, type: file.type || 'application/pdf', base64 }],
             });
 
             window.showToast?.('Documento pendiente de sincronizar.', 'success');

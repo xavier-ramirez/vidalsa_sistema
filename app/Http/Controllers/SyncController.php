@@ -297,8 +297,12 @@ class SyncController extends Controller
                         []      // server
                     );
                     $sub->setUserResolver(fn() => $user);
+                    $sub->setLaravelSession($request->session());
                     $sub->headers->set('Accept', 'application/json');
                     $sub->headers->set('X-Requested-With', 'XMLHttpRequest');
+                    // El sub-request no trae cookie XSRF — pasamos el token vigente
+                    // de la sesión actual para que VerifyCsrfToken lo acepte.
+                    $sub->headers->set('X-CSRF-TOKEN', csrf_token());
 
                     $response = app()->handle($sub);
                     $code = $response->getStatusCode();
