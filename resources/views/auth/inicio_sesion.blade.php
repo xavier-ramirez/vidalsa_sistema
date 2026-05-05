@@ -158,42 +158,60 @@
     <script src="{{ asset('js/sync/auth-offline.js') }}?v={{ @filemtime(public_path('js/sync/auth-offline.js')) }}"></script>
     <script>
         (async function () {
-            // Mostrar botón offline solo si: (1) hay credenciales locales y (2) es móvil.
-            const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+            // Detección móvil — incluye PWA standalone (que a veces no tiene "Mobile" en UA)
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+                          || window.matchMedia('(display-mode: standalone)').matches
+                          || window.matchMedia('(max-width: 900px)').matches;
             if (!isMobile) return;
-            try {
-                await window.vidalsaDB.init();
-                const has = await window.vidalsaAuthOffline.hasLocalCredentials();
-                if (!has) return;
-                const cachedEmail = await window.vidalsaAuthOffline.cachedEmail();
-                const wrap = document.getElementById('offlineLoginWrap');
-                if (wrap) wrap.style.display = '';
 
-                document.getElementById('btnOfflineLogin').addEventListener('click', () => {
+            const wrap = document.getElementById('offlineLoginWrap');
+            if (!wrap) return;
+            // SIEMPRE mostramos el botón en móvil — adentro decidimos qué hacer
+            wrap.style.display = '';
+
+            let has = false, cachedEmail = '';
+            try {
+                if (window.vidalsaDB && window.vidalsaAuthOffline) {
+                    await window.vidalsaDB.init();
+                    has = await window.vidalsaAuthOffline.hasLocalCredentials();
+                    if (has) cachedEmail = await window.vidalsaAuthOffline.cachedEmail();
+                }
+            } catch (e) { console.warn('[offline-login]', e); }
+
+            document.getElementById('btnOfflineLogin').addEventListener('click', () => {
+                if (!has) {
+                    // No hay credenciales locales — explicar qué hacer
+                    document.getElementById('offlineInfoBody').innerHTML =
+                        `<strong style="color:#dc2626;">Aún no puedes entrar sin Internet.</strong><br>` +
+                        `<small>La primera vez DEBES iniciar sesión con Internet (datos o WiFi).<br>` +
+                        `Después de eso, espera unos segundos en la pantalla principal para que se descarguen los datos del servidor.<br>` +
+                        `Una vez descargados, podrás entrar sin Internet con el mismo correo y contraseña.</small>`;
+                    document.getElementById('btnConfirmOffline').style.display = 'none';
+                } else {
                     document.getElementById('offlineInfoBody').innerHTML =
                         `<strong>Cuenta cacheada:</strong> ${cachedEmail || '—'}<br>` +
                         `<small>Ingresa la misma contraseña que usaste online.</small>`;
-                    document.getElementById('offlineLoginInfo').style.display = 'flex';
-                });
+                    document.getElementById('btnConfirmOffline').style.display = '';
+                }
+                document.getElementById('offlineLoginInfo').style.display = 'flex';
+            });
 
-                document.getElementById('btnConfirmOffline').addEventListener('click', async () => {
-                    const correo = document.getElementById('login_identifier').value.trim();
-                    const password = document.getElementById('password').value;
-                    if (!correo || !password) {
-                        alert('Ingresa tu correo y contraseña.');
-                        return;
-                    }
-                    const result = await window.vidalsaAuthOffline.verify(correo, password);
-                    if (result.ok) {
-                        // Guardar marca de sesión offline en sessionStorage
-                        sessionStorage.setItem('vidalsa_offline_session', JSON.stringify(result.user));
-                        sessionStorage.setItem('vidalsa_offline_mode', '1');
-                        window.location.href = '{{ route("menu") }}?offline=1';
-                    } else {
-                        alert(result.error || 'No se pudo iniciar sesión offline.');
-                    }
-                });
-            } catch (e) { console.warn('[offline-login]', e); }
+            document.getElementById('btnConfirmOffline').addEventListener('click', async () => {
+                const correo = document.getElementById('login_identifier').value.trim();
+                const password = document.getElementById('password').value;
+                if (!correo || !password) {
+                    alert('Ingresa tu correo y contraseña.');
+                    return;
+                }
+                const result = await window.vidalsaAuthOffline.verify(correo, password);
+                if (result.ok) {
+                    sessionStorage.setItem('vidalsa_offline_session', JSON.stringify(result.user));
+                    sessionStorage.setItem('vidalsa_offline_mode', '1');
+                    window.location.href = '{{ route("menu") }}?offline=1';
+                } else {
+                    alert(result.error || 'No se pudo iniciar sesión offline.');
+                }
+            });
         })();
     </script>
 </body>

@@ -1108,8 +1108,16 @@
             document.addEventListener('DOMContentLoaded', function () {
                 if (!window.vidalsaSync) return;
                 window.vidalsaSync.bootstrap()
-                    .then(() => {
+                    .then((res) => {
                         if (window.vidalsaScheduler) window.vidalsaScheduler.start();
+                        // Si fue un dump inicial (primera vez), avisar al usuario
+                        if (res && res.counts && window.showToast) {
+                            const total = (res.counts.equipos || 0);
+                            window.showToast(
+                                'Datos sincronizados (' + total + ' equipos). Ya puedes usar la app sin Internet.',
+                                'success'
+                            );
+                        }
                     })
                     .catch(e => console.warn('[sync bootstrap]', e));
             });
