@@ -1088,6 +1088,23 @@
 
         {{-- Core Scripts (Always Loaded) --}}
 
+        {{-- PWA: cliente SQLite local (sql.js) + sync engine. Cargados primero
+             para que vidalsaDB y vidalsaSync estén disponibles globalmente. --}}
+        <script
+            src="{{ asset('js/sync/db.js') }}?v={{ @filemtime(public_path('js/sync/db.js')) }}"></script>
+        <script
+            src="{{ asset('js/sync/sync-engine.js') }}?v={{ @filemtime(public_path('js/sync/sync-engine.js')) }}"></script>
+        <script>
+            // Bootstrap automático: tras carga de cualquier página autenticada,
+            // inicializa la base local y dispara sync si han pasado >24h.
+            // No bloquea el render — corre en background.
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.vidalsaSync && typeof window.vidalsaSync.bootstrap === 'function') {
+                    window.vidalsaSync.bootstrap().catch(e => console.warn('[sync bootstrap]', e));
+                }
+            });
+        </script>
+
         <script
             src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
         <script
