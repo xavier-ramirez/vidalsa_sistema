@@ -1,4 +1,4 @@
-/* global vidalsaDB */
+/* global vidalsaDB, vidalsaOffline */
 /**
  * Vista offline para /menu y /dashboard cuando no hay conexión.
  *
@@ -7,26 +7,16 @@
  *  - KPIs leídos del SQLite local (total equipos, por estado, movs últimos 30 días)
  *  - Accesos directos a las vistas offline soportadas
  *  - Botón sincronizar (delegado al shim)
+ *
+ * Helpers (escapeHtml, findHost, isSupportedPath, isOffline) vienen de
+ * window.vidalsaOffline (offline-guard.js).
  */
 (function () {
     'use strict';
 
     const SUPPORTED_PATHS = ['/menu', '/dashboard'];
-
-    function escapeHtml(s) {
-        if (s === null || s === undefined) return '';
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    }
-
-    function isSupportedPath() {
-        const p = location.pathname;
-        return SUPPORTED_PATHS.some(prefix => p === prefix || p.startsWith(prefix + '/'));
-    }
-
-    function findHost() {
-        return document.querySelector('main.main-viewport') || document.querySelector('main') || document.body;
-    }
+    const { escapeHtml, findHost, isSupportedPath: _isSupported, isOffline } = window.vidalsaOffline;
+    const isSupportedPath = () => _isSupported(SUPPORTED_PATHS);
 
     function getCachedUser() {
         const r = vidalsaDB.query("SELECT * FROM user_session LIMIT 1");
@@ -111,16 +101,8 @@
         `;
     }
 
-    function isOfflineMode() {
-        // Tres formas: navegador offline, modo forzado en sessionStorage, o ?offline=1 en URL
-        if (!navigator.onLine) return true;
-        if (sessionStorage.getItem('vidalsa_offline_mode') === '1') return true;
-        if (new URLSearchParams(location.search).get('offline') === '1') return true;
-        return false;
-    }
-
     async function maybeActivate() {
-        if (!isOfflineMode()) return;
+        if (!isOffline()) return;
         if (!isSupportedPath()) return;
         await activate();
     }

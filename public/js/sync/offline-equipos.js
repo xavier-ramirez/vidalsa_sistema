@@ -1,4 +1,4 @@
-/* global vidalsaDB, vidalsaOutbox, vidalsaSync */
+/* global vidalsaDB, vidalsaOutbox, vidalsaOffline */
 /**
  * Vista offline de /admin/equipos.
  *
@@ -12,26 +12,16 @@
  *     en vidalsaOutbox y aparecen como "pendientes" hasta que vuelva la red.
  *
  * NUNCA reemplaza la vista cuando hay internet — la PWA se comporta como siempre.
+ *
+ * Helpers (escapeHtml, findHost, isSupportedPath, isOffline) vienen de
+ * window.vidalsaOffline (offline-guard.js).
  */
 (function () {
     'use strict';
 
     const SUPPORTED_PATHS = ['/admin/equipos'];
-
-    function escapeHtml(s) {
-        if (s === null || s === undefined) return '';
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    }
-
-    function isSupportedPath() {
-        const p = location.pathname;
-        return SUPPORTED_PATHS.some(prefix => p === prefix || p.startsWith(prefix + '/'));
-    }
-
-    function findHost() {
-        return document.querySelector('main.main-viewport') || document.querySelector('main') || document.body;
-    }
+    const { escapeHtml, findHost, isSupportedPath: _isSupported, isOffline } = window.vidalsaOffline;
+    const isSupportedPath = () => _isSupported(SUPPORTED_PATHS);
 
     async function getCachedUser() {
         await vidalsaDB.init();
@@ -485,15 +475,8 @@
         });
     }
 
-    function isOfflineMode() {
-        if (!navigator.onLine) return true;
-        if (sessionStorage.getItem('vidalsa_offline_mode') === '1') return true;
-        if (new URLSearchParams(location.search).get('offline') === '1') return true;
-        return false;
-    }
-
     async function maybeActivate() {
-        if (!isOfflineMode()) return;
+        if (!isOffline()) return;
         if (!isSupportedPath()) return;
         await vidalsaDB.init();
         await activate();

@@ -1,29 +1,16 @@
-/* global vidalsaDB */
+/* global vidalsaDB, vidalsaOffline */
 /**
  * Vista offline de /admin/movilizaciones (historial).
  *
  * Lee de movilizacion_historial en SQLite. Solo activa cuando offline.
- * Filtros simples: texto libre (origen/destino/equipo) + por equipo.
+ * Filtros simples: texto libre (origen/destino/equipo).
  */
 (function () {
     'use strict';
 
     const SUPPORTED_PATHS = ['/admin/movilizaciones'];
-
-    function escapeHtml(s) {
-        if (s === null || s === undefined) return '';
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    }
-
-    function isSupportedPath() {
-        const p = location.pathname;
-        return SUPPORTED_PATHS.some(prefix => p === prefix || p.startsWith(prefix + '/'));
-    }
-
-    function findHost() {
-        return document.querySelector('main.main-viewport') || document.querySelector('main') || document.body;
-    }
+    const { escapeHtml, findHost, isSupportedPath: _isSupported, isOffline } = window.vidalsaOffline;
+    const isSupportedPath = () => _isSupported(SUPPORTED_PATHS);
 
     function fmtDate(iso) {
         if (!iso) return '—';
@@ -114,15 +101,8 @@
         if (search) search.addEventListener('input', () => render(listMovs(search.value)));
     }
 
-    function isOfflineMode() {
-        if (!navigator.onLine) return true;
-        if (sessionStorage.getItem('vidalsa_offline_mode') === '1') return true;
-        if (new URLSearchParams(location.search).get('offline') === '1') return true;
-        return false;
-    }
-
     async function maybeActivate() {
-        if (!isOfflineMode()) return;
+        if (!isOffline()) return;
         if (!isSupportedPath()) return;
         await vidalsaDB.init();
         await activate();

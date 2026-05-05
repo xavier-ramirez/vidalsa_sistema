@@ -38,6 +38,31 @@
         return false;
     }
 
+    function escapeHtml(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function findHost() {
+        return document.querySelector('main.main-viewport')
+            || document.querySelector('main')
+            || document.body;
+    }
+
+    function isSupportedPath(prefixes) {
+        const p = location.pathname;
+        return prefixes.some(prefix => p === prefix || p.startsWith(prefix + '/'));
+    }
+
+    // Helpers expuestos para los módulos offline-* (evita duplicar 9 funciones)
+    window.vidalsaOffline = {
+        isOffline: isOfflineMode,
+        escapeHtml,
+        findHost,
+        isSupportedPath,
+    };
+
     if (!isOfflineMode()) return;
 
     // 1) Interceptar fetch
@@ -95,16 +120,11 @@
         };
     }
 
-    // 3) Interceptar setter de location.href también
-    try {
-        const desc = Object.getOwnPropertyDescriptor(Window.prototype, 'location') ||
-                     Object.getOwnPropertyDescriptor(window, 'location');
-        // location es no-configurable en la mayoría de navegadores → no podemos
-        // overridear el setter. Confiamos en assign/replace + el hecho de que
-        // los redirects internos suelen pasar por assign().
-    } catch { /* ignore */ }
+    // location.href es no-configurable en la mayoría de navegadores, así que no se
+    // puede interceptar su setter. Confiamos en assign()/replace() (vías típicas
+    // de los redirects programáticos internos).
 
-    // 4) Marca CSS
+    // 3) Marca CSS
     document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('vidalsa-offline-locked');
     });
