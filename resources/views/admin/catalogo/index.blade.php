@@ -271,8 +271,15 @@
     @php
         $reqModelo = request('modelo');
         $reqAnio   = request('anio');
+        $reqTipo   = request('id_tipo');
         $modeloLabel = ($reqModelo && $reqModelo !== 'all') ? $reqModelo : '';
         $anioLabel   = ($reqAnio   && $reqAnio   !== 'all') ? $reqAnio   : '';
+        // Buscar el nombre del tipo seleccionado para mostrarlo en el placeholder
+        $tipoLabel = '';
+        if ($reqTipo && $reqTipo !== 'all') {
+            $found = ($availableTipos ?? collect())->firstWhere('id', (int) $reqTipo);
+            $tipoLabel = $found ? $found->nombre : '';
+        }
     @endphp
     <form id="catalogoFilters" method="GET" action="{{ route('catalogo.index') }}"
           onsubmit="event.preventDefault(); catSubmit();">
@@ -301,6 +308,35 @@
                     <div class="cat-opt" data-label="{{ $mod }}"
                          onmousedown="event.preventDefault(); catSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');">
                         {{ $mod }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Tipo de Equipo --}}
+        <div class="cat-filter {{ $reqTipo && $reqTipo !== 'all' ? 'active' : '' }}">
+            <input type="hidden" id="catValTipo" name="id_tipo" value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}" data-filter-value>
+            <div class="cat-filter-box">
+                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
+                    <i class="material-icons" style="font-size:18px;">category</i>
+                </div>
+                <input type="text" id="catTxtTipo" name="filter_search_dropdown_t" placeholder="{{ $tipoLabel ?: 'Filtrar Tipo...' }}"
+                       value="{{ $tipoLabel }}" autocomplete="off"
+                       oninput="catFilterList('tipo', this.value)"
+                       onfocus="catOpenList('tipo')"
+                       onclick="catOpenList('tipo')"
+                       onblur="setTimeout(()=>catCloseList('tipo'),200)">
+                @if($reqTipo && $reqTipo !== 'all')
+                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); catSelect('tipo','','');">close</i>
+                @endif
+            </div>
+            <div id="catListTipo" class="cat-list">
+                <div class="cat-opt placeholder" data-label="TODOS LOS TIPOS"
+                     onmousedown="event.preventDefault(); catSelect('tipo','','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
+                @foreach(($availableTipos ?? []) as $t)
+                    <div class="cat-opt" data-label="{{ $t->nombre }}"
+                         onmousedown="event.preventDefault(); catSelect('tipo','{{ $t->id }}','{{ addslashes($t->nombre) }}');">
+                        {{ $t->nombre }}
                     </div>
                 @endforeach
             </div>
@@ -372,7 +408,12 @@
             document.getElementById('catalogoFilters').submit();
         }
     }
-    function _catCap(p) { return p === 'modelo' ? 'Modelo' : 'Anio'; }
+    function _catCap(p) {
+        if (p === 'modelo') return 'Modelo';
+        if (p === 'anio')   return 'Anio';
+        if (p === 'tipo')   return 'Tipo';
+        return p;
+    }
     function catOpenList(p) {
         var l = document.getElementById('catList' + _catCap(p));
         if (!l) return;

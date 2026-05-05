@@ -68,6 +68,18 @@ class CaracteristicaModeloController extends Controller
             $query->where('ANIO_ESPEC', $request->anio);
         }
 
+        // 3. Filter by Tipo de Equipo (vínculo via equipos.ID_ESPEC + equipos.id_tipo_equipo).
+        //    Como `caracteristicas_modelo` no tiene columna TIPO propia, filtramos por
+        //    catálogos que estén siendo usados por al menos un equipo del tipo seleccionado.
+        if ($request->filled('id_tipo') && $request->id_tipo !== 'all') {
+            $query->whereIn('ID_ESPEC', function ($sub) use ($request) {
+                $sub->select('ID_ESPEC')
+                    ->from('equipos')
+                    ->whereNotNull('ID_ESPEC')
+                    ->where('id_tipo_equipo', $request->id_tipo);
+            });
+        }
+
         // Stats Calculation (Based on current filters)
         $statsQuery = $query->clone();
         $totalCount = $statsQuery->count();
@@ -86,6 +98,12 @@ class CaracteristicaModeloController extends Controller
         // This matches Equipo logic: Load all available options regardless of current filter
         $availableModelos = CaracteristicaModelo::select('MODELO')->distinct()->orderBy('MODELO')->pluck('MODELO');
         $availableAnios = CaracteristicaModelo::select('ANIO_ESPEC')->distinct()->orderBy('ANIO_ESPEC', 'desc')->pluck('ANIO_ESPEC');
+        // Tipos disponibles: solo los que tienen al menos un equipo vinculado a un catálogo.
+        $availableTipos = \App\Models\TipoEquipo::whereIn('id', function ($q) {
+                $q->select('id_tipo_equipo')->from('equipos')->whereNotNull('ID_ESPEC')->distinct();
+            })
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
 
         // JSON Response for AJAX
         if ($request->wantsJson() && $request->has('ajax_load')) {
@@ -102,7 +120,7 @@ class CaracteristicaModeloController extends Controller
             ]);
         }
 
-        return view('admin.catalogo.index', compact('catalogos', 'availableModelos', 'availableAnios', 'totalCount', 'modelCounts'));
+        return view('admin.catalogo.index', compact('catalogos', 'availableModelos', 'availableAnios', 'availableTipos', 'totalCount', 'modelCounts'));
     }
 
     public function create()
