@@ -1602,16 +1602,26 @@
                 // Set source and setup load listener
                 if (iframe) {
                     iframe.onload = function () {
-                        // El evento onload del iframe se dispara cuando el
-                        // RECURSO termina de cargar — pero el visor PDF nativo
-                        // del navegador (PDFium / PDF.js) tarda algunos cientos
-                        // de ms mas en renderizar la primera pagina. Si ocultamos
-                        // el spinner ahora, el usuario ve un fondo gris vacio
-                        // hasta que el PDF aparezca.
-                        // Buffer extra de 1200ms para que el visor pinte antes
-                        // de revelar el iframe. (loaderTimeout de 5s sigue como
-                        // fallback maximo si onload nunca dispara.)
-                        const PDF_RENDER_BUFFER = 1200;
+                        // FILTRO ANTI-SPURIOUS: el setter iframe.src='' anterior
+                        // dispara un evento load asincrono para about:blank ANTES
+                        // de que cargue el PDF real. Sin este filtro, el handler
+                        // se ejecuta para about:blank y oculta el spinner antes
+                        // de que el PDF empiece siquiera a cargar — el bug que
+                        // mostraba "modal abierto + sin spinner + gris + PDF
+                        // tarde". Ignoramos cualquier load que no sea del PDF.
+                        const src = this.src || '';
+                        if (!src || src === 'about:blank' || src.indexOf('about:blank') !== -1) {
+                            return;
+                        }
+
+                        // El evento onload del iframe (con src real) se dispara
+                        // cuando el RECURSO termina de descargar — pero el visor
+                        // PDF nativo del navegador (PDFium / PDF.js) tarda algunos
+                        // cientos de ms mas en renderizar la primera pagina.
+                        // Buffer extra para que el visor pinte antes de revelar
+                        // el iframe. (loaderTimeout de 5s sigue como fallback
+                        // maximo si onload nunca dispara para el PDF real.)
+                        const PDF_RENDER_BUFFER = 1500;
                         setTimeout(hideLoaderWhenReady, PDF_RENDER_BUFFER);
                     };
 
