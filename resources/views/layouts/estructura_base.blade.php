@@ -68,6 +68,18 @@
             }
         }
 
+        /* Visor PDF: en movil ocultar el texto, queda solo el icono */
+        @media (max-width: 640px) {
+            #pdfPrintBtn .btn-label,
+            #pdfDownloadBtn .btn-label {
+                display: none;
+            }
+            #pdfPrintBtn,
+            #pdfDownloadBtn {
+                padding: 6px 9px;
+            }
+        }
+
         /* CRITICAL CSS: Prevent Layout Shift / FOUC */
         body {
             /* Matches menu.css padding-top */
@@ -790,13 +802,15 @@
 
 
                     <button id="pdfDownloadBtn" onclick="downloadPdfDirect(this.dataset.url, this.dataset.label)"
+                        title="Descargar"
                         style="background: #3182ce; border: none; padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 5px; color: white; border-radius: 4px;">
-                        <i class="material-icons" style="font-size: 16px;">download</i> Descargar
+                        <i class="material-icons" style="font-size: 16px;">download</i><span class="btn-label">Descargar</span>
                     </button>
 
                     <button id="pdfPrintBtn" type="button" onclick="printPdfFromPreview()"
+                        title="Imprimir"
                         style="background: #6366f1; border: none; padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 5px; color: white; border-radius: 4px;">
-                        <i class="material-icons" style="font-size: 16px;">print</i> Imprimir
+                        <i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>
                     </button>
 
                     @if(auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('user.edit') || auth()->user()->can('super.admin')))
@@ -1406,7 +1420,7 @@
                 // Show loading state
                 if (downloadBtn) {
                     downloadBtn.disabled = true;
-                    downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span> Descargando...';
+                    downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span><span class="btn-label">Descargando...</span>';
                 }
 
                 // Generate filename
@@ -1431,7 +1445,7 @@
                     document.body.removeChild(a);
                     if (downloadBtn) {
                         downloadBtn.disabled = false;
-                        downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px;">download</span> Descargar';
+                        downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px;">download</span><span class="btn-label">Descargar</span>';
                     }
                 }, 800);
             };
@@ -1456,8 +1470,8 @@
                     if (!printBtn) return;
                     printBtn.disabled = loading;
                     printBtn.innerHTML = loading
-                        ? '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span> Preparando...'
-                        : '<i class="material-icons" style="font-size: 16px;">print</i> Imprimir';
+                        ? '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span><span class="btn-label">Preparando...</span>'
+                        : '<i class="material-icons" style="font-size: 16px;">print</i><span class="btn-label">Imprimir</span>';
                 };
 
                 // 1) Intento same-origin sobre el iframe ya abierto
