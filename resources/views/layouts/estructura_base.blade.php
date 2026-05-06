@@ -794,6 +794,11 @@
                         <i class="material-icons" style="font-size: 16px;">download</i> Descargar
                     </button>
 
+                    <button id="pdfPrintBtn" type="button" onclick="printPdfFromPreview()"
+                        style="background: #6366f1; border: none; padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 5px; color: white; border-radius: 4px;">
+                        <i class="material-icons" style="font-size: 16px;">print</i> Imprimir
+                    </button>
+
                     @if(auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('user.edit') || auth()->user()->can('super.admin')))
                         <label id="pdfUpdateLabel" for="pdfUpdateInput"
                             style="background: #059669; border: none; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: white; border-radius: 50%; transition: transform 0.2s; cursor: pointer;"
@@ -1431,6 +1436,81 @@
                 }, 800);
             };
 
+            // Imprime el PDF que esta en el visor sin descargarlo. Estrategia:
+            //   1) iframe.contentWindow.print() directo — solo funciona si el PDF
+            //      es same-origin (raro con Drive, pero gratis intentarlo).
+            //   2) fetch -> Blob -> iframe oculto -> print() — funciona si el
+            //      navegador ya tiene el PDF en cache (lo trae del cache HTTP).
+            //      Si Drive bloquea por CORS, esta opcion falla.
+            //   3) Fallback: abrir en pestana nueva. El usuario imprime con Ctrl+P.
+            window.printPdfFromPreview = function () {
+                const printBtn = document.getElementById('pdfPrintBtn');
+                const dlBtn = document.getElementById('pdfDownloadBtn');
+                const url = dlBtn ? dlBtn.dataset.url : '';
+                if (!url) {
+                    alert('No hay documento para imprimir.');
+                    return;
+                }
+
+                const setBtnLoading = (loading) => {
+                    if (!printBtn) return;
+                    printBtn.disabled = loading;
+                    printBtn.innerHTML = loading
+                        ? '<span class="material-icons" style="font-size: 16px; animation: spin 1s linear infinite;">sync</span> Preparando...'
+                        : '<i class="material-icons" style="font-size: 16px;">print</i> Imprimir';
+                };
+
+                // 1) Intento same-origin sobre el iframe ya abierto
+                try {
+                    const visibleFrame = document.getElementById('pdfPreviewFrame');
+                    if (visibleFrame && visibleFrame.contentWindow && visibleFrame.style.display !== 'none') {
+                        visibleFrame.contentWindow.focus();
+                        visibleFrame.contentWindow.print();
+                        return;
+                    }
+                } catch (_) { /* cross-origin: cae al fetch */ }
+
+                // 2) Fetch (usa cache HTTP si existe) -> Blob -> iframe oculto
+                setBtnLoading(true);
+                fetch(url, { credentials: 'include', cache: 'force-cache' })
+                    .then(r => {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.blob();
+                    })
+                    .then(blob => {
+                        const blobUrl = URL.createObjectURL(blob);
+                        const printFrame = document.createElement('iframe');
+                        printFrame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+                        printFrame.src = blobUrl;
+                        document.body.appendChild(printFrame);
+                        printFrame.onload = () => {
+                            try {
+                                printFrame.contentWindow.focus();
+                                printFrame.contentWindow.print();
+                            } catch (e) {
+                                console.warn('print iframe error:', e);
+                            } finally {
+                                setBtnLoading(false);
+                                // El blobUrl + iframe se limpian un rato despues
+                                // para no cancelar el dialogo de impresion abierto.
+                                setTimeout(() => {
+                                    URL.revokeObjectURL(blobUrl);
+                                    if (printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
+                                }, 60000);
+                            }
+                        };
+                    })
+                    .catch(err => {
+                        console.warn('No se pudo imprimir via fetch:', err);
+                        setBtnLoading(false);
+                        // 3) Fallback: nueva pestana — el usuario imprime con Ctrl+P
+                        const w = window.open(url, '_blank');
+                        if (!w) {
+                            alert('No se pudo imprimir el PDF. El navegador bloqueo el popup. Permite popups e intenta de nuevo, o usa el boton Descargar.');
+                        }
+                    });
+            };
+
             window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skipMetadata, module) {
                 const modal = document.getElementById('pdfPreviewModal');
                 const iframe = document.getElementById('pdfPreviewFrame');
@@ -1462,14 +1542,15 @@
 
                 // Set Content
                 if (title) title.innerText = label || 'Documento';
+                const printBtn = document.getElementById('pdfPrintBtn');
+                const showActions = !!url && url.length >= 5;
                 if (downloadBtn) {
                     downloadBtn.dataset.url = url;
                     downloadBtn.dataset.label = label || 'documento';
-                    if (!url || url.length < 5) {
-                        downloadBtn.style.display = 'none';
-                    } else {
-                        downloadBtn.style.display = 'flex';
-                    }
+                    downloadBtn.style.display = showActions ? 'flex' : 'none';
+                }
+                if (printBtn) {
+                    printBtn.style.display = showActions ? 'flex' : 'none';
                 }
 
                 // Track timing to ensure loader shows for minimum duration
