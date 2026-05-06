@@ -1602,7 +1602,17 @@
                 // Set source and setup load listener
                 if (iframe) {
                     iframe.onload = function () {
-                        hideLoaderWhenReady();
+                        // El evento onload del iframe se dispara cuando el
+                        // RECURSO termina de cargar — pero el visor PDF nativo
+                        // del navegador (PDFium / PDF.js) tarda algunos cientos
+                        // de ms mas en renderizar la primera pagina. Si ocultamos
+                        // el spinner ahora, el usuario ve un fondo gris vacio
+                        // hasta que el PDF aparezca.
+                        // Buffer extra de 1200ms para que el visor pinte antes
+                        // de revelar el iframe. (loaderTimeout de 5s sigue como
+                        // fallback maximo si onload nunca dispara.)
+                        const PDF_RENDER_BUFFER = 1200;
+                        setTimeout(hideLoaderWhenReady, PDF_RENDER_BUFFER);
                     };
 
                     iframe.onerror = function () {
