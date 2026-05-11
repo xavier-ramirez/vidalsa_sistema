@@ -302,12 +302,12 @@
                 {{-- Busqueda Serial: solo dispara consulta auto con 4+ caracteres o cuando se vacia
                      el campo (para limpiar resultados). Enter fuerza la busqueda inmediata. --}}
                 <input type="text" id="auxSearchInput" name="search" value="{{ request('search') }}" placeholder="Filtrar Serial (min. 4 chars)..."
-                       oninput="window._auxDebounce && clearTimeout(window._auxDebounce); const __v=this.value.trim(); if(__v.length===0||__v.length>=4){ window._auxDebounce = setTimeout(cargarAuxiliares, 300); }"
+                       oninput="window.auxToggleSerialClear && window.auxToggleSerialClear(this); window._auxDebounce && clearTimeout(window._auxDebounce); const __v=this.value.trim(); if(__v.length===0||__v.length>=4){ window._auxDebounce = setTimeout(cargarAuxiliares, 300); }"
                        onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._auxDebounce && clearTimeout(window._auxDebounce); cargarAuxiliares(); }"
                        style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;" autocomplete="off">
-                <i class="material-icons"
+                <i id="aux_main_clr_search" class="material-icons"
                    style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ request('search') ? 'block' : 'none' }};"
-                   onclick="event.stopPropagation(); document.getElementById('auxSearchInput').value=''; cargarAuxiliares();">close</i>
+                   onclick="event.stopPropagation(); var i=document.getElementById('auxSearchInput'); i.value=''; this.style.display='none'; cargarAuxiliares();">close</i>
             </div>
 
             @php
@@ -2012,6 +2012,18 @@
             var text = (opt.dataset.label || opt.textContent).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
             opt.style.display = (term === '' || text.includes(term)) ? 'block' : 'none';
         });
+        // X visible mientras se escribe (mismo patron que /admin/equipos): asi el
+        // usuario puede limpiar el input antes incluso de elegir una opcion.
+        var clr = document.getElementById('aux_main_clr_' + prefix);
+        if (clr) clr.style.display = (q && q.length > 0) ? 'block' : 'none';
+    };
+
+    // Toggle de la X del filtro Serial mientras el usuario escribe. El input
+    // de Serial es texto libre (no autocomplete) por eso no pasa por auxMainSelect.
+    window.auxToggleSerialClear = function (input) {
+        var clr = document.getElementById('aux_main_clr_search');
+        if (!clr) return;
+        clr.style.display = (input && input.value && input.value.length > 0) ? 'block' : 'none';
     };
 
     window.auxMainOpen = function (prefix) {

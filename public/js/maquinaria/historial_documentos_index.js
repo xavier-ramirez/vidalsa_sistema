@@ -140,6 +140,17 @@ window.checkHistorialClearBtn = function(inputId, btnId) {
     }
 };
 
+// Toggle de X para inputs type=date (Fecha desde / Fecha hasta).
+// El picker nativo emite onchange tanto al elegir como al borrar, asi la X
+// se sincroniza con el valor real del input sin depender de keyup.
+window.hdToggleDateClear = function(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    if(input && btn) {
+        btn.style.display = input.value ? 'inline-flex' : 'none';
+    }
+};
+
 // Listeners manuales para los text inputs
 document.addEventListener('DOMContentLoaded', function() {
     const inputs = ['searchCorreo', 'searchEquipo'];

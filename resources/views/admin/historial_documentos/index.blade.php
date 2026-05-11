@@ -236,12 +236,13 @@
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchCorreo" name="search_correo"
-                                placeholder="Buscar por correo autor..." 
+                                value="{{ request('search_correo') }}"
+                                placeholder="Buscar por correo autor..."
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
                                 onkeyup="window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo')">
-                            <i id="btn_clear_searchCorreo" class="material-icons clear-icon" style="display: none;" onclick="clearHistorialFilter('btn_clear_searchCorreo', 'searchCorreo');">close</i>
+                            <i id="btn_clear_searchCorreo" class="material-icons clear-icon" style="display: {{ request('search_correo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchCorreo', 'searchCorreo');">close</i>
                         </div>
                     </form>
                 </div>
@@ -251,30 +252,35 @@
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
                             <i class="material-icons search-icon">search</i>
-                            <input type="text" id="searchEquipo" name="search_equipo" 
-                                placeholder="Buscar por placa o serial..." 
+                            <input type="text" id="searchEquipo" name="search_equipo"
+                                value="{{ request('search_equipo') }}"
+                                placeholder="Buscar por placa o serial..."
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
                                 onkeyup="window.checkHistorialClearBtn('searchEquipo', 'btn_clear_searchEquipo')">
-                            <i id="btn_clear_searchEquipo" class="material-icons clear-icon" style="display: none;" onclick="clearHistorialFilter('btn_clear_searchEquipo', 'searchEquipo');">close</i>
+                            <i id="btn_clear_searchEquipo" class="material-icons clear-icon" style="display: {{ request('search_equipo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchEquipo', 'searchEquipo');">close</i>
                         </div>
                     </form>
                 </div>
 
                 <!-- Filter Tipo de Accion -->
+                @php
+                    $reqTipo = request('search_tipo');
+                    $tipoActivo = $reqTipo && $reqTipo !== 'all';
+                @endphp
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Acción..." style="width: 100%;">
-                        <input type="hidden" name="search_tipo" data-filter-value value="">
+                        <input type="hidden" name="search_tipo" data-filter-value value="{{ $reqTipo ?: '' }}">
 
-                        <div class="dropdown-trigger" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+                        <div class="dropdown-trigger {{ $tipoActivo ? 'filter-active' : '' }}" style="background: {{ $tipoActivo ? '#e1effa' : '#fbfcfd' }}; border: 1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }}; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
 
                             <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
                                 <i class="material-icons" style="font-size: 18px;">search</i>
                             </div>
 
                             <input type="text" name="filter_search_dropdown" data-filter-search
-                                placeholder="Filtrar Acción..."
+                                placeholder="{{ $tipoActivo ? $reqTipo : 'Filtrar Acción...' }}"
                                 style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
                                 onkeyup="window.filterDropdownOptions(this)"
                                 onfocus="this.closest('.custom-dropdown').classList.add('active')"
@@ -282,7 +288,7 @@
 
                             <div style="display: flex; align-items: center; padding-right: 10px;">
                                 <i class="material-icons" data-clear-btn
-                                   style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: none;"
+                                   style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ $tipoActivo ? 'block' : 'none' }};"
                                    onclick="event.stopPropagation(); clearDropdownFilter('tipoDocFilterSelect'); window.loadHistorialDocumentos();"
                                    title="Limpiar filtro">close</i>
                             </div>
@@ -290,7 +296,7 @@
 
                         <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
                             <div class="dropdown-item-list" style="max-height: 320px; overflow-y: auto;">
-                                <div class="dropdown-item selected" data-value="all" onclick="selectOption('tipoDocFilterSelect', 'all', 'TODAS LAS ACCIONES'); window.loadHistorialDocumentos();">
+                                <div class="dropdown-item {{ !$tipoActivo ? 'selected' : '' }}" data-value="all" onclick="selectOption('tipoDocFilterSelect', 'all', 'TODAS LAS ACCIONES'); window.loadHistorialDocumentos();">
                                     TODAS LAS ACCIONES
                                 </div>
 
@@ -348,21 +354,33 @@
                         <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
                             Filtros Avanzados
                             <span style="font-size:11px; color:#64748b; font-weight:400; text-decoration:underline; cursor:pointer;"
-                                  onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; window.loadHistorialDocumentos && window.loadHistorialDocumentos();">Limpiar</span>
+                                  onclick="document.getElementById('hdFechaDesde').value=''; document.getElementById('hdFechaHasta').value=''; var x1=document.getElementById('hdClrFechaDesde'); if(x1)x1.style.display='none'; var x2=document.getElementById('hdClrFechaHasta'); if(x2)x2.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();">Limpiar</span>
                         </h4>
                         <div style="margin-bottom:10px;">
                             <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha desde</span>
-                            <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
-                                onchange="window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
-                                onclick="try { this.showPicker(); } catch(e) {}"
-                                style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="date" id="hdFechaDesde" name="fecha_desde" value="{{ request('fecha_desde') }}"
+                                    onchange="window.hdToggleDateClear && window.hdToggleDateClear('hdFechaDesde','hdClrFechaDesde'); window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
+                                    onclick="try { this.showPicker(); } catch(e) {}"
+                                    style="flex:1; min-width:0; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_desde') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_desde') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                                <i id="hdClrFechaDesde" class="material-icons"
+                                   style="display:{{ request('fecha_desde') ? 'inline-flex' : 'none' }}; cursor:pointer; color:#64748b; font-size:18px; padding:6px;"
+                                   onclick="event.stopPropagation(); var d=document.getElementById('hdFechaDesde'); d.value=''; this.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();"
+                                   title="Limpiar fecha desde">close</i>
+                            </div>
                         </div>
                         <div>
                             <span style="display:block; font-size:11px; font-weight:600; color:#64748b; margin-bottom:5px;">Fecha hasta</span>
-                            <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
-                                onchange="window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
-                                onclick="try { this.showPicker(); } catch(e) {}"
-                                style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="date" id="hdFechaHasta" name="fecha_hasta" value="{{ request('fecha_hasta') }}"
+                                    onchange="window.hdToggleDateClear && window.hdToggleDateClear('hdFechaHasta','hdClrFechaHasta'); window.loadHistorialDocumentos && window.loadHistorialDocumentos()"
+                                    onclick="try { this.showPicker(); } catch(e) {}"
+                                    style="flex:1; min-width:0; box-sizing:border-box; padding:7px 10px; border:1px solid {{ request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; border-radius:8px; font-size:13px; color:#334155; background:{{ request('fecha_hasta') ? '#e1effa' : 'white' }}; cursor:pointer;">
+                                <i id="hdClrFechaHasta" class="material-icons"
+                                   style="display:{{ request('fecha_hasta') ? 'inline-flex' : 'none' }}; cursor:pointer; color:#64748b; font-size:18px; padding:6px;"
+                                   onclick="event.stopPropagation(); var d=document.getElementById('hdFechaHasta'); d.value=''; this.style.display='none'; window.loadHistorialDocumentos && window.loadHistorialDocumentos();"
+                                   title="Limpiar fecha hasta">close</i>
+                            </div>
                         </div>
                     </div>
                 </div>
