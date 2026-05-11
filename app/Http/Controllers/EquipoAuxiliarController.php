@@ -168,8 +168,6 @@ class EquipoAuxiliarController extends Controller
             }
         }
         $frentes = $frentesQuery->get();
-        // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
-        $tipos = $this->getTiposDinamicos();
         $estados = EquipoAuxiliar::estadosLabel();
 
         // Listas para los dropdowns de filtros avanzados.
@@ -183,6 +181,23 @@ class EquipoAuxiliarController extends Controller
                 }
             }
         };
+
+        // TIPOS para el filtro del listado: solo los que realmente existen en
+        // la BD (scoped al alcance del usuario). Antes se mezclaba el enum
+        // hardcoded de tiposLabel() y aparecian opciones que no filtraban nada
+        // cuando no habia filas de ese tipo. Los labels bonitos del enum se
+        // siguen aplicando si el codigo existe alli; si no, se genera uno
+        // legible a partir del codigo.
+        $tiposLabels = EquipoAuxiliar::tiposLabel();
+        $tiposEnDB = EquipoAuxiliar::select('TIPO')
+            ->whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->tap($advBaseScope)
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+        $tipos = [];
+        foreach ($tiposEnDB as $t) {
+            $tipos[$t] = $tiposLabels[$t] ?? ucwords(mb_strtolower(str_replace('_', ' ', $t)));
+        }
+        asort($tipos);
         $availableMarcas = EquipoAuxiliar::select('MARCA')
             ->whereNotNull('MARCA')->where('MARCA', '!=', '')
             ->tap($advBaseScope)
