@@ -213,6 +213,7 @@
     .alertas-modal-content .alertas-panel-body {
         flex: 1;
         overflow-y: auto;
+        scrollbar-gutter: stable; /* reserva el espacio del scroll SIEMPRE: al filtrar no se mueve el contenido (ni los botones) */
         padding: 4px 14px 14px;
     }
     @keyframes alertasFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -624,6 +625,7 @@
         max-height: 420px;
         overflow-y: auto;
         overflow-x: hidden;
+        scrollbar-gutter: stable; /* reserva el espacio del scroll SIEMPRE: al filtrar no se mueve el contenido */
         background: #fff;
     }
     .alertas-panel-body::-webkit-scrollbar { width: 6px; }

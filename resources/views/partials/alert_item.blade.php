@@ -54,8 +54,10 @@
         </div>
     </div>
 
-    {{-- Botones (Acciones) --}}
-    <div style="flex-shrink: 0; display: flex; gap: 5px; align-items: center;">
+    {{-- Botones (Acciones). Ancho fijo (32 + 5 + 32 = 69px) para que el botón "ojo"
+         quede SIEMPRE en la misma posición tenga la tarjeta 1 o 2 botones (las que están
+         "en gestión" no muestran el 2º botón). --}}
+    <div style="flex-shrink: 0; display: flex; gap: 5px; align-items: center; width: 69px;">
         <button type="button"
             data-equipo-id="{{ $equipoId }}"
             data-codigo="{{ $alert->equipo->CODIGO_PATIO }}"
