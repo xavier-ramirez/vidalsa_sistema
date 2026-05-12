@@ -872,8 +872,6 @@ class EquipoController extends Controller
                 $sheet->setCellValue('I'.$rowNum, $placaVal);
                 $sheet->setCellValue('J'.$rowNum, $anioVal);
                 $sheet->setCellValue('K'.$rowNum, $estadoVal);
-
-                $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
             } else {
                 $sheet->setCellValue('B'.$rowNum, $tipoVal);
                 $sheet->setCellValue('C'.$rowNum, $marcaVal);
