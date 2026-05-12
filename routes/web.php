@@ -171,7 +171,39 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('fallas/{id}/close',     [App\Http\Controllers\FallaController::class, 'close'])        ->name('fallas.close');
             Route::get  ('fallas',                [App\Http\Controllers\FallaController::class, 'index'])        ->name('fallas.index');
 
+            // ── Almacén / Inventario ─────────────────────────────────────────
+            // Permisos (claves en columna PERMISOS, gateados en AlmacenController::__construct):
+            //   almacen.view · almacen.view.all · almacen.manage · almacen.movimiento
+            // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
+            Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
 
+            // Páginas standalone (mismas vistas que los modales del módulo, pero como página normal)
+            Route::get   ('almacen/historial',                    [App\Http\Controllers\AlmacenController::class, 'movimientosPage'])  ->name('almacen.historial');
+            Route::get   ('almacen/alertas',                      [App\Http\Controllers\AlmacenController::class, 'alertasPage'])      ->name('almacen.alertas');
+
+            // Datos (JSON)
+            Route::get   ('almacen/lista',                        [App\Http\Controllers\AlmacenController::class, 'almacenes'])        ->name('almacen.lista');
+            Route::get   ('almacen/productos',                    [App\Http\Controllers\AlmacenController::class, 'productos'])        ->name('almacen.productos');
+            Route::get   ('almacen/productos/categorias',         [App\Http\Controllers\AlmacenController::class, 'categorias'])       ->name('almacen.productos.categorias');
+            Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
+            Route::get   ('almacen/alertas-stock-bajo',           [App\Http\Controllers\AlmacenController::class, 'alertasStockBajo'])->name('almacen.alertasStockBajo');
+            Route::get   ('almacen/producto/{idProducto}/stock',  [App\Http\Controllers\AlmacenController::class, 'stockProducto'])    ->whereNumber('idProducto')->name('almacen.producto.stock');
+            Route::get   ('almacen/almacenes/{idAlmacen}/stock',  [App\Http\Controllers\AlmacenController::class, 'stock'])            ->whereNumber('idAlmacen')->name('almacen.stock');
+
+            // Movimientos de inventario (entradas / salidas / ajustes / traspasos)
+            Route::post  ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'registrarMovimiento'])->name('almacen.movimientos.store');
+            Route::post  ('almacen/traspasos',                    [App\Http\Controllers\AlmacenController::class, 'registrarTraspaso']) ->name('almacen.traspasos.store');
+            Route::post  ('almacen/almacenes/{idAlmacen}/asegurar-stock', [App\Http\Controllers\AlmacenController::class, 'asegurarStock'])->whereNumber('idAlmacen')->name('almacen.asegurarStock');
+            Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
+
+            // Productos (catálogo global)
+            Route::post  ('almacen/productos',                    [App\Http\Controllers\AlmacenController::class, 'storeProducto'])   ->name('almacen.productos.store');
+            Route::patch ('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateProducto'])  ->whereNumber('id')->name('almacen.productos.update');
+            Route::delete('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'destroyProducto']) ->whereNumber('id')->name('almacen.productos.destroy');
+
+            // Almacenes (CRUD + asociación de frentes)
+            Route::post  ('almacen/almacenes',                    [App\Http\Controllers\AlmacenController::class, 'storeAlmacen'])    ->name('almacen.almacenes.store');
+            Route::patch ('almacen/almacenes/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateAlmacen'])   ->whereNumber('id')->name('almacen.almacenes.update'); // los frentes asociados se mandan en el body de este PATCH
 
             // ── Auditoría Documental ─────────────────────────────────────────
             Route::middleware('can:super.admin')->group(function () {

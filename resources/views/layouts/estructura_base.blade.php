@@ -490,10 +490,10 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">home</i>Inicio
             </a>
 
-            {{-- Flota Dropdown: agrupa Vehiculo + Equipos Auxiliares --}}
+            {{-- Flota Dropdown: agrupa Vehiculo + Equipos Auxiliares + Reporte de Fallas + Consumibles --}}
             <div class="nav-dropdown">
                 <a href="#"
-                    class="nav-link {{ (request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) || request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}"
+                    class="nav-link {{ (request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) || request()->is('admin/equipos-auxiliares*') || request()->is('admin/fallas*') || request()->is('admin/consumibles*')) ? 'active' : '' }}"
                     style="display: flex; align-items: center; gap: 4px;">
                     <i class="material-icons" style="font-size: 18px;">agriculture</i>Flota
                     <i class="material-icons" style="font-size: 16px;">expand_more</i>
@@ -507,27 +507,63 @@
                         class="nav-dropdown-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
                         <i class="material-icons">construction</i> Equipos Auxiliares
                     </a>
+                    <a href="{{ route('fallas.index') }}"
+                        class="nav-dropdown-link {{ request()->is('admin/fallas*') ? 'active' : '' }}">
+                        <i class="material-icons">report_problem</i> Reporte de Fallas
+                    </a>
+                    <a href="{{ route('consumibles.graficos') }}"
+                        class="nav-dropdown-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
+                        <i class="material-icons">local_gas_station</i> Consumibles
+                    </a>
                 </div>
             </div>
             <a href="{{ route('movilizaciones.index') }}"
                 class="nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}"
                 style="display: flex; align-items: center;">
-                <i class="material-icons" style="font-size: 18px; margin-right: 5px;">local_shipping</i>Historial Mov.
+                <i class="material-icons" style="font-size: 18px; margin-right: 5px;">local_shipping</i>Historial Mov
             </a>
 
-            <a href="{{ route('fallas.index') }}"
-                class="nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}"
-                style="display:flex; align-items:center;">
-                <i class="material-icons" style="font-size:18px; margin-right:5px;">report_problem</i>Reporte de Fallas
-            </a>
+            {{-- Almacén Dropdown: Stock + Movimientos + Alertas + acciones (deep-link a los modales del módulo) --}}
+            <div class="nav-dropdown">
+                <a href="#"
+                    class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
+                    style="display: flex; align-items: center; gap: 4px;">
+                    <i class="material-icons" style="font-size: 18px;">warehouse</i>Almacén
+                    <i class="material-icons" style="font-size: 16px;">expand_more</i>
+                </a>
+                <div class="nav-dropdown-content">
+                    <a href="{{ route('almacen.index') }}"
+                        class="nav-dropdown-link {{ request()->is('admin/almacen') ? 'active' : '' }}">
+                        <i class="material-icons">inventory_2</i> Stock / Inventario
+                    </a>
+                    <a href="{{ route('almacen.historial') }}"
+                        class="nav-dropdown-link {{ request()->is('admin/almacen/historial') ? 'active' : '' }}">
+                        <i class="material-icons">receipt_long</i> Movimientos
+                    </a>
+                    <a href="{{ route('almacen.alertas') }}"
+                        class="nav-dropdown-link {{ request()->is('admin/almacen/alertas') ? 'active' : '' }}">
+                        <i class="material-icons">warning</i> Alertas de stock
+                    </a>
+                    @can('almacen.movimiento')
+                    <a href="{{ route('almacen.index', ['modal' => 'traspaso']) }}" class="nav-dropdown-link">
+                        <i class="material-icons">swap_horiz</i> Traspaso
+                    </a>
+                    @endcan
+                    @can('almacen.manage')
+                    <a href="{{ route('almacen.index', ['modal' => 'admin']) }}" class="nav-dropdown-link">
+                        <i class="material-icons">warehouse</i> Gestionar almacenes
+                    </a>
+                    <a href="{{ route('almacen.index', ['modal' => 'almacen']) }}" class="nav-dropdown-link">
+                        <i class="material-icons">add_business</i> Nuevo almacén
+                    </a>
+                    <a href="{{ route('almacen.index', ['modal' => 'producto']) }}" class="nav-dropdown-link">
+                        <i class="material-icons">add_circle</i> Nuevo producto
+                    </a>
+                    @endcan
+                </div>
+            </div>
 
             <!-- Configuraciones Dropdown -->
-            <a href="{{ route('consumibles.graficos') }}"
-                class="nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}"
-                style="display:flex; align-items:center;">
-                <i class="material-icons" style="font-size:18px; margin-right:5px;">local_gas_station</i>Consumibles
-            </a>
-
             <div class="nav-dropdown">
                 <a href="#"
                     class="nav-link {{ (request()->is('admin/usuarios*') || request()->is('admin/frentes*')) ? 'active' : '' }}"
@@ -636,7 +672,7 @@
             <i class="material-icons">home</i> Inicio
         </a>
 
-        {{-- Flota: grupo colapsable con Vehiculo + Activos Auxiliares --}}
+        {{-- Flota: grupo colapsable con Vehiculo + Activos Auxiliares + Reporte de Fallas + Consumibles --}}
         <div class="mobile-nav-group" id="mobileFlotaGroup">
             <div class="mobile-nav-group-title">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -654,20 +690,60 @@
                     class="mobile-nav-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
                     <i class="material-icons">construction</i> Equipos Auxiliares
                 </a>
+                <a href="{{ route('fallas.index') }}"
+                    class="mobile-nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}">
+                    <i class="material-icons">report_problem</i> Reporte de Fallas
+                </a>
+                <a href="{{ route('consumibles.graficos') }}"
+                    class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
+                    <i class="material-icons">local_gas_station</i> Consumibles
+                </a>
             </div>
         </div>
         <a href="{{ route('movilizaciones.index') }}"
             class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
-            <i class="material-icons">local_shipping</i> Historial Mov.
+            <i class="material-icons">local_shipping</i> Historial Mov
         </a>
-        <a href="{{ route('fallas.index') }}"
-            class="mobile-nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}">
-            <i class="material-icons">report_problem</i> Reporte de Fallas
-        </a>
-        <a href="{{ route('consumibles.graficos') }}"
-            class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
-            <i class="material-icons">local_gas_station</i> Consumibles
-        </a>
+        {{-- Almacén: grupo colapsable con Stock + Movimientos + Alertas + acciones --}}
+        <div class="mobile-nav-group" id="mobileAlmacenGroup">
+            <div class="mobile-nav-group-title">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="material-icons">warehouse</i>
+                    Almacén
+                </div>
+                <i class="material-icons chevron">expand_more</i>
+            </div>
+            <div class="mobile-nav-group-content">
+                <a href="{{ route('almacen.index') }}"
+                    class="mobile-nav-link {{ request()->is('admin/almacen') ? 'active' : '' }}">
+                    <i class="material-icons">inventory_2</i> Stock / Inventario
+                </a>
+                <a href="{{ route('almacen.historial') }}"
+                    class="mobile-nav-link {{ request()->is('admin/almacen/historial') ? 'active' : '' }}">
+                    <i class="material-icons">receipt_long</i> Movimientos
+                </a>
+                <a href="{{ route('almacen.alertas') }}"
+                    class="mobile-nav-link {{ request()->is('admin/almacen/alertas') ? 'active' : '' }}">
+                    <i class="material-icons">warning</i> Alertas de stock
+                </a>
+                @can('almacen.movimiento')
+                <a href="{{ route('almacen.index', ['modal' => 'traspaso']) }}" class="mobile-nav-link">
+                    <i class="material-icons">swap_horiz</i> Traspaso
+                </a>
+                @endcan
+                @can('almacen.manage')
+                <a href="{{ route('almacen.index', ['modal' => 'admin']) }}" class="mobile-nav-link">
+                    <i class="material-icons">warehouse</i> Gestionar almacenes
+                </a>
+                <a href="{{ route('almacen.index', ['modal' => 'almacen']) }}" class="mobile-nav-link">
+                    <i class="material-icons">add_business</i> Nuevo almacén
+                </a>
+                <a href="{{ route('almacen.index', ['modal' => 'producto']) }}" class="mobile-nav-link">
+                    <i class="material-icons">add_circle</i> Nuevo producto
+                </a>
+                @endcan
+            </div>
+        </div>
 
         <!-- Mobile Group -->
         <div class="mobile-nav-group" id="mobileConfigGroup">
