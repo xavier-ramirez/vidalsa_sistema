@@ -765,7 +765,7 @@ class EquipoController extends Controller
         $sheet->getStyle('A1:'.$lastCol.'4')->applyFromArray($headerBorders);
 
         // Fila 5 - Encabezados de tabla (las 4 últimas: documentación cargada SÍ/NO)
-        $docHeaders = ['TÍTULO DE PROPIEDAD', 'PÓLIZA DE SEGURO', 'REGISTRO RACDA', 'REGISTRO ROTC'];
+        $docHeaders = ['TÍTULO DE PROPIEDAD', 'PÓLIZA', 'RACDA', 'ROTC'];
         if ($showFrenteCol) {
             $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
             $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
@@ -796,10 +796,10 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('I')->setWidth(18);
             $sheet->getColumnDimension('J')->setWidth(10);
             $sheet->getColumnDimension('K')->setWidth(20);
-            $sheet->getColumnDimension('L')->setWidth(20); // Título de propiedad
-            $sheet->getColumnDimension('M')->setWidth(18); // Póliza de seguro
-            $sheet->getColumnDimension('N')->setWidth(16); // Registro RACDA
-            $sheet->getColumnDimension('O')->setWidth(16); // Registro ROTC
+            $sheet->getColumnDimension('L')->setWidth(20); // Título de propiedad (SÍ/NO)
+            $sheet->getColumnDimension('M')->setWidth(12); // Póliza (SÍ/NO)
+            $sheet->getColumnDimension('N')->setWidth(11); // RACDA (SÍ/NO)
+            $sheet->getColumnDimension('O')->setWidth(11); // ROTC (SÍ/NO)
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(32);
@@ -811,10 +811,10 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('H')->setWidth(18);
             $sheet->getColumnDimension('I')->setWidth(10);
             $sheet->getColumnDimension('J')->setWidth(20);
-            $sheet->getColumnDimension('K')->setWidth(20); // Título de propiedad
-            $sheet->getColumnDimension('L')->setWidth(18); // Póliza de seguro
-            $sheet->getColumnDimension('M')->setWidth(16); // Registro RACDA
-            $sheet->getColumnDimension('N')->setWidth(16); // Registro ROTC
+            $sheet->getColumnDimension('K')->setWidth(20); // Título de propiedad (SÍ/NO)
+            $sheet->getColumnDimension('L')->setWidth(12); // Póliza (SÍ/NO)
+            $sheet->getColumnDimension('M')->setWidth(11); // RACDA (SÍ/NO)
+            $sheet->getColumnDimension('N')->setWidth(11); // ROTC (SÍ/NO)
         }
 
         $printedIds = [];
