@@ -83,6 +83,24 @@
     .alm-tipo-btn:hover { border-color:#94a3b8; }
     .alm-tipo-btn.active { background:var(--maquinaria-blue,#0067b1); border-color:var(--maquinaria-blue,#0067b1); color:#fff; }
 
+    /* Modal "Nuevo producto": título y botones centrados */
+    #almProductoModal .alm-modal-head { justify-content:center; position:relative; }
+    #almProductoModal .alm-modal-head .alm-x { position:absolute; right:18px; top:50%; transform:translateY(-50%); }
+    #almProductoModal .alm-modal-foot { justify-content:center; }
+
+    /* Sugerencias de los filtros (mismo look que los desplegables de la app) */
+    .alm-suggest {
+        position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff;
+        border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
+    }
+    .alm-suggest.open { display:block; animation:slideDown 0.15s ease-out; }
+    .alm-suggest-item { display:flex; flex-direction:column; gap:1px; padding:7px 12px; border-radius:8px; cursor:pointer; transition:background 0.15s; }
+    .alm-suggest-item:hover, .alm-suggest-item.active { background:#f0f4f8; }
+    .alm-suggest-item .cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; }
+    .alm-suggest-item .nom { font-size:12.5px; color:#475569; }
+    .alm-suggest-empty { padding:9px 12px; font-size:12.5px; color:#94a3b8; }
+
     @media (max-width: 768px) {
         #almFilters .alm-filter { max-width: none; flex: 1 1 100%; }
         .counter-sidebar { gap: 10px !important; }
@@ -90,10 +108,9 @@
 </style>
 
 @php
-    $reqAlm   = $almacenSel?->ID_ALMACEN;
-    $reqDesc  = request('search_desc');
-    $reqCod   = request('search_codigo');
-    $reqCat   = request('categoria');
+    $reqAlm    = $almacenSel?->ID_ALMACEN;
+    $reqBuscar = request('search');
+    $reqCat    = request('categoria');
     $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
     $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
     $st = $stats ?? ['total' => '—', 'con_saldo' => '—', 'stock_bajo' => '—', 'unidades' => 0];
@@ -137,19 +154,17 @@
             </div>
         </div>
 
-        {{-- Descripción (autocomplete con lista de recomendación) --}}
-        <div class="alm-filter {{ $reqDesc ? 'active' : '' }}">
+        {{-- Buscar (código o descripción) — con sugerencias estilo app --}}
+        <div class="alm-filter {{ $reqBuscar ? 'active' : '' }}" style="flex:1.8 1 240px;">
             <div class="alm-filter-box">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
-                <input type="text" id="almFiltroDesc" list="almDescList" autocomplete="off"
-                       placeholder="Buscar por descripción..." value="{{ $reqDesc }}"
-                       oninput="almDebounce(almCargar)">
-                <i class="material-icons filter-clear" style="display:{{ $reqDesc ? 'flex' : 'none' }};"
-                   onclick="document.getElementById('almFiltroDesc').value='';this.style.display='none';almCargar();">close</i>
+                <input type="text" id="almFiltroBuscar" autocomplete="off"
+                       placeholder="Buscar por código o descripción…" value="{{ $reqBuscar }}"
+                       oninput="window.almBuscarInput()" onfocus="window.almBuscarSuggest()">
+                <i class="material-icons filter-clear" style="display:{{ $reqBuscar ? 'flex' : 'none' }};"
+                   onclick="window.almBuscarLimpiar()">close</i>
             </div>
-            <datalist id="almDescList">
-                @foreach(($recomDescripciones ?? collect()) as $d)<option value="{{ $d }}">@endforeach
-            </datalist>
+            <div class="alm-suggest" id="almFiltroBuscarSuggest"></div>
         </div>
 
         {{-- Categoría --}}
@@ -164,21 +179,6 @@
                 </select>
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;color:#94a3b8;">expand_more</i></span>
             </div>
-        </div>
-
-        {{-- Código (autocomplete) --}}
-        <div class="alm-filter {{ $reqCod ? 'active' : '' }}" style="flex:0.8 1 160px;">
-            <div class="alm-filter-box">
-                <span class="alm-ic"><i class="material-icons" style="font-size:18px;">tag</i></span>
-                <input type="text" id="almFiltroCod" list="almCodList" autocomplete="off"
-                       placeholder="Código..." value="{{ $reqCod }}"
-                       oninput="almDebounce(almCargar)">
-                <i class="material-icons filter-clear" style="display:{{ $reqCod ? 'flex' : 'none' }};"
-                   onclick="document.getElementById('almFiltroCod').value='';this.style.display='none';almCargar();">close</i>
-            </div>
-            <datalist id="almCodList">
-                @foreach(($recomCodigos ?? collect()) as $c)<option value="{{ $c }}">@endforeach
-            </datalist>
         </div>
 
         {{-- Acciones (botón desplegable estilo /admin/equipos) --}}
@@ -633,6 +633,8 @@
     var ROUTE_INDEX   = @json(route('almacen.index'));
     var ROUTE_MOV     = @json(route('almacen.movimientos.store'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
+    // Catálogo de productos (CODIGO/NOMBRE/UM) — lo usan las sugerencias del filtro "Buscar" y los selects del modal de movimientos.
+    window.almProductosLista = @json($productosLista ?? collect());
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
@@ -652,17 +654,16 @@
     function filtros() {
         var p = new URLSearchParams();
         var alm = val('almSelAlmacen'); if (alm) p.set('id_almacen', alm);
-        var d = val('almFiltroDesc');   if (d)   p.set('search_desc', d);
-        var c = val('almFiltroCod');    if (c)   p.set('search_codigo', c);
+        var b   = val('almFiltroBuscar'); if (b) p.set('search', b);
         var cat = val('almFiltroCat');  if (cat) p.set('categoria', cat);
         var sb = el('almSoloBajo');     if (sb && sb.checked) p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
         // reflejar estado "active" en los wrappers
         var setActive = function (sel, on) { var w = sel && sel.closest('.alm-filter'); if (w) w.classList.toggle('active', !!on); };
-        setActive(el('almFiltroDesc'), d); setActive(el('almFiltroCod'), c); setActive(el('almFiltroCat'), cat && cat !== 'all');
-        // toggle de las "x" de limpiar
+        setActive(el('almFiltroBuscar'), b); setActive(el('almFiltroCat'), cat && cat !== 'all');
+        // toggle de la "x" de limpiar
         var tx = function (inputId) { var i = el(inputId); if (!i) return; var x = i.parentElement.querySelector('.filter-clear'); if (x) x.style.display = i.value ? 'flex' : 'none'; };
-        tx('almFiltroDesc'); tx('almFiltroCod');
+        tx('almFiltroBuscar');
         return p;
     }
 
@@ -674,7 +675,7 @@
             var u = new URL(url, window.location.origin);
             // fusionar filtros actuales en la URL de paginación (y limpiar los obsoletos)
             var f = filtros(); f.forEach(function (v, k) { u.searchParams.set(k, v); });
-            ['id_almacen','search_desc','search_codigo','categoria','solo_bajo','solo_con_saldo'].forEach(function (k) { if (!f.has(k)) u.searchParams.delete(k); });
+            ['id_almacen','search','categoria','solo_bajo','solo_con_saldo'].forEach(function (k) { if (!f.has(k)) u.searchParams.delete(k); });
             finalUrl = u.toString();
         } else {
             finalUrl = ROUTE_INDEX + '?' + filtros().toString();
@@ -715,7 +716,9 @@
 
     // ── helpers desde el sidebar / distribución ──
     window.almVerTodo = function () {
-        el('almFiltroDesc').value = ''; el('almFiltroCod').value = ''; el('almFiltroCat').value = '';
+        if (el('almFiltroBuscar')) el('almFiltroBuscar').value = '';
+        if (el('almFiltroCat')) el('almFiltroCat').value = '';
+        almSuggestHide();
         if (el('almSoloBajo')) el('almSoloBajo').checked = false;
         soloConSaldo = false;
         almCargar();
@@ -723,6 +726,59 @@
     window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCargar(); };
     window.almFiltrarConSaldo = function () { soloConSaldo = true; if (el('almSoloBajo')) el('almSoloBajo').checked = false; almCargar(); };
     window.almFiltrarBajo = function () { if (el('almSoloBajo')) el('almSoloBajo').checked = true; soloConSaldo = false; almCargar(); };
+
+    // ── Autocompletado del filtro "Buscar" (código o descripción), con el look de los desplegables de la app ──
+    function almNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
+    function almSuggestHide() { var box = el('almFiltroBuscarSuggest'); if (box) box.classList.remove('open'); }
+    window.almBuscarSuggest = function () {
+        var inp = el('almFiltroBuscar'), box = el('almFiltroBuscarSuggest');
+        if (!inp || !box) return;
+        var term = almNorm(inp.value.trim());
+        var lista = window.almProductosLista || [];
+        var matches;
+        if (term === '') {
+            matches = lista.slice(0, 12); // foco sin texto → primeros productos
+        } else {
+            matches = [];
+            for (var i = 0; i < lista.length && matches.length < 12; i++) {
+                var p = lista[i];
+                if (almNorm(p.CODIGO).indexOf(term) > -1 || almNorm(p.NOMBRE).indexOf(term) > -1) matches.push(p);
+            }
+        }
+        if (!matches.length) {
+            box.innerHTML = '<div class="alm-suggest-empty">Sin coincidencias.</div>';
+        } else {
+            box.innerHTML = matches.map(function (p) {
+                var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
+                var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
+                return '<div class="alm-suggest-item" data-pick="' + cod + '">'
+                     + (cod ? '<span class="cod">' + cod + '</span>' : '')
+                     + '<span class="nom">' + nom + '</span></div>';
+            }).join('');
+        }
+        box.classList.add('open');
+    };
+    window.almBuscarInput = function () {
+        window.almBuscarSuggest();
+        almDebounce(almCargar);
+    };
+    window.almBuscarPick = function (codigo) {
+        var inp = el('almFiltroBuscar'); if (inp) inp.value = codigo;
+        almSuggestHide();
+        almCargar();
+    };
+    window.almBuscarLimpiar = function () {
+        var inp = el('almFiltroBuscar'); if (inp) inp.value = '';
+        almSuggestHide();
+        almCargar();
+    };
+    // Click en una sugerencia / click fuera / Escape
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('#almFiltroBuscarSuggest .alm-suggest-item');
+        if (item) { e.preventDefault(); window.almBuscarPick(item.getAttribute('data-pick') || ''); return; }
+        if (!e.target.closest('.alm-filter')) almSuggestHide();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') almSuggestHide(); });
 
     // ── paginación (event delegation) ──
     document.addEventListener('click', function (e) {
@@ -1067,8 +1123,7 @@
     // ════════════════════════════════════════════════════════════════════════
     @if($puedeMover)
     var ROUTE_DOC = @json(route('almacen.movimientos.lote'));
-    // $productosLista ya viene con solo ID_PRODUCTO/CODIGO/NOMBRE/UM (ver AlmacenController@index).
-    window.almProductosLista = @json($productosLista ?? collect());
+    // window.almProductosLista ya se definió arriba (catálogo de productos), lo reusa el modal de movimientos.
 
     var DOC_DESC = {
         ENTRADA:  'Mete producto AL almacén desde afuera del sistema (compra, devolución de proveedor). Sube el saldo.',

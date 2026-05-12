@@ -57,7 +57,7 @@ class AlmacenController extends Controller
      * - wantsJson()  → { html (filas), pagination, stats, distribucionHtml, almacen }
      *   para los cambios de filtro/paginación sin recargar toda la página.
      *
-     * Filtros: id_almacen, search_desc (NOMBRE), search_codigo (CODIGO), categoria,
+     * Filtros: id_almacen, search (busca en CODIGO o NOMBRE), categoria,
      *          solo_bajo (1), solo_con_saldo (1).
      */
     public function index(Request $request)
@@ -100,25 +100,22 @@ class AlmacenController extends Controller
 
         $productos = $hayInventario ? $productosQuery->paginate(50)->withQueryString() : null;
 
-        // Listas para los filtros (autocomplete / dropdown) y los selectores de los modales.
-        $categorias = $this->categoriasDistintas();
-        $recomDescripciones = ProductoInventario::activos()->orderBy('NOMBRE')->limit(1000)->pluck('NOMBRE');
-        $recomCodigos       = ProductoInventario::activos()->orderBy('CODIGO')->limit(1000)->pluck('CODIGO');
-        $productosLista     = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
-        $frentesLista       = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
+        // Listas para los filtros y los selectores de los modales.
+        // $productosLista alimenta el autocompletado del filtro "Buscar" (código/descripción) y los <select> de los modales.
+        $categorias    = $this->categoriasDistintas();
+        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
+        $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
         return view('admin.almacen.index', [
-            'almacenes'          => $almacenes,
-            'almacenSel'         => $almacenSel,
-            'productos'          => $productos,
-            'categorias'         => $categorias,
-            'recomDescripciones' => $recomDescripciones,
-            'recomCodigos'       => $recomCodigos,
-            'productosLista'     => $productosLista,
-            'frentesLista'       => $frentesLista,
-            'stats'              => $this->statsInventario($idAlmacenSel, $request),
-            'distribucion'       => $this->distribucionPorCategoria($idAlmacenSel, $request),
-            'esGlobal'           => Almacen::usuarioEsGlobal($user),
+            'almacenes'      => $almacenes,
+            'almacenSel'     => $almacenSel,
+            'productos'      => $productos,
+            'categorias'     => $categorias,
+            'productosLista' => $productosLista,
+            'frentesLista'   => $frentesLista,
+            'stats'          => $this->statsInventario($idAlmacenSel, $request),
+            'distribucion'   => $this->distribucionPorCategoria($idAlmacenSel, $request),
+            'esGlobal'       => Almacen::usuarioEsGlobal($user),
         ]);
     }
 
@@ -178,11 +175,12 @@ class AlmacenController extends Controller
             }
         });
 
-        if ($request->filled('search_desc')) {
-            $q->where('productos_inventario.NOMBRE', 'like', '%' . trim($request->input('search_desc')) . '%');
-        }
-        if ($request->filled('search_codigo')) {
-            $q->where('productos_inventario.CODIGO', 'like', '%' . trim($request->input('search_codigo')) . '%');
+        if ($request->filled('search')) {
+            $term = trim((string) $request->input('search'));
+            $q->where(function ($s) use ($term) {
+                $s->where('productos_inventario.CODIGO', 'like', "%{$term}%")
+                  ->orWhere('productos_inventario.NOMBRE', 'like', "%{$term}%");
+            });
         }
         if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
             $q->where('productos_inventario.CATEGORIA', trim($request->input('categoria')));
