@@ -241,7 +241,11 @@
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
+                                list="hdCorreosList"
                                 onkeyup="window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo')">
+                            <datalist id="hdCorreosList">
+                                @foreach(($correosAutores ?? collect()) as $correo)<option value="{{ $correo }}">@endforeach
+                            </datalist>
                             <i id="btn_clear_searchCorreo" class="material-icons clear-icon" style="display: {{ request('search_correo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchCorreo', 'searchCorreo');">close</i>
                         </div>
                     </form>

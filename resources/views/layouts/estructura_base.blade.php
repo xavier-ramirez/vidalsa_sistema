@@ -9,12 +9,13 @@
 
     {{-- ===== PWA ===== --}}
     <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ @filemtime(public_path('manifest.json')) }}">
-    {{-- Sin theme-color: respetamos el color nativo de la barra del navegador (gris claro por defecto). --}}
+    {{-- Barra de estado (status bar) BLANCA en la PWA, para que cuadre con el fondo de la app. --}}
+    <meta name="theme-color" content="#ffffff">
     <meta name="application-name" content="Sistema Vidalsa">
     <meta name="mobile-web-app-capable" content="yes">
-    {{-- iOS: homescreen / standalone --}}
+    {{-- iOS: homescreen / standalone. 'default' = barra de estado blanca con texto/iconos oscuros. --}}
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Sistema Vidalsa">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180.png') }}">
     <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('icons/icon-152.png') }}">

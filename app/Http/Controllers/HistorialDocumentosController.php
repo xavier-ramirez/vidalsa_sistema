@@ -458,11 +458,19 @@ class HistorialDocumentosController extends Controller
             ]);
         }
 
+        // Correos de usuarios → para el autocompletado (datalist) del filtro "Buscar por correo autor".
+        $correosAutores = \App\Models\Usuario::whereNotNull('CORREO_ELECTRONICO')
+            ->where('CORREO_ELECTRONICO', '!=', '')
+            ->orderBy('CORREO_ELECTRONICO')
+            ->distinct()
+            ->pluck('CORREO_ELECTRONICO');
+
         return view('admin.historial_documentos.index', [
-            'events'      => $paginatedEvents,
-            'total'       => $total,
-            'blockedIps'  => $blockedIps,
-            'activeUsers' => $activeUsers,
+            'events'         => $paginatedEvents,
+            'total'          => $total,
+            'blockedIps'     => $blockedIps,
+            'activeUsers'    => $activeUsers,
+            'correosAutores' => $correosAutores,
         ]);
     }
 
