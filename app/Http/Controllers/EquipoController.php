@@ -765,7 +765,8 @@ class EquipoController extends Controller
         $sheet->getStyle('A1:'.$lastCol.'4')->applyFromArray($headerBorders);
 
         // Fila 5 - Encabezados de tabla (las 4 últimas: documentación cargada SÍ/NO)
-        $docHeaders = ['TÍTULO DE PROPIEDAD', 'PÓLIZA', 'RACDA', 'ROTC'];
+        // "TÍTULO DE PROPIEDAD" se parte en 2 líneas (la fila 5 tiene wrap text).
+        $docHeaders = ["TÍTULO DE\nPROPIEDAD", 'PÓLIZA', 'RACDA', 'ROTC'];
         if ($showFrenteCol) {
             $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
             $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
@@ -779,9 +780,10 @@ class EquipoController extends Controller
         }
         $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A5:'.$lastCol.'5')->getAlignment()->setWrapText(true); // encabezados largos en 2 líneas
         $sheet->getStyle('A5:'.$lastCol.'5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
         $sheet->getStyle('A5:'.$lastCol.'5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
-        $sheet->getRowDimension(5)->setRowHeight(35);
+        $sheet->getRowDimension(5)->setRowHeight(40);
 
         // Anchos de columna dinámicos
         if ($showFrenteCol) {
@@ -796,7 +798,7 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('I')->setWidth(18);
             $sheet->getColumnDimension('J')->setWidth(10);
             $sheet->getColumnDimension('K')->setWidth(20);
-            $sheet->getColumnDimension('L')->setWidth(20); // Título de propiedad (SÍ/NO)
+            $sheet->getColumnDimension('L')->setWidth(13); // Título de propiedad (SÍ/NO; encabezado en 2 líneas)
             $sheet->getColumnDimension('M')->setWidth(12); // Póliza (SÍ/NO)
             $sheet->getColumnDimension('N')->setWidth(11); // RACDA (SÍ/NO)
             $sheet->getColumnDimension('O')->setWidth(11); // ROTC (SÍ/NO)
@@ -811,7 +813,7 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('H')->setWidth(18);
             $sheet->getColumnDimension('I')->setWidth(10);
             $sheet->getColumnDimension('J')->setWidth(20);
-            $sheet->getColumnDimension('K')->setWidth(20); // Título de propiedad (SÍ/NO)
+            $sheet->getColumnDimension('K')->setWidth(13); // Título de propiedad (SÍ/NO; encabezado en 2 líneas)
             $sheet->getColumnDimension('L')->setWidth(12); // Póliza (SÍ/NO)
             $sheet->getColumnDimension('M')->setWidth(11); // RACDA (SÍ/NO)
             $sheet->getColumnDimension('N')->setWidth(11); // ROTC (SÍ/NO)
@@ -872,7 +874,6 @@ class EquipoController extends Controller
                 $sheet->setCellValue('K'.$rowNum, $estadoVal);
 
                 $sheet->getStyle('B'.$rowNum)->getAlignment()->setWrapText(true);
-                $sheet->getStyle('K'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             } else {
                 $sheet->setCellValue('B'.$rowNum, $tipoVal);
                 $sheet->setCellValue('C'.$rowNum, $marcaVal);
@@ -936,6 +937,12 @@ class EquipoController extends Controller
                 $sheet->getStyle('G'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle('H'.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             }
+
+            // AÑO y ESTADO: siempre centrados (independiente del layout con/sin FRENTE)
+            $colAnio   = $showFrenteCol ? 'J' : 'I';
+            $colEstado = $showFrenteCol ? 'K' : 'J';
+            $sheet->getStyle($colAnio.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle($colEstado.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             // Altura fija
             $sheet->getRowDimension($rowNum)->setRowHeight(30);
