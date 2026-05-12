@@ -545,8 +545,11 @@
                         <i class="material-icons">warning</i> Alertas de stock
                     </a>
                     @can('almacen.movimiento')
-                    <a href="{{ route('almacen.index', ['modal' => 'traspaso']) }}" class="nav-dropdown-link">
-                        <i class="material-icons">swap_horiz</i> Traspaso
+                    <a href="{{ route('almacen.index', ['modal' => 'doc']) }}" class="nav-dropdown-link">
+                        <i class="material-icons">post_add</i> Nuevo movimiento
+                    </a>
+                    <a href="{{ route('almacen.index', ['modal' => 'surtir']) }}" class="nav-dropdown-link">
+                        <i class="material-icons">local_shipping</i> Surtir sub-almacén
                     </a>
                     @endcan
                     @can('almacen.manage')
@@ -727,8 +730,11 @@
                     <i class="material-icons">warning</i> Alertas de stock
                 </a>
                 @can('almacen.movimiento')
-                <a href="{{ route('almacen.index', ['modal' => 'traspaso']) }}" class="mobile-nav-link">
-                    <i class="material-icons">swap_horiz</i> Traspaso
+                <a href="{{ route('almacen.index', ['modal' => 'doc']) }}" class="mobile-nav-link">
+                    <i class="material-icons">post_add</i> Nuevo movimiento
+                </a>
+                <a href="{{ route('almacen.index', ['modal' => 'surtir']) }}" class="mobile-nav-link">
+                    <i class="material-icons">local_shipping</i> Surtir sub-almacén
                 </a>
                 @endcan
                 @can('almacen.manage')

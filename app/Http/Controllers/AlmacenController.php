@@ -41,7 +41,7 @@ class AlmacenController extends Controller
             'storeProducto', 'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
-            'registrarMovimiento', 'registrarTraspaso', 'asegurarStock', 'actualizarMinimo',
+            'registrarMovimiento', 'registrarMovimientoLote', 'registrarTraspaso', 'asegurarStock', 'actualizarMinimo',
         ]);
     }
 
@@ -648,6 +648,94 @@ class AlmacenController extends Controller
             'message'    => 'Movimiento registrado.',
             'movimiento' => $mov->load('producto', 'almacen'),
         ], 201);
+    }
+
+    /**
+     * Registra un MOVIMIENTO con varias líneas — un "documento" de inventario al
+     * estilo de un ERP de tienda: ENTRADA / SALIDA / AJUSTE / TRASPASO con N
+     * productos, todo en UNA transacción (si una línea falla, no se aplica nada).
+     *
+     * Body:
+     *  - tipo                : ENTRADA | SALIDA | AJUSTE | TRASPASO
+     *  - id_almacen          : almacén (origen en TRASPASO)
+     *  - id_almacen_destino  : almacén destino (obligatorio sólo en TRASPASO)
+     *  - fecha, referencia, motivo, notas : opcionales
+     *  - id_frente           : opcional (consumo a un frente; sólo tiene sentido en SALIDA)
+     *  - permitir_negativo   : opcional (sólo super.admin)
+     *  - lineas              : [{ id_producto, cantidad }, ...]   (>= 1)
+     *                          en AJUSTE, "cantidad" es el SALDO OBJETIVO de ese producto.
+     */
+    public function registrarMovimientoLote(Request $request)
+    {
+        $tipos = ['ENTRADA', 'SALIDA', 'AJUSTE', 'TRASPASO'];
+
+        $data = $request->validate([
+            'tipo'                 => ['required', Rule::in($tipos)],
+            'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
+            'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN|different:id_almacen',
+            'fecha'                => 'nullable|date',
+            'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'referencia'           => 'nullable|string|max:100',
+            'motivo'               => 'nullable|string|max:200',
+            'notas'                => 'nullable|string',
+            'permitir_negativo'    => 'nullable|boolean',
+            'lineas'               => 'required|array|min:1',
+            'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            'lineas.*.cantidad'    => 'required|numeric',
+        ]);
+
+        if ($data['tipo'] === 'TRASPASO' && empty($data['id_almacen_destino'])) {
+            return response()->json(['message' => 'El traspaso necesita un almacén destino.'], 422);
+        }
+
+        $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
+        if (!empty($data['id_almacen_destino'])) {
+            $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen_destino']);
+        }
+
+        $opts = [
+            'fecha'             => $data['fecha'] ?? null,
+            'id_frente'         => $data['tipo'] === 'SALIDA' ? ($data['id_frente'] ?? null) : null,
+            'referencia'        => $data['referencia'] ?? null,
+            'motivo'            => $data['motivo'] ?? null,
+            'notas'             => $data['notas'] ?? null,
+            'id_usuario'        => optional($request->user())->ID_USUARIO,
+            'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
+        ];
+
+        try {
+            $n = DB::transaction(function () use ($data, $opts) {
+                $count = 0;
+                foreach ($data['lineas'] as $linea) {
+                    $idProducto = (int) $linea['id_producto'];
+                    $cantidad   = (float) $linea['cantidad'];
+
+                    match ($data['tipo']) {
+                        'ENTRADA'  => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
+                        'SALIDA'   => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
+                        'AJUSTE'   => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
+                        'TRASPASO' => $this->inventario->registrarTraspaso(
+                            (int) $data['id_almacen'],
+                            (int) $data['id_almacen_destino'],
+                            $idProducto,
+                            $cantidad,
+                            $opts + ['motivo' => $opts['motivo'] ?? 'Traspaso entre almacenes']
+                        ),
+                    };
+                    $count++;
+                }
+                return $count;
+            });
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $etiqueta = [
+            'ENTRADA' => 'Entrada registrada', 'SALIDA' => 'Salida registrada',
+            'AJUSTE'  => 'Ajuste aplicado',     'TRASPASO' => 'Traspaso registrado',
+        ][$data['tipo']] ?? 'Movimiento registrado';
+
+        return response()->json(['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'], 201);
     }
 
     /**

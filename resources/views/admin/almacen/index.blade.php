@@ -78,6 +78,10 @@
     .alm-pill { display: inline-block; background: #f1f5f9; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; color: #334155; }
     .alm-x { cursor: pointer; color: #94a3b8; }
     .alm-x:hover { color: #475569; }
+    /* Selector de tipo de movimiento (modal "Nuevo movimiento") */
+    .alm-tipo-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid #cbd5e0; background:#fff; color:#475569; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; transition:all .12s; }
+    .alm-tipo-btn:hover { border-color:#94a3b8; }
+    .alm-tipo-btn.active { background:var(--maquinaria-blue,#0067b1); border-color:var(--maquinaria-blue,#0067b1); color:#fff; }
 
     @media (max-width: 768px) {
         #almFilters .alm-filter { max-width: none; flex: 1 1 100%; }
@@ -188,7 +192,17 @@
                         onclick="window.almToggleAcciones(event)">
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
-                <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:240px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
+                <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:250px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
+                    @if($puedeMover)
+                    <button type="button" onclick="window.almAccion('doc')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">post_add</i></div>
+                        <span style="font-size:14px;font-weight:500;">Nuevo movimiento</span>
+                    </button>
+                    <button type="button" onclick="window.almAccion('surtir')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#dbeafe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">local_shipping</i></div>
+                        <span style="font-size:14px;font-weight:500;">Surtir sub-almacén</span>
+                    </button>
+                    @endif
                     <button type="button" onclick="window.almAccion('kardex')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">receipt_long</i></div>
                         <span style="font-size:14px;font-weight:500;">Movimientos</span>
@@ -197,12 +211,6 @@
                         <div style="background:#fef3c7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#b45309;">warning</i></div>
                         <span style="font-size:14px;font-weight:500;">Alertas de stock</span>
                     </button>
-                    @if($puedeMover)
-                    <button type="button" onclick="window.almAccion('traspaso')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#dbeafe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">swap_horiz</i></div>
-                        <span style="font-size:14px;font-weight:500;">Traspaso entre almacenes</span>
-                    </button>
-                    @endif
                     @if($puedeManage)
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
@@ -531,47 +539,84 @@
 </div>
 
 @if($puedeMover)
-{{-- Traspaso entre almacenes --}}
-<div id="almTraspasoModal" class="alm-modal-overlay">
-    <div class="alm-modal">
+{{-- ── Documento de movimiento de inventario: Entrada / Salida / Traspaso / Ajuste con N líneas (estilo ERP de tienda) ── --}}
+<div id="almDocModal" class="alm-modal-overlay">
+    <div class="alm-modal alm-modal-wide" style="max-width:760px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">swap_horiz</i> Traspaso entre almacenes</h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almTraspasoModal')">close</i>
+            <h3><i class="material-icons" id="almDocIcon" style="font-size:20px;">post_add</i> <span id="almDocTitulo">Nuevo movimiento</span></h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almDocModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;">
-                    <label>Desde (origen)</label>
-                    <select id="almTrOrigen">
-                        @foreach($almacenes as $a)<option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }}</option>@endforeach
-                    </select>
-                </div>
-                <div style="flex:1;">
-                    <label>Hacia (destino)</label>
-                    <select id="almTrDestino">
-                        @foreach($almacenes as $a)<option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }}</option>@endforeach
-                    </select>
-                </div>
-            </div>
+            {{-- Tipo de movimiento --}}
             <div>
-                <label>Producto</label>
-                <select id="almTrProducto">
-                    <option value="">— seleccionar —</option>
-                    @foreach(($productosLista ?? collect()) as $p)
-                        <option value="{{ $p->ID_PRODUCTO }}">{{ $p->CODIGO }} — {{ $p->NOMBRE }}</option>
-                    @endforeach
-                </select>
+                <label>Tipo de movimiento</label>
+                <div id="almDocTipos" style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="alm-tipo-btn" data-tipo="ENTRADA"  onclick="window.almDocSetTipo('ENTRADA')"><i class="material-icons" style="font-size:16px;">south_west</i> Entrada</button>
+                    <button type="button" class="alm-tipo-btn" data-tipo="SALIDA"   onclick="window.almDocSetTipo('SALIDA')"><i class="material-icons" style="font-size:16px;">north_east</i> Salida</button>
+                    <button type="button" class="alm-tipo-btn" data-tipo="TRASPASO" onclick="window.almDocSetTipo('TRASPASO')"><i class="material-icons" style="font-size:16px;">swap_horiz</i> Traspaso</button>
+                    <button type="button" class="alm-tipo-btn" data-tipo="AJUSTE"   onclick="window.almDocSetTipo('AJUSTE')"><i class="material-icons" style="font-size:16px;">tune</i> Ajuste</button>
+                </div>
+                <div id="almDocTipoDesc" style="font-size:12px;color:#64748b;margin-top:6px;line-height:1.4;"></div>
             </div>
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label>Cantidad *</label><input type="number" id="almTrCantidad" min="0.001" step="any" placeholder="0"></div>
-                <div style="flex:1;"><label>Referencia</label><input type="text" id="almTrReferencia" maxlength="100" placeholder="Opcional"></div>
+
+            {{-- Almacén(es) + frente --}}
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                    <label id="almDocAlmLabel">Almacén</label>
+                    <select id="almDocAlmacen" onchange="window.almDocOnAlmacenChange()">
+                        @foreach($almacenes as $a)<option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>@endforeach
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;" id="almDocDestinoWrap">
+                    <label>Almacén destino</label>
+                    <select id="almDocDestino" onchange="window.almDocOnAlmacenChange()">
+                        @foreach($almacenes as $a)<option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>@endforeach
+                    </select>
+                </div>
+                <div style="flex:1;min-width:200px;" id="almDocFrenteWrap">
+                    <label>Frente destino (opcional)</label>
+                    <select id="almDocFrente">
+                        <option value="">— ninguno —</option>
+                        @foreach(($frentesLista ?? collect()) as $f)<option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>@endforeach
+                    </select>
+                </div>
             </div>
-            <div><label>Notas</label><input type="text" id="almTrNotas" maxlength="200" placeholder="Opcional"></div>
-            <div id="almTrError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:140px;"><label>Fecha</label><input type="date" id="almDocFecha"></div>
+                <div style="flex:1.6;min-width:180px;"><label>Referencia (guía / factura / orden)</label><input type="text" id="almDocReferencia" maxlength="100" placeholder="Opcional"></div>
+            </div>
+            <div><label>Motivo / notas</label><input type="text" id="almDocMotivo" maxlength="200" placeholder="Opcional (compra, consumo, devolución, conteo físico...)"></div>
+
+            {{-- Líneas (productos) --}}
+            <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;flex-wrap:wrap;">
+                    <label style="margin:0;">Productos</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" id="almDocCargarBajoMin" onclick="window.almDocCargarBajoMinimo()" style="display:none;border:1px solid #fcd34d;background:#fffbeb;color:#b45309;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">
+                            <i class="material-icons" style="font-size:14px;vertical-align:middle;">playlist_add</i> Cargar lo que está bajo mínimo en el destino
+                        </button>
+                        <button type="button" onclick="window.almDocAddLinea()" style="border:1px solid #cbd5e0;background:#fff;color:#0067b1;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">
+                            <i class="material-icons" style="font-size:14px;vertical-align:middle;">add</i> Agregar producto
+                        </button>
+                    </div>
+                </div>
+                <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead><tr style="background:#f8fafc;">
+                            <th style="text-align:left;padding:7px 10px;font-size:10.5px;color:#64748b;text-transform:uppercase;font-weight:800;">Producto</th>
+                            <th id="almDocCantTh" style="text-align:right;padding:7px 10px;font-size:10.5px;color:#64748b;text-transform:uppercase;font-weight:800;width:150px;">Cantidad</th>
+                            <th style="width:36px;"></th>
+                        </tr></thead>
+                        <tbody id="almDocLineas"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="almDocError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almTraspasoModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarTraspaso()">Traspasar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almDocModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" id="almDocSubmit" onclick="window.almDocGuardar()">Registrar</button>
         </div>
     </div>
 </div>
@@ -587,7 +632,6 @@
 
     var ROUTE_INDEX   = @json(route('almacen.index'));
     var ROUTE_MOV     = @json(route('almacen.movimientos.store'));
-    var ROUTE_TRASP   = @json(route('almacen.traspasos.store'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
@@ -705,9 +749,11 @@
     window.almAccion = function (which) {
         var m = el('almAccionesMenu'); if (m) m.style.display = 'none';
         switch (which) {
+            case 'doc':      if (window.almAbrirDoc)            window.almAbrirDoc();            break;
+            case 'surtir':   if (window.almAbrirSurtir)         window.almAbrirSurtir();         break;
+            case 'traspaso': if (window.almAbrirDoc)            window.almAbrirDoc('TRASPASO');  break;
             case 'kardex':   if (window.almAbrirKardex)         window.almAbrirKardex();         break;
             case 'alertas':  if (window.almAbrirAlertas)        window.almAbrirAlertas();        break;
-            case 'traspaso': if (window.almAbrirTraspaso)       window.almAbrirTraspaso();       break;
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
@@ -1017,38 +1063,177 @@
     window.almEliminarProducto    = function () { toast('No tienes permiso para eliminar productos.', 'error'); };
     @endif
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  Documento de movimiento (ENTRADA / SALIDA / TRASPASO / AJUSTE con N líneas)
+    // ════════════════════════════════════════════════════════════════════════
     @if($puedeMover)
-    window.almAbrirTraspaso = function () {
-        var sel = val('almSelAlmacen'); if (sel) el('almTrOrigen').value = sel;
-        el('almTrProducto').value = ''; el('almTrCantidad').value = ''; el('almTrReferencia').value = ''; el('almTrNotas').value = '';
-        showErr('almTrError', ''); open('almTraspasoModal');
+    var ROUTE_DOC = @json(route('almacen.movimientos.lote'));
+    window.almProductosLista = @json(($productosLista ?? collect())->map(fn ($p) => ['ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE, 'UM' => $p->UM ?? ''])->values());
+
+    var DOC_DESC = {
+        ENTRADA:  'Mete producto AL almacén desde afuera del sistema (compra, devolución de proveedor). Sube el saldo.',
+        SALIDA:   'Saca producto DEL almacén hacia afuera del sistema (consumo en obra, merma, daño). Baja el saldo.',
+        TRASPASO: 'Mueve producto de un almacén A OTRO (p. ej. surtir un sub-almacén desde el almacén general). Baja en el origen y sube en el destino.',
+        AJUSTE:   'Fija el saldo del producto a un valor exacto (conteo físico / corrección). En cada línea escribe el SALDO que debe quedar.'
     };
-    window.almGuardarTraspaso = function () {
-        var origen = val('almTrOrigen'), destino = val('almTrDestino'), prod = val('almTrProducto'), cant = parseFloat(el('almTrCantidad').value);
-        if (!origen || !destino) { showErr('almTrError', 'Selecciona origen y destino.'); return; }
-        if (origen === destino) { showErr('almTrError', 'El origen y el destino no pueden ser el mismo almacén.'); return; }
-        if (!prod) { showErr('almTrError', 'Selecciona un producto.'); return; }
-        if (!cant || cant <= 0) { showErr('almTrError', 'Indica una cantidad mayor que cero.'); return; }
+
+    function almDocBuildProductoSelect() {
+        var s = document.createElement('select');
+        s.className = 'alm-doc-prod';
+        s.style.cssText = 'width:100%;border:1px solid #cbd5e0;border-radius:6px;padding:6px 8px;font-size:13px;';
+        var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '— seleccionar producto —'; s.appendChild(o0);
+        (window.almProductosLista || []).forEach(function (p) {
+            var o = document.createElement('option');
+            o.value = p.ID_PRODUCTO;
+            o.textContent = (p.CODIGO ? p.CODIGO + ' — ' : '') + p.NOMBRE;
+            s.appendChild(o);
+        });
+        return s;
+    }
+    window.almDocAddLinea = function (prefill) {
+        var tb = el('almDocLineas'); if (!tb) return;
+        var tr = document.createElement('tr');
+        tr.style.borderTop = '1px solid #f1f5f9';
+        var td1 = document.createElement('td'); td1.style.padding = '6px 10px';
+        var sel = almDocBuildProductoSelect();
+        if (prefill && prefill.id_producto != null) sel.value = String(prefill.id_producto);
+        td1.appendChild(sel);
+        var td2 = document.createElement('td'); td2.style.cssText = 'padding:6px 10px;text-align:right;';
+        var inp = document.createElement('input');
+        inp.type = 'number'; inp.step = 'any'; inp.min = '0'; inp.className = 'alm-doc-cant';
+        inp.style.cssText = 'width:100%;border:1px solid #cbd5e0;border-radius:6px;padding:6px 8px;font-size:13px;text-align:right;box-sizing:border-box;';
+        if (prefill && prefill.cantidad != null && prefill.cantidad !== '') inp.value = prefill.cantidad;
+        td2.appendChild(inp);
+        var td3 = document.createElement('td'); td3.style.textAlign = 'center';
+        var btn = document.createElement('button');
+        btn.type = 'button'; btn.title = 'Quitar';
+        btn.innerHTML = '<i class="material-icons" style="font-size:16px;color:#94a3b8;">close</i>';
+        btn.style.cssText = 'border:none;background:transparent;cursor:pointer;padding:2px;';
+        btn.onclick = function () { if (el('almDocLineas').children.length > 1) tr.remove(); else { sel.value = ''; inp.value = ''; } };
+        td3.appendChild(btn);
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+        tb.appendChild(tr);
+    };
+    function almDocResetLineas(n) {
+        var tb = el('almDocLineas'); if (tb) tb.innerHTML = '';
+        for (var i = 0; i < (n || 1); i++) window.almDocAddLinea();
+    }
+    window.almDocSetTipo = function (tipo) {
+        var m = el('almDocModal'); if (!m) return;
+        m.dataset.tipo = tipo;
+        document.querySelectorAll('#almDocTipos .alm-tipo-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tipo === tipo); });
+        el('almDocTipoDesc').textContent = DOC_DESC[tipo] || '';
+        el('almDocDestinoWrap').style.display   = (tipo === 'TRASPASO') ? '' : 'none';
+        el('almDocFrenteWrap').style.display    = (tipo === 'SALIDA')   ? '' : 'none';
+        el('almDocCargarBajoMin').style.display = (tipo === 'TRASPASO') ? '' : 'none';
+        el('almDocCantTh').textContent   = (tipo === 'AJUSTE')   ? 'Saldo que debe quedar' : 'Cantidad';
+        el('almDocAlmLabel').textContent = (tipo === 'TRASPASO') ? 'Almacén origen' : 'Almacén';
+        var titulos = { ENTRADA: 'Registrar entrada', SALIDA: 'Registrar salida', TRASPASO: 'Traspaso entre almacenes', AJUSTE: 'Ajuste de inventario' };
+        var iconos  = { ENTRADA: 'south_west', SALIDA: 'north_east', TRASPASO: 'swap_horiz', AJUSTE: 'tune' };
+        el('almDocTitulo').textContent = titulos[tipo] || 'Nuevo movimiento';
+        el('almDocIcon').textContent   = iconos[tipo] || 'post_add';
+        el('almDocSubmit').textContent = (tipo === 'TRASPASO') ? 'Traspasar' : (tipo === 'AJUSTE' ? 'Aplicar ajuste' : 'Registrar');
+    };
+    window.almDocOnAlmacenChange = function () {
+        var m = el('almDocModal'); if (!m || m.dataset.tipo !== 'TRASPASO') return;
+        var o = el('almDocAlmacen').value, d = el('almDocDestino');
+        if (d && d.value === o) { for (var i = 0; i < d.options.length; i++) { if (d.options[i].value !== o) { d.value = d.options[i].value; break; } } }
+    };
+    window.almAbrirDoc = function (presetTipo, opts) {
+        opts = opts || {};
+        var m = el('almDocModal'); if (!m) return;
+        var actual = val('almSelAlmacen');
+        if (actual && el('almDocAlmacen')) el('almDocAlmacen').value = actual;
+        if (opts.destino && el('almDocDestino')) el('almDocDestino').value = String(opts.destino);
+        el('almDocFecha').value = hoy();
+        el('almDocReferencia').value = ''; el('almDocMotivo').value = '';
+        if (el('almDocFrente')) el('almDocFrente').value = '';
+        showErr('almDocError', '');
+        almDocResetLineas(1);
+        window.almDocSetTipo(presetTipo || 'ENTRADA');
+        window.almDocOnAlmacenChange();
+        open('almDocModal');
+    };
+    // Atajo "Surtir sub-almacén": traspaso con el origen preseleccionado en el primer almacén GENERAL.
+    window.almAbrirSurtir = function () {
+        var sel = el('almDocAlmacen');
+        if (sel) { for (var i = 0; i < sel.options.length; i++) { if (/\(Principal\)/.test(sel.options[i].textContent)) { sel.value = sel.options[i].value; break; } } }
+        window.almAbrirDoc('TRASPASO');
+        toast('Surtido: elige el sub-almacén destino y agrega productos (o pulsa "Cargar lo que está bajo mínimo en el destino").');
+    };
+    window.almDocCargarBajoMinimo = function () {
+        var m = el('almDocModal'); if (!m || m.dataset.tipo !== 'TRASPASO') return;
+        var destino = el('almDocDestino') ? el('almDocDestino').value : '';
+        if (!destino) { showErr('almDocError', 'Primero elige el almacén destino.'); return; }
         pre();
-        fetch(ROUTE_TRASP, {
+        fetch(ROUTE_ALERTAS + '?id_almacen=' + encodeURIComponent(destino), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var alertas = (data && data.alertas) || [];
+                if (!alertas.length) { showErr('almDocError', 'El almacén destino no tiene productos por debajo de su mínimo.'); return; }
+                showErr('almDocError', '');
+                el('almDocLineas').innerHTML = '';
+                alertas.forEach(function (a) { window.almDocAddLinea({ id_producto: a.id_producto, cantidad: (a.faltante > 0 ? a.faltante : '') }); });
+            })
+            .catch(function () { showErr('almDocError', 'No se pudo cargar el stock bajo del destino.'); })
+            .finally(function () { unpre(); });
+    };
+    window.almDocGuardar = function () {
+        var m = el('almDocModal'), tipo = (m && m.dataset.tipo) || 'ENTRADA';
+        var idAlm = el('almDocAlmacen') ? el('almDocAlmacen').value : '';
+        if (!idAlm) { showErr('almDocError', 'Selecciona el almacén.'); return; }
+        var idDestino = null;
+        if (tipo === 'TRASPASO') {
+            idDestino = el('almDocDestino') ? el('almDocDestino').value : '';
+            if (!idDestino) { showErr('almDocError', 'Selecciona el almacén destino.'); return; }
+            if (idDestino === idAlm) { showErr('almDocError', 'El origen y el destino no pueden ser el mismo almacén.'); return; }
+        }
+        var lineas = [], filas = el('almDocLineas').querySelectorAll('tr'), vistos = {};
+        for (var i = 0; i < filas.length; i++) {
+            var sel = filas[i].querySelector('.alm-doc-prod'), inp = filas[i].querySelector('.alm-doc-cant');
+            var idp = sel ? String(sel.value).trim() : '';
+            var raw = inp ? String(inp.value).trim() : '';
+            if (!idp && raw === '') continue; // fila vacía → ignorar
+            var nombre = (sel && sel.selectedOptions[0]) ? sel.selectedOptions[0].textContent : idp;
+            if (!idp) { showErr('almDocError', 'Hay una fila con cantidad pero sin producto.'); return; }
+            var c = parseFloat(raw);
+            if (isNaN(c) || (tipo !== 'AJUSTE' && c <= 0) || (tipo === 'AJUSTE' && c < 0)) { showErr('almDocError', 'Cantidad inválida en "' + nombre + '".'); return; }
+            if (vistos[idp]) { showErr('almDocError', 'El producto "' + nombre + '" está repetido.'); return; }
+            vistos[idp] = true;
+            lineas.push({ id_producto: parseInt(idp, 10), cantidad: c });
+        }
+        if (!lineas.length) { showErr('almDocError', 'Agrega al menos un producto con su cantidad.'); return; }
+        showErr('almDocError', '');
+        pre();
+        fetch(ROUTE_DOC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({ id_almacen_origen: origen, id_almacen_destino: destino, id_producto: prod, cantidad: cant, referencia: val('almTrReferencia') || null, notas: val('almTrNotas') || null })
+            body: JSON.stringify({
+                tipo: tipo, id_almacen: idAlm, id_almacen_destino: idDestino,
+                fecha: val('almDocFecha') || null, referencia: val('almDocReferencia') || null, motivo: val('almDocMotivo') || null,
+                id_frente: (tipo === 'SALIDA' && el('almDocFrente')) ? (el('almDocFrente').value || null) : null,
+                lineas: lineas
+            })
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             unpre();
-            if (res.ok) { almCerrar('almTraspasoModal'); toast(res.b.message || 'Traspaso registrado.'); almCargar(); }
-            else { showErr('almTrError', (res.b && res.b.message) || 'No se pudo registrar el traspaso.'); }
+            if (res.ok) { almCerrar('almDocModal'); toast(res.b.message || 'Movimiento registrado.'); almCargar(); }
+            else {
+                var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
+                if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                showErr('almDocError', msg);
+            }
         })
-        .catch(function () { unpre(); showErr('almTrError', 'Error de red.'); });
+        .catch(function () { unpre(); showErr('almDocError', 'Error de red.'); });
     };
     @else
-    window.almAbrirTraspaso = function () { toast('No tienes permiso para registrar traspasos.', 'error'); };
+    window.almAbrirDoc    = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
+    window.almAbrirSurtir = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
 })();
 
-// ── Deep-link desde el navbar: /admin/almacen?modal=kardex|alertas|traspaso|admin|almacen|producto ──
+// ── Deep-link desde el navbar: /admin/almacen?modal=doc|surtir|traspaso|kardex|alertas|admin|almacen|producto ──
 // Fuera del IIFE con guard para que también funcione en re-montajes (navegación SPA).
 (function () {
     try {
