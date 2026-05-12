@@ -32,14 +32,10 @@
     .alm-table tbody tr:hover { background: #f8fafc; }
     .alm-row-bajo { background: #fff7ed; }
     .alm-row-bajo:hover { background: #ffedd5; }
-    /* Fila seleccionada en modo "selección múltiple" */
-    .alm-row-sel { background: #e1effa !important; }
-    .alm-row-sel:hover { background: #cfe5f7 !important; }
-    .alm-sel-check, #almSelAll { width: 16px; height: 16px; accent-color: var(--maquinaria-blue, #0067b1); cursor: pointer; }
-    /* Input de cantidad por fila — habilitado sólo cuando la fila está seleccionada */
-    .alm-sel-cant { width: 92px; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 7px; font-size: 13px; text-align: right; color: #0f172a; transition: opacity .15s, border-color .15s, background .15s; }
-    .alm-sel-cant:disabled { background: #f1f5f9; color: #94a3b8; opacity: .55; cursor: not-allowed; }
-    .alm-row-sel .alm-sel-cant { border-color: var(--maquinaria-blue, #0067b1); background: #fff; font-weight: 700; }
+    /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
+    .alm-table tbody tr.alm-row-clickable { cursor: pointer; }
+    /* En móvil .selected-row-maquinaria es desktop-only, así que damos un realce propio */
+    .alm-table tbody tr.alm-row.selected-row-maquinaria { background: #e1effa !important; }
 
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
@@ -246,8 +242,6 @@
         <table class="alm-table">
             <thead>
                 <tr>
-                    @if($puedeMover)<th style="width:34px;text-align:center;"><input type="checkbox" id="almSelAll" onchange="window.almSelAllPage(this)" title="Seleccionar todo en esta página"></th>
-                    <th style="width:108px;text-align:center;" title="Cantidad a sacar/enviar de los productos seleccionados">Cantidad</th>@endif
                     <th>Código</th>
                     <th>Producto</th>
                     <th style="text-align:center;">UM</th>
@@ -317,11 +311,11 @@
 </div>{{-- /page-layout-grid --}}
 
 @if($puedeMover)
-{{-- ── Barra flotante de selección múltiple (mismo estilo que /admin/equipos) ── --}}
+{{-- ── Barra flotante de selección (igual que /admin/equipos: clic en la fila → se resalta y aparece esta barra) ── --}}
 <div id="almBulkBar" class="selection-floating-bar">
     <div class="selection-counter">
         <div style="background:rgba(255,255,255,0.1);padding:5px;border-radius:50%;display:flex;"><i class="material-icons" style="font-size:18px;color:white;">inventory_2</i></div>
-        <span id="almBulkCount">0</span><span class="desktop-text" style="font-weight:500;color:#cbd5e0;">&nbsp;sel.</span>
+        <span id="almBulkCount">0</span>
     </div>
     <div style="width:1px;height:24px;background:rgba(255,255,255,0.2);"></div>
     <div style="display:flex;gap:10px;">
@@ -635,30 +629,38 @@
     </div>
 </div>
 
-{{-- ── "Enviar a otro almacén": traspaso de los productos seleccionados en la tabla (las cantidades vienen de la propia tabla) ── --}}
-<div id="almEnviarModal" class="alm-modal-overlay">
-    <div class="alm-modal">
+{{-- ── Salida / Enviar a otro almacén: aquí se indican las cantidades de los productos seleccionados en la tabla ── --}}
+<div id="almSalidaModal" class="alm-modal-overlay">
+    <div class="alm-modal alm-modal-wide" style="max-width:820px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;color:#0067b1;">swap_horiz</i> Enviar a otro almacén</h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almEnviarModal')">close</i>
+            <h3><i class="material-icons" id="almSalidaIcon" style="font-size:20px;">north_east</i> <span id="almSalidaTitulo">Registrar salida</span></h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <p style="font-size:13px;color:#475569;margin:0 0 12px;">Se trasladarán <strong id="almEnviarCount">0</strong> producto(s) desde <strong id="almEnviarOrigen">—</strong> al almacén que elijas. Las cantidades son las que escribiste en la tabla.</p>
-            <div>
+            <div id="almSalidaDestinoWrap" style="display:none;margin-bottom:12px;">
                 <label>Almacén destino *</label>
-                <select id="almEnviarDestino">
+                <select id="almSalidaDestino">
                     <option value="">— elige un almacén —</option>
                     @foreach(($almacenes ?? collect()) as $a)
                         <option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>
                     @endforeach
                 </select>
             </div>
-            <div><label>Motivo / referencia (opcional)</label><input type="text" id="almEnviarMotivo" maxlength="200" placeholder="Ej: reposición de obra"></div>
-            <div id="almEnviarError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
+            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:52vh;">
+                <table class="alm-kardex-table">
+                    <thead><tr>
+                        <th>Código</th><th>Producto</th><th style="text-align:right;">Stock actual</th><th style="text-align:right;width:120px;">Cantidad *</th><th style="width:36px;"></th>
+                    </tr></thead>
+                    <tbody id="almSalidaLineas"></tbody>
+                </table>
+            </div>
+            <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">Escribe cuánto sacar de cada producto. Usa la papelera para quitar alguno de la lista.</div>
+            <div style="margin-top:8px;"><label>Motivo / referencia (opcional)</label><input type="text" id="almSalidaMotivo" maxlength="200" placeholder="Ej: consumo de obra"></div>
+            <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEnviarModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almEnviarConfirmar()">Enviar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almSalidaModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" id="almSalidaSubmit" onclick="window.almSalidaConfirmar()">Registrar salida</button>
         </div>
     </div>
 </div>
@@ -733,7 +735,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
-                almSelSyncChecks(); // re-marcar las filas que sigan en la selección múltiple
+                almSelApplyToVisible(); // re-pintar el azul de las filas que sigan seleccionadas
                 var pg = el('almPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 if (data.stats) {
                     var num = function (id, v) { var e = el(id); if (e) e.textContent = (v == null ? 0 : v); };
@@ -834,19 +836,16 @@
     }, true);
 
     // ════════════════════════════════════════════════════════════════════════
-    //  Selección múltiple (checkboxes en la tabla → barra flotante, estilo /admin/equipos)
-    //
-    //  Flujo: marcas los productos en la tabla, escribes EN LA MISMA FILA la
-    //  cantidad a sacar/enviar, y desde la barra flotante eliges "Salida" o
-    //  "Enviar a otro almacén". El movimiento (varias líneas, 1 transacción) va
-    //  a `almacen.movimientos.lote`.
-    //
-    //  La selección vive en memoria (id → { codigo, nombre, um, cantidad }), así
-    //  que sobrevive a los filtros y a la paginación (que recargan sólo el
-    //  <tbody> por AJAX). Tras cada recarga, almSelSyncChecks() vuelve a marcar
-    //  las filas visibles que sigan seleccionadas y les repone la cantidad.
+    //  Selección de productos en la tabla — IGUAL que /admin/equipos:
+    //  clic en una fila → se resalta en azul (.selected-row-maquinaria) y aparece
+    //  la barra flotante #almBulkBar con el conteo y las acciones.
+    //  Las cantidades a sacar/enviar se piden DESPUÉS, en el modal #almSalidaModal
+    //  (una fila por producto seleccionado), y se mandan a `almacen.movimientos.lote`.
+    //  La selección vive en memoria (id → {codigo,nombre,um,saldo}); sobrevive a
+    //  filtros/paginación (que recargan sólo el <tbody>) y se re-pinta con
+    //  almSelApplyToVisible() tras cada recarga.
     // ════════════════════════════════════════════════════════════════════════
-    var almSeleccion = {}; // { id_producto: { codigo, nombre, um, cantidad } }
+    var almSeleccion = {}; // { id_producto: { codigo, nombre, um, saldo } }
     function almSelCount() { return Object.keys(almSeleccion).length; }
     function almSelRefreshBar() {
         var bar = el('almBulkBar'); if (!bar) return;
@@ -854,91 +853,45 @@
         bar.classList.toggle('active', n > 0);
         var c = el('almBulkCount'); if (c) c.textContent = n;
     }
-    function almSelRowEls(id) {
-        return {
-            cb:   document.querySelector('#almTableBody .alm-sel-check[data-id="' + id + '"]'),
-            cant: document.querySelector('#almTableBody .alm-sel-cant[data-id="' + id + '"]'),
-        };
-    }
-    function almSelMarkRow(cb, on) { var tr = cb.closest('tr'); if (tr) tr.classList.toggle('alm-row-sel', !!on); }
-    window.almSelToggle = function (cb) {
-        var id = cb.getAttribute('data-id'); if (!id) return;
-        var els = almSelRowEls(id);
-        if (cb.checked) {
-            if (!almSeleccion[id]) almSeleccion[id] = { codigo: cb.getAttribute('data-codigo') || '', nombre: cb.getAttribute('data-nombre') || '', um: cb.getAttribute('data-um') || '', cantidad: '' };
-            if (els.cant) { els.cant.disabled = false; els.cant.value = almSeleccion[id].cantidad || ''; setTimeout(function () { els.cant.focus(); }, 0); }
-        } else {
-            delete almSeleccion[id];
-            if (els.cant) { els.cant.value = ''; els.cant.disabled = true; }
-        }
-        almSelMarkRow(cb, cb.checked);
-        almSelSyncMaster();
-        almSelRefreshBar();
-    };
-    // Teclear una cantidad en una fila la selecciona automáticamente.
-    window.almSelCantInput = function (inp) {
-        var id = inp.getAttribute('data-id'); if (!id) return;
-        if (!almSeleccion[id]) { var cb = almSelRowEls(id).cb; if (cb && !cb.checked) { cb.checked = true; window.almSelToggle(cb); } }
-        if (almSeleccion[id]) almSeleccion[id].cantidad = inp.value;
-    };
-    window.almSelAllPage = function (master) {
-        var boxes = document.querySelectorAll('#almTableBody .alm-sel-check');
-        boxes.forEach(function (cb) { cb.checked = master.checked; window.almSelToggle(cb); });
-    };
-    function almSelSyncMaster() {
-        var master = el('almSelAll'); if (!master) return;
-        var boxes = document.querySelectorAll('#almTableBody .alm-sel-check');
-        var any = boxes.length > 0, all = boxes.length > 0;
-        boxes.forEach(function (cb) { if (!cb.checked) all = false; });
-        master.checked = any && all;
-    }
-    function almSelSyncChecks() {
-        document.querySelectorAll('#almTableBody .alm-sel-check').forEach(function (cb) {
-            var id = cb.getAttribute('data-id'), on = !!almSeleccion[id];
-            cb.checked = on; almSelMarkRow(cb, on);
-            var cant = document.querySelector('#almTableBody .alm-sel-cant[data-id="' + id + '"]');
-            if (cant) { cant.disabled = !on; cant.value = on ? (almSeleccion[id].cantidad || '') : ''; }
+    function almSelMarkRow(tr, on) { if (tr) tr.classList.toggle('selected-row-maquinaria', !!on); }
+    // Re-pinta el resaltado azul de las filas visibles que estén en la selección (tras cada recarga AJAX del tbody).
+    function almSelApplyToVisible() {
+        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
+            almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
         });
-        almSelSyncMaster();
-        almSelRefreshBar();
     }
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         almSeleccion = {};
-        document.querySelectorAll('#almTableBody .alm-sel-check').forEach(function (cb) { cb.checked = false; almSelMarkRow(cb, false); });
-        document.querySelectorAll('#almTableBody .alm-sel-cant').forEach(function (i) { i.value = ''; i.disabled = true; });
-        var master = el('almSelAll'); if (master) master.checked = false;
+        document.querySelectorAll('#almTableBody tr.selected-row-maquinaria').forEach(function (tr) { tr.classList.remove('selected-row-maquinaria'); });
         almSelRefreshBar();
     };
-    // Construye [{id_producto, cantidad}] validando cantidad > 0; devuelve también los que faltan.
-    function almSelLineas() {
-        var lineas = [], faltan = [];
-        Object.keys(almSeleccion).forEach(function (id) {
-            var raw = String(almSeleccion[id].cantidad == null ? '' : almSeleccion[id].cantidad).replace(',', '.').trim();
-            var c = parseFloat(raw);
-            if (!isFinite(c) || c <= 0) faltan.push(almSeleccion[id].nombre || ('#' + id));
-            else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
-        });
-        return { lineas: lineas, faltan: faltan };
-    }
+    // Clic en una fila de la tabla → toggle de selección (ignora botones / enlaces / inputs, como en /admin/equipos)
+    document.addEventListener('click', function (e) {
+        var tr = e.target.closest('#almTableBody tr.alm-row');
+        if (!tr) return;
+        if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
+        var id = tr.getAttribute('data-id-producto'); if (!id) return;
+        if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); }
+        else {
+            almSeleccion[id] = {
+                codigo: tr.getAttribute('data-codigo') || '',
+                nombre: tr.getAttribute('data-nombre') || '',
+                um:     tr.getAttribute('data-um') || '',
+                saldo:  parseFloat(tr.getAttribute('data-saldo') || '0') || 0,
+            };
+            almSelMarkRow(tr, true);
+        }
+        almSelRefreshBar();
+    });
     function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
-    function almSelAlmacenNombre() { var s = el('almSelAlmacen'); if (!s) return ''; var o = s.options[s.selectedIndex]; return o ? o.textContent.trim() : ''; }
+    // Botones de la barra flotante: abren el modal de cantidades (SALIDA directa / TRASPASO con destino).
     window.almSelAccion = function (tipo) {
-        if (!almSelCount()) { toast('Marca al menos un producto.', 'error'); return; }
-        if (typeof window.almSelEnviarMovimiento !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
+        if (!almSelCount()) { toast('Selecciona al menos un producto (clic en su fila).', 'error'); return; }
+        if (typeof window.almAbrirSalidaModal !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
-        var r = almSelLineas();
-        if (r.faltan.length) {
-            toast('Indica una cantidad mayor que 0 para: ' + r.faltan.slice(0, 4).join(', ') + (r.faltan.length > 4 ? '…' : ''), 'error');
-            return;
-        }
-        if (tipo === 'TRASPASO') { window.almAbrirEnviar(idAlm, r.lineas); return; }
-        // SALIDA: confirmar y registrar de una vez.
-        var n = r.lineas.length;
-        almConfirm('Registrar la <strong>salida</strong> de <strong>' + n + '</strong> producto' + (n === 1 ? '' : 's') + ' desde <strong>' + escHtml(almSelAlmacenNombre()) + '</strong>?', function () {
-            window.almSelEnviarMovimiento({ tipo: 'SALIDA', id_almacen: idAlm, lineas: r.lineas });
-        });
+        window.almAbrirSalidaModal(tipo === 'TRASPASO' ? 'TRASPASO' : 'SALIDA', idAlm);
     };
 
     // ── Campo "Categoría" del modal de producto: desplegable de categorías ya registradas + "escribir una nueva" ──
@@ -1407,15 +1360,6 @@
         window.almAbrirDoc('TRASPASO');
         toast('Surtido: elige el sub-almacén destino y agrega productos (o pulsa "Cargar lo que está bajo mínimo en el destino").');
     };
-    // Abre el documento de movimiento con una lista de productos ya cargados (lo usa la barra de selección múltiple).
-    window.almAbrirDocConProductos = function (tipo, lineas) {
-        window.almAbrirDoc(tipo || 'SALIDA');
-        if (lineas && lineas.length) {
-            el('almDocLineas').innerHTML = '';
-            lineas.forEach(function (l) { window.almDocAddLinea({ id_producto: l.id_producto, cantidad: (l && l.cantidad != null ? l.cantidad : '') }); });
-        }
-        setTimeout(function () { var tb = el('almDocLineas'); var f = tb ? tb.querySelector('.alm-doc-cant') : null; if (f) f.focus(); }, 90);
-    };
     window.almDocCargarBajoMinimo = function () {
         var m = el('almDocModal'); if (!m || m.dataset.tipo !== 'TRASPASO') return;
         var destino = el('almDocDestino') ? el('almDocDestino').value : '';
@@ -1483,9 +1427,73 @@
         .catch(function () { unpre(); showErr('almDocError', 'Error de red.'); });
     };
 
-    // ── Selección múltiple → registrar movimiento (SALIDA directa / TRASPASO vía modal "Enviar a otro almacén") ──
-    // payload: { tipo:'SALIDA'|'TRASPASO', id_almacen, id_almacen_destino?, motivo?, lineas:[{id_producto,cantidad}] }
-    window.almSelEnviarMovimiento = function (payload) {
+    // ── Modal de cantidades para la selección de la tabla: SALIDA directa / TRASPASO (pide almacén destino) ──
+    //  ALM_SAL.tipo = 'SALIDA' | 'TRASPASO' ; ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
+    var ALM_SAL = { tipo: 'SALIDA', idAlmacen: '' };
+    function almSalNum(n) { n = parseFloat(n || 0); if (isNaN(n)) return '0'; var s = n.toFixed(3).replace(/\.?0+$/, ''); return s === '' ? '0' : s; }
+    window.almAbrirSalidaModal = function (tipo, idAlmacen) {
+        ALM_SAL = { tipo: tipo === 'TRASPASO' ? 'TRASPASO' : 'SALIDA', idAlmacen: String(idAlmacen || '') };
+        var esTraspaso = ALM_SAL.tipo === 'TRASPASO';
+        if (el('almSalidaTitulo')) el('almSalidaTitulo').textContent = esTraspaso ? 'Enviar a otro almacén' : 'Registrar salida';
+        if (el('almSalidaIcon'))   el('almSalidaIcon').textContent   = esTraspaso ? 'swap_horiz' : 'north_east';
+        if (el('almSalidaSubmit')) el('almSalidaSubmit').textContent = esTraspaso ? 'Enviar' : 'Registrar salida';
+        var dw = el('almSalidaDestinoWrap'); if (dw) dw.style.display = esTraspaso ? 'block' : 'none';
+        var ds = el('almSalidaDestino');
+        if (ds) { ds.value = ''; Array.prototype.forEach.call(ds.options, function (o) { o.disabled = (!!o.value && o.value === ALM_SAL.idAlmacen); }); }
+        if (el('almSalidaMotivo')) el('almSalidaMotivo').value = '';
+        showErr('almSalidaError', '');
+        var tb = el('almSalidaLineas');
+        if (tb) {
+            tb.innerHTML = '';
+            Object.keys(almSeleccion).forEach(function (id) {
+                var s = almSeleccion[id];
+                var tr = document.createElement('tr');
+                tr.setAttribute('data-id', id);
+                tr.innerHTML =
+                    '<td style="font-family:monospace;font-weight:700;white-space:nowrap;">' + escHtml(s.codigo) + '</td>' +
+                    '<td style="font-weight:600;">' + escHtml(s.nombre) + '</td>' +
+                    '<td style="text-align:right;color:#64748b;white-space:nowrap;">' + almSalNum(s.saldo) + ' ' + escHtml(s.um || '') + '</td>' +
+                    '<td style="text-align:right;"><input type="number" class="alm-sal-cant" min="0" step="any" placeholder="0" style="width:100px;padding:5px 8px;border:1px solid #cbd5e0;border-radius:7px;text-align:right;font-size:13px;font-weight:700;"></td>' +
+                    '<td style="text-align:center;"><button type="button" class="alm-btn alm-btn-del" title="Quitar de la lista" onclick="window.almSalidaQuitar(this,\'' + id + '\')"><i class="material-icons" style="font-size:16px;">close</i></button></td>';
+                tb.appendChild(tr);
+            });
+        }
+        open('almSalidaModal');
+        setTimeout(function () { var f = el('almSalidaLineas') ? el('almSalidaLineas').querySelector('.alm-sal-cant') : null; if (f) f.focus(); }, 60);
+    };
+    window.almSalidaQuitar = function (btn, id) {
+        var tr = btn.closest('tr'); if (tr) tr.remove();
+        delete almSeleccion[id];
+        almSelApplyToVisible();
+        almSelRefreshBar();
+        var tb = el('almSalidaLineas');
+        if (!tb || !tb.children.length) almCerrar('almSalidaModal');
+    };
+    window.almSalidaConfirmar = function () {
+        var esTraspaso = ALM_SAL.tipo === 'TRASPASO';
+        var idDest = el('almSalidaDestino') ? el('almSalidaDestino').value : '';
+        if (esTraspaso) {
+            if (!idDest) { showErr('almSalidaError', 'Elige el almacén destino.'); return; }
+            if (idDest === ALM_SAL.idAlmacen) { showErr('almSalidaError', 'El destino debe ser distinto del almacén de origen.'); return; }
+        }
+        var lineas = [], faltan = [];
+        (el('almSalidaLineas') ? el('almSalidaLineas').querySelectorAll('tr') : []).forEach(function (tr) {
+            var id = tr.getAttribute('data-id');
+            var inp = tr.querySelector('.alm-sal-cant');
+            var raw = inp ? String(inp.value).replace(',', '.').trim() : '';
+            var c = parseFloat(raw);
+            var nombre = (almSeleccion[id] && almSeleccion[id].nombre) || ('#' + id);
+            if (!isFinite(c) || c <= 0) faltan.push(nombre);
+            else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
+        });
+        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que 0 en al menos un producto.'); return; }
+        if (faltan.length) { showErr('almSalidaError', 'Falta la cantidad (o es 0) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos o quítalos de la lista.'); return; }
+        showErr('almSalidaError', '');
+        var motivo = el('almSalidaMotivo') ? el('almSalidaMotivo').value.trim() : '';
+        var payload = esTraspaso
+            ? { tipo: 'TRASPASO', id_almacen: ALM_SAL.idAlmacen, id_almacen_destino: idDest, lineas: lineas }
+            : { tipo: 'SALIDA',   id_almacen: ALM_SAL.idAlmacen, lineas: lineas };
+        if (motivo) payload.motivo = motivo;
         pre();
         fetch(ROUTE_LOTE, {
             method: 'POST',
@@ -1496,46 +1504,22 @@
         .then(function (res) {
             unpre();
             if (res.ok) {
-                window.almCerrar('almEnviarModal');
+                almCerrar('almSalidaModal');
                 if (window.almSelClear) window.almSelClear();
                 toast(res.b.message || 'Movimiento registrado.');
                 almCargar();
             } else {
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
-                if (el('almEnviarModal') && el('almEnviarModal').classList.contains('open')) showErr('almEnviarError', msg);
-                else toast(msg, 'error');
+                showErr('almSalidaError', msg);
             }
         })
-        .catch(function () { unpre(); toast('Error de red.', 'error'); });
-    };
-    // Modal "Enviar a otro almacén" (traspaso de los productos seleccionados a un almacén destino).
-    var ALM_ENVIAR = { idOrigen: '', lineas: [] };
-    window.almAbrirEnviar = function (idOrigen, lineas) {
-        ALM_ENVIAR = { idOrigen: String(idOrigen || ''), lineas: lineas || [] };
-        var sel = el('almEnviarDestino');
-        if (sel) { sel.value = ''; Array.prototype.forEach.call(sel.options, function (o) { o.disabled = (!!o.value && o.value === ALM_ENVIAR.idOrigen); }); }
-        if (el('almEnviarOrigen')) el('almEnviarOrigen').textContent = almSelAlmacenNombre() || ('#' + ALM_ENVIAR.idOrigen);
-        if (el('almEnviarCount'))  el('almEnviarCount').textContent  = ALM_ENVIAR.lineas.length;
-        if (el('almEnviarMotivo')) el('almEnviarMotivo').value = '';
-        showErr('almEnviarError', '');
-        open('almEnviarModal');
-    };
-    window.almEnviarConfirmar = function () {
-        var idDest = el('almEnviarDestino') ? el('almEnviarDestino').value : '';
-        if (!idDest) { showErr('almEnviarError', 'Elige el almacén destino.'); return; }
-        if (idDest === ALM_ENVIAR.idOrigen) { showErr('almEnviarError', 'El destino debe ser distinto del almacén de origen.'); return; }
-        if (!ALM_ENVIAR.lineas.length) { showErr('almEnviarError', 'No hay productos seleccionados.'); return; }
-        showErr('almEnviarError', '');
-        var motivo = el('almEnviarMotivo') ? el('almEnviarMotivo').value.trim() : '';
-        var payload = { tipo: 'TRASPASO', id_almacen: ALM_ENVIAR.idOrigen, id_almacen_destino: idDest, lineas: ALM_ENVIAR.lineas };
-        if (motivo) payload.motivo = motivo;
-        window.almSelEnviarMovimiento(payload);
+        .catch(function () { unpre(); showErr('almSalidaError', 'Error de red.'); });
     };
     @else
     window.almAbrirDoc             = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     window.almAbrirSurtir          = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
-    window.almAbrirDocConProductos = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
+    window.almAbrirSalidaModal     = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
 })();
 </script>

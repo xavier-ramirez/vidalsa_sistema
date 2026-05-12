@@ -3,7 +3,7 @@
     $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
     $rows = $productos ?? collect();
-    $cols = $puedeMover ? 9 : 7;
+    $cols = 7;
 @endphp
 
 @if(!$almacen)
@@ -32,17 +32,9 @@
             $catJs   = addslashes($p->CATEGORIA ?? '');
             $minArg  = $minimo !== null ? $minimo : 'null';
         @endphp
-        <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }}"
-            data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}">
-            @if($puedeMover)
-            <td style="text-align:center;width:34px;">
-                <input type="checkbox" class="alm-sel-check" data-id="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" onchange="window.almSelToggle(this)">
-            </td>
-            <td style="text-align:center;width:108px;">
-                <input type="number" class="alm-sel-cant" data-id="{{ $p->ID_PRODUCTO }}" min="0" step="any" placeholder="Cant." disabled
-                       oninput="window.almSelCantInput(this)" onfocus="this.select()" title="Cantidad a sacar/enviar — marca la casilla para habilitar">
-            </td>
-            @endif
+        <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} {{ $puedeMover ? 'alm-row-clickable' : '' }}"
+            data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
+            @if($puedeMover)title="Clic para seleccionar este producto"@endif>
             <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
             <td style="font-weight:600;color:#1e293b;">{{ $p->NOMBRE }}</td>
             <td style="text-align:center;color:#475569;">{{ $p->UM }}</td>
