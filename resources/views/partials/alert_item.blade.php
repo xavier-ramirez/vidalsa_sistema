@@ -54,10 +54,10 @@
         </div>
     </div>
 
-    {{-- Botones (Acciones). Ancho fijo (32 + 5 + 32 = 69px) para que el botón "ojo"
-         quede SIEMPRE en la misma posición tenga la tarjeta 1 o 2 botones (las que están
-         "en gestión" no muestran el 2º botón). --}}
-    <div style="flex-shrink: 0; display: flex; gap: 5px; align-items: center; width: 69px;">
+    {{-- Botones (Acciones). SIEMPRE 2 botones en línea (nunca se apilan ni se mueven):
+         el de "ojo" (ver detalles) y el de gestión. Si el documento ya está en gestión,
+         el 2º botón se muestra deshabilitado (mismo tamaño/posición). --}}
+    <div style="flex-shrink: 0; display: flex; flex-wrap: nowrap; gap: 5px; align-items: center;">
         <button type="button"
             data-equipo-id="{{ $equipoId }}"
             data-codigo="{{ $alert->equipo->CODIGO_PATIO }}"
@@ -86,7 +86,7 @@
             data-link-gps="{{ $alert->equipo->LINK_GPS ?? '' }}"
             onclick="showDetailsImproved(this, event)"
             title="Ver detalles del equipo"
-            style="width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;"
             onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e293b';"
             onmouseout="this.style.background='transparent'; this.style.color='#94a3b8';">
             <i class="material-icons" style="font-size: 20px; pointer-events: none;">visibility</i>
@@ -96,10 +96,16 @@
         <button type="button"
             onclick="window.iniciarGestionCustom('{{ $equipoId }}', '{{ $docType }}', event)"
             title="Iniciar gestión de este documento"
-            style="width: 32px; height: 32px; border-radius: 8px; border: none; background: #00004d; color: white; display: flex; align-items: center; justify-content: center; transition: background 0.2s, transform 0.15s; cursor: pointer;"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #00004d; color: white; display: flex; align-items: center; justify-content: center; transition: background 0.2s, transform 0.15s; cursor: pointer;"
             onmouseover="this.style.background='#0067b1'; this.style.transform='scale(1.08)';"
             onmouseout="this.style.background='#00004d'; this.style.transform='scale(1)';">
             <i class="material-icons" style="font-size: 18px; pointer-events: none;">manage_accounts</i>
+        </button>
+        @else
+        <button type="button" disabled
+            title="Este documento ya está en gestión por {{ explode(' ', $gestionadoPor)[0] }}"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #e2e8f0; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: default;">
+            <i class="material-icons" style="font-size: 18px; pointer-events: none;">engineering</i>
         </button>
         @endif
     </div>
