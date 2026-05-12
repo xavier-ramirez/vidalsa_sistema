@@ -2138,11 +2138,21 @@ window.exportEquipos = function () {
 function initEquipos() {
     if (!document.getElementById("equiposTableBody")) return;
 
+    // En movil, al disparar la busqueda hay que cerrar el teclado virtual:
+    // el browser solo lo oculta cuando el input pierde el foco. Ejecutamos
+    // blur() solo en viewports angostos para no romper el flujo en desktop.
+    const _hideMobileKeyboard = (el) => {
+        if (!el) return;
+        if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+            el.blur();
+        }
+    };
+
     const searchInput = document.getElementById("searchInput");
     // Guard: only attach listener once per DOM instance
     if (searchInput && !searchInput.dataset.equiposInitialized) {
         searchInput.dataset.equiposInitialized = 'true';
-        searchInput.addEventListener("keyup", function () {
+        searchInput.addEventListener("keyup", function (e) {
             const val = this.value;
             const clearBtn = document.getElementById("btn_clear_search");
             if (clearBtn)
@@ -2150,10 +2160,16 @@ function initEquipos() {
 
             clearTimeout(window.searchTimeout);
             if (val.length >= 4 || val.length === 0) {
-                window.searchTimeout = setTimeout(
-                    () => window.loadEquipos(),
-                    1000,
-                );
+                const self = this;
+                window.searchTimeout = setTimeout(() => {
+                    window.loadEquipos();
+                    _hideMobileKeyboard(self);
+                }, 1000);
+            }
+            if (e.key === 'Enter') {
+                clearTimeout(window.searchTimeout);
+                window.loadEquipos();
+                _hideMobileKeyboard(this);
             }
         });
     }
@@ -2163,6 +2179,7 @@ function initEquipos() {
         form.onsubmit = function (e) {
             e.preventDefault();
             window.loadEquipos();
+            _hideMobileKeyboard(document.getElementById("searchInput"));
             return false;
         };
     }

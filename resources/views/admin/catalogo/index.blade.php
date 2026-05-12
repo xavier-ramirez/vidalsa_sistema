@@ -297,9 +297,9 @@
                        onfocus="catOpenList('modelo')"
                        onclick="catOpenList('modelo')"
                        onblur="setTimeout(()=>catCloseList('modelo'),200)">
-                @if($reqModelo && $reqModelo !== 'all')
-                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
-                @endif
+                <i class="material-icons filter-clear"
+                   style="display: {{ $reqModelo && $reqModelo !== 'all' ? 'flex' : 'none' }};"
+                   onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
             </div>
             <div id="catListModelo" class="cat-list">
                 <div class="cat-opt placeholder" data-label="TODOS LOS MODELOS"
@@ -326,9 +326,9 @@
                        onfocus="catOpenList('tipo')"
                        onclick="catOpenList('tipo')"
                        onblur="setTimeout(()=>catCloseList('tipo'),200)">
-                @if($reqTipo && $reqTipo !== 'all')
-                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); catSelect('tipo','','');">close</i>
-                @endif
+                <i class="material-icons filter-clear"
+                   style="display: {{ $reqTipo && $reqTipo !== 'all' ? 'flex' : 'none' }};"
+                   onmousedown="event.preventDefault(); catSelect('tipo','','');">close</i>
             </div>
             <div id="catListTipo" class="cat-list">
                 <div class="cat-opt placeholder" data-label="TODOS LOS TIPOS"
@@ -355,9 +355,9 @@
                        onfocus="catOpenList('anio')"
                        onclick="catOpenList('anio')"
                        onblur="setTimeout(()=>catCloseList('anio'),200)">
-                @if($reqAnio && $reqAnio !== 'all')
-                    <i class="material-icons filter-clear" onmousedown="event.preventDefault(); catSelect('anio','','');">close</i>
-                @endif
+                <i class="material-icons filter-clear"
+                   style="display: {{ $reqAnio && $reqAnio !== 'all' ? 'flex' : 'none' }};"
+                   onmousedown="event.preventDefault(); catSelect('anio','','');">close</i>
             </div>
             <div id="catListAnio" class="cat-list">
                 <div class="cat-opt placeholder" data-label="TODOS LOS AÑOS"
@@ -441,6 +441,15 @@
         var txt    = document.getElementById('catTxt' + cap);
         if (hidden) hidden.value = value || '';
         if (txt)    txt.value    = value ? label : '';
+        // El formulario de filtros no se re-renderiza en la recarga AJAX
+        // (loadCatalogo solo reemplaza la tabla), asi que togglear aqui la
+        // "x" de limpiar y el resaltado azul del filtro activo.
+        var wrapper = hidden ? hidden.closest('.cat-filter') : null;
+        if (wrapper) {
+            wrapper.classList.toggle('active', !!value);
+            var clearIcon = wrapper.querySelector('.filter-clear');
+            if (clearIcon) clearIcon.style.display = value ? 'flex' : 'none';
+        }
         catCloseList(p);
         catSubmit();
     }

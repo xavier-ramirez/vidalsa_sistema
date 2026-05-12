@@ -74,6 +74,23 @@ class FrenteTrabajo extends Model
         return $this->hasMany(Movilizacion::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
     }
 
+    /** Almacenes (de proyecto) asociados a este frente — pivote `almacen_frentes`. */
+    public function almacenes()
+    {
+        return $this->belongsToMany(
+            Almacen::class,
+            'almacen_frentes',
+            'ID_FRENTE',
+            'ID_ALMACEN'
+        )->withTimestamps();
+    }
+
+    /** Movimientos de inventario que tienen este frente como destino/consumo. */
+    public function movimientosInventario()
+    {
+        return $this->hasMany(MovimientoInventario::class, 'ID_FRENTE', 'ID_FRENTE');
+    }
+
     /**
      * IDs de frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota propia).
      * Cache 5 min; invalidado automáticamente en booted() al guardar/borrar un frente.

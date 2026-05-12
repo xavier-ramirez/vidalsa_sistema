@@ -562,15 +562,15 @@
             <div style="display:flex;gap:8px;justify-content:space-between;">
                 <div onclick="window.auxFilterByEstado('all')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,0.15);box-shadow:0 2px 4px rgba(0,0,0,0.1);cursor:pointer;">
                     <span style="font-size:10px;font-weight:700;opacity:0.8;margin-bottom:2px;">TOTAL</span>
-                    <span style="font-size:22px;font-weight:800;line-height:1;">{{ $stats['total'] }}</span>
+                    <span style="font-size:22px;font-weight:800;line-height:1;">{{ $stats['total'] ?? '—' }}</span>
                 </div>
                 <div onclick="window.auxFilterByEstado('OPERATIVO')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);cursor:pointer;">
                     <span style="font-size:10px;font-weight:700;color:#86efac;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">check_circle</i> OPER.</span>
-                    <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['operativos'] }}</span>
+                    <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['operativos'] ?? '—' }}</span>
                 </div>
                 <div onclick="window.auxFilterByEstado('INOPERATIVO')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);cursor:pointer;">
                     <span style="font-size:10px;font-weight:700;color:#fca5a5;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">cancel</i> INOP.</span>
-                    <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['inoperativos'] }}</span>
+                    <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['inoperativos'] ?? '—' }}</span>
                 </div>
             </div>
         </div>
@@ -619,7 +619,7 @@
                     <div title="Cargar todos (limpia filtro de estado)" onclick="window.auxFilterByEstado('all')"
                          style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px; cursor: pointer; transition: transform 0.15s;"
                          onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-                        <span id="auxStatsTotal" style="font-size: 36px; font-weight: 800; line-height: 1;">{{ $stats['total'] }}</span>
+                        <span id="auxStatsTotal" style="font-size: 36px; font-weight: 800; line-height: 1;">{{ $stats['total'] ?? '—' }}</span>
                         <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">TOTAL</span>
                     </div>
 
@@ -628,14 +628,14 @@
                              style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); cursor: pointer; transition: transform 0.15s;"
                              onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
                             <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
-                            <strong id="auxStatsOperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['operativos'] }}</strong>
+                            <strong id="auxStatsOperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['operativos'] ?? '—' }}</strong>
                             <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Operativos</span>
                         </div>
                         <div title="Filtrar solo Inoperativos" onclick="window.auxFilterByEstado('INOPERATIVO')"
                              style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); cursor: pointer; transition: transform 0.15s;"
                              onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
                             <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
-                            <strong id="auxStatsInoperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['inoperativos'] }}</strong>
+                            <strong id="auxStatsInoperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['inoperativos'] ?? '—' }}</strong>
                             <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativos</span>
                         </div>
                     </div>
@@ -1245,6 +1245,34 @@
             }
         }, { rootMargin: '300px 0px' });
         obs.observe(sentinel);
+    });
+
+    // El "Consolidado" / "Distribución" del sidebar NO se calcula en el render
+    // inicial (para que el módulo abra rápido). Se rellena aquí de forma
+    // diferida con un fetch ligero — SIN preloader, sin tocar la tabla.
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            var form = document.getElementById('auxFiltersForm');
+            var params = form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
+            params.set('offset', '0');
+            fetch('{{ route("equipos-auxiliares.index") }}?' + params.toString(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data && data.stats) {
+                    var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = (v == null ? 0 : v); };
+                    set('auxStatsTotal',        data.stats.total);
+                    set('auxStatsOperativos',   data.stats.operativos);
+                    set('auxStatsInoperativos', data.stats.inoperativos);
+                }
+                if (data && data.distribucionHtml) {
+                    var cont = document.getElementById('auxDistribucionContainer');
+                    if (cont) cont.innerHTML = data.distribucionHtml;
+                }
+            })
+            .catch(function () { /* silencioso: si falla, el sidebar queda en "—" */ });
+        } catch (e) { /* noop */ }
     });
 
 

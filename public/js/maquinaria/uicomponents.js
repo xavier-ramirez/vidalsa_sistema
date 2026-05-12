@@ -288,6 +288,17 @@ window.selectOption = function (dropdownId, value, label, legacyType) {
                 : "none";
     }
 
+    // En movil, soltar el foco del input del dropdown para que el teclado
+    // virtual se cierre tras elegir una opcion. Sin esto el teclado quedaba
+    // tapando parte de la tabla despues de filtrar.
+    if (
+        searchInput &&
+        window.matchMedia &&
+        window.matchMedia("(max-width: 768px)").matches
+    ) {
+        searchInput.blur();
+    }
+
     // Dispatch custom event for module-specific reactions
     window.dispatchEvent(
         new CustomEvent("dropdown-selection", {

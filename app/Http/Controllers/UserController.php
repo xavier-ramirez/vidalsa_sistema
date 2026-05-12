@@ -121,17 +121,29 @@ class UserController extends Controller
     {
         $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->get();
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
-        $available_permissions = [
-            'user.create'       => 'Registrar Usuarios',
-            'user.edit'         => 'Actualizar Información',
-            'user.delete'       => 'Eliminar Usuarios',
-            'equipos.create'    => 'Registrar Equipos',
-            'equipos.edit'      => 'Actualizar Equipos',
-            'equipos.assign'    => 'Asignar Equipos',
-            'super.admin'       => 'Acceso Total (Super Admin)',
-        ];
-        
+        $available_permissions = self::availablePermissions();
+
         return view('admin.usuarios.formulario', compact('roles', 'frentes', 'available_permissions'));
+    }
+
+    /**
+     * Catálogo de claves de permiso disponibles (key => etiqueta).
+     * Fuente única — usada por create()/edit() y por UserRequest para validar PERMISOS.*.
+     */
+    public static function availablePermissions(): array
+    {
+        return [
+            'user.create'         => 'Registrar Usuarios',
+            'user.edit'           => 'Actualizar Información',
+            'user.delete'         => 'Eliminar Usuarios',
+            'equipos.create'      => 'Registrar Equipos',
+            'equipos.edit'        => 'Actualizar Equipos',
+            'equipos.assign'      => 'Asignar Equipos',
+            'almacen.view.all'    => 'Almacén: ver todos los almacenes (global)',
+            'almacen.manage'      => 'Almacén: crear/editar almacenes y productos',
+            'almacen.movimiento'  => 'Almacén: registrar entradas/salidas/ajustes/traspasos',
+            'super.admin'         => 'Acceso Total (Super Admin)',
+        ];
     }
 
     /**
@@ -183,15 +195,7 @@ class UserController extends Controller
         $user = Usuario::findOrFail($id);
         $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->get();
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
-        $available_permissions = [
-            'user.create'       => 'Registrar Usuarios',
-            'user.edit'         => 'Actualizar Información',
-            'user.delete'       => 'Eliminar Usuarios',
-            'equipos.create'    => 'Registrar Equipos',
-            'equipos.edit'      => 'Actualizar Equipos',
-            'equipos.assign'    => 'Asignar Equipos',
-            'super.admin'       => 'Acceso Total (Super Admin)',
-        ];
+        $available_permissions = self::availablePermissions();
 
         return view('admin.usuarios.formulario', compact('user', 'roles', 'frentes', 'available_permissions'));
     }

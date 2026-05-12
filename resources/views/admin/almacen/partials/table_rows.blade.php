@@ -3,18 +3,19 @@
     $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
     $rows = $productos ?? collect();
+    $cols = $puedeMover ? 9 : 7;
 @endphp
 
 @if(!$almacen)
     <tr>
-        <td colspan="7" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
+        <td colspan="{{ $cols }}" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">warehouse</i>
             No tienes ningún almacén disponible. Pídele a un administrador que cree uno (o que asocie tu frente a un almacén).
         </td>
     </tr>
 @elseif($rows->count() === 0)
     <tr>
-        <td colspan="7" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
+        <td colspan="{{ $cols }}" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">inventory_2</i>
             No hay productos que coincidan con los filtros en <strong>{{ $almacen->NOMBRE }}</strong>.
         </td>
@@ -33,6 +34,15 @@
         @endphp
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }}"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}">
+            @if($puedeMover)
+            <td style="text-align:center;width:34px;">
+                <input type="checkbox" class="alm-sel-check" data-id="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" onchange="window.almSelToggle(this)">
+            </td>
+            <td style="text-align:center;width:108px;">
+                <input type="number" class="alm-sel-cant" data-id="{{ $p->ID_PRODUCTO }}" min="0" step="any" placeholder="Cant." disabled
+                       oninput="window.almSelCantInput(this)" onfocus="this.select()" title="Cantidad a sacar/enviar — marca la casilla para habilitar">
+            </td>
+            @endif
             <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
             <td style="font-weight:600;color:#1e293b;">{{ $p->NOMBRE }}</td>
             <td style="text-align:center;color:#475569;">{{ $p->UM }}</td>

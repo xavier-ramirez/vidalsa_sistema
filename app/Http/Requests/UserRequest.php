@@ -48,7 +48,7 @@ class UserRequest extends FormRequest
             'NIVEL_ACCESO' => 'required|integer|in:1,2',
             'ESTATUS' => 'required|in:ACTIVO,INACTIVO',
             'PERMISOS' => 'nullable|array',
-            'PERMISOS.*' => 'in:user.create,user.edit,user.delete,equipos.create,equipos.edit,equipos.assign,super.admin',
+            'PERMISOS.*' => Rule::in(array_keys(\App\Http\Controllers\UserController::availablePermissions())),
         ];
 
         return $rules;

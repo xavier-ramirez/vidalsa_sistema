@@ -32,6 +32,14 @@
     .alm-table tbody tr:hover { background: #f8fafc; }
     .alm-row-bajo { background: #fff7ed; }
     .alm-row-bajo:hover { background: #ffedd5; }
+    /* Fila seleccionada en modo "selección múltiple" */
+    .alm-row-sel { background: #e1effa !important; }
+    .alm-row-sel:hover { background: #cfe5f7 !important; }
+    .alm-sel-check, #almSelAll { width: 16px; height: 16px; accent-color: var(--maquinaria-blue, #0067b1); cursor: pointer; }
+    /* Input de cantidad por fila — habilitado sólo cuando la fila está seleccionada */
+    .alm-sel-cant { width: 92px; padding: 5px 8px; border: 1px solid #cbd5e0; border-radius: 7px; font-size: 13px; text-align: right; color: #0f172a; transition: opacity .15s, border-color .15s, background .15s; }
+    .alm-sel-cant:disabled { background: #f1f5f9; color: #94a3b8; opacity: .55; cursor: not-allowed; }
+    .alm-row-sel .alm-sel-cant { border-color: var(--maquinaria-blue, #0067b1); background: #fff; font-weight: 700; }
 
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
@@ -97,6 +105,23 @@
     .alm-suggest-item .cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; }
     .alm-suggest-item .nom { font-size:12.5px; color:#475569; }
     .alm-suggest-empty { padding:9px 12px; font-size:12.5px; color:#94a3b8; }
+    /* Variante "en línea" para los modales (no flota: empuja el contenido — así no la recorta el overflow del modal) */
+    .alm-suggest-inline { margin-top:6px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; max-height:170px; overflow-y:auto; padding:5px; display:none; }
+    .alm-suggest-inline.open { display:block; animation:slideDown 0.15s ease-out; }
+    .alm-suggest-inline .si-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:8px; cursor:pointer; font-size:13px; color:#475569; transition:background 0.15s; }
+    .alm-suggest-inline .si-item:hover { background:#e2e8f0; }
+    .alm-suggest-inline .si-item .material-icons { font-size:16px; color:#94a3b8; }
+    .alm-suggest-inline .si-item.si-sel { background:#e1effa; font-weight:700; color:#0f172a; }
+    .alm-suggest-inline .si-item.si-sel .material-icons { color:var(--maquinaria-blue,#0067b1); }
+    .alm-suggest-inline .si-new { color:var(--maquinaria-blue,#0067b1); font-weight:700; }
+    .alm-suggest-inline .si-new .material-icons { color:var(--maquinaria-blue,#0067b1); }
+    /* Campo "Categoría" del modal de producto: input + botón desplegable (caret) */
+    .alm-cat-field { position:relative; display:flex; align-items:center; }
+    .alm-cat-field > input { flex:1; padding-right:36px !important; }
+    .alm-cat-caret { position:absolute; right:3px; top:50%; transform:translateY(-50%); width:30px; height:30px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#64748b; border-radius:8px; transition:background .15s,color .15s; }
+    .alm-cat-caret:hover { background:#f1f5f9; color:#0f172a; }
+    .alm-cat-caret .material-icons { font-size:22px; transition:transform .15s; }
+    .alm-cat-caret.open .material-icons { transform:rotate(180deg); }
 
     @media (max-width: 768px) {
         #almFilters .alm-filter { max-width: none; flex: 1 1 100%; }
@@ -180,9 +205,6 @@
 
         {{-- Acciones (botón desplegable estilo /admin/equipos) --}}
         <div style="display:flex;gap:8px;margin-left:auto;flex:0 0 auto;align-items:center;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#475569;font-weight:600;cursor:pointer;white-space:nowrap;">
-                <input type="checkbox" id="almSoloBajo" onchange="almCargar()" style="accent-color:#f59e0b;"> Solo stock bajo
-            </label>
             <div style="position:relative;">
                 <button type="button" id="almBtnAcciones" class="btn-primary-maquinaria"
                         style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
@@ -191,10 +213,6 @@
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:250px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
                     @if($puedeMover)
-                    <button type="button" onclick="window.almAccion('doc')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">post_add</i></div>
-                        <span style="font-size:14px;font-weight:500;">Nuevo movimiento</span>
-                    </button>
                     <button type="button" onclick="window.almAccion('surtir')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#dbeafe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">local_shipping</i></div>
                         <span style="font-size:14px;font-weight:500;">Surtir sub-almacén</span>
@@ -203,10 +221,6 @@
                     <button type="button" onclick="window.almAccion('kardex')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">receipt_long</i></div>
                         <span style="font-size:14px;font-weight:500;">Movimientos</span>
-                    </button>
-                    <button type="button" onclick="window.almAccion('alertas')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#fef3c7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#b45309;">warning</i></div>
-                        <span style="font-size:14px;font-weight:500;">Alertas de stock</span>
                     </button>
                     @if($puedeManage)
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
@@ -232,6 +246,8 @@
         <table class="alm-table">
             <thead>
                 <tr>
+                    @if($puedeMover)<th style="width:34px;text-align:center;"><input type="checkbox" id="almSelAll" onchange="window.almSelAllPage(this)" title="Seleccionar todo en esta página"></th>
+                    <th style="width:108px;text-align:center;" title="Cantidad a sacar/enviar de los productos seleccionados">Cantidad</th>@endif
                     <th>Código</th>
                     <th>Producto</th>
                     <th style="text-align:center;">UM</th>
@@ -299,6 +315,28 @@
 </div>
 
 </div>{{-- /page-layout-grid --}}
+
+@if($puedeMover)
+{{-- ── Barra flotante de selección múltiple (mismo estilo que /admin/equipos) ── --}}
+<div id="almBulkBar" class="selection-floating-bar">
+    <div class="selection-counter">
+        <div style="background:rgba(255,255,255,0.1);padding:5px;border-radius:50%;display:flex;"><i class="material-icons" style="font-size:18px;color:white;">inventory_2</i></div>
+        <span id="almBulkCount">0</span><span class="desktop-text" style="font-weight:500;color:#cbd5e0;">&nbsp;sel.</span>
+    </div>
+    <div style="width:1px;height:24px;background:rgba(255,255,255,0.2);"></div>
+    <div style="display:flex;gap:10px;">
+        <button type="button" onclick="window.almSelClear(event)" class="btn-bulk-clear" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+            <span class="desktop-text">Limpiar</span>
+        </button>
+        <button type="button" onclick="window.almSelAccion('SALIDA')" class="btn-bulk-action" style="background:#dc2626;">
+            <i class="material-icons" style="font-size:18px;">north_east</i><span class="desktop-text">Salida</span>
+        </button>
+        <button type="button" onclick="window.almSelAccion('TRASPASO')" class="btn-bulk-action" style="background:#0067b1;">
+            <i class="material-icons" style="font-size:18px;">swap_horiz</i><span class="desktop-text">Enviar a otro almacén</span>
+        </button>
+    </div>
+</div>
+@endif
 
 {{-- ════════════════════════ MODALES ════════════════════════ --}}
 
@@ -423,8 +461,18 @@
                 <div style="flex:0.7;"><label>UM *</label><input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND"></div>
             </div>
             <div><label>Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
-            <div><label>Categoría</label><input type="text" id="almProdCategoria" list="almCatList" maxlength="100" placeholder="Opcional"></div>
-            <datalist id="almCatList">@foreach(($categorias ?? collect()) as $c)<option value="{{ $c }}">@endforeach</datalist>
+            <div>
+                <label>Categoría</label>
+                <div class="alm-cat-field">
+                    <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
+                           placeholder="Elige una de la lista o escribe una nueva…"
+                           oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)">
+                    <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
+                            onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+                </div>
+                <div class="alm-suggest-inline" id="almProdCatSuggest"></div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Si la que necesitas no está en la lista, escríbela y se registrará al guardar el producto.</div>
+            </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -500,37 +548,6 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almKardexModal')">Cerrar</button>
-        </div>
-    </div>
-</div>
-
-{{-- Alertas de stock bajo (todos los almacenes visibles, solo lectura) --}}
-<div id="almAlertasModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide">
-        <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;color:#b45309;">warning</i> Alertas de stock bajo</h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almAlertasModal')">close</i>
-        </div>
-        <div class="alm-modal-body">
-            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-                <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#475569;font-weight:600;cursor:pointer;">
-                    <input type="checkbox" id="almAlSoloEste" onchange="window.almCargarAlertas()"> Solo el almacén seleccionado
-                </label>
-                <span id="almAlTotal" style="font-size:12.5px;color:#64748b;"></span>
-            </div>
-            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:62vh;">
-                <table class="alm-kardex-table">
-                    <thead><tr>
-                        <th>Almacén</th><th>Código</th><th>Producto</th><th>Categoría</th><th style="text-align:right;">Saldo</th><th style="text-align:right;">Mínimo</th><th style="text-align:right;">Falta</th>
-                    </tr></thead>
-                    <tbody id="almAlBody">
-                        <tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;">Cargando…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAlertasModal')">Cerrar</button>
         </div>
     </div>
 </div>
@@ -617,6 +634,34 @@
         </div>
     </div>
 </div>
+
+{{-- ── "Enviar a otro almacén": traspaso de los productos seleccionados en la tabla (las cantidades vienen de la propia tabla) ── --}}
+<div id="almEnviarModal" class="alm-modal-overlay">
+    <div class="alm-modal">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;color:#0067b1;">swap_horiz</i> Enviar a otro almacén</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almEnviarModal')">close</i>
+        </div>
+        <div class="alm-modal-body">
+            <p style="font-size:13px;color:#475569;margin:0 0 12px;">Se trasladarán <strong id="almEnviarCount">0</strong> producto(s) desde <strong id="almEnviarOrigen">—</strong> al almacén que elijas. Las cantidades son las que escribiste en la tabla.</p>
+            <div>
+                <label>Almacén destino *</label>
+                <select id="almEnviarDestino">
+                    <option value="">— elige un almacén —</option>
+                    @foreach(($almacenes ?? collect()) as $a)
+                        <option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div><label>Motivo / referencia (opcional)</label><input type="text" id="almEnviarMotivo" maxlength="200" placeholder="Ej: reposición de obra"></div>
+            <div id="almEnviarError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEnviarModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almEnviarConfirmar()">Enviar</button>
+        </div>
+    </div>
+</div>
 @endif
 
 <script>
@@ -629,9 +674,12 @@
 
     var ROUTE_INDEX   = @json(route('almacen.index'));
     var ROUTE_MOV     = @json(route('almacen.movimientos.store'));
+    var ROUTE_LOTE    = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
     // Catálogo de productos (CODIGO/NOMBRE/UM) — lo usan las sugerencias del filtro "Buscar" y los selects del modal de movimientos.
     window.almProductosLista = @json($productosLista ?? collect());
+    // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
+    window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
@@ -639,9 +687,11 @@
     function unpre(){ if (typeof window.hidePreloader === 'function') window.hidePreloader(); }
     function el(id){ return document.getElementById(id); }
     function val(id){ var e = el(id); return e ? String(e.value).trim() : ''; }
+    function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
 
     // ── estado de los filtros que no tienen control visible propio ──
     var soloConSaldo = false; // alternado desde el atajo "Con stock" del sidebar
+    var soloBajo     = false; // alternado desde el atajo "Stock bajo" del sidebar
 
     // ── debounce para los inputs de texto ──
     var _t = null;
@@ -653,7 +703,7 @@
         var alm = val('almSelAlmacen'); if (alm) p.set('id_almacen', alm);
         var b   = val('almFiltroBuscar'); if (b) p.set('search', b);
         var cat = val('almFiltroCat');  if (cat) p.set('categoria', cat);
-        var sb = el('almSoloBajo');     if (sb && sb.checked) p.set('solo_bajo', '1');
+        if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
         // reflejar estado "active" en los wrappers
         var setActive = function (sel, on) { var w = sel && sel.closest('.alm-filter'); if (w) w.classList.toggle('active', !!on); };
@@ -683,6 +733,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
+                almSelSyncChecks(); // re-marcar las filas que sigan en la selección múltiple
                 var pg = el('almPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 if (data.stats) {
                     var num = function (id, v) { var e = el(id); if (e) e.textContent = (v == null ? 0 : v); };
@@ -716,13 +767,12 @@
         if (el('almFiltroBuscar')) el('almFiltroBuscar').value = '';
         if (el('almFiltroCat')) el('almFiltroCat').value = '';
         almSuggestHide();
-        if (el('almSoloBajo')) el('almSoloBajo').checked = false;
-        soloConSaldo = false;
+        soloBajo = false; soloConSaldo = false;
         almCargar();
     };
     window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCargar(); };
-    window.almFiltrarConSaldo = function () { soloConSaldo = true; if (el('almSoloBajo')) el('almSoloBajo').checked = false; almCargar(); };
-    window.almFiltrarBajo = function () { if (el('almSoloBajo')) el('almSoloBajo').checked = true; soloConSaldo = false; almCargar(); };
+    window.almFiltrarConSaldo = function () { soloConSaldo = true; soloBajo = false; almCargar(); };
+    window.almFiltrarBajo = function () { soloBajo = true; soloConSaldo = false; almCargar(); };
 
     // ── Autocompletado del filtro "Buscar" (código o descripción), con el look de los desplegables de la app ──
     function almNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
@@ -783,6 +833,167 @@
         if (a) { e.preventDefault(); e.stopPropagation(); window.almCargar(a.href); }
     }, true);
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  Selección múltiple (checkboxes en la tabla → barra flotante, estilo /admin/equipos)
+    //
+    //  Flujo: marcas los productos en la tabla, escribes EN LA MISMA FILA la
+    //  cantidad a sacar/enviar, y desde la barra flotante eliges "Salida" o
+    //  "Enviar a otro almacén". El movimiento (varias líneas, 1 transacción) va
+    //  a `almacen.movimientos.lote`.
+    //
+    //  La selección vive en memoria (id → { codigo, nombre, um, cantidad }), así
+    //  que sobrevive a los filtros y a la paginación (que recargan sólo el
+    //  <tbody> por AJAX). Tras cada recarga, almSelSyncChecks() vuelve a marcar
+    //  las filas visibles que sigan seleccionadas y les repone la cantidad.
+    // ════════════════════════════════════════════════════════════════════════
+    var almSeleccion = {}; // { id_producto: { codigo, nombre, um, cantidad } }
+    function almSelCount() { return Object.keys(almSeleccion).length; }
+    function almSelRefreshBar() {
+        var bar = el('almBulkBar'); if (!bar) return;
+        var n = almSelCount();
+        bar.classList.toggle('active', n > 0);
+        var c = el('almBulkCount'); if (c) c.textContent = n;
+    }
+    function almSelRowEls(id) {
+        return {
+            cb:   document.querySelector('#almTableBody .alm-sel-check[data-id="' + id + '"]'),
+            cant: document.querySelector('#almTableBody .alm-sel-cant[data-id="' + id + '"]'),
+        };
+    }
+    function almSelMarkRow(cb, on) { var tr = cb.closest('tr'); if (tr) tr.classList.toggle('alm-row-sel', !!on); }
+    window.almSelToggle = function (cb) {
+        var id = cb.getAttribute('data-id'); if (!id) return;
+        var els = almSelRowEls(id);
+        if (cb.checked) {
+            if (!almSeleccion[id]) almSeleccion[id] = { codigo: cb.getAttribute('data-codigo') || '', nombre: cb.getAttribute('data-nombre') || '', um: cb.getAttribute('data-um') || '', cantidad: '' };
+            if (els.cant) { els.cant.disabled = false; els.cant.value = almSeleccion[id].cantidad || ''; setTimeout(function () { els.cant.focus(); }, 0); }
+        } else {
+            delete almSeleccion[id];
+            if (els.cant) { els.cant.value = ''; els.cant.disabled = true; }
+        }
+        almSelMarkRow(cb, cb.checked);
+        almSelSyncMaster();
+        almSelRefreshBar();
+    };
+    // Teclear una cantidad en una fila la selecciona automáticamente.
+    window.almSelCantInput = function (inp) {
+        var id = inp.getAttribute('data-id'); if (!id) return;
+        if (!almSeleccion[id]) { var cb = almSelRowEls(id).cb; if (cb && !cb.checked) { cb.checked = true; window.almSelToggle(cb); } }
+        if (almSeleccion[id]) almSeleccion[id].cantidad = inp.value;
+    };
+    window.almSelAllPage = function (master) {
+        var boxes = document.querySelectorAll('#almTableBody .alm-sel-check');
+        boxes.forEach(function (cb) { cb.checked = master.checked; window.almSelToggle(cb); });
+    };
+    function almSelSyncMaster() {
+        var master = el('almSelAll'); if (!master) return;
+        var boxes = document.querySelectorAll('#almTableBody .alm-sel-check');
+        var any = boxes.length > 0, all = boxes.length > 0;
+        boxes.forEach(function (cb) { if (!cb.checked) all = false; });
+        master.checked = any && all;
+    }
+    function almSelSyncChecks() {
+        document.querySelectorAll('#almTableBody .alm-sel-check').forEach(function (cb) {
+            var id = cb.getAttribute('data-id'), on = !!almSeleccion[id];
+            cb.checked = on; almSelMarkRow(cb, on);
+            var cant = document.querySelector('#almTableBody .alm-sel-cant[data-id="' + id + '"]');
+            if (cant) { cant.disabled = !on; cant.value = on ? (almSeleccion[id].cantidad || '') : ''; }
+        });
+        almSelSyncMaster();
+        almSelRefreshBar();
+    }
+    window.almSelClear = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        almSeleccion = {};
+        document.querySelectorAll('#almTableBody .alm-sel-check').forEach(function (cb) { cb.checked = false; almSelMarkRow(cb, false); });
+        document.querySelectorAll('#almTableBody .alm-sel-cant').forEach(function (i) { i.value = ''; i.disabled = true; });
+        var master = el('almSelAll'); if (master) master.checked = false;
+        almSelRefreshBar();
+    };
+    // Construye [{id_producto, cantidad}] validando cantidad > 0; devuelve también los que faltan.
+    function almSelLineas() {
+        var lineas = [], faltan = [];
+        Object.keys(almSeleccion).forEach(function (id) {
+            var raw = String(almSeleccion[id].cantidad == null ? '' : almSeleccion[id].cantidad).replace(',', '.').trim();
+            var c = parseFloat(raw);
+            if (!isFinite(c) || c <= 0) faltan.push(almSeleccion[id].nombre || ('#' + id));
+            else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
+        });
+        return { lineas: lineas, faltan: faltan };
+    }
+    function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
+    function almSelAlmacenNombre() { var s = el('almSelAlmacen'); if (!s) return ''; var o = s.options[s.selectedIndex]; return o ? o.textContent.trim() : ''; }
+    window.almSelAccion = function (tipo) {
+        if (!almSelCount()) { toast('Marca al menos un producto.', 'error'); return; }
+        if (typeof window.almSelEnviarMovimiento !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
+        var idAlm = almSelAlmacenActual();
+        if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
+        var r = almSelLineas();
+        if (r.faltan.length) {
+            toast('Indica una cantidad mayor que 0 para: ' + r.faltan.slice(0, 4).join(', ') + (r.faltan.length > 4 ? '…' : ''), 'error');
+            return;
+        }
+        if (tipo === 'TRASPASO') { window.almAbrirEnviar(idAlm, r.lineas); return; }
+        // SALIDA: confirmar y registrar de una vez.
+        var n = r.lineas.length;
+        almConfirm('Registrar la <strong>salida</strong> de <strong>' + n + '</strong> producto' + (n === 1 ? '' : 's') + ' desde <strong>' + escHtml(almSelAlmacenNombre()) + '</strong>?', function () {
+            window.almSelEnviarMovimiento({ tipo: 'SALIDA', id_almacen: idAlm, lineas: r.lineas });
+        });
+    };
+
+    // ── Campo "Categoría" del modal de producto: desplegable de categorías ya registradas + "escribir una nueva" ──
+    // Es un <input> normal (puedes teclear cualquier cosa) con un caret que abre la lista de
+    // categorías existentes. Si lo que escribes no está en la lista, aparece "Usar nueva categoría: …"
+    // y al guardar el producto esa categoría queda registrada (la lista se deriva de productos_inventario).
+    function almProdCatHide() {
+        var b = el('almProdCatSuggest'); if (b) b.classList.remove('open');
+        var c = el('almProdCatCaret');   if (c) c.classList.remove('open');
+    }
+    // forceAll = true → muestra TODAS las categorías ignorando el texto actual (lo usan el caret y el focus).
+    window.almProdCatSuggest = function (forceAll) {
+        var inp = el('almProdCategoria'), box = el('almProdCatSuggest'), caret = el('almProdCatCaret');
+        if (!inp || !box) return;
+        var raw = inp.value.trim(), term = almNorm(raw);
+        var lista = (window.almCategoriasLista || []);
+        var matches = (forceAll || term === '') ? lista.slice(0) : lista.filter(function (c) { return almNorm(c).indexOf(term) > -1; });
+        var existeExacta = lista.some(function (c) { return almNorm(c) === term; });
+        var html = '';
+        if (raw !== '' && !existeExacta) {
+            html += '<div class="si-item si-new" data-cat="' + escHtml(raw) + '"><i class="material-icons">add_circle</i>Usar nueva categoría: “' + escHtml(raw.toUpperCase()) + '”</div>';
+        }
+        html += matches.map(function (c) {
+            var sel = almNorm(c) === term ? ' si-sel' : '';
+            var ic  = sel ? 'check_circle' : 'category';
+            return '<div class="si-item' + sel + '" data-cat="' + escHtml(c) + '"><i class="material-icons">' + ic + '</i>' + escHtml(c) + '</div>';
+        }).join('');
+        if (!html) html = '<div class="alm-suggest-empty">No hay categorías registradas todavía. Escribe una para crearla.</div>';
+        box.innerHTML = html;
+        box.classList.add('open');
+        if (caret) caret.classList.add('open');
+    };
+    window.almProdCatToggle = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var box = el('almProdCatSuggest');
+        if (box && box.classList.contains('open')) { almProdCatHide(); return; }
+        window.almProdCatSuggest(true);
+        var inp = el('almProdCategoria'); if (inp) inp.focus();
+    };
+    window.almProdCatPick = function (cat) { var inp = el('almProdCategoria'); if (inp) inp.value = cat; almProdCatHide(); };
+
+    // Delegación: click en una opción de la lista / click fuera del campo lo cierra.
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('#almProdCatSuggest .si-item');
+        if (item) { e.preventDefault(); window.almProdCatPick(item.getAttribute('data-cat') || ''); return; }
+        // No cerrar si el click fue dentro del propio campo (input + caret) o de la lista.
+        if (!e.target.closest('.alm-cat-field') && !e.target.closest('#almProdCatSuggest')) almProdCatHide();
+    });
+    // Enter dentro del input → si hay coincidencia exacta o "nueva", la fija y cierra.
+    var _almProdCatInp = el('almProdCategoria');
+    if (_almProdCatInp) _almProdCatInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); window.almProdCatPick(this.value.trim()); }
+        else if (e.key === 'Escape') { almProdCatHide(); }
+    });
+
     // ── modales ──
     function open(id)  { var m = el(id); if (m) m.classList.add('open'); }
     window.almCerrar = function (id) { var m = el(id); if (m) m.classList.remove('open'); };
@@ -805,7 +1016,6 @@
             case 'doc':      if (window.almAbrirDoc)            window.almAbrirDoc();            break;
             case 'surtir':   if (window.almAbrirSurtir)         window.almAbrirSurtir();         break;
             case 'kardex':   if (window.almAbrirKardex)         window.almAbrirKardex();         break;
-            case 'alertas':  if (window.almAbrirAlertas)        window.almAbrirAlertas();        break;
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
@@ -894,27 +1104,8 @@
         if (a) { e.preventDefault(); e.stopPropagation(); window.almCargarKardex(a.href); }
     }, true);
 
-    // ── Alertas de stock bajo (modal, solo lectura) ──
+    // Endpoint JSON de stock bajo — lo usa "Cargar lo que está bajo mínimo en el destino" del traspaso.
     var ROUTE_ALERTAS = @json(route('almacen.alertasStockBajo'));
-    window.almAbrirAlertas = function () {
-        if (el('almAlSoloEste')) el('almAlSoloEste').checked = false;
-        open('almAlertasModal');
-        window.almCargarAlertas();
-    };
-    window.almCargarAlertas = function () {
-        var body = el('almAlBody'); if (!body) return;
-        var p = new URLSearchParams();
-        if (el('almAlSoloEste') && el('almAlSoloEste').checked) { var idAlm = val('almSelAlmacen'); if (idAlm) p.set('id_almacen', idAlm); }
-        body.style.opacity = '0.5';
-        fetch(ROUTE_ALERTAS + '?' + p.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.html !== undefined) body.innerHTML = data.html;
-                var tot = el('almAlTotal'); if (tot) tot.textContent = (data.total != null ? (data.total + ' alerta(s)') : '');
-            })
-            .catch(function () { body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las alertas.</td></tr>'; })
-            .finally(function () { body.style.opacity = '1'; });
-    };
 
     window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo, minimo) {
         var m = el('almAjusteModal');
@@ -1059,7 +1250,10 @@
 
     function almResetProductoModal() {
         delete el('almProductoModal').dataset.idProducto;
-        el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = ''; showErr('almProdError', '');
+        el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
+        var cs = el('almProdCatSuggest'); if (cs) cs.innerHTML = '';
+        almProdCatHide();
+        showErr('almProdError', '');
     }
     window.almAbrirProducto = function () {
         almResetProductoModal();
@@ -1213,6 +1407,15 @@
         window.almAbrirDoc('TRASPASO');
         toast('Surtido: elige el sub-almacén destino y agrega productos (o pulsa "Cargar lo que está bajo mínimo en el destino").');
     };
+    // Abre el documento de movimiento con una lista de productos ya cargados (lo usa la barra de selección múltiple).
+    window.almAbrirDocConProductos = function (tipo, lineas) {
+        window.almAbrirDoc(tipo || 'SALIDA');
+        if (lineas && lineas.length) {
+            el('almDocLineas').innerHTML = '';
+            lineas.forEach(function (l) { window.almDocAddLinea({ id_producto: l.id_producto, cantidad: (l && l.cantidad != null ? l.cantidad : '') }); });
+        }
+        setTimeout(function () { var tb = el('almDocLineas'); var f = tb ? tb.querySelector('.alm-doc-cant') : null; if (f) f.focus(); }, 90);
+    };
     window.almDocCargarBajoMinimo = function () {
         var m = el('almDocModal'); if (!m || m.dataset.tipo !== 'TRASPASO') return;
         var destino = el('almDocDestino') ? el('almDocDestino').value : '';
@@ -1270,7 +1473,7 @@
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             unpre();
-            if (res.ok) { almCerrar('almDocModal'); toast(res.b.message || 'Movimiento registrado.'); almCargar(); }
+            if (res.ok) { almCerrar('almDocModal'); if (window.almSelClear) window.almSelClear(); toast(res.b.message || 'Movimiento registrado.'); almCargar(); }
             else {
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
@@ -1279,9 +1482,60 @@
         })
         .catch(function () { unpre(); showErr('almDocError', 'Error de red.'); });
     };
+
+    // ── Selección múltiple → registrar movimiento (SALIDA directa / TRASPASO vía modal "Enviar a otro almacén") ──
+    // payload: { tipo:'SALIDA'|'TRASPASO', id_almacen, id_almacen_destino?, motivo?, lineas:[{id_producto,cantidad}] }
+    window.almSelEnviarMovimiento = function (payload) {
+        pre();
+        fetch(ROUTE_LOTE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+            unpre();
+            if (res.ok) {
+                window.almCerrar('almEnviarModal');
+                if (window.almSelClear) window.almSelClear();
+                toast(res.b.message || 'Movimiento registrado.');
+                almCargar();
+            } else {
+                var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
+                if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                if (el('almEnviarModal') && el('almEnviarModal').classList.contains('open')) showErr('almEnviarError', msg);
+                else toast(msg, 'error');
+            }
+        })
+        .catch(function () { unpre(); toast('Error de red.', 'error'); });
+    };
+    // Modal "Enviar a otro almacén" (traspaso de los productos seleccionados a un almacén destino).
+    var ALM_ENVIAR = { idOrigen: '', lineas: [] };
+    window.almAbrirEnviar = function (idOrigen, lineas) {
+        ALM_ENVIAR = { idOrigen: String(idOrigen || ''), lineas: lineas || [] };
+        var sel = el('almEnviarDestino');
+        if (sel) { sel.value = ''; Array.prototype.forEach.call(sel.options, function (o) { o.disabled = (!!o.value && o.value === ALM_ENVIAR.idOrigen); }); }
+        if (el('almEnviarOrigen')) el('almEnviarOrigen').textContent = almSelAlmacenNombre() || ('#' + ALM_ENVIAR.idOrigen);
+        if (el('almEnviarCount'))  el('almEnviarCount').textContent  = ALM_ENVIAR.lineas.length;
+        if (el('almEnviarMotivo')) el('almEnviarMotivo').value = '';
+        showErr('almEnviarError', '');
+        open('almEnviarModal');
+    };
+    window.almEnviarConfirmar = function () {
+        var idDest = el('almEnviarDestino') ? el('almEnviarDestino').value : '';
+        if (!idDest) { showErr('almEnviarError', 'Elige el almacén destino.'); return; }
+        if (idDest === ALM_ENVIAR.idOrigen) { showErr('almEnviarError', 'El destino debe ser distinto del almacén de origen.'); return; }
+        if (!ALM_ENVIAR.lineas.length) { showErr('almEnviarError', 'No hay productos seleccionados.'); return; }
+        showErr('almEnviarError', '');
+        var motivo = el('almEnviarMotivo') ? el('almEnviarMotivo').value.trim() : '';
+        var payload = { tipo: 'TRASPASO', id_almacen: ALM_ENVIAR.idOrigen, id_almacen_destino: idDest, lineas: ALM_ENVIAR.lineas };
+        if (motivo) payload.motivo = motivo;
+        window.almSelEnviarMovimiento(payload);
+    };
     @else
-    window.almAbrirDoc    = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
-    window.almAbrirSurtir = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
+    window.almAbrirDoc             = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
+    window.almAbrirSurtir          = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
+    window.almAbrirDocConProductos = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
 })();
 </script>

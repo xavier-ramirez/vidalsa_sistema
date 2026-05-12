@@ -41,7 +41,7 @@ class AlmacenController extends Controller
             'storeProducto', 'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
-            'registrarMovimiento', 'registrarMovimientoLote', 'asegurarStock', 'actualizarMinimo',
+            'registrarMovimiento', 'registrarMovimientoLote', 'actualizarMinimo',
         ]);
     }
 
@@ -116,44 +116,6 @@ class AlmacenController extends Controller
             'stats'          => $this->statsInventario($idAlmacenSel, $request),
             'distribucion'   => $this->distribucionPorCategoria($idAlmacenSel, $request),
             'esGlobal'       => Almacen::usuarioEsGlobal($user),
-        ]);
-    }
-
-    /**
-     * Página standalone de "Movimientos" (el mismo kardex que el modal del módulo,
-     * pero como página normal). Las filas/paginación las trae por AJAX el endpoint
-     * `almacen.movimientos` (JSON) que ya existe.
-     */
-    public function movimientosPage(Request $request)
-    {
-        $user = $request->user();
-
-        $almacenes = Almacen::visiblesPara($user)
-            ->orderBy('TIPO')->orderBy('NOMBRE')
-            ->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
-
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE']);
-        $frentesLista   = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
-
-        return view('admin.almacen.movimientos', [
-            'almacenes'      => $almacenes,
-            'productosLista' => $productosLista,
-            'frentesLista'   => $frentesLista,
-        ]);
-    }
-
-    /**
-     * Página standalone de "Alertas de stock bajo" (el mismo listado que el modal,
-     * pero como página normal). Las filas las trae por AJAX `almacen.alertasStockBajo`.
-     */
-    public function alertasPage(Request $request)
-    {
-        $almacenes = Almacen::visiblesPara($request->user())
-            ->orderBy('TIPO')->orderBy('NOMBRE')
-            ->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
-
-        return view('admin.almacen.alertas', [
-            'almacenes' => $almacenes,
         ]);
     }
 
@@ -253,22 +215,6 @@ class AlmacenController extends Controller
     //  Almacenes
     // ─────────────────────────────────────────────────────────────
 
-    /** Lista (JSON) de almacenes visibles para el usuario. */
-    public function almacenes(Request $request)
-    {
-        $q = Almacen::visiblesPara($request->user())->withCount('frentes');
-
-        if ($request->filled('tipo')) {
-            $q->where('TIPO', $request->string('tipo'));
-        }
-        if ($request->filled('search')) {
-            $term = $request->string('search');
-            $q->where(fn ($s) => $s->where('NOMBRE', 'like', "%{$term}%")->orWhere('CODIGO', 'like', "%{$term}%"));
-        }
-
-        return response()->json($q->orderBy('NOMBRE')->get());
-    }
-
     public function storeAlmacen(Request $request)
     {
         $data = $this->validarAlmacen($request);
@@ -321,39 +267,6 @@ class AlmacenController extends Controller
     // ─────────────────────────────────────────────────────────────
     //  Productos (catálogo global)
     // ─────────────────────────────────────────────────────────────
-
-    /**
-     * Lista (JSON) de productos. Si se pasa `id_almacen`, incluye el saldo de
-     * cada producto en ese almacén (CANTIDAD; null si nunca tuvo fila de stock).
-     */
-    public function productos(Request $request)
-    {
-        $idAlmacen = $request->integer('id_almacen') ?: null;
-
-        $q = ProductoInventario::query()->buscar($request->input('search'));
-        if (!$request->boolean('incluir_inactivos')) {
-            $q->activos();
-        }
-        if ($request->filled('categoria')) {
-            $q->categoria($request->string('categoria'));
-        }
-
-        if ($idAlmacen) {
-            $this->assertPuedeVerAlmacen($request, $idAlmacen);
-            $q->withSum(['stock as saldo' => fn ($s) => $s->where('ID_ALMACEN', $idAlmacen)], 'CANTIDAD')
-              ->withMin(['stock as cantidad_minima' => fn ($s) => $s->where('ID_ALMACEN', $idAlmacen)], 'CANTIDAD_MINIMA');
-        }
-
-        $productos = $q->orderBy('NOMBRE')->paginate($request->integer('per_page') ?: 50);
-
-        return response()->json($productos);
-    }
-
-    /** Categorías distintas presentes en el catálogo (para filtros). */
-    public function categorias()
-    {
-        return response()->json($this->categoriasDistintas());
-    }
 
     /** Lista (Collection) de categorías distintas del catálogo, ordenadas. */
     private function categoriasDistintas()
@@ -436,92 +349,6 @@ class AlmacenController extends Controller
     //  Stock por almacén
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * Stock (JSON) de un almacén: una fila por producto con CANTIDAD vigente.
-     * Filtros: search (código/nombre del producto), categoria, solo_bajo.
-     */
-    public function stock(Request $request, int $idAlmacen)
-    {
-        $this->assertPuedeVerAlmacen($request, $idAlmacen);
-        $almacen = Almacen::findOrFail($idAlmacen);
-
-        $q = AlmacenStock::where('ID_ALMACEN', $idAlmacen)
-            ->with('producto')
-            ->whereHas('producto', function ($p) use ($request) {
-                if (!$request->boolean('incluir_inactivos')) {
-                    $p->activos();
-                }
-                if ($request->filled('search')) {
-                    $p->buscar($request->string('search'));
-                }
-                if ($request->filled('categoria')) {
-                    $p->categoria($request->string('categoria'));
-                }
-            });
-
-        if ($request->boolean('solo_bajo')) {
-            $q->whereNotNull('CANTIDAD_MINIMA')->whereColumn('CANTIDAD', '<=', 'CANTIDAD_MINIMA');
-        }
-        if ($request->boolean('solo_con_saldo')) {
-            $q->where('CANTIDAD', '>', 0);
-        }
-
-        $q->orderBy(
-            ProductoInventario::select('NOMBRE')->whereColumn('productos_inventario.ID_PRODUCTO', 'almacen_stock.ID_PRODUCTO')
-        );
-
-        return response()->json([
-            'almacen' => $almacen,
-            'stock'   => $q->paginate($request->integer('per_page') ?: 50),
-        ]);
-    }
-
-    /**
-     * Resumen consolidado de un producto en TODOS los almacenes visibles
-     * (lo que pide "los de los almacenes globales ven el stock de cada almacén").
-     */
-    public function stockProducto(Request $request, int $idProducto)
-    {
-        $producto = ProductoInventario::findOrFail($idProducto);
-
-        $almacenesVisibles = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
-
-        $filas = AlmacenStock::where('ID_PRODUCTO', $idProducto)
-            ->whereIn('ID_ALMACEN', $almacenesVisibles)
-            ->with('almacen')
-            ->get();
-
-        return response()->json([
-            'producto'  => $producto,
-            'total'     => (float) $filas->sum('CANTIDAD'),
-            'por_almacen' => $filas->map(fn ($f) => [
-                'id_almacen' => $f->ID_ALMACEN,
-                'almacen'    => $f->almacen?->NOMBRE,
-                'tipo'       => $f->almacen?->TIPO,
-                'cantidad'   => (float) $f->CANTIDAD,
-                'minimo'     => $f->CANTIDAD_MINIMA !== null ? (float) $f->CANTIDAD_MINIMA : null,
-            ])->values(),
-        ]);
-    }
-
-    /** Crea la fila de stock (saldo 0) de un producto en un almacén. */
-    public function asegurarStock(Request $request, int $idAlmacen)
-    {
-        $request->validate([
-            'id_producto'      => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'cantidad_minima'  => 'nullable|numeric|min:0',
-        ]);
-        $this->assertPuedeVerAlmacen($request, $idAlmacen);
-
-        $stock = $this->inventario->asegurarStock(
-            $idAlmacen,
-            $request->integer('id_producto'),
-            $request->filled('cantidad_minima') ? (float) $request->input('cantidad_minima') : null
-        );
-
-        return response()->json(['message' => 'Producto disponible en el almacén.', 'stock' => $stock->load('producto')]);
-    }
-
     /** Define / quita el stock mínimo (umbral de alerta) de un producto en un almacén. */
     public function actualizarMinimo(Request $request, int $idAlmacen)
     {
@@ -539,10 +366,10 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Alertas de stock mínimo: productos cuyo saldo está en o por debajo de su
-     * CANTIDAD_MINIMA, en los almacenes visibles para el usuario.
+     * Alertas de stock mínimo (JSON): productos cuyo saldo está en o por debajo
+     * de su CANTIDAD_MINIMA, en los almacenes visibles para el usuario.
      * Filtro opcional: id_almacen (uno solo).
-     * Devuelve { html: filas <tr>, total, alertas } — `alertas` queda para uso programático.
+     * Lo usa el botón "Cargar lo que está bajo mínimo en el destino" del traspaso.
      */
     public function alertasStockBajo(Request $request)
     {
@@ -579,8 +406,7 @@ class AlmacenController extends Controller
         ])->values();
 
         return response()->json([
-            'html'    => view('admin.almacen.partials.alertas_rows', ['alertas' => $filas])->render(),
-            'total'   => $filas->count(),
+            'total'   => $alertas->count(),
             'alertas' => $alertas,
         ]);
     }

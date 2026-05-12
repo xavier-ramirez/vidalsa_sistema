@@ -266,13 +266,6 @@ class EquipoAuxiliarController extends Controller
                   ->orWhere('MODELO', 'like', "%{$s}%");
             });
         }
-        $stats = [
-            'total'         => (clone $statsBase)->count(),
-            'operativos'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
-            'inoperativos'  => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
-            'en_almacen'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN_ALMACEN')->count(),
-        ];
-
         $hasTipoFilter = $request->filled('tipo') && $request->tipo !== 'all';
         $hasFrenteFilter = $request->filled('id_frente') && $request->id_frente !== 'all';
         $showFrentes = $hasTipoFilter && !$hasFrenteFilter;
@@ -280,20 +273,35 @@ class EquipoAuxiliarController extends Controller
         $distribucion = collect();
         $distribucionFrentes = collect();
 
-        if ($showFrentes) {
-            $distribucionFrentes = (clone $statsBase)
-                ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
-                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
-                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
-                ->orderByDesc('total')
-                ->get();
+        // Las stats y la distribución NO se calculan en la carga inicial de la
+        // página (HTML): así el módulo abre rápido. El sidebar se rellena luego
+        // vía AJAX (cargarAuxiliares() dispara este mismo método con wantsJson).
+        if ($request->wantsJson()) {
+            $stats = [
+                'total'         => (clone $statsBase)->count(),
+                'operativos'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
+                'inoperativos'  => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
+                'en_almacen'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN_ALMACEN')->count(),
+            ];
+
+            if ($showFrentes) {
+                $distribucionFrentes = (clone $statsBase)
+                    ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
+                    ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
+                    ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
+                    ->orderByDesc('total')
+                    ->get();
+            } else {
+                // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
+                $distribucion = (clone $statsBase)
+                    ->selectRaw('TIPO, COUNT(*) as total')
+                    ->groupBy('TIPO')
+                    ->orderByDesc('total')
+                    ->get();
+            }
         } else {
-            // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
-            $distribucion = (clone $statsBase)
-                ->selectRaw('TIPO, COUNT(*) as total')
-                ->groupBy('TIPO')
-                ->orderByDesc('total')
-                ->get();
+            // Placeholders mientras el sidebar carga por AJAX.
+            $stats = ['total' => null, 'operativos' => null, 'inoperativos' => null, 'en_almacen' => null];
         }
 
         // Mapa pre-calculado de detalles para los auxiliares visibles.
