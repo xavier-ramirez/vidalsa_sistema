@@ -66,10 +66,12 @@
     .alm-admin-row:hover { background: #f8fafc; }
     @keyframes almIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
     @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .alm-modal-head { padding: 14px 18px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
-    .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+    /* Todos los modales del módulo: título y botones centrados; la X queda fija en la esquina. */
+    .alm-modal-head { padding: 14px 40px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: center; position: relative; }
+    .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; text-align: center; }
+    .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
-    .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end; gap: 8px; }
+    .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
     .alm-modal label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
     .alm-modal input, .alm-modal select, .alm-modal textarea {
         width: 100%; border: 1px solid #cbd5e0; border-radius: 8px; padding: 9px 10px; font-size: 14px; outline: none; box-sizing: border-box;
@@ -82,11 +84,6 @@
     .alm-tipo-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid #cbd5e0; background:#fff; color:#475569; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; transition:all .12s; }
     .alm-tipo-btn:hover { border-color:#94a3b8; }
     .alm-tipo-btn.active { background:var(--maquinaria-blue,#0067b1); border-color:var(--maquinaria-blue,#0067b1); color:#fff; }
-
-    /* Modal "Nuevo producto": título y botones centrados */
-    #almProductoModal .alm-modal-head { justify-content:center; position:relative; }
-    #almProductoModal .alm-modal-head .alm-x { position:absolute; right:18px; top:50%; transform:translateY(-50%); }
-    #almProductoModal .alm-modal-foot { justify-content:center; }
 
     /* Sugerencias de los filtros (mismo look que los desplegables de la app) */
     .alm-suggest {
@@ -422,7 +419,7 @@
         </div>
         <div class="alm-modal-body">
             <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label>Código *</label><input type="text" id="almProdCodigo" maxlength="50" placeholder="Ej: TOR-001"></div>
+                <div style="flex:1;"><label>Código</label><input type="text" id="almProdCodigo" maxlength="50" placeholder="Opcional — se genera solo si lo dejas vacío"></div>
                 <div style="flex:0.7;"><label>UM *</label><input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND"></div>
             </div>
             <div><label>Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
@@ -1079,13 +1076,13 @@
     window.almGuardarProducto = function () {
         var m = el('almProductoModal'), id = m.dataset.idProducto || null;
         var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
-        if (!codigo) { showErr('almProdError', 'El código es obligatorio.'); return; }
+        // El código es opcional al crear: si va vacío, el backend genera uno automáticamente.
         if (!nombre) { showErr('almProdError', 'La descripción es obligatoria.'); return; }
         pre();
         fetch(id ? ROUTE_PROD_ITEM(id) : ROUTE_PROD, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({ CODIGO: codigo, NOMBRE: nombre, UM: um, CATEGORIA: cat || null })
+            body: JSON.stringify({ CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null })
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {

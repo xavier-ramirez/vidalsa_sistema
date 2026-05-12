@@ -366,6 +366,11 @@ class AlmacenController extends Controller
     public function storeProducto(Request $request)
     {
         $data = $this->validarProducto($request);
+        // Código opcional: si no se escribió, se genera automáticamente (PRD-####).
+        // Si se escribió, se respeta tal cual (sirve para importar los códigos que la gente ya tiene en su Excel).
+        if (empty($data['CODIGO'])) {
+            $data['CODIGO'] = $this->generarCodigoProducto();
+        }
         $data['CREADO_POR'] = optional($request->user())->ID_USUARIO;
 
         $producto = ProductoInventario::create($data);
@@ -376,9 +381,39 @@ class AlmacenController extends Controller
     public function updateProducto(Request $request, int $id)
     {
         $producto = ProductoInventario::findOrFail($id);
-        $producto->update($this->validarProducto($request, $producto->ID_PRODUCTO));
+        $data = $this->validarProducto($request, $producto->ID_PRODUCTO);
+        if (empty($data['CODIGO'])) {
+            unset($data['CODIGO']); // si viene vacío al editar, se conserva el código actual
+        }
+        $producto->update($data);
 
         return response()->json(['message' => 'Producto actualizado.', 'producto' => $producto->fresh()]);
+    }
+
+    /**
+     * Genera el siguiente código automático para un producto: "PRD-####", tomando
+     * el mayor número usado en códigos de ese formato + 1. Incluye soft-deleted en
+     * la verificación porque el índice UNIQUE de CODIGO también los ocupa.
+     */
+    private function generarCodigoProducto(): string
+    {
+        $maxNum = 0;
+        ProductoInventario::withTrashed()
+            ->where('CODIGO', 'like', 'PRD-%')
+            ->pluck('CODIGO')
+            ->each(function ($cod) use (&$maxNum) {
+                if (preg_match('/^PRD-(\d+)$/i', (string) $cod, $m)) {
+                    $maxNum = max($maxNum, (int) $m[1]);
+                }
+            });
+
+        $n = $maxNum + 1;
+        do {
+            $codigo = 'PRD-' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+            $n++;
+        } while (ProductoInventario::withTrashed()->where('CODIGO', $codigo)->exists());
+
+        return $codigo;
     }
 
     public function destroyProducto(int $id)
@@ -763,7 +798,7 @@ class AlmacenController extends Controller
     private function validarProducto(Request $request, ?int $ignoreId = null): array
     {
         $data = $request->validate([
-            'CODIGO'    => ['required', 'string', 'max:50', Rule::unique('productos_inventario', 'CODIGO')->ignore($ignoreId, 'ID_PRODUCTO')],
+            'CODIGO'    => ['nullable', 'string', 'max:50', Rule::unique('productos_inventario', 'CODIGO')->ignore($ignoreId, 'ID_PRODUCTO')],
             'NOMBRE'    => 'required|string|max:200',
             'UM'        => 'required|string|max:20',
             'CATEGORIA' => 'nullable|string|max:100',
@@ -771,7 +806,7 @@ class AlmacenController extends Controller
             'NOTAS'     => 'nullable|string',
         ]);
 
-        $data['CODIGO']    = mb_strtoupper(trim($data['CODIGO']));
+        $data['CODIGO']    = !empty($data['CODIGO']) ? mb_strtoupper(trim($data['CODIGO'])) : null;
         $data['NOMBRE']    = mb_strtoupper(trim($data['NOMBRE']));
         $data['UM']        = mb_strtoupper(trim($data['UM']));
         $data['CATEGORIA'] = !empty($data['CATEGORIA']) ? mb_strtoupper(trim($data['CATEGORIA'])) : null;
