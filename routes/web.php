@@ -190,10 +190,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('almacen/producto/{idProducto}/stock',  [App\Http\Controllers\AlmacenController::class, 'stockProducto'])    ->whereNumber('idProducto')->name('almacen.producto.stock');
             Route::get   ('almacen/almacenes/{idAlmacen}/stock',  [App\Http\Controllers\AlmacenController::class, 'stock'])            ->whereNumber('idAlmacen')->name('almacen.stock');
 
-            // Movimientos de inventario (entradas / salidas / ajustes / traspasos)
+            // Movimientos de inventario: documento ENTRADA/SALIDA/AJUSTE/TRASPASO con N líneas (registrarMovimientoLote)
+            // o movimiento simple de un producto (registrarMovimiento, lo usan los atajos rápidos de la tabla).
             Route::post  ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'registrarMovimiento'])    ->name('almacen.movimientos.store');
-            Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote'); // documento con N líneas
-            Route::post  ('almacen/traspasos',                    [App\Http\Controllers\AlmacenController::class, 'registrarTraspaso'])      ->name('almacen.traspasos.store');
+            Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote');
             Route::post  ('almacen/almacenes/{idAlmacen}/asegurar-stock', [App\Http\Controllers\AlmacenController::class, 'asegurarStock'])->whereNumber('idAlmacen')->name('almacen.asegurarStock');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 

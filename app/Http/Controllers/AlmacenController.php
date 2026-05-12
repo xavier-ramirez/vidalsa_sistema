@@ -41,7 +41,7 @@ class AlmacenController extends Controller
             'storeProducto', 'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
-            'registrarMovimiento', 'registrarMovimientoLote', 'registrarTraspaso', 'asegurarStock', 'actualizarMinimo',
+            'registrarMovimiento', 'registrarMovimientoLote', 'asegurarStock', 'actualizarMinimo',
         ]);
     }
 
@@ -702,6 +702,9 @@ class AlmacenController extends Controller
             'id_usuario'        => optional($request->user())->ID_USUARIO,
             'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
         ];
+        if ($data['tipo'] === 'TRASPASO' && empty($opts['motivo'])) {
+            $opts['motivo'] = 'Traspaso entre almacenes';
+        }
 
         try {
             $n = DB::transaction(function () use ($data, $opts) {
@@ -714,13 +717,7 @@ class AlmacenController extends Controller
                         'ENTRADA'  => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
                         'SALIDA'   => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
                         'AJUSTE'   => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
-                        'TRASPASO' => $this->inventario->registrarTraspaso(
-                            (int) $data['id_almacen'],
-                            (int) $data['id_almacen_destino'],
-                            $idProducto,
-                            $cantidad,
-                            $opts + ['motivo' => $opts['motivo'] ?? 'Traspaso entre almacenes']
-                        ),
+                        'TRASPASO' => $this->inventario->registrarTraspaso((int) $data['id_almacen'], (int) $data['id_almacen_destino'], $idProducto, $cantidad, $opts),
                     };
                     $count++;
                 }
@@ -736,49 +733,6 @@ class AlmacenController extends Controller
         ][$data['tipo']] ?? 'Movimiento registrado';
 
         return response()->json(['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'], 201);
-    }
-
-    /**
-     * Traspaso de un producto entre dos almacenes.
-     * Body: id_almacen_origen, id_almacen_destino, id_producto, cantidad, fecha?, referencia?, motivo?, notas?
-     */
-    public function registrarTraspaso(Request $request)
-    {
-        $data = $request->validate([
-            'id_almacen_origen'  => 'required|integer|exists:almacenes,ID_ALMACEN',
-            'id_almacen_destino' => 'required|integer|exists:almacenes,ID_ALMACEN|different:id_almacen_origen',
-            'id_producto'        => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'cantidad'           => 'required|numeric|gt:0',
-            'fecha'              => 'nullable|date',
-            'referencia'         => 'nullable|string|max:100',
-            'motivo'             => 'nullable|string|max:200',
-            'notas'              => 'nullable|string',
-        ]);
-
-        $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen_origen']);
-        $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen_destino']);
-
-        $opts = [
-            'fecha'      => $data['fecha'] ?? null,
-            'referencia' => $data['referencia'] ?? null,
-            'motivo'     => $data['motivo'] ?? 'Traspaso entre almacenes',
-            'notas'      => $data['notas'] ?? null,
-            'id_usuario' => optional($request->user())->ID_USUARIO,
-        ];
-
-        try {
-            $par = $this->inventario->registrarTraspaso(
-                (int) $data['id_almacen_origen'],
-                (int) $data['id_almacen_destino'],
-                (int) $data['id_producto'],
-                (float) $data['cantidad'],
-                $opts
-            );
-        } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
-
-        return response()->json(['message' => 'Traspaso registrado.', 'movimientos' => $par], 201);
     }
 
     // ─────────────────────────────────────────────────────────────
