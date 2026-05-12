@@ -523,48 +523,11 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">local_shipping</i>Historial Mov
             </a>
 
-            {{-- Almacén Dropdown: Stock + Movimientos + Alertas + acciones (deep-link a los modales del módulo) --}}
-            <div class="nav-dropdown">
-                <a href="#"
-                    class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
-                    style="display: flex; align-items: center; gap: 4px;">
-                    <i class="material-icons" style="font-size: 18px;">warehouse</i>Almacén
-                    <i class="material-icons" style="font-size: 16px;">expand_more</i>
-                </a>
-                <div class="nav-dropdown-content">
-                    <a href="{{ route('almacen.index') }}"
-                        class="nav-dropdown-link {{ request()->is('admin/almacen') ? 'active' : '' }}">
-                        <i class="material-icons">inventory_2</i> Stock / Inventario
-                    </a>
-                    <a href="{{ route('almacen.historial') }}"
-                        class="nav-dropdown-link {{ request()->is('admin/almacen/historial') ? 'active' : '' }}">
-                        <i class="material-icons">receipt_long</i> Movimientos
-                    </a>
-                    <a href="{{ route('almacen.alertas') }}"
-                        class="nav-dropdown-link {{ request()->is('admin/almacen/alertas') ? 'active' : '' }}">
-                        <i class="material-icons">warning</i> Alertas de stock
-                    </a>
-                    @can('almacen.movimiento')
-                    <a href="{{ route('almacen.index', ['modal' => 'doc']) }}" class="nav-dropdown-link">
-                        <i class="material-icons">post_add</i> Nuevo movimiento
-                    </a>
-                    <a href="{{ route('almacen.index', ['modal' => 'surtir']) }}" class="nav-dropdown-link">
-                        <i class="material-icons">local_shipping</i> Surtir sub-almacén
-                    </a>
-                    @endcan
-                    @can('almacen.manage')
-                    <a href="{{ route('almacen.index', ['modal' => 'admin']) }}" class="nav-dropdown-link">
-                        <i class="material-icons">warehouse</i> Gestionar almacenes
-                    </a>
-                    <a href="{{ route('almacen.index', ['modal' => 'almacen']) }}" class="nav-dropdown-link">
-                        <i class="material-icons">add_business</i> Nuevo almacén
-                    </a>
-                    <a href="{{ route('almacen.index', ['modal' => 'producto']) }}" class="nav-dropdown-link">
-                        <i class="material-icons">add_circle</i> Nuevo producto
-                    </a>
-                    @endcan
-                </div>
-            </div>
+            <a href="{{ route('almacen.index') }}"
+                class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
+                style="display: flex; align-items: center;">
+                <i class="material-icons" style="font-size: 18px; margin-right: 5px;">warehouse</i>Almacén
+            </a>
 
             <!-- Configuraciones Dropdown -->
             <div class="nav-dropdown">
@@ -707,49 +670,10 @@
             class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
             <i class="material-icons">local_shipping</i> Historial Mov
         </a>
-        {{-- Almacén: grupo colapsable con Stock + Movimientos + Alertas + acciones --}}
-        <div class="mobile-nav-group" id="mobileAlmacenGroup">
-            <div class="mobile-nav-group-title">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="material-icons">warehouse</i>
-                    Almacén
-                </div>
-                <i class="material-icons chevron">expand_more</i>
-            </div>
-            <div class="mobile-nav-group-content">
-                <a href="{{ route('almacen.index') }}"
-                    class="mobile-nav-link {{ request()->is('admin/almacen') ? 'active' : '' }}">
-                    <i class="material-icons">inventory_2</i> Stock / Inventario
-                </a>
-                <a href="{{ route('almacen.historial') }}"
-                    class="mobile-nav-link {{ request()->is('admin/almacen/historial') ? 'active' : '' }}">
-                    <i class="material-icons">receipt_long</i> Movimientos
-                </a>
-                <a href="{{ route('almacen.alertas') }}"
-                    class="mobile-nav-link {{ request()->is('admin/almacen/alertas') ? 'active' : '' }}">
-                    <i class="material-icons">warning</i> Alertas de stock
-                </a>
-                @can('almacen.movimiento')
-                <a href="{{ route('almacen.index', ['modal' => 'doc']) }}" class="mobile-nav-link">
-                    <i class="material-icons">post_add</i> Nuevo movimiento
-                </a>
-                <a href="{{ route('almacen.index', ['modal' => 'surtir']) }}" class="mobile-nav-link">
-                    <i class="material-icons">local_shipping</i> Surtir sub-almacén
-                </a>
-                @endcan
-                @can('almacen.manage')
-                <a href="{{ route('almacen.index', ['modal' => 'admin']) }}" class="mobile-nav-link">
-                    <i class="material-icons">warehouse</i> Gestionar almacenes
-                </a>
-                <a href="{{ route('almacen.index', ['modal' => 'almacen']) }}" class="mobile-nav-link">
-                    <i class="material-icons">add_business</i> Nuevo almacén
-                </a>
-                <a href="{{ route('almacen.index', ['modal' => 'producto']) }}" class="mobile-nav-link">
-                    <i class="material-icons">add_circle</i> Nuevo producto
-                </a>
-                @endcan
-            </div>
-        </div>
+        <a href="{{ route('almacen.index') }}"
+            class="mobile-nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}">
+            <i class="material-icons">warehouse</i> Almacén
+        </a>
 
         <!-- Mobile Group -->
         <div class="mobile-nav-group" id="mobileConfigGroup">

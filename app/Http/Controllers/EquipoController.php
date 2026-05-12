@@ -48,6 +48,35 @@ class EquipoController extends Controller
     }
 
     /**
+     * True si el request trae un filtro de BÚSQUEDA o de ATRIBUTO concreto
+     * (serial/placa/etiqueta, modelo, marca, año, categoría, estado, ubicación,
+     * GPS o documentación). NO cuenta `id_frente` ni `id_tipo` (son ejes de
+     * navegación). Cuando esto es true, el listado NO oculta los frentes
+     * ESPECIAL: si el usuario busca algo concreto, debe ver todo lo que coincide
+     * (incluida la flota de asignaciones especiales).
+     */
+    private function tieneFiltroEspecifico(Request $request): bool
+    {
+        if ($request->filled('search_query')) {
+            return true;
+        }
+        foreach (['modelo', 'marca', 'detalle_ubicacion', 'anio', 'categoria', 'estado'] as $p) {
+            if ($request->filled($p)) {
+                return true;
+            }
+        }
+        if (in_array(strtoupper(trim((string) $request->input('gps', ''))), ['SI', 'NO'], true)) {
+            return true;
+        }
+        foreach (['filter_propiedad', 'filter_poliza', 'filter_rotc', 'filter_racda', 'filter_adicional', 'filter_adicional_2'] as $p) {
+            if ($request->input($p) === 'true') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Aplica al query los filtros activos del request. `$exclude` permite omitir ejes
      * específicos para que los stats de una dimensión no queden limitados por su propio filtro.
      */
@@ -74,8 +103,10 @@ class EquipoController extends Controller
             } elseif ($raw !== '' && $raw !== 'all') {
                 // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL).
                 $query->where('ID_FRENTE_ACTUAL', $raw);
-            } else {
-                // "TODOS LOS FRENTES" o sin filtro: excluir frentes ESPECIAL (no flota propia).
+            } elseif (!$this->tieneFiltroEspecifico($request)) {
+                // "TODOS LOS FRENTES" y SIN búsqueda/filtro de atributo: ocultar los frentes
+                // ESPECIAL (asignaciones especiales, no flota propia). Si el usuario busca por
+                // serial/placa/etc. o filtra por modelo/marca/año/..., los ESPECIAL SÍ se incluyen.
                 $query->excludeEspecial();
             }
         }
@@ -513,13 +544,14 @@ class EquipoController extends Controller
             }
         }
 
-        // Apply same filters
+        // Apply same filters (mismo criterio que el listado, ver applyEquipoFilters)
         if ($request->filled('id_frente') && $request->id_frente === 'none') {
             // Sentinel "SIN ASIGNAR": equipos sin ID_FRENTE_ACTUAL en BD.
             $equipos->whereNull('ID_FRENTE_ACTUAL');
         } elseif ($request->filled('id_frente') && $request->id_frente != 'all') {
             $equipos->where('ID_FRENTE_ACTUAL', $request->id_frente);
-        } else {
+        } elseif (!$this->tieneFiltroEspecifico($request)) {
+            // Sin frente específico y sin búsqueda/filtro de atributo → ocultar los ESPECIAL.
             $equipos->excludeEspecial();
         }
         if ($request->filled('id_tipo')) {
@@ -610,10 +642,10 @@ class EquipoController extends Controller
         $equipos->with([
             'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'tipo:id,nombre',
-            'documentacion:ID_EQUIPO,PLACA',
+            'documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,LINK_POLIZA_SEGURO,LINK_RACDA,LINK_ROTC',
             'equiposAnclados:ID_EQUIPO,id_tipo_equipo,ID_FRENTE_ACTUAL,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR,ANIO,ESTADO_OPERATIVO,CATEGORIA_FLOTA,ID_ANCLAJE',
             'equiposAnclados.tipo:id,nombre',
-            'equiposAnclados.documentacion:ID_EQUIPO,PLACA',
+            'equiposAnclados.documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,LINK_POLIZA_SEGURO,LINK_RACDA,LINK_ROTC',
             'equiposAnclados.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'ancladoA:ID_EQUIPO,ID_FRENTE_ACTUAL',
             'ancladoA.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
@@ -683,7 +715,9 @@ class EquipoController extends Controller
         $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
         $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
-        $lastCol = $showFrenteCol ? 'K' : 'J';
+        // +4 columnas de documentación (Título de propiedad / Póliza / Reg. RACDA / Reg. ROTC = SÍ/NO):
+        // con FRENTE → A..O ; sin FRENTE → A..N
+        $lastCol = $showFrenteCol ? 'O' : 'N';
 
         $sheet->mergeCells('F1:'.$lastCol.'1');
         $sheet->setCellValue('F1', 'EDICION: 1');
@@ -730,13 +764,14 @@ class EquipoController extends Controller
         ];
         $sheet->getStyle('A1:'.$lastCol.'4')->applyFromArray($headerBorders);
 
-        // Fila 5 - Encabezados de tabla
+        // Fila 5 - Encabezados de tabla (las 4 últimas: documentación cargada SÍ/NO)
+        $docHeaders = ['TÍTULO DE PROPIEDAD', 'PÓLIZA DE SEGURO', 'REGISTRO RACDA', 'REGISTRO ROTC'];
         if ($showFrenteCol) {
-            $headers = ['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'];
-            $colMap = ['A','B','C','D','E','F','G','H','I','J','K'];
+            $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
+            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
         } else {
-            $headers = ['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'];
-            $colMap = ['A','B','C','D','E','F','G','H','I','J'];
+            $headers = array_merge(['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
+            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
         }
 
         foreach($headers as $index => $hdr) {
@@ -761,6 +796,10 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('I')->setWidth(18);
             $sheet->getColumnDimension('J')->setWidth(10);
             $sheet->getColumnDimension('K')->setWidth(20);
+            $sheet->getColumnDimension('L')->setWidth(20); // Título de propiedad
+            $sheet->getColumnDimension('M')->setWidth(18); // Póliza de seguro
+            $sheet->getColumnDimension('N')->setWidth(16); // Registro RACDA
+            $sheet->getColumnDimension('O')->setWidth(16); // Registro ROTC
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(32);
@@ -772,6 +811,10 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('H')->setWidth(18);
             $sheet->getColumnDimension('I')->setWidth(10);
             $sheet->getColumnDimension('J')->setWidth(20);
+            $sheet->getColumnDimension('K')->setWidth(20); // Título de propiedad
+            $sheet->getColumnDimension('L')->setWidth(18); // Póliza de seguro
+            $sheet->getColumnDimension('M')->setWidth(16); // Registro RACDA
+            $sheet->getColumnDimension('N')->setWidth(16); // Registro ROTC
         }
 
         $printedIds = [];
@@ -840,6 +883,18 @@ class EquipoController extends Controller
                 $sheet->setCellValue('H'.$rowNum, $placaVal);
                 $sheet->setCellValue('I'.$rowNum, $anioVal);
                 $sheet->setCellValue('J'.$rowNum, $estadoVal);
+            }
+
+            // Documentación cargada → SÍ / NO (las 4 últimas columnas, según haya o no link guardado)
+            $docSiNo = fn ($link) => (trim((string) $link) !== '') ? 'SÍ' : 'NO';
+            $doc     = $equipo->documentacion;
+            $docCols = $showFrenteCol ? ['L', 'M', 'N', 'O'] : ['K', 'L', 'M', 'N'];
+            $sheet->setCellValue($docCols[0].$rowNum, $doc ? $docSiNo($doc->LINK_DOC_PROPIEDAD) : 'NO'); // Título de propiedad
+            $sheet->setCellValue($docCols[1].$rowNum, $doc ? $docSiNo($doc->LINK_POLIZA_SEGURO) : 'NO'); // Póliza de seguro
+            $sheet->setCellValue($docCols[2].$rowNum, $doc ? $docSiNo($doc->LINK_RACDA)         : 'NO'); // Registro RACDA
+            $sheet->setCellValue($docCols[3].$rowNum, $doc ? $docSiNo($doc->LINK_ROTC)          : 'NO'); // Registro ROTC
+            foreach ($docCols as $dc) {
+                $sheet->getStyle($dc.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             }
 
             // Alternancia de colores en las filas (Zebra Striping)

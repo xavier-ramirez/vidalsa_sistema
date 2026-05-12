@@ -751,7 +751,6 @@
         switch (which) {
             case 'doc':      if (window.almAbrirDoc)            window.almAbrirDoc();            break;
             case 'surtir':   if (window.almAbrirSurtir)         window.almAbrirSurtir();         break;
-            case 'traspaso': if (window.almAbrirDoc)            window.almAbrirDoc('TRASPASO');  break;
             case 'kardex':   if (window.almAbrirKardex)         window.almAbrirKardex();         break;
             case 'alertas':  if (window.almAbrirAlertas)        window.almAbrirAlertas();        break;
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
@@ -1068,7 +1067,8 @@
     // ════════════════════════════════════════════════════════════════════════
     @if($puedeMover)
     var ROUTE_DOC = @json(route('almacen.movimientos.lote'));
-    window.almProductosLista = @json(($productosLista ?? collect())->map(fn ($p) => ['ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE, 'UM' => $p->UM ?? ''])->values());
+    // $productosLista ya viene con solo ID_PRODUCTO/CODIGO/NOMBRE/UM (ver AlmacenController@index).
+    window.almProductosLista = @json($productosLista ?? collect());
 
     var DOC_DESC = {
         ENTRADA:  'Mete producto AL almacén desde afuera del sistema (compra, devolución de proveedor). Sube el saldo.',
@@ -1231,15 +1231,6 @@
     window.almAbrirDoc    = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     window.almAbrirSurtir = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
-})();
-
-// ── Deep-link desde el navbar: /admin/almacen?modal=doc|surtir|traspaso|kardex|alertas|admin|almacen|producto ──
-// Fuera del IIFE con guard para que también funcione en re-montajes (navegación SPA).
-(function () {
-    try {
-        var mdl = new URLSearchParams(window.location.search).get('modal');
-        if (mdl) setTimeout(function () { if (window.almAccion) window.almAccion(mdl); }, 300);
-    } catch (e) {}
 })();
 </script>
 @endsection
