@@ -75,19 +75,17 @@
     .amf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
     .amf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
     .amf-adv-btn { height:45px; width:45px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:12px; box-shadow:none; }
-    /* Tabla con el MISMO look que /admin/equipos (.table-row-header + .table-header-custom):
-       thead oscuro con texto blanco/uppercase, body con texto negro y mismo padding. */
+    /* Tabla limpia sin bordes verticales entre columnas (se veían "tijeretazos" raros con el contraste
+       thead oscuro / tbody claro). Solo border-bottom de filas + el dark del header. */
     .alm-mov-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .alm-mov-table thead tr { background:#1e293b; color:#fff; }
     .alm-mov-table thead th {
         text-align:left; color:#fff; font-size:13px; font-weight:700;
         text-transform:uppercase; letter-spacing:1px;
-        padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a;
+        padding:10px 15px; border-bottom:2px solid #0f172a;
         white-space:nowrap;
     }
-    .alm-mov-table thead th:last-child { border-right:none; }
-    .alm-mov-table tbody td { padding:12px 15px; color:#000; font-size:14px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
-    .alm-mov-table tbody td:last-child { border-right:none; }
+    .alm-mov-table tbody td { padding:12px 15px; color:#000; font-size:14px; border-bottom:1px solid #e2e8f0; }
     .alm-mov-table tbody tr:hover td { background:#e0f2fe; }
     .amf-stat-pill { display:none; }
     @media (max-width: 900px) {
@@ -213,10 +211,9 @@
                     <th style="width:130px;">Tipo</th>
                     <th>Producto</th>
                     <th style="text-align:right;width:120px;">Cantidad</th>
-                    <th style="text-align:right;width:190px;">Saldo (antes → después)</th>
+                    <th style="text-align:right;width:110px;">Stock</th>
                     <th style="width:180px;">Destino / contraparte</th>
                     <th style="width:120px;">Ref</th>
-                    <th style="width:140px;">Usuario</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">
@@ -292,7 +289,7 @@
                 var sc = el('almMovSearchClear'); if (sc && si) sc.style.display = si.value.trim() ? 'block' : 'none';
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
-            .catch(function () { body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
+            .catch(function () { body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
 

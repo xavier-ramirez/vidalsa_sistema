@@ -12,7 +12,7 @@
 @endphp
 
 @if($rows->count() === 0)
-    <tr><td colspan="8" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;">
+    <tr><td colspan="7" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;">
         <i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 8px;">receipt_long</i>
         No hay movimientos que coincidan con los filtros.
     </td></tr>
@@ -25,8 +25,13 @@
                 ? (((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) >= 0 ? '+' : '−')
                 : ($entra ? '+' : '−');
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
+            // El usuario que registró el movimiento ya no tiene columna propia; sale como tooltip
+            // de la fila completa al hacer hover (atributo title del <tr>).
+            $usuarioTip = $m->usuario?->NOMBRE_COMPLETO
+                ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
+                : 'Usuario no registrado';
         @endphp
-        <tr>
+        <tr title="{{ $usuarioTip }}">
             <td style="white-space:nowrap;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
             <td style="white-space:nowrap;">
                 {{-- La pill mantiene su color de fondo y texto propios (visualmente distingue ENTRADA / SALIDA / etc.). --}}
@@ -38,7 +43,9 @@
                  importados ya incluían el código como prefijo). El código queda como tooltip por si lo necesitan. --}}
             <td title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;">{{ $m->producto?->NOMBRE ?? '—' }}</td>
             <td style="text-align:right;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;">{{ $m->producto?->UM }}</span></td>
-            <td style="text-align:right;white-space:nowrap;">{{ $fmt($m->CANTIDAD_ANTERIOR) }} → <strong>{{ $fmt($m->CANTIDAD_RESULTANTE) }}</strong></td>
+            {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
+                 queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
+            <td title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="text-align:right;font-weight:700;white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
             <td>
                 {{-- Mostrar el FRENTE primero (es lo que el operario eligió como destino real);
                      si no hay frente (traspasos legacy o movimientos sin frente), caer al almacén contraparte. --}}
@@ -53,7 +60,6 @@
             {{-- Ref: solo el número de referencia/documento (antes mezclaba REFERENCIA + MOTIVO). El MOTIVO
                  sigue grabado en BD; si se necesita verlo, se agrega columna o tooltip aparte. --}}
             <td title="{{ $m->MOTIVO ?? '' }}">{{ $m->REFERENCIA ?: '—' }}</td>
-            <td style="white-space:nowrap;">{{ $m->usuario?->NOMBRE_COMPLETO ?? '—' }}</td>
         </tr>
     @endforeach
 @endif
