@@ -39,41 +39,26 @@ class TraspasoController extends Controller
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Lista de traspasos visibles para el usuario, con un "tab" implícito:
-     *   - tab=por_recibir (default si el usuario tiene almacenes destino con ENVIADOs pendientes)
-     *   - tab=todos       (historial)
-     * Filtros: estado, id_almacen_origen, id_almacen_destino, search (NUMERO), desde, hasta.
+     * Bandeja de Recepción: SOLO envíos en tránsito que el usuario destino tiene
+     * que confirmar (ESTADO=ENVIADO en sus almacenes visibles). El historial completo
+     * de traspasos confirmados/cancelados se ve en "Historial de Movimientos" del nav
+     * (TIPO=TRASPASO_ENTRADA / TRASPASO_SALIDA en el kardex).
+     *
+     * Filtros del UI: estado (raramente útil porque siempre será ENVIADO),
+     *                 id_almacen_origen, id_almacen_destino, search (NUMERO), desde, hasta.
      */
     public function index(Request $request)
     {
         $user             = $request->user();
         $almacenesVisibles = Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
 
+        // SIEMPRE: estado ENVIADO en almacenes destino visibles para el usuario.
+        // (la columna ID_ALMACEN_DESTINO ya cubre la visibilidad de quien debe recibir).
         $q = Traspaso::query()
             ->with(['almacenOrigen:ID_ALMACEN,NOMBRE,TIPO', 'almacenDestino:ID_ALMACEN,NOMBRE,TIPO', 'usuarioCreo:ID_USUARIO,NOMBRE_COMPLETO'])
-            ->withCount('lineas');
-
-        // Restricción de visibilidad: salvo los globales/super.admin, el usuario solo ve traspasos
-        // cuyo origen O destino son almacenes que él puede operar.
-        if (!Almacen::usuarioEsGlobal($user)) {
-            $q->where(function ($w) use ($almacenesVisibles) {
-                $w->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles)
-                  ->orWhereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
-            });
-        }
-
-        // Tab por defecto: si tengo cosas por recibir, abro en esa pestaña.
-        $tab = $request->input('tab');
-        if (!$tab) {
-            $hayPorRecibir = (clone $q)->where('ESTADO', Traspaso::ESTADO_ENVIADO)
-                ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)->exists();
-            $tab = $hayPorRecibir ? 'por_recibir' : 'todos';
-        }
-
-        if ($tab === 'por_recibir') {
-            $q->where('ESTADO', Traspaso::ESTADO_ENVIADO)->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
-        }
-        // tab='todos': sin filtro adicional — el filtro avanzado de "estado" del UI se aplica abajo.
+            ->withCount('lineas')
+            ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
+            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
 
         // Filtros adicionales.
         if ($request->filled('estado') && $request->input('estado') !== 'all') {
@@ -109,10 +94,12 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Contador para el badge de la tab "Por recibir" (única tab con badge — "Historial" no lleva).
+        // Contador del encabezado "Por recibir [N]" — total real de envíos pendientes en los
+        // almacenes destino del usuario, INDEPENDIENTE de los filtros del UI (search/fechas).
         $contPorRecibir = Traspaso::query()
             ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
-            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)->count();
+            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)
+            ->count();
 
         // Datos extra para el modal "Registrar entrada directa" (alimenta su <select> de productos
         // y de almacenes destino — son los mismos que el usuario puede ver/operar).
@@ -120,7 +107,6 @@ class TraspasoController extends Controller
 
         return view('admin.almacen.recepcion.index', [
             'traspasos'      => $paginator,
-            'tab'            => $tab,
             'contPorRecibir' => $contPorRecibir,
             'almacenes'      => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
             'productosLista' => $productosLista,

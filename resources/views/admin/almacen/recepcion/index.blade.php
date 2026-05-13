@@ -47,11 +47,6 @@
 </section>
 
 <style>
-    .tr-tabs { display:flex; gap:4px; border-bottom:2px solid #e2e8f0; margin-bottom:14px; flex-wrap:wrap; }
-    .tr-tab { padding:9px 16px; cursor:pointer; font-size:13px; font-weight:700; color:#64748b; border-bottom:3px solid transparent; margin-bottom:-2px; display:flex; align-items:center; gap:8px; text-decoration:none; }
-    .tr-tab.active { color:#0067b1; border-bottom-color:#0067b1; }
-    .tr-tab .badge { background:#ef4444; color:#fff; border-radius:999px; padding:1px 7px; font-size:11px; font-weight:800; min-width:18px; text-align:center; }
-    .tr-tab .badge.muted { background:#94a3b8; }
     #trFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
     #trFilters .tr-search { flex:2 1 280px; max-width:none; }
@@ -72,15 +67,15 @@
 
 <div class="admin-card" style="margin:0;min-height:70vh;padding:14px;">
 
-    {{-- ── Tabs ── (sin "Borradores" porque ya no se crean desde aquí; los envíos van directo) --}}
-    <div class="tr-tabs">
-        <a href="{{ route('almacen.recepcion.index', ['tab' => 'por_recibir']) }}" class="tr-tab {{ $tab === 'por_recibir' ? 'active' : '' }}">
-            <i class="material-icons" style="font-size:18px;">inbox</i> Por recibir
-            @if($contPorRecibir > 0)<span class="badge">{{ $contPorRecibir }}</span>@endif
-        </a>
-        <a href="{{ route('almacen.recepcion.index', ['tab' => 'todos']) }}" class="tr-tab {{ $tab === 'todos' ? 'active' : '' }}">
-            <i class="material-icons" style="font-size:18px;">list_alt</i> Historial
-        </a>
+    {{-- Encabezado de la bandeja: el módulo Recepción ahora SOLO muestra "Por recibir"
+         (envíos en tránsito esperando confirmación del destino). El historial completo
+         de traspasos ya recibidos/cancelados se ve en "Historial de Movimientos" del nav. --}}
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 10px 0;border-bottom:2px solid #e2e8f0;margin-bottom:14px;">
+        <i class="material-icons" style="font-size:22px;color:#0067b1;">inbox</i>
+        <h2 style="margin:0;font-size:15px;font-weight:800;color:#0f172a;letter-spacing:.2px;">Por recibir</h2>
+        @if(($contPorRecibir ?? 0) > 0)
+            <span style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;min-width:20px;text-align:center;">{{ $contPorRecibir }}</span>
+        @endif
     </div>
 
     {{-- ── Filtros (search + filtros avanzados estilo equipos) ── --}}
@@ -176,14 +171,14 @@
     'use strict';
     if (!document.getElementById('trTableBody')) return;
     var ROUTE = @json(route('almacen.recepcion.index'));
-    var TAB   = @json($tab);
 
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
 
     function params(pageUrl) {
+        // El backend filtra siempre a "por recibir" (ENVIADO en almacenes visibles).
+        // Aquí solo mandamos los filtros del UI (search/estado/origen/destino/fechas).
         var p = new URLSearchParams();
-        p.set('tab', TAB);
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
         if (v('trOrigen')  && v('trOrigen')  !== 'all')    p.set('id_almacen_origen', v('trOrigen'));
