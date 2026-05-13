@@ -25,6 +25,27 @@ class MovimientoInventario extends Model
     /** Tipos que RESTAN del stock. */
     public const TIPOS_SALIDA  = [self::TIPO_SALIDA, self::TIPO_TRASPASO_SALIDA];
 
+    /**
+     * Metadata visual de cada TIPO para los partials del kardex (label / color
+     * texto / color fondo / ícono). Centraliza la definición que antes vivía
+     * duplicada en kardex_rows.blade.php y kardex_rows_mini.blade.php — si
+     * mañana renombramos "Auditoría" o cambiamos el ícono de "Traspaso", se
+     * toca un solo sitio.
+     *
+     * Formato: [LABEL_HUMANO, COLOR_TEXTO_HEX, COLOR_FONDO_HEX, MATERIAL_ICON]
+     */
+    public const TIPO_META = [
+        self::TIPO_ENTRADA          => ['Entrada',           '#16a34a', '#dcfce7', 'add'],
+        self::TIPO_TRASPASO_ENTRADA => ['Traspaso (entra)',  '#0891b2', '#cffafe', 'south_west'],
+        self::TIPO_SALIDA           => ['Salida',            '#dc2626', '#fee2e2', 'remove'],
+        self::TIPO_TRASPASO_SALIDA  => ['Traspaso (sale)',   '#ea580c', '#ffedd5', 'north_east'],
+        // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
+        self::TIPO_AJUSTE           => ['Auditoría',         '#7c3aed', '#ede9fe', 'fact_check'],
+    ];
+
+    /** Fallback usado cuando el TIPO no figura en la tabla (defensivo). */
+    public const TIPO_META_DEFAULT = ['?', '#475569', '#f1f5f9', 'swap_vert'];
+
     protected $fillable = [
         'ID_ALMACEN',
         'ID_PRODUCTO',

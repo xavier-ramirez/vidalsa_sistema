@@ -364,16 +364,12 @@ class TraspasoController extends Controller
 
     private function assertPuedeOperarOrigen(Request $request, int $idAlmacen): void
     {
-        $almacen = Almacen::find($idAlmacen);
-        abort_unless($almacen !== null, 404, 'Almacén origen no encontrado.');
-        abort_unless($almacen->visiblePara($request->user()), 403, 'No tienes acceso a este almacén origen.');
+        Almacen::assertVisibleOrFail($request->user(), $idAlmacen, 'origen');
     }
 
     private function assertPuedeOperarDestino(Request $request, int $idAlmacen): void
     {
-        $almacen = Almacen::find($idAlmacen);
-        abort_unless($almacen !== null, 404, 'Almacén destino no encontrado.');
-        abort_unless($almacen->visiblePara($request->user()), 403, 'No tienes acceso a este almacén destino.');
+        Almacen::assertVisibleOrFail($request->user(), $idAlmacen, 'destino');
     }
 
     private function assertPuedeVerTraspaso(Request $request, Traspaso $traspaso): void

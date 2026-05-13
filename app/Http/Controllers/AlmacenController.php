@@ -484,8 +484,25 @@ class AlmacenController extends Controller
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
 
-        // id_frente solo tiene sentido en SALIDA (frente/proyecto que consume); en ENTRADA/AJUSTE se ignora.
-        $idFrente = $data['tipo'] === 'SALIDA' ? ($data['id_frente'] ?? null) : null;
+        // Resolución del frente del movimiento:
+        //   - SALIDA  → el usuario elige el frente que CONSUME el producto (proyecto destino).
+        //   - ENTRADA/AJUSTE en almacén PROYECTO con UN único frente asociado → autollenamos
+        //     con ese frente para que el movimiento aparezca atribuido al proyecto correcto
+        //     en la bitácora (de lo contrario quedaba NULL y la columna "Destino" se veía
+        //     vacía aunque el almacén perteneciera a un frente claro).
+        //   - ENTRADA/AJUSTE en almacén GENERAL o PROYECTO multi-frente → queda NULL (el
+        //     movimiento es "del almacén" sin proyecto específico).
+        if ($data['tipo'] === 'SALIDA') {
+            $idFrente = $data['id_frente'] ?? null;
+        } else {
+            $idFrente = $data['id_frente'] ?? null;
+            if ($idFrente === null) {
+                $alm = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
+                if ($alm && $alm->TIPO === Almacen::TIPO_PROYECTO && $alm->frentes->count() === 1) {
+                    $idFrente = (int) $alm->frentes->first()->ID_FRENTE;
+                }
+            }
+        }
 
         // Los campos de la Nota de Entrega solo se preservan en SALIDA. Para ENTRADA/AJUSTE se ignoran
         // (quedarían NULL en BD de todas formas, pero los limpiamos para que el opts esté coherente).
@@ -810,12 +827,13 @@ class AlmacenController extends Controller
         $almacen->frentes()->sync($ids);
     }
 
-    /** Aborta (403/404) si el usuario no puede ver/operar sobre ese almacén. */
+    /**
+     * Wrapper sobre el helper centralizado Almacen::assertVisibleOrFail.
+     * Se mantiene para no tocar las 5 llamadas internas (todas pasan por aquí).
+     */
     private function assertPuedeVerAlmacen(Request $request, int $idAlmacen): void
     {
-        $almacen = Almacen::find($idAlmacen);
-        abort_unless($almacen !== null, 404, 'Almacén no encontrado.');
-        abort_unless($almacen->visiblePara($request->user()), 403, 'No tienes acceso a este almacén.');
+        Almacen::assertVisibleOrFail($request->user(), $idAlmacen);
     }
 }
 

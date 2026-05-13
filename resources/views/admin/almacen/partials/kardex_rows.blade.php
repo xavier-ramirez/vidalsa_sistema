@@ -1,15 +1,9 @@
-{{-- Filas del kardex (modal "Movimientos"). $movimientos = paginator de MovimientoInventario --}}
+{{-- Filas del kardex (modal "Movimientos"). $movimientos = paginator de MovimientoInventario.
+     $tipoMeta viene del modelo (TIPO_META / TIPO_META_DEFAULT) para single source of truth. --}}
 @php
     $rows = $movimientos ?? collect();
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ','), '0'), '.') ?: '0';
-    $tipoMeta = [
-        'ENTRADA'          => ['Entrada',  '#16a34a', '#dcfce7', 'add'],
-        'TRASPASO_ENTRADA' => ['Traspaso (entra)', '#0891b2', '#cffafe', 'south_west'],
-        'SALIDA'           => ['Salida',   '#dc2626', '#fee2e2', 'remove'],
-        'TRASPASO_SALIDA'  => ['Traspaso (sale)',  '#ea580c', '#ffedd5', 'north_east'],
-        // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
-        'AJUSTE'           => ['Auditoría', '#7c3aed', '#ede9fe', 'fact_check'],
-    ];
+    $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
 @endphp
 
 @if($rows->count() === 0)
@@ -20,7 +14,7 @@
 @else
     @foreach($rows as $m)
         @php
-            $meta = $tipoMeta[$m->TIPO] ?? [$m->TIPO, '#475569', '#f1f5f9', 'swap_vert'];
+            $meta = $tipoMeta[$m->TIPO] ?? \App\Models\MovimientoInventario::TIPO_META_DEFAULT;
             $entra = in_array($m->TIPO, ['ENTRADA', 'TRASPASO_ENTRADA'], true);
             $signo = $m->TIPO === 'AJUSTE'
                 ? (((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) >= 0 ? '+' : '−')

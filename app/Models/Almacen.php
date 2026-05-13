@@ -158,4 +158,23 @@ class Almacen extends Model
         }
         return $this->frentes()->whereIn('frentes_trabajo.ID_FRENTE', $frenteIds)->exists();
     }
+
+    /**
+     * Helper para los controllers: carga el almacén por ID y aborta con 404 si
+     * no existe o 403 si el usuario no puede verlo. $rolHumano se inyecta en el
+     * mensaje del 403/404 ("origen" / "destino" / null = sin sufijo) para que
+     * los traspasos puedan distinguir cuál de los dos almacenes falló.
+     *
+     * Centraliza el guard que antes vivía duplicado en AlmacenController y en
+     * TraspasoController::assertPuedeOperar(Origen|Destino|...). Single source
+     * of truth para "¿este usuario tiene derecho a tocar este almacén?".
+     */
+    public static function assertVisibleOrFail($user, int $idAlmacen, ?string $rolHumano = null): self
+    {
+        $sufijo = $rolHumano ? " {$rolHumano}" : '';
+        $almacen = self::find($idAlmacen);
+        abort_unless($almacen !== null, 404, "Almacén{$sufijo} no encontrado.");
+        abort_unless($almacen->visiblePara($user), 403, "No tienes acceso a este almacén{$sufijo}.");
+        return $almacen;
+    }
 }

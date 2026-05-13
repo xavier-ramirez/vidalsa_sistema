@@ -22,11 +22,56 @@
     ];
 @endphp
 
+@php
+    // Selector de "Almacén destino" prominente en el header (mismo patrón que el de
+    // Almacén en /admin/almacen/movimientos). Cada almacén tiene SU propia bandeja de
+    // recepción; el usuario LOCAL con un único almacén destino visible no necesita
+    // este selector pero igual lo dejamos para coherencia (queda preseleccionado).
+    $destSel = ($reqDestino && $reqDestino !== 'all')
+        ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqDestino)
+        : null;
+@endphp
+
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
-        <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
-        </h1>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;flex:1 1 auto;">
+            <h1 class="page-title" style="margin:0;">
+                <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
+            </h1>
+            {{-- Separador vertical sutil + selector de almacén destino. Mismo idioma visual
+                 que /admin/almacen y /admin/almacen/movimientos para que el usuario reconozca
+                 inmediatamente que "esta es la recepción DE este almacén". --}}
+            <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
+            <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
+                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén destino</span>
+                <div style="width:260px;min-width:200px;max-width:100%;">
+                    <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
+                        <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
+                        <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
+                            <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                            <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                                   placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes destino' }}"
+                                   style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                                   oninput="window.filterDropdownOptions(this)">
+                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;"
+                               onclick="event.stopPropagation(); clearDropdownFilter('trDestHeaderDropdown');">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                            <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                                <div class="dropdown-item {{ !$destSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">TODOS LOS ALMACENES DESTINO</div>
+                                @foreach(($almacenes ?? collect()) as $a)
+                                    <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                         onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                        {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         @can('almacen.movimiento')
         {{-- Único botón del encabezado: registrar una entrada directa (compras / devoluciones
              que no vienen de otro almacén). Los envíos se inician desde el inventario
@@ -142,15 +187,8 @@
                             @endforeach
                         </select>
                     </div>
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Almacén destino</span>
-                        <select id="trDestino" onchange="window.trLoad()" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 8px;background:white;font-size:12px;outline:none;">
-                            <option value="all">Todos</option>
-                            @foreach($almacenes as $a)
-                                <option value="{{ $a->ID_ALMACEN }}" {{ (string) $reqDestino === (string) $a->ID_ALMACEN ? 'selected' : '' }}>{{ $a->NOMBRE }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    {{-- "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown).
+                         Aquí ya no aparece para no tener dos selectores fuera de sincronía. --}}
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                         <div>
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
@@ -202,6 +240,10 @@
 
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
+    // Lectura de los hidden inputs de los custom-dropdown (por atributo data-filter-value).
+    // Necesario para el dropdown "Almacén destino" del header (#trDestHeaderDropdown),
+    // que no tiene un <select> tradicional. Patrón calcado de /admin/almacen/movimientos.
+    function hv(name) { var e = document.querySelector('input[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
     // ── Autocomplete del filtro "N° de nota" ──────────────────────────────
     // Filtra la lista pre-cargada por prefijo + substring (case-insensitive) y
@@ -250,7 +292,10 @@
         if (v('trSearchProd'))                             p.set('search_producto', v('trSearchProd'));
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
         if (v('trOrigen')  && v('trOrigen')  !== 'all')    p.set('id_almacen_origen', v('trOrigen'));
-        if (v('trDestino') && v('trDestino') !== 'all')    p.set('id_almacen_destino', v('trDestino'));
+        // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
+        // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
+        var dest = hv('id_almacen_destino');
+        if (dest && dest !== 'all')                        p.set('id_almacen_destino', dest);
         if (v('trDesde'))                                  p.set('desde', v('trDesde'));
         if (v('trHasta'))                                  p.set('hasta', v('trHasta'));
         if (pageUrl) { try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {} }
@@ -292,10 +337,22 @@
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
     window.trClearAdv = function () {
-        ['trEstado','trOrigen','trDestino'].forEach(function (id) { var e = el(id); if (e) e.value = 'all'; });
+        ['trEstado','trOrigen'].forEach(function (id) { var e = el(id); if (e) e.value = 'all'; });
         ['trDesde','trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        // El destino vive en el dropdown del header; lo limpiamos por su API.
+        if (typeof window.clearDropdownFilter === 'function') {
+            window.clearDropdownFilter('trDestHeaderDropdown');
+        }
         window.trLoad();
     };
+
+    // El dropdown del header dispara este evento cuando el usuario cambia el almacén
+    // destino. Re-carga la tabla con el nuevo filtro.
+    window.addEventListener('dropdown-selection', function (e) {
+        var id = e.detail && e.detail.dropdownId;
+        if (id === 'trDestHeaderDropdown') window.trLoad();
+    });
+
     document.addEventListener('click', function (e) {
         var p = el('trAdvPanel');
         if (p && p.style.display === 'block' && !e.target.closest('#trAdvPanel') && !e.target.closest('[onclick*="trToggleAdv"]')) p.style.display = 'none';
