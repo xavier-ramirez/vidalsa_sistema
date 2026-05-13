@@ -184,6 +184,8 @@ Route::middleware(['auth'])->group(function () {
             // o movimiento simple de un producto (registrarMovimiento, lo usan los atajos rápidos de la tabla).
             Route::post  ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'registrarMovimiento'])    ->name('almacen.movimientos.store');
             Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote');
+            // Nota de Entrega (PDF, VID-FO-GEN-019). ?ids=10,11,12 → genera el documento del lote SALIDA.
+            Route::get   ('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'notaEntregaPdf'])  ->name('almacen.nota-entrega');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 
             // Productos (catálogo global)

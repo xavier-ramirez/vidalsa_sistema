@@ -554,32 +554,121 @@ class AlmacenController extends Controller
         ];
 
         try {
-            $n = DB::transaction(function () use ($data, $opts) {
-                $count = 0;
+            // Capturamos los IDs de los movimientos creados para poder generar la Nota de Entrega
+            // (sólo SALIDA): el frontend recibe en la respuesta una URL al PDF con esos IDs.
+            $result = DB::transaction(function () use ($data, $opts) {
+                $ids = [];
                 foreach ($data['lineas'] as $linea) {
                     $idProducto = (int) $linea['id_producto'];
                     $cantidad   = (float) $linea['cantidad'];
 
-                    match ($data['tipo']) {
+                    $mov = match ($data['tipo']) {
                         'ENTRADA' => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
                         'SALIDA'  => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
                         'AJUSTE'  => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
                     };
-                    $count++;
+                    $ids[] = $mov->ID_MOVIMIENTO;
                 }
-                return $count;
+                return $ids;
             });
         } catch (Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        $n = count($result);
         $etiqueta = [
             'ENTRADA' => 'Entrada registrada',
             'SALIDA'  => 'Salida registrada',
             'AJUSTE'  => 'Ajuste aplicado',
         ][$data['tipo']] ?? 'Movimiento registrado';
 
-        return response()->json(['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'], 201);
+        $payload = ['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'];
+        // Sólo en SALIDA devolvemos la URL del PDF de Nota de Entrega; el frontend la abre en pestaña nueva.
+        if ($data['tipo'] === 'SALIDA') {
+            $payload['nota_url'] = route('almacen.nota-entrega', ['ids' => implode(',', $result)]);
+        }
+
+        return response()->json($payload, 201);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Nota de Entrega de Materiales (PDF, formato VID-FO-GEN-019)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Genera el PDF "Nota de Entrega de Materiales" replicando el formulario oficial
+     * (Constructora Vidalsa 27, C.A. — VID-FO-GEN-019).
+     *
+     * Recibe ?ids=10,11,12 con los IDs de los movimientos SALIDA del lote. Todos los
+     * movimientos del mismo lote comparten cabecera (proyecto/contrato/RQ/solicitante/
+     * departamento/fecha) por construcción de registrarMovimientoLote.
+     *
+     * Permisos: lectura. Sólo se valida que el usuario pueda VER el almacén involucrado;
+     * no se exige 'almacen.movimiento' (eso es para crear).
+     */
+    public function notaEntregaPdf(Request $request)
+    {
+        $idsRaw = (string) $request->query('ids', '');
+        $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $idsRaw)))));
+        abort_if(empty($ids), 404, 'No se indicaron movimientos.');
+
+        $movs = MovimientoInventario::with(['producto', 'almacen', 'frente', 'usuario'])
+            ->whereIn('ID_MOVIMIENTO', $ids)
+            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
+            ->orderBy('ID_MOVIMIENTO')
+            ->get();
+
+        abort_if($movs->isEmpty(), 404, 'No se encontraron movimientos de salida con esos IDs.');
+
+        // Defensa: aunque registrarMovimientoLote SIEMPRE crea las líneas en un único almacén,
+        // alguien podría llamar a este endpoint con ?ids= de movimientos de almacenes distintos.
+        // La cabecera (proyecto/contrato/RQ/...) usa $movs->first(), así que mezclar almacenes
+        // produciría un documento engañoso → rechazamos.
+        $almacenesUnicos = $movs->pluck('ID_ALMACEN')->unique();
+        abort_if(
+            $almacenesUnicos->count() > 1,
+            400,
+            'Los movimientos del lote deben pertenecer a un único almacén.'
+        );
+        // Y el usuario debe poder ver ese almacén (mismo gate que el resto del módulo).
+        $this->assertPuedeVerAlmacen($request, (int) $almacenesUnicos->first());
+
+        // Cabecera del documento: todos los movimientos comparten estos campos porque
+        // registrarMovimientoLote los stampa en cada línea con el mismo $opts.
+        $hd = $movs->first();
+        $datos = [
+            'proyecto'      => $hd->frente?->NOMBRE_FRENTE ?? '',
+            'contrato'      => $hd->NUMERO_CONTRATO ?? '',
+            'fecha'         => optional($hd->FECHA)->format('d/m/Y') ?: now()->format('d/m/Y'),
+            'rq'            => $hd->NUMERO_RQ ?? '',
+            'solicitante'   => $hd->SOLICITANTE ?? '',
+            'departamento'  => $hd->DEPARTAMENTO ?? '',
+            'almacen'       => $hd->almacen?->NOMBRE ?? '',
+            'entregado_por' => $hd->usuario?->NOMBRE_COMPLETO ?? '',
+            'motivo'        => $hd->MOTIVO ?? '',
+        ];
+
+        $pdf = new NotaEntregaPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->setPrintHeader(true);
+        $pdf->setPrintFooter(true);
+        $pdf->SetMargins(12, 42, 12);   // top=42 para que el contenido empiece debajo del cabezote
+        $pdf->SetHeaderMargin(6);
+        $pdf->SetFooterMargin(10);
+        $pdf->SetAutoPageBreak(true, 14);
+        $pdf->SetTitle('Nota de Entrega de Materiales');
+        $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
+        $pdf->SetCreator('Sistema de Gestión VIDALSA');
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 9.5);
+
+        $html = view('admin.almacen.nota_entrega_pdf', [
+            'datos' => $datos,
+            'movs'  => $movs,
+        ])->render();
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $slug = $hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO);
+        return $pdf->Output('Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf', 'I');
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -646,5 +735,64 @@ class AlmacenController extends Controller
         $almacen = Almacen::find($idAlmacen);
         abort_unless($almacen !== null, 404, 'Almacén no encontrado.');
         abort_unless($almacen->visiblePara($request->user()), 403, 'No tienes acceso a este almacén.');
+    }
+}
+
+/**
+ * TCPDF subclass para la Nota de Entrega de Materiales (formato oficial VID-FO-GEN-019,
+ * Constructora Vidalsa 27, C.A. — emitido 01/10/19, revisión 1 del 06/10/23).
+ *
+ * Cabezote (Header(), repetido en cada página):
+ *   [LOGO]            [TÍTULO centrado]               [Sello de código 5 filas]
+ *
+ * Nota: este PDF es un FORMULARIO OFICIAL de uso impreso/firmable, no un reporte interno
+ * del sistema. Por eso la cabecera es más alta (42mm de margen superior, logo h=28mm,
+ * título 15pt) que la de FallaController/MovilizacionController, que son reportes con un
+ * encabezado fino. El estilo se calca del Excel "Nueva Nota de entrega de materiales 2025.xlsx"
+ * que ya usa la empresa.
+ */
+class NotaEntregaPDF extends \TCPDF
+{
+    public function Header()
+    {
+        // ── Logo (izquierda, alineado con el margen izquierdo del documento) ──
+        $img = public_path('img/imagen_uno.jpg');
+        if (file_exists($img)) {
+            // x=12 (== margen izquierdo del SetMargins), y=6, w=0(auto = mantiene aspecto), h=28mm.
+            // Equivale visualmente al área A1:B5 del Excel oficial.
+            $this->Image($img, 12, 6, 0, 28, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+        }
+
+        // ── Título central ──
+        // Franja entre el logo (≈55mm) y el sello (≈145mm). 85mm de ancho útil.
+        $this->SetFont('helvetica', 'B', 15);
+        $this->writeHTMLCell(
+            85, 0, 55, 12,
+            '<div style="text-align:center;font-weight:bold;">NOTA DE ENTREGA<br>DE MATERIALES</div>',
+            0, 0, 0, true, 'C', true
+        );
+
+        // ── Sello de formato (derecha, 5 filas idénticas al Excel original) ──
+        // Las fechas EMIS/REV y el CODIGO son estáticos (parte del formulario oficial), NO
+        // datos del movimiento — por eso van hardcoded y no como variables del controlador.
+        $this->SetFont('helvetica', '', 7);
+        $stamp = '<table border="1" cellpadding="2" style="font-size:7pt;border-collapse:collapse;">'
+               . '<tr><td width="100%" align="left"><b>CODIGO:</b></td></tr>'
+               . '<tr><td align="center"><b>VID-FO-GEN-019</b></td></tr>'
+               . '<tr><td align="left">FECHA EMIS: 01/10/19</td></tr>'
+               . '<tr><td align="left">REV: 1. FECHA REV: 06/10/23</td></tr>'
+               . '<tr><td align="center">PAG. ' . $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages() . '</td></tr>'
+               . '</table>';
+        $this->writeHTMLCell(53, 0, 145, 6, $stamp, 0, 0, 0, true, 'L', true);
+    }
+
+    public function Footer()
+    {
+        $this->SetY(-10);
+        $this->SetFont('helvetica', 'I', 7);
+        // Cell() en vez de writeHTMLCell porque el texto es ASCII puro (sin acentos) — más rápido
+        // y suficiente. Mismo criterio que ReporteFallaPDF::Footer().
+        $emitido = 'Sistema de Gestion VIDALSA - emitido el ' . \Carbon\Carbon::now()->format('d/m/Y H:i');
+        $this->Cell(0, 6, $emitido, 0, 0, 'R');
     }
 }

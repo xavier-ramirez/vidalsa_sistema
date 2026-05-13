@@ -281,7 +281,7 @@
             <thead>
                 <tr>
                     <th>Código</th>
-                    <th>Producto</th>
+                    <th>Descripción del producto</th>
                     <th style="text-align:center;">UM</th>
                     <th>Categoría</th>
                     <th style="text-align:right;">Stock</th>
@@ -708,7 +708,7 @@
             <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:40vh;">
                 <table class="alm-kardex-table">
                     <thead><tr>
-                        <th>Código</th><th>Producto</th><th style="text-align:right;">Stock actual</th><th style="text-align:right;width:120px;">Cantidad *</th><th style="width:36px;"></th>
+                        <th>Código</th><th>Descripción del producto</th><th style="text-align:right;">Stock actual</th><th style="text-align:right;width:120px;">Cantidad *</th><th style="width:36px;"></th>
                     </tr></thead>
                     <tbody id="almSalidaLineas"></tbody>
                 </table>
@@ -1546,6 +1546,15 @@
             var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
         }
 
+        // Para SALIDA: pre-abrimos una pestaña vacía AHORA, dentro del gesto del usuario (el click
+        // en "Registrar salida"). Si esperáramos a hacer window.open() después del fetch, los
+        // bloqueadores de pop-up de algunos navegadores (Chrome estricto, Firefox con prefs) lo
+        // rechazarían por no estar en el contexto del gesto original. Cuando llegue la respuesta:
+        //   - si todo OK     → redirigimos esa pestaña a la nota_url
+        //   - si algo falla  → la cerramos discretamente
+        // En TRASPASO no hace falta — no se genera PDF.
+        var pdfTab = (ALM_SAL.tipo !== 'TRASPASO') ? window.open('about:blank', '_blank') : null;
+
         pre();
         fetch(url, {
             method: 'POST',
@@ -1560,13 +1569,24 @@
                 if (window.almSelClear) window.almSelClear();
                 toast(res.b.message || 'Movimiento registrado.');
                 almCargar();
+                // SALIDA: el backend devuelve nota_url con el PDF de la Nota de Entrega (VID-FO-GEN-019).
+                if (res.b && res.b.nota_url && pdfTab) {
+                    try { pdfTab.location.href = res.b.nota_url; } catch (e) { try { pdfTab.close(); } catch (_) {} }
+                } else if (pdfTab) {
+                    try { pdfTab.close(); } catch (e) {}
+                }
             } else {
+                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
                 showErr('almSalidaError', msg);
             }
         })
-        .catch(function () { unpre(); showErr('almSalidaError', 'Error de red.'); });
+        .catch(function () {
+            unpre();
+            if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
+            showErr('almSalidaError', 'Error de red.');
+        });
     };
     @else
     window.almAbrirSalidaModal = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
