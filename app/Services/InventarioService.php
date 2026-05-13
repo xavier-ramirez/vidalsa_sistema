@@ -260,6 +260,7 @@ class InventarioService
             'NUMERO_RQ'                 => $opts['numero_rq'] ?? null,
             'SOLICITANTE'               => $opts['solicitante'] ?? null,
             'DEPARTAMENTO'              => $opts['departamento'] ?? null,
+            'NUMERO_NOTA'               => $opts['numero_nota'] ?? null,
             'MOTIVO'                    => $opts['motivo'] ?? null,
             'NOTAS'                     => $opts['notas'] ?? null,
         ]);

@@ -180,12 +180,20 @@ Route::middleware(['auth'])->group(function () {
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
 
-            // Movimientos de inventario: documento ENTRADA/SALIDA/AJUSTE/TRASPASO con N líneas (registrarMovimientoLote)
-            // o movimiento simple de un producto (registrarMovimiento, lo usan los atajos rápidos de la tabla).
-            Route::post  ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'registrarMovimiento'])    ->name('almacen.movimientos.store');
+            // Movimientos de inventario: SIEMPRE en lote (1+ líneas en una transacción).
+            // Maneja ENTRADA (Recepción → entrada directa), SALIDA (selección de filas → Nota de
+            // Entrega) y AJUSTE (Auditoría de Inventario del modal de detalles).
             Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote');
-            // Nota de Entrega (PDF, VID-FO-GEN-019). ?ids=10,11,12 → genera el documento del lote SALIDA.
-            Route::get   ('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'notaEntregaPdf'])  ->name('almacen.nota-entrega');
+            // Nota de Entrega (PDF, VID-FO-GEN-019).
+            //   ?numero=NE-2026-0001  → recupera el lote por NUMERO_NOTA (usado por el modal
+            //                           "Generar Nota por código" del dropdown Acciones).
+            //   ?ids=10,11,12         → recupera por IDs (lo que devuelve registrarMovimientoLote
+            //                           inmediatamente tras crear la nota).
+            Route::get   ('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'notaEntregaPdf'])    ->name('almacen.nota-entrega');
+            Route::get   ('almacen/nota-entrega/buscar',          [App\Http\Controllers\AlmacenController::class, 'buscarNotaPorNumero'])->name('almacen.nota-entrega.buscar');
+            // DELETE: borra la Nota completa por código y revierte el stock vía ENTRADA inversa.
+            // Solo super.admin: una nota cancelada no se puede recuperar, el stock se mueve.
+            Route::delete('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'eliminarNota'])      ->middleware('can:super.admin')->name('almacen.nota-entrega.destroy');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 
             // Productos (catálogo global)

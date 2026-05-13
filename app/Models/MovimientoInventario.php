@@ -43,9 +43,26 @@ class MovimientoInventario extends Model
         'NUMERO_RQ',
         'SOLICITANTE',
         'DEPARTAMENTO',
+        'NUMERO_NOTA',
         'MOTIVO',
         'NOTAS',
     ];
+
+    /**
+     * Genera el siguiente NUMERO_NOTA (NE-YYYY-NNNN) para una Nota de Entrega
+     * de Materiales. Consecutivo GLOBAL — no se reinicia por año (mismo patrón
+     * que Traspaso::generarNumero()).
+     *
+     * Debe llamarse DENTRO de la transacción que crea los movimientos del lote
+     * para que el conteo refleje las notas ya emitidas y no haya carrera entre
+     * dos lotes simultáneos.
+     */
+    public static function generarNumeroNota(): string
+    {
+        $year = date('Y');
+        $count = self::whereNotNull('NUMERO_NOTA')->count() + 1;
+        return sprintf('NE-%s-%04d', $year, $count);
+    }
 
     protected $casts = [
         'CANTIDAD'            => 'decimal:3',

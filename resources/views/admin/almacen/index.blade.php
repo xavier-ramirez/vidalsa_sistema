@@ -371,49 +371,18 @@
 
 {{-- ════════════════════════ MODALES ════════════════════════ --}}
 
-{{-- Movimiento: ENTRADA / SALIDA --}}
-<div id="almMovModal" class="alm-modal-overlay">
-    <div class="alm-modal">
-        <div class="alm-modal-head">
-            <h3><i class="material-icons" id="almMovIcon" style="font-size:20px;">add</i> <span id="almMovTitulo">Registrar entrada</span></h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almMovModal')">close</i>
-        </div>
-        <div class="alm-modal-body">
-            <div>
-                <label>Producto</label>
-                <div><span class="alm-pill" id="almMovCodigo"></span> <strong id="almMovNombre" style="font-size:14px;color:#1e293b;"></strong></div>
-                <div style="font-size:12px;color:#64748b;margin-top:4px;">Saldo actual: <strong id="almMovSaldo">0</strong> <span id="almMovUm"></span></div>
-            </div>
-            <div>
-                <label id="almMovCantLabel">Cantidad que entra</label>
-                <input type="number" id="almMovCantidad" min="0.001" step="any" placeholder="0">
-            </div>
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label>Fecha</label><input type="date" id="almMovFecha"></div>
-                <div style="flex:1;"><label>Referencia (guía/factura)</label><input type="text" id="almMovReferencia" maxlength="100" placeholder="Opcional"></div>
-            </div>
-            <div id="almMovFrenteWrap">
-                <label>Frente destino (opcional — p. ej. a qué proyecto se consume)</label>
-                <select id="almMovFrente">
-                    <option value="">— ninguno —</option>
-                    @foreach(($frentesLista ?? collect()) as $f)<option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>@endforeach
-                </select>
-            </div>
-            <div><label>Motivo / notas</label><input type="text" id="almMovMotivo" maxlength="200" placeholder="Opcional (compra, consumo, devolución...)"></div>
-            <div id="almMovError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almMovModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="almMovSubmit" onclick="window.almGuardarMovimiento()">Registrar</button>
-        </div>
-    </div>
-</div>
+{{-- Modal antiguo "Registrar entrada / Registrar salida" por producto individual:
+     ELIMINADO en 2026-05-13. Las entradas reales ahora se hacen desde
+     /admin/almacen/recepcion (modal "Entrada directa") y las salidas desde
+     este mismo módulo seleccionando filas + barra flotante (Nota de Entrega).
+     Para correcciones puntuales del saldo de un producto se usa el modal
+     "Auditoría de Inventario" que sigue abajo. --}}
 
-{{-- Ajuste de saldo + mínimo --}}
+{{-- Auditoría de Inventario (ajuste del saldo + stock mínimo) --}}
 <div id="almAjusteModal" class="alm-modal-overlay">
     <div class="alm-modal">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">tune</i> Ajustar saldo / mínimo</h3>
+            <h3><i class="material-icons" style="font-size:20px;">fact_check</i> Auditoría de Inventario</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almAjusteModal')">close</i>
         </div>
         <div class="alm-modal-body">
@@ -423,19 +392,22 @@
                 <div style="font-size:12px;color:#64748b;margin-top:4px;">Saldo actual: <strong id="almAjSaldo">0</strong> <span id="almAjUm"></span></div>
             </div>
             <div>
-                <label>Nuevo saldo (conteo físico / corrección)</label>
-                <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Dejar vacío para no cambiar el saldo">
+                <label>Saldo según conteo físico</label>
+                <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Dejar vacío si solo cambias el mínimo">
+                <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
+                    Cuadra el saldo del sistema con lo que hay físicamente en el almacén. El delta queda registrado en la bitácora como <b>Auditoría</b>.
+                </small>
             </div>
             <div>
                 <label>Stock mínimo (alerta)</label>
                 <input type="number" id="almAjMinimo" min="0" step="any" placeholder="Vacío = sin alerta">
             </div>
-            <div><label>Motivo / notas</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Opcional"></div>
+            <div><label>Motivo / observaciones de la auditoría</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Ej: conteo trimestral, merma detectada…"></div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAjusteModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAjuste()">Guardar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAjuste()">Registrar auditoría</button>
         </div>
     </div>
 </div>
@@ -594,9 +566,10 @@
             </div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
                 @if($puedeMover ?? false)
-                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('entrada')"><span class="alm-det-ic" style="background:#dcfce7;color:#16a34a;"><i class="material-icons" style="font-size:18px;">add</i></span> Registrar entrada</button>
-                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('salida')"><span class="alm-det-ic" style="background:#fee2e2;color:#dc2626;"><i class="material-icons" style="font-size:18px;">remove</i></span> Registrar salida</button>
-                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('ajuste')"><span class="alm-det-ic" style="background:#dbeafe;color:#0067b1;"><i class="material-icons" style="font-size:18px;">tune</i></span> Ajustar saldo / fijar mínimo</button>
+                {{-- Únicamente Auditoría: las entradas reales van por /admin/almacen/recepcion
+                     y las salidas por la selección de filas (Nota de Entrega). Aquí solo se
+                     corrige el saldo cuando un conteo físico no coincide con el sistema. --}}
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('ajuste')"><span class="alm-det-ic" style="background:#dbeafe;color:#0067b1;"><i class="material-icons" style="font-size:18px;">fact_check</i></span> Auditoría de Inventario</button>
                 @endif
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('kardex')"><span class="alm-det-ic" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:18px;">history</i></span> Ver movimientos del producto</button>
                 @if($puedeManage ?? false)
@@ -734,7 +707,6 @@
     window.__almIndexInit = true;
 
     var ROUTE_INDEX     = @json(route('almacen.index'));
-    var ROUTE_MOV       = @json(route('almacen.movimientos.store'));
     var ROUTE_LOTE      = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD      = @json(route('almacen.productos.store'));
     var ROUTE_RECEPCION = @json(route('almacen.recepcion.store')); // crear+enviar Pedido de Traspaso en un paso
@@ -1087,48 +1059,11 @@
     function hoy() { var d = new Date(); var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
     function showErr(id, msg) { var e = el(id); if (e) { e.textContent = msg; e.style.display = msg ? 'block' : 'none'; } }
 
-    window.almAbrirMovimiento = function (tipo, idProducto, codigo, nombre, um, saldo) {
-        el('almMovModal').dataset.tipo = tipo;
-        el('almMovModal').dataset.idProducto = idProducto;
-        el('almMovTitulo').textContent = tipo === 'ENTRADA' ? 'Registrar entrada' : 'Registrar salida';
-        el('almMovIcon').textContent = tipo === 'ENTRADA' ? 'add' : 'remove';
-        el('almMovCantLabel').textContent = tipo === 'ENTRADA' ? 'Cantidad que entra' : 'Cantidad que sale';
-        el('almMovSubmit').textContent = tipo === 'ENTRADA' ? 'Registrar entrada' : 'Registrar salida';
-        el('almMovCodigo').textContent = codigo; el('almMovNombre').textContent = nombre;
-        el('almMovSaldo').textContent = formatNum(saldo); el('almMovUm').textContent = um || '';
-        el('almMovCantidad').value = ''; el('almMovReferencia').value = ''; el('almMovMotivo').value = ''; el('almMovFecha').value = hoy();
-        if (el('almMovFrente')) el('almMovFrente').value = '';
-        // El "frente destino" tiene sentido sobre todo en salidas (consumo a un proyecto).
-        if (el('almMovFrenteWrap')) el('almMovFrenteWrap').style.display = (tipo === 'SALIDA') ? '' : 'none';
-        showErr('almMovError', '');
-        open('almMovModal'); setTimeout(function () { el('almMovCantidad').focus(); }, 60);
-    };
-
-    window.almGuardarMovimiento = function () {
-        var m = el('almMovModal');
-        var cant = parseFloat(el('almMovCantidad').value);
-        if (!cant || cant <= 0) { showErr('almMovError', 'Indica una cantidad mayor que cero.'); return; }
-        var idAlm = val('almSelAlmacen');
-        if (!idAlm) { showErr('almMovError', 'No hay almacén seleccionado.'); return; }
-        var idFrente = (m.dataset.tipo === 'SALIDA' && el('almMovFrente')) ? (el('almMovFrente').value || null) : null;
-        pre();
-        fetch(ROUTE_MOV, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({
-                id_almacen: idAlm, id_producto: m.dataset.idProducto, tipo: m.dataset.tipo, cantidad: cant,
-                fecha: val('almMovFecha') || null, referencia: val('almMovReferencia') || null, motivo: val('almMovMotivo') || null,
-                id_frente: idFrente
-            })
-        })
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
-        .then(function (res) {
-            unpre();
-            if (res.ok) { almCerrar('almMovModal'); toast(res.b.message || 'Movimiento registrado.'); almCargar(); }
-            else { showErr('almMovError', res.b.message || 'No se pudo registrar el movimiento.'); }
-        })
-        .catch(function () { unpre(); showErr('almMovError', 'Error de red.'); });
-    };
+    // Funciones almAbrirMovimiento / almGuardarMovimiento ELIMINADAS en 2026-05-13
+    // junto con el modal #almMovModal. El flujo de entrada/salida ya no se hace
+    // por producto individual: ENTRADA → /admin/almacen/recepcion · SALIDA →
+    // selección de filas + barra flotante (Nota de Entrega). Para AJUSTE puntual
+    // se usa el modal #almAjusteModal (Auditoría de Inventario).
 
     // ── Página de movimientos (módulo aparte: /admin/almacen/movimientos) ──
     var ROUTE_MOVIMIENTOS = @json(route('almacen.movimientos'));
@@ -1161,8 +1096,7 @@
         var label  = (d.cod || '') + (d.cod && d.nom ? ' — ' : '') + (d.nom || '');
         almCerrar('almDetalleModal');
         switch (which) {
-            case 'entrada':  if (window.almAbrirMovimiento) window.almAbrirMovimiento('ENTRADA', id, d.cod, d.nom, d.um, saldo); break;
-            case 'salida':   if (window.almAbrirMovimiento) window.almAbrirMovimiento('SALIDA',  id, d.cod, d.nom, d.um, saldo); break;
+            // 'entrada'/'salida' removidos (esos flujos ya no van por producto individual).
             case 'ajuste':   if (window.almAbrirAjuste)     window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo, minimo); break;
             case 'kardex':   window.location = ROUTE_MOVIMIENTOS + '?id_producto=' + id + (val('almSelAlmacen') ? '&id_almacen=' + encodeURIComponent(val('almSelAlmacen')) : ''); break;
             case 'editar':   if (window.almEditarProducto)  window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat); break;
@@ -1202,10 +1136,17 @@
 
         var tareas = [];
         if (ns !== null) {
-            tareas.push(fetch(ROUTE_MOV, {
+            // Endpoint unificado de lote: la Auditoría se registra como un lote de 1 línea
+            // con tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE.
+            tareas.push(fetch(ROUTE_LOTE, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: JSON.stringify({ id_almacen: idAlm, id_producto: m.dataset.idProducto, tipo: 'AJUSTE', cantidad: ns, motivo: val('almAjMotivo') || 'Ajuste de inventario' })
+                body: JSON.stringify({
+                    id_almacen: idAlm,
+                    tipo: 'AJUSTE',
+                    motivo: val('almAjMotivo') || 'Auditoría de Inventario',
+                    lineas: [{ id_producto: m.dataset.idProducto, cantidad: ns }],
+                })
             }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); }));
         }
         if (cambiaMinimo) {
@@ -1220,8 +1161,8 @@
         Promise.all(tareas).then(function (ress) {
             unpre();
             var fail = ress.find(function (x) { return !x.ok; });
-            if (fail) { showErr('almAjError', (fail.b && fail.b.message) || 'No se pudo aplicar el ajuste.'); almCargar(); return; }
-            almCerrar('almAjusteModal'); toast('Ajuste aplicado.'); almCargar();
+            if (fail) { showErr('almAjError', (fail.b && fail.b.message) || 'No se pudo registrar la auditoría.'); almCargar(); return; }
+            almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almCargar();
         }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
     };
 

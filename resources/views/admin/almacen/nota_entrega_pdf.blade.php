@@ -4,8 +4,8 @@
     en TCPDF; este blade sólo renderiza el bloque de datos a partir de Y≈42mm.
 
     Variables disponibles:
-      - $datos: ['proyecto','contrato','fecha','rq','solicitante','departamento',
-                 'almacen','entregado_por','motivo']
+      - $datos: ['numero_nota','proyecto','contrato','fecha','rq','solicitante',
+                 'departamento','almacen','entregado_por','motivo']
       - $movs:  Collection<MovimientoInventario>  con relaciones {producto}
 --}}
 @php
@@ -15,6 +15,18 @@
     // se imprimen todas; si hay menos, rellenamos con filas vacías.
     $minFilas = 12;
 @endphp
+
+{{-- ── Banda del N° de Nota: identificador legible del documento (NE-YYYY-NNNN), justo
+     debajo del cabezote para que sea lo primero que se reconoce al imprimir. --}}
+@if(!empty($datos['numero_nota']))
+<table cellpadding="4" cellspacing="0" border="0" style="width:100%;margin-bottom:6px;">
+    <tr>
+        <td align="right" style="font-size:11pt;font-weight:bold;color:#0f172a;">
+            N° de Nota: <span style="color:#0067b1;">{{ $datos['numero_nota'] }}</span>
+        </td>
+    </tr>
+</table>
+@endif
 
 {{-- ── Bloque de cabecera de datos (proyecto, contrato, fecha, rq, solicitante, departamento) ── --}}
 <table cellpadding="3" cellspacing="0" border="1" style="width:100%;font-size:10pt;">

@@ -7,7 +7,8 @@
         'TRASPASO_ENTRADA' => ['Traspaso (entra)', '#0891b2', '#cffafe', 'south_west'],
         'SALIDA'           => ['Salida',   '#dc2626', '#fee2e2', 'remove'],
         'TRASPASO_SALIDA'  => ['Traspaso (sale)',  '#ea580c', '#ffedd5', 'north_east'],
-        'AJUSTE'           => ['Ajuste',   '#7c3aed', '#ede9fe', 'tune'],
+        // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
+        'AJUSTE'           => ['Auditoría', '#7c3aed', '#ede9fe', 'fact_check'],
     ];
 @endphp
 
@@ -26,13 +27,13 @@
                 : ($entra ? '+' : '−');
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
             // El usuario que registró el movimiento NO tiene columna propia: aparece como burbuja
-            // (.alm-mov-userbubble) anclada a la celda Producto, que se muestra al pasar el mouse por
-            // CUALQUIER PARTE de la fila — mismo patrón visual que el tooltip de /admin/equipos.
+            // (.tooltip-bubble — misma clase que el patrón global de /admin/equipos) anclada a la
+            // celda Producto, que se muestra al pasar el mouse por CUALQUIER PARTE de la fila.
             $usuarioTip = $m->usuario?->NOMBRE_COMPLETO
                 ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
                 : 'Usuario no registrado';
         @endphp
-        <tr>
+        <tr class="alm-mov-row">
             <td style="white-space:nowrap;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
             <td style="white-space:nowrap;">
                 {{-- La pill mantiene su color de fondo y texto propios (visualmente distingue ENTRADA / SALIDA / etc.). --}}
@@ -42,10 +43,15 @@
             </td>
             {{-- Descripción del producto: solo el NOMBRE (sin CODIGO al inicio, que se veía repetido cuando
                  los nombres importados ya incluían el código como prefijo). La clase col-producto la convierte
-                 en ancla del tooltip de usuario; el código queda en title nativo como respaldo discreto. --}}
-            <td class="col-producto" title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;">
+                 en ancla del tooltip de usuario; el código queda en title nativo como respaldo discreto.
+                 font-size reducido (12.5px vs 14px global del tbody) para que los nombres largos no
+                 acaparen visualmente la fila — son la única columna con texto extenso. --}}
+            <td class="col-producto" title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;font-size:12.5px;">
                 {{ $m->producto?->NOMBRE ?? '—' }}
-                <span class="alm-mov-userbubble">{{ $usuarioTip }}</span>
+                <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
+                    👤 {{ $usuarioTip }}
+                    <div style="position:absolute;top:100%;left:30px;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div>
+                </div>
             </td>
             <td style="font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;">{{ $m->producto?->UM }}</span></td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"

@@ -41,7 +41,7 @@ class AlmacenController extends Controller
             'storeProducto', 'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
-            'registrarMovimiento', 'registrarMovimientoLote', 'actualizarMinimo',
+            'registrarMovimientoLote', 'actualizarMinimo',
         ]);
     }
 
@@ -434,60 +434,6 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Registra un movimiento simple: ENTRADA, SALIDA o AJUSTE.
-     *
-     * Body:
-     *  - id_almacen   (req)
-     *  - id_producto  (req)
-     *  - tipo         (req) : ENTRADA | SALIDA | AJUSTE
-     *  - cantidad     (req) : > 0  (para AJUSTE = saldo objetivo, >= 0)
-     *  - fecha, id_frente, referencia, motivo, notas (opc)
-     *  - permitir_negativo (opc, bool) — solo aplica si el usuario es super.admin
-     */
-    public function registrarMovimiento(Request $request)
-    {
-        $data = $request->validate([
-            'id_almacen'  => 'required|integer|exists:almacenes,ID_ALMACEN',
-            'id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'tipo'        => ['required', Rule::in([MovimientoInventario::TIPO_ENTRADA, MovimientoInventario::TIPO_SALIDA, MovimientoInventario::TIPO_AJUSTE])],
-            'cantidad'    => 'required|numeric',
-            'fecha'       => 'nullable|date',
-            'id_frente'   => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
-            'referencia'  => 'nullable|string|max:100',
-            'motivo'      => 'nullable|string|max:200',
-            'notas'       => 'nullable|string',
-            'permitir_negativo' => 'nullable|boolean',
-        ]);
-
-        $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
-
-        $opts = [
-            'fecha'      => $data['fecha'] ?? null,
-            'id_frente'  => $data['id_frente'] ?? null,
-            'referencia' => $data['referencia'] ?? null,
-            'motivo'     => $data['motivo'] ?? null,
-            'notas'      => $data['notas'] ?? null,
-            'id_usuario' => optional($request->user())->ID_USUARIO,
-            'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
-        ];
-
-        try {
-            $mov = match ($data['tipo']) {
-                MovimientoInventario::TIPO_ENTRADA => $this->inventario->registrarEntrada((int) $data['id_almacen'], (int) $data['id_producto'], (float) $data['cantidad'], $opts),
-                MovimientoInventario::TIPO_SALIDA  => $this->inventario->registrarSalida((int) $data['id_almacen'], (int) $data['id_producto'], (float) $data['cantidad'], $opts),
-                MovimientoInventario::TIPO_AJUSTE  => $this->inventario->registrarAjuste((int) $data['id_almacen'], (int) $data['id_producto'], (float) $data['cantidad'], $opts),
-            };
-        } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
-
-        return response()->json([
-            'message'    => 'Movimiento registrado.',
-            'movimiento' => $mov->load('producto', 'almacen'),
-        ], 201);
-    }
-
-    /**
      * Registra un MOVIMIENTO con varias líneas — un "documento" de inventario al
      * estilo de un ERP de tienda: ENTRADA / SALIDA / AJUSTE con N productos, todo
      * en UNA transacción (si una línea falla, no se aplica nada).
@@ -554,9 +500,15 @@ class AlmacenController extends Controller
         ];
 
         try {
-            // Capturamos los IDs de los movimientos creados para poder generar la Nota de Entrega
-            // (sólo SALIDA): el frontend recibe en la respuesta una URL al PDF con esos IDs.
+            // En SALIDA generamos el NUMERO_NOTA (NE-YYYY-NNNN) DENTRO de la transacción
+            // y lo stampamos en todos los movimientos del lote para identificar la Nota
+            // de Entrega. Permite reimprimir/eliminar la nota completa por código desde
+            // /admin/almacen/movimientos. Capturamos también los IDs para devolver la URL
+            // del PDF al frontend (pre-open tab inmediata, sin segunda búsqueda).
             $result = DB::transaction(function () use ($data, $opts) {
+                if ($data['tipo'] === 'SALIDA') {
+                    $opts['numero_nota'] = MovimientoInventario::generarNumeroNota();
+                }
                 $ids = [];
                 foreach ($data['lineas'] as $linea) {
                     $idProducto = (int) $linea['id_producto'];
@@ -569,13 +521,13 @@ class AlmacenController extends Controller
                     };
                     $ids[] = $mov->ID_MOVIMIENTO;
                 }
-                return $ids;
+                return ['ids' => $ids, 'numero_nota' => $opts['numero_nota'] ?? null];
             });
         } catch (Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        $n = count($result);
+        $n = count($result['ids']);
         $etiqueta = [
             'ENTRADA' => 'Entrada registrada',
             'SALIDA'  => 'Salida registrada',
@@ -585,7 +537,8 @@ class AlmacenController extends Controller
         $payload = ['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'];
         // Sólo en SALIDA devolvemos la URL del PDF de Nota de Entrega; el frontend la abre en pestaña nueva.
         if ($data['tipo'] === 'SALIDA') {
-            $payload['nota_url'] = route('almacen.nota-entrega', ['ids' => implode(',', $result)]);
+            $payload['nota_url']    = route('almacen.nota-entrega', ['numero' => $result['numero_nota']]);
+            $payload['numero_nota'] = $result['numero_nota'];
         }
 
         return response()->json($payload, 201);
@@ -599,44 +552,28 @@ class AlmacenController extends Controller
      * Genera el PDF "Nota de Entrega de Materiales" replicando el formulario oficial
      * (Constructora Vidalsa 27, C.A. — VID-FO-GEN-019).
      *
-     * Recibe ?ids=10,11,12 con los IDs de los movimientos SALIDA del lote. Todos los
-     * movimientos del mismo lote comparten cabecera (proyecto/contrato/RQ/solicitante/
-     * departamento/fecha) por construcción de registrarMovimientoLote.
+     * Acepta dos modos de búsqueda (mutuamente excluyentes):
+     *   ?numero=NE-2026-0001  → recupera todos los SALIDA con ese NUMERO_NOTA (recomendado;
+     *                           es el flujo que usa "Generar Nota por código" desde el
+     *                           dropdown Acciones de /admin/almacen/movimientos).
+     *   ?ids=10,11,12         → recupera los SALIDA con esos IDs (lo que devuelve
+     *                           registrarMovimientoLote inmediatamente tras crear la nota,
+     *                           y la URL que se abre en la pestaña pre-abierta del modal
+     *                           de salida).
      *
      * Permisos: lectura. Sólo se valida que el usuario pueda VER el almacén involucrado;
      * no se exige 'almacen.movimiento' (eso es para crear).
      */
     public function notaEntregaPdf(Request $request)
     {
-        $idsRaw = (string) $request->query('ids', '');
-        $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $idsRaw)))));
-        abort_if(empty($ids), 404, 'No se indicaron movimientos.');
-
-        $movs = MovimientoInventario::with(['producto', 'almacen', 'frente', 'usuario'])
-            ->whereIn('ID_MOVIMIENTO', $ids)
-            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
-            ->orderBy('ID_MOVIMIENTO')
-            ->get();
-
-        abort_if($movs->isEmpty(), 404, 'No se encontraron movimientos de salida con esos IDs.');
-
-        // Defensa: aunque registrarMovimientoLote SIEMPRE crea las líneas en un único almacén,
-        // alguien podría llamar a este endpoint con ?ids= de movimientos de almacenes distintos.
-        // La cabecera (proyecto/contrato/RQ/...) usa $movs->first(), así que mezclar almacenes
-        // produciría un documento engañoso → rechazamos.
-        $almacenesUnicos = $movs->pluck('ID_ALMACEN')->unique();
-        abort_if(
-            $almacenesUnicos->count() > 1,
-            400,
-            'Los movimientos del lote deben pertenecer a un único almacén.'
-        );
-        // Y el usuario debe poder ver ese almacén (mismo gate que el resto del módulo).
-        $this->assertPuedeVerAlmacen($request, (int) $almacenesUnicos->first());
+        $movs = $this->buscarMovimientosDeNota($request);
+        abort_if($movs === null || $movs->isEmpty(), 404, 'No se encontró la Nota de Entrega solicitada.');
 
         // Cabecera del documento: todos los movimientos comparten estos campos porque
         // registrarMovimientoLote los stampa en cada línea con el mismo $opts.
         $hd = $movs->first();
         $datos = [
+            'numero_nota'   => $hd->NUMERO_NOTA ?? '',
             'proyecto'      => $hd->frente?->NOMBRE_FRENTE ?? '',
             'contrato'      => $hd->NUMERO_CONTRATO ?? '',
             'fecha'         => optional($hd->FECHA)->format('d/m/Y') ?: now()->format('d/m/Y'),
@@ -667,8 +604,143 @@ class AlmacenController extends Controller
         ])->render();
         $pdf->writeHTML($html, true, false, true, false, '');
 
-        $slug = $hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO);
+        $slug = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
         return $pdf->Output('Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf', 'I');
+    }
+
+    /**
+     * Devuelve los movimientos SALIDA que componen la Nota referenciada por
+     * `?numero=` (NUMERO_NOTA) o `?ids=` (lista de ID_MOVIMIENTO). Aplica los
+     * mismos chequeos de seguridad que el endpoint público: un único almacén
+     * y que el usuario pueda verlo. Devuelve null si no se especificó nada.
+     */
+    private function buscarMovimientosDeNota(Request $request): ?\Illuminate\Database\Eloquent\Collection
+    {
+        $numero = trim((string) $request->query('numero', ''));
+        $idsRaw = (string) $request->query('ids', '');
+
+        $q = MovimientoInventario::with(['producto', 'almacen', 'frente', 'usuario'])
+            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
+            ->orderBy('ID_MOVIMIENTO');
+
+        if ($numero !== '') {
+            $q->where('NUMERO_NOTA', $numero);
+        } elseif ($idsRaw !== '') {
+            $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $idsRaw)))));
+            if (empty($ids)) return null;
+            $q->whereIn('ID_MOVIMIENTO', $ids);
+        } else {
+            return null;
+        }
+
+        $movs = $q->get();
+        if ($movs->isEmpty()) return $movs;
+
+        // Defensa: la cabecera de la nota se construye con $movs->first(), así que
+        // mezclar movimientos de almacenes distintos en una sola nota produciría un
+        // PDF engañoso → rechazamos. registrarMovimientoLote siempre crea las líneas
+        // en un único almacén, pero defendemos contra ?ids= adversariales.
+        abort_if(
+            $movs->pluck('ID_ALMACEN')->unique()->count() > 1,
+            400,
+            'Los movimientos de la nota deben pertenecer a un único almacén.'
+        );
+        $this->assertPuedeVerAlmacen($request, (int) $movs->first()->ID_ALMACEN);
+        return $movs;
+    }
+
+    /**
+     * Modal "Generar Nota por código" del dropdown Acciones de la bitácora.
+     * Recibe ?numero=NE-2026-0001 y responde JSON {success, url} para que el
+     * frontend dispare la descarga del PDF (mismo patrón que el endpoint
+     * `find-by-codigo` de /admin/movilizaciones).
+     */
+    public function buscarNotaPorNumero(Request $request)
+    {
+        $numero = trim((string) $request->query('numero', ''));
+        if ($numero === '') {
+            return response()->json(['success' => false, 'message' => 'Ingresa un N° de Nota.'], 422);
+        }
+        $existe = MovimientoInventario::where('NUMERO_NOTA', $numero)->exists();
+        if (!$existe) {
+            return response()->json(['success' => false, 'message' => 'No se encontró ninguna Nota con ese código.'], 404);
+        }
+        return response()->json([
+            'success' => true,
+            'numero'  => $numero,
+            'url'     => route('almacen.nota-entrega', ['numero' => $numero]),
+        ]);
+    }
+
+    /**
+     * Elimina TODA la Nota de Entrega identificada por ?numero=NE-YYYY-NNNN.
+     * En la misma transacción reversa el stock por cada línea (suma de vuelta
+     * lo que la SALIDA había restado), encadenando un AJUSTE inverso a través
+     * de InventarioService::registrarEntrada — esto crea una fila de kardex
+     * que documenta la reversión (auditable) y NO borra los movimientos SALIDA
+     * originales (el kardex sigue siendo append-only y verificable).
+     *
+     * Permiso: super.admin (gateado en routes/web.php). Los movimientos del
+     * lote deben pertenecer a un único almacén y el usuario debe poder verlo.
+     */
+    public function eliminarNota(Request $request)
+    {
+        $numero = trim((string) $request->query('numero', $request->input('numero', '')));
+        if ($numero === '') {
+            return response()->json(['message' => 'Ingresa un N° de Nota.'], 422);
+        }
+
+        $movs = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_SALIDA)
+            ->where('NUMERO_NOTA', $numero)
+            ->orderBy('ID_MOVIMIENTO')
+            ->get();
+
+        if ($movs->isEmpty()) {
+            return response()->json(['message' => 'No se encontró ninguna Nota con ese código.'], 404);
+        }
+
+        abort_if(
+            $movs->pluck('ID_ALMACEN')->unique()->count() > 1,
+            400,
+            'Los movimientos de la nota deben pertenecer a un único almacén.'
+        );
+        $this->assertPuedeVerAlmacen($request, (int) $movs->first()->ID_ALMACEN);
+
+        try {
+            DB::transaction(function () use ($movs, $request, $numero) {
+                foreach ($movs as $m) {
+                    // Reversión = ENTRADA por la misma cantidad al mismo almacén/producto.
+                    // El kardex queda con dos filas (SALIDA original + ENTRADA reversa)
+                    // → trazable. El stock vuelve a su valor previo a la nota.
+                    $this->inventario->registrarEntrada(
+                        (int) $m->ID_ALMACEN,
+                        (int) $m->ID_PRODUCTO,
+                        (float) $m->CANTIDAD,
+                        [
+                            'id_usuario' => optional($request->user())->ID_USUARIO,
+                            'motivo'     => "Reversión de Nota {$numero}",
+                            'referencia' => $numero,
+                            'notas'      => "Reversión automática al eliminar la Nota de Entrega {$numero}.",
+                        ]
+                    );
+                }
+                // Marcamos los movimientos originales para que no aparezcan más como
+                // parte de una nota "vigente": vaciamos NUMERO_NOTA (la fila sigue en
+                // el kardex como histórico de la SALIDA, pero no se podrá reimprimir).
+                MovimientoInventario::where('NUMERO_NOTA', $numero)->update([
+                    'NUMERO_NOTA' => null,
+                    'MOTIVO'      => DB::raw("CONCAT(COALESCE(MOTIVO, ''), ' [NOTA {$numero} ELIMINADA]')"),
+                ]);
+            });
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message'     => "Nota {$numero} eliminada y stock revertido.",
+            'numero_nota' => $numero,
+            'lineas'      => $movs->count(),
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────

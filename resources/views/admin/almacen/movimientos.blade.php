@@ -15,7 +15,7 @@
     $tipos = [
         'ENTRADA'          => 'Entradas',
         'SALIDA'           => 'Salidas',
-        'AJUSTE'           => 'Ajustes',
+        'AJUSTE'           => 'Auditorías',
         'TRASPASO_ENTRADA' => 'Traspasos (entran)',
         'TRASPASO_SALIDA'  => 'Traspasos (salen)',
     ];
@@ -36,9 +36,14 @@
         <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
             <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
             <div style="width:240px;min-width:180px;max-width:100%;">
+                {{-- NO se aplica .filter-active aunque haya almacén seleccionado: el filtro
+                     queda con estilo neutro (sin tinte azul) porque junto al título se ve
+                     como parte del encabezado, no como un filtro avanzado por accionar.
+                     El estado "activo" se lee del nombre del almacén que aparece como
+                     placeholder ya seleccionado. --}}
                 <div class="custom-dropdown" id="almMovFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
                     <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen && $reqAlmacen !== 'all' ? $reqAlmacen : '' }}">
-                    <div class="dropdown-trigger {{ $almSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
+                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
                         <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
                         <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                                placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
@@ -91,29 +96,16 @@
         border-bottom:1px solid #e2e8f0;
     }
     .alm-mov-table tbody tr:hover td { background:#e0f2fe; }
-    /* Celda "Descripción del producto": ancla del tooltip de usuario (position:relative). */
+    /* Celda "Descripción del producto": ancla del tooltip de usuario (position:relative
+       para que el .tooltip-bubble interno se posicione con bottom:100% sobre ella). */
     .alm-mov-table td.col-producto { position:relative; }
-
-    /* Tooltip "Registrado por: X" — copia del .tooltip-bubble de /admin/equipos:
-       aparece arriba de la celda Producto al hacer hover en CUALQUIER PARTE de la fila. */
-    .alm-mov-userbubble {
-        pointer-events:none; opacity:0; visibility:hidden;
-        position:absolute; bottom:calc(100% + 6px); left:50%;
-        transform:translateX(-50%);
-        background:#1e293b; color:#fff;
-        padding:7px 14px; border-radius:8px;
-        font-size:11.5px; font-weight:600; letter-spacing:.2px;
-        white-space:nowrap;
-        box-shadow:0 6px 16px -3px rgba(0,0,0,0.3);
-        transition:opacity .18s ease-out, visibility .18s ease-out, transform .18s ease-out;
-        z-index:50;
-    }
-    .alm-mov-userbubble::after {
-        content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
-        border:5px solid transparent; border-top-color:#1e293b;
-    }
-    .alm-mov-table tbody tr:hover .alm-mov-userbubble {
-        opacity:1; visibility:visible;
+    /* Activamos el .tooltip-bubble (clase global de /admin/equipos) al hover de la fila
+       completa — mismo patrón que .admin-table tr:hover .tooltip-bubble en
+       estilos_globales.css. Replicamos aquí porque la tabla no es .admin-table. */
+    .alm-mov-table tbody tr.alm-mov-row:hover .tooltip-bubble {
+        opacity:1 !important;
+        visibility:visible !important;
+        transform:translateY(0) !important;
     }
     .amf-stat-pill { display:none; }
     @media (max-width: 900px) {
@@ -231,10 +223,60 @@
             </div>
         </div>
 
-        {{-- Volver al inventario --}}
-        <a href="{{ route('almacen.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;margin-left:auto;flex:0 0 auto;">
-            <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Inventario</span>
-        </a>
+        {{-- ── Botón Acciones (dropdown estilo /admin/movilizaciones) ────────────
+             Reemplaza al viejo botón "Inventario" y consolida las acciones
+             rápidas de la bitácora en un único menú:
+               · Generar Nota de Entrega por código (NE-YYYY-NNNN)
+               · Eliminar Nota de Entrega por código  (sólo super.admin)
+               · Volver al inventario
+         --}}
+        <div style="position:relative;flex:0 0 auto;margin-left:auto;">
+            <button type="button" id="btnAccionesMov" class="btn-primary-maquinaria"
+                    style="padding:0 15px;height:45px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
+                    onclick="window.toggleAccionesMovInv(event)">
+                <i class="material-icons" style="font-size:18px;">settings</i>
+                <span>Acciones</span>
+                <i class="material-icons" style="font-size:18px;margin-left:2px;">expand_more</i>
+            </button>
+
+            <div id="splitDropdownMenuMovInv"
+                 style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:260px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);z-index:50;overflow:hidden;">
+                {{-- Generar Nota: cualquier usuario que pueda ver la bitácora puede reimprimir. --}}
+                <div style="padding:6px;">
+                    <button type="button"
+                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openGenerarNotaModal();"
+                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;"
+                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0284c7;">print</i></div>
+                        <span>Generar Nota por código</span>
+                    </button>
+                </div>
+
+                @can('super.admin')
+                {{-- Eliminar Nota: gateado a super.admin porque reversa stock y deja un par
+                     (SALIDA original + ENTRADA reversa) en el kardex de auditoría. --}}
+                <div style="padding:6px;border-top:1px solid #cbd5e1;">
+                    <button type="button"
+                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openEliminarNotaModal();"
+                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;"
+                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#fee2e2;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#dc2626;">delete</i></div>
+                        <span>Eliminar Nota por código</span>
+                    </button>
+                </div>
+                @endcan
+
+                {{-- Volver: link al inventario, reemplaza al botón viejo del toolbar. --}}
+                <div style="padding:6px;border-top:1px solid #cbd5e1;">
+                    <a href="{{ route('almacen.index') }}"
+                       style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;text-decoration:none;"
+                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#e2e8f0;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#475569;">arrow_back</i></div>
+                        <span>Volver al inventario</span>
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- ── Tabla ── --}}
@@ -358,6 +400,287 @@
     document.addEventListener('click', function (e) {
         var p = el('almMovFechasPanel');
         if (p && p.style.display === 'block' && !e.target.closest('#almMovFechasPanel') && !e.target.closest('.amf-adv-btn')) p.style.display = 'none';
+    });
+
+    // ── Dropdown "Acciones" (toggle + cierre al click fuera) ────────────────
+    // Mismo patrón del dropdown de /admin/movilizaciones (toggleAccionesMov):
+    // sufijo "Inv" para no colisionar con el del módulo de movilizaciones si
+    // ambos cargan en una SPA.
+    window.toggleAccionesMovInv = function (ev) {
+        if (ev) ev.stopPropagation();
+        var m = el('splitDropdownMenuMovInv'); if (!m) return;
+        m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+    };
+    document.addEventListener('click', function (e) {
+        var m = el('splitDropdownMenuMovInv');
+        if (m && m.style.display === 'block' && !e.target.closest('#splitDropdownMenuMovInv') && !e.target.closest('#btnAccionesMov')) m.style.display = 'none';
+    });
+})();
+</script>
+
+{{-- ═════════════════════════════════════════════════════════════════
+     MODAL: GENERAR NOTA DE ENTREGA POR CÓDIGO
+     Ingresa NE-YYYY-NNNN y abre el PDF en una pestaña nueva.
+     Patrón calcado del modal "Reimprimir Acta" de /admin/movilizaciones.
+═════════════════════════════════════════════════════════════════ --}}
+<div id="generarNotaOverlay"
+     style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
+     onclick="if(event.target===this) window.closeGenerarNotaModal()">
+    <div style="background:white;width:100%;max-width:440px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+        <div style="background:#1e293b;padding:10px 16px;color:white;position:relative;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="material-icons" style="font-size:20px;">print</i>
+                    <h2 style="margin:0;font-size:15px;font-weight:800;">Generar Nota de Entrega</h2>
+                </div>
+                <p style="margin:0;font-size:12px;opacity:0.85;">Busca por N° de Nota (NE-YYYY-NNNN)</p>
+            </div>
+            <button type="button" onclick="window.closeGenerarNotaModal()" aria-label="Cerrar"
+                style="background:rgba(255,255,255,0.15);border:none;color:white;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:12px;">
+                <i class="material-icons" style="font-size:16px;">close</i>
+            </button>
+        </div>
+        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+            <div>
+                <label for="generarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">
+                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:2px;color:#1e293b;">tag</i>
+                    N° de Nota
+                </label>
+                <div id="generarNotaBox"
+                     style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:8px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
+                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
+                    <input type="text" id="generarNotaInput" placeholder="Ej: NE-{{ date('Y') }}-0001" autocomplete="off"
+                        style="flex:1;border:none;outline:none;padding:8px 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitGenerarNota();}">
+                </div>
+            </div>
+            <div id="generarNotaFeedback" style="display:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:2px;">
+                <button type="button" onclick="window.closeGenerarNotaModal()"
+                    style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="button" id="generarNotaSubmitBtn" onclick="window.submitGenerarNota()"
+                    style="padding:8px 16px;border-radius:8px;border:none;background:#1e293b;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                    <i class="material-icons" style="font-size:16px;">file_download</i> Generar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@can('super.admin')
+{{-- ═════════════════════════════════════════════════════════════════
+     MODAL: ELIMINAR NOTA DE ENTREGA POR CÓDIGO  (super.admin only)
+     Ingresa NE-YYYY-NNNN → confirma → DELETE → reversa stock.
+═════════════════════════════════════════════════════════════════ --}}
+<div id="eliminarNotaOverlay"
+     style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
+     onclick="if(event.target===this) window.closeEliminarNotaModal()">
+    <div style="background:white;width:100%;max-width:460px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);">
+        <div style="background:#b91c1c;padding:10px 16px;color:white;position:relative;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <i class="material-icons" style="font-size:20px;">delete_forever</i>
+                    <h2 style="margin:0;font-size:15px;font-weight:800;">Eliminar Nota de Entrega</h2>
+                </div>
+                <p style="margin:0;font-size:12px;opacity:0.9;">El stock se devuelve a su almacén — irreversible</p>
+            </div>
+            <button type="button" onclick="window.closeEliminarNotaModal()" aria-label="Cerrar"
+                style="background:rgba(255,255,255,0.15);border:none;color:white;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:12px;">
+                <i class="material-icons" style="font-size:16px;">close</i>
+            </button>
+        </div>
+        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;color:#7f1d1d;font-size:12px;font-weight:600;line-height:1.45;">
+                Esta acción <b>reversa el stock</b> de cada línea de la Nota (registra una
+                <b>ENTRADA</b> inversa en el kardex) y deja la Nota como eliminada — los
+                movimientos originales se conservan para auditoría pero ya no se podrán
+                reimprimir.
+            </div>
+            <div>
+                <label for="eliminarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">
+                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:2px;color:#b91c1c;">tag</i>
+                    N° de Nota a eliminar
+                </label>
+                <div id="eliminarNotaBox"
+                     style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:8px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
+                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
+                    <input type="text" id="eliminarNotaInput" placeholder="Ej: NE-{{ date('Y') }}-0001" autocomplete="off"
+                        style="flex:1;border:none;outline:none;padding:8px 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitEliminarNota();}">
+                </div>
+            </div>
+            <div id="eliminarNotaFeedback" style="display:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:2px;">
+                <button type="button" onclick="window.closeEliminarNotaModal()"
+                    style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">
+                    Cancelar
+                </button>
+                <button type="button" id="eliminarNotaSubmitBtn" onclick="window.submitEliminarNota()"
+                    style="padding:8px 16px;border-radius:8px;border:none;background:#b91c1c;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                    <i class="material-icons" style="font-size:16px;">delete_forever</i> Eliminar Nota
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endcan
+
+<style>
+@keyframes notaIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+#generarNotaBox:focus-within { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,0.15); }
+#eliminarNotaBox:focus-within { border-color:#b91c1c; box-shadow:0 0 0 3px rgba(185,28,28,0.15); }
+</style>
+
+<script>
+(function(){
+    // Bandera por instancia: si el modal ya tiene listeners (SPA: misma vista re-montada)
+    // no duplicar handlers de Escape ni redefinir funciones.
+    if (window._almNotaModalsReady) return;
+    window._almNotaModalsReady = true;
+
+    var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    var URL_BUSCAR   = @json(route('almacen.nota-entrega.buscar'));
+    var URL_DESTROY  = @json(route('almacen.nota-entrega.destroy'));
+
+    function fb(id, type, msg) {
+        var el = document.getElementById(id); if (!el) return;
+        var colors = {
+            info:    { bg:'#e0f2fe', border:'#bae6fd', color:'#075985' },
+            error:   { bg:'#fee2e2', border:'#fecaca', color:'#b91c1c' },
+            success: { bg:'#dcfce7', border:'#bbf7d0', color:'#15803d' },
+        };
+        var c = colors[type] || colors.info;
+        el.style.cssText = 'display:block;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;background:' + c.bg + ';border:1px solid ' + c.border + ';color:' + c.color + ';';
+        el.textContent = msg;
+    }
+
+    // ── Generar Nota ────────────────────────────────────────────────────
+    window.openGenerarNotaModal = function () {
+        var ov = document.getElementById('generarNotaOverlay'); if (!ov) return;
+        ov.style.display = 'flex';
+        var i = document.getElementById('generarNotaInput');
+        if (i) { i.value = ''; setTimeout(function(){ i.focus(); }, 80); }
+        var elFb = document.getElementById('generarNotaFeedback'); if (elFb) elFb.style.display = 'none';
+        var box = document.getElementById('generarNotaBox'); if (box) box.style.borderColor = '#e2e8f0';
+        document.body.style.overflow = 'hidden';
+    };
+    window.closeGenerarNotaModal = function () {
+        var ov = document.getElementById('generarNotaOverlay'); if (ov) ov.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+    window.submitGenerarNota = async function () {
+        var input = document.getElementById('generarNotaInput');
+        var raw = (input && input.value || '').trim().toUpperCase();
+        if (!raw) {
+            var box = document.getElementById('generarNotaBox'); if (box) box.style.borderColor = '#ef4444';
+            fb('generarNotaFeedback', 'error', 'Ingresa un N° de Nota para continuar.');
+            if (input) input.focus(); return;
+        }
+        // Pre-abrimos pestaña dentro del gesto del usuario (mismo truco que en el modal de
+        // salida del inventario) — si esperamos al fetch, los pop-up blockers la rechazan.
+        var pdfTab = window.open('about:blank', '_blank');
+
+        var btn = document.getElementById('generarNotaSubmitBtn');
+        var html = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Buscando...'; }
+        fb('generarNotaFeedback', 'info', 'Buscando la nota ' + raw + '…');
+        try {
+            var r = await fetch(URL_BUSCAR + '?numero=' + encodeURIComponent(raw), {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (r.status === 404) {
+                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
+                fb('generarNotaFeedback', 'error', 'No se encontró ninguna Nota con ese N°.');
+                var box2 = document.getElementById('generarNotaBox'); if (box2) box2.style.borderColor = '#ef4444';
+                return;
+            }
+            if (!r.ok) {
+                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
+                var err = await r.json().catch(function(){ return {}; });
+                fb('generarNotaFeedback', 'error', err.message || ('Error del servidor (' + r.status + ').'));
+                return;
+            }
+            var data = await r.json();
+            if (!data.success || !data.url) {
+                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
+                fb('generarNotaFeedback', 'error', data.message || 'Respuesta inválida del servidor.');
+                return;
+            }
+            fb('generarNotaFeedback', 'success', 'Nota encontrada. Abriendo PDF…');
+            if (pdfTab) { try { pdfTab.location.href = data.url; } catch (e) {} }
+            setTimeout(function(){ window.closeGenerarNotaModal(); }, 600);
+        } catch (err) {
+            if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
+            console.error('[Generar Nota]', err);
+            fb('generarNotaFeedback', 'error', 'No se pudo contactar al servidor.');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = html; }
+        }
+    };
+
+    // ── Eliminar Nota ───────────────────────────────────────────────────
+    // Sólo se monta si el modal existe (super.admin gateado por blade @can).
+    if (document.getElementById('eliminarNotaOverlay')) {
+        window.openEliminarNotaModal = function () {
+            var ov = document.getElementById('eliminarNotaOverlay'); if (!ov) return;
+            ov.style.display = 'flex';
+            var i = document.getElementById('eliminarNotaInput');
+            if (i) { i.value = ''; setTimeout(function(){ i.focus(); }, 80); }
+            var elFb = document.getElementById('eliminarNotaFeedback'); if (elFb) elFb.style.display = 'none';
+            var box = document.getElementById('eliminarNotaBox'); if (box) box.style.borderColor = '#e2e8f0';
+            document.body.style.overflow = 'hidden';
+        };
+        window.closeEliminarNotaModal = function () {
+            var ov = document.getElementById('eliminarNotaOverlay'); if (ov) ov.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+        window.submitEliminarNota = async function () {
+            var input = document.getElementById('eliminarNotaInput');
+            var raw = (input && input.value || '').trim().toUpperCase();
+            if (!raw) {
+                var box = document.getElementById('eliminarNotaBox'); if (box) box.style.borderColor = '#ef4444';
+                fb('eliminarNotaFeedback', 'error', 'Ingresa un N° de Nota para continuar.');
+                if (input) input.focus(); return;
+            }
+            // Confirmación explícita: la acción es destructiva, no se puede deshacer.
+            if (!window.confirm('¿Eliminar la Nota ' + raw + ' y devolver su stock al almacén?\n\nEsta acción no se puede deshacer.')) return;
+
+            var btn = document.getElementById('eliminarNotaSubmitBtn');
+            var html = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Eliminando...'; }
+            fb('eliminarNotaFeedback', 'info', 'Eliminando la nota ' + raw + ' y reversando stock…');
+            try {
+                var r = await fetch(URL_DESTROY + '?numero=' + encodeURIComponent(raw), {
+                    method: 'DELETE',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                var data = await r.json().catch(function(){ return {}; });
+                if (!r.ok) {
+                    fb('eliminarNotaFeedback', 'error', data.message || ('Error del servidor (' + r.status + ').'));
+                    return;
+                }
+                fb('eliminarNotaFeedback', 'success', data.message || 'Nota eliminada y stock revertido.');
+                // Recargar la tabla de movimientos para que aparezcan las ENTRADAS reversa.
+                if (window.loadMovimientos) window.loadMovimientos();
+                setTimeout(function(){ window.closeEliminarNotaModal(); }, 800);
+            } catch (err) {
+                console.error('[Eliminar Nota]', err);
+                fb('eliminarNotaFeedback', 'error', 'No se pudo contactar al servidor.');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = html; }
+            }
+        };
+    }
+
+    // Escape cierra cualquiera de los dos modales abierto.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var g = document.getElementById('generarNotaOverlay');
+        var x = document.getElementById('eliminarNotaOverlay');
+        if (g && g.style.display === 'flex') window.closeGenerarNotaModal();
+        if (x && x.style.display === 'flex' && window.closeEliminarNotaModal) window.closeEliminarNotaModal();
     });
 })();
 </script>
