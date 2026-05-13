@@ -412,6 +412,89 @@
     </div>
 </div>
 
+{{-- ═════════════════════════════════════════════════════════════════
+     Modal: KARDEX por producto (Movimientos del producto)
+     Se abre desde el modal de Detalles (botón "Ver movimientos").
+     Reusa AlmacenController::movimientos con ?mini=1 y filtra por
+     id_producto + id_almacen actual + opcional tipo / desde / hasta.
+═════════════════════════════════════════════════════════════════ --}}
+<div id="almKardexProductoModal" class="alm-modal-overlay">
+    <div class="alm-modal" style="max-width:780px;">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;">history</i> Movimientos del producto</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
+        </div>
+        <div class="alm-modal-body" style="gap:10px;">
+            {{-- Cabecera con info del producto + saldo en el almacén actual --}}
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span class="alm-pill" id="almKpCodigo">—</span>
+                <strong id="almKpNombre" style="font-size:13.5px;color:#1e293b;flex:1;min-width:140px;"></strong>
+                <span style="font-size:12px;color:#64748b;">Saldo: <strong id="almKpSaldo" style="color:#0f172a;font-size:14px;">0</strong> <span id="almKpUm" style="font-size:11px;color:#64748b;"></span></span>
+            </div>
+
+            {{-- Filtros: chips de Tipo + rango de fechas. SIN buscador de descripción
+                 porque el modal ya está acotado a un único producto. --}}
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
+                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-right:2px;">Tipo:</span>
+                <button type="button" class="alm-kp-chip alm-kp-chip-on" data-tipo="" onclick="window.almKpChip(this,'')">Todos</button>
+                <button type="button" class="alm-kp-chip" data-tipo="ENTRADA" onclick="window.almKpChip(this,'ENTRADA')">Entradas</button>
+                <button type="button" class="alm-kp-chip" data-tipo="SALIDA" onclick="window.almKpChip(this,'SALIDA')">Salidas</button>
+                <button type="button" class="alm-kp-chip" data-tipo="AJUSTE" onclick="window.almKpChip(this,'AJUSTE')">Auditorías</button>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-right:2px;">Fechas:</span>
+                <input type="date" id="almKpDesde" onchange="window.almKpCargar()" style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;">
+                <span style="color:#94a3b8;">→</span>
+                <input type="date" id="almKpHasta" onchange="window.almKpCargar()" style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;">
+                <button type="button" onclick="window.almKpLimpiar()" style="background:transparent;border:none;color:#64748b;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer;margin-left:auto;">Limpiar</button>
+            </div>
+
+            {{-- Tabla compacta: 5 columnas (sin Producto, ya conocido). El thead
+                 queda sticky para que se vea al hacer scroll. --}}
+            <div style="overflow:auto;max-height:48vh;border:1px solid #e2e8f0;border-radius:8px;">
+                <table style="width:100%;border-collapse:separate;border-spacing:0;">
+                    <thead>
+                        <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
+                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Fecha</th>
+                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
+                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
+                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
+                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino / Ref</th>
+                        </tr>
+                    </thead>
+                    <tbody id="almKpBody">
+                        <tr><td colspan="5" style="text-align:center;padding:30px;color:#94a3b8;font-size:12px;">Cargando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="almKpPag" style="font-size:11px;color:#64748b;text-align:center;"></div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almKardexProductoModal')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.alm-kp-chip {
+    background:#fff; border:1px solid #cbd5e0; color:#475569;
+    font-size:11.5px; font-weight:700;
+    padding:5px 10px; border-radius:999px;
+    cursor:pointer; transition:all .15s;
+}
+.alm-kp-chip:hover { background:#f1f5f9; border-color:#94a3b8; }
+.alm-kp-chip.alm-kp-chip-on {
+    background:#0067b1; border-color:#0067b1; color:#fff;
+}
+/* La paginación del kardex se aprovecha de la del SSR estándar; aquí se renderiza
+   centrada y compacta dentro de #almKpPag. */
+#almKpPag .pagination, #almKpPag ul { display:inline-flex; gap:3px; flex-wrap:wrap; justify-content:center; margin:0; padding:0; }
+#almKpPag .pagination li, #almKpPag ul li { list-style:none; }
+#almKpPag a, #almKpPag span { padding:3px 8px; font-size:11px; border-radius:5px; }
+</style>
+
 @if($puedeManage)
 {{-- Nuevo almacén --}}
 <div id="almAlmacenModal" class="alm-modal-overlay">
@@ -1097,12 +1180,93 @@
         almCerrar('almDetalleModal');
         switch (which) {
             // 'entrada'/'salida' removidos (esos flujos ya no van por producto individual).
-            case 'ajuste':   if (window.almAbrirAjuste)     window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo, minimo); break;
-            case 'kardex':   window.location = ROUTE_MOVIMIENTOS + '?id_producto=' + id + (val('almSelAlmacen') ? '&id_almacen=' + encodeURIComponent(val('almSelAlmacen')) : ''); break;
-            case 'editar':   if (window.almEditarProducto)  window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat); break;
-            case 'eliminar': if (window.almEliminarProducto) window.almEliminarProducto(id, label); break;
+            case 'ajuste':   if (window.almAbrirAjuste)         window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo, minimo); break;
+            // 'kardex' antes navegaba a /admin/almacen/movimientos; ahora abre un
+            // modal local con los movimientos solo de este producto + filtros mínimos.
+            case 'kardex':   if (window.almAbrirKardexProducto) window.almAbrirKardexProducto(id, d.cod, d.nom, d.um, saldo); break;
+            case 'editar':   if (window.almEditarProducto)      window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat); break;
+            case 'eliminar': if (window.almEliminarProducto)    window.almEliminarProducto(id, label); break;
         }
     };
+
+    // ── Modal "Movimientos del producto" (kardex local de UN producto) ──
+    // Reusa AlmacenController::movimientos con ?mini=1 (partial de 5 columnas)
+    // y filtra por id_producto + id_almacen actual. Estado en window.__almKp.
+    window.__almKp = { idProducto: null, tipo: '', desde: '', hasta: '' };
+
+    window.almAbrirKardexProducto = function (idProducto, codigo, nombre, um, saldo) {
+        window.__almKp = { idProducto: idProducto, tipo: '', desde: '', hasta: '' };
+        el('almKpCodigo').textContent = codigo || '—';
+        el('almKpNombre').textContent = nombre || '';
+        el('almKpSaldo').textContent  = formatNum(saldo);
+        el('almKpUm').textContent     = um || '';
+        // Reset visual de filtros.
+        if (el('almKpDesde')) el('almKpDesde').value = '';
+        if (el('almKpHasta')) el('almKpHasta').value = '';
+        Array.prototype.forEach.call(document.querySelectorAll('#almKardexProductoModal .alm-kp-chip'), function (c) {
+            c.classList.toggle('alm-kp-chip-on', !c.dataset.tipo); // sólo "Todos" queda activo
+        });
+        open('almKardexProductoModal');
+        window.almKpCargar();
+    };
+
+    window.almKpChip = function (btn, tipo) {
+        window.__almKp.tipo = tipo || '';
+        Array.prototype.forEach.call(document.querySelectorAll('#almKardexProductoModal .alm-kp-chip'), function (c) {
+            c.classList.toggle('alm-kp-chip-on', c === btn);
+        });
+        window.almKpCargar();
+    };
+
+    window.almKpLimpiar = function () {
+        window.__almKp.tipo = ''; window.__almKp.desde = ''; window.__almKp.hasta = '';
+        if (el('almKpDesde')) el('almKpDesde').value = '';
+        if (el('almKpHasta')) el('almKpHasta').value = '';
+        Array.prototype.forEach.call(document.querySelectorAll('#almKardexProductoModal .alm-kp-chip'), function (c) {
+            c.classList.toggle('alm-kp-chip-on', !c.dataset.tipo);
+        });
+        window.almKpCargar();
+    };
+
+    window.almKpCargar = function (pageUrl) {
+        if (!window.__almKp.idProducto) return;
+        window.__almKp.desde = (el('almKpDesde') && el('almKpDesde').value) || '';
+        window.__almKp.hasta = (el('almKpHasta') && el('almKpHasta').value) || '';
+
+        var p = new URLSearchParams();
+        p.set('id_producto', window.__almKp.idProducto);
+        p.set('mini', '1');
+        if (val('almSelAlmacen')) p.set('id_almacen', val('almSelAlmacen'));
+        if (window.__almKp.tipo)  p.set('tipo',  window.__almKp.tipo);
+        if (window.__almKp.desde) p.set('desde', window.__almKp.desde);
+        if (window.__almKp.hasta) p.set('hasta', window.__almKp.hasta);
+        if (pageUrl) {
+            try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {}
+        }
+
+        var body = el('almKpBody'); if (body) body.style.opacity = '0.5';
+        fetch(ROUTE_MOVIMIENTOS + '?' + p.toString(), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (body && data.html !== undefined) body.innerHTML = data.html;
+            var pg = el('almKpPag'); if (pg) pg.innerHTML = (data.total > 0)
+                ? ('<div style="margin-bottom:4px;">Total: <strong>' + data.total + '</strong> movimiento' + (data.total === 1 ? '' : 's') + '</div>' + (data.pagination || ''))
+                : '';
+        })
+        .catch(function () {
+            if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
+        })
+        .finally(function () { if (body) body.style.opacity = '1'; });
+    };
+
+    // Click en links de paginación del kardex del producto.
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('#almKpPag a'); if (!a) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        window.almKpCargar(a.href);
+    }, true);
 
     window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo, minimo) {
         var m = el('almAjusteModal');

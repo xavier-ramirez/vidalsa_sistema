@@ -418,8 +418,14 @@ class AlmacenController extends Controller
             ->paginate($request->integer('per_page') ?: 50)->withQueryString();
 
         if ($request->wantsJson()) {
+            // El modal "Movimientos del producto" pide ?mini=1 para usar el partial
+            // de 5 columnas (sin la columna Producto, que sería redundante allí).
+            $partial = $request->boolean('mini')
+                ? 'admin.almacen.partials.kardex_rows_mini'
+                : 'admin.almacen.partials.kardex_rows';
+
             return response()->json([
-                'html'       => view('admin.almacen.partials.kardex_rows', ['movimientos' => $paginator])->render(),
+                'html'       => view($partial, ['movimientos' => $paginator])->render(),
                 'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
                 'total'      => $paginator->total(),
             ]);
