@@ -177,9 +177,8 @@ Route::middleware(['auth'])->group(function () {
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
             Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
 
-            // Datos (JSON) — los consumen los modales del módulo (kardex / "cargar bajo mínimo" del traspaso)
+            // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
-            Route::get   ('almacen/alertas-stock-bajo',           [App\Http\Controllers\AlmacenController::class, 'alertasStockBajo'])->name('almacen.alertasStockBajo');
 
             // Movimientos de inventario: documento ENTRADA/SALIDA/AJUSTE/TRASPASO con N líneas (registrarMovimientoLote)
             // o movimiento simple de un producto (registrarMovimiento, lo usan los atajos rápidos de la tabla).

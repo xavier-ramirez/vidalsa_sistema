@@ -43,12 +43,15 @@
         transition: transform 0.12s, background 0.12s;
     }
     .alm-btn:hover { transform: scale(1.06); }
-    .alm-btn-in   { color: #16a34a; border-color: #bbf7d0; } .alm-btn-in:hover   { background: #16a34a; color: #fff; }
-    .alm-btn-out  { color: #dc2626; border-color: #fecaca; } .alm-btn-out:hover  { background: #dc2626; color: #fff; }
-    .alm-btn-adj  { color: #0067b1; border-color: #bfdbfe; } .alm-btn-adj:hover  { background: #0067b1; color: #fff; }
-    .alm-btn-hist { color: #64748b; } .alm-btn-hist:hover { background: #475569; color: #fff; }
+    /* (sólo se usan en la lista "Gestionar almacenes" y en el botón "quitar" del modal de salida) */
     .alm-btn-edit { color: #0891b2; border-color: #cffafe; } .alm-btn-edit:hover { background: #0891b2; color: #fff; }
     .alm-btn-del  { color: #ef4444; border-color: #fecaca; } .alm-btn-del:hover  { background: #ef4444; color: #fff; }
+    /* Botón "ojo" de detalles por fila: mismo look que el de /admin/equipos */
+    .alm-table tbody td .btn-details-mini { margin: 0 auto; }
+    /* Acciones dentro del modal "Detalles del producto" */
+    .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; }
+    .alm-det-act:hover { background:#f8fafc; border-color:#cbd5e0; }
+    .alm-det-ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
 
     /* Modales */
     .alm-modal-overlay {
@@ -61,7 +64,10 @@
         overflow: hidden; animation: almIn 0.16s ease-out; display: flex; flex-direction: column; max-height: 90vh;
     }
     .alm-modal-wide { max-width: 980px; }
-    .alm-modal .alm-modal-body { overflow-y: auto; }
+    .alm-modal .alm-modal-body { overflow-y: auto; min-height: 0; }
+    /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
+    #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
+    #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
     .alm-kardex-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     .alm-kardex-table th { text-align: left; color: #64748b; font-size: 10.5px; font-weight: 800; text-transform: uppercase; padding: 7px 9px; border-bottom: 2px solid #e2e8f0; background: #f8fafc; position: sticky; top: 0; }
     .alm-kardex-table td { padding: 7px 9px; }
@@ -84,30 +90,27 @@
     .alm-pill { display: inline-block; background: #f1f5f9; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; color: #334155; }
     .alm-x { cursor: pointer; color: #94a3b8; }
     .alm-x:hover { color: #475569; }
-    /* Selector de tipo de movimiento (modal "Nuevo movimiento") */
-    .alm-tipo-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid #cbd5e0; background:#fff; color:#475569; border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; transition:all .12s; }
-    .alm-tipo-btn:hover { border-color:#94a3b8; }
-    .alm-tipo-btn.active { background:var(--maquinaria-blue,#0067b1); border-color:var(--maquinaria-blue,#0067b1); color:#fff; }
 
-    /* Sugerencias de los filtros (mismo look que los desplegables de la app) */
+    /* Sugerencias de los filtros — mismo look que los desplegables (.dropdown-content / .dropdown-item) de la app */
     .alm-suggest {
-        position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff;
+        position:absolute; top:calc(100% + 5px); left:0; right:0; background:#fff;
         border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
         z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
     }
-    .alm-suggest.open { display:block; animation:slideDown 0.15s ease-out; }
-    .alm-suggest-item { display:flex; flex-direction:column; gap:1px; padding:7px 12px; border-radius:8px; cursor:pointer; transition:background 0.15s; }
+    .alm-suggest.open { display:block; animation:slideDown 0.18s ease-out; }
+    .alm-suggest-item { display:flex; flex-direction:column; gap:2px; padding:10px 15px; border-radius:8px; cursor:default; transition:background 0.2s; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); }
     .alm-suggest-item:hover, .alm-suggest-item.active { background:#f0f4f8; }
-    .alm-suggest-item .cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; }
-    .alm-suggest-item .nom { font-size:12.5px; color:#475569; }
-    .alm-suggest-empty { padding:9px 12px; font-size:12.5px; color:#94a3b8; }
+    .alm-suggest-item.si-sel { background:#ebf4ff; color:var(--maquinaria-blue,#0067b1); }
+    .alm-suggest-item .cod { font-family:monospace; font-weight:800; font-size:12px; color:#0f172a; }
+    .alm-suggest-item .nom { font-size:13.5px; color:#475569; font-weight:600; }
+    .alm-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
     /* Variante "en línea" para los modales (no flota: empuja el contenido — así no la recorta el overflow del modal) */
-    .alm-suggest-inline { margin-top:6px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; max-height:170px; overflow-y:auto; padding:5px; display:none; }
-    .alm-suggest-inline.open { display:block; animation:slideDown 0.15s ease-out; }
-    .alm-suggest-inline .si-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:8px; cursor:pointer; font-size:13px; color:#475569; transition:background 0.15s; }
-    .alm-suggest-inline .si-item:hover { background:#e2e8f0; }
-    .alm-suggest-inline .si-item .material-icons { font-size:16px; color:#94a3b8; }
-    .alm-suggest-inline .si-item.si-sel { background:#e1effa; font-weight:700; color:#0f172a; }
+    .alm-suggest-inline { margin-top:6px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 6px 16px rgba(0,0,0,0.06); max-height:200px; overflow-y:auto; padding:5px; display:none; }
+    .alm-suggest-inline.open { display:block; animation:slideDown 0.18s ease-out; }
+    .alm-suggest-inline .si-item { display:flex; align-items:center; gap:10px; padding:10px 15px; border-radius:8px; cursor:default; font-size:14px; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); transition:background 0.2s; }
+    .alm-suggest-inline .si-item:hover { background:#f0f4f8; }
+    .alm-suggest-inline .si-item .material-icons { font-size:18px; color:#94a3b8; }
+    .alm-suggest-inline .si-item.si-sel { background:#ebf4ff; color:var(--maquinaria-blue,#0067b1); }
     .alm-suggest-inline .si-item.si-sel .material-icons { color:var(--maquinaria-blue,#0067b1); }
     .alm-suggest-inline .si-new { color:var(--maquinaria-blue,#0067b1); font-weight:700; }
     .alm-suggest-inline .si-new .material-icons { color:var(--maquinaria-blue,#0067b1); }
@@ -137,7 +140,6 @@
         return [
             'NOMBRE'    => $a->NOMBRE,
             'TIPO'      => $a->TIPO,
-            'CODIGO'    => $a->CODIGO,
             'UBICACION' => $a->UBICACION,
             'frentes'   => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
         ];
@@ -155,25 +157,21 @@
 
     {{-- ── Filtros ── --}}
     <div id="almFilters">
-        {{-- Almacén --}}
+        {{-- Almacén — input + sugerencias (mismo look que los filtros "Buscar" / "Categoría"). El ID seleccionado vive en el hidden #almSelAlmacen. --}}
         <div class="alm-filter active" style="flex:1.2 1 220px;">
             <div class="alm-filter-box">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
-                <select id="almSelAlmacen" onchange="almCargar()" aria-label="Almacén">
-                    @forelse($almacenes as $a)
-                        <option value="{{ $a->ID_ALMACEN }}" {{ $reqAlm == $a->ID_ALMACEN ? 'selected' : '' }}>
-                            {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
-                        </option>
-                    @empty
-                        <option value="">— sin almacenes —</option>
-                    @endforelse
-                </select>
+                <input type="text" id="almSelAlmacenInp" autocomplete="off"
+                       placeholder="Almacén…" value="{{ $almacenSel?->NOMBRE ?? '' }}"
+                       oninput="window.almAlmSuggest()" onfocus="window.almAlmSuggest(true)">
+                <input type="hidden" id="almSelAlmacen" value="{{ $reqAlm }}">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;color:#94a3b8;">expand_more</i></span>
             </div>
+            <div class="alm-suggest" id="almSelAlmacenSuggest"></div>
         </div>
 
-        {{-- Buscar (código o descripción) — con sugerencias estilo app --}}
-        <div class="alm-filter {{ $reqBuscar ? 'active' : '' }}" style="flex:1.8 1 240px;">
+        {{-- Buscar (código o descripción) — con sugerencias estilo app. Ancho amplio: es el filtro principal. --}}
+        <div class="alm-filter {{ $reqBuscar ? 'active' : '' }}" style="flex:3 1 340px;max-width:560px;">
             <div class="alm-filter-box">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
                 <input type="text" id="almFiltroBuscar" autocomplete="off"
@@ -185,18 +183,17 @@
             <div class="alm-suggest" id="almFiltroBuscarSuggest"></div>
         </div>
 
-        {{-- Categoría --}}
-        <div class="alm-filter {{ $reqCat && $reqCat !== 'all' ? 'active' : '' }}">
+        {{-- Categoría — input con lupa + sugerencias (como el filtro "Buscar") --}}
+        <div class="alm-filter {{ $reqCat && $reqCat !== 'all' ? 'active' : '' }}" style="flex:1 1 190px;">
             <div class="alm-filter-box">
-                <span class="alm-ic"><i class="material-icons" style="font-size:18px;">category</i></span>
-                <select id="almFiltroCat" onchange="almCargar()" aria-label="Categoría">
-                    <option value="">TODAS LAS CATEGORÍAS</option>
-                    @foreach(($categorias ?? collect()) as $c)
-                        <option value="{{ $c }}" {{ $reqCat == $c ? 'selected' : '' }}>{{ $c }}</option>
-                    @endforeach
-                </select>
-                <span class="alm-ic"><i class="material-icons" style="font-size:18px;color:#94a3b8;">expand_more</i></span>
+                <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
+                <input type="text" id="almFiltroCat" autocomplete="off"
+                       placeholder="Filtrar por categoría…" value="{{ $reqCat && $reqCat !== 'all' ? $reqCat : '' }}"
+                       oninput="window.almCatInput()" onfocus="window.almCatSuggest()">
+                <i class="material-icons filter-clear" style="display:{{ $reqCat && $reqCat !== 'all' ? 'flex' : 'none' }};"
+                   onclick="window.almCatLimpiar()">close</i>
             </div>
+            <div class="alm-suggest" id="almFiltroCatSuggest"></div>
         </div>
 
         {{-- Acciones (botón desplegable estilo /admin/equipos) --}}
@@ -208,16 +205,10 @@
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:250px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
-                    @if($puedeMover)
-                    <button type="button" onclick="window.almAccion('surtir')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#dbeafe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">local_shipping</i></div>
-                        <span style="font-size:14px;font-weight:500;">Surtir sub-almacén</span>
-                    </button>
-                    @endif
-                    <button type="button" onclick="window.almAccion('kardex')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                    <a href="{{ route('almacen.movimientos') }}" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;text-decoration:none;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">receipt_long</i></div>
-                        <span style="font-size:14px;font-weight:500;">Movimientos</span>
-                    </button>
+                        <span style="font-size:14px;font-weight:500;">Movimientos de inventario</span>
+                    </a>
                     @if($puedeManage)
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
@@ -247,12 +238,11 @@
                     <th style="text-align:center;">UM</th>
                     <th>Categoría</th>
                     <th style="text-align:right;">Stock</th>
-                    <th style="text-align:right;">Mínimo</th>
-                    <th style="text-align:center;">Acciones</th>
+                    <th style="text-align:center;width:60px;">Detalles</th>
                 </tr>
             </thead>
             <tbody id="almTableBody">
-                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel])
+                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true])
             </tbody>
         </table>
     </div>
@@ -413,25 +403,38 @@
         </div>
         <div class="alm-modal-body">
             <div><label>Nombre *</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
-            <div style="display:flex;gap:10px;">
-                <div style="flex:1;">
-                    <label>Tipo *</label>
-                    <select id="almNvTipo" onchange="window.almToggleFrentes()">
-                        <option value="GENERAL">Principal (GENERAL — ve todo)</option>
-                        <option value="PROYECTO" selected>Secundario (PROYECTO — ligado a frentes)</option>
-                    </select>
-                </div>
-                <div style="flex:0.8;"><label>Código</label><input type="text" id="almNvCodigo" maxlength="30" placeholder="Opcional"></div>
+            <div>
+                <label>Tipo *</label>
+                <select id="almNvTipo" onchange="window.almToggleFrentes()">
+                    <option value="GENERAL">Principal (GENERAL — ve todo)</option>
+                    <option value="PROYECTO" selected>Secundario (PROYECTO — ligado a frentes)</option>
+                </select>
             </div>
             <div><label>Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional"></div>
             <div id="almNvFrentesWrap">
                 <label>Frentes que usan este almacén</label>
-                <select id="almNvFrentes" multiple size="5" style="height:auto;">
-                    @foreach(($frentesLista ?? collect()) as $f)
-                        <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
-                    @endforeach
-                </select>
-                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Ctrl/⌘ + clic para seleccionar varios. Varios proyectos pueden compartir un mismo almacén.</div>
+                <div class="custom-multiselect" id="almNvFrentesSelect">
+                    {{-- El trigger es un input directo: clic lo abre y escribir filtra la lista de abajo. --}}
+                    <div class="multiselect-trigger" tabindex="-1" role="button" aria-haspopup="listbox" style="padding:0;display:flex;align-items:center;overflow:hidden;cursor:text;">
+                        <input type="text" id="almNvFrentesInput" autocomplete="off"
+                               placeholder="Selecciona los frentes…"
+                               style="flex:1;border:none;background:transparent;padding:12px 15px;font-size:15px;outline:none;min-width:0;color:#0f172a;"
+                               oninput="window.almNvFrentesFilter(this)">
+                        <i class="material-icons" style="padding:0 12px;color:var(--maquinaria-gray-text);transition:transform 0.3s;">expand_more</i>
+                    </div>
+                    <div class="multiselect-content">
+                        @forelse(($frentesLista ?? collect()) as $f)
+                            <label class="multiselect-item alm-frente-opt" for="almNvFrente_{{ $f->ID_FRENTE }}">
+                                <input type="checkbox" id="almNvFrente_{{ $f->ID_FRENTE }}" value="{{ $f->ID_FRENTE }}" onchange="window.almNvFrentesUpdate()">
+                                <span>{{ $f->NOMBRE_FRENTE }}</span>
+                            </label>
+                        @empty
+                            <div style="padding:10px 15px;font-size:13px;color:#94a3b8;" id="almNvFrentesVacio">No hay frentes activos.</div>
+                        @endforelse
+                        <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
+                    </div>
+                </div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Varios proyectos pueden compartir un mismo almacén.</div>
             </div>
             <div id="almNvError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -509,126 +512,59 @@
 </div>
 @endif
 
-{{-- Kardex / movimientos (solo lectura) --}}
-<div id="almKardexModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide">
+{{-- Detalles del producto (se abre con el "ojo" de cada fila — agrupa todas las acciones del producto) --}}
+<div id="almDetalleModal" class="alm-modal-overlay">
+    <div class="alm-modal" style="max-width:480px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">receipt_long</i> Movimientos <span id="almKxScope" style="font-weight:600;color:#64748b;font-size:13px;"></span></h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almKardexModal')">close</i>
+            <h3><i class="material-icons" style="font-size:20px;">inventory_2</i> Detalles del producto</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almDetalleModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
-                <select id="almKxTipo" onchange="window.almCargarKardex()" style="width:auto;min-width:160px;border:1px solid #cbd5e0;border-radius:8px;padding:7px 10px;font-size:13px;">
-                    <option value="all">Todos los tipos</option>
-                    <option value="ENTRADA">Entradas</option>
-                    <option value="SALIDA">Salidas</option>
-                    <option value="AJUSTE">Ajustes</option>
-                    <option value="TRASPASO_ENTRADA">Traspasos (entran)</option>
-                    <option value="TRASPASO_SALIDA">Traspasos (salen)</option>
-                </select>
-                <span id="almKxTotal" style="font-size:12.5px;color:#64748b;"></span>
+            <div style="text-align:center;">
+                <span id="almDetCodigo" style="font-family:monospace;font-weight:800;font-size:13px;color:#0067b1;background:#e1effa;display:inline-block;padding:3px 10px;border-radius:6px;"></span>
+                <div id="almDetNombre" style="font-size:16px;font-weight:800;color:#1e293b;margin-top:6px;"></div>
             </div>
-            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:60vh;">
-                <table class="alm-kardex-table">
-                    <thead><tr>
-                        <th>Fecha</th><th>Tipo</th><th>Producto</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">Saldo</th><th>Destino / contraparte</th><th>Ref / motivo</th><th>Usuario</th>
-                    </tr></thead>
-                    <tbody id="almKxBody">
-                        <tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">Cargando…</td></tr>
-                    </tbody>
-                </table>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
+                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Unidad</div>
+                    <div id="almDetUm" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
+                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Categoría</div>
+                    <div id="almDetCat" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
+                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock en <span id="almDetAlmNombre" style="text-transform:none;color:#64748b;font-weight:700;"></span></div>
+                    <div id="almDetSaldo" style="font-size:18px;font-weight:900;color:#0f172a;margin-top:2px;"></div>
+                </div>
+                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
+                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock mínimo</div>
+                    <div id="almDetMin" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
+                </div>
             </div>
-            <div style="margin-top:10px;" id="almKxPagination"></div>
+            <div id="almDetBajoBadge" style="display:none;background:#fff7ed;border:1px solid #fed7aa;color:#b45309;border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:700;text-align:center;">
+                <i class="material-icons" style="font-size:15px;vertical-align:middle;">warning</i> Este producto está en o por debajo de su stock mínimo en este almacén.
+            </div>
+            <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
+                @if($puedeMover ?? false)
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('entrada')"><span class="alm-det-ic" style="background:#dcfce7;color:#16a34a;"><i class="material-icons" style="font-size:18px;">add</i></span> Registrar entrada</button>
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('salida')"><span class="alm-det-ic" style="background:#fee2e2;color:#dc2626;"><i class="material-icons" style="font-size:18px;">remove</i></span> Registrar salida</button>
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('ajuste')"><span class="alm-det-ic" style="background:#dbeafe;color:#0067b1;"><i class="material-icons" style="font-size:18px;">tune</i></span> Ajustar saldo / fijar mínimo</button>
+                @endif
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('kardex')"><span class="alm-det-ic" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:18px;">history</i></span> Ver movimientos del producto</button>
+                @if($puedeManage ?? false)
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('editar')"><span class="alm-det-ic" style="background:#cffafe;color:#0891b2;"><i class="material-icons" style="font-size:18px;">edit</i></span> Editar producto</button>
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('eliminar')"><span class="alm-det-ic" style="background:#fee2e2;color:#ef4444;"><i class="material-icons" style="font-size:18px;">delete_outline</i></span> Eliminar / desactivar producto</button>
+                @endif
+            </div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almKardexModal')">Cerrar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almDetalleModal')">Cerrar</button>
         </div>
     </div>
 </div>
 
 @if($puedeMover)
-{{-- ── Documento de movimiento de inventario: Entrada / Salida / Traspaso / Ajuste con N líneas (estilo ERP de tienda) ── --}}
-<div id="almDocModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:760px;">
-        <div class="alm-modal-head">
-            <h3><i class="material-icons" id="almDocIcon" style="font-size:20px;">post_add</i> <span id="almDocTitulo">Nuevo movimiento</span></h3>
-            <i class="material-icons alm-x" onclick="almCerrar('almDocModal')">close</i>
-        </div>
-        <div class="alm-modal-body">
-            {{-- Tipo de movimiento --}}
-            <div>
-                <label>Tipo de movimiento</label>
-                <div id="almDocTipos" style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button type="button" class="alm-tipo-btn" data-tipo="ENTRADA"  onclick="window.almDocSetTipo('ENTRADA')"><i class="material-icons" style="font-size:16px;">south_west</i> Entrada</button>
-                    <button type="button" class="alm-tipo-btn" data-tipo="SALIDA"   onclick="window.almDocSetTipo('SALIDA')"><i class="material-icons" style="font-size:16px;">north_east</i> Salida</button>
-                    <button type="button" class="alm-tipo-btn" data-tipo="TRASPASO" onclick="window.almDocSetTipo('TRASPASO')"><i class="material-icons" style="font-size:16px;">swap_horiz</i> Traspaso</button>
-                    <button type="button" class="alm-tipo-btn" data-tipo="AJUSTE"   onclick="window.almDocSetTipo('AJUSTE')"><i class="material-icons" style="font-size:16px;">tune</i> Ajuste</button>
-                </div>
-                <div id="almDocTipoDesc" style="font-size:12px;color:#64748b;margin-top:6px;line-height:1.4;"></div>
-            </div>
-
-            {{-- Almacén(es) + frente --}}
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:200px;">
-                    <label id="almDocAlmLabel">Almacén</label>
-                    <select id="almDocAlmacen" onchange="window.almDocOnAlmacenChange()">
-                        @foreach($almacenes as $a)<option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>@endforeach
-                    </select>
-                </div>
-                <div style="flex:1;min-width:200px;" id="almDocDestinoWrap">
-                    <label>Almacén destino</label>
-                    <select id="almDocDestino" onchange="window.almDocOnAlmacenChange()">
-                        @foreach($almacenes as $a)<option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>@endforeach
-                    </select>
-                </div>
-                <div style="flex:1;min-width:200px;" id="almDocFrenteWrap">
-                    <label>Frente destino (opcional)</label>
-                    <select id="almDocFrente">
-                        <option value="">— ninguno —</option>
-                        @foreach(($frentesLista ?? collect()) as $f)<option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>@endforeach
-                    </select>
-                </div>
-            </div>
-
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:140px;"><label>Fecha</label><input type="date" id="almDocFecha"></div>
-                <div style="flex:1.6;min-width:180px;"><label>Referencia (guía / factura / orden)</label><input type="text" id="almDocReferencia" maxlength="100" placeholder="Opcional"></div>
-            </div>
-            <div><label>Motivo / notas</label><input type="text" id="almDocMotivo" maxlength="200" placeholder="Opcional (compra, consumo, devolución, conteo físico...)"></div>
-
-            {{-- Líneas (productos) --}}
-            <div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;flex-wrap:wrap;">
-                    <label style="margin:0;">Productos</label>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button type="button" id="almDocCargarBajoMin" onclick="window.almDocCargarBajoMinimo()" style="display:none;border:1px solid #fcd34d;background:#fffbeb;color:#b45309;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">
-                            <i class="material-icons" style="font-size:14px;vertical-align:middle;">playlist_add</i> Cargar lo que está bajo mínimo en el destino
-                        </button>
-                        <button type="button" onclick="window.almDocAddLinea()" style="border:1px solid #cbd5e0;background:#fff;color:#0067b1;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">
-                            <i class="material-icons" style="font-size:14px;vertical-align:middle;">add</i> Agregar producto
-                        </button>
-                    </div>
-                </div>
-                <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead><tr style="background:#f8fafc;">
-                            <th style="text-align:left;padding:7px 10px;font-size:10.5px;color:#64748b;text-transform:uppercase;font-weight:800;">Producto</th>
-                            <th id="almDocCantTh" style="text-align:right;padding:7px 10px;font-size:10.5px;color:#64748b;text-transform:uppercase;font-weight:800;width:150px;">Cantidad</th>
-                            <th style="width:36px;"></th>
-                        </tr></thead>
-                        <tbody id="almDocLineas"></tbody>
-                    </table>
-                </div>
-            </div>
-            <div id="almDocError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almDocModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="almDocSubmit" onclick="window.almDocGuardar()">Registrar</button>
-        </div>
-    </div>
-</div>
-
 {{-- ── Salida / Enviar a otro almacén: aquí se indican las cantidades de los productos seleccionados en la tabla ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
     <div class="alm-modal alm-modal-wide" style="max-width:820px;">
@@ -639,12 +575,19 @@
         <div class="alm-modal-body">
             <div id="almSalidaDestinoWrap" style="display:none;margin-bottom:12px;">
                 <label>Almacén destino *</label>
-                <select id="almSalidaDestino">
+                <select id="almSalidaDestino" onchange="window.almSalidaOnDestinoChange()">
                     <option value="">— elige un almacén —</option>
                     @foreach(($almacenes ?? collect()) as $a)
                         <option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>
                     @endforeach
                 </select>
+            </div>
+            <div id="almSalidaFrenteWrap" style="display:none;margin-bottom:12px;">
+                <label>Frente que recibe el envío *</label>
+                <select id="almSalidaFrente">
+                    <option value="">— elige el frente —</option>
+                </select>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Un mismo almacén puede surtir a varios frentes; aquí se registra cuál de ellos recibe este envío.</div>
             </div>
             <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:52vh;">
                 <table class="alm-kardex-table">
@@ -678,10 +621,18 @@
     var ROUTE_MOV     = @json(route('almacen.movimientos.store'));
     var ROUTE_LOTE    = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
+    // Lista de almacenes visibles para el usuario — alimenta las sugerencias del filtro "Almacén".
+    window.almAlmacenesLista = @json(($almacenes ?? collect())->map(fn ($a) => ['ID_ALMACEN' => $a->ID_ALMACEN, 'NOMBRE' => $a->NOMBRE, 'TIPO' => $a->TIPO]));
     // Catálogo de productos (CODIGO/NOMBRE/UM) — lo usan las sugerencias del filtro "Buscar" y los selects del modal de movimientos.
     window.almProductosLista = @json($productosLista ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
+    // Mapa almacén → IDs de frentes asociados (pivot almacen_frentes). Lo usa el modal de
+    // envío/traspaso para pedir QUÉ frente recibe el envío cuando el almacén destino surte
+    // a varios proyectos (p.ej. un almacén local de "DIVISION CARABOBO" que surte a 3 frentes).
+    window.almAlmacenesFrentes = @json(($almacenes ?? collect())->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => ($a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [])]));
+    // Mapa { ID_FRENTE: 'NOMBRE_FRENTE' } para pintar el <select> de frente destino.
+    window.almFrentesNombres = @json(($frentesLista ?? collect())->mapWithKeys(fn ($f) => [$f->ID_FRENTE => $f->NOMBRE_FRENTE]));
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
@@ -712,7 +663,7 @@
         setActive(el('almFiltroBuscar'), b); setActive(el('almFiltroCat'), cat && cat !== 'all');
         // toggle de la "x" de limpiar
         var tx = function (inputId) { var i = el(inputId); if (!i) return; var x = i.parentElement.querySelector('.filter-clear'); if (x) x.style.display = i.value ? 'flex' : 'none'; };
-        tx('almFiltroBuscar');
+        tx('almFiltroBuscar'); tx('almFiltroCat');
         return p;
     }
 
@@ -768,18 +719,20 @@
     window.almVerTodo = function () {
         if (el('almFiltroBuscar')) el('almFiltroBuscar').value = '';
         if (el('almFiltroCat')) el('almFiltroCat').value = '';
-        almSuggestHide();
+        almSuggestHide(); almCatSuggestHide();
         soloBajo = false; soloConSaldo = false;
         almCargar();
     };
-    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCargar(); };
+    window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCatSuggestHide(); almCargar(); };
     window.almFiltrarConSaldo = function () { soloConSaldo = true; soloBajo = false; almCargar(); };
     window.almFiltrarBajo = function () { soloBajo = true; soloConSaldo = false; almCargar(); };
 
     // ── Autocompletado del filtro "Buscar" (código o descripción), con el look de los desplegables de la app ──
     function almNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
     function almSuggestHide() { var box = el('almFiltroBuscarSuggest'); if (box) box.classList.remove('open'); }
+    function almCatSuggestHide() { var box = el('almFiltroCatSuggest'); if (box) box.classList.remove('open'); }
     window.almBuscarSuggest = function () {
+        almCatSuggestHide();
         var inp = el('almFiltroBuscar'), box = el('almFiltroBuscarSuggest');
         if (!inp || !box) return;
         var term = almNorm(inp.value.trim());
@@ -821,13 +774,77 @@
         almSuggestHide();
         almCargar();
     };
-    // Click en una sugerencia / click fuera / Escape
+    // ── Autocompletado del filtro "Categoría" (lista de categorías ya registradas), mismo look que "Buscar" ──
+    window.almCatSuggest = function () {
+        almSuggestHide();
+        var inp = el('almFiltroCat'), box = el('almFiltroCatSuggest');
+        if (!inp || !box) return;
+        var term  = almNorm(inp.value.trim());
+        var lista = (window.almCategoriasLista || []);
+        var matches = term === '' ? lista.slice(0) : lista.filter(function (c) { return almNorm(c).indexOf(term) > -1; });
+        if (!matches.length) {
+            box.innerHTML = '<div class="alm-suggest-empty">' + (lista.length ? 'Sin categorías que coincidan.' : 'No hay categorías registradas.') + '</div>';
+        } else {
+            box.innerHTML = matches.map(function (c) {
+                var safe = String(c).replace(/[<>&"]/g, '');
+                return '<div class="alm-suggest-item" data-pick="' + safe + '"><span class="nom">' + safe + '</span></div>';
+            }).join('');
+        }
+        box.classList.add('open');
+    };
+    window.almCatInput = function () {
+        window.almCatSuggest();
+        almDebounce(almCargar);
+    };
+    window.almCatPick = function (cat) {
+        var inp = el('almFiltroCat'); if (inp) inp.value = cat;
+        almCatSuggestHide();
+        almCargar();
+    };
+    window.almCatLimpiar = function () {
+        var inp = el('almFiltroCat'); if (inp) inp.value = '';
+        almCatSuggestHide();
+        almCargar();
+    };
+
+    // ── Autocompletado del filtro "Almacén" (lista de almacenes visibles, mismo look que Buscar/Categoría) ──
+    function almAlmSuggestHide() { var box = el('almSelAlmacenSuggest'); if (box) box.classList.remove('open'); }
+    window.almAlmSuggest = function (forceAll) {
+        almSuggestHide(); almCatSuggestHide();
+        var inp = el('almSelAlmacenInp'), box = el('almSelAlmacenSuggest');
+        if (!inp || !box) return;
+        var term  = almNorm(inp.value.trim());
+        var lista = (window.almAlmacenesLista || []);
+        var matches = (forceAll || term === '') ? lista.slice(0) : lista.filter(function (a) { return almNorm(a.NOMBRE).indexOf(term) > -1; });
+        if (!matches.length) {
+            box.innerHTML = '<div class="alm-suggest-empty">' + (lista.length ? 'Sin almacenes que coincidan.' : 'No hay almacenes disponibles.') + '</div>';
+        } else {
+            box.innerHTML = matches.map(function (a) {
+                var nm = String(a.NOMBRE).replace(/[<>&"]/g, '');
+                var tag = a.TIPO === 'GENERAL' ? 'Principal' : 'Proyecto';
+                return '<div class="alm-suggest-item" data-id="' + a.ID_ALMACEN + '" data-nom="' + nm + '"><span class="nom">' + nm + ' <span style="color:#94a3b8;font-weight:600;">(' + tag + ')</span></span></div>';
+            }).join('');
+        }
+        box.classList.add('open');
+    };
+    window.almAlmPick = function (id, nom) {
+        var hid = el('almSelAlmacen'); if (hid) hid.value = id;
+        var inp = el('almSelAlmacenInp'); if (inp) inp.value = nom;
+        almAlmSuggestHide();
+        almCargar();
+    };
+
+    // Click en una sugerencia (Almacén / Buscar / Categoría) / click fuera / Escape
     document.addEventListener('click', function (e) {
+        var almItem = e.target.closest('#almSelAlmacenSuggest .alm-suggest-item');
+        if (almItem) { e.preventDefault(); window.almAlmPick(almItem.getAttribute('data-id') || '', almItem.getAttribute('data-nom') || ''); return; }
         var item = e.target.closest('#almFiltroBuscarSuggest .alm-suggest-item');
         if (item) { e.preventDefault(); window.almBuscarPick(item.getAttribute('data-pick') || ''); return; }
-        if (!e.target.closest('.alm-filter')) almSuggestHide();
+        var catItem = e.target.closest('#almFiltroCatSuggest .alm-suggest-item');
+        if (catItem) { e.preventDefault(); window.almCatPick(catItem.getAttribute('data-pick') || ''); return; }
+        if (!e.target.closest('.alm-filter')) { almAlmSuggestHide(); almSuggestHide(); almCatSuggestHide(); }
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') almSuggestHide(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { almAlmSuggestHide(); almSuggestHide(); almCatSuggestHide(); } });
 
     // ── paginación (event delegation) ──
     document.addEventListener('click', function (e) {
@@ -966,9 +983,6 @@
     window.almAccion = function (which) {
         var m = el('almAccionesMenu'); if (m) m.style.display = 'none';
         switch (which) {
-            case 'doc':      if (window.almAbrirDoc)            window.almAbrirDoc();            break;
-            case 'surtir':   if (window.almAbrirSurtir)         window.almAbrirSurtir();         break;
-            case 'kardex':   if (window.almAbrirKardex)         window.almAbrirKardex();         break;
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
@@ -1021,44 +1035,45 @@
         .catch(function () { unpre(); showErr('almMovError', 'Error de red.'); });
     };
 
-    // ── Kardex / movimientos (modal, solo lectura) ──
+    // ── Página de movimientos (módulo aparte: /admin/almacen/movimientos) ──
     var ROUTE_MOVIMIENTOS = @json(route('almacen.movimientos'));
-    window.almAbrirKardex = function (idProducto, scopeLabel) {
-        var m = el('almKardexModal');
-        if (idProducto) m.dataset.idProducto = idProducto; else delete m.dataset.idProducto;
-        el('almKxScope').textContent = scopeLabel ? ('· ' + scopeLabel) : ('· ' + (function () { var s = el('almSelAlmacen'); return s && s.selectedOptions[0] ? s.selectedOptions[0].textContent.trim() : 'almacén'; })());
-        if (el('almKxTipo')) el('almKxTipo').value = 'all';
-        open('almKardexModal');
-        window.almCargarKardex();
-    };
-    window.almCargarKardex = function (url) {
-        var body = el('almKxBody'); if (!body) return;
-        var m = el('almKardexModal');
-        var p = new URLSearchParams();
-        var idAlm = val('almSelAlmacen'); if (idAlm) p.set('id_almacen', idAlm);
-        if (m.dataset.idProducto) p.set('id_producto', m.dataset.idProducto);
-        var t = el('almKxTipo') ? el('almKxTipo').value : 'all'; if (t && t !== 'all') p.set('tipo', t);
-        var finalUrl;
-        if (url) { var u = new URL(url, window.location.origin); p.forEach(function (v, k) { u.searchParams.set(k, v); }); finalUrl = u.toString(); }
-        else { finalUrl = ROUTE_MOVIMIENTOS + '?' + p.toString(); }
-        body.style.opacity = '0.5';
-        fetch(finalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.html !== undefined) body.innerHTML = data.html;
-                var pg = el('almKxPagination'); if (pg) pg.innerHTML = data.pagination || '';
-                var tot = el('almKxTotal'); if (tot) tot.textContent = (data.total != null ? (data.total + ' movimiento(s)') : '');
-            })
-            .catch(function () { body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#dc2626;">No se pudo cargar el kardex.</td></tr>'; })
-            .finally(function () { body.style.opacity = '1'; });
-    };
-    document.addEventListener('click', function (e) {
-        var a = e.target.closest('#almKxPagination a');
-        if (a) { e.preventDefault(); e.stopPropagation(); window.almCargarKardex(a.href); }
-    }, true);
 
-    // Endpoint JSON de stock bajo — lo usa "Cargar lo que está bajo mínimo en el destino" del traspaso.
-    var ROUTE_ALERTAS = @json(route('almacen.alertasStockBajo'));
+    // ── Modal "Detalles del producto" (lo abre el ojo de cada fila; agrupa todas las acciones) ──
+    window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo) {
+        var m = el('almDetalleModal'); if (!m) return;
+        var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');
+        m.dataset.id = id;
+        m.dataset.cod = cod || ''; m.dataset.nom = nom || ''; m.dataset.um = um || ''; m.dataset.cat = cat || '';
+        m.dataset.saldo = (saldo == null ? '0' : String(saldo));
+        m.dataset.minimo = hasMin ? String(minimo) : '';
+        el('almDetCodigo').textContent = cod || '—';
+        el('almDetNombre').textContent = nom || '';
+        el('almDetUm').textContent = um || '—';
+        el('almDetCat').textContent = (cat && String(cat).trim()) ? cat : '—';
+        el('almDetSaldo').textContent = formatNum(saldo);
+        el('almDetMin').textContent = hasMin ? formatNum(minimo) : 'Sin definir';
+        var bajo = hasMin && parseFloat(saldo || 0) <= parseFloat(minimo);
+        el('almDetBajoBadge').style.display = bajo ? '' : 'none';
+        el('almDetSaldo').style.color = bajo ? '#dc2626' : '#0f172a';
+        var an = el('almDetAlmNombre'); if (an) an.textContent = (el('almAlmacenNombre') && el('almAlmacenNombre').textContent.trim()) || 'este almacén';
+        open('almDetalleModal');
+    };
+    window.almDetalleAccion = function (which) {
+        var m = el('almDetalleModal'); if (!m) return;
+        var d = m.dataset, id = parseInt(d.id, 10);
+        var minimo = (d.minimo === '' ? null : parseFloat(d.minimo));
+        var saldo  = parseFloat(d.saldo || 0);
+        var label  = (d.cod || '') + (d.cod && d.nom ? ' — ' : '') + (d.nom || '');
+        almCerrar('almDetalleModal');
+        switch (which) {
+            case 'entrada':  if (window.almAbrirMovimiento) window.almAbrirMovimiento('ENTRADA', id, d.cod, d.nom, d.um, saldo); break;
+            case 'salida':   if (window.almAbrirMovimiento) window.almAbrirMovimiento('SALIDA',  id, d.cod, d.nom, d.um, saldo); break;
+            case 'ajuste':   if (window.almAbrirAjuste)     window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo, minimo); break;
+            case 'kardex':   window.location = ROUTE_MOVIMIENTOS + '?id_producto=' + id + (val('almSelAlmacen') ? '&id_almacen=' + encodeURIComponent(val('almSelAlmacen')) : ''); break;
+            case 'editar':   if (window.almEditarProducto)  window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat); break;
+            case 'eliminar': if (window.almEliminarProducto) window.almEliminarProducto(id, label); break;
+        }
+    };
 
     window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo, minimo) {
         var m = el('almAjusteModal');
@@ -1133,11 +1148,52 @@
         var wrap = el('almNvFrentesWrap'); if (!wrap) return;
         wrap.style.display = (val('almNvTipo') === 'PROYECTO') ? '' : 'none';
     };
+    // Checkboxes del multiselect de frentes del modal de almacén.
+    function almNvFrenteChecks() { return Array.prototype.slice.call(document.querySelectorAll('#almNvFrentesSelect input[type="checkbox"]')); }
+    // Filtra las opciones de frente al escribir en el input principal del trigger.
+    window.almNvFrentesFilter = function (inp) {
+        var v = (inp && inp.value || '').toLowerCase().trim();
+        var visibles = 0;
+        document.querySelectorAll('#almNvFrentesSelect .alm-frente-opt').forEach(function (i) {
+            var match = v === '' || i.textContent.toLowerCase().indexOf(v) > -1;
+            i.style.display = match ? '' : 'none';
+            if (match) visibles++;
+        });
+        var noMatch = el('almNvFrentesNoMatch');
+        if (noMatch) noMatch.style.display = (v !== '' && visibles === 0) ? '' : 'none';
+        // Mientras filtra, mantener el menú abierto.
+        var box = el('almNvFrentesSelect');
+        if (box && v !== '' && !box.classList.contains('active')) box.classList.add('active');
+    };
+    // Actualiza el placeholder del trigger según cuántos frentes están marcados.
+    window.almNvFrentesUpdate = function () {
+        var inp = el('almNvFrentesInput'); if (!inp) return;
+        var sel = almNvFrenteChecks().filter(function (c) { return c.checked; });
+        if (sel.length === 0)      inp.placeholder = 'Selecciona los frentes…';
+        else if (sel.length === 1) {
+            var sp = sel[0].closest('.multiselect-item').querySelector('span');
+            inp.placeholder = sp ? sp.textContent.trim() : '1 frente';
+        }
+        else inp.placeholder = sel.length + ' frentes seleccionados';
+    };
+    function almNvSetFrentes(ids) {
+        var set = {}; (ids || []).forEach(function (x) { set[String(x)] = true; });
+        almNvFrenteChecks().forEach(function (c) { c.checked = !!set[c.value]; });
+        // Reset del filtro (vaciar el input principal y volver a mostrar todas las opciones).
+        var inp = el('almNvFrentesInput'); if (inp) inp.value = '';
+        var box = el('almNvFrentesSelect');
+        if (box) {
+            box.querySelectorAll('.alm-frente-opt').forEach(function (i) { i.style.display = ''; });
+            var nm = el('almNvFrentesNoMatch'); if (nm) nm.style.display = 'none';
+            box.classList.remove('active');
+        }
+        window.almNvFrentesUpdate();
+    }
     function almResetAlmacenModal() {
         delete el('almAlmacenModal').dataset.idAlmacen;
-        el('almNvNombre').value = ''; el('almNvCodigo').value = ''; el('almNvUbicacion').value = '';
+        el('almNvNombre').value = ''; el('almNvUbicacion').value = '';
         el('almNvTipo').value = 'PROYECTO';
-        var fs = el('almNvFrentes'); if (fs) Array.prototype.forEach.call(fs.options, function (o) { o.selected = false; });
+        almNvSetFrentes([]);
         window.almToggleFrentes(); showErr('almNvError', '');
     }
     window.almAbrirAlmacen = function () {
@@ -1150,10 +1206,9 @@
         almResetAlmacenModal();
         el('almAlmacenModal').dataset.idAlmacen = id;
         el('almNvTitulo').textContent = 'Editar almacén'; el('almNvSubmit').textContent = 'Guardar cambios';
-        el('almNvNombre').value = d.NOMBRE || ''; el('almNvCodigo').value = d.CODIGO || ''; el('almNvUbicacion').value = d.UBICACION || '';
+        el('almNvNombre').value = d.NOMBRE || ''; el('almNvUbicacion').value = d.UBICACION || '';
         el('almNvTipo').value = d.TIPO || 'PROYECTO';
-        var fs = el('almNvFrentes'), set = {}; (d.frentes || []).forEach(function (x) { set[String(x)] = true; });
-        if (fs) Array.prototype.forEach.call(fs.options, function (o) { o.selected = !!set[o.value]; });
+        almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almCerrar('almAdminAlmacenesModal');
         open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
@@ -1164,15 +1219,14 @@
         if (!nombre) { showErr('almNvError', 'El nombre es obligatorio.'); return; }
         var frentes = [];
         if (tipo === 'PROYECTO') {
-            var fs = el('almNvFrentes');
-            if (fs) Array.prototype.forEach.call(fs.selectedOptions, function (o) { frentes.push(parseInt(o.value, 10)); });
+            almNvFrenteChecks().forEach(function (c) { if (c.checked) frentes.push(parseInt(c.value, 10)); });
         }
         var url = id ? ROUTE_ALM_ITEM(id) : ROUTE_ALM;
         pre();
         fetch(url, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({ NOMBRE: nombre, TIPO: tipo, CODIGO: val('almNvCodigo') || null, UBICACION: val('almNvUbicacion') || null, frentes: frentes })
+            body: JSON.stringify({ NOMBRE: nombre, TIPO: tipo, UBICACION: val('almNvUbicacion') || null, frentes: frentes })
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -1262,171 +1316,7 @@
     window.almEliminarProducto    = function () { toast('No tienes permiso para eliminar productos.', 'error'); };
     @endif
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Documento de movimiento (ENTRADA / SALIDA / TRASPASO / AJUSTE con N líneas)
-    // ════════════════════════════════════════════════════════════════════════
     @if($puedeMover)
-    var ROUTE_DOC = @json(route('almacen.movimientos.lote'));
-    // window.almProductosLista ya se definió arriba (catálogo de productos), lo reusa el modal de movimientos.
-
-    var DOC_DESC = {
-        ENTRADA:  'Mete producto AL almacén desde afuera del sistema (compra, devolución de proveedor). Sube el saldo.',
-        SALIDA:   'Saca producto DEL almacén hacia afuera del sistema (consumo en obra, merma, daño). Baja el saldo.',
-        TRASPASO: 'Mueve producto de un almacén A OTRO (p. ej. surtir un sub-almacén desde el almacén general). Baja en el origen y sube en el destino.',
-        AJUSTE:   'Fija el saldo del producto a un valor exacto (conteo físico / corrección). En cada línea escribe el SALDO que debe quedar.'
-    };
-
-    function almDocBuildProductoSelect() {
-        var s = document.createElement('select');
-        s.className = 'alm-doc-prod';
-        s.style.cssText = 'width:100%;border:1px solid #cbd5e0;border-radius:6px;padding:6px 8px;font-size:13px;';
-        var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '— seleccionar producto —'; s.appendChild(o0);
-        (window.almProductosLista || []).forEach(function (p) {
-            var o = document.createElement('option');
-            o.value = p.ID_PRODUCTO;
-            o.textContent = (p.CODIGO ? p.CODIGO + ' — ' : '') + p.NOMBRE;
-            s.appendChild(o);
-        });
-        return s;
-    }
-    window.almDocAddLinea = function (prefill) {
-        var tb = el('almDocLineas'); if (!tb) return;
-        var tr = document.createElement('tr');
-        tr.style.borderTop = '1px solid #f1f5f9';
-        var td1 = document.createElement('td'); td1.style.padding = '6px 10px';
-        var sel = almDocBuildProductoSelect();
-        if (prefill && prefill.id_producto != null) sel.value = String(prefill.id_producto);
-        td1.appendChild(sel);
-        var td2 = document.createElement('td'); td2.style.cssText = 'padding:6px 10px;text-align:right;';
-        var inp = document.createElement('input');
-        inp.type = 'number'; inp.step = 'any'; inp.min = '0'; inp.className = 'alm-doc-cant';
-        inp.style.cssText = 'width:100%;border:1px solid #cbd5e0;border-radius:6px;padding:6px 8px;font-size:13px;text-align:right;box-sizing:border-box;';
-        if (prefill && prefill.cantidad != null && prefill.cantidad !== '') inp.value = prefill.cantidad;
-        td2.appendChild(inp);
-        var td3 = document.createElement('td'); td3.style.textAlign = 'center';
-        var btn = document.createElement('button');
-        btn.type = 'button'; btn.title = 'Quitar';
-        btn.innerHTML = '<i class="material-icons" style="font-size:16px;color:#94a3b8;">close</i>';
-        btn.style.cssText = 'border:none;background:transparent;cursor:pointer;padding:2px;';
-        btn.onclick = function () { if (el('almDocLineas').children.length > 1) tr.remove(); else { sel.value = ''; inp.value = ''; } };
-        td3.appendChild(btn);
-        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-        tb.appendChild(tr);
-    };
-    function almDocResetLineas(n) {
-        var tb = el('almDocLineas'); if (tb) tb.innerHTML = '';
-        for (var i = 0; i < (n || 1); i++) window.almDocAddLinea();
-    }
-    window.almDocSetTipo = function (tipo) {
-        var m = el('almDocModal'); if (!m) return;
-        m.dataset.tipo = tipo;
-        document.querySelectorAll('#almDocTipos .alm-tipo-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tipo === tipo); });
-        el('almDocTipoDesc').textContent = DOC_DESC[tipo] || '';
-        el('almDocDestinoWrap').style.display   = (tipo === 'TRASPASO') ? '' : 'none';
-        el('almDocFrenteWrap').style.display    = (tipo === 'SALIDA')   ? '' : 'none';
-        el('almDocCargarBajoMin').style.display = (tipo === 'TRASPASO') ? '' : 'none';
-        el('almDocCantTh').textContent   = (tipo === 'AJUSTE')   ? 'Saldo que debe quedar' : 'Cantidad';
-        el('almDocAlmLabel').textContent = (tipo === 'TRASPASO') ? 'Almacén origen' : 'Almacén';
-        var titulos = { ENTRADA: 'Registrar entrada', SALIDA: 'Registrar salida', TRASPASO: 'Traspaso entre almacenes', AJUSTE: 'Ajuste de inventario' };
-        var iconos  = { ENTRADA: 'south_west', SALIDA: 'north_east', TRASPASO: 'swap_horiz', AJUSTE: 'tune' };
-        el('almDocTitulo').textContent = titulos[tipo] || 'Nuevo movimiento';
-        el('almDocIcon').textContent   = iconos[tipo] || 'post_add';
-        el('almDocSubmit').textContent = (tipo === 'TRASPASO') ? 'Traspasar' : (tipo === 'AJUSTE' ? 'Aplicar ajuste' : 'Registrar');
-    };
-    window.almDocOnAlmacenChange = function () {
-        var m = el('almDocModal'); if (!m || m.dataset.tipo !== 'TRASPASO') return;
-        var o = el('almDocAlmacen').value, d = el('almDocDestino');
-        if (d && d.value === o) { for (var i = 0; i < d.options.length; i++) { if (d.options[i].value !== o) { d.value = d.options[i].value; break; } } }
-    };
-    window.almAbrirDoc = function (presetTipo, opts) {
-        opts = opts || {};
-        var m = el('almDocModal'); if (!m) return;
-        var actual = val('almSelAlmacen');
-        if (actual && el('almDocAlmacen')) el('almDocAlmacen').value = actual;
-        if (opts.destino && el('almDocDestino')) el('almDocDestino').value = String(opts.destino);
-        el('almDocFecha').value = hoy();
-        el('almDocReferencia').value = ''; el('almDocMotivo').value = '';
-        if (el('almDocFrente')) el('almDocFrente').value = '';
-        showErr('almDocError', '');
-        almDocResetLineas(1);
-        window.almDocSetTipo(presetTipo || 'ENTRADA');
-        window.almDocOnAlmacenChange();
-        open('almDocModal');
-    };
-    // Atajo "Surtir sub-almacén": traspaso con el origen preseleccionado en el primer almacén GENERAL.
-    window.almAbrirSurtir = function () {
-        var sel = el('almDocAlmacen');
-        if (sel) { for (var i = 0; i < sel.options.length; i++) { if (/\(Principal\)/.test(sel.options[i].textContent)) { sel.value = sel.options[i].value; break; } } }
-        window.almAbrirDoc('TRASPASO');
-        toast('Surtido: elige el sub-almacén destino y agrega productos (o pulsa "Cargar lo que está bajo mínimo en el destino").');
-    };
-    window.almDocCargarBajoMinimo = function () {
-        var m = el('almDocModal'); if (!m || m.dataset.tipo !== 'TRASPASO') return;
-        var destino = el('almDocDestino') ? el('almDocDestino').value : '';
-        if (!destino) { showErr('almDocError', 'Primero elige el almacén destino.'); return; }
-        pre();
-        fetch(ROUTE_ALERTAS + '?id_almacen=' + encodeURIComponent(destino), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var alertas = (data && data.alertas) || [];
-                if (!alertas.length) { showErr('almDocError', 'El almacén destino no tiene productos por debajo de su mínimo.'); return; }
-                showErr('almDocError', '');
-                el('almDocLineas').innerHTML = '';
-                alertas.forEach(function (a) { window.almDocAddLinea({ id_producto: a.id_producto, cantidad: (a.faltante > 0 ? a.faltante : '') }); });
-            })
-            .catch(function () { showErr('almDocError', 'No se pudo cargar el stock bajo del destino.'); })
-            .finally(function () { unpre(); });
-    };
-    window.almDocGuardar = function () {
-        var m = el('almDocModal'), tipo = (m && m.dataset.tipo) || 'ENTRADA';
-        var idAlm = el('almDocAlmacen') ? el('almDocAlmacen').value : '';
-        if (!idAlm) { showErr('almDocError', 'Selecciona el almacén.'); return; }
-        var idDestino = null;
-        if (tipo === 'TRASPASO') {
-            idDestino = el('almDocDestino') ? el('almDocDestino').value : '';
-            if (!idDestino) { showErr('almDocError', 'Selecciona el almacén destino.'); return; }
-            if (idDestino === idAlm) { showErr('almDocError', 'El origen y el destino no pueden ser el mismo almacén.'); return; }
-        }
-        var lineas = [], filas = el('almDocLineas').querySelectorAll('tr'), vistos = {};
-        for (var i = 0; i < filas.length; i++) {
-            var sel = filas[i].querySelector('.alm-doc-prod'), inp = filas[i].querySelector('.alm-doc-cant');
-            var idp = sel ? String(sel.value).trim() : '';
-            var raw = inp ? String(inp.value).trim() : '';
-            if (!idp && raw === '') continue; // fila vacía → ignorar
-            var nombre = (sel && sel.selectedOptions[0]) ? sel.selectedOptions[0].textContent : idp;
-            if (!idp) { showErr('almDocError', 'Hay una fila con cantidad pero sin producto.'); return; }
-            var c = parseFloat(raw);
-            if (isNaN(c) || (tipo !== 'AJUSTE' && c <= 0) || (tipo === 'AJUSTE' && c < 0)) { showErr('almDocError', 'Cantidad inválida en "' + nombre + '".'); return; }
-            if (vistos[idp]) { showErr('almDocError', 'El producto "' + nombre + '" está repetido.'); return; }
-            vistos[idp] = true;
-            lineas.push({ id_producto: parseInt(idp, 10), cantidad: c });
-        }
-        if (!lineas.length) { showErr('almDocError', 'Agrega al menos un producto con su cantidad.'); return; }
-        showErr('almDocError', '');
-        pre();
-        fetch(ROUTE_DOC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({
-                tipo: tipo, id_almacen: idAlm, id_almacen_destino: idDestino,
-                fecha: val('almDocFecha') || null, referencia: val('almDocReferencia') || null, motivo: val('almDocMotivo') || null,
-                id_frente: (tipo === 'SALIDA' && el('almDocFrente')) ? (el('almDocFrente').value || null) : null,
-                lineas: lineas
-            })
-        })
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
-        .then(function (res) {
-            unpre();
-            if (res.ok) { almCerrar('almDocModal'); if (window.almSelClear) window.almSelClear(); toast(res.b.message || 'Movimiento registrado.'); almCargar(); }
-            else {
-                var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
-                if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
-                showErr('almDocError', msg);
-            }
-        })
-        .catch(function () { unpre(); showErr('almDocError', 'Error de red.'); });
-    };
-
     // ── Modal de cantidades para la selección de la tabla: SALIDA directa / TRASPASO (pide almacén destino) ──
     //  ALM_SAL.tipo = 'SALIDA' | 'TRASPASO' ; ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
     var ALM_SAL = { tipo: 'SALIDA', idAlmacen: '' };
@@ -1440,6 +1330,9 @@
         var dw = el('almSalidaDestinoWrap'); if (dw) dw.style.display = esTraspaso ? 'block' : 'none';
         var ds = el('almSalidaDestino');
         if (ds) { ds.value = ''; Array.prototype.forEach.call(ds.options, function (o) { o.disabled = (!!o.value && o.value === ALM_SAL.idAlmacen); }); }
+        // Reset del picker de frente destino (sólo se muestra en TRASPASO cuando el almacén destino tiene frentes asociados)
+        var fw = el('almSalidaFrenteWrap'); if (fw) fw.style.display = 'none';
+        var fs = el('almSalidaFrente'); if (fs) fs.value = '';
         if (el('almSalidaMotivo')) el('almSalidaMotivo').value = '';
         showErr('almSalidaError', '');
         var tb = el('almSalidaLineas');
@@ -1461,6 +1354,30 @@
         open('almSalidaModal');
         setTimeout(function () { var f = el('almSalidaLineas') ? el('almSalidaLineas').querySelector('.alm-sal-cant') : null; if (f) f.focus(); }, 60);
     };
+    // Cuando cambias el almacén destino, repoblamos el dropdown de "Frente destino" con
+    // los frentes asociados a ese almacén (pivot `almacen_frentes`):
+    //  • 0 frentes (almacén GENERAL principal) → el picker queda oculto, no se pide.
+    //  • 1 frente  → se preselecciona automáticamente y el picker se queda visible (informativo).
+    //  • 2+        → el operario tiene que elegir cuál de los proyectos recibe el envío.
+    window.almSalidaOnDestinoChange = function () {
+        var fw = el('almSalidaFrenteWrap'), fs = el('almSalidaFrente'), ds = el('almSalidaDestino');
+        if (!fw || !fs || !ds) return;
+        var idDest  = ds.value;
+        var frentes = (window.almAlmacenesFrentes || {})[idDest] || [];
+        var nombres = window.almFrentesNombres || {};
+        // Reconstruir las opciones.
+        fs.innerHTML = '<option value="">— elige el frente —</option>';
+        frentes.forEach(function (fid) {
+            var opt = document.createElement('option');
+            opt.value = fid;
+            opt.textContent = nombres[fid] || ('Frente #' + fid);
+            fs.appendChild(opt);
+        });
+        if (frentes.length === 0) { fw.style.display = 'none'; fs.value = ''; }
+        else if (frentes.length === 1) { fw.style.display = 'block'; fs.value = String(frentes[0]); }
+        else { fw.style.display = 'block'; fs.value = ''; }
+        showErr('almSalidaError', '');
+    };
     window.almSalidaQuitar = function (btn, id) {
         var tr = btn.closest('tr'); if (tr) tr.remove();
         delete almSeleccion[id];
@@ -1472,9 +1389,16 @@
     window.almSalidaConfirmar = function () {
         var esTraspaso = ALM_SAL.tipo === 'TRASPASO';
         var idDest = el('almSalidaDestino') ? el('almSalidaDestino').value : '';
+        var idFrenteDest = (esTraspaso && el('almSalidaFrente')) ? el('almSalidaFrente').value : '';
         if (esTraspaso) {
             if (!idDest) { showErr('almSalidaError', 'Elige el almacén destino.'); return; }
             if (idDest === ALM_SAL.idAlmacen) { showErr('almSalidaError', 'El destino debe ser distinto del almacén de origen.'); return; }
+            // Si el almacén destino tiene frentes asociados, el operario DEBE indicar a cuál se envía.
+            var frentesDest = (window.almAlmacenesFrentes || {})[idDest] || [];
+            if (frentesDest.length > 0 && !idFrenteDest) {
+                showErr('almSalidaError', 'Elige a qué frente del almacén destino se envía.');
+                return;
+            }
         }
         var lineas = [], faltan = [];
         (el('almSalidaLineas') ? el('almSalidaLineas').querySelectorAll('tr') : []).forEach(function (tr) {
@@ -1494,6 +1418,7 @@
             ? { tipo: 'TRASPASO', id_almacen: ALM_SAL.idAlmacen, id_almacen_destino: idDest, lineas: lineas }
             : { tipo: 'SALIDA',   id_almacen: ALM_SAL.idAlmacen, lineas: lineas };
         if (motivo) payload.motivo = motivo;
+        if (idFrenteDest) payload.id_frente = idFrenteDest;
         pre();
         fetch(ROUTE_LOTE, {
             method: 'POST',
@@ -1517,10 +1442,15 @@
         .catch(function () { unpre(); showErr('almSalidaError', 'Error de red.'); });
     };
     @else
-    window.almAbrirDoc             = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
-    window.almAbrirSurtir          = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
-    window.almAbrirSalidaModal     = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
+    window.almAbrirSalidaModal = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
+
+    // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria), se carga al entrar;
+    // si no, queda en blanco hasta que el usuario use un filtro.
+    (function () {
+        var b = el('almFiltroBuscar'), c = el('almFiltroCat');
+        if ((b && b.value.trim() !== '') || (c && c.value.trim() !== '')) window.almCargar();
+    })();
 })();
 </script>
 @endsection

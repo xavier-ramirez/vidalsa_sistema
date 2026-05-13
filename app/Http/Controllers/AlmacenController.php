@@ -80,28 +80,23 @@ class AlmacenController extends Controller
             $almacenSel = $almacenes->first();
         }
         $idAlmacenSel = $almacenSel?->ID_ALMACEN;
-
-        // Consulta: productos activos + saldo/mínimo en el almacén seleccionado.
-        $productosQuery = $this->productosConSaldoQuery($idAlmacenSel, $request)
-            ->orderBy('productos_inventario.NOMBRE');
-
         $hayInventario = $idAlmacenSel !== null;
 
+        // Peticiones AJAX (cambio de filtro / paginación): devuelven las filas + stats.
         if ($request->wantsJson()) {
-            $productos = $hayInventario ? $productosQuery->paginate(50)->withQueryString() : null;
+            $productos = $hayInventario
+                ? $this->productosConSaldoQuery($idAlmacenSel, $request)->orderBy('productos_inventario.NOMBRE')->paginate(50)->withQueryString()
+                : null;
             return response()->json([
                 'almacen'         => $almacenSel,
-                'html'            => view('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel])->render(),
+                'html'            => view('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => false])->render(),
                 'pagination'      => $productos ? (string) $productos->links('vendor.pagination.custom-sliding') : '',
                 'stats'           => $this->statsInventario($idAlmacenSel, $request),
                 'distribucionHtml'=> view('admin.almacen.partials.distribucion_stats', ['distribucion' => $this->distribucionPorCategoria($idAlmacenSel, $request)])->render(),
             ]);
         }
 
-        $productos = $hayInventario ? $productosQuery->paginate(50)->withQueryString() : null;
-
-        // Listas para los filtros y los selectores de los modales.
-        // $productosLista alimenta el autocompletado del filtro "Buscar" (código/descripción) y los <select> de los modales.
+        // Carga HTML: la tabla abre VACÍA — las filas se piden por AJAX en cuanto el usuario usa un filtro.
         $categorias    = $this->categoriasDistintas();
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
         $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
@@ -109,31 +104,36 @@ class AlmacenController extends Controller
         return view('admin.almacen.index', [
             'almacenes'      => $almacenes,
             'almacenSel'     => $almacenSel,
-            'productos'      => $productos,
+            'productos'      => null,
             'categorias'     => $categorias,
             'productosLista' => $productosLista,
             'frentesLista'   => $frentesLista,
             'stats'          => $this->statsInventario($idAlmacenSel, $request),
             'distribucion'   => $this->distribucionPorCategoria($idAlmacenSel, $request),
-            'esGlobal'       => Almacen::usuarioEsGlobal($user),
         ]);
     }
 
     /**
-     * Query base del inventario: productos_inventario activos + LEFT JOIN del
+     * Query base del inventario: productos_inventario activos + INNER JOIN del
      * stock del almacén dado + filtros del listado. SIN columnas explícitas:
      * el llamador añade el select que necesita (filas / count / agregado).
+     *
+     * INNER JOIN (no LEFT): un producto sólo aparece en un almacén si tiene fila
+     * en `almacen_stock` para ese almacén — es decir, si alguien YA registró un
+     * movimiento (entrada / traspaso entrada / ajuste) o le fijó un stock mínimo
+     * ahí. Un almacén recién creado abre vacío hasta que llegue el primer envío,
+     * en vez de mostrar el catálogo global con saldo=0 (que confundía).
      */
     private function inventarioBaseQuery(?int $idAlmacen, Request $request)
     {
         $q = ProductoInventario::query()->activos();
 
-        $q->leftJoin('almacen_stock', function ($j) use ($idAlmacen) {
+        $q->join('almacen_stock', function ($j) use ($idAlmacen) {
             $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO');
             if ($idAlmacen !== null) {
                 $j->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
             } else {
-                $j->whereRaw('1 = 0'); // sin almacén: join vacío → saldo siempre 0
+                $j->whereRaw('1 = 0'); // sin almacén → no devolver nada
             }
         });
 
@@ -145,7 +145,10 @@ class AlmacenController extends Controller
             });
         }
         if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
-            $q->where('productos_inventario.CATEGORIA', trim($request->input('categoria')));
+            // Coincidencia parcial (igual que "search"): el filtro de categoría es un
+            // input de texto con sugerencias, así que se va estrechando conforme se escribe.
+            $cat = trim((string) $request->input('categoria'));
+            $q->where('productos_inventario.CATEGORIA', 'like', "%{$cat}%");
         }
         if ($request->boolean('solo_bajo')) {
             $q->whereNotNull('almacen_stock.CANTIDAD_MINIMA')
@@ -365,67 +368,24 @@ class AlmacenController extends Controller
         return response()->json(['message' => 'Stock mínimo actualizado.', 'stock' => $stock->load('producto')]);
     }
 
-    /**
-     * Alertas de stock mínimo (JSON): productos cuyo saldo está en o por debajo
-     * de su CANTIDAD_MINIMA, en los almacenes visibles para el usuario.
-     * Filtro opcional: id_almacen (uno solo).
-     * Lo usa el botón "Cargar lo que está bajo mínimo en el destino" del traspaso.
-     */
-    public function alertasStockBajo(Request $request)
-    {
-        $almacenesVisibles = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
-
-        $q = AlmacenStock::query()
-            ->whereIn('ID_ALMACEN', $almacenesVisibles)
-            ->stockBajo()
-            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM,CATEGORIA', 'almacen:ID_ALMACEN,NOMBRE,TIPO']);
-
-        if ($request->filled('id_almacen')) {
-            $idAlmacen = $request->integer('id_almacen');
-            $this->assertPuedeVerAlmacen($request, $idAlmacen);
-            $q->where('ID_ALMACEN', $idAlmacen);
-        }
-
-        $filas = $q->get()->sortBy([
-            fn ($a, $b) => strcmp((string) $a->almacen?->NOMBRE, (string) $b->almacen?->NOMBRE),
-            fn ($a, $b) => strcmp((string) $a->producto?->NOMBRE, (string) $b->producto?->NOMBRE),
-        ])->values();
-
-        $alertas = $filas->map(fn ($s) => [
-            'id_almacen' => $s->ID_ALMACEN,
-            'almacen'    => $s->almacen?->NOMBRE,
-            'tipo'       => $s->almacen?->TIPO,
-            'id_producto'=> $s->ID_PRODUCTO,
-            'codigo'     => $s->producto?->CODIGO,
-            'producto'   => $s->producto?->NOMBRE,
-            'um'         => $s->producto?->UM,
-            'categoria'  => $s->producto?->CATEGORIA,
-            'cantidad'   => (float) $s->CANTIDAD,
-            'minimo'     => (float) $s->CANTIDAD_MINIMA,
-            'faltante'   => max(0, (float) $s->CANTIDAD_MINIMA - (float) $s->CANTIDAD),
-        ])->values();
-
-        return response()->json([
-            'total'   => $alertas->count(),
-            'alertas' => $alertas,
-        ]);
-    }
-
     // ─────────────────────────────────────────────────────────────
-    //  Movimientos (kardex)
+    //  Movimientos (kardex) — módulo aparte: /admin/almacen/movimientos
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Kardex (JSON) filtrable por almacén, producto, tipo, frente y fechas.
-     * Devuelve { html: filas <tr>, pagination, total, paginator } — la tabla la
-     * usa el modal "Movimientos"; `paginator` queda por si un cliente lo necesita crudo.
+     * Bitácora de movimientos de inventario.
+     * Filtros: id_almacen, search (código/nombre del producto), id_producto (exacto),
+     *          tipo (ENTRADA|SALIDA|AJUSTE|TRASPASO_ENTRADA|TRASPASO_SALIDA), id_frente, desde, hasta.
+     *
+     *  - HTML normal → página completa (shell + filtros + primera página de la tabla + contador).
+     *  - wantsJson() → { html (filas <tr>), pagination, total } para los filtros/paginación por AJAX.
      */
     public function movimientos(Request $request)
     {
         $q = MovimientoInventario::query()
             ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
 
-        if ($request->filled('id_almacen')) {
+        if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
             $idAlmacen = $request->integer('id_almacen');
             $this->assertPuedeVerAlmacen($request, $idAlmacen);
             $q->where('ID_ALMACEN', $idAlmacen);
@@ -436,10 +396,16 @@ class AlmacenController extends Controller
         if ($request->filled('id_producto')) {
             $q->where('ID_PRODUCTO', $request->integer('id_producto'));
         }
+        if ($request->filled('search')) {
+            $term = trim((string) $request->input('search'));
+            $q->whereHas('producto', function ($p) use ($term) {
+                $p->where('CODIGO', 'like', "%{$term}%")->orWhere('NOMBRE', 'like', "%{$term}%");
+            });
+        }
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
             $q->where('TIPO', $request->string('tipo'));
         }
-        if ($request->filled('id_frente')) {
+        if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
             $q->where('ID_FRENTE', $request->integer('id_frente'));
         }
         $q->periodo($request->input('desde'), $request->input('hasta'));
@@ -447,11 +413,19 @@ class AlmacenController extends Controller
         $paginator = $q->orderByDesc('FECHA')->orderByDesc('ID_MOVIMIENTO')
             ->paginate($request->integer('per_page') ?: 50)->withQueryString();
 
-        return response()->json([
-            'html'       => view('admin.almacen.partials.kardex_rows', ['movimientos' => $paginator])->render(),
-            'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
-            'total'      => $paginator->total(),
-            'paginator'  => $paginator,
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html'       => view('admin.almacen.partials.kardex_rows', ['movimientos' => $paginator])->render(),
+                'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
+                'total'      => $paginator->total(),
+            ]);
+        }
+
+        return view('admin.almacen.movimientos', [
+            'movimientos'  => $paginator,
+            'total'        => $paginator->total(),
+            'almacenes'    => Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
+            'frentesLista' => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
         ]);
     }
 
@@ -519,7 +493,11 @@ class AlmacenController extends Controller
      *  - id_almacen          : almacén (origen en TRASPASO)
      *  - id_almacen_destino  : almacén destino (obligatorio sólo en TRASPASO)
      *  - fecha, referencia, motivo, notas : opcionales
-     *  - id_frente           : opcional (consumo a un frente; sólo tiene sentido en SALIDA)
+     *  - id_frente           : opcional.
+     *                          - SALIDA   → frente que CONSUME el producto.
+     *                          - TRASPASO → frente DESTINO (cuál de los frentes del almacén
+     *                                       destino recibe el envío; requerido cuando el
+     *                                       almacén destino tiene frentes asociados).
      *  - permitir_negativo   : opcional (sólo super.admin)
      *  - lineas              : [{ id_producto, cantidad }, ...]   (>= 1)
      *                          en AJUSTE, "cantidad" es el SALDO OBJETIVO de ese producto.
@@ -552,9 +530,29 @@ class AlmacenController extends Controller
             $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen_destino']);
         }
 
+        // id_frente: lo aceptamos para SALIDA (consumo) y TRASPASO (frente destino del envío).
+        // En ENTRADA / AJUSTE no tiene sentido → se ignora.
+        $idFrente = in_array($data['tipo'], ['SALIDA', 'TRASPASO'], true) ? ($data['id_frente'] ?? null) : null;
+
+        // Para TRASPASO: si el almacén destino tiene frentes asociados (pivot almacen_frentes),
+        // el frente destino es OBLIGATORIO — así sabemos cuál de los proyectos servidos por ese
+        // almacén recibió realmente el envío (un mismo sub-almacén puede surtir a N frentes).
+        if ($data['tipo'] === 'TRASPASO') {
+            $idAlmDest = (int) $data['id_almacen_destino'];
+            $frentesDestino = Almacen::find($idAlmDest)?->frentes()->pluck('frentes_trabajo.ID_FRENTE') ?? collect();
+            if ($frentesDestino->isNotEmpty()) {
+                if (!$idFrente) {
+                    return response()->json(['message' => 'El almacén destino surte a varios frentes — elige a cuál se envía.'], 422);
+                }
+                if (!$frentesDestino->contains((int) $idFrente)) {
+                    return response()->json(['message' => 'El frente seleccionado no pertenece al almacén destino.'], 422);
+                }
+            }
+        }
+
         $opts = [
             'fecha'             => $data['fecha'] ?? null,
-            'id_frente'         => $data['tipo'] === 'SALIDA' ? ($data['id_frente'] ?? null) : null,
+            'id_frente'         => $idFrente,
             'referencia'        => $data['referencia'] ?? null,
             'motivo'            => $data['motivo'] ?? null,
             'notas'             => $data['notas'] ?? null,

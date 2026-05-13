@@ -1,9 +1,10 @@
-{{-- Filas de la tabla de inventario. $productos = paginator|null ; $almacen = Almacen|null --}}
+{{-- Filas de la tabla de inventario. $productos = paginator|null ; $almacen = Almacen|null ; $inicial = bool (la tabla abre vacía hasta que se filtre) --}}
 @php
     $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
-    $rows = $productos ?? collect();
-    $cols = 7;
+    $rows    = $productos ?? collect();
+    $inicial = $inicial ?? false;
+    $cols    = 6;
 @endphp
 
 @if(!$almacen)
@@ -13,10 +14,17 @@
             No tienes ningún almacén disponible. Pídele a un administrador que cree uno (o que asocie tu frente a un almacén).
         </td>
     </tr>
+@elseif($inicial && $rows->count() === 0)
+    <tr>
+        <td colspan="{{ $cols }}" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:14px;">
+            <i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>
+            Usa los filtros (buscar, categoría o los atajos del panel) para ver el inventario de <strong>{{ $almacen->NOMBRE }}</strong>.
+        </td>
+    </tr>
 @elseif($rows->count() === 0)
     <tr>
         <td colspan="{{ $cols }}" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
-            <i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">inventory_2</i>
+            <i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">search_off</i>
             No hay productos que coincidan con los filtros en <strong>{{ $almacen->NOMBRE }}</strong>.
         </td>
     </tr>
@@ -43,25 +51,11 @@
                 {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
-            <td style="text-align:right;color:#94a3b8;font-size:13px;">{{ $minimo !== null ? rtrim(rtrim(number_format($minimo, 3, '.', ','), '0'), '.') : '—' }}</td>
-            <td style="text-align:center;white-space:nowrap;">
-                @if($puedeMover)
-                    <button type="button" class="alm-btn alm-btn-in"  title="Registrar entrada"
-                            onclick="window.almAbrirMovimiento('ENTRADA',{{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}',{{ $saldo }})"><i class="material-icons" style="font-size:16px;">add</i></button>
-                    <button type="button" class="alm-btn alm-btn-out" title="Registrar salida"
-                            onclick="window.almAbrirMovimiento('SALIDA',{{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}',{{ $saldo }})"><i class="material-icons" style="font-size:16px;">remove</i></button>
-                    <button type="button" class="alm-btn alm-btn-adj" title="Ajustar saldo / fijar mínimo"
-                            onclick="window.almAbrirAjuste({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}',{{ $saldo }},{{ $minArg }})"><i class="material-icons" style="font-size:16px;">tune</i></button>
-                @endif
-                <button type="button" class="alm-btn alm-btn-hist" title="Ver movimientos de este producto"
-                        onclick="window.almAbrirKardex({{ $p->ID_PRODUCTO }},'{{ $codJs }} — {{ $nomJs }}')"><i class="material-icons" style="font-size:16px;">history</i></button>
-                @if($puedeManage)
-                    <button type="button" class="alm-btn alm-btn-edit" title="Editar producto"
-                            onclick="window.almEditarProducto({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}')"><i class="material-icons" style="font-size:16px;">edit</i></button>
-                    <button type="button" class="alm-btn alm-btn-del" title="Eliminar / desactivar producto"
-                            onclick="window.almEliminarProducto({{ $p->ID_PRODUCTO }},'{{ $codJs }} — {{ $nomJs }}')"><i class="material-icons" style="font-size:16px;">delete_outline</i></button>
-                @endif
-                @if(!$puedeMover && !$puedeManage)<span style="color:#cbd5e0;font-size:12px;display:none;">—</span>@endif
+            <td style="text-align:center;white-space:nowrap;width:60px;">
+                <button type="button" class="btn-details-mini" title="Ver detalles del producto"
+                        onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }})">
+                    <i class="material-icons" style="font-size:18px;">visibility</i>
+                </button>
             </td>
         </tr>
     @endforeach

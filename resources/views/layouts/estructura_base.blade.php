@@ -524,11 +524,25 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">local_shipping</i>Historial Mov
             </a>
 
-            <a href="{{ route('almacen.index') }}"
-                class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
-                style="display: flex; align-items: center;">
-                <i class="material-icons" style="font-size: 18px; margin-right: 5px;">warehouse</i>Almacén
-            </a>
+            {{-- Almacén Dropdown: Inventario + Kardex --}}
+            <div class="nav-dropdown">
+                <a href="#"
+                    class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
+                    style="display: flex; align-items: center; gap: 4px;">
+                    <i class="material-icons" style="font-size: 18px;">warehouse</i>Almacén
+                    <i class="material-icons" style="font-size: 16px;">expand_more</i>
+                </a>
+                <div class="nav-dropdown-content">
+                    <a href="{{ route('almacen.index') }}"
+                        class="nav-dropdown-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
+                        <i class="material-icons">inventory_2</i> Inventario
+                    </a>
+                    <a href="{{ route('almacen.movimientos') }}"
+                        class="nav-dropdown-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
+                        <i class="material-icons">receipt_long</i> Historial de Movimientos
+                    </a>
+                </div>
+            </div>
 
             <!-- Configuraciones Dropdown -->
             <div class="nav-dropdown">
@@ -671,10 +685,25 @@
             class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
             <i class="material-icons">local_shipping</i> Historial Mov
         </a>
-        <a href="{{ route('almacen.index') }}"
-            class="mobile-nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}">
-            <i class="material-icons">warehouse</i> Almacén
-        </a>
+        <div class="mobile-nav-group" id="mobileAlmacenGroup">
+            <div class="mobile-nav-group-title">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="material-icons">warehouse</i>
+                    Almacén
+                </div>
+                <i class="material-icons chevron">expand_more</i>
+            </div>
+            <div class="mobile-nav-group-content">
+                <a href="{{ route('almacen.index') }}"
+                    class="mobile-nav-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
+                    <i class="material-icons">inventory_2</i> Inventario
+                </a>
+                <a href="{{ route('almacen.movimientos') }}"
+                    class="mobile-nav-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
+                    <i class="material-icons">receipt_long</i> Historial de Movimientos
+                </a>
+            </div>
+        </div>
 
         <!-- Mobile Group -->
         <div class="mobile-nav-group" id="mobileConfigGroup">

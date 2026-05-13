@@ -710,6 +710,35 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+    /* ── En PC con pantallas menos anchas: número FIJO de columnas por breakpoint
+       y se ocultan las tarjetas que no caben para que TODO quepa en UNA sola fila
+       (en lugar de envolver a una segunda línea). En mobile (<720px) se mantiene
+       el auto-fill original para que se acomoden naturalmente. ── */
+    @media (min-width: 720px) {
+        .cat-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .cat-mini-card:nth-child(n)  { display: flex; }
+        .cat-mini-card:nth-child(n+4){ display: none; }
+    }
+    @media (min-width: 900px) {
+        .cat-mini-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .cat-mini-card:nth-child(n)  { display: flex; }
+        .cat-mini-card:nth-child(n+5){ display: none; }
+    }
+    @media (min-width: 1100px) {
+        .cat-mini-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .cat-mini-card:nth-child(n)  { display: flex; }
+        .cat-mini-card:nth-child(n+6){ display: none; }
+    }
+    @media (min-width: 1300px) {
+        .cat-mini-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .cat-mini-card:nth-child(n)  { display: flex; }
+        .cat-mini-card:nth-child(n+7){ display: none; }
+    }
+    @media (min-width: 1500px) {
+        .cat-mini-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+        .cat-mini-card:nth-child(n)  { display: flex; }
+    }
 </style>
 
 <div class="dashboard-container" style="padding: 10px 20px; position: relative; z-index: 1;">

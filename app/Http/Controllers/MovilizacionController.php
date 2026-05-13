@@ -638,7 +638,19 @@ class MovilizacionController extends Controller
 
             $movilizacion = $movilizaciones->first();
 
-            $frenteOrigen = FrenteTrabajo::find($movilizacion->ID_FRENTE_ORIGEN);
+            // ── Frente de origen del acta: POR MAYORÍA ──────────────────────────
+            // Cada fila de movilizaciones guarda el ID_FRENTE_ORIGEN real del equipo,
+            // pero cuando un lote mezcla equipos con distintos orígenes lo más probable
+            // es que físicamente estén en el mismo sitio y la BD esté desactualizada
+            // para algunos. Tomamos el frente con MÁS equipos en el lote como origen
+            // del acta (firmantes, encabezado, etc). Empate → gana el frente del
+            // equipo registrado primero en el lote (orden estable del groupBy).
+            $idOrigenMayoria = $movilizaciones->groupBy('ID_FRENTE_ORIGEN')
+                ->map(fn ($grupo) => $grupo->count())
+                ->sortDesc()
+                ->keys()
+                ->first();
+            $frenteOrigen  = FrenteTrabajo::find($idOrigenMayoria ?? $movilizacion->ID_FRENTE_ORIGEN);
             $frenteDestino = FrenteTrabajo::find($movilizacion->ID_FRENTE_DESTINO);
 
             if (!$frenteDestino) {

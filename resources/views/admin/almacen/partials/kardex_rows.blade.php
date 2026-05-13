@@ -37,7 +37,15 @@
             <td style="text-align:right;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#94a3b8;font-weight:600;">{{ $m->producto?->UM }}</span></td>
             <td style="text-align:right;color:#64748b;font-size:12.5px;white-space:nowrap;">{{ $fmt($m->CANTIDAD_ANTERIOR) }} → <strong style="color:#1e293b;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</strong></td>
             <td style="color:#475569;font-size:12.5px;">
-                @if($m->ID_ALMACEN_CONTRAPARTE){{ $m->almacenContraparte?->NOMBRE ?? '—' }}@elseif($m->frente){{ $m->frente->NOMBRE_FRENTE }}@else—@endif
+                {{-- Mostrar el FRENTE primero (es lo que el operario eligió como destino real);
+                     si no hay frente (traspasos legacy o movimientos sin frente), caer al almacén contraparte. --}}
+                @if($m->frente)
+                    {{ $m->frente->NOMBRE_FRENTE }}
+                @elseif($m->ID_ALMACEN_CONTRAPARTE)
+                    {{ $m->almacenContraparte?->NOMBRE ?? '—' }}
+                @else
+                    —
+                @endif
             </td>
             <td style="color:#64748b;font-size:12px;">{{ trim(($m->REFERENCIA ? '#'.$m->REFERENCIA.' ' : '').($m->MOTIVO ?? '')) ?: '—' }}</td>
             <td style="color:#94a3b8;font-size:12px;white-space:nowrap;">{{ $m->usuario?->NOMBRE_COMPLETO ?? '—' }}</td>
