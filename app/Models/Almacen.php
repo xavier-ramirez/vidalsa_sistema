@@ -64,6 +64,18 @@ class Almacen extends Model
         return $this->hasMany(MovimientoInventario::class, 'ID_ALMACEN', 'ID_ALMACEN');
     }
 
+    /** Pedidos de traspaso despachados DESDE este almacén. */
+    public function traspasosEnviados()
+    {
+        return $this->hasMany(Traspaso::class, 'ID_ALMACEN_ORIGEN', 'ID_ALMACEN');
+    }
+
+    /** Pedidos de traspaso dirigidos A este almacén (por recibir + recibidos). */
+    public function traspasosRecibidos()
+    {
+        return $this->hasMany(Traspaso::class, 'ID_ALMACEN_DESTINO', 'ID_ALMACEN');
+    }
+
     public function creadoPor()
     {
         return $this->belongsTo(Usuario::class, 'CREADO_POR', 'ID_USUARIO');

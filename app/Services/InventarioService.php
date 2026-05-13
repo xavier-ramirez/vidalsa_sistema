@@ -77,8 +77,12 @@ class InventarioService
     }
 
     /**
-     * Traspaso de un producto entre dos almacenes. Crea 2 movimientos
-     * enlazados (TRASPASO_SALIDA en origen, TRASPASO_ENTRADA en destino).
+     * Traspaso ATÓMICO de un producto entre dos almacenes (origen y destino en la
+     * misma transacción). Crea 2 movimientos enlazados (TRASPASO_SALIDA en origen,
+     * TRASPASO_ENTRADA en destino). Se mantiene para correcciones internas y
+     * compatibilidad; el flujo PROFESIONAL es {@see TraspasoService} (envío con
+     * recepción confirmada), que usa los métodos `registrarTraspasoSalida` /
+     * `registrarTraspasoEntrada` de abajo.
      *
      * @return array{salida: MovimientoInventario, entrada: MovimientoInventario}
      */
@@ -103,6 +107,60 @@ class InventarioService
             $entrada->save();
 
             return ['salida' => $salida, 'entrada' => $entrada];
+        });
+    }
+
+    /**
+     * Registra SOLO la salida de un traspaso (origen) — usado por TraspasoService
+     * cuando un pedido pasa a ENVIADO. La entrada al destino llegará más tarde
+     * con `registrarTraspasoEntrada()` cuando el receptor confirme.
+     *
+     * Difiere de un SALIDA normal en que el movimiento queda con TIPO=TRASPASO_SALIDA,
+     * apunta al almacén contraparte y al pedido padre.
+     */
+    public function registrarTraspasoSalida(
+        int $idAlmacen,
+        int $idProducto,
+        float $cantidad,
+        int $idTraspaso,
+        int $idAlmacenDestino,
+        array $opts = [],
+    ): MovimientoInventario {
+        $this->assertCantidadPositiva($cantidad);
+        if ($idAlmacen === $idAlmacenDestino) {
+            throw new InvalidArgumentException('El almacén de origen y destino no pueden ser el mismo.');
+        }
+        $optsCompletas = $opts + [
+            'id_almacen_contraparte' => $idAlmacenDestino,
+            'id_traspaso'            => $idTraspaso,
+        ];
+        return DB::transaction(function () use ($idAlmacen, $idProducto, $cantidad, $optsCompletas) {
+            return $this->aplicarMovimiento($idAlmacen, $idProducto, MovimientoInventario::TIPO_TRASPASO_SALIDA, $cantidad, $optsCompletas);
+        });
+    }
+
+    /**
+     * Registra SOLO la entrada de un traspaso (destino) — usado por TraspasoService
+     * cuando el receptor confirma la recepción. Si se pasa $idMovimientoSalida,
+     * el movimiento queda enlazado bidireccionalmente con la salida original.
+     */
+    public function registrarTraspasoEntrada(
+        int $idAlmacen,
+        int $idProducto,
+        float $cantidad,
+        int $idTraspaso,
+        int $idAlmacenOrigen,
+        ?int $idMovimientoSalida = null,
+        array $opts = [],
+    ): MovimientoInventario {
+        $this->assertCantidadPositiva($cantidad);
+        $optsCompletas = $opts + [
+            'id_almacen_contraparte'    => $idAlmacenOrigen,
+            'id_traspaso'               => $idTraspaso,
+            'id_movimiento_relacionado' => $idMovimientoSalida,
+        ];
+        return DB::transaction(function () use ($idAlmacen, $idProducto, $cantidad, $optsCompletas) {
+            return $this->aplicarMovimiento($idAlmacen, $idProducto, MovimientoInventario::TIPO_TRASPASO_ENTRADA, $cantidad, $optsCompletas);
         });
     }
 
@@ -227,6 +285,7 @@ class InventarioService
             'FECHA'                     => $this->resolverFecha($opts['fecha'] ?? null),
             'ID_ALMACEN_CONTRAPARTE'    => $opts['id_almacen_contraparte'] ?? null,
             'ID_MOVIMIENTO_RELACIONADO' => $opts['id_movimiento_relacionado'] ?? null,
+            'ID_TRASPASO'               => $opts['id_traspaso'] ?? null,
             'ID_FRENTE'                 => $opts['id_frente'] ?? null,
             'ID_USUARIO'                => $opts['id_usuario'] ?? optional(auth())->id(),
             'REFERENCIA'                => $opts['referencia'] ?? null,
