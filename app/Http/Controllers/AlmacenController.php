@@ -517,6 +517,11 @@ class AlmacenController extends Controller
             'fecha'                => 'nullable|date',
             'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
             'referencia'           => 'nullable|string|max:100',
+            // Campos de la Nota de Entrega de Materiales (solo se usan en SALIDA).
+            'numero_contrato'      => 'nullable|string|max:100',
+            'numero_rq'            => 'nullable|string|max:100',
+            'solicitante'          => 'nullable|string|max:200',
+            'departamento'         => 'nullable|string|max:150',
             'motivo'               => 'nullable|string|max:200',
             'notas'                => 'nullable|string',
             'permitir_negativo'    => 'nullable|boolean',
@@ -527,13 +532,21 @@ class AlmacenController extends Controller
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
 
-        // id_frente solo tiene sentido en SALIDA (frente que consume); en ENTRADA/AJUSTE se ignora.
+        // id_frente solo tiene sentido en SALIDA (frente/proyecto que consume); en ENTRADA/AJUSTE se ignora.
         $idFrente = $data['tipo'] === 'SALIDA' ? ($data['id_frente'] ?? null) : null;
+
+        // Los campos de la Nota de Entrega solo se preservan en SALIDA. Para ENTRADA/AJUSTE se ignoran
+        // (quedarían NULL en BD de todas formas, pero los limpiamos para que el opts esté coherente).
+        $esSalida = $data['tipo'] === 'SALIDA';
 
         $opts = [
             'fecha'             => $data['fecha'] ?? null,
             'id_frente'         => $idFrente,
             'referencia'        => $data['referencia'] ?? null,
+            'numero_contrato'   => $esSalida ? ($data['numero_contrato'] ?? null) : null,
+            'numero_rq'         => $esSalida ? ($data['numero_rq']       ?? null) : null,
+            'solicitante'       => $esSalida ? ($data['solicitante']     ?? null) : null,
+            'departamento'      => $esSalida ? ($data['departamento']    ?? null) : null,
             'motivo'            => $data['motivo'] ?? null,
             'notas'             => $data['notas'] ?? null,
             'id_usuario'        => optional($request->user())->ID_USUARIO,

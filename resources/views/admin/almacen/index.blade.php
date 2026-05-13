@@ -612,14 +612,22 @@
 </div>
 
 @if($puedeMover)
-{{-- ── Salida / Enviar a otro almacén: aquí se indican las cantidades de los productos seleccionados en la tabla ── --}}
+{{-- ── Salida / Traspaso: en SALIDA se llena como Nota de Entrega de Materiales
+     (formato VID-FO-GEN-019: proyecto + contrato + fecha + RQ + solicitante + dpto).
+     En TRASPASO se muestran los selectores de almacén/frente destino. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:820px;">
+    <div class="alm-modal alm-modal-wide" style="max-width:960px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" id="almSalidaIcon" style="font-size:20px;">north_east</i> <span id="almSalidaTitulo">Registrar salida</span></h3>
+            <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <i class="material-icons" id="almSalidaIcon" style="font-size:20px;">north_east</i>
+                <span id="almSalidaTitulo">Registrar salida</span>
+                <span id="almSalidaSubtitulo" style="font-size:12px;color:#64748b;font-weight:500;letter-spacing:.3px;">— Nota de Entrega de Materiales</span>
+            </h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
         </div>
         <div class="alm-modal-body">
+
+            {{-- TRASPASO: almacén destino (mantenido tal cual) --}}
             <div id="almSalidaDestinoWrap" style="display:none;margin-bottom:12px;">
                 <label>Almacén destino *</label>
                 <select id="almSalidaDestino" onchange="window.almSalidaOnDestinoChange()">
@@ -636,7 +644,52 @@
                 </select>
                 <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Un mismo almacén puede surtir a varios frentes; aquí se registra cuál de ellos recibe este envío.</div>
             </div>
-            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:52vh;">
+
+            {{-- SALIDA: cabecera tipo "Nota de Entrega de Materiales" ──────────────────── --}}
+            <div id="almSalidaNotaWrap" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">
+                    <span style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;">Datos de la entrega</span>
+                    <span style="font-size:11px;color:#94a3b8;font-family:monospace;">VID-FO-GEN-019</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;">
+                    <div style="grid-column:1 / -1;">
+                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Proyecto *</label>
+                        <select id="almSalidaProyecto" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                            <option value="">— elige el proyecto / frente —</option>
+                            @foreach(($frentesLista ?? collect()) as $f)
+                                <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Contrato N°</label>
+                        <input type="text" id="almSalidaContrato" maxlength="100" placeholder="Ej: CTR-2026-0042" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Fecha de entrega</label>
+                        <input type="date" id="almSalidaFecha" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">RQ N°</label>
+                        <input type="text" id="almSalidaRq" maxlength="100" placeholder="Ej: RQ-001" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Solicitante</label>
+                        <input type="text" id="almSalidaSolicitante" maxlength="200" placeholder="Nombre y apellido" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    </div>
+                    <div style="grid-column:1 / -1;">
+                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Departamento</label>
+                        <input type="text" id="almSalidaDepartamento" maxlength="150" placeholder="Ej: Mantenimiento" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    </div>
+                </div>
+            </div>
+
+            {{-- Productos a entregar/enviar ─────────────────────────────────────────── --}}
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;">Productos</span>
+                <span style="font-size:11px;color:#94a3b8;">Escribe la cantidad de cada producto y usa la papelera para quitar alguno.</span>
+            </div>
+            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:40vh;">
                 <table class="alm-kardex-table">
                     <thead><tr>
                         <th>Código</th><th>Producto</th><th style="text-align:right;">Stock actual</th><th style="text-align:right;width:120px;">Cantidad *</th><th style="width:36px;"></th>
@@ -644,8 +697,8 @@
                     <tbody id="almSalidaLineas"></tbody>
                 </table>
             </div>
-            <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">Escribe cuánto sacar de cada producto. Usa la papelera para quitar alguno de la lista.</div>
-            <div style="margin-top:8px;"><label>Motivo / referencia (opcional)</label><input type="text" id="almSalidaMotivo" maxlength="200" placeholder="Ej: consumo de obra"></div>
+
+            <div style="margin-top:10px;"><label style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Motivo / notas adicionales (opcional)</label><input type="text" id="almSalidaMotivo" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc."></div>
             <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -796,11 +849,13 @@
         if (!matches.length) {
             box.innerHTML = '<div class="alm-suggest-empty">Sin coincidencias.</div>';
         } else {
+            // Mostrar SOLO el NOMBRE — antes salía CODIGO en bold + NOMBRE normal, que se veía
+            // como "dos líneas repetidas" cuando los productos importados ya tenían el código en
+            // el nombre. El código sigue funcionando para buscar (filtro almNorm en CODIGO arriba).
             box.innerHTML = matches.map(function (p) {
-                var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
-                return '<div class="alm-suggest-item" data-pick="' + cod + '">'
-                     + (cod ? '<span class="cod">' + cod + '</span>' : '')
+                var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
+                return '<div class="alm-suggest-item" data-pick="' + cod + '" title="' + cod + '">'
                      + '<span class="nom">' + nom + '</span></div>';
             }).join('');
         }
@@ -1351,12 +1406,19 @@
         if (el('almSalidaTitulo')) el('almSalidaTitulo').textContent = esTraspaso ? 'Enviar a otro almacén' : 'Registrar salida';
         if (el('almSalidaIcon'))   el('almSalidaIcon').textContent   = esTraspaso ? 'swap_horiz' : 'north_east';
         if (el('almSalidaSubmit')) el('almSalidaSubmit').textContent = esTraspaso ? 'Enviar' : 'Registrar salida';
+        // El subtítulo "Nota de Entrega de Materiales" solo aplica a SALIDA.
+        var st = el('almSalidaSubtitulo'); if (st) st.style.display = esTraspaso ? 'none' : 'inline';
+        // Bloques condicionales: TRASPASO muestra destino+frente, SALIDA muestra Nota de Entrega.
         var dw = el('almSalidaDestinoWrap'); if (dw) dw.style.display = esTraspaso ? 'block' : 'none';
+        var nw = el('almSalidaNotaWrap');    if (nw) nw.style.display = esTraspaso ? 'none'  : 'block';
         var ds = el('almSalidaDestino');
         if (ds) { ds.value = ''; Array.prototype.forEach.call(ds.options, function (o) { o.disabled = (!!o.value && o.value === ALM_SAL.idAlmacen); }); }
         // Reset del picker de frente destino (sólo se muestra en TRASPASO cuando el almacén destino tiene frentes asociados)
         var fw = el('almSalidaFrenteWrap'); if (fw) fw.style.display = 'none';
         var fs = el('almSalidaFrente'); if (fs) fs.value = '';
+        // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
+        ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
         if (el('almSalidaMotivo')) el('almSalidaMotivo').value = '';
         showErr('almSalidaError', '');
         var tb = el('almSalidaLineas');
@@ -1455,10 +1517,19 @@
                 enviar_ahora:       true,
             };
         } else {
+            // SALIDA: el frente/proyecto viene de la sección "Nota de Entrega" (no del bloque
+            // de traspaso). Recogemos todos los campos opcionales de la nota.
+            var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
             url = ROUTE_LOTE;
             payload = { tipo: 'SALIDA', id_almacen: ALM_SAL.idAlmacen, lineas: lineas };
             if (motivo) payload.motivo = motivo;
-            if (idFrenteDest) payload.id_frente = idFrenteDest;
+            var idProy = v('almSalidaProyecto');
+            if (idProy) payload.id_frente = parseInt(idProy, 10);
+            var fecha  = v('almSalidaFecha');         if (fecha)  payload.fecha = fecha;
+            var contr  = v('almSalidaContrato');      if (contr)  payload.numero_contrato = contr;
+            var rqN    = v('almSalidaRq');            if (rqN)    payload.numero_rq = rqN;
+            var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
+            var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
         }
 
         pre();

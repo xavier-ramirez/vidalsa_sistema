@@ -255,6 +255,11 @@ class InventarioService
             'ID_FRENTE'                 => $opts['id_frente'] ?? null,
             'ID_USUARIO'                => $opts['id_usuario'] ?? optional(auth())->id(),
             'REFERENCIA'                => $opts['referencia'] ?? null,
+            // Nota de Entrega (solo se llenan en SALIDA — para los demás tipos quedan NULL).
+            'NUMERO_CONTRATO'           => $opts['numero_contrato'] ?? null,
+            'NUMERO_RQ'                 => $opts['numero_rq'] ?? null,
+            'SOLICITANTE'               => $opts['solicitante'] ?? null,
+            'DEPARTAMENTO'              => $opts['departamento'] ?? null,
             'MOTIVO'                    => $opts['motivo'] ?? null,
             'NOTAS'                     => $opts['notas'] ?? null,
         ]);
