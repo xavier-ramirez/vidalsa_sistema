@@ -45,7 +45,7 @@
         </div>
         <div>
             <label>Almacén Destino *</label>
-            <select id="formDestino" onchange="window.trCargarFrentesDestino()">
+            <select id="formDestino">
                 <option value="">— elige destino —</option>
                 @foreach($almacenes as $a)
                     <option value="{{ $a->ID_ALMACEN }}" data-tipo="{{ $a->TIPO }}">
@@ -125,12 +125,11 @@
     function v(id)  { var e = el(id); return e ? e.value : ''; }
     function toast(msg, tipo) { if (window.toast) window.toast(msg, tipo); else alert(msg); }
 
-    // ── Cargar frentes del almacén destino: filtrar lista al elegir un PROYECTO con frentes asociados ──
-    // (Para el MVP no consultamos los frentes vinculados al almacén; el usuario puede elegir cualquiera.
-    //  Este hook queda preparado por si lo extendemos después.)
-    window.trCargarFrentesDestino = function () {};
-
     // ── Líneas dinámicas ──
+    // La columna "Saldo en origen" muestra "—" porque NO hay un endpoint que devuelva el saldo
+    // de un producto en un almacén específico. Si el usuario se pasa del stock al enviar, el
+    // backend rechaza el envío con un mensaje claro. Si quieres saldo en vivo aquí, hace falta
+    // un endpoint como GET /admin/almacen/{id}/stock/{producto} y reemplazar el "—" en la celda.
     var nextRowId = 0;
     function rowHtml(rid) {
         var opts = '<option value="">— elige producto —</option>';
@@ -139,7 +138,7 @@
             opts += '<option value="' + p.ID_PRODUCTO + '">' + p.CODIGO + ' — ' + p.NOMBRE.replace(/</g, '&lt;') + ' (' + p.UM + ')</option>';
         }
         return '<tr data-rid="' + rid + '">' +
-            '<td><select class="li-prod" onchange="window.trRowProductoChanged(' + rid + ')">' + opts + '</select></td>' +
+            '<td><select class="li-prod">' + opts + '</select></td>' +
             '<td><input type="number" min="0.001" step="0.001" class="li-cant" style="text-align:right;" placeholder="0"></td>' +
             '<td style="text-align:right;color:#64748b;font-weight:700;" class="li-saldo">—</td>' +
             '<td style="text-align:center;"><button type="button" class="btn-del-row" onclick="window.trDelLine(' + rid + ')" title="Quitar"><i class="material-icons">delete</i></button></td>' +
@@ -153,19 +152,6 @@
         var row = document.querySelector('#lineasTbody tr[data-rid="' + rid + '"]');
         if (row) row.remove();
         if (el('lineasTbody').children.length === 0) window.trAddLine();
-    };
-
-    // Cuando cambia el producto en una línea, consultamos el saldo en el origen.
-    window.trRowProductoChanged = function (rid) {
-        var row    = document.querySelector('#lineasTbody tr[data-rid="' + rid + '"]'); if (!row) return;
-        var saldo  = row.querySelector('.li-saldo');
-        var idProd = row.querySelector('.li-prod').value;
-        var idAlm  = v('formOrigen');
-        if (!idProd || !idAlm) { saldo.textContent = '—'; return; }
-        // No tenemos endpoint específico de "stock de un producto"; el sidebar de
-        // /admin/almacen ya muestra los saldos. Aquí lo dejamos en blanco; el usuario
-        // verá el error de stock al enviar si se pasa.
-        saldo.textContent = '—';
     };
 
     // ── Guardar / enviar ──

@@ -12,8 +12,7 @@
         'CANCELADO'        => ['Cancelado', '#e2e8f0', '#475569'],
     ];
     $e = $estilos[$traspaso->ESTADO] ?? ['—', '#f1f5f9', '#64748b'];
-    $puedeEditar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
-    $puedeEnviar   = $puedeEditar;
+    $puedeEnviar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
     $puedeCancelar = !$traspaso->esFinal() && auth()->user()?->can('almacen.movimiento');
 @endphp
 
@@ -175,9 +174,10 @@
                 <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
                         onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar borrador</button>
             @endif
-            <a href="{{ route('almacen.traspasos.create') }}?ed={{ $traspaso->ID_TRASPASO }}" style="text-decoration:none;">
-                <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#0067b1;border:1px solid #0067b1;box-shadow:none;height:42px;padding:0 18px;">Editar borrador</button>
-            </a>
+            {{-- "Editar borrador" deshabilitado en el MVP: el endpoint PATCH existe pero la vista
+                 crear.blade.php todavía no soporta el modo edit (no precarga los datos). Cuando
+                 se implemente, este botón vuelve. Mientras tanto el usuario puede cancelar y crear
+                 otro, o llamar el PATCH directo con un cliente HTTP. --}}
             <button type="button" class="btn-primary-maquinaria" style="height:42px;padding:0 18px;display:flex;align-items:center;gap:6px;"
                     onclick="window.trEnviar()">
                 <i class="material-icons" style="font-size:18px;">local_shipping</i> Enviar ahora
