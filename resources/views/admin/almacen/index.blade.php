@@ -618,11 +618,7 @@
 <div id="almSalidaModal" class="alm-modal-overlay">
     <div class="alm-modal alm-modal-wide" style="max-width:960px;">
         <div class="alm-modal-head">
-            <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <i class="material-icons" id="almSalidaIcon" style="font-size:20px;">north_east</i>
-                <span id="almSalidaTitulo">Registrar salida</span>
-                <span id="almSalidaSubtitulo" style="font-size:12px;color:#64748b;font-weight:500;letter-spacing:.3px;">— Nota de Entrega de Materiales</span>
-            </h3>
+            <h3><i class="material-icons" id="almSalidaIcon" style="font-size:20px;">north_east</i> <span id="almSalidaTitulo">Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
         </div>
         <div class="alm-modal-body">
@@ -645,42 +641,62 @@
                 <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Un mismo almacén puede surtir a varios frentes; aquí se registra cuál de ellos recibe este envío.</div>
             </div>
 
-            {{-- SALIDA: cabecera tipo "Nota de Entrega de Materiales" ──────────────────── --}}
+            {{-- SALIDA: cabecera tipo "Nota de Entrega de Materiales" ────────────────────
+                 Layout COPIA EXACTA del Excel VID-FO-GEN-019:
+                   PROYECTO                                          (full)
+                   CONTRATO N°                                       (full)
+                   FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
+                   DEPARTAMENTO                                      (full)              --}}
             <div id="almSalidaNotaWrap" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">
-                    <span style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;">Datos de la entrega</span>
-                    <span style="font-size:11px;color:#94a3b8;font-family:monospace;">VID-FO-GEN-019</span>
+                {{-- Encabezado del documento: título centrado + bloque de datos del formato a la derecha. --}}
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #1e293b;">
+                    <div style="flex:1;text-align:center;">
+                        <div style="font-size:14px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:1px;line-height:1.2;">Nota de Entrega de Materiales</div>
+                    </div>
+                    <div style="font-size:10px;color:#64748b;font-family:monospace;text-align:right;line-height:1.5;flex:0 0 auto;margin-left:10px;">
+                        <div><strong style="color:#0f172a;">CÓDIGO:</strong> VID-FO-GEN-019</div>
+                        <div><strong style="color:#0f172a;">FECHA EMIS:</strong> 01/10/19</div>
+                        <div><strong style="color:#0f172a;">REV:</strong> 1 — 06/10/23</div>
+                    </div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;">
-                    <div style="grid-column:1 / -1;">
-                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Proyecto *</label>
-                        <select id="almSalidaProyecto" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
-                            <option value="">— elige el proyecto / frente —</option>
-                            @foreach(($frentesLista ?? collect()) as $f)
-                                <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+
+                {{-- PROYECTO (full width) --}}
+                <div style="margin-bottom:10px;">
+                    <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Proyecto *</label>
+                    <select id="almSalidaProyecto" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                        <option value="">— elige el proyecto / frente —</option>
+                        @foreach(($frentesLista ?? collect()) as $f)
+                            <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- CONTRATO Nº (full width) --}}
+                <div style="margin-bottom:10px;">
+                    <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Contrato N°</label>
+                    <input type="text" id="almSalidaContrato" maxlength="100" placeholder="Ej: CTR-2026-0042" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                </div>
+
+                {{-- FECHA DE ENTREGA | RQ N° | Solicitante (3 columnas en una sola fila — como en el Excel) --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
                     <div>
-                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Contrato N°</label>
-                        <input type="text" id="almSalidaContrato" maxlength="100" placeholder="Ej: CTR-2026-0042" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Fecha de entrega</label>
+                        <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Fecha de entrega</label>
                         <input type="date" id="almSalidaFecha" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
                     </div>
                     <div>
-                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">RQ N°</label>
+                        <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">RQ N°</label>
                         <input type="text" id="almSalidaRq" maxlength="100" placeholder="Ej: RQ-001" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
                     </div>
                     <div>
-                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Solicitante</label>
+                        <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Solicitante</label>
                         <input type="text" id="almSalidaSolicitante" maxlength="200" placeholder="Nombre y apellido" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
                     </div>
-                    <div style="grid-column:1 / -1;">
-                        <label style="display:block;font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Departamento</label>
-                        <input type="text" id="almSalidaDepartamento" maxlength="150" placeholder="Ej: Mantenimiento" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
-                    </div>
+                </div>
+
+                {{-- DEPARTAMENTO (full width) --}}
+                <div>
+                    <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Departamento</label>
+                    <input type="text" id="almSalidaDepartamento" maxlength="150" placeholder="Ej: Mantenimiento" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
                 </div>
             </div>
 
@@ -1406,8 +1422,6 @@
         if (el('almSalidaTitulo')) el('almSalidaTitulo').textContent = esTraspaso ? 'Enviar a otro almacén' : 'Registrar salida';
         if (el('almSalidaIcon'))   el('almSalidaIcon').textContent   = esTraspaso ? 'swap_horiz' : 'north_east';
         if (el('almSalidaSubmit')) el('almSalidaSubmit').textContent = esTraspaso ? 'Enviar' : 'Registrar salida';
-        // El subtítulo "Nota de Entrega de Materiales" solo aplica a SALIDA.
-        var st = el('almSalidaSubtitulo'); if (st) st.style.display = esTraspaso ? 'none' : 'inline';
         // Bloques condicionales: TRASPASO muestra destino+frente, SALIDA muestra Nota de Entrega.
         var dw = el('almSalidaDestinoWrap'); if (dw) dw.style.display = esTraspaso ? 'block' : 'none';
         var nw = el('almSalidaNotaWrap');    if (nw) nw.style.display = esTraspaso ? 'none'  : 'block';
