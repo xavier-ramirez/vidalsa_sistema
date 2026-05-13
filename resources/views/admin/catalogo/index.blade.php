@@ -99,6 +99,37 @@
         text-transform: uppercase;
         word-break: break-word;
     }
+    /* Badge(s) de Tipo de Equipo: flotan sobre la foto en la esquina superior
+       izquierda, simétricos al cat-anio-badge (superior derecha). Misma forma
+       (pill redondeada) y tamaño, pero color azul corporativo sólido para que
+       contraste sobre cualquier foto. Si hay varios tipos se apilan vertical. */
+    .cat-tipo-badges {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        max-width: calc(100% - 60px); /* deja espacio al cat-anio-badge en la derecha */
+        z-index: 2;
+    }
+    .cat-tipo-badge {
+        background: var(--maquinaria-blue, #0067b1);
+        color: white;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
     /* Tabla compacta de specs: 1 fila por campo. Label izquierda muteado,
        valor derecha en bold. Solo se renderizan los campos con valor.
        Tamaños subidos para que no se vean apretadas verticalmente. */

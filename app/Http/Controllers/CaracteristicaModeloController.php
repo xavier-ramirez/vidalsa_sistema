@@ -94,6 +94,25 @@ class CaracteristicaModeloController extends Controller
         // Pagination
         $catalogos = $query->orderBy('MODELO', 'asc')->paginate(12)->onEachSide(3);
 
+        // Tipos por catálogo (ID_ESPEC → [{id, nombre}, ...]).
+        // El catálogo no tiene columna TIPO propia: el tipo lo aporta cada Equipo que usa
+        // el modelo (equipos.id_tipo_equipo). Aquí derivamos los tipos DISTINCT por catálogo
+        // para mostrarlos como chip en la tarjeta. Sólo consultamos los ID_ESPEC visibles
+        // en la página actual para no traer toda la tabla.
+        $tiposPorEspec = collect();
+        if ($catalogos->count() > 0) {
+            $tiposPorEspec = DB::table('equipos')
+                ->join('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+                ->whereIn('equipos.ID_ESPEC', $catalogos->pluck('ID_ESPEC'))
+                ->whereNotNull('equipos.id_tipo_equipo')
+                ->select('equipos.ID_ESPEC', 'tipo_equipos.id as tipo_id', 'tipo_equipos.nombre as tipo_nombre')
+                ->distinct()
+                ->orderBy('tipo_equipos.nombre')
+                ->get()
+                ->groupBy('ID_ESPEC')
+                ->map(fn ($rows) => $rows->map(fn ($r) => ['id' => $r->tipo_id, 'nombre' => $r->tipo_nombre])->values());
+        }
+
         // --- Standardized Lists (Not Context-Aware to avoid confusion) ---
         // This matches Equipo logic: Load all available options regardless of current filter
         $availableModelos = CaracteristicaModelo::select('MODELO')->distinct()->orderBy('MODELO')->pluck('MODELO');
@@ -107,7 +126,7 @@ class CaracteristicaModeloController extends Controller
 
         // JSON Response for AJAX
         if ($request->wantsJson() && $request->has('ajax_load')) {
-            $tableHtml = view('admin.catalogo.partials.table_rows', compact('catalogos'))->render();
+            $tableHtml = view('admin.catalogo.partials.table_rows', compact('catalogos', 'tiposPorEspec'))->render();
             // Usar el mismo view custom que el SSR inicial (index.blade.php linea 112)
             // para que la paginacion no cambie de estilo al navegar via AJAX.
             $paginationHtml = $catalogos->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
@@ -120,7 +139,7 @@ class CaracteristicaModeloController extends Controller
             ]);
         }
 
-        return view('admin.catalogo.index', compact('catalogos', 'availableModelos', 'availableAnios', 'availableTipos', 'totalCount', 'modelCounts'));
+        return view('admin.catalogo.index', compact('catalogos', 'tiposPorEspec', 'availableModelos', 'availableAnios', 'availableTipos', 'totalCount', 'modelCounts'));
     }
 
     public function create()

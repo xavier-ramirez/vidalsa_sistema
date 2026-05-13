@@ -17,9 +17,14 @@
             'Liga Freno'   => $catalogo->LIGA_FRENO,
             'Refrigerante' => $catalogo->REFRIGERANTE,
         ], fn ($v) => $v !== null && $v !== '');
+
+        // Tipo(s) de equipo asociado(s) al catálogo. Lo derivamos en el controller
+        // ($tiposPorEspec) porque caracteristicas_modelo no tiene columna TIPO propia.
+        $tiposCat = ($tiposPorEspec ?? collect())->get($catalogo->ID_ESPEC, collect());
     @endphp
     <div class="cat-card">
-        {{-- Foto representativa con badge de año + acciones flotantes.
+        {{-- Foto representativa con badges flotantes (Tipo arriba-izquierda,
+             Año arriba-derecha) + acciones de editar/eliminar abajo-derecha.
              Carga directa (sin lazy) — Drive thumbnail w300 es liviano y
              evita el delay del IntersectionObserver. --}}
         <div class="cat-photo">
@@ -37,6 +42,17 @@
                      onerror="this.outerHTML='<i class=&quot;material-icons placeholder&quot;>image_not_supported</i>'">
             @else
                 <i class="material-icons placeholder">precision_manufacturing</i>
+            @endif
+
+            {{-- Tipo(s) de equipo asociado(s) ─ badge(s) en la esquina superior
+                 izquierda de la foto, mismo idioma visual que cat-anio-badge.
+                 Si el modelo está vinculado a varios tipos, se apilan vertical. --}}
+            @if($tiposCat->count())
+                <div class="cat-tipo-badges">
+                    @foreach($tiposCat as $t)
+                        <span class="cat-tipo-badge" title="Tipo de equipo">{{ $t['nombre'] }}</span>
+                    @endforeach
+                </div>
             @endif
 
             <span class="cat-anio-badge">
@@ -60,7 +76,8 @@
             @endcan
         </div>
 
-        {{-- Cuerpo: modelo + tabla compacta de todas las specs --}}
+        {{-- Cuerpo: modelo + tabla compacta de todas las specs.
+             (El tipo de equipo se renderiza arriba, como banda superior de la tarjeta.) --}}
         <div class="cat-body">
             <span class="cat-modelo">{{ $catalogo->MODELO }}</span>
 
