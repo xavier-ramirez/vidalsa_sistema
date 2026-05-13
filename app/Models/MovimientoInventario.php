@@ -35,6 +35,7 @@ class MovimientoInventario extends Model
         'FECHA',
         'ID_ALMACEN_CONTRAPARTE',
         'ID_MOVIMIENTO_RELACIONADO',
+        'ID_TRASPASO',
         'ID_FRENTE',
         'ID_USUARIO',
         'REFERENCIA',
@@ -79,6 +80,12 @@ class MovimientoInventario extends Model
     public function movimientoRelacionado()
     {
         return $this->belongsTo(self::class, 'ID_MOVIMIENTO_RELACIONADO', 'ID_MOVIMIENTO');
+    }
+
+    /** Pedido de Traspaso padre (cuando este movimiento es TRASPASO_SALIDA / TRASPASO_ENTRADA). */
+    public function traspaso()
+    {
+        return $this->belongsTo(Traspaso::class, 'ID_TRASPASO', 'ID_TRASPASO');
     }
 
     // ── Scopes ───────────────────────────────────────────────────
