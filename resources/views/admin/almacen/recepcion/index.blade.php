@@ -59,10 +59,14 @@
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
     .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
-    .tr-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .tr-table thead th { text-align:left; color:#64748b; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; padding:9px 10px; border-bottom:2px solid #e2e8f0; background:#f8fafc; white-space:nowrap; }
-    .tr-table tbody td { padding:10px; border-bottom:1px solid #f1f5f9; }
-    .tr-table tbody tr:hover { background:#f8fafc; cursor:pointer; }
+    /* Tabla con el mismo estilo que /admin/equipos y /admin/almacen (.table-row-header style) */
+    .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
+    .tr-table thead tr { background:#1e293b; }
+    .tr-table thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .tr-table thead th:last-child { border-right:none; }
+    .tr-table tbody td { padding:12px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
+    .tr-table tbody td:last-child { border-right:none; }
+    .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
     .estado-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
 </style>
 

@@ -24,33 +24,39 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Filtro de almacén PEGADO al título (sin justify-content:space-between que lo lanzaba al otro extremo). --}}
-    <div style="display:flex;justify-content:flex-start;align-items:center;gap:18px;flex-wrap:wrap;">
+    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén con su mini-label.
+         Mismo patrón visual que /admin/almacen para consistencia entre módulos. --}}
+    <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
             <span class="page-title-line2" style="color:#000;">Bitácora de Movimientos de Inventario</span>
         </h1>
-        {{-- Filtro de almacén junto al título — se quita del filter row de abajo --}}
-        <div style="width:260px;min-width:200px;max-width:100%;flex:0 1 auto;">
-            <div class="custom-dropdown" id="almMovFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
-                <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen && $reqAlmacen !== 'all' ? $reqAlmacen : '' }}">
-                <div class="dropdown-trigger {{ $almSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
-                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $almSel ? 'block' : 'none' }};cursor:pointer;"
-                       onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroAlmacen');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        <div class="dropdown-item {{ !$almSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almMovFiltroAlmacen','all','TODOS LOS ALMACENES');">TODOS LOS ALMACENES</div>
-                        @foreach(($almacenes ?? collect()) as $a)
-                            <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                 onclick="selectOption('almMovFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
-                            </div>
-                        @endforeach
+        {{-- Separador vertical sutil entre título y filtro --}}
+        <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
+        {{-- Filtro de almacén junto al título (mismo patrón visual que /admin/almacen) --}}
+        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
+            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
+            <div style="width:240px;min-width:180px;max-width:100%;">
+                <div class="custom-dropdown" id="almMovFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
+                    <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen && $reqAlmacen !== 'all' ? $reqAlmacen : '' }}">
+                    <div class="dropdown-trigger {{ $almSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
+                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                        <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                               placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
+                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                               oninput="window.filterDropdownOptions(this)">
+                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almSel ? 'block' : 'none' }};cursor:pointer;"
+                           onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroAlmacen');">close</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                            <div class="dropdown-item {{ !$almSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almMovFiltroAlmacen','all','TODOS LOS ALMACENES');">TODOS LOS ALMACENES</div>
+                            @foreach(($almacenes ?? collect()) as $a)
+                                <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                     onclick="selectOption('almMovFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                    {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>

@@ -22,16 +22,23 @@
     .alm-filter select { cursor: pointer; -webkit-appearance: none; appearance: none; }
     .alm-filter .filter-clear { padding: 0 8px; color: #64748b; font-size: 18px; cursor: pointer; }
 
-    .alm-table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 760px; }
+    /* Tabla de inventario: estilo igualado a /admin/equipos (.table-row-header + .table-header-custom):
+       thead oscuro con texto blanco uppercase, body con texto negro y bordes claros entre columnas. */
+    .alm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; min-width: 760px; color: #000; }
+    .alm-table thead tr { background: #1e293b; }
     .alm-table thead th {
-        text-align: left; color: #64748b; font-size: 11.5px; font-weight: 800; text-transform: uppercase;
-        letter-spacing: 0.4px; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; background: #f8fafc;
-        position: sticky; top: 0; z-index: 2;
+        text-align: left; color: #fff; font-size: 13px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1px;
+        padding: 10px 15px; border-right: 1px solid #334155; border-bottom: 2px solid #0f172a;
+        position: sticky; top: 0; z-index: 2; white-space: nowrap;
     }
-    .alm-table tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-    .alm-table tbody tr:hover { background: #f8fafc; }
-    .alm-row-bajo { background: #fff7ed; }
-    .alm-row-bajo:hover { background: #ffedd5; }
+    .alm-table thead th:last-child { border-right: none; }
+    .alm-table tbody td { padding: 12px 15px; color: #000; font-size: 14px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; vertical-align: middle; }
+    .alm-table tbody td:last-child { border-right: none; }
+    .alm-table tbody tr:hover td { background: #e0f2fe; }
+    /* Fila con stock bajo: tono naranja sutil, mantiene su realce al hacer hover */
+    .alm-row-bajo td { background: #fff7ed; }
+    .alm-row-bajo:hover td { background: #ffedd5 !important; }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     .alm-table tbody tr.alm-row-clickable { cursor: pointer; }
     /* En móvil .selected-row-maquinaria es desktop-only, así que damos un realce propio */
@@ -147,32 +154,37 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Filtro de almacén PEGADO al título (sin justify-content:space-between que lo lanzaba al otro extremo). --}}
-    <div style="display:flex;justify-content:flex-start;align-items:center;gap:18px;flex-wrap:wrap;">
+    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén con su mini-label "ALMACÉN".
+         El bloque del filtro tiene un fondo gris suave para diferenciarse del título sin competir con él. --}}
+    <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
             <span class="page-title-line2" style="color:#000;">Inventario de Almacén</span>
         </h1>
-        {{-- Filtro de almacén junto al título — mismo componente custom-dropdown que /admin/equipos y /admin/almacen/movimientos. --}}
-        <div style="width:260px;min-width:200px;max-width:100%;flex:0 1 auto;">
-            <div class="custom-dropdown" id="almSelAlmacenDropdown" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
-                <input type="hidden" name="id_almacen" data-filter-value id="almSelAlmacen" value="{{ $reqAlm ?? '' }}">
-                <div class="dropdown-trigger {{ $almacenSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $almacenSel ? $almacenSel->NOMBRE : 'Todos los almacenes' }}"
-                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $almacenSel ? 'block' : 'none' }};cursor:pointer;"
-                       onclick="event.stopPropagation(); clearDropdownFilter('almSelAlmacenDropdown');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        @foreach($almacenes as $a)
-                            <div class="dropdown-item {{ $almacenSel && $almacenSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                 onclick="selectOption('almSelAlmacenDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
-                            </div>
-                        @endforeach
+        {{-- Separador vertical (oculto en mobile cuando el filtro se va abajo) --}}
+        <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
+            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
+            <div style="width:240px;min-width:180px;max-width:100%;">
+                <div class="custom-dropdown" id="almSelAlmacenDropdown" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
+                    <input type="hidden" name="id_almacen" data-filter-value id="almSelAlmacen" value="{{ $reqAlm ?? '' }}">
+                    <div class="dropdown-trigger {{ $almacenSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
+                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                        <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                               placeholder="{{ $almacenSel ? $almacenSel->NOMBRE : 'Todos los almacenes' }}"
+                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                               oninput="window.filterDropdownOptions(this)">
+                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almacenSel ? 'block' : 'none' }};cursor:pointer;"
+                           onclick="event.stopPropagation(); clearDropdownFilter('almSelAlmacenDropdown');">close</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                            @foreach($almacenes as $a)
+                                <div class="dropdown-item {{ $almacenSel && $almacenSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                     onclick="selectOption('almSelAlmacenDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                    {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>
