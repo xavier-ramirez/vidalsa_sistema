@@ -502,31 +502,31 @@ class AlmacenController extends Controller
 
     /**
      * Registra un MOVIMIENTO con varias líneas — un "documento" de inventario al
-     * estilo de un ERP de tienda: ENTRADA / SALIDA / AJUSTE / TRASPASO con N
-     * productos, todo en UNA transacción (si una línea falla, no se aplica nada).
+     * estilo de un ERP de tienda: ENTRADA / SALIDA / AJUSTE con N productos, todo
+     * en UNA transacción (si una línea falla, no se aplica nada).
+     *
+     * NOTA: el tipo TRASPASO se RETIRÓ de este endpoint. Los traspasos entre
+     * almacenes pasan ahora SIEMPRE por el flujo de Pedido de Recepción
+     * (POST /admin/almacen/recepcion con enviar_ahora=true), donde el destino
+     * confirma la llegada. Ver TraspasoController y TraspasoService.
      *
      * Body:
-     *  - tipo                : ENTRADA | SALIDA | AJUSTE | TRASPASO
-     *  - id_almacen          : almacén (origen en TRASPASO)
-     *  - id_almacen_destino  : almacén destino (obligatorio sólo en TRASPASO)
+     *  - tipo                : ENTRADA | SALIDA | AJUSTE
+     *  - id_almacen          : almacén origen del movimiento
      *  - fecha, referencia, motivo, notas : opcionales
-     *  - id_frente           : opcional.
-     *                          - SALIDA   → frente que CONSUME el producto.
-     *                          - TRASPASO → frente DESTINO (cuál de los frentes del almacén
-     *                                       destino recibe el envío; requerido cuando el
-     *                                       almacén destino tiene frentes asociados).
+     *  - id_frente           : opcional (SALIDA: frente que CONSUME el producto;
+     *                          en ENTRADA / AJUSTE se ignora).
      *  - permitir_negativo   : opcional (sólo super.admin)
      *  - lineas              : [{ id_producto, cantidad }, ...]   (>= 1)
      *                          en AJUSTE, "cantidad" es el SALDO OBJETIVO de ese producto.
      */
     public function registrarMovimientoLote(Request $request)
     {
-        $tipos = ['ENTRADA', 'SALIDA', 'AJUSTE', 'TRASPASO'];
+        $tipos = ['ENTRADA', 'SALIDA', 'AJUSTE'];
 
         $data = $request->validate([
             'tipo'                 => ['required', Rule::in($tipos)],
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
-            'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN|different:id_almacen',
             'fecha'                => 'nullable|date',
             'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
             'referencia'           => 'nullable|string|max:100',
@@ -538,34 +538,10 @@ class AlmacenController extends Controller
             'lineas.*.cantidad'    => 'required|numeric',
         ]);
 
-        if ($data['tipo'] === 'TRASPASO' && empty($data['id_almacen_destino'])) {
-            return response()->json(['message' => 'El traspaso necesita un almacén destino.'], 422);
-        }
-
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
-        if (!empty($data['id_almacen_destino'])) {
-            $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen_destino']);
-        }
 
-        // id_frente: lo aceptamos para SALIDA (consumo) y TRASPASO (frente destino del envío).
-        // En ENTRADA / AJUSTE no tiene sentido → se ignora.
-        $idFrente = in_array($data['tipo'], ['SALIDA', 'TRASPASO'], true) ? ($data['id_frente'] ?? null) : null;
-
-        // Para TRASPASO: si el almacén destino tiene frentes asociados (pivot almacen_frentes),
-        // el frente destino es OBLIGATORIO — así sabemos cuál de los proyectos servidos por ese
-        // almacén recibió realmente el envío (un mismo sub-almacén puede surtir a N frentes).
-        if ($data['tipo'] === 'TRASPASO') {
-            $idAlmDest = (int) $data['id_almacen_destino'];
-            $frentesDestino = Almacen::find($idAlmDest)?->frentes()->pluck('frentes_trabajo.ID_FRENTE') ?? collect();
-            if ($frentesDestino->isNotEmpty()) {
-                if (!$idFrente) {
-                    return response()->json(['message' => 'El almacén destino surte a varios frentes — elige a cuál se envía.'], 422);
-                }
-                if (!$frentesDestino->contains((int) $idFrente)) {
-                    return response()->json(['message' => 'El frente seleccionado no pertenece al almacén destino.'], 422);
-                }
-            }
-        }
+        // id_frente solo tiene sentido en SALIDA (frente que consume); en ENTRADA/AJUSTE se ignora.
+        $idFrente = $data['tipo'] === 'SALIDA' ? ($data['id_frente'] ?? null) : null;
 
         $opts = [
             'fecha'             => $data['fecha'] ?? null,
@@ -576,9 +552,6 @@ class AlmacenController extends Controller
             'id_usuario'        => optional($request->user())->ID_USUARIO,
             'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
         ];
-        if ($data['tipo'] === 'TRASPASO' && empty($opts['motivo'])) {
-            $opts['motivo'] = 'Traspaso entre almacenes';
-        }
 
         try {
             $n = DB::transaction(function () use ($data, $opts) {
@@ -588,10 +561,9 @@ class AlmacenController extends Controller
                     $cantidad   = (float) $linea['cantidad'];
 
                     match ($data['tipo']) {
-                        'ENTRADA'  => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
-                        'SALIDA'   => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
-                        'AJUSTE'   => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
-                        'TRASPASO' => $this->inventario->registrarTraspaso((int) $data['id_almacen'], (int) $data['id_almacen_destino'], $idProducto, $cantidad, $opts),
+                        'ENTRADA' => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
+                        'SALIDA'  => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
+                        'AJUSTE'  => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
                     };
                     $count++;
                 }
@@ -602,8 +574,9 @@ class AlmacenController extends Controller
         }
 
         $etiqueta = [
-            'ENTRADA' => 'Entrada registrada', 'SALIDA' => 'Salida registrada',
-            'AJUSTE'  => 'Ajuste aplicado',     'TRASPASO' => 'Traspaso registrado',
+            'ENTRADA' => 'Entrada registrada',
+            'SALIDA'  => 'Salida registrada',
+            'AJUSTE'  => 'Ajuste aplicado',
         ][$data['tipo']] ?? 'Movimiento registrado';
 
         return response()->json(['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'], 201);

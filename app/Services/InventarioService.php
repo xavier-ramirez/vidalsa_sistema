@@ -77,40 +77,6 @@ class InventarioService
     }
 
     /**
-     * Traspaso ATÓMICO de un producto entre dos almacenes (origen y destino en la
-     * misma transacción). Crea 2 movimientos enlazados (TRASPASO_SALIDA en origen,
-     * TRASPASO_ENTRADA en destino). Se mantiene para correcciones internas y
-     * compatibilidad; el flujo PROFESIONAL es {@see TraspasoService} (envío con
-     * recepción confirmada), que usa los métodos `registrarTraspasoSalida` /
-     * `registrarTraspasoEntrada` de abajo.
-     *
-     * @return array{salida: MovimientoInventario, entrada: MovimientoInventario}
-     */
-    public function registrarTraspaso(int $idAlmacenOrigen, int $idAlmacenDestino, int $idProducto, float $cantidad, array $opts = []): array
-    {
-        $this->assertCantidadPositiva($cantidad);
-        if ($idAlmacenOrigen === $idAlmacenDestino) {
-            throw new InvalidArgumentException('El almacén de origen y destino no pueden ser el mismo.');
-        }
-
-        return DB::transaction(function () use ($idAlmacenOrigen, $idAlmacenDestino, $idProducto, $cantidad, $opts) {
-            $optsSalida  = $opts + ['id_almacen_contraparte' => $idAlmacenDestino];
-            $optsEntrada = $opts + ['id_almacen_contraparte' => $idAlmacenOrigen];
-
-            $salida  = $this->aplicarMovimiento($idAlmacenOrigen, $idProducto, MovimientoInventario::TIPO_TRASPASO_SALIDA, $cantidad, $optsSalida);
-            $entrada = $this->aplicarMovimiento($idAlmacenDestino, $idProducto, MovimientoInventario::TIPO_TRASPASO_ENTRADA, $cantidad, $optsEntrada);
-
-            // Enlazar los dos movimientos espejo.
-            $salida->ID_MOVIMIENTO_RELACIONADO  = $entrada->ID_MOVIMIENTO;
-            $entrada->ID_MOVIMIENTO_RELACIONADO = $salida->ID_MOVIMIENTO;
-            $salida->save();
-            $entrada->save();
-
-            return ['salida' => $salida, 'entrada' => $entrada];
-        });
-    }
-
-    /**
      * Registra SOLO la salida de un traspaso (origen) — usado por TraspasoService
      * cuando un pedido pasa a ENVIADO. La entrada al destino llegará más tarde
      * con `registrarTraspasoEntrada()` cuando el receptor confirme.

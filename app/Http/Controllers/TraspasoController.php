@@ -41,7 +41,6 @@ class TraspasoController extends Controller
     /**
      * Lista de traspasos visibles para el usuario, con un "tab" implícito:
      *   - tab=por_recibir (default si el usuario tiene almacenes destino con ENVIADOs pendientes)
-     *   - tab=por_enviar  (mis BORRADORes)
      *   - tab=todos       (historial)
      * Filtros: estado, id_almacen_origen, id_almacen_destino, search (NUMERO), desde, hasta.
      */
@@ -73,12 +72,8 @@ class TraspasoController extends Controller
 
         if ($tab === 'por_recibir') {
             $q->where('ESTADO', Traspaso::ESTADO_ENVIADO)->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
-        } elseif ($tab === 'por_enviar') {
-            $q->where('ESTADO', Traspaso::ESTADO_BORRADOR);
-            if (!Almacen::usuarioEsGlobal($user)) {
-                $q->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles);
-            }
         }
+        // tab='todos': sin filtro adicional — el filtro avanzado de "estado" del UI se aplica abajo.
 
         // Filtros adicionales.
         if ($request->filled('estado') && $request->input('estado') !== 'all') {
@@ -114,14 +109,10 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Contadores para los badges de las pestañas.
+        // Contador para el badge de la tab "Por recibir" (única tab con badge — "Historial" no lleva).
         $contPorRecibir = Traspaso::query()
             ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
             ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)->count();
-        $contPorEnviar = Traspaso::query()
-            ->where('ESTADO', Traspaso::ESTADO_BORRADOR)
-            ->when(!Almacen::usuarioEsGlobal($user), fn ($s) => $s->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles))
-            ->count();
 
         // Datos extra para el modal "Registrar entrada directa" (alimenta su <select> de productos
         // y de almacenes destino — son los mismos que el usuario puede ver/operar).
@@ -131,7 +122,6 @@ class TraspasoController extends Controller
             'traspasos'      => $paginator,
             'tab'            => $tab,
             'contPorRecibir' => $contPorRecibir,
-            'contPorEnviar'  => $contPorEnviar,
             'almacenes'      => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
             'productosLista' => $productosLista,
         ]);

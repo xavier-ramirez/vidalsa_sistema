@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Existencia (saldo) de un producto en un almacén.
@@ -44,16 +43,4 @@ class AlmacenStock extends Model
         return $this->belongsTo(ProductoInventario::class, 'ID_PRODUCTO', 'ID_PRODUCTO');
     }
 
-    /** Filas con umbral mínimo definido y saldo en o por debajo de él (alerta). */
-    public function scopeStockBajo(Builder $q): Builder
-    {
-        return $q->whereNotNull('CANTIDAD_MINIMA')->whereColumn('CANTIDAD', '<=', 'CANTIDAD_MINIMA');
-    }
-
-    /** True si hay umbral mínimo definido y el saldo está en o por debajo de él. */
-    public function getEsStockBajoAttribute(): bool
-    {
-        return $this->CANTIDAD_MINIMA !== null
-            && (float) $this->CANTIDAD <= (float) $this->CANTIDAD_MINIMA;
-    }
 }
