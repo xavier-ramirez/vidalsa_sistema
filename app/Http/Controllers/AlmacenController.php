@@ -534,10 +534,13 @@ class AlmacenController extends Controller
         }
 
         $n = count($result['ids']);
+        // Etiqueta visible en el toast: usa el rename de UI (AJUSTE → "Auditoría")
+        // para que el mensaje sea coherente con el modal "Auditoría de Inventario"
+        // y la pill del kardex. El TIPO en BD se mantiene como AJUSTE.
         $etiqueta = [
             'ENTRADA' => 'Entrada registrada',
             'SALIDA'  => 'Salida registrada',
-            'AJUSTE'  => 'Ajuste aplicado',
+            'AJUSTE'  => 'Auditoría registrada',
         ][$data['tipo']] ?? 'Movimiento registrado';
 
         $payload = ['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'];

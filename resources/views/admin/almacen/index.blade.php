@@ -220,7 +220,8 @@
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
                 <input type="text" id="almFiltroBuscar" autocomplete="off"
                        placeholder="Buscar por código o descripción…" value="{{ $reqBuscar }}"
-                       oninput="window.almBuscarInput()" onfocus="window.almBuscarSuggest()">
+                       oninput="window.almBuscarInput()" onfocus="window.almBuscarSuggest()"
+                       onkeydown="window.almBuscarEnter(event)">
                 <i class="material-icons filter-clear" style="display:{{ $reqBuscar ? 'flex' : 'none' }};"
                    onclick="window.almBuscarLimpiar()">close</i>
             </div>
@@ -282,7 +283,7 @@
                 <tr>
                     <th>Código</th>
                     <th>Descripción del producto</th>
-                    <th style="text-align:center;">UM</th>
+                    <th style="text-align:center;">UND</th>
                     <th>Categoría</th>
                     <th style="text-align:right;">Stock</th>
                     <th style="text-align:center;width:60px;">Detalles</th>
@@ -932,9 +933,18 @@
         }
         box.classList.add('open');
     };
+    // Escribir SOLO muestra sugerencias — NO dispara la búsqueda. Para filtrar la tabla,
+    // el usuario debe (a) elegir una sugerencia con clic [almBuscarPick], (b) limpiar el
+    // campo [almBuscarLimpiar], o (c) presionar Enter [almBuscarEnter]. Así evitamos el
+    // típico "salta cualquier cosa al escribir" que se sentía intrusivo en este filtro.
     window.almBuscarInput = function () {
         window.almBuscarSuggest();
-        almDebounce(almCargar);
+    };
+    window.almBuscarEnter = function (ev) {
+        if (ev && ev.key !== 'Enter') return;
+        if (ev) ev.preventDefault();
+        almSuggestHide();
+        almCargar();
     };
     window.almBuscarPick = function (codigo) {
         var inp = el('almFiltroBuscar'); if (inp) inp.value = codigo;
