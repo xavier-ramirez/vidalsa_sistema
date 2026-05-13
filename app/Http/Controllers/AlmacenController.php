@@ -101,32 +101,19 @@ class AlmacenController extends Controller
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
         $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
-        // Traspasos pendientes de recibir en almacenes visibles para el usuario (alimenta el badge del header).
-        // Defensivo: si la migration del módulo de traspasos todavía no se corrió (la tabla `traspasos`
-        // no existe), simplemente no mostramos el badge en lugar de tumbar la página entera.
-        $traspasosPorRecibir = 0;
-        try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('traspasos')) {
-                $traspasosPorRecibir = \App\Models\Traspaso::query()
-                    ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
-                    ->whereIn('ID_ALMACEN_DESTINO', $almacenes->pluck('ID_ALMACEN'))
-                    ->count();
-            }
-        } catch (\Throwable $e) {
-            // Cualquier otro problema (BD no responde, etc.) no debe romper el inventario.
-            \Illuminate\Support\Facades\Log::warning('No se pudo contar traspasos por recibir: ' . $e->getMessage());
-        }
+        // NOTA: $traspasosPorRecibir (banner amarillo + badge del nav menu) NO se calcula aquí —
+        // lo provee el View Composer registrado en AppServiceProvider para 'layouts.estructura_base',
+        // así el badge aparece desde CUALQUIER página del sistema.
 
         return view('admin.almacen.index', [
-            'almacenes'            => $almacenes,
-            'almacenSel'           => $almacenSel,
-            'productos'            => null,
-            'categorias'           => $categorias,
-            'productosLista'       => $productosLista,
-            'frentesLista'         => $frentesLista,
-            'stats'                => $this->statsInventario($idAlmacenSel, $request),
-            'distribucion'         => $this->distribucionPorCategoria($idAlmacenSel, $request),
-            'traspasosPorRecibir'  => $traspasosPorRecibir,
+            'almacenes'      => $almacenes,
+            'almacenSel'     => $almacenSel,
+            'productos'      => null,
+            'categorias'     => $categorias,
+            'productosLista' => $productosLista,
+            'frentesLista'   => $frentesLista,
+            'stats'          => $this->statsInventario($idAlmacenSel, $request),
+            'distribucion'   => $this->distribucionPorCategoria($idAlmacenSel, $request),
         ]);
     }
 

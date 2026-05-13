@@ -249,16 +249,9 @@
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
-                    {{-- Recepción: aparece arriba porque suele tener acciones pendientes (badge "por recibir") --}}
-                    <a href="{{ route('almacen.recepcion.index') }}" class="dropdown-item-custom" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;text-decoration:none;cursor:pointer;">
-                        <span style="display:flex;align-items:center;gap:10px;">
-                            <span style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">move_to_inbox</i></span>
-                            <span style="font-size:14px;font-weight:500;">Recepción de Materiales</span>
-                        </span>
-                        @if(($traspasosPorRecibir ?? 0) > 0)
-                            <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800;min-width:18px;text-align:center;">{{ $traspasosPorRecibir }}</span>
-                        @endif
-                    </a>
+                    {{-- "Recepción de Materiales" YA NO está aquí: vive en el menú principal de navegación
+                         (Almacén → Recepción de Materiales), donde es accesible desde cualquier pantalla,
+                         no solo desde el inventario. --}}
                     <a href="{{ route('almacen.movimientos') }}" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;text-decoration:none;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">receipt_long</i></div>
                         <span style="font-size:14px;font-weight:500;">Movimientos de inventario</span>

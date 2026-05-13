@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
 use App\Models\Equipo;
 use App\Models\Movilizacion;
 use App\Models\Documentacion;
@@ -69,6 +70,28 @@ class AppServiceProvider extends ServiceProvider
         Equipo::observe(EquipoObserver::class);
         Movilizacion::observe(MovilizacionObserver::class);
         Documentacion::observe(DocumentacionObserver::class);
+
+        // View Composer: inyecta $traspasosPorRecibir en el layout base para que el badge
+        // del menú "Almacén → Recepción de Materiales" se vea desde CUALQUIER página
+        // (no solo desde /admin/almacen donde el controller lo calculaba).
+        // Defensa: si la tabla `traspasos` aún no existe (migrate pendiente) o el usuario
+        // no está autenticado, $traspasosPorRecibir queda en 0 y el badge no aparece.
+        View::composer('layouts.estructura_base', function ($view) {
+            $count = 0;
+            try {
+                $user = auth()->user();
+                if ($user && Schema::hasTable('traspasos')) {
+                    $almacenesVisibles = \App\Models\Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
+                    $count = \App\Models\Traspaso::query()
+                        ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
+                        ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)
+                        ->count();
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('View composer traspasosPorRecibir: ' . $e->getMessage());
+            }
+            $view->with('traspasosPorRecibir', $count);
+        });
     }
 }
 

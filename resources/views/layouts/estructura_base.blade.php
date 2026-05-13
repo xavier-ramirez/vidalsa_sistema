@@ -524,7 +524,7 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">local_shipping</i>Historial Mov
             </a>
 
-            {{-- Almacén Dropdown: Inventario + Kardex --}}
+            {{-- Almacén Dropdown: Inventario + Recepción (con badge si hay envíos pendientes) + Kardex --}}
             <div class="nav-dropdown">
                 <a href="#"
                     class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
@@ -536,6 +536,17 @@
                     <a href="{{ route('almacen.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                         <i class="material-icons">inventory_2</i> Inventario
+                    </a>
+                    <a href="{{ route('almacen.recepcion.index') }}"
+                        class="nav-dropdown-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
+                        style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+                        <span style="display:flex;align-items:center;gap:8px;">
+                            <i class="material-icons">move_to_inbox</i> Recepción de Materiales
+                        </span>
+                        @php $__nav_traspasosPorRecibir = $traspasosPorRecibir ?? 0; @endphp
+                        @if($__nav_traspasosPorRecibir > 0)
+                            <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;">{{ $__nav_traspasosPorRecibir }}</span>
+                        @endif
                     </a>
                     <a href="{{ route('almacen.movimientos') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
@@ -697,6 +708,17 @@
                 <a href="{{ route('almacen.index') }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                     <i class="material-icons">inventory_2</i> Inventario
+                </a>
+                <a href="{{ route('almacen.recepcion.index') }}"
+                    class="mobile-nav-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
+                    style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
+                    <span style="display:flex;align-items:center;gap:10px;">
+                        <i class="material-icons">move_to_inbox</i> Recepción de Materiales
+                    </span>
+                    @php $__nav_traspasosPorRecibir_m = $traspasosPorRecibir ?? 0; @endphp
+                    @if($__nav_traspasosPorRecibir_m > 0)
+                        <span style="background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:800;min-width:18px;text-align:center;line-height:1.5;">{{ $__nav_traspasosPorRecibir_m }}</span>
+                    @endif
                 </a>
                 <a href="{{ route('almacen.movimientos') }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">

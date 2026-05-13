@@ -37,10 +37,15 @@
     .info-cell { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
     .info-cell .lbl { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; }
     .info-cell .val { font-size:14px; font-weight:600; color:#1e293b; word-break:break-word; }
-    .lineas-detalle { width:100%; border-collapse:collapse; font-size:13px; }
-    .lineas-detalle thead th { text-align:left; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; padding:9px 10px; border-bottom:2px solid #e2e8f0; background:#f8fafc; white-space:nowrap; }
-    .lineas-detalle tbody td { padding:9px 10px; border-bottom:1px solid #f1f5f9; }
-    .lineas-detalle input[type="number"], .lineas-detalle input[type="text"] { width:100%; height:32px; border:1px solid #cbd5e0; border-radius:6px; padding:0 8px; font-size:12.5px; background:#fff; outline:none; }
+    /* Tabla de líneas: mismo estilo que /admin/equipos y demás tablas del módulo (thead oscuro, body negro). */
+    .lineas-detalle { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
+    .lineas-detalle thead tr { background:#1e293b; }
+    .lineas-detalle thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .lineas-detalle thead th:last-child { border-right:none; }
+    .lineas-detalle tbody td { padding:12px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
+    .lineas-detalle tbody td:last-child { border-right:none; }
+    .lineas-detalle tbody tr:hover td { background:#f8fafc; }
+    .lineas-detalle input[type="number"], .lineas-detalle input[type="text"] { width:100%; height:34px; border:1px solid #cbd5e0; border-radius:6px; padding:0 8px; font-size:13px; background:#fff; outline:none; color:#000; }
     .pill-linea { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px; }
 </style>
 
