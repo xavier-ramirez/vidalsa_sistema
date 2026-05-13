@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
-use App\Models\FrenteTrabajo;
-use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
 use App\Services\TraspasoService;
@@ -31,7 +29,7 @@ class TraspasoController extends Controller
 {
     public function __construct(private TraspasoService $traspasos)
     {
-        $this->middleware('can:almacen.movimiento')->only(['create', 'store', 'update', 'enviar', 'cancelar', 'destroy']);
+        $this->middleware('can:almacen.movimiento')->only(['store', 'update', 'enviar', 'cancelar', 'destroy']);
         $this->middleware('can:traspaso.recibir')->only(['recibir']);
     }
 
@@ -109,7 +107,7 @@ class TraspasoController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'html'       => view('admin.almacen.traspasos.partials.rows', ['traspasos' => $paginator])->render(),
+                'html'       => view('admin.almacen.recepcion.partials.rows', ['traspasos' => $paginator])->render(),
                 'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
                 'total'      => $paginator->total(),
             ]);
@@ -124,7 +122,7 @@ class TraspasoController extends Controller
             ->when(!Almacen::usuarioEsGlobal($user), fn ($s) => $s->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles))
             ->count();
 
-        return view('admin.almacen.traspasos.index', [
+        return view('admin.almacen.recepcion.index', [
             'traspasos'      => $paginator,
             'tab'            => $tab,
             'contPorRecibir' => $contPorRecibir,
@@ -135,27 +133,10 @@ class TraspasoController extends Controller
 
     // ─────────────────────────────────────────────────────────────
     //  Crear / editar borrador (origen)
+    //  NOTA: no hay vista standalone GET /crear — el envío se inicia desde el botón
+    //  "Enviar a otro almacén" del inventario (/admin/almacen), que llama directo a
+    //  store() vía AJAX con enviar_ahora=true (crea pedido + lo envía en una transacción).
     // ─────────────────────────────────────────────────────────────
-
-    public function create(Request $request)
-    {
-        $user      = $request->user();
-        $almacenes = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
-        $productos = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
-        $frentes   = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
-
-        // Almacén origen por defecto: el primero GENERAL si el usuario puede verlos.
-        $origenSugerido = $almacenes->firstWhere('TIPO', Almacen::TIPO_GENERAL) ?? $almacenes->first();
-
-        return view('admin.almacen.traspasos.crear', [
-            'modo'           => 'crear',
-            'traspaso'       => null,
-            'almacenes'      => $almacenes,
-            'productos'      => $productos,
-            'frentes'        => $frentes,
-            'origenSugerido' => $origenSugerido,
-        ]);
-    }
 
     public function store(Request $request)
     {
@@ -214,7 +195,7 @@ class TraspasoController extends Controller
             && $request->user()?->can('traspaso.recibir')
             && Almacen::find($traspaso->ID_ALMACEN_DESTINO)?->visiblePara($request->user());
 
-        return view('admin.almacen.traspasos.detalle', [
+        return view('admin.almacen.recepcion.detalle', [
             'traspaso'     => $traspaso,
             'puedeRecibir' => (bool) $puedeRecibir,
         ]);

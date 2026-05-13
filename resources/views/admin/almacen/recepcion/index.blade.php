@@ -24,14 +24,12 @@
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Pedidos de Traspaso</span>
+            <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
         </h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            @can('almacen.movimiento')
-            <a href="{{ route('almacen.traspasos.create') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;">
-                <i class="material-icons" style="font-size:18px;">add_box</i><span>Nuevo envío</span>
-            </a>
-            @endcan
+            {{-- No hay botón "Nuevo envío" aquí: los envíos se inician desde el inventario
+                 (/admin/almacen → "Enviar a otro almacén"). Esta pantalla es para CONFIRMAR
+                 lo que llega + ver el historial. --}}
             <a href="{{ route('almacen.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
                 <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Inventario</span>
             </a>
@@ -61,18 +59,14 @@
 
 <div class="admin-card" style="margin:0;min-height:70vh;padding:14px;">
 
-    {{-- ── Tabs ── --}}
+    {{-- ── Tabs ── (sin "Borradores" porque ya no se crean desde aquí; los envíos van directo) --}}
     <div class="tr-tabs">
-        <a href="{{ route('almacen.traspasos.index', ['tab' => 'por_recibir']) }}" class="tr-tab {{ $tab === 'por_recibir' ? 'active' : '' }}">
+        <a href="{{ route('almacen.recepcion.index', ['tab' => 'por_recibir']) }}" class="tr-tab {{ $tab === 'por_recibir' ? 'active' : '' }}">
             <i class="material-icons" style="font-size:18px;">inbox</i> Por recibir
             @if($contPorRecibir > 0)<span class="badge">{{ $contPorRecibir }}</span>@endif
         </a>
-        <a href="{{ route('almacen.traspasos.index', ['tab' => 'por_enviar']) }}" class="tr-tab {{ $tab === 'por_enviar' ? 'active' : '' }}">
-            <i class="material-icons" style="font-size:18px;">drafts</i> Borradores
-            @if($contPorEnviar > 0)<span class="badge muted">{{ $contPorEnviar }}</span>@endif
-        </a>
-        <a href="{{ route('almacen.traspasos.index', ['tab' => 'todos']) }}" class="tr-tab {{ $tab === 'todos' ? 'active' : '' }}">
-            <i class="material-icons" style="font-size:18px;">list_alt</i> Todos
+        <a href="{{ route('almacen.recepcion.index', ['tab' => 'todos']) }}" class="tr-tab {{ $tab === 'todos' ? 'active' : '' }}">
+            <i class="material-icons" style="font-size:18px;">list_alt</i> Historial
         </a>
     </div>
 
@@ -156,7 +150,7 @@
                 </tr>
             </thead>
             <tbody id="trTableBody">
-                @include('admin.almacen.traspasos.partials.rows', ['traspasos' => $traspasos])
+                @include('admin.almacen.recepcion.partials.rows', ['traspasos' => $traspasos])
             </tbody>
         </table>
     </div>
@@ -168,7 +162,7 @@
 (function () {
     'use strict';
     if (!document.getElementById('trTableBody')) return;
-    var ROUTE = @json(route('almacen.traspasos.index'));
+    var ROUTE = @json(route('almacen.recepcion.index'));
     var TAB   = @json($tab);
 
     function el(id) { return document.getElementById(id); }
@@ -206,7 +200,7 @@
     // Click en fila → ir al detalle
     document.addEventListener('click', function (e) {
         var row = e.target.closest('#trTableBody tr[data-id]');
-        if (row) window.location = @json(url('/admin/almacen/traspasos')) + '/' + row.dataset.id;
+        if (row) window.location = @json(url('/admin/almacen/recepcion')) + '/' + row.dataset.id;
     });
 
     // Paginación AJAX

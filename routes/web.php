@@ -196,18 +196,20 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('almacen/almacenes/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateAlmacen'])   ->whereNumber('id')->name('almacen.almacenes.update'); // los frentes asociados se mandan en el body de este PATCH
             Route::delete('almacen/almacenes/{id}',               [App\Http\Controllers\AlmacenController::class, 'destroyAlmacen'])  ->whereNumber('id')->name('almacen.almacenes.destroy');
 
-            // ── Traspasos (envíos con recepción confirmada) ───────────────────
-            // Permisos: almacen.movimiento (crear/enviar/cancelar) · traspaso.recibir (confirmar recepción).
-            // Rutas estáticas ANTES del wildcard {id}.
-            Route::get   ('almacen/traspasos',                       [App\Http\Controllers\TraspasoController::class, 'index'])   ->name('almacen.traspasos.index');
-            Route::get   ('almacen/traspasos/crear',                 [App\Http\Controllers\TraspasoController::class, 'create'])  ->name('almacen.traspasos.create');
-            Route::post  ('almacen/traspasos',                       [App\Http\Controllers\TraspasoController::class, 'store'])   ->name('almacen.traspasos.store');
-            Route::get   ('almacen/traspasos/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.traspasos.show');
-            Route::patch ('almacen/traspasos/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.traspasos.update');
-            Route::delete('almacen/traspasos/{id}',                  [App\Http\Controllers\TraspasoController::class, 'destroy']) ->whereNumber('id')->name('almacen.traspasos.destroy');
-            Route::post  ('almacen/traspasos/{id}/enviar',           [App\Http\Controllers\TraspasoController::class, 'enviar'])  ->whereNumber('id')->name('almacen.traspasos.enviar');
-            Route::post  ('almacen/traspasos/{id}/recibir',          [App\Http\Controllers\TraspasoController::class, 'recibir']) ->whereNumber('id')->name('almacen.traspasos.recibir');
-            Route::post  ('almacen/traspasos/{id}/cancelar',         [App\Http\Controllers\TraspasoController::class, 'cancelar'])->whereNumber('id')->name('almacen.traspasos.cancelar');
+            // ── Recepción de Materiales (envíos por confirmar + historial) ────
+            // Antes "Traspasos"; los envíos se generan desde /admin/almacen (botón "Enviar a otro almacén")
+            // que ya crea un Pedido con enviar_ahora=true. Aquí se ven los pendientes de confirmar.
+            // Permisos: almacen.movimiento (cancelar) · traspaso.recibir (confirmar recepción).
+            // Rutas estáticas ANTES del wildcard {id}. La store sigue existiendo para que el botón
+            // del inventario pueda crear pedidos via AJAX, pero NO hay página GET de creación.
+            Route::get   ('almacen/recepcion',                       [App\Http\Controllers\TraspasoController::class, 'index'])   ->name('almacen.recepcion.index');
+            Route::post  ('almacen/recepcion',                       [App\Http\Controllers\TraspasoController::class, 'store'])   ->name('almacen.recepcion.store');
+            Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
+            Route::patch ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.recepcion.update');
+            Route::delete('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'destroy']) ->whereNumber('id')->name('almacen.recepcion.destroy');
+            Route::post  ('almacen/recepcion/{id}/enviar',           [App\Http\Controllers\TraspasoController::class, 'enviar'])  ->whereNumber('id')->name('almacen.recepcion.enviar');
+            Route::post  ('almacen/recepcion/{id}/recibir',          [App\Http\Controllers\TraspasoController::class, 'recibir']) ->whereNumber('id')->name('almacen.recepcion.recibir');
+            Route::post  ('almacen/recepcion/{id}/cancelar',         [App\Http\Controllers\TraspasoController::class, 'cancelar'])->whereNumber('id')->name('almacen.recepcion.cancelar');
 
             // ── Auditoría Documental ─────────────────────────────────────────
             Route::middleware('can:super.admin')->group(function () {

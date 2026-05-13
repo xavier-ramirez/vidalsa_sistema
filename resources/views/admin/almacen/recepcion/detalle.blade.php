@@ -24,7 +24,7 @@
             </h1>
             <span style="background:{{ $e[1] }};color:{{ $e[2] }};padding:5px 14px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">{{ $e[0] }}</span>
         </div>
-        <a href="{{ route('almacen.traspasos.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
+        <a href="{{ route('almacen.recepcion.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
             <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Volver</span>
         </a>
     </div>
@@ -193,7 +193,7 @@
 (function () {
     'use strict';
     var ID_T   = {{ $traspaso->ID_TRASPASO }};
-    var BASE   = @json(url('/admin/almacen/traspasos'));
+    var BASE   = @json(url('/admin/almacen/recepcion'));
 
     function toast(m, t) { if (window.toast) window.toast(m, t); else alert(m); }
     function pre()  { if (window.showPreloader) window.showPreloader(); }
@@ -257,7 +257,7 @@
 
     window.trCancelar = function (numero) {
         if (!confirm('¿Cancelar ' + numero + '? Si ya estaba enviado, se revertirá el stock al origen.')) return;
-        post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.traspasos.index')); }, 700); });
+        post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.recepcion.index')); }, 700); });
     };
 })();
 </script>
