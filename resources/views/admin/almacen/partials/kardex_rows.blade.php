@@ -25,13 +25,14 @@
                 ? (((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) >= 0 ? '+' : '−')
                 : ($entra ? '+' : '−');
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
-            // El usuario que registró el movimiento ya no tiene columna propia; sale como tooltip
-            // de la fila completa al hacer hover (atributo title del <tr>).
+            // El usuario que registró el movimiento NO tiene columna propia: aparece como burbuja
+            // (.alm-mov-userbubble) anclada a la celda Producto, que se muestra al pasar el mouse por
+            // CUALQUIER PARTE de la fila — mismo patrón visual que el tooltip de /admin/equipos.
             $usuarioTip = $m->usuario?->NOMBRE_COMPLETO
                 ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
                 : 'Usuario no registrado';
         @endphp
-        <tr title="{{ $usuarioTip }}">
+        <tr>
             <td style="white-space:nowrap;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
             <td style="white-space:nowrap;">
                 {{-- La pill mantiene su color de fondo y texto propios (visualmente distingue ENTRADA / SALIDA / etc.). --}}
@@ -39,13 +40,17 @@
                     <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>
-            {{-- Producto: solo el NOMBRE (sin CODIGO al inicio que se veía repetido cuando los nombres
-                 importados ya incluían el código como prefijo). El código queda como tooltip por si lo necesitan. --}}
-            <td title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;">{{ $m->producto?->NOMBRE ?? '—' }}</td>
-            <td style="text-align:right;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;">{{ $m->producto?->UM }}</span></td>
+            {{-- Descripción del producto: solo el NOMBRE (sin CODIGO al inicio, que se veía repetido cuando
+                 los nombres importados ya incluían el código como prefijo). La clase col-producto la convierte
+                 en ancla del tooltip de usuario; el código queda en title nativo como respaldo discreto. --}}
+            <td class="col-producto" title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;">
+                {{ $m->producto?->NOMBRE ?? '—' }}
+                <span class="alm-mov-userbubble">{{ $usuarioTip }}</span>
+            </td>
+            <td style="font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;">{{ $m->producto?->UM }}</span></td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
                  queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
-            <td title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="text-align:right;font-weight:700;white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
+            <td title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="font-weight:700;white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
             <td>
                 {{-- Mostrar el FRENTE primero (es lo que el operario eligió como destino real);
                      si no hay frente (traspasos legacy o movimientos sin frente), caer al almacén contraparte. --}}

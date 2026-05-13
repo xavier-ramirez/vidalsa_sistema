@@ -75,18 +75,46 @@
     .amf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
     .amf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
     .amf-adv-btn { height:45px; width:45px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:12px; box-shadow:none; }
-    /* Tabla limpia sin bordes verticales entre columnas (se veían "tijeretazos" raros con el contraste
-       thead oscuro / tbody claro). Solo border-bottom de filas + el dark del header. */
+    /* Tabla limpia: thead oscuro + body con TODOS los valores CENTRADOS (verticales y horizontales).
+       Sin bordes verticales entre columnas. */
     .alm-mov-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .alm-mov-table thead tr { background:#1e293b; color:#fff; }
     .alm-mov-table thead th {
-        text-align:left; color:#fff; font-size:13px; font-weight:700;
+        text-align:center; color:#fff; font-size:13px; font-weight:700;
         text-transform:uppercase; letter-spacing:1px;
-        padding:10px 15px; border-bottom:2px solid #0f172a;
+        padding:10px 12px; border-bottom:2px solid #0f172a;
         white-space:nowrap;
     }
-    .alm-mov-table tbody td { padding:12px 15px; color:#000; font-size:14px; border-bottom:1px solid #e2e8f0; }
+    .alm-mov-table tbody td {
+        padding:12px 12px; color:#000; font-size:14px;
+        text-align:center; vertical-align:middle;
+        border-bottom:1px solid #e2e8f0;
+    }
     .alm-mov-table tbody tr:hover td { background:#e0f2fe; }
+    /* Celda "Descripción del producto": ancla del tooltip de usuario (position:relative). */
+    .alm-mov-table td.col-producto { position:relative; }
+
+    /* Tooltip "Registrado por: X" — copia del .tooltip-bubble de /admin/equipos:
+       aparece arriba de la celda Producto al hacer hover en CUALQUIER PARTE de la fila. */
+    .alm-mov-userbubble {
+        pointer-events:none; opacity:0; visibility:hidden;
+        position:absolute; bottom:calc(100% + 6px); left:50%;
+        transform:translateX(-50%);
+        background:#1e293b; color:#fff;
+        padding:7px 14px; border-radius:8px;
+        font-size:11.5px; font-weight:600; letter-spacing:.2px;
+        white-space:nowrap;
+        box-shadow:0 6px 16px -3px rgba(0,0,0,0.3);
+        transition:opacity .18s ease-out, visibility .18s ease-out, transform .18s ease-out;
+        z-index:50;
+    }
+    .alm-mov-userbubble::after {
+        content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+        border:5px solid transparent; border-top-color:#1e293b;
+    }
+    .alm-mov-table tbody tr:hover .alm-mov-userbubble {
+        opacity:1; visibility:visible;
+    }
     .amf-stat-pill { display:none; }
     @media (max-width: 900px) {
         #almMovFilters .amf-item, #almMovFilters .amf-search { max-width:none; flex:1 1 100%; }
@@ -108,7 +136,8 @@
             <div class="custom-dropdown" id="almMovFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
                 <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
                 <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">filter_alt</i></span>
+                    {{-- Icono de lupa (consistente con los tres filtros de esta vista). --}}
+                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">search</i></span>
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                            placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
                            style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
@@ -132,7 +161,8 @@
             <div class="custom-dropdown" id="almMovFiltroFrente" data-filter-type="id_frente" data-default-label="Todos los frentes">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ $reqFrente && $reqFrente !== 'all' ? $reqFrente : '' }}">
                 <div class="dropdown-trigger {{ $frenteSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">apartment</i></span>
+                    {{-- Icono de lupa (consistente con los tres filtros de esta vista). --}}
+                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">search</i></span>
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                            placeholder="{{ $frenteSel ? $frenteSel->NOMBRE_FRENTE : 'Todos los frentes' }}"
                            style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
@@ -176,20 +206,25 @@
                 </h4>
                 {{-- Desde + Hasta (2 columnas, mismo grid que Marca/Modelo en /admin/equipos) --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    {{-- Cajas Desde/Hasta: la caja COMPLETA dispara el date picker (no
+                         solo el iconito nativo). Click en el contenedor → input.showPicker(),
+                         que es la API estándar para abrir el selector de fecha de <input type="date">. --}}
                     <div>
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
-                        <div style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;">
-                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;">event</i>
+                        <div style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
+                             onclick="var i=document.getElementById('almMovDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
                             <input type="date" id="almMovDesde" value="{{ $reqDesde }}" onchange="window.loadMovimientos()"
-                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;">
+                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
                         </div>
                     </div>
                     <div>
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
-                        <div style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;">
-                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;">event</i>
+                        <div style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
+                             onclick="var i=document.getElementById('almMovHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
                             <input type="date" id="almMovHasta" value="{{ $reqHasta }}" onchange="window.loadMovimientos()"
-                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;">
+                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
                         </div>
                     </div>
                 </div>
@@ -206,14 +241,17 @@
     <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
         <table class="alm-mov-table">
             <thead>
+                {{-- Anchos rebalanceados: la columna "Descripción del producto" es la única flexible
+                     (sin width) para que absorba el espacio restante y se vea proporcional. Las demás
+                     llevan ancho fijo acorde al contenido típico. --}}
                 <tr>
-                    <th style="width:90px;">Fecha</th>
-                    <th style="width:130px;">Tipo</th>
-                    <th>Producto</th>
-                    <th style="text-align:right;width:120px;">Cantidad</th>
-                    <th style="text-align:right;width:110px;">Stock</th>
-                    <th style="width:180px;">Destino / contraparte</th>
-                    <th style="width:120px;">Ref</th>
+                    <th style="width:100px;">Fecha</th>
+                    <th style="width:140px;">Tipo</th>
+                    <th>Descripción del producto</th>
+                    <th style="width:130px;">Cantidad</th>
+                    <th style="width:100px;">Stock</th>
+                    <th style="width:170px;">Destino / contraparte</th>
+                    <th style="width:110px;">Ref</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">
