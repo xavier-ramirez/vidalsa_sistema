@@ -147,29 +147,43 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <h1 class="page-title">
-        <span class="page-title-line2" style="color:#000;">Inventario de Almacén</span>
-    </h1>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+        <h1 class="page-title" style="margin:0;">
+            <span class="page-title-line2" style="color:#000;">Inventario de Almacén</span>
+        </h1>
+        {{-- Filtro de almacén junto al título — mismo componente custom-dropdown que /admin/equipos y /admin/almacen/movimientos. --}}
+        <div style="width:260px;min-width:200px;max-width:100%;flex:0 1 auto;">
+            <div class="custom-dropdown" id="almSelAlmacenDropdown" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
+                <input type="hidden" name="id_almacen" data-filter-value id="almSelAlmacen" value="{{ $reqAlm ?? '' }}">
+                <div class="dropdown-trigger {{ $almacenSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
+                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                           placeholder="{{ $almacenSel ? $almacenSel->NOMBRE : 'Todos los almacenes' }}"
+                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
+                           oninput="window.filterDropdownOptions(this)">
+                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $almacenSel ? 'block' : 'none' }};cursor:pointer;"
+                       onclick="event.stopPropagation(); clearDropdownFilter('almSelAlmacenDropdown');">close</i>
+                </div>
+                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                        @foreach($almacenes as $a)
+                            <div class="dropdown-item {{ $almacenSel && $almacenSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                 onclick="selectOption('almSelAlmacenDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </section>
 
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:80vh;min-width:0;width:100%;padding:14px;">
 
-    {{-- ── Filtros ── --}}
+    {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almFilters">
-        {{-- Almacén — input + sugerencias (mismo look que los filtros "Buscar" / "Categoría"). El ID seleccionado vive en el hidden #almSelAlmacen. --}}
-        <div class="alm-filter active" style="flex:1.2 1 220px;">
-            <div class="alm-filter-box">
-                <span class="alm-ic"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
-                <input type="text" id="almSelAlmacenInp" autocomplete="off"
-                       placeholder="Almacén…" value="{{ $almacenSel?->NOMBRE ?? '' }}"
-                       oninput="window.almAlmSuggest()" onfocus="window.almAlmSuggest(true)">
-                <input type="hidden" id="almSelAlmacen" value="{{ $reqAlm }}">
-                <span class="alm-ic"><i class="material-icons" style="font-size:18px;color:#94a3b8;">expand_more</i></span>
-            </div>
-            <div class="alm-suggest" id="almSelAlmacenSuggest"></div>
-        </div>
-
         {{-- Buscar (código o descripción) — con sugerencias estilo app. Ancho amplio: es el filtro principal. --}}
         <div class="alm-filter {{ $reqBuscar ? 'active' : '' }}" style="flex:3 1 340px;max-width:560px;">
             <div class="alm-filter-box">
@@ -621,8 +635,6 @@
     var ROUTE_MOV     = @json(route('almacen.movimientos.store'));
     var ROUTE_LOTE    = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
-    // Lista de almacenes visibles para el usuario — alimenta las sugerencias del filtro "Almacén".
-    window.almAlmacenesLista = @json(($almacenes ?? collect())->map(fn ($a) => ['ID_ALMACEN' => $a->ID_ALMACEN, 'NOMBRE' => $a->NOMBRE, 'TIPO' => $a->TIPO]));
     // Catálogo de productos (CODIGO/NOMBRE/UM) — lo usan las sugerencias del filtro "Buscar" y los selects del modal de movimientos.
     window.almProductosLista = @json($productosLista ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
@@ -807,44 +819,22 @@
         almCargar();
     };
 
-    // ── Autocompletado del filtro "Almacén" (lista de almacenes visibles, mismo look que Buscar/Categoría) ──
-    function almAlmSuggestHide() { var box = el('almSelAlmacenSuggest'); if (box) box.classList.remove('open'); }
-    window.almAlmSuggest = function (forceAll) {
-        almSuggestHide(); almCatSuggestHide();
-        var inp = el('almSelAlmacenInp'), box = el('almSelAlmacenSuggest');
-        if (!inp || !box) return;
-        var term  = almNorm(inp.value.trim());
-        var lista = (window.almAlmacenesLista || []);
-        var matches = (forceAll || term === '') ? lista.slice(0) : lista.filter(function (a) { return almNorm(a.NOMBRE).indexOf(term) > -1; });
-        if (!matches.length) {
-            box.innerHTML = '<div class="alm-suggest-empty">' + (lista.length ? 'Sin almacenes que coincidan.' : 'No hay almacenes disponibles.') + '</div>';
-        } else {
-            box.innerHTML = matches.map(function (a) {
-                var nm = String(a.NOMBRE).replace(/[<>&"]/g, '');
-                var tag = a.TIPO === 'GENERAL' ? 'Principal' : 'Proyecto';
-                return '<div class="alm-suggest-item" data-id="' + a.ID_ALMACEN + '" data-nom="' + nm + '"><span class="nom">' + nm + ' <span style="color:#94a3b8;font-weight:600;">(' + tag + ')</span></span></div>';
-            }).join('');
-        }
-        box.classList.add('open');
-    };
-    window.almAlmPick = function (id, nom) {
-        var hid = el('almSelAlmacen'); if (hid) hid.value = id;
-        var inp = el('almSelAlmacenInp'); if (inp) inp.value = nom;
-        almAlmSuggestHide();
-        almCargar();
-    };
+    // ── Filtro de almacén: ahora usa el componente custom-dropdown global (selectOption / dropdown-selection).
+    //    El hidden #almSelAlmacen sigue siendo la fuente de verdad que lee filtros(); el listener de abajo
+    //    recarga la tabla cuando el usuario elige un almacén distinto.
+    window.addEventListener('dropdown-selection', function (e) {
+        if (e.detail && e.detail.dropdownId === 'almSelAlmacenDropdown') almCargar();
+    });
 
-    // Click en una sugerencia (Almacén / Buscar / Categoría) / click fuera / Escape
+    // Click en una sugerencia (Buscar / Categoría) / click fuera / Escape — el filtro Almacén ya no usa este sistema.
     document.addEventListener('click', function (e) {
-        var almItem = e.target.closest('#almSelAlmacenSuggest .alm-suggest-item');
-        if (almItem) { e.preventDefault(); window.almAlmPick(almItem.getAttribute('data-id') || '', almItem.getAttribute('data-nom') || ''); return; }
         var item = e.target.closest('#almFiltroBuscarSuggest .alm-suggest-item');
         if (item) { e.preventDefault(); window.almBuscarPick(item.getAttribute('data-pick') || ''); return; }
         var catItem = e.target.closest('#almFiltroCatSuggest .alm-suggest-item');
         if (catItem) { e.preventDefault(); window.almCatPick(catItem.getAttribute('data-pick') || ''); return; }
-        if (!e.target.closest('.alm-filter')) { almAlmSuggestHide(); almSuggestHide(); almCatSuggestHide(); }
+        if (!e.target.closest('.alm-filter')) { almSuggestHide(); almCatSuggestHide(); }
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { almAlmSuggestHide(); almSuggestHide(); almCatSuggestHide(); } });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { almSuggestHide(); almCatSuggestHide(); } });
 
     // ── paginación (event delegation) ──
     document.addEventListener('click', function (e) {
