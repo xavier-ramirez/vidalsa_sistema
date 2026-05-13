@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Almacen;
+use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
 use App\Services\TraspasoService;
@@ -122,12 +123,17 @@ class TraspasoController extends Controller
             ->when(!Almacen::usuarioEsGlobal($user), fn ($s) => $s->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles))
             ->count();
 
+        // Datos extra para el modal "Registrar entrada directa" (alimenta su <select> de productos
+        // y de almacenes destino — son los mismos que el usuario puede ver/operar).
+        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
+
         return view('admin.almacen.recepcion.index', [
             'traspasos'      => $paginator,
             'tab'            => $tab,
             'contPorRecibir' => $contPorRecibir,
             'contPorEnviar'  => $contPorEnviar,
             'almacenes'      => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
+            'productosLista' => $productosLista,
         ]);
     }
 

@@ -29,7 +29,16 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             {{-- No hay botón "Nuevo envío" aquí: los envíos se inician desde el inventario
                  (/admin/almacen → "Enviar a otro almacén"). Esta pantalla es para CONFIRMAR
-                 lo que llega + ver el historial. --}}
+                 lo que llega + ver el historial + registrar entradas directas (compras). --}}
+            @can('almacen.movimiento')
+            <button type="button" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;"
+                    onclick="window.entAbrirModal()">
+                <i class="material-icons" style="font-size:18px;">add_box</i><span>Registrar entrada directa</span>
+            </button>
+            @endcan
+            <a href="{{ route('almacen.movimientos', ['tipo' => 'ENTRADA']) }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#fff;color:#0067b1;border:1px solid #0067b1;box-shadow:none;" title="Ver TODAS las entradas en la bitácora">
+                <i class="material-icons" style="font-size:18px;">receipt_long</i><span class="desktop-text">Bitácora</span>
+            </a>
             <a href="{{ route('almacen.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
                 <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Inventario</span>
             </a>
@@ -226,4 +235,180 @@
     });
 })();
 </script>
+
+{{-- ────────────────────────────────────────────────────────────────
+     Modal "Registrar entrada directa"
+     Para entradas que NO vienen de otro almacén (compras, devoluciones,
+     conteo inicial, etc.). Solo permiso almacen.movimiento.
+     POSTea a /almacen/movimientos-lote con tipo=ENTRADA (reusa el endpoint
+     existente — no hay nuevo backend). REFERENCIA = Nº OC, MOTIVO = proveedor.
+     ──────────────────────────────────────────────────────────────── --}}
+@can('almacen.movimiento')
+<div id="entModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:200;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;">
+    <div style="background:#fff;border-radius:12px;width:100%;max-width:780px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid #e2e8f0;">
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                <i class="material-icons" style="color:#0284c7;">add_box</i> Registrar entrada directa
+            </h3>
+            <button type="button" onclick="window.entCerrarModal()" style="background:none;border:none;cursor:pointer;color:#64748b;padding:4px;"><i class="material-icons">close</i></button>
+        </div>
+
+        <div style="padding:18px 20px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+                <div>
+                    <label style="display:block;font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Almacén destino *</label>
+                    <select id="entAlmacen" style="width:100%;height:40px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;font-size:14px;background:#fff;outline:none;">
+                        @foreach($almacenes as $a)
+                            <option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} ({{ $a->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }})</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Nº Orden de Compra <span style="font-weight:400;text-transform:none;color:#94a3b8;">(opcional)</span></label>
+                    <input type="text" id="entRef" maxlength="100" placeholder="Ej: OC-2026-0142" style="width:100%;height:40px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;font-size:14px;background:#fff;outline:none;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Proveedor <span style="font-weight:400;text-transform:none;color:#94a3b8;">(opcional)</span></label>
+                    <input type="text" id="entProveedor" maxlength="200" placeholder="Ej: Ferretería La Roca, C.A." style="width:100%;height:40px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;font-size:14px;background:#fff;outline:none;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Fecha <span style="font-weight:400;text-transform:none;color:#94a3b8;">(opcional, default hoy)</span></label>
+                    <input type="date" id="entFecha" style="width:100%;height:40px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;font-size:14px;background:#fff;outline:none;">
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <h4 style="margin:0;font-size:13px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:.3px;">Productos que entran</h4>
+                <button type="button" style="background:none;border:1px dashed #0284c7;color:#0284c7;border-radius:8px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;" onclick="window.entAddLinea()">
+                    <i class="material-icons" style="font-size:15px;">add</i> Agregar producto
+                </button>
+            </div>
+            <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:12px;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="background:#f8fafc;">
+                        <th style="text-align:left;padding:7px 10px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;">Producto</th>
+                        <th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;width:130px;">Cantidad</th>
+                        <th style="width:42px;"></th>
+                    </tr></thead>
+                    <tbody id="entLineasTbody"></tbody>
+                </table>
+            </div>
+
+            <label style="display:block;font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;">Notas <span style="font-weight:400;text-transform:none;color:#94a3b8;">(opcional)</span></label>
+            <textarea id="entNotas" rows="2" style="width:100%;border:1px solid #cbd5e0;border-radius:8px;padding:8px 10px;font-size:14px;background:#fff;outline:none;resize:vertical;" placeholder="Detalles de la recepción…"></textarea>
+
+            <div id="entError" style="display:none;margin-top:10px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid #e2e8f0;background:#f8fafc;border-bottom-left-radius:12px;border-bottom-right-radius:12px;">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;height:40px;padding:0 16px;" onclick="window.entCerrarModal()">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" style="height:40px;padding:0 18px;display:flex;align-items:center;gap:6px;" onclick="window.entGuardar()">
+                <i class="material-icons" style="font-size:18px;">save</i> Registrar entrada
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    var ROUTE_ENTRADA = @json(route('almacen.movimientos.lote'));
+    var PRODUCTOS     = @json($productosLista ?? []);
+
+    function el(id) { return document.getElementById(id); }
+    function v(id)  { var e = el(id); return e ? String(e.value).trim() : ''; }
+    function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
+    function toast(m, t) { if (window.toast) window.toast(m, t); else alert(m); }
+    function showErr(msg) { var e = el('entError'); if (!e) return; if (msg) { e.style.display = 'block'; e.textContent = msg; } else { e.style.display = 'none'; e.textContent = ''; } }
+
+    var nextRid = 0;
+    function lineaHtml(rid) {
+        var opts = '<option value="">— elige producto —</option>';
+        for (var i = 0; i < PRODUCTOS.length; i++) {
+            var p = PRODUCTOS[i];
+            opts += '<option value="' + p.ID_PRODUCTO + '">' + p.CODIGO + ' — ' + String(p.NOMBRE).replace(/</g, '&lt;') + ' (' + p.UM + ')</option>';
+        }
+        return '<tr data-rid="' + rid + '">' +
+            '<td style="padding:6px 10px;"><select class="ent-prod" style="width:100%;height:34px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;outline:none;background:#fff;">' + opts + '</select></td>' +
+            '<td style="padding:6px 10px;text-align:right;"><input type="number" min="0.001" step="0.001" class="ent-cant" placeholder="0" style="width:100%;height:34px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;outline:none;text-align:right;background:#fff;"></td>' +
+            '<td style="padding:6px 10px;text-align:center;"><button type="button" onclick="window.entDelLinea(' + rid + ')" style="background:none;border:none;cursor:pointer;color:#dc2626;padding:4px;"><i class="material-icons">delete</i></button></td>' +
+            '</tr>';
+    }
+
+    window.entAddLinea = function () {
+        var tb = el('entLineasTbody'); if (!tb) return;
+        tb.insertAdjacentHTML('beforeend', lineaHtml(++nextRid));
+    };
+    window.entDelLinea = function (rid) {
+        var row = document.querySelector('#entLineasTbody tr[data-rid="' + rid + '"]');
+        if (row) row.remove();
+        if (el('entLineasTbody') && el('entLineasTbody').children.length === 0) window.entAddLinea();
+    };
+
+    window.entAbrirModal = function () {
+        el('entLineasTbody').innerHTML = '';
+        nextRid = 0;
+        window.entAddLinea(); // arranca con 1 línea vacía
+        ['entRef','entProveedor','entNotas'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        var f = el('entFecha'); if (f) f.value = new Date().toISOString().slice(0, 10);
+        showErr('');
+        el('entModal').style.display = 'flex';
+    };
+    window.entCerrarModal = function () { el('entModal').style.display = 'none'; };
+
+    // Cerrar al hacer clic en el backdrop
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.id === 'entModal') window.entCerrarModal();
+    });
+
+    window.entGuardar = function () {
+        var idAlm = v('entAlmacen');
+        if (!idAlm) { showErr('Elige un almacén destino.'); return; }
+
+        var lineas = [], faltan = [];
+        document.querySelectorAll('#entLineasTbody tr').forEach(function (tr) {
+            var idProd = tr.querySelector('.ent-prod').value;
+            var cant   = parseFloat(tr.querySelector('.ent-cant').value);
+            if (!idProd) return; // línea vacía: ignorar
+            if (!isFinite(cant) || cant <= 0) { faltan.push(tr.querySelector('.ent-prod').selectedOptions[0]?.text || '?'); return; }
+            lineas.push({ id_producto: parseInt(idProd, 10), cantidad: cant });
+        });
+        if (faltan.length) { showErr('Cantidad inválida en: ' + faltan.slice(0, 3).join(', ') + (faltan.length > 3 ? '…' : '')); return; }
+        if (lineas.length === 0) { showErr('Agrega al menos un producto con cantidad > 0.'); return; }
+        showErr('');
+
+        var payload = {
+            tipo:       'ENTRADA',
+            id_almacen: parseInt(idAlm, 10),
+            fecha:      v('entFecha') || null,
+            referencia: v('entRef') || null,         // Nº OC
+            motivo:     v('entProveedor') || null,   // Proveedor (texto libre por ahora)
+            notas:      v('entNotas') || null,
+            lineas:     lineas,
+        };
+
+        if (window.showPreloader) window.showPreloader();
+        fetch(ROUTE_ENTRADA, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(payload),
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (res.ok) {
+                window.entCerrarModal();
+                toast(res.b.message || 'Entrada registrada.', 'success');
+                // No recargamos la lista porque las entradas directas NO aparecen aquí (este módulo es para
+                // traspasos). Se ven en /admin/almacen/movimientos?tipo=ENTRADA.
+            } else {
+                showErr((res.b && res.b.message) || 'No se pudo registrar la entrada.');
+            }
+        })
+        .catch(function () { if (window.hidePreloader) window.hidePreloader(); showErr('Error de red.'); });
+    };
+})();
+</script>
+@endcan
+
 @endsection
