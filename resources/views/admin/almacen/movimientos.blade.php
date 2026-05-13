@@ -621,7 +621,7 @@
     };
 
     // ── Eliminar Nota ───────────────────────────────────────────────────
-    // Sólo se monta si el modal existe (super.admin gateado por blade @can).
+    // Sólo se monta si el modal existe (super.admin gateado por blade {{'@'}}can).
     if (document.getElementById('eliminarNotaOverlay')) {
         window.openEliminarNotaModal = function () {
             var ov = document.getElementById('eliminarNotaOverlay'); if (!ov) return;

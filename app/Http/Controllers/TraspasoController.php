@@ -123,11 +123,24 @@ class TraspasoController extends Controller
         // y de almacenes destino — son los mismos que el usuario puede ver/operar).
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
 
+        // Lista de NÚMEROS de nota visibles para el usuario — alimenta el autocomplete
+        // del filtro "Buscar por número de nota" del toolbar. Limitada a los 300 más
+        // recientes para no inflar el HTML (lo típico será 30-50 en circulación).
+        $numerosNotas = Traspaso::query()
+            ->where(function ($w) use ($almacenesVisibles) {
+                $w->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles)
+                  ->orWhereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
+            })
+            ->orderByDesc('ID_TRASPASO')
+            ->take(300)
+            ->pluck('NUMERO');
+
         return view('admin.almacen.recepcion.index', [
             'traspasos'      => $paginator,
             'contPorRecibir' => $contPorRecibir,
             'almacenes'      => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
             'productosLista' => $productosLista,
+            'numerosNotas'   => $numerosNotas,
         ]);
     }
 

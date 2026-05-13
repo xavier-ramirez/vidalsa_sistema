@@ -43,11 +43,33 @@
 <style>
     #trFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
-    #trFilters .tr-search { flex:2 1 280px; max-width:none; }
+    /* Filtro de N° de nota: ancho fijo y compacto (es un código corto tipo TR-2026-0001,
+       no necesita una caja larga). Tiene su propia lista de sugerencias debajo. */
+    #trFilters .tr-search-num  { flex:0 0 240px; max-width:240px; min-width:180px; position:relative; }
+    /* Filtro por material (descripción / código): ocupa el resto del espacio porque
+       admite textos más largos (códigos largos, palabras de la descripción). */
+    #trFilters .tr-search-prod { flex:2 1 280px; max-width:none; }
     .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
     .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
+    /* Dropdown de sugerencias del N° de nota — calcado del patrón .alm-suggest
+       del inventario para consistencia visual entre los dos buscadores. */
+    .tr-suggest {
+        position:absolute; top:calc(100% + 4px); left:0; right:0;
+        background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+        box-shadow:0 8px 18px rgba(15,23,42,0.10);
+        max-height:240px; overflow-y:auto; padding:4px;
+        z-index:60; display:none;
+    }
+    .tr-suggest.open { display:block; }
+    .tr-suggest-item {
+        padding:8px 12px; border-radius:6px; cursor:pointer;
+        font-family:monospace; font-size:12.5px; font-weight:700; color:#0f172a;
+        letter-spacing:0.3px; transition:background .15s;
+    }
+    .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
+    .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
     /* Tabla con el mismo estilo que /admin/equipos y /admin/almacen (.table-row-header style) */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .tr-table thead tr { background:#1e293b; }
@@ -68,14 +90,20 @@
          Comparten un mismo estilo (.tr-search-box) y el placeholder hace explícito
          qué hace cada uno para evitar confusión. --}}
     <div id="trFilters">
-        <div class="tr-item tr-search">
+        <div class="tr-item tr-search-num">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por número de nota (TR-2026-…)…" value="{{ $reqSearch }}"
-                       oninput="clearTimeout(window._trST); window._trST = setTimeout(window.trLoad, 400);">
+                <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota (TR-…)" value="{{ $reqSearch }}"
+                       oninput="window.trSearchInput()"
+                       onfocus="window.trSearchInput()"
+                       onblur="setTimeout(function(){ var s=document.getElementById('trSearchSuggest'); if(s) s.classList.remove('open'); }, 150);">
             </div>
+            {{-- Sugerencias en vivo: lista los N° de nota visibles al usuario que coinciden
+                 con lo que está escribiendo. Cargar la lista en el render evita un endpoint
+                 extra — son strings cortos y vienen limitados a 300 desde el controller. --}}
+            <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
-        <div class="tr-item tr-search">
+        <div class="tr-item tr-search-prod">
             <div class="tr-search-box {{ $reqSearchProd ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
                 <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar material (descripción o código/serial)…" value="{{ $reqSearchProd }}"
@@ -167,8 +195,52 @@
     if (!document.getElementById('trTableBody')) return;
     var ROUTE = @json(route('almacen.recepcion.index'));
 
+    // Lista de N° de nota visibles para el usuario (TR-YYYY-NNNN). Cargada desde
+    // el controller en cada render; 300 más recientes — suficiente para el
+    // autocomplete sin pedir un endpoint extra.
+    var TR_NUMEROS = @json($numerosNotas ?? []);
+
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
+
+    // ── Autocomplete del filtro "N° de nota" ──────────────────────────────
+    // Filtra la lista pre-cargada por prefijo + substring (case-insensitive) y
+    // muestra hasta 8 sugerencias debajo del input. Clic en una → completa el
+    // valor y dispara trLoad. Se cierra al perder foco (con un timeout pequeño
+    // para que el click en la sugerencia llegue primero).
+    window.trSearchInput = function () {
+        var input = el('trSearch');
+        var box   = el('trSearchSuggest');
+        if (!input || !box) return;
+        var q = String(input.value || '').trim().toUpperCase();
+        // Filtrar: prefijo primero, luego substring; máximo 8.
+        var matches = TR_NUMEROS.filter(function (n) {
+            return q === '' || String(n).toUpperCase().indexOf(q) !== -1;
+        }).slice(0, 8);
+
+        if (matches.length === 0) {
+            box.innerHTML = '<div class="tr-suggest-empty">Sin coincidencias</div>';
+        } else {
+            box.innerHTML = matches.map(function (n) {
+                var safe = String(n).replace(/'/g, "\\'");
+                return '<div class="tr-suggest-item" onclick="window.trSearchPick(\'' + safe + '\')">' + n + '</div>';
+            }).join('');
+        }
+        box.classList.add('open');
+
+        // Re-arma el debounce de trLoad (para el caso de que el usuario escriba
+        // texto libre que no coincide con ningún N° pre-cargado pero quiera filtrar).
+        clearTimeout(window._trST);
+        window._trST = setTimeout(window.trLoad, 400);
+    };
+
+    window.trSearchPick = function (numero) {
+        var input = el('trSearch'); if (!input) return;
+        input.value = numero;
+        var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
+        clearTimeout(window._trST);
+        window.trLoad();
+    };
 
     function params(pageUrl) {
         // El backend filtra siempre a "por recibir" (ENVIADO en almacenes visibles).
