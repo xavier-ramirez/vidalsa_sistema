@@ -45,7 +45,13 @@ class TraspasoController extends Controller
      * (TIPO=TRASPASO_ENTRADA / TRASPASO_SALIDA en el kardex).
      *
      * Filtros del UI: estado (raramente útil porque siempre será ENVIADO),
-     *                 id_almacen_origen, id_almacen_destino, search (NUMERO), desde, hasta.
+     *                 id_almacen_origen, id_almacen_destino, desde, hasta.
+     *                 search          → busca por NUMERO de la nota de entrega (TR-2026-…)
+     *                 search_producto → busca por DESCRIPCIÓN o CÓDIGO/SERIAL del material
+     *                                   (al menos UNA línea del traspaso debe coincidir).
+     *                                   Mismo patrón que /admin/almacen y la bitácora de
+     *                                   movimientos: scan en productos_inventario.NOMBRE
+     *                                   y productos_inventario.CODIGO con LIKE %term%.
      */
     public function index(Request $request)
     {
@@ -72,6 +78,18 @@ class TraspasoController extends Controller
         }
         if ($request->filled('search')) {
             $q->where('NUMERO', 'like', '%' . trim((string) $request->input('search')) . '%');
+        }
+        // Filtro por material (descripción o código/serial). Se aplica a través de las líneas
+        // del traspaso: el traspaso aparece si AL MENOS UNA línea referencia un producto cuyo
+        // NOMBRE o CODIGO coincide. Patrón whereHas anidado idéntico al de la bitácora de
+        // movimientos (AlmacenController::movimientos), lo que garantiza consistencia entre
+        // los buscadores de producto del módulo de almacén.
+        if ($request->filled('search_producto')) {
+            $term = trim((string) $request->input('search_producto'));
+            $q->whereHas('lineas.producto', function ($p) use ($term) {
+                $p->where('CODIGO', 'like', "%{$term}%")
+                  ->orWhere('NOMBRE', 'like', "%{$term}%");
+            });
         }
         if ($request->filled('desde')) {
             $q->whereDate('FECHA_ENVIO', '>=', $request->input('desde'))

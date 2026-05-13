@@ -106,7 +106,7 @@
         <table class="lineas-detalle">
             <thead>
                 <tr>
-                    <th style="width:36%;">Producto</th>
+                    <th style="width:36%;">Descripción del producto</th>
                     <th style="width:14%;text-align:right;">Enviado</th>
                     @if($puedeRecibir || $traspaso->esRecibido() || $traspaso->esCancelado())
                         <th style="width:14%;text-align:right;">{{ $puedeRecibir ? 'Recibido (editable)' : 'Recibido' }}</th>

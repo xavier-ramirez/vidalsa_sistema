@@ -4,13 +4,14 @@
 
 @section('content')
 @php
-    $reqEstado  = request('estado');
-    $reqOrigen  = request('id_almacen_origen');
-    $reqDestino = request('id_almacen_destino');
-    $reqSearch  = request('search');
-    $reqDesde   = request('desde');
-    $reqHasta   = request('hasta');
-    $hayAdv     = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all') || ($reqDestino && $reqDestino !== 'all');
+    $reqEstado     = request('estado');
+    $reqOrigen     = request('id_almacen_origen');
+    $reqDestino    = request('id_almacen_destino');
+    $reqSearch     = request('search');           // por NUMERO de nota de entrega
+    $reqSearchProd = request('search_producto');  // por descripción o código/serial del material
+    $reqDesde      = request('desde');
+    $reqHasta      = request('hasta');
+    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all') || ($reqDestino && $reqDestino !== 'all');
 
     $badgesEstado = [
         'BORRADOR'         => ['Borrador',         '#f1f5f9', '#64748b'],
@@ -26,23 +27,16 @@
         <h1 class="page-title" style="margin:0;">
             <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
         </h1>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            {{-- No hay botón "Nuevo envío" aquí: los envíos se inician desde el inventario
-                 (/admin/almacen → "Enviar a otro almacén"). Esta pantalla es para CONFIRMAR
-                 lo que llega + ver el historial + registrar entradas directas (compras). --}}
-            @can('almacen.movimiento')
-            <button type="button" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;"
-                    onclick="window.entAbrirModal()">
-                <i class="material-icons" style="font-size:18px;">add_box</i><span>Registrar entrada directa</span>
-            </button>
-            @endcan
-            <a href="{{ route('almacen.movimientos', ['tipo' => 'ENTRADA']) }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#fff;color:#0067b1;border:1px solid #0067b1;box-shadow:none;" title="Ver TODAS las entradas en la bitácora">
-                <i class="material-icons" style="font-size:18px;">receipt_long</i><span class="desktop-text">Bitácora</span>
-            </a>
-            <a href="{{ route('almacen.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
-                <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Inventario</span>
-            </a>
-        </div>
+        @can('almacen.movimiento')
+        {{-- Único botón del encabezado: registrar una entrada directa (compras / devoluciones
+             que no vienen de otro almacén). Los envíos se inician desde el inventario
+             (/admin/almacen → "Enviar a otro almacén"). La navegación a Bitácora e Inventario
+             ya está disponible en el menú principal del sistema. --}}
+        <button type="button" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;"
+                onclick="window.entAbrirModal()">
+            <i class="material-icons" style="font-size:18px;">add_box</i><span>Registrar entrada directa</span>
+        </button>
+        @endcan
     </div>
 </section>
 
@@ -67,24 +61,25 @@
 
 <div class="admin-card" style="margin:0;min-height:70vh;padding:14px;">
 
-    {{-- Encabezado de la bandeja: el módulo Recepción ahora SOLO muestra "Por recibir"
-         (envíos en tránsito esperando confirmación del destino). El historial completo
-         de traspasos ya recibidos/cancelados se ve en "Historial de Movimientos" del nav. --}}
-    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 10px 0;border-bottom:2px solid #e2e8f0;margin-bottom:14px;">
-        <i class="material-icons" style="font-size:22px;color:#0067b1;">inbox</i>
-        <h2 style="margin:0;font-size:15px;font-weight:800;color:#0f172a;letter-spacing:.2px;">Por recibir</h2>
-        @if(($contPorRecibir ?? 0) > 0)
-            <span style="background:#ef4444;color:#fff;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;min-width:20px;text-align:center;">{{ $contPorRecibir }}</span>
-        @endif
-    </div>
-
-    {{-- ── Filtros (search + filtros avanzados estilo equipos) ── --}}
+    {{-- ── Filtros (dos search boxes + filtros avanzados estilo equipos) ──
+         1) trSearch       → por NUMERO de la nota de entrega (TR-2026-…)
+         2) trSearchProd   → por DESCRIPCIÓN o CÓDIGO/SERIAL de algún material de la nota
+                             (muestra el traspaso si al menos UNA línea coincide).
+         Comparten un mismo estilo (.tr-search-box) y el placeholder hace explícito
+         qué hace cada uno para evitar confusión. --}}
     <div id="trFilters">
         <div class="tr-item tr-search">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por número (TR-2026-…)…" value="{{ $reqSearch }}"
+                <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por número de nota (TR-2026-…)…" value="{{ $reqSearch }}"
                        oninput="clearTimeout(window._trST); window._trST = setTimeout(window.trLoad, 400);">
+            </div>
+        </div>
+        <div class="tr-item tr-search">
+            <div class="tr-search-box {{ $reqSearchProd ? 'active' : '' }}">
+                <i class="material-icons lupa">search</i>
+                <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar material (descripción o código/serial)…" value="{{ $reqSearchProd }}"
+                       oninput="clearTimeout(window._trSPT); window._trSPT = setTimeout(window.trLoad, 400);">
             </div>
         </div>
 
@@ -180,6 +175,7 @@
         // Aquí solo mandamos los filtros del UI (search/estado/origen/destino/fechas).
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
+        if (v('trSearchProd'))                             p.set('search_producto', v('trSearchProd'));
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
         if (v('trOrigen')  && v('trOrigen')  !== 'all')    p.set('id_almacen_origen', v('trOrigen'));
         if (v('trDestino') && v('trDestino') !== 'all')    p.set('id_almacen_destino', v('trDestino'));
@@ -285,7 +281,7 @@
             <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:12px;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;">
                     <thead><tr style="background:#f8fafc;">
-                        <th style="text-align:left;padding:7px 10px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;">Producto</th>
+                        <th style="text-align:left;padding:7px 10px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;">Descripción del producto</th>
                         <th style="text-align:right;padding:7px 10px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase;width:130px;">Cantidad</th>
                         <th style="width:42px;"></th>
                     </tr></thead>
