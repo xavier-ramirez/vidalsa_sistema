@@ -142,6 +142,7 @@ class UserController extends Controller
             'almacen.view.all'    => 'Almacén: ver todos los almacenes (global)',
             'almacen.manage'      => 'Almacén: crear/editar almacenes y productos',
             'almacen.movimiento'  => 'Almacén: registrar entradas/salidas/ajustes/traspasos',
+            'traspaso.recibir'    => 'Recepción: confirmar la llegada de traspasos en el almacén destino',
             'super.admin'         => 'Acceso Total (Super Admin)',
         ];
     }

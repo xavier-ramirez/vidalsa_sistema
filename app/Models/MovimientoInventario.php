@@ -77,11 +77,6 @@ class MovimientoInventario extends Model
         return $this->belongsTo(Usuario::class, 'ID_USUARIO', 'ID_USUARIO');
     }
 
-    public function movimientoRelacionado()
-    {
-        return $this->belongsTo(self::class, 'ID_MOVIMIENTO_RELACIONADO', 'ID_MOVIMIENTO');
-    }
-
     /** Pedido de Traspaso padre (cuando este movimiento es TRASPASO_SALIDA / TRASPASO_ENTRADA). */
     public function traspaso()
     {

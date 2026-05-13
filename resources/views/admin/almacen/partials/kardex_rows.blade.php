@@ -26,17 +26,20 @@
                 : ($entra ? '+' : '−');
             $mag = $m->TIPO === 'AJUSTE' ? abs((float) $m->CANTIDAD_RESULTANTE - (float) $m->CANTIDAD_ANTERIOR) : (float) $m->CANTIDAD;
         @endphp
-        <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="white-space:nowrap;color:#475569;font-size:12.5px;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
+        <tr>
+            <td style="white-space:nowrap;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
             <td style="white-space:nowrap;">
+                {{-- La pill mantiene su color de fondo y texto propios (visualmente distingue ENTRADA / SALIDA / etc.). --}}
                 <span style="display:inline-flex;align-items:center;gap:4px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;">
                     <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>
-            <td><span style="font-family:monospace;font-weight:700;color:#0f172a;">{{ $m->producto?->CODIGO }}</span> <span style="color:#475569;">{{ $m->producto?->NOMBRE }}</span></td>
-            <td style="text-align:right;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#94a3b8;font-weight:600;">{{ $m->producto?->UM }}</span></td>
-            <td style="text-align:right;color:#64748b;font-size:12.5px;white-space:nowrap;">{{ $fmt($m->CANTIDAD_ANTERIOR) }} → <strong style="color:#1e293b;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</strong></td>
-            <td style="color:#475569;font-size:12.5px;">
+            {{-- Producto: solo el NOMBRE (sin CODIGO al inicio que se veía repetido cuando los nombres
+                 importados ya incluían el código como prefijo). El código queda como tooltip por si lo necesitan. --}}
+            <td title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;">{{ $m->producto?->NOMBRE ?? '—' }}</td>
+            <td style="text-align:right;font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;">{{ $m->producto?->UM }}</span></td>
+            <td style="text-align:right;white-space:nowrap;">{{ $fmt($m->CANTIDAD_ANTERIOR) }} → <strong>{{ $fmt($m->CANTIDAD_RESULTANTE) }}</strong></td>
+            <td>
                 {{-- Mostrar el FRENTE primero (es lo que el operario eligió como destino real);
                      si no hay frente (traspasos legacy o movimientos sin frente), caer al almacén contraparte. --}}
                 @if($m->frente)
@@ -47,8 +50,10 @@
                     —
                 @endif
             </td>
-            <td style="color:#64748b;font-size:12px;">{{ trim(($m->REFERENCIA ? '#'.$m->REFERENCIA.' ' : '').($m->MOTIVO ?? '')) ?: '—' }}</td>
-            <td style="color:#94a3b8;font-size:12px;white-space:nowrap;">{{ $m->usuario?->NOMBRE_COMPLETO ?? '—' }}</td>
+            {{-- Ref: solo el número de referencia/documento (antes mezclaba REFERENCIA + MOTIVO). El MOTIVO
+                 sigue grabado en BD; si se necesita verlo, se agrega columna o tooltip aparte. --}}
+            <td title="{{ $m->MOTIVO ?? '' }}">{{ $m->REFERENCIA ?: '—' }}</td>
+            <td style="white-space:nowrap;">{{ $m->usuario?->NOMBRE_COMPLETO ?? '—' }}</td>
         </tr>
     @endforeach
 @endif

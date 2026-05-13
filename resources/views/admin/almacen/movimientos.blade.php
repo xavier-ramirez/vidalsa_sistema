@@ -24,7 +24,8 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+    {{-- Filtro de almacén PEGADO al título (sin justify-content:space-between que lo lanzaba al otro extremo). --}}
+    <div style="display:flex;justify-content:flex-start;align-items:center;gap:18px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
             <span class="page-title-line2" style="color:#000;">Bitácora de Movimientos de Inventario</span>
         </h1>
@@ -68,10 +69,20 @@
     .amf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
     .amf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
     .amf-adv-btn { height:45px; width:45px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:12px; box-shadow:none; }
-    .alm-mov-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .alm-mov-table thead th { text-align:left; color:#64748b; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; padding:9px 10px; border-bottom:2px solid #e2e8f0; background:#f8fafc; white-space:nowrap; }
-    .alm-mov-table tbody td { padding:9px 10px; }
-    .alm-mov-table tbody tr:hover { background:#f8fafc; }
+    /* Tabla con el MISMO look que /admin/equipos (.table-row-header + .table-header-custom):
+       thead oscuro con texto blanco/uppercase, body con texto negro y mismo padding. */
+    .alm-mov-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
+    .alm-mov-table thead tr { background:#1e293b; color:#fff; }
+    .alm-mov-table thead th {
+        text-align:left; color:#fff; font-size:13px; font-weight:700;
+        text-transform:uppercase; letter-spacing:1px;
+        padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a;
+        white-space:nowrap;
+    }
+    .alm-mov-table thead th:last-child { border-right:none; }
+    .alm-mov-table tbody td { padding:12px 15px; color:#000; font-size:14px; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
+    .alm-mov-table tbody td:last-child { border-right:none; }
+    .alm-mov-table tbody tr:hover td { background:#e0f2fe; }
     .amf-stat-pill { display:none; }
     @media (max-width: 900px) {
         #almMovFilters .amf-item, #almMovFilters .amf-search { max-width:none; flex:1 1 100%; }
@@ -192,14 +203,14 @@
         <table class="alm-mov-table">
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
+                    <th style="width:90px;">Fecha</th>
+                    <th style="width:130px;">Tipo</th>
                     <th>Producto</th>
-                    <th style="text-align:right;">Cantidad</th>
-                    <th style="text-align:right;">Saldo (antes → después)</th>
-                    <th>Destino / contraparte</th>
-                    <th>Ref / motivo</th>
-                    <th>Usuario</th>
+                    <th style="text-align:right;width:120px;">Cantidad</th>
+                    <th style="text-align:right;width:190px;">Saldo (antes → después)</th>
+                    <th style="width:180px;">Destino / contraparte</th>
+                    <th style="width:120px;">Ref</th>
+                    <th style="width:140px;">Usuario</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">

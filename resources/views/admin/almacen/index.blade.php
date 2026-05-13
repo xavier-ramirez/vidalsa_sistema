@@ -147,7 +147,8 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+    {{-- Filtro de almacén PEGADO al título (sin justify-content:space-between que lo lanzaba al otro extremo). --}}
+    <div style="display:flex;justify-content:flex-start;align-items:center;gap:18px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
             <span class="page-title-line2" style="color:#000;">Inventario de Almacén</span>
         </h1>

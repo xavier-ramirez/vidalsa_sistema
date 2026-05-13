@@ -54,11 +54,6 @@ class ProductoInventario extends Model
         return $q->where('ESTATUS', 'ACTIVO');
     }
 
-    public function scopeCategoria(Builder $q, string $categoria): Builder
-    {
-        return $q->where('CATEGORIA', $categoria);
-    }
-
     /** Búsqueda libre por código o nombre (usado por el endpoint JSON de productos). */
     public function scopeBuscar(Builder $q, ?string $term): Builder
     {
