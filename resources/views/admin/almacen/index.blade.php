@@ -794,8 +794,13 @@
     var ROUTE_LOTE      = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD      = @json(route('almacen.productos.store'));
     var ROUTE_RECEPCION = @json(route('almacen.recepcion.store')); // crear+enviar Pedido de Traspaso en un paso
-    // Catálogo de productos (CODIGO/NOMBRE/UM) — lo usan las sugerencias del filtro "Buscar" y los selects del modal de movimientos.
+    // Catálogo de productos (CODIGO/NOMBRE/UM) — lista global, alimenta los selects de los modales
+    // (Nuevo/Editar producto, modal de salida con productos seleccionados, etc.).
     window.almProductosLista = @json($productosLista ?? collect());
+    // Mapa { ID_ALMACEN: [ID_PRODUCTO, ...] } — productos que SÍ tienen fila en `almacen_stock`
+    // para cada almacén. Lo usan las sugerencias del filtro "Buscar" para acotar a productos
+    // que realmente aparecerán en la tabla (la tabla usa INNER JOIN con almacen_stock).
+    window.almProductosEnAlmacen = @json($productosEnAlmacen ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
     // Mapa { ID_FRENTE: ["CTR-2026-0042", ...] } para sugerir contratos en el modal "Registrar salida".
@@ -903,31 +908,60 @@
         if (!inp || !box) return;
         var term = almNorm(inp.value.trim());
         var lista = window.almProductosLista || [];
-        var matches;
+
+        // IDs de productos que SI estan en el almacen seleccionado (set para lookup O(1)).
+        // Si no hay almacen seleccionado o no tenemos info, se omite el filtro (mostrar todo).
+        var idAlm = el('almSelAlmacen') ? el('almSelAlmacen').value : '';
+        var idsArr = idAlm ? ((window.almProductosEnAlmacen || {})[idAlm] || null) : null;
+        var idsSet = null;
+        if (idsArr && idsArr.length !== undefined) {
+            idsSet = {};
+            for (var k = 0; k < idsArr.length; k++) idsSet[idsArr[k]] = true;
+        }
+        function enEsteAlmacen(p) { return idsSet === null || !!idsSet[p.ID_PRODUCTO]; }
+
+        // Recorremos la lista una vez y clasificamos: matches en este almacén vs solo catálogo.
+        var matches = [];        // coinciden con el término Y estan en este almacén → se muestran
+        var soloCatalogo = 0;    // coinciden con el término PERO no estan en este almacén → contador
         if (term === '') {
-            matches = lista.slice(0, 12); // foco sin texto → primeros productos
-        } else {
-            matches = [];
             for (var i = 0; i < lista.length && matches.length < 12; i++) {
-                var p = lista[i];
-                if (almNorm(p.CODIGO).indexOf(term) > -1 || almNorm(p.NOMBRE).indexOf(term) > -1) matches.push(p);
+                if (enEsteAlmacen(lista[i])) matches.push(lista[i]);
+            }
+        } else {
+            for (var j = 0; j < lista.length; j++) {
+                var p = lista[j];
+                if (almNorm(p.CODIGO).indexOf(term) === -1 && almNorm(p.NOMBRE).indexOf(term) === -1) continue;
+                if (enEsteAlmacen(p)) {
+                    if (matches.length < 12) matches.push(p);
+                } else {
+                    soloCatalogo++;
+                }
             }
         }
+
         if (!matches.length) {
-            box.innerHTML = '<div class="alm-suggest-empty">Sin coincidencias.</div>';
+            // Distinguimos los dos casos para que el usuario entienda por qué la tabla queda vacía:
+            //  • "Sin coincidencias"           → el término no matchea ningún producto del sistema.
+            //  • "Existen pero sin saldo aquí" → el catálogo tiene matches pero no en este almacén.
+            box.innerHTML = soloCatalogo > 0
+                ? '<div class="alm-suggest-empty">Existe en el catálogo, pero <strong>no tiene movimientos en este almacén</strong>.<br><span style="font-size:11.5px;color:#94a3b8;">Registra una entrada (Recepción) o un traspaso para que aparezca aquí.</span></div>'
+                : '<div class="alm-suggest-empty">Sin coincidencias.</div>';
         } else {
-            // Mostrar SOLO el NOMBRE — antes salía CODIGO en bold + NOMBRE normal, que se veía
-            // como "dos líneas repetidas" cuando los productos importados ya tenían el código en
-            // el nombre. El código sigue funcionando para buscar (filtro almNorm en CODIGO arriba).
-            // data-pick guarda el NOMBRE (no el código), así clic-en-sugerencia deja en el input
-            // un texto legible y, si el usuario escribe encima, el LIKE %term% del backend sigue
-            // matcheando — patrón "buscador" estilo /admin/equipos.
-            box.innerHTML = matches.map(function (p) {
+            // Mostrar SOLO el NOMBRE; data-pick guarda el NOMBRE para que escribir encima del
+            // texto pegado siga produciendo coincidencias via LIKE %term% del backend.
+            var html = matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
                 return '<div class="alm-suggest-item" data-pick="' + nom + '" title="' + cod + '">'
                      + '<span class="nom">' + nom + '</span></div>';
             }).join('');
+            // Pie informativo: si hay matches del catálogo no listados (porque no estan en este
+            // almacén), avisamos para que el usuario sepa que existen más opciones globalmente.
+            if (soloCatalogo > 0) {
+                html += '<div class="alm-suggest-empty" style="border-top:1px solid #f1f5f9;margin-top:4px;padding-top:8px;">'
+                      + '<span style="font-size:11.5px;color:#94a3b8;">+ ' + soloCatalogo + ' producto(s) coinciden pero no están en este almacén.</span></div>';
+            }
+            box.innerHTML = html;
         }
         box.classList.add('open');
     };

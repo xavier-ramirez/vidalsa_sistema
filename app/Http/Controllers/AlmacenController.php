@@ -105,19 +105,30 @@ class AlmacenController extends Controller
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'CONTRATOS']);
 
+        // Mapa { ID_ALMACEN: [ID_PRODUCTO, ...] } con los productos que TIENEN fila en
+        // `almacen_stock` para cada almacén visible. Lo usa el autocompletado del filtro
+        // "Buscar" en /admin/almacen para no sugerir productos que no estan en el almacen
+        // actual (la tabla los filtraria via INNER JOIN y quedaria vacia, lo que confundia).
+        $productosEnAlmacen = AlmacenStock::query()
+            ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
+            ->get(['ID_ALMACEN', 'ID_PRODUCTO'])
+            ->groupBy('ID_ALMACEN')
+            ->map(fn ($rows) => $rows->pluck('ID_PRODUCTO')->values());
+
         // NOTA: $traspasosPorRecibir (banner amarillo + badge del nav menu) NO se calcula aquí —
         // lo provee el View Composer registrado en AppServiceProvider para 'layouts.estructura_base',
         // así el badge aparece desde CUALQUIER página del sistema.
 
         return view('admin.almacen.index', [
-            'almacenes'      => $almacenes,
-            'almacenSel'     => $almacenSel,
-            'productos'      => null,
-            'categorias'     => $categorias,
-            'productosLista' => $productosLista,
-            'frentesLista'   => $frentesLista,
-            'stats'          => $this->statsInventario($idAlmacenSel, $request),
-            'distribucion'   => $this->distribucionPorCategoria($idAlmacenSel, $request),
+            'almacenes'          => $almacenes,
+            'almacenSel'         => $almacenSel,
+            'productos'          => null,
+            'categorias'         => $categorias,
+            'productosLista'     => $productosLista,
+            'productosEnAlmacen' => $productosEnAlmacen,
+            'frentesLista'       => $frentesLista,
+            'stats'              => $this->statsInventario($idAlmacenSel, $request),
+            'distribucion'       => $this->distribucionPorCategoria($idAlmacenSel, $request),
         ]);
     }
 
