@@ -929,16 +929,15 @@
         }
         box.classList.add('open');
     };
-    // Filtrado en vivo (estilo /admin/equipos): cada keystroke refresca sugerencias Y dispara
-    // la búsqueda con debounce. Así el usuario no necesita Enter ni clic en una sugerencia
-    // para ver la tabla filtrada; basta con seguir escribiendo. Si elige una sugerencia, se
-    // pega el nombre y se recarga inmediato (sin debounce).
+    // Escribir SOLO refresca la lista de sugerencias — NO dispara la búsqueda en la tabla.
+    // La tabla se filtra cuando el usuario (a) elige una sugerencia [almBuscarPick],
+    // (b) pulsa Enter [almBuscarEnter], o (c) limpia el campo con la X [almBuscarLimpiar].
+    // El cambio respecto a la versión anterior es que almBuscarPick pega el NOMBRE del
+    // producto en el input (no el código PRD-XXXX), así si el usuario escribe encima del
+    // texto pegado, las sugerencias siguen apareciendo con coincidencias relevantes.
     window.almBuscarInput = function () {
         window.almBuscarSuggest();
-        almDebounce(almCargar);
     };
-    // Enter sigue disponible como atajo: ejecuta la búsqueda inmediatamente (cancela el
-    // debounce pendiente) y cierra el panel de sugerencias.
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
