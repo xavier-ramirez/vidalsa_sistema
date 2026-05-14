@@ -674,22 +674,18 @@
         </div>
         <div class="alm-modal-body">
 
-            {{-- TRASPASO: almacén destino (mantenido tal cual) --}}
-            <div id="almSalidaDestinoWrap" style="display:none;margin-bottom:12px;">
-                <label>Almacén destino *</label>
-                <select id="almSalidaDestino" onchange="window.almSalidaOnDestinoChange()">
-                    <option value="">— elige un almacén —</option>
-                    @foreach(($almacenes ?? collect()) as $a)
-                        <option value="{{ $a->ID_ALMACEN }}">{{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}</option>
-                    @endforeach
-                </select>
-            </div>
+            {{-- TRASPASO: solo se elige el FRENTE destino. El almacén receptor lo deduce el
+                 backend desde la pivot almacen_frentes (un frente PROYECTO suele tener un
+                 único almacén asignado, propio o compartido entre frentes). --}}
             <div id="almSalidaFrenteWrap" style="display:none;margin-bottom:12px;">
-                <label>Frente que recibe el envío *</label>
+                <label>Frente destino *</label>
                 <select id="almSalidaFrente">
                     <option value="">— elige el frente —</option>
+                    @foreach(($frentesLista ?? collect()) as $f)
+                        <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
+                    @endforeach
                 </select>
-                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Un mismo almacén puede surtir a varios frentes; aquí se registra cuál de ellos recibe este envío.</div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">El sistema usa el almacén asignado a ese frente como destino.</div>
             </div>
 
             {{-- SALIDA: cabecera tipo "Nota de Entrega de Materiales" ────────────────────
@@ -792,12 +788,6 @@
     window.almProductosLista = @json($productosLista ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
-    // Mapa almacén → IDs de frentes asociados (pivot almacen_frentes). Lo usa el modal de
-    // envío/traspaso para pedir QUÉ frente recibe el envío cuando el almacén destino surte
-    // a varios proyectos (p.ej. un almacén local de "DIVISION CARABOBO" que surte a 3 frentes).
-    window.almAlmacenesFrentes = @json(($almacenes ?? collect())->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => ($a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [])]));
-    // Mapa { ID_FRENTE: 'NOMBRE_FRENTE' } para pintar el <select> de frente destino.
-    window.almFrentesNombres = @json(($frentesLista ?? collect())->mapWithKeys(fn ($f) => [$f->ID_FRENTE => $f->NOMBRE_FRENTE]));
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
@@ -1565,13 +1555,10 @@
         if (el('almSalidaTitulo')) el('almSalidaTitulo').textContent = esTraspaso ? 'Enviar a otro almacén' : 'Registrar salida';
         if (el('almSalidaIcon'))   el('almSalidaIcon').textContent   = esTraspaso ? 'swap_horiz' : 'north_east';
         if (el('almSalidaSubmit')) el('almSalidaSubmit').textContent = esTraspaso ? 'Enviar' : 'Registrar salida';
-        // Bloques condicionales: TRASPASO muestra destino+frente, SALIDA muestra Nota de Entrega.
-        var dw = el('almSalidaDestinoWrap'); if (dw) dw.style.display = esTraspaso ? 'block' : 'none';
-        var nw = el('almSalidaNotaWrap');    if (nw) nw.style.display = esTraspaso ? 'none'  : 'block';
-        var ds = el('almSalidaDestino');
-        if (ds) { ds.value = ''; Array.prototype.forEach.call(ds.options, function (o) { o.disabled = (!!o.value && o.value === ALM_SAL.idAlmacen); }); }
-        // Reset del picker de frente destino (sólo se muestra en TRASPASO cuando el almacén destino tiene frentes asociados)
-        var fw = el('almSalidaFrenteWrap'); if (fw) fw.style.display = 'none';
+        // Bloques condicionales: TRASPASO muestra solo "Frente destino"; SALIDA muestra Nota de Entrega.
+        // El almacén receptor del traspaso se deduce en el backend desde el frente elegido.
+        var fw = el('almSalidaFrenteWrap'); if (fw) fw.style.display = esTraspaso ? 'block' : 'none';
+        var nw = el('almSalidaNotaWrap');   if (nw) nw.style.display = esTraspaso ? 'none'  : 'block';
         var fs = el('almSalidaFrente'); if (fs) fs.value = '';
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
         ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
@@ -1597,30 +1584,6 @@
         open('almSalidaModal');
         setTimeout(function () { var f = el('almSalidaLineas') ? el('almSalidaLineas').querySelector('.alm-sal-cant') : null; if (f) f.focus(); }, 60);
     };
-    // Cuando cambias el almacén destino, repoblamos el dropdown de "Frente destino" con
-    // los frentes asociados a ese almacén (pivot `almacen_frentes`):
-    //  • 0 frentes (almacén GENERAL principal) → el picker queda oculto, no se pide.
-    //  • 1 frente  → se preselecciona automáticamente y el picker se queda visible (informativo).
-    //  • 2+        → el operario tiene que elegir cuál de los proyectos recibe el envío.
-    window.almSalidaOnDestinoChange = function () {
-        var fw = el('almSalidaFrenteWrap'), fs = el('almSalidaFrente'), ds = el('almSalidaDestino');
-        if (!fw || !fs || !ds) return;
-        var idDest  = ds.value;
-        var frentes = (window.almAlmacenesFrentes || {})[idDest] || [];
-        var nombres = window.almFrentesNombres || {};
-        // Reconstruir las opciones.
-        fs.innerHTML = '<option value="">— elige el frente —</option>';
-        frentes.forEach(function (fid) {
-            var opt = document.createElement('option');
-            opt.value = fid;
-            opt.textContent = nombres[fid] || ('Frente #' + fid);
-            fs.appendChild(opt);
-        });
-        if (frentes.length === 0) { fw.style.display = 'none'; fs.value = ''; }
-        else if (frentes.length === 1) { fw.style.display = 'block'; fs.value = String(frentes[0]); }
-        else { fw.style.display = 'block'; fs.value = ''; }
-        showErr('almSalidaError', '');
-    };
     window.almSalidaQuitar = function (btn, id) {
         var tr = btn.closest('tr'); if (tr) tr.remove();
         delete almSeleccion[id];
@@ -1631,17 +1594,11 @@
     };
     window.almSalidaConfirmar = function () {
         var esTraspaso = ALM_SAL.tipo === 'TRASPASO';
-        var idDest = el('almSalidaDestino') ? el('almSalidaDestino').value : '';
         var idFrenteDest = (esTraspaso && el('almSalidaFrente')) ? el('almSalidaFrente').value : '';
         if (esTraspaso) {
-            if (!idDest) { showErr('almSalidaError', 'Elige el almacén destino.'); return; }
-            if (idDest === ALM_SAL.idAlmacen) { showErr('almSalidaError', 'El destino debe ser distinto del almacén de origen.'); return; }
-            // Si el almacén destino tiene frentes asociados, el operario DEBE indicar a cuál se envía.
-            var frentesDest = (window.almAlmacenesFrentes || {})[idDest] || [];
-            if (frentesDest.length > 0 && !idFrenteDest) {
-                showErr('almSalidaError', 'Elige a qué frente del almacén destino se envía.');
-                return;
-            }
+            if (!idFrenteDest) { showErr('almSalidaError', 'Elige el frente destino.'); return; }
+            // El almacén destino lo resuelve el backend desde el frente; si el frente no
+            // tiene almacén asignado o tiene varios, el server responde 422 con mensaje claro.
         }
         var lineas = [], faltan = [];
         (el('almSalidaLineas') ? el('almSalidaLineas').querySelectorAll('tr') : []).forEach(function (tr) {
@@ -1661,14 +1618,13 @@
         // SALIDA: registra movimientos atómicos (lote) en este almacén.
         // TRASPASO: crea un Pedido de Traspaso en estado ENVIADO en un solo paso (enviar_ahora=true).
         //   Resta del origen ahora; el destino tiene que confirmar en /admin/almacen/recepcion.
-        //   Payload distinto que el endpoint viejo: id_almacen_origen/destino, no tipo.
+        //   Solo se manda id_frente_destino; el backend deduce id_almacen_destino desde la pivot.
         var url, payload;
         if (esTraspaso) {
             url = ROUTE_RECEPCION;
             payload = {
                 id_almacen_origen:  parseInt(ALM_SAL.idAlmacen, 10),
-                id_almacen_destino: parseInt(idDest, 10),
-                id_frente_destino:  idFrenteDest ? parseInt(idFrenteDest, 10) : null,
+                id_frente_destino:  parseInt(idFrenteDest, 10),
                 motivo:             motivo || null,
                 lineas:             lineas,
                 enviar_ahora:       true,

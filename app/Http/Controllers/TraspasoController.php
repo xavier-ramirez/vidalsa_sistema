@@ -133,6 +133,19 @@ class TraspasoController extends Controller
     public function store(Request $request)
     {
         $data = $this->validarCabecera($request);
+
+        // Resolución del almacén destino:
+        //  - Si el cliente lo manda explícito (id_almacen_destino), se respeta.
+        //  - Si solo se manda id_frente_destino (flujo nuevo desde /admin/almacen),
+        //    se deduce el almacén PROYECTO asociado al frente vía pivot almacen_frentes.
+        //    El usuario solo elige el frente y el sistema sabe a qué almacén llega.
+        if (empty($data['id_almacen_destino'])) {
+            $data['id_almacen_destino'] = $this->resolverAlmacenDestinoPorFrente(
+                (int) $data['id_frente_destino'],
+                (int) $data['id_almacen_origen'],
+            );
+        }
+
         $this->assertPuedeOperarOrigen($request, (int) $data['id_almacen_origen']);
         $this->assertPuedeOperarDestino($request, (int) $data['id_almacen_destino']);
 
@@ -315,10 +328,14 @@ class TraspasoController extends Controller
 
     private function validarCabecera(Request $request, bool $parcial = false): array
     {
+        // id_almacen_destino e id_frente_destino son nullable individualmente, pero al menos
+        // UNO de los dos debe venir (required_without). El flujo nuevo desde el inventario
+        // solo manda el frente y el controller deduce el almacén; el flujo legacy/admin
+        // puede seguir mandando ambos explícitos.
         $reglas = [
             'id_almacen_origen'  => ['required','integer','exists:almacenes,ID_ALMACEN'],
-            'id_almacen_destino' => ['required','integer','exists:almacenes,ID_ALMACEN','different:id_almacen_origen'],
-            'id_frente_destino'  => ['nullable','integer','exists:frentes_trabajo,ID_FRENTE'],
+            'id_almacen_destino' => ['nullable','required_without:id_frente_destino','integer','exists:almacenes,ID_ALMACEN','different:id_almacen_origen'],
+            'id_frente_destino'  => ['nullable','required_without:id_almacen_destino','integer','exists:frentes_trabajo,ID_FRENTE'],
             'referencia'         => ['nullable','string','max:100'],
             'motivo'             => ['nullable','string','max:200'],
             'notas'              => ['nullable','string'],
@@ -326,9 +343,36 @@ class TraspasoController extends Controller
         if ($parcial) {
             // En update, la cabecera (origen) no puede cambiar — solo destino/frente/notas.
             $reglas['id_almacen_origen']  = 'sometimes';
-            $reglas['id_almacen_destino'] = ['sometimes','integer','exists:almacenes,ID_ALMACEN'];
+            $reglas['id_almacen_destino'] = ['sometimes','nullable','integer','exists:almacenes,ID_ALMACEN'];
+            $reglas['id_frente_destino']  = ['sometimes','nullable','integer','exists:frentes_trabajo,ID_FRENTE'];
         }
         return $request->validate($reglas);
+    }
+
+    /**
+     * Dado un frente destino, devuelve el ID del almacén que recibe la mercancía.
+     *
+     * Reglas:
+     *  - Solo se consideran almacenes PROYECTO ACTIVOS asociados al frente vía
+     *    el pivote `almacen_frentes`. Los almacenes GENERAL son surtidores, no
+     *    receptores naturales de envíos a un frente.
+     *  - El almacén origen se excluye (no tiene sentido enviarse a sí mismo).
+     *  - Debe quedar exactamente UN candidato. Cero → el frente no tiene almacén
+     *    asignado; más de uno → ambigüedad. Ambos casos lanzan 422 con mensaje claro.
+     */
+    private function resolverAlmacenDestinoPorFrente(int $idFrente, int $idAlmacenOrigen): int
+    {
+        $candidatos = Almacen::query()
+            ->where('TIPO', Almacen::TIPO_PROYECTO)
+            ->where('ESTATUS', 'ACTIVO')
+            ->where('ID_ALMACEN', '!=', $idAlmacenOrigen)
+            ->whereHas('frentes', fn ($q) => $q->where('frentes_trabajo.ID_FRENTE', $idFrente))
+            ->pluck('ID_ALMACEN');
+
+        abort_if($candidatos->isEmpty(), 422, 'El frente seleccionado no tiene un almacén asignado distinto del almacén de origen.');
+        abort_if($candidatos->count() > 1, 422, 'El frente seleccionado tiene varios almacenes asignados; no se puede deducir el destino. Pide a un administrador que deje un único almacén PROYECTO por frente.');
+
+        return (int) $candidatos->first();
     }
 
     private function validarLineas(Request $request): array
