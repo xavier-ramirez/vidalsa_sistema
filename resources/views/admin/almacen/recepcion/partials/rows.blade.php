@@ -1,17 +1,9 @@
 {{-- Filas de la tabla de traspasos. $traspasos = paginator de Traspaso con almacenes y usuarioCreo cargados, withCount('lineas'). --}}
-@php
-    $estilos = [
-        'BORRADOR'         => ['Borrador', '#f1f5f9', '#64748b'],
-        'ENVIADO'          => ['Enviado',  '#fef3c7', '#b45309'],
-        'RECIBIDO'         => ['Recibido', '#dcfce7', '#15803d'],
-        'RECIBIDO_PARCIAL' => ['Parcial',  '#fee2e2', '#b91c1c'],
-        'CANCELADO'        => ['Cancelado','#e2e8f0', '#475569'],
-    ];
-@endphp
 
 @forelse($traspasos as $t)
     @php
-        $e = $estilos[$t->ESTADO] ?? ['Desconocido', '#f1f5f9', '#64748b'];
+        // Metadata visual del estado — single source of truth en Traspaso::ESTADOS_META.
+        $e = \App\Models\Traspaso::ESTADOS_META[$t->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
     @endphp
     <tr data-id="{{ $t->ID_TRASPASO }}">
         <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $t->NUMERO }}</td>

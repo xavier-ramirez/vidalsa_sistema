@@ -204,7 +204,7 @@
 
     {{-- ── Banner: envíos por recibir (módulo Recepción) ── --}}
     @if(($traspasosPorRecibir ?? 0) > 0)
-        <a href="{{ route('almacen.recepcion.index', ['tab' => 'por_recibir']) }}"
+        <a href="{{ route('almacen.recepcion.index') }}"
            style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:12px;text-decoration:none;color:#92400e;">
             <span style="display:flex;align-items:center;gap:10px;">
                 <i class="material-icons" style="font-size:22px;color:#b45309;">notifications_active</i>

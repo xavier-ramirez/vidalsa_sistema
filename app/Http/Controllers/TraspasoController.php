@@ -96,13 +96,6 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Contador del encabezado "Por recibir [N]" — total real de envíos pendientes en los
-        // almacenes destino del usuario, INDEPENDIENTE de los filtros del UI (search/fechas).
-        $contPorRecibir = Traspaso::query()
-            ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
-            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)
-            ->count();
-
         // Datos extra para el modal "Registrar entrada directa" (alimenta su <select> de productos
         // y de almacenes destino — son los mismos que el usuario puede ver/operar).
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
@@ -119,9 +112,11 @@ class TraspasoController extends Controller
             ->take(300)
             ->pluck('NUMERO');
 
+        // NOTA: el badge "[N] por recibir" del menú principal lo provee el View Composer
+        // global registrado en AppServiceProvider (en `layouts.estructura_base`), no esta
+        // vista — por eso aquí no se calcula ningún contador adicional.
         return view('admin.almacen.recepcion.index', [
             'traspasos'      => $paginator,
-            'contPorRecibir' => $contPorRecibir,
             'almacenes'      => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
             'productosLista' => $productosLista,
             'numerosNotas'   => $numerosNotas,

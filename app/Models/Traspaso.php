@@ -41,6 +41,25 @@ class Traspaso extends Model
         self::ESTADO_RECIBIDO_PARCIAL,
     ];
 
+    /**
+     * Metadata visual de cada ESTADO para los partials/vistas (label / fondo hex / texto hex).
+     * Single source of truth — antes vivía duplicada en `recepcion/index.blade.php`,
+     * `recepcion/detalle.blade.php` y `recepcion/partials/rows.blade.php` (3 sitios).
+     * Mismo patrón que MovimientoInventario::TIPO_META.
+     *
+     * Formato: [LABEL_HUMANO, COLOR_FONDO_HEX, COLOR_TEXTO_HEX]
+     */
+    public const ESTADOS_META = [
+        self::ESTADO_BORRADOR         => ['Borrador',  '#f1f5f9', '#64748b'],
+        self::ESTADO_ENVIADO          => ['Enviado',   '#fef3c7', '#b45309'],
+        self::ESTADO_RECIBIDO         => ['Recibido',  '#dcfce7', '#15803d'],
+        self::ESTADO_RECIBIDO_PARCIAL => ['Parcial',   '#fee2e2', '#b91c1c'],
+        self::ESTADO_CANCELADO        => ['Cancelado', '#e2e8f0', '#475569'],
+    ];
+
+    /** Fallback cuando el ESTADO no figura en ESTADOS_META (defensivo, igual que TIPO_META_DEFAULT). */
+    public const ESTADO_META_DEFAULT = ['—', '#f1f5f9', '#64748b'];
+
     protected $fillable = [
         'NUMERO',
         'ID_ALMACEN_ORIGEN',

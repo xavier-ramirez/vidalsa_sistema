@@ -15,13 +15,8 @@
     // header (no en el panel) — su estado se refleja en el dropdown del header, no aquí.
     $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all');
 
-    $badgesEstado = [
-        'BORRADOR'         => ['Borrador',         '#f1f5f9', '#64748b'],
-        'ENVIADO'          => ['Enviado',          '#fef3c7', '#b45309'],
-        'RECIBIDO'         => ['Recibido',         '#dcfce7', '#15803d'],
-        'RECIBIDO_PARCIAL' => ['Parcial',          '#fee2e2', '#b91c1c'],
-        'CANCELADO'        => ['Cancelado',        '#e2e8f0', '#475569'],
-    ];
+    // Metadata visual de los estados — definida en \App\Models\Traspaso::ESTADOS_META.
+    $badgesEstado = \App\Models\Traspaso::ESTADOS_META;
 @endphp
 
 @php
