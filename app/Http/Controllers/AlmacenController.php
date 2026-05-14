@@ -376,7 +376,8 @@ class AlmacenController extends Controller
     {
         $request->validate([
             'id_producto'     => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'cantidad_minima' => 'nullable|numeric|min:0',
+            // El mínimo de alerta debe ser > 0 si se especifica. Para "sin alerta" se manda null.
+            'cantidad_minima' => 'nullable|numeric|gt:0',
         ]);
         $this->assertPuedeVerAlmacen($request, $idAlmacen);
 

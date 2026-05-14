@@ -36,9 +36,10 @@
     .alm-table tbody td { padding: 12px 15px; color: #000; font-size: 14px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; vertical-align: middle; }
     .alm-table tbody td:last-child { border-right: none; }
     .alm-table tbody tr:hover td { background: #e0f2fe; }
-    /* Fila con stock bajo: tono naranja sutil, mantiene su realce al hacer hover */
-    .alm-row-bajo td { background: #fff7ed; }
-    .alm-row-bajo:hover td { background: #ffedd5 !important; }
+    /* Fila con stock bajo: tono rojo claro para indicar urgencia. Al hacer hover hereda
+       el azul general como cualquier otra fila (sin sobrescribir con !important — antes
+       quedaba naranja en hover y se sentia inconsistente). */
+    .alm-row-bajo td { background: #fee2e2; }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     .alm-table tbody tr.alm-row-clickable { cursor: pointer; }
     /* En móvil .selected-row-maquinaria es desktop-only, así que damos un realce propio */
@@ -395,7 +396,8 @@
             </div>
             <div>
                 <label>Stock mínimo (alerta)</label>
-                <input type="number" id="almAjMinimo" min="0" step="any" placeholder="Vacío = sin alerta">
+                {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
+                <input type="number" id="almAjMinimo" min="0.001" step="any" placeholder="Vacío = sin alerta">
             </div>
             <div><label>Motivo / observaciones de la auditoría</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Ej: conteo trimestral, merma detectada…"></div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
@@ -1332,8 +1334,10 @@
         var cambiaMinimo = (minimoRaw !== (m.dataset.minimoOrig || ''));
         var nuevoMinimo = null;
         if (cambiaMinimo && minimoRaw !== '') {
+            // El minimo de alerta debe ser > 0 (un minimo de 0 no avisa de nada, equivale
+            // a "sin alerta" — que ya se logra dejando el campo vacio).
             nuevoMinimo = parseFloat(minimoRaw);
-            if (isNaN(nuevoMinimo) || nuevoMinimo < 0) { showErr('almAjError', 'El mínimo debe ser un número ≥ 0 (o vacío).'); return; }
+            if (isNaN(nuevoMinimo) || nuevoMinimo <= 0) { showErr('almAjError', 'El mínimo debe ser un número mayor que 0 (o dejarlo vacío para quitar la alerta).'); return; }
         }
         if (ns === null && !cambiaMinimo) { almCerrar('almAjusteModal'); return; } // nada que hacer
 

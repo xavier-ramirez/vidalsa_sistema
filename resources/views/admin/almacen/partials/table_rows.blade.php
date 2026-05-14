@@ -52,7 +52,9 @@
             <td style="font-weight:600;color:#1e293b;">{{ $p->NOMBRE }}</td>
             <td style="text-align:center;color:#475569;">{{ $p->UM }}</td>
             <td style="color:#475569;">{{ $p->CATEGORIA ?: '—' }}</td>
-            <td style="text-align:center;font-weight:800;font-size:15px;{{ $bajo ? 'color:#dc2626;' : 'color:#0f172a;' }}">
+            {{-- El color del texto siempre es negro (#0f172a). El stock bajo se indica con
+                 el fondo rojo de la fila (.alm-row-bajo) y el icono ⚠ amarillo. --}}
+            <td style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
                 {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
