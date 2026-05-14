@@ -790,7 +790,15 @@ class AlmacenController extends Controller
         $data['NOMBRE'] = mb_strtoupper(trim($data['NOMBRE']));
         if (!empty($data['CODIGO'])) $data['CODIGO'] = mb_strtoupper(trim($data['CODIGO']));
         if (!empty($data['UBICACION'])) $data['UBICACION'] = mb_strtoupper(trim($data['UBICACION']));
-        $data['ESTATUS'] = $data['ESTATUS'] ?? 'ACTIVO';
+        
+        // Evitar reactivar almacenes inactivos al editarlos sin mandar el campo ESTATUS.
+        if ($ignoreId === null) {
+            $data['ESTATUS'] = $data['ESTATUS'] ?? 'ACTIVO';
+        } else {
+            if (empty($data['ESTATUS'])) {
+                unset($data['ESTATUS']);
+            }
+        }
 
         unset($data['frentes']); // se sincroniza aparte
         return $data;
@@ -799,7 +807,10 @@ class AlmacenController extends Controller
     private function validarProducto(Request $request, ?int $ignoreId = null): array
     {
         $data = $request->validate([
-            'CODIGO'    => ['nullable', 'string', 'max:50', Rule::unique('productos_inventario', 'CODIGO')->ignore($ignoreId, 'ID_PRODUCTO')],
+            // CODIGO es VARCHAR(50). Al crearlo manualmente desde la UI sólo se permiten
+            // dígitos (el frontend lo fuerza y aquí validamos con regex). El auto-generado
+            // (PRD-XXXX) nunca pasa por esta validación porque llega null.
+            'CODIGO'    => ['nullable', 'string', 'max:20', 'regex:/^\d+$/', Rule::unique('productos_inventario', 'CODIGO')->ignore($ignoreId, 'ID_PRODUCTO')],
             'NOMBRE'    => 'required|string|max:200',
             'UM'        => 'required|string|max:20',
             'CATEGORIA' => 'nullable|string|max:100',
@@ -807,11 +818,19 @@ class AlmacenController extends Controller
             'NOTAS'     => 'nullable|string',
         ]);
 
-        $data['CODIGO']    = !empty($data['CODIGO']) ? mb_strtoupper(trim($data['CODIGO'])) : null;
+        $data['CODIGO']    = !empty($data['CODIGO']) ? trim($data['CODIGO']) : null;
         $data['NOMBRE']    = mb_strtoupper(trim($data['NOMBRE']));
         $data['UM']        = mb_strtoupper(trim($data['UM']));
         $data['CATEGORIA'] = !empty($data['CATEGORIA']) ? mb_strtoupper(trim($data['CATEGORIA'])) : null;
-        $data['ESTATUS']   = $data['ESTATUS'] ?? 'ACTIVO';
+        
+        // Evitar reactivar productos inactivos al editarlos sin mandar el campo ESTATUS.
+        if ($ignoreId === null) {
+            $data['ESTATUS'] = $data['ESTATUS'] ?? 'ACTIVO';
+        } else {
+            if (empty($data['ESTATUS'])) {
+                unset($data['ESTATUS']);
+            }
+        }
 
         return $data;
     }

@@ -58,6 +58,7 @@
     /* Acciones dentro del modal "Detalles del producto" */
     .alm-det-act { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; font-size:14px; font-weight:600; color:#334155; cursor:default; transition:background .15s, border-color .15s; }
     .alm-det-act:hover { background:#f8fafc; border-color:#cbd5e0; }
+    .dropdown-item-custom:hover { background: #f8fafc !important; }
     .alm-det-ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
 
     /* Modales */
@@ -256,13 +257,6 @@
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
-                    {{-- "Recepción de Materiales" YA NO está aquí: vive en el menú principal de navegación
-                         (Almacén → Recepción de Materiales), donde es accesible desde cualquier pantalla,
-                         no solo desde el inventario. --}}
-                    <a href="{{ route('almacen.movimientos') }}" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;text-decoration:none;cursor:pointer;">
-                        <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">receipt_long</i></div>
-                        <span style="font-size:14px;font-weight:500;">Movimientos de inventario</span>
-                    </a>
                     @if($puedeManage)
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
@@ -291,7 +285,7 @@
                     <th>Descripción del producto</th>
                     <th style="text-align:center;">UND</th>
                     <th>Categoría</th>
-                    <th style="text-align:right;">Stock</th>
+                    <th style="text-align:center;">Stock</th>
                     <th style="text-align:center;width:60px;">Detalles</th>
                 </tr>
             </thead>
@@ -315,7 +309,6 @@
             <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;opacity:0.8;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
                 <i class="material-icons" style="font-size:14px;">pie_chart</i> Consolidado de Inventario
             </div>
-            <div id="almAlmacenNombre" style="font-size:11px;opacity:0.75;margin-bottom:12px;">{{ $almacenSel?->NOMBRE ?? '—' }}</div>
 
             <div style="display:flex;align-items:center;gap:8px;">
                 <div onclick="window.almVerTodo()" title="Quitar filtros"
@@ -337,10 +330,6 @@
                         <span style="font-size:10.5px;opacity:0.9;font-weight:700;text-transform:uppercase;">Stock bajo</span>
                     </div>
                 </div>
-            </div>
-            <div style="margin-top:10px;font-size:11.5px;opacity:0.85;display:flex;align-items:center;gap:6px;">
-                <i class="material-icons" style="font-size:14px;">functions</i>
-                Unidades en almacén: <strong id="almStatsUnidades">{{ rtrim(rtrim(number_format((float)($st['unidades'] ?? 0), 3, '.', ','), '0'), '.') ?: '0' }}</strong>
             </div>
         </div>
     </div>
@@ -395,7 +384,7 @@
         <div class="alm-modal-body">
             <div>
                 <label>Producto</label>
-                <div><span class="alm-pill" id="almAjCodigo"></span> <strong id="almAjNombre" style="font-size:14px;color:#1e293b;"></strong></div>
+                <div><strong id="almAjNombre" style="font-size:12.5px;color:#1e293b;"></strong></div>
                 <div style="font-size:12px;color:#64748b;margin-top:4px;">Saldo actual: <strong id="almAjSaldo">0</strong> <span id="almAjUm"></span></div>
             </div>
             <div>
@@ -426,7 +415,7 @@
      id_producto + id_almacen actual + opcional tipo / desde / hasta.
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="almKardexProductoModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:780px;">
+    <div class="alm-modal" style="max-width:680px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">history</i> Movimientos del producto</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
@@ -435,26 +424,36 @@
             {{-- Cabecera con info del producto + saldo en el almacén actual --}}
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span class="alm-pill" id="almKpCodigo">—</span>
-                <strong id="almKpNombre" style="font-size:13.5px;color:#1e293b;flex:1;min-width:140px;"></strong>
-                <span style="font-size:12px;color:#64748b;">Saldo: <strong id="almKpSaldo" style="color:#0f172a;font-size:14px;">0</strong> <span id="almKpUm" style="font-size:11px;color:#64748b;"></span></span>
+                <strong id="almKpNombre" style="font-size:11.5px;color:#1e293b;flex:1;min-width:140px;"></strong>
+                <span style="font-size:10.5px;color:#64748b;">Stock actual: <strong id="almKpSaldo" style="color:#0f172a;font-size:11.5px;">0</strong> <span id="almKpUm" style="font-size:10px;color:#64748b;"></span></span>
             </div>
 
-            {{-- Filtros: chips de Tipo + rango de fechas. SIN buscador de descripción
-                 porque el modal ya está acotado a un único producto. --}}
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
-                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-right:2px;">Tipo:</span>
-                <button type="button" class="alm-kp-chip alm-kp-chip-on" data-tipo="" onclick="window.almKpChip(this,'')">Todos</button>
-                <button type="button" class="alm-kp-chip" data-tipo="ENTRADA" onclick="window.almKpChip(this,'ENTRADA')">Entradas</button>
-                <button type="button" class="alm-kp-chip" data-tipo="SALIDA" onclick="window.almKpChip(this,'SALIDA')">Salidas</button>
-                <button type="button" class="alm-kp-chip" data-tipo="AJUSTE" onclick="window.almKpChip(this,'AJUSTE')">Auditorías de conteo</button>
-            </div>
+            {{-- Filtros: select Tipo + rango de fechas --}}
+            <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;background:#fff;padding:4px 0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Tipo:</span>
+                    <select id="almKpTipoSelect" onchange="window.almKpChipSelect(this.value)"
+                            style="height:30px;padding:0 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;background:#fff;cursor:pointer;">
+                        <option value="">Todos</option>
+                        <option value="ENTRADA">Entradas</option>
+                        <option value="SALIDA">Salidas</option>
+                        <option value="AJUSTE">Auditorías de conteo</option>
+                    </select>
+                </div>
 
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-right:2px;">Fechas:</span>
-                <input type="date" id="almKpDesde" onchange="window.almKpCargar()" style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;">
-                <span style="color:#94a3b8;">→</span>
-                <input type="date" id="almKpHasta" onchange="window.almKpCargar()" style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;">
-                <button type="button" onclick="window.almKpLimpiar()" style="background:transparent;border:none;color:#64748b;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer;margin-left:auto;">Limpiar</button>
+                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:280px;">
+                    <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Fechas:</span>
+                    <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;">
+                        <input type="date" id="almKpDesde" onchange="window.almKpCargar()"
+                               onclick="try{this.showPicker();}catch(e){}"
+                               style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;cursor:pointer;">
+                        <span style="color:#94a3b8;font-size:14px;">→</span>
+                        <input type="date" id="almKpHasta" onchange="window.almKpCargar()"
+                               onclick="try{this.showPicker();}catch(e){}"
+                               style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;cursor:pointer;">
+                    </div>
+                    <button type="button" onclick="window.almKpLimpiar()" style="background:transparent;border:none;color:#64748b;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer;margin-left:auto;white-space:nowrap;">Limpiar</button>
+                </div>
             </div>
 
             {{-- Tabla compacta: 5 columnas (sin Producto, ya conocido). El thead
@@ -463,10 +462,10 @@
                 <table style="width:100%;border-collapse:separate;border-spacing:0;">
                     <thead>
                         <tr style="background:#1e293b;color:#fff;position:sticky;top:0;z-index:1;">
-                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Fecha</th>
-                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
-                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
-                            <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
+                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Fecha</th>
+                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Tipo</th>
+                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Cantidad</th>
+                            <th style="width:1%;padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:center;white-space:nowrap;">Stock</th>
                             <th style="padding:7px 8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Destino / Ref</th>
                         </tr>
                     </thead>
@@ -478,23 +477,11 @@
 
             <div id="almKpPag" style="font-size:11px;color:#64748b;text-align:center;"></div>
         </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almKardexProductoModal')">Cerrar</button>
-        </div>
+
     </div>
 </div>
 
 <style>
-.alm-kp-chip {
-    background:#fff; border:1px solid #cbd5e0; color:#475569;
-    font-size:11.5px; font-weight:700;
-    padding:5px 10px; border-radius:999px;
-    cursor:pointer; transition:all .15s;
-}
-.alm-kp-chip:hover { background:#f1f5f9; border-color:#94a3b8; }
-.alm-kp-chip.alm-kp-chip-on {
-    background:#0067b1; border-color:#0067b1; color:#fff;
-}
 /* La paginación del kardex se aprovecha de la del SSR estándar; aquí se renderiza
    centrada y compacta dentro de #almKpPag. */
 #almKpPag .pagination, #almKpPag ul { display:inline-flex; gap:3px; flex-wrap:wrap; justify-content:center; margin:0; padding:0; }
@@ -517,22 +504,21 @@
                 <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
                     <input type="hidden" id="almNvTipo" value="PROYECTO">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
-                        <span style="padding:0 10px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;transform:none !important;">category</i></span>
                         <input type="text" data-filter-search autocomplete="off" readonly
                                id="almNvTipoDisplay"
-                               value="Secundario (PROYECTO — ligado a frentes)"
-                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                               value="Proyecto (Limitado a frentes específicos)"
+                               style="flex:1;border:none;background:transparent;padding:8px 12px;font-size:13.5px;font-weight:normal;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
                                onclick="this.closest('.custom-dropdown').querySelector('.dropdown-content').style.display='block';this.closest('.dropdown-trigger').style.borderColor='var(--maquinaria-blue,#0067b1)'">
                         <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:20px;">expand_more</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;">
                         <div class="dropdown-item" data-value="GENERAL"
-                             onclick="almNvTipoSelect('GENERAL','Principal (GENERAL — ve todo)')">
-                            Principal (GENERAL — ve todo)
+                             onclick="almNvTipoSelect('GENERAL','Global (Todos los frentes)')">
+                            Global (Todos los frentes)
                         </div>
                         <div class="dropdown-item selected" data-value="PROYECTO"
-                             onclick="almNvTipoSelect('PROYECTO','Secundario (PROYECTO — ligado a frentes)')">
-                            Secundario (PROYECTO — ligado a frentes)
+                             onclick="almNvTipoSelect('PROYECTO','Proyecto (Limitado a frentes específicos)')">
+                            Proyecto (Limitado a frentes específicos)
                         </div>
                     </div>
                 </div>
@@ -581,8 +567,8 @@
         </div>
         <div class="alm-modal-body">
             <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label>Código</label><input type="text" id="almProdCodigo" maxlength="50" placeholder="Opcional — se genera solo si lo dejas vacío"></div>
-                <div style="flex:0.7;"><label>UM *</label><input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND"></div>
+                <div style="flex:1;"><label>Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)"></div>
+                <div style="flex:0.7;"><label>Unidad de Medida *</label><input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND"></div>
             </div>
             <div><label>Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
             <div>
@@ -590,12 +576,13 @@
                 <div class="alm-cat-field">
                     <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
                            placeholder="Elige una de la lista o escribe una nueva…"
-                           oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)">
+                           oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)"
+                           onclick="window.almProdCatSuggest(true)">
                     <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
                             onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
                 </div>
                 <div class="alm-suggest-inline" id="almProdCatSuggest"></div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Si la que necesitas no está en la lista, escríbela y se registrará al guardar el producto.</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Selecciona de la lista o escribe una nueva para registrarla.</div>
             </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -608,7 +595,7 @@
 
 {{-- Gestionar almacenes (editar / eliminar) --}}
 <div id="almAdminAlmacenesModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:560px;">
+    <div class="alm-modal" style="max-width:440px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">warehouse</i> Gestionar almacenes</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almAdminAlmacenesModal')">close</i>
@@ -644,22 +631,11 @@
             <i class="material-icons alm-x" onclick="almCerrar('almDetalleModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div style="text-align:center;">
-                <span id="almDetCodigo" style="font-family:monospace;font-weight:800;font-size:13px;color:#0067b1;background:#e1effa;display:inline-block;padding:3px 10px;border-radius:6px;"></span>
-                <div id="almDetNombre" style="font-size:16px;font-weight:800;color:#1e293b;margin-top:6px;"></div>
-            </div>
+
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
-                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Unidad</div>
-                    <div id="almDetUm" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
-                </div>
                 <div style="background:#f8fafc;border-radius:8px;padding:10px;">
                     <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Categoría</div>
                     <div id="almDetCat" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
-                </div>
-                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
-                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock en <span id="almDetAlmNombre" style="text-transform:none;color:#64748b;font-weight:700;"></span></div>
-                    <div id="almDetSaldo" style="font-size:18px;font-weight:900;color:#0f172a;margin-top:2px;"></div>
                 </div>
                 <div style="background:#f8fafc;border-radius:8px;padding:10px;">
                     <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock mínimo</div>
@@ -683,10 +659,8 @@
                 @endif
             </div>
         </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almDetalleModal')">Cerrar</button>
-        </div>
-    </div>
+
+</div>
 </div>
 
 @if($puedeMover)
@@ -885,10 +859,8 @@
                     num('almStatsTotal',    data.stats.total);
                     num('almStatsConSaldo', data.stats.con_saldo);
                     num('almStatsBajo',     data.stats.stock_bajo);
-                    var u2 = el('almStatsUnidades'); if (u2) u2.textContent = formatNum(data.stats.unidades);
                 }
                 if (data.distribucionHtml !== undefined) { var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml; }
-                if (data.almacen) { var an = el('almAlmacenNombre'); if (an) an.textContent = data.almacen.NOMBRE || '—'; }
                 // URL para compartir
                 try {
                     var cleanU = new URL(ROUTE_INDEX, window.location.origin);
@@ -1110,12 +1082,11 @@
         var existeExacta = lista.some(function (c) { return almNorm(c) === term; });
         var html = '';
         if (raw !== '' && !existeExacta) {
-            html += '<div class="si-item si-new" data-cat="' + escHtml(raw) + '"><i class="material-icons">add_circle</i>Usar nueva categoría: “' + escHtml(raw.toUpperCase()) + '”</div>';
+            html += '<div class="si-item si-new" data-cat="' + escHtml(raw) + '">Usar nueva categoría: “' + escHtml(raw.toUpperCase()) + '”</div>';
         }
         html += matches.map(function (c) {
             var sel = almNorm(c) === term ? ' si-sel' : '';
-            var ic  = sel ? 'check_circle' : 'category';
-            return '<div class="si-item' + sel + '" data-cat="' + escHtml(c) + '"><i class="material-icons">' + ic + '</i>' + escHtml(c) + '</div>';
+            return '<div class="si-item' + sel + '" data-cat="' + escHtml(c) + '">' + escHtml(c) + '</div>';
         }).join('');
         if (!html) html = '<div class="alm-suggest-empty">No hay categorías registradas todavía. Escribe una para crearla.</div>';
         box.innerHTML = html;
@@ -1190,16 +1161,10 @@
         m.dataset.cod = cod || ''; m.dataset.nom = nom || ''; m.dataset.um = um || ''; m.dataset.cat = cat || '';
         m.dataset.saldo = (saldo == null ? '0' : String(saldo));
         m.dataset.minimo = hasMin ? String(minimo) : '';
-        el('almDetCodigo').textContent = cod || '—';
-        el('almDetNombre').textContent = nom || '';
-        el('almDetUm').textContent = um || '—';
         el('almDetCat').textContent = (cat && String(cat).trim()) ? cat : '—';
-        el('almDetSaldo').textContent = formatNum(saldo);
         el('almDetMin').textContent = hasMin ? formatNum(minimo) : 'Sin definir';
         var bajo = hasMin && parseFloat(saldo || 0) <= parseFloat(minimo);
         el('almDetBajoBadge').style.display = bajo ? '' : 'none';
-        el('almDetSaldo').style.color = bajo ? '#dc2626' : '#0f172a';
-        var an = el('almDetAlmNombre'); if (an) an.textContent = (el('almAlmacenNombre') && el('almAlmacenNombre').textContent.trim()) || 'este almacén';
         open('almDetalleModal');
     };
     window.almDetalleAccion = function (which) {
@@ -1216,7 +1181,7 @@
             // modal local con los movimientos solo de este producto + filtros mínimos.
             case 'kardex':   if (window.almAbrirKardexProducto) window.almAbrirKardexProducto(id, d.cod, d.nom, d.um, saldo); break;
             case 'editar':   if (window.almEditarProducto)      window.almEditarProducto(id, d.cod, d.nom, d.um, d.cat); break;
-            case 'eliminar': if (window.almEliminarProducto)    window.almEliminarProducto(id, label); break;
+            case 'eliminar': if (window.almEliminarProducto)    window.almEliminarProducto(id); break;
         }
     };
 
@@ -1227,35 +1192,29 @@
 
     window.almAbrirKardexProducto = function (idProducto, codigo, nombre, um, saldo) {
         window.__almKp = { idProducto: idProducto, tipo: '', desde: '', hasta: '' };
-        el('almKpCodigo').textContent = codigo || '—';
+        el('almKpCodigo').textContent = codigo ? ('Cód: ' + codigo) : 'Sin código';
         el('almKpNombre').textContent = nombre || '';
         el('almKpSaldo').textContent  = formatNum(saldo);
         el('almKpUm').textContent     = um || '';
         // Reset visual de filtros.
-        if (el('almKpDesde')) el('almKpDesde').value = '';
-        if (el('almKpHasta')) el('almKpHasta').value = '';
-        Array.prototype.forEach.call(document.querySelectorAll('#almKardexProductoModal .alm-kp-chip'), function (c) {
-            c.classList.toggle('alm-kp-chip-on', !c.dataset.tipo); // sólo "Todos" queda activo
-        });
+        if (el('almKpDesde'))      el('almKpDesde').value = '';
+        if (el('almKpHasta'))      el('almKpHasta').value = '';
+        if (el('almKpTipoSelect')) el('almKpTipoSelect').value = '';
         open('almKardexProductoModal');
         window.almKpCargar();
     };
 
-    window.almKpChip = function (btn, tipo) {
+    // almKpChipSelect: gestiona el filtro de tipo desde el <select> del modal kardex.
+    window.almKpChipSelect = function (tipo) {
         window.__almKp.tipo = tipo || '';
-        Array.prototype.forEach.call(document.querySelectorAll('#almKardexProductoModal .alm-kp-chip'), function (c) {
-            c.classList.toggle('alm-kp-chip-on', c === btn);
-        });
         window.almKpCargar();
     };
 
     window.almKpLimpiar = function () {
         window.__almKp.tipo = ''; window.__almKp.desde = ''; window.__almKp.hasta = '';
-        if (el('almKpDesde')) el('almKpDesde').value = '';
-        if (el('almKpHasta')) el('almKpHasta').value = '';
-        Array.prototype.forEach.call(document.querySelectorAll('#almKardexProductoModal .alm-kp-chip'), function (c) {
-            c.classList.toggle('alm-kp-chip-on', !c.dataset.tipo);
-        });
+        if (el('almKpDesde'))      el('almKpDesde').value = '';
+        if (el('almKpHasta'))      el('almKpHasta').value = '';
+        if (el('almKpTipoSelect')) el('almKpTipoSelect').value = '';
         window.almKpCargar();
     };
 
@@ -1303,7 +1262,7 @@
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
         m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si el usuario lo cambió
-        el('almAjCodigo').textContent = codigo; el('almAjNombre').textContent = nombre;
+        if (el('almAjNombre')) el('almAjNombre').textContent = nombre;
         el('almAjSaldo').textContent = formatNum(saldo); el('almAjUm').textContent = um || '';
         el('almAjNuevoSaldo').value = ''; el('almAjMinimo').value = (minimo == null ? '' : minimo); el('almAjMotivo').value = '';
         showErr('almAjError', ''); open('almAjusteModal');
@@ -1443,9 +1402,9 @@
     function almResetAlmacenModal() {
         delete el('almAlmacenModal').dataset.idAlmacen;
         el('almNvNombre').value = ''; el('almNvUbicacion').value = '';
-        el('almNvTipo').value = 'PROYECTO';
+        almNvTipoSelect('PROYECTO', 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes([]);
-        window.almToggleFrentes(); showErr('almNvError', '');
+        showErr('almNvError', '');
     }
     window.almAbrirAlmacen = function () {
         almResetAlmacenModal();
@@ -1458,7 +1417,8 @@
         el('almAlmacenModal').dataset.idAlmacen = id;
         el('almNvTitulo').textContent = 'Editar almacén'; el('almNvSubmit').textContent = 'Guardar cambios';
         el('almNvNombre').value = d.NOMBRE || ''; el('almNvUbicacion').value = d.UBICACION || '';
-        el('almNvTipo').value = d.TIPO || 'PROYECTO';
+        var tipo = d.TIPO || 'PROYECTO';
+        almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'Global (Todos los frentes)' : 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almCerrar('almAdminAlmacenesModal');
@@ -1516,25 +1476,39 @@
     window.almAbrirProducto = function () {
         almResetProductoModal();
         el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Crear';
+        el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
         open('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
     };
     window.almEditarProducto = function (id, cod, nom, um, cat) {
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
         el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar cambios';
-        el('almProdCodigo').value = cod || ''; el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
+        // El código es de sólo lectura al editar (puede ser PRD-XXXX o numérico).
+        el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = true; el('almProdCodigo').style.background = '#f1f5f9';
+        el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
         open('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
     window.almGuardarProducto = function () {
         var m = el('almProductoModal'), id = m.dataset.idProducto || null;
         var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
-        // El código es opcional al crear: si va vacío, el backend genera uno automáticamente.
+        // Validaciones previas al envío.
         if (!nombre) { showErr('almProdError', 'La descripción es obligatoria.'); return; }
+        // Al crear: el código manual debe ser solo dígitos enteros positivos.
+        // Al editar: el código es readonly (puede ser PRD-XXXX), no se valida aquí.
+        if (!id && codigo && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
+            showErr('almProdError', 'El código debe ser un número entero positivo.');
+            return;
+        }
         pre();
         fetch(id ? ROUTE_PROD_ITEM(id) : ROUTE_PROD, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({ CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null })
+            body: JSON.stringify(id
+                // Al editar: CODIGO no se incluye → el backend conserva el existente (evita conflicto con regex).
+                ? { NOMBRE: nombre, UM: um, CATEGORIA: cat || null }
+                // Al crear: CODIGO se incluye (número o null para auto-generar PRD-XXXX).
+                : { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null }
+            )
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -1548,8 +1522,8 @@
         })
         .catch(function () { unpre(); showErr('almProdError', 'Error de red.'); });
     };
-    window.almEliminarProducto = function (id, label) {
-        almConfirm('¿Eliminar el producto "<strong>' + label + '</strong>"? Si tiene saldo o movimientos se desactivará en lugar de borrarse.', function () {
+    window.almEliminarProducto = function (id) {
+        almConfirm('¿Eliminar este producto? Si tiene saldo o movimientos se desactivará.', function () {
             pre();
             fetch(ROUTE_PROD_ITEM(id), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })

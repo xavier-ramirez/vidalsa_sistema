@@ -393,6 +393,8 @@
     window.almMovToggleFechas = function (ev) {
         if (ev) ev.stopPropagation();
         var p = el('almMovFechasPanel'); if (!p) return;
+        var m = el('splitDropdownMenuMovInv'); if (m) m.style.display = 'none';
+        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
     window.almMovLimpiarFechas = function () {
@@ -412,8 +414,18 @@
     window.toggleAccionesMovInv = function (ev) {
         if (ev) ev.stopPropagation();
         var m = el('splitDropdownMenuMovInv'); if (!m) return;
+        var p = el('almMovFechasPanel'); if (p) p.style.display = 'none';
+        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     };
+
+    // Cerrar nuestros paneles personalizados si se abre un .custom-dropdown estándar
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.dropdown-trigger')) {
+            var p = el('almMovFechasPanel'); if (p) p.style.display = 'none';
+            var m = el('splitDropdownMenuMovInv'); if (m) m.style.display = 'none';
+        }
+    }, true);
     document.addEventListener('click', function (e) {
         var m = el('splitDropdownMenuMovInv');
         if (m && m.style.display === 'block' && !e.target.closest('#splitDropdownMenuMovInv') && !e.target.closest('#btnAccionesMov')) m.style.display = 'none';

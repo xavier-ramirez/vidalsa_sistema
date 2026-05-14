@@ -985,7 +985,7 @@
     <style>
         #standardModal .modal-card {
             padding: 20px !important;
-            max-width: 320px !important;
+            max-width: 300px !important;
         }
         #standardModal .modal-title {
             font-size: 1.1rem !important;
