@@ -394,7 +394,13 @@
         if (ev) ev.stopPropagation();
         var p = el('almMovFechasPanel'); if (!p) return;
         var m = el('splitDropdownMenuMovInv'); if (m) m.style.display = 'none';
-        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+        
+        // Forma correcta de cerrar los custom-dropdowns de uicomponents.js
+        if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
+        document.querySelectorAll('.custom-dropdown.active').forEach(d => d.classList.remove('active'));
+        // Limpiar cualquier estilo inline residual que hayamos inyectado por error
+        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
+
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
     window.almMovLimpiarFechas = function () {
@@ -415,7 +421,13 @@
         if (ev) ev.stopPropagation();
         var m = el('splitDropdownMenuMovInv'); if (!m) return;
         var p = el('almMovFechasPanel'); if (p) p.style.display = 'none';
-        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+        
+        // Forma correcta de cerrar los custom-dropdowns de uicomponents.js
+        if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
+        document.querySelectorAll('.custom-dropdown.active').forEach(d => d.classList.remove('active'));
+        // Limpiar cualquier estilo inline residual
+        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
+
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     };
 

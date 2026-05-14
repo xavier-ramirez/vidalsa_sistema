@@ -43,7 +43,7 @@
                  inmediatamente que "esta es la recepción DE este almacén". --}}
             <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
             <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén destino</span>
+                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
                 <div style="width:260px;min-width:200px;max-width:100%;">
                     <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
                         <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
@@ -72,16 +72,7 @@
             </div>
         </div>
 
-        @can('almacen.movimiento')
-        {{-- Único botón del encabezado: registrar una entrada directa (compras / devoluciones
-             que no vienen de otro almacén). Los envíos se inician desde el inventario
-             (/admin/almacen → "Enviar a otro almacén"). La navegación a Bitácora e Inventario
-             ya está disponible en el menú principal del sistema. --}}
-        <button type="button" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;"
-                onclick="window.entAbrirModal()">
-            <i class="material-icons" style="font-size:18px;">add_box</i><span>Registrar entrada directa</span>
-        </button>
-        @endcan
+
     </div>
 </section>
 
@@ -195,6 +186,13 @@
                 </div>
             </div>
         </div>
+
+        @can('almacen.movimiento')
+        <button type="button" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;border-radius:12px;box-shadow:none;margin-left:auto;"
+                onclick="window.entAbrirModal()" title="Ingresar productos directamente mediante una Orden de Compra">
+            <i class="material-icons" style="font-size:18px;">local_shipping</i><span style="font-weight:700;">Recepción por ODC</span>
+        </button>
+        @endcan
     </div>
 
     {{-- ── Tabla ── --}}

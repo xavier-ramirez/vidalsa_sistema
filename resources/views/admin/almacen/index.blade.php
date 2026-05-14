@@ -256,7 +256,7 @@
                         onclick="window.almToggleAcciones(event)">
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
-                <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#fff;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
+                <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#e2e8f0;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
                     @if($puedeManage)
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
@@ -498,9 +498,9 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAlmacenModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div><label>Nombre *</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
+            <div><label>Nombre</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
             <div>
-                <label>Tipo *</label>
+                <label>Tipo</label>
                 <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
                     <input type="hidden" id="almNvTipo" value="PROYECTO">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
@@ -508,7 +508,7 @@
                                id="almNvTipoDisplay"
                                value="Proyecto (Limitado a frentes específicos)"
                                style="flex:1;border:none;background:transparent;padding:8px 12px;font-size:13.5px;font-weight:normal;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
-                               onclick="this.closest('.custom-dropdown').querySelector('.dropdown-content').style.display='block';this.closest('.dropdown-trigger').style.borderColor='var(--maquinaria-blue,#0067b1)'">
+                               onclick="this.closest('.dropdown-trigger').style.borderColor='var(--maquinaria-blue,#0067b1)'">
                         <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:20px;">expand_more</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;">
@@ -1126,11 +1126,22 @@
     window.almToggleAcciones = function (e) {
         if (e) e.stopPropagation();
         var m = el('almAccionesMenu'); if (!m) return;
+        
+        // Cerrar los demás filtros estándar si están abiertos
+        if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
+        document.querySelectorAll('.custom-dropdown.active').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
+
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     };
     document.addEventListener('click', function (e) {
         var m = el('almAccionesMenu');
-        if (m && m.style.display === 'block' && !e.target.closest('#almAccionesMenu') && !e.target.closest('#almBtnAcciones')) m.style.display = 'none';
+        if (m && m.style.display === 'block') {
+            // Cerrar si hace clic fuera, o si hace clic en cualquier otro botón de filtro (dropdown-trigger)
+            if (!e.target.closest('#almAccionesMenu') && !e.target.closest('#almBtnAcciones') || e.target.closest('.dropdown-trigger')) {
+                m.style.display = 'none';
+            }
+        }
     });
     window.almAccion = function (which) {
         var m = el('almAccionesMenu'); if (m) m.style.display = 'none';
@@ -1241,9 +1252,7 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (body && data.html !== undefined) body.innerHTML = data.html;
-            var pg = el('almKpPag'); if (pg) pg.innerHTML = (data.total > 0)
-                ? ('<div style="margin-bottom:4px;">Total: <strong>' + data.total + '</strong> movimiento' + (data.total === 1 ? '' : 's') + '</div>' + (data.pagination || ''))
-                : '';
+            var pg = el('almKpPag'); if (pg) pg.innerHTML = data.pagination || '';
         })
         .catch(function () {
             if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#dc2626;font-size:12px;">No se pudieron cargar los movimientos.</td></tr>';
@@ -1345,9 +1354,10 @@
         dropdown.querySelectorAll('.dropdown-item').forEach(function(i) {
             i.classList.toggle('selected', i.dataset.value === value);
         });
-        // Cerrar el dropdown
+        // Cerrar el dropdown (dejar que el CSS lo oculte al quitar .active)
+        dropdown.classList.remove('active');
         var content = dropdown.querySelector('.dropdown-content');
-        if (content) content.style.display = 'none';
+        if (content) content.style.display = '';
         var trigger = dropdown.querySelector('.dropdown-trigger');
         if (trigger) trigger.style.borderColor = '#cbd5e0';
         // Actualizar visibilidad del panel de frentes
