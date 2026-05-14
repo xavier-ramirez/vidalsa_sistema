@@ -744,9 +744,17 @@
                 </div>
 
                 {{-- DEPARTAMENTO (full width) --}}
-                <div>
+                <div style="margin-bottom:10px;">
                     <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Departamento</label>
                     <input type="text" id="almSalidaDepartamento" maxlength="150" placeholder="Ej: Mantenimiento" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                </div>
+
+                {{-- OBSERVACIONES (full width) — campo libre de la Nota de Entrega
+                     (mapea a MOTIVO en BD). Solo visible/usado en SALIDA; en TRASPASO
+                     no se pide porque el envío ya queda identificado por su N° TR-... --}}
+                <div>
+                    <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Observaciones</label>
+                    <input type="text" id="almSalidaMotivo" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc." style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
                 </div>
             </div>
 
@@ -1566,7 +1574,7 @@
         var nw = el('almSalidaNotaWrap');   if (nw) nw.style.display = esTraspaso ? 'none'  : 'block';
         var fs = el('almSalidaFrente'); if (fs) fs.value = '';
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
-        ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
         // Reset de la lista de sugerencias de contrato (se llena al elegir proyecto).
         var cs = el('almSalidaContratoSug'); if (cs) { cs.style.display = 'none'; cs.innerHTML = ''; }
@@ -1675,6 +1683,7 @@
             var rqN    = v('almSalidaRq');            if (rqN)    payload.numero_rq = rqN;
             var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
             var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
+            var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
         }
 
         // Para SALIDA: pre-abrimos una pestaña vacía AHORA, dentro del gesto del usuario (el click
