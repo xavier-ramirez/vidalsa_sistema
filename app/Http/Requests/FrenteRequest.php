@@ -19,9 +19,30 @@ class FrenteRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
+        // CONTRATOS: el formulario manda un campo "CONTRATOS" como string CSV (un input
+        // con chips estilo `subdivisiones`). Lo normalizamos a array de strings UPPER
+        // antes de validar. Acepta también el caso en que el cliente ya mande un array.
+        $contratos = $this->input('CONTRATOS');
+        if (is_string($contratos)) {
+            $contratos = array_values(array_filter(array_map(
+                fn ($v) => mb_strtoupper(trim((string) $v)),
+                preg_split('/[,;\n\r]+/', $contratos) ?: []
+            ), fn ($v) => $v !== ''));
+        } elseif (is_array($contratos)) {
+            $contratos = array_values(array_filter(array_map(
+                fn ($v) => mb_strtoupper(trim((string) $v)),
+                $contratos
+            ), fn ($v) => $v !== ''));
+        } else {
+            $contratos = [];
+        }
+        // Dedup conservando orden de aparición.
+        $contratos = array_values(array_unique($contratos));
+
         $this->merge([
             'NOMBRE_FRENTE' => mb_strtoupper($this->input('NOMBRE_FRENTE')),
             'UBICACION'     => mb_strtoupper($this->input('UBICACION')),
+            'CONTRATOS'     => $contratos,
             'SUBDIVISIONES' => $this->filled('SUBDIVISIONES') ? mb_strtoupper($this->input('SUBDIVISIONES')) : null,
             'RESP_1_NOM'    => mb_strtoupper($this->input('RESP_1_NOM')),
             'RESP_1_CAR'    => mb_strtoupper($this->input('RESP_1_CAR')),
@@ -57,6 +78,8 @@ class FrenteRequest extends FormRequest
         return [
             'NOMBRE_FRENTE' => 'required|string|max:150|unique:frentes_trabajo,NOMBRE_FRENTE,' . $id . ',ID_FRENTE',
             'UBICACION'     => 'required|string|max:100',
+            'CONTRATOS'     => 'nullable|array',
+            'CONTRATOS.*'   => 'string|max:60',
             'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO,ESPECIAL',
             'ESTATUS_FRENTE'=> 'required|in:ACTIVO,FINALIZADO',
             'SUBDIVISIONES' => 'nullable|string',

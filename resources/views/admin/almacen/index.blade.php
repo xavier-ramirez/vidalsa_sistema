@@ -710,7 +710,7 @@
                 {{-- PROYECTO (full width) --}}
                 <div style="margin-bottom:10px;">
                     <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Proyecto *</label>
-                    <select id="almSalidaProyecto" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    <select id="almSalidaProyecto" onchange="window.almSalidaOnProyectoChange()" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
                         <option value="">— elige el proyecto / frente —</option>
                         @foreach(($frentesLista ?? collect()) as $f)
                             <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
@@ -718,10 +718,13 @@
                     </select>
                 </div>
 
-                {{-- CONTRATO Nº (full width) --}}
-                <div style="margin-bottom:10px;">
+                {{-- CONTRATO Nº (full width) — input con sugerencias derivadas del proyecto.
+                     Si el frente elegido tiene 1 solo contrato registrado, se autocompleta;
+                     si tiene varios, se muestran como botones para que el usuario elija. --}}
+                <div style="margin-bottom:10px;position:relative;">
                     <label style="display:block;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Contrato N°</label>
                     <input type="text" id="almSalidaContrato" maxlength="100" placeholder="Ej: CTR-2026-0042" style="width:100%;height:38px;border:1px solid #cbd5e0;border-radius:7px;padding:0 10px;font-size:13.5px;background:#fff;outline:none;color:#0f172a;">
+                    <div id="almSalidaContratoSug" style="display:none;margin-top:5px;flex-wrap:wrap;gap:5px;"></div>
                 </div>
 
                 {{-- FECHA DE ENTREGA | RQ N° | Solicitante (3 columnas en una sola fila — como en el Excel) --}}
@@ -761,7 +764,6 @@
                 </table>
             </div>
 
-            <div style="margin-top:10px;"><label style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Motivo / notas adicionales (opcional)</label><input type="text" id="almSalidaMotivo" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc."></div>
             <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -788,6 +790,9 @@
     window.almProductosLista = @json($productosLista ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
+    // Mapa { ID_FRENTE: ["CTR-2026-0042", ...] } para sugerir contratos en el modal "Registrar salida".
+    // Los contratos se gestionan en /admin/frentes (columna CONTRATOS JSON de frentes_trabajo).
+    window.almFrenteContratos = @json(($frentesLista ?? collect())->mapWithKeys(fn ($f) => [$f->ID_FRENTE => array_values(array_filter((array) ($f->CONTRATOS ?? [])))]));
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     function csrf() { var m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type || 'success'); else if (type === 'error') alert(msg); }
@@ -1563,7 +1568,8 @@
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
         ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
-        if (el('almSalidaMotivo')) el('almSalidaMotivo').value = '';
+        // Reset de la lista de sugerencias de contrato (se llena al elegir proyecto).
+        var cs = el('almSalidaContratoSug'); if (cs) { cs.style.display = 'none'; cs.innerHTML = ''; }
         showErr('almSalidaError', '');
         var tb = el('almSalidaLineas');
         if (tb) {
@@ -1583,6 +1589,36 @@
         }
         open('almSalidaModal');
         setTimeout(function () { var f = el('almSalidaLineas') ? el('almSalidaLineas').querySelector('.alm-sal-cant') : null; if (f) f.focus(); }, 60);
+    };
+    // Sugerencias de N° de Contrato segun el frente/proyecto elegido en el modal de salida.
+    //   • 0 contratos asociados → la lista de sugerencias se oculta (el usuario lo teclea libre).
+    //   • 1 contrato            → se autocompleta el input.
+    //   • 2+ contratos          → aparecen como botones; clic en uno lo pega en el input.
+    window.almSalidaOnProyectoChange = function () {
+        var sel  = el('almSalidaProyecto');
+        var inp  = el('almSalidaContrato');
+        var box  = el('almSalidaContratoSug');
+        if (!sel || !inp || !box) return;
+        var idF  = sel.value;
+        var list = (window.almFrenteContratos || {})[idF] || [];
+        box.innerHTML = '';
+        if (list.length === 0) { box.style.display = 'none'; return; }
+        if (list.length === 1) {
+            inp.value = list[0];
+            box.style.display = 'none';
+            return;
+        }
+        // Varios contratos: pintar como chips clicables. NO autocompletar para no
+        // elegir uno arbitrario por el usuario.
+        list.forEach(function (c) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = c;
+            btn.style.cssText = 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;';
+            btn.addEventListener('click', function () { inp.value = c; });
+            box.appendChild(btn);
+        });
+        box.style.display = 'flex';
     };
     window.almSalidaQuitar = function (btn, id) {
         var tr = btn.closest('tr'); if (tr) tr.remove();
@@ -1613,9 +1649,9 @@
         if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que 0 en al menos un producto.'); return; }
         if (faltan.length) { showErr('almSalidaError', 'Falta la cantidad (o es 0) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos o quítalos de la lista.'); return; }
         showErr('almSalidaError', '');
-        var motivo = el('almSalidaMotivo') ? el('almSalidaMotivo').value.trim() : '';
 
-        // SALIDA: registra movimientos atómicos (lote) en este almacén.
+        // SALIDA: registra movimientos atómicos (lote) en este almacén; los datos del lote
+        //   vienen de la sección "Nota de Entrega" del modal (proyecto + contrato + fecha + RQ + ...).
         // TRASPASO: crea un Pedido de Traspaso en estado ENVIADO en un solo paso (enviar_ahora=true).
         //   Resta del origen ahora; el destino tiene que confirmar en /admin/almacen/recepcion.
         //   Solo se manda id_frente_destino; el backend deduce id_almacen_destino desde la pivot.
@@ -1625,17 +1661,13 @@
             payload = {
                 id_almacen_origen:  parseInt(ALM_SAL.idAlmacen, 10),
                 id_frente_destino:  parseInt(idFrenteDest, 10),
-                motivo:             motivo || null,
                 lineas:             lineas,
                 enviar_ahora:       true,
             };
         } else {
-            // SALIDA: el frente/proyecto viene de la sección "Nota de Entrega" (no del bloque
-            // de traspaso). Recogemos todos los campos opcionales de la nota.
             var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
             url = ROUTE_LOTE;
             payload = { tipo: 'SALIDA', id_almacen: ALM_SAL.idAlmacen, lineas: lineas };
-            if (motivo) payload.motivo = motivo;
             var idProy = v('almSalidaProyecto');
             if (idProy) payload.id_frente = parseInt(idProy, 10);
             var fecha  = v('almSalidaFecha');         if (fecha)  payload.fecha = fecha;

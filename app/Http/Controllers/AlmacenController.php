@@ -99,7 +99,11 @@ class AlmacenController extends Controller
         // Carga HTML: la tabla abre VACÍA — las filas se piden por AJAX en cuanto el usuario usa un filtro.
         $categorias    = $this->categoriasDistintas();
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
-        $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
+        // CONTRATOS se carga junto al frente para alimentar las sugerencias del campo
+        // "Contrato N°" del modal "Registrar salida" (Nota de Entrega).
+        $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+            ->orderBy('NOMBRE_FRENTE')
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'CONTRATOS']);
 
         // NOTA: $traspasosPorRecibir (banner amarillo + badge del nav menu) NO se calcula aquí —
         // lo provee el View Composer registrado en AppServiceProvider para 'layouts.estructura_base',

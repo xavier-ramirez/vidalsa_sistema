@@ -34,6 +34,7 @@ class FrenteTrabajo extends Model
         'ID_FRENTE',
         'NOMBRE_FRENTE',
         'UBICACION',
+        'CONTRATOS',
         'TIPO_FRENTE',
         'ESTATUS_FRENTE',
         'SUBDIVISIONES',
@@ -47,6 +48,14 @@ class FrenteTrabajo extends Model
         'RESP_4_NOM', 'RESP_4_CAR', 'RESP_4_CED', 'RESP_4_EQU',
         // Responsable 5 (Aprobado - Gerente, sin filtro EQU)
         'RESP_5_NOM', 'RESP_5_CAR', 'RESP_5_CED', 'RESP_5_EQU',
+    ];
+
+    /**
+     * CONTRATOS se almacena como JSON en BD; se accede como array PHP.
+     * Cada elemento es un string (ej: ["CTR-2026-0042", "CTR-2026-0099"]).
+     */
+    protected $casts = [
+        'CONTRATOS' => 'array',
     ];
 
     public function usuarios()

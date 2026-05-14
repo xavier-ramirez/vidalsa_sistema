@@ -132,6 +132,21 @@
                     </div>
                 </div>
 
+                <!-- Contratos asociados al proyecto (chips multi-valor; se sugieren en el modal
+                     "Registrar salida" del inventario cuando se elige este frente como proyecto). -->
+                <div style="grid-column: span 2;">
+                    <label class="form-label" for="contratos_input">N° de Contrato(s) asociados al proyecto</label>
+                    <div id="contratos_chip_box" style="background:white;border:1px solid #cbd5e0;border-radius:8px;padding:6px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:42px;">
+                        <input type="text" id="contratos_input" autocomplete="off"
+                               placeholder="Escribe un N° de contrato y pulsa Enter o coma"
+                               style="flex:1;min-width:140px;border:none;outline:none;background:transparent;font-size:14px;padding:6px 4px;text-transform:uppercase;">
+                    </div>
+                    {{-- El hidden guarda los contratos como CSV; el backend lo splittea + normaliza. --}}
+                    <input type="hidden" id="CONTRATOS_HIDDEN" name="CONTRATOS"
+                           value="{{ old('CONTRATOS', is_array($frente->CONTRATOS ?? null) ? implode(',', $frente->CONTRATOS) : '') }}">
+                    <small style="display:block;font-size:11px;color:#94a3b8;margin-top:4px;">Un proyecto puede tener uno o varios contratos. Estos se sugerirán al generar Nota de Entrega.</small>
+                </div>
+
                 <!-- Responsable 1 -->
                 <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 1</span>
@@ -613,6 +628,78 @@
             function escapeAttr(s) {
                 return String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             }
+
+            // ── Chips de "Contratos asociados" ──────────────────────────────────
+            // El hidden #CONTRATOS_HIDDEN guarda los valores como CSV
+            // ("CTR-2026-0042,CTR-2026-0099"). El backend (FrenteRequest::prepareForValidation)
+            // splittea por coma/punto-y-coma/salto de línea y normaliza a array UPPER.
+            (function () {
+                var hidden = document.getElementById('CONTRATOS_HIDDEN');
+                var box    = document.getElementById('contratos_chip_box');
+                var input  = document.getElementById('contratos_input');
+                if (!hidden || !box || !input) return;
+
+                function parseList() {
+                    return String(hidden.value || '')
+                        .split(',')
+                        .map(function (s) { return s.trim(); })
+                        .filter(function (s) { return s.length > 0; });
+                }
+                function writeList(list) {
+                    var dedup = [];
+                    list.forEach(function (v) { if (v && dedup.indexOf(v) === -1) dedup.push(v); });
+                    hidden.value = dedup.join(',');
+                    render();
+                }
+                function render() {
+                    // Limpia los chips anteriores (todo lo que no sea el input).
+                    Array.prototype.slice.call(box.children).forEach(function (c) {
+                        if (c !== input) c.remove();
+                    });
+                    parseList().forEach(function (val) {
+                        var chip = document.createElement('span');
+                        chip.style.cssText = 'background:#e0f2fe;color:#0369a1;padding:3px 4px 3px 10px;border-radius:99px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;font-family:monospace;';
+                        chip.innerHTML = escapeHtml(val) +
+                            ' <i class="material-icons" style="font-size:15px;cursor:pointer;color:#0284c7;" title="Quitar">close</i>';
+                        chip.querySelector('i').addEventListener('click', function () {
+                            var current = parseList();
+                            var idx = current.indexOf(val);
+                            if (idx !== -1) { current.splice(idx, 1); writeList(current); }
+                        });
+                        box.insertBefore(chip, input);
+                    });
+                }
+                function addFromInput() {
+                    var raw = String(input.value || '').toUpperCase().trim();
+                    if (!raw) return;
+                    var partes = raw.split(/[,;\n\r]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+                    if (partes.length === 0) return;
+                    writeList(parseList().concat(partes));
+                    input.value = '';
+                }
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
+                        e.preventDefault();
+                        addFromInput();
+                    } else if (e.key === 'Backspace' && input.value === '') {
+                        var current = parseList();
+                        if (current.length) { current.pop(); writeList(current); }
+                    }
+                });
+                input.addEventListener('blur', addFromInput);
+                // Clic en cualquier parte del wrapper enfoca el input.
+                box.addEventListener('click', function (e) { if (e.target === box) input.focus(); });
+
+                // Render inicial — usa el value renderizado por blade (old() o frente existente).
+                render();
+
+                // Exponer para que el SPA reset (al cancelar/crear nuevo) lo reaproveche.
+                window.contratosReset = function (newCsv) {
+                    hidden.value = String(newCsv || '');
+                    input.value = '';
+                    render();
+                };
+            })();
         </script>
     </div>
 @endsection
