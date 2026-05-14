@@ -917,30 +917,36 @@
             // Mostrar SOLO el NOMBRE — antes salía CODIGO en bold + NOMBRE normal, que se veía
             // como "dos líneas repetidas" cuando los productos importados ya tenían el código en
             // el nombre. El código sigue funcionando para buscar (filtro almNorm en CODIGO arriba).
+            // data-pick guarda el NOMBRE (no el código), así clic-en-sugerencia deja en el input
+            // un texto legible y, si el usuario escribe encima, el LIKE %term% del backend sigue
+            // matcheando — patrón "buscador" estilo /admin/equipos.
             box.innerHTML = matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                return '<div class="alm-suggest-item" data-pick="' + cod + '" title="' + cod + '">'
+                return '<div class="alm-suggest-item" data-pick="' + nom + '" title="' + cod + '">'
                      + '<span class="nom">' + nom + '</span></div>';
             }).join('');
         }
         box.classList.add('open');
     };
-    // Escribir SOLO muestra sugerencias — NO dispara la búsqueda. Para filtrar la tabla,
-    // el usuario debe (a) elegir una sugerencia con clic [almBuscarPick], (b) limpiar el
-    // campo [almBuscarLimpiar], o (c) presionar Enter [almBuscarEnter]. Así evitamos el
-    // típico "salta cualquier cosa al escribir" que se sentía intrusivo en este filtro.
+    // Filtrado en vivo (estilo /admin/equipos): cada keystroke refresca sugerencias Y dispara
+    // la búsqueda con debounce. Así el usuario no necesita Enter ni clic en una sugerencia
+    // para ver la tabla filtrada; basta con seguir escribiendo. Si elige una sugerencia, se
+    // pega el nombre y se recarga inmediato (sin debounce).
     window.almBuscarInput = function () {
         window.almBuscarSuggest();
+        almDebounce(almCargar);
     };
+    // Enter sigue disponible como atajo: ejecuta la búsqueda inmediatamente (cancela el
+    // debounce pendiente) y cierra el panel de sugerencias.
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
         almSuggestHide();
         almCargar();
     };
-    window.almBuscarPick = function (codigo) {
-        var inp = el('almFiltroBuscar'); if (inp) inp.value = codigo;
+    window.almBuscarPick = function (texto) {
+        var inp = el('almFiltroBuscar'); if (inp) inp.value = texto;
         almSuggestHide();
         almCargar();
     };
