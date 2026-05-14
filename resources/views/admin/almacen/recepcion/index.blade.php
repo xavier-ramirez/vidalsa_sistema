@@ -8,7 +8,7 @@
     $reqOrigen     = request('id_almacen_origen');
     $reqDestino    = request('id_almacen_destino');
     $reqSearch     = request('search');           // por NUMERO de nota de entrega
-    $reqSearchProd = request('search_producto');  // por descripción o código/serial del material
+
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
     $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all') || ($reqDestino && $reqDestino !== 'all');
@@ -48,12 +48,12 @@
                     <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
                         <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
                         <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
-                            <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                            <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
                             <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                                    placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes destino' }}"
                                    style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                    oninput="window.filterDropdownOptions(this)">
-                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;"
+                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
                                onclick="event.stopPropagation(); clearDropdownFilter('trDestHeaderDropdown');">close</i>
                         </div>
                         <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -140,7 +140,6 @@
                 <i class="material-icons lupa">search</i>
                 <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota (TR-…)" value="{{ $reqSearch }}"
                        oninput="window.trSearchInput()"
-                       onfocus="window.trSearchInput()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trSearchSuggest'); if(s) s.classList.remove('open'); }, 150);">
             </div>
             {{-- Sugerencias en vivo: lista los N° de nota visibles al usuario que coinciden
@@ -148,13 +147,7 @@
                  extra — son strings cortos y vienen limitados a 300 desde el controller. --}}
             <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
-        <div class="tr-item tr-search-prod">
-            <div class="tr-search-box {{ $reqSearchProd ? 'active' : '' }}">
-                <i class="material-icons lupa">search</i>
-                <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar material (descripción o código/serial)…" value="{{ $reqSearchProd }}"
-                       oninput="clearTimeout(window._trSPT); window._trSPT = setTimeout(window.trLoad, 400);">
-            </div>
-        </div>
+
 
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" class="btn-primary-maquinaria" title="Filtros Avanzados"
@@ -255,9 +248,18 @@
         var box   = el('trSearchSuggest');
         if (!input || !box) return;
         var q = String(input.value || '').trim().toUpperCase();
+
+        // Si el campo está vacío cerramos el panel de sugerencias y recargamos la tabla (para quitar el filtro).
+        if (q === '') {
+            box.classList.remove('open');
+            clearTimeout(window._trST);
+            window._trST = setTimeout(window.trLoad, 400);
+            return;
+        }
+
         // Filtrar: prefijo primero, luego substring; máximo 8.
         var matches = TR_NUMEROS.filter(function (n) {
-            return q === '' || String(n).toUpperCase().indexOf(q) !== -1;
+            return String(n).toUpperCase().indexOf(q) !== -1;
         }).slice(0, 8);
 
         if (matches.length === 0) {
@@ -270,8 +272,7 @@
         }
         box.classList.add('open');
 
-        // Re-arma el debounce de trLoad (para el caso de que el usuario escriba
-        // texto libre que no coincide con ningún N° pre-cargado pero quiera filtrar).
+        // Re-arma el debounce de trLoad solo si hay texto (>= 1 car.).
         clearTimeout(window._trST);
         window._trST = setTimeout(window.trLoad, 400);
     };
@@ -289,7 +290,7 @@
         // Aquí solo mandamos los filtros del UI (search/estado/origen/destino/fechas).
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
-        if (v('trSearchProd'))                             p.set('search_producto', v('trSearchProd'));
+
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
         if (v('trOrigen')  && v('trOrigen')  !== 'all')    p.set('id_almacen_origen', v('trOrigen'));
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel

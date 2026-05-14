@@ -13,13 +13,13 @@
     $hayAdv      = $reqDesde || $reqHasta;
     $almSel      = ($reqAlmacen && $reqAlmacen !== 'all') ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
     $tipos = [
-        'ENTRADA'          => 'Entradas',
-        'SALIDA'           => 'Salidas',
-        'AJUSTE'           => 'Auditorías',
-        'TRASPASO_ENTRADA' => 'Traspasos (entran)',
-        'TRASPASO_SALIDA'  => 'Traspasos (salen)',
+        'ENTRADA'          => ['label' => 'Entradas', 'sub' => ''],
+        'SALIDA'           => ['label' => 'Salidas', 'sub' => ''],
+        'AJUSTE'           => ['label' => 'Auditoría', 'sub' => 'de conteo'],
+        'TRASPASO_ENTRADA' => ['label' => 'Traspasos (entran)', 'sub' => ''],
+        'TRASPASO_SALIDA'  => ['label' => 'Traspasos (salen)', 'sub' => ''],
     ];
-    $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo] : null;
+    $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
     $frenteSel    = ($reqFrente && $reqFrente !== 'all') ? ($frentesLista ?? collect())->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
 @endphp
 
@@ -44,12 +44,12 @@
                 <div class="custom-dropdown" id="almMovFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
                     <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen && $reqAlmacen !== 'all' ? $reqAlmacen : '' }}">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
-                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
                         <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                                placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
                                style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.filterDropdownOptions(this)">
-                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almSel ? 'block' : 'none' }};cursor:pointer;"
+                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
                            onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroAlmacen');">close</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -74,6 +74,11 @@
     #almMovFilters .amf-item { flex:1 1 200px; min-width:170px; max-width:300px; }
     #almMovFilters .amf-search { flex:2 1 280px; max-width:none; }
     #almMovFilters .custom-dropdown { width:100%; }
+    /* El filtro de almacén (en el título) NO se resalta en azul cuando está activo */
+    #almMovFiltroAlmacen .dropdown-trigger.filter-active {
+        background: #f8fafc !important;
+        border-color: #cbd5e0 !important;
+    }
     .amf-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .amf-search-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
     .amf-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
@@ -123,28 +128,13 @@
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almMovFilters">
 
-        {{-- Tipo --}}
-        <div class="amf-item">
-            <div class="custom-dropdown" id="almMovFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
-                <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
-                <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    {{-- Icono de lupa (consistente con los tres filtros de esta vista). --}}
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">search</i></span>
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
-                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;"
-                       onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroTipo');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        <div class="dropdown-item {{ !$tipoSelLabel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almMovFiltroTipo','all','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
-                        @foreach($tipos as $k => $label)
-                            <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}" onclick="selectOption('almMovFiltroTipo','{{ $k }}','{{ addslashes($label) }}');">{{ $label }}</div>
-                        @endforeach
-                    </div>
-                </div>
+        {{-- Buscar producto --}}
+        <div class="amf-item amf-search">
+            <div class="amf-search-box {{ $reqSearch ? 'active' : '' }}">
+                <i class="material-icons lupa">search</i>
+                <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
+                       oninput="clearTimeout(window._amfSearchTimer); window._amfSearchTimer = setTimeout(function(){ window.loadMovimientos(); }, 400);">
+                <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.loadMovimientos();">close</i>
             </div>
         </div>
 
@@ -154,12 +144,12 @@
                 <input type="hidden" name="id_frente" data-filter-value value="{{ $reqFrente && $reqFrente !== 'all' ? $reqFrente : '' }}">
                 <div class="dropdown-trigger {{ $frenteSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
                     {{-- Icono de lupa (consistente con los tres filtros de esta vista). --}}
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;">search</i></span>
+                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;transform:none !important;">search</i></span>
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                            placeholder="{{ $frenteSel ? $frenteSel->NOMBRE_FRENTE : 'Todos los frentes' }}"
                            style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
                            oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $frenteSel ? 'block' : 'none' }};cursor:pointer;"
+                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $frenteSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
                        onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroFrente');">close</i>
                 </div>
                 <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -174,13 +164,35 @@
             </div>
         </div>
 
-        {{-- Buscar producto --}}
-        <div class="amf-item amf-search">
-            <div class="amf-search-box {{ $reqSearch ? 'active' : '' }}">
-                <i class="material-icons lupa">search</i>
-                <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
-                       oninput="clearTimeout(window._amfSearchTimer); window._amfSearchTimer = setTimeout(function(){ window.loadMovimientos(); }, 400);">
-                <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.loadMovimientos();">close</i>
+        {{-- Tipo --}}
+        <div class="amf-item">
+            <div class="custom-dropdown" id="almMovFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
+                <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
+                <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
+                    {{-- Icono de lupa (consistente con los tres filtros de esta vista). --}}
+                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;transform:none !important;">search</i></span>
+                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                           placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
+                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
+                           oninput="window.filterDropdownOptions(this)">
+                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                       onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroTipo');">close</i>
+                </div>
+                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                        <div class="dropdown-item {{ !$tipoSelLabel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almMovFiltroTipo','all','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
+                        @foreach($tipos as $k => $t)
+                            <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}" onclick="selectOption('almMovFiltroTipo','{{ $k }}','{{ addslashes($t['label'] . ($t['sub'] ? ' ' . $t['sub'] : '')) }}');">
+                                <div style="line-height:1.2;">
+                                    <div>{{ $t['label'] }}</div>
+                                    @if($t['sub'])
+                                        <div style="font-size:10.5px;color:#64748b;margin-top:2px;">{{ $t['sub'] }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -266,15 +278,6 @@
                 </div>
                 @endcan
 
-                {{-- Volver: link al inventario, reemplaza al botón viejo del toolbar. --}}
-                <div style="padding:6px;border-top:1px solid #cbd5e1;">
-                    <a href="{{ route('almacen.index') }}"
-                       style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;text-decoration:none;"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:#e2e8f0;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#475569;">arrow_back</i></div>
-                        <span>Volver al inventario</span>
-                    </a>
-                </div>
             </div>
         </div>
     </div>

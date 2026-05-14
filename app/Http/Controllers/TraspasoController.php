@@ -79,18 +79,7 @@ class TraspasoController extends Controller
         if ($request->filled('search')) {
             $q->where('NUMERO', 'like', '%' . trim((string) $request->input('search')) . '%');
         }
-        // Filtro por material (descripción o código/serial). Se aplica a través de las líneas
-        // del traspaso: el traspaso aparece si AL MENOS UNA línea referencia un producto cuyo
-        // NOMBRE o CODIGO coincide. Patrón whereHas anidado idéntico al de la bitácora de
-        // movimientos (AlmacenController::movimientos), lo que garantiza consistencia entre
-        // los buscadores de producto del módulo de almacén.
-        if ($request->filled('search_producto')) {
-            $term = trim((string) $request->input('search_producto'));
-            $q->whereHas('lineas.producto', function ($p) use ($term) {
-                $p->where('CODIGO', 'like', "%{$term}%")
-                  ->orWhere('NOMBRE', 'like', "%{$term}%");
-            });
-        }
+
         if ($request->filled('desde')) {
             $q->whereDate('FECHA_ENVIO', '>=', $request->input('desde'))
               ->orWhere(function ($o) use ($request) { $o->whereNull('FECHA_ENVIO')->whereDate('created_at', '>=', $request->input('desde')); });

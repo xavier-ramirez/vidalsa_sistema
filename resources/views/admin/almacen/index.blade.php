@@ -83,6 +83,12 @@
     .alm-admin-row:hover { background: #f8fafc; }
     @keyframes almIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
     @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    /* El filtro de almacén (en el título) NO se resalta en azul cuando está activo:
+       sobrescribimos el estilo global .filter-active sólo para ese dropdown. */
+    #almSelAlmacenDropdown .dropdown-trigger.filter-active {
+        background: #f8fafc !important;
+        border-color: #cbd5e0 !important;
+    }
     /* Todos los modales del módulo: título y botones centrados; la X queda fija en la esquina. */
     .alm-modal-head { padding: 14px 40px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: center; position: relative; }
     .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; text-align: center; }
@@ -168,12 +174,12 @@
                 <div class="custom-dropdown" id="almSelAlmacenDropdown" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
                     <input type="hidden" name="id_almacen" data-filter-value id="almSelAlmacen" value="{{ $reqAlm ?? '' }}">
                     <div class="dropdown-trigger {{ $almacenSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
-                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;">warehouse</i></span>
+                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
                         <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                                placeholder="{{ $almacenSel ? $almacenSel->NOMBRE : 'Todos los almacenes' }}"
                                style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.filterDropdownOptions(this)">
-                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almacenSel ? 'block' : 'none' }};cursor:pointer;"
+                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almacenSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
                            onclick="event.stopPropagation(); clearDropdownFilter('almSelAlmacenDropdown');">close</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -440,7 +446,7 @@
                 <button type="button" class="alm-kp-chip alm-kp-chip-on" data-tipo="" onclick="window.almKpChip(this,'')">Todos</button>
                 <button type="button" class="alm-kp-chip" data-tipo="ENTRADA" onclick="window.almKpChip(this,'ENTRADA')">Entradas</button>
                 <button type="button" class="alm-kp-chip" data-tipo="SALIDA" onclick="window.almKpChip(this,'SALIDA')">Salidas</button>
-                <button type="button" class="alm-kp-chip" data-tipo="AJUSTE" onclick="window.almKpChip(this,'AJUSTE')">Auditorías</button>
+                <button type="button" class="alm-kp-chip" data-tipo="AJUSTE" onclick="window.almKpChip(this,'AJUSTE')">Auditorías de conteo</button>
             </div>
 
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -508,12 +514,30 @@
             <div><label>Nombre *</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
             <div>
                 <label>Tipo *</label>
-                <select id="almNvTipo" onchange="window.almToggleFrentes()">
-                    <option value="GENERAL">Principal (GENERAL — ve todo)</option>
-                    <option value="PROYECTO" selected>Secundario (PROYECTO — ligado a frentes)</option>
-                </select>
+                <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
+                    <input type="hidden" id="almNvTipo" value="PROYECTO">
+                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
+                        <span style="padding:0 10px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;transform:none !important;">category</i></span>
+                        <input type="text" data-filter-search autocomplete="off" readonly
+                               id="almNvTipoDisplay"
+                               value="Secundario (PROYECTO — ligado a frentes)"
+                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                               onclick="this.closest('.custom-dropdown').querySelector('.dropdown-content').style.display='block';this.closest('.dropdown-trigger').style.borderColor='var(--maquinaria-blue,#0067b1)'">
+                        <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:20px;">expand_more</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;">
+                        <div class="dropdown-item" data-value="GENERAL"
+                             onclick="almNvTipoSelect('GENERAL','Principal (GENERAL — ve todo)')">
+                            Principal (GENERAL — ve todo)
+                        </div>
+                        <div class="dropdown-item selected" data-value="PROYECTO"
+                             onclick="almNvTipoSelect('PROYECTO','Secundario (PROYECTO — ligado a frentes)')">
+                            Secundario (PROYECTO — ligado a frentes)
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div><label>Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional"></div>
+            <div><label>Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional" autocomplete="off"></div>
             <div id="almNvFrentesWrap">
                 <label>Frentes que usan este almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
@@ -607,9 +631,6 @@
                     <p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No hay almacenes. Usa "Nuevo almacén" para crear el primero.</p>
                 @endforelse
             </div>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAdminAlmacenesModal')">Cerrar</button>
         </div>
     </div>
 </div>
@@ -1353,6 +1374,26 @@
     function ROUTE_PROD_ITEM(id) { return ROUTE_INDEX + '/productos/' + id; }
     // Datos de los almacenes visibles (para el modal de edición): { id: {NOMBRE,TIPO,CODIGO,UBICACION,frentes:[ids]} }
     window.almAlmacenesData = @json($almacenesData);
+
+    // Selección del custom-dropdown "Tipo" en el modal de almacén
+    window.almNvTipoSelect = function (value, label) {
+        var hidden = document.getElementById('almNvTipo');
+        var display = document.getElementById('almNvTipoDisplay');
+        var dropdown = document.getElementById('almNvTipoDropdown');
+        if (hidden) hidden.value = value;
+        if (display) display.value = label;
+        // Marcar el item seleccionado
+        dropdown.querySelectorAll('.dropdown-item').forEach(function(i) {
+            i.classList.toggle('selected', i.dataset.value === value);
+        });
+        // Cerrar el dropdown
+        var content = dropdown.querySelector('.dropdown-content');
+        if (content) content.style.display = 'none';
+        var trigger = dropdown.querySelector('.dropdown-trigger');
+        if (trigger) trigger.style.borderColor = '#cbd5e0';
+        // Actualizar visibilidad del panel de frentes
+        window.almToggleFrentes();
+    };
 
     window.almToggleFrentes = function () {
         var wrap = el('almNvFrentesWrap'); if (!wrap) return;
