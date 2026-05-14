@@ -133,10 +133,16 @@ class InventarioService
     /**
      * Asegura que exista la fila de stock para (almacén, producto). Útil para
      * que un almacén pueda "dar de alta" un producto con saldo 0.
+     *
+     * Por defecto $cantidadMinima=null no toca el campo (compat con llamadas que
+     * solo quieren la fila creada). Si pasas $forzarMinimo=true, se aplica el
+     * valor tal cual — incluyendo `null` para BORRAR el mínimo. Lo usa
+     * AlmacenController::actualizarMinimo para evitar el patrón viejo
+     * "asegurarStock + save() manual".
      */
-    public function asegurarStock(int $idAlmacen, int $idProducto, ?float $cantidadMinima = null): AlmacenStock
+    public function asegurarStock(int $idAlmacen, int $idProducto, ?float $cantidadMinima = null, bool $forzarMinimo = false): AlmacenStock
     {
-        return DB::transaction(function () use ($idAlmacen, $idProducto, $cantidadMinima) {
+        return DB::transaction(function () use ($idAlmacen, $idProducto, $cantidadMinima, $forzarMinimo) {
             $this->cargarAlmacen($idAlmacen);
             $this->cargarProducto($idProducto);
 
@@ -153,7 +159,10 @@ class InventarioService
                 ->where('ID_PRODUCTO', $idProducto)
                 ->firstOrFail();
 
-            if ($cantidadMinima !== null) {
+            if ($forzarMinimo) {
+                $stock->CANTIDAD_MINIMA = $cantidadMinima;
+                $stock->save();
+            } elseif ($cantidadMinima !== null) {
                 $stock->CANTIDAD_MINIMA = $cantidadMinima;
                 $stock->save();
             }

@@ -173,7 +173,8 @@ Route::middleware(['auth'])->group(function () {
 
             // ── Almacén / Inventario ─────────────────────────────────────────
             // Permisos (claves en columna PERMISOS, gateados en AlmacenController::__construct):
-            //   almacen.view · almacen.view.all · almacen.manage · almacen.movimiento
+            //   almacen.view.all · almacen.manage · almacen.movimiento
+            // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara.)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
             Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
 

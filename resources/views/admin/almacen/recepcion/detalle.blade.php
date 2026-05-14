@@ -175,14 +175,13 @@
                 <i class="material-icons" style="font-size:18px;">check_circle</i> Confirmar recepción
             </button>
         @elseif($puedeEnviar)
-            @if($puedeCancelar)
-                <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
-                        onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar borrador</button>
-            @endif
-            {{-- "Editar borrador" deshabilitado en el MVP: el endpoint PATCH existe pero la vista
-                 crear.blade.php todavía no soporta el modo edit (no precarga los datos). Cuando
-                 se implemente, este botón vuelve. Mientras tanto el usuario puede cancelar y crear
-                 otro, o llamar el PATCH directo con un cliente HTTP. --}}
+            {{-- puedeEnviar exige esBorrador() + almacen.movimiento, lo que implica puedeCancelar
+                 (no es final). Por eso el botón de cancelar va siempre que se ofrece "Enviar ahora". --}}
+            <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
+                    onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar borrador</button>
+            {{-- Edición de borrador (PATCH /admin/almacen/recepcion/{id}) está disponible vía API
+                 pero sin UI dedicada: el flujo normal envía con enviar_ahora=true desde el
+                 inventario. Aquí solo se ofrece cancelar el borrador o enviarlo tal cual. --}}
             <button type="button" class="btn-primary-maquinaria" style="height:42px;padding:0 18px;display:flex;align-items:center;gap:6px;"
                     onclick="window.trEnviar()">
                 <i class="material-icons" style="font-size:18px;">local_shipping</i> Enviar ahora

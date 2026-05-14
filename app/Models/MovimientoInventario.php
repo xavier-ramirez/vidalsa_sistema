@@ -74,15 +74,31 @@ class MovimientoInventario extends Model
      * de Materiales. Consecutivo GLOBAL — no se reinicia por año (mismo patrón
      * que Traspaso::generarNumero()).
      *
-     * Debe llamarse DENTRO de la transacción que crea los movimientos del lote
-     * para que el conteo refleje las notas ya emitidas y no haya carrera entre
-     * dos lotes simultáneos.
+     * Toma MAX(NNNN) histórico y suma 1 (no `count + 1`) — así si una nota se
+     * elimina o el NUMERO_NOTA se nulifica (DELETE de nota), el siguiente folio
+     * no choca con uno ya emitido. Debe llamarse DENTRO de la transacción que
+     * crea los movimientos del lote para serializar dos lotes simultáneos.
      */
     public static function generarNumeroNota(): string
     {
         $year = date('Y');
-        $count = self::whereNotNull('NUMERO_NOTA')->count() + 1;
-        return sprintf('NE-%s-%04d', $year, $count);
+        $max = 0;
+        self::query()
+            ->whereNotNull('NUMERO_NOTA')
+            ->where('NUMERO_NOTA', 'like', 'NE-%')
+            ->pluck('NUMERO_NOTA')
+            ->each(function ($num) use (&$max) {
+                if (preg_match('/^NE-\d{4}-(\d{4,})$/', (string) $num, $m)) {
+                    $max = max($max, (int) $m[1]);
+                }
+            });
+
+        $siguiente = $max + 1;
+        // Defensa contra colisión histórica con un folio ya emitido (raro pero barato verificar).
+        while (self::where('NUMERO_NOTA', sprintf('NE-%s-%04d', $year, $siguiente))->exists()) {
+            $siguiente++;
+        }
+        return sprintf('NE-%s-%04d', $year, $siguiente);
     }
 
     protected $casts = [

@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Movimientos de Inventario')
+@section('title', 'Bitácora de Movimientos de Inventario')
 
 @section('content')
 @php

@@ -47,11 +47,6 @@ class TraspasoController extends Controller
      * Filtros del UI: estado (raramente útil porque siempre será ENVIADO),
      *                 id_almacen_origen, id_almacen_destino, desde, hasta.
      *                 search          → busca por NUMERO de la nota de entrega (TR-2026-…)
-     *                 search_producto → busca por DESCRIPCIÓN o CÓDIGO/SERIAL del material
-     *                                   (al menos UNA línea del traspaso debe coincidir).
-     *                                   Mismo patrón que /admin/almacen y la bitácora de
-     *                                   movimientos: scan en productos_inventario.NOMBRE
-     *                                   y productos_inventario.CODIGO con LIKE %term%.
      */
     public function index(Request $request)
     {
@@ -181,10 +176,12 @@ class TraspasoController extends Controller
      */
     public function show(Request $request, int $id)
     {
+        // ESTATUS se incluye en el select de almacenDestino porque Almacen::visiblePara()
+        // lo necesita; evita una segunda query al evaluar $puedeRecibir más abajo.
         $traspaso = Traspaso::with([
             'lineas.producto:ID_PRODUCTO,CODIGO,NOMBRE,UM',
             'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO',
-            'almacenDestino:ID_ALMACEN,NOMBRE,TIPO',
+            'almacenDestino:ID_ALMACEN,NOMBRE,TIPO,ESTATUS',
             'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
             'usuarioCreo:ID_USUARIO,NOMBRE_COMPLETO',
             'usuarioEnvio:ID_USUARIO,NOMBRE_COMPLETO',
@@ -195,7 +192,7 @@ class TraspasoController extends Controller
 
         $puedeRecibir = $traspaso->esEnviado()
             && $request->user()?->can('traspaso.recibir')
-            && Almacen::find($traspaso->ID_ALMACEN_DESTINO)?->visiblePara($request->user());
+            && $traspaso->almacenDestino?->visiblePara($request->user());
 
         return view('admin.almacen.recepcion.detalle', [
             'traspaso'     => $traspaso,

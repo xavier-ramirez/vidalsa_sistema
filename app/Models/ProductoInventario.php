@@ -53,17 +53,4 @@ class ProductoInventario extends Model
     {
         return $q->where('ESTATUS', 'ACTIVO');
     }
-
-    /** Búsqueda libre por código o nombre (usado por el endpoint JSON de productos). */
-    public function scopeBuscar(Builder $q, ?string $term): Builder
-    {
-        $term = trim((string) $term);
-        if ($term === '') {
-            return $q;
-        }
-        return $q->where(function (Builder $sub) use ($term) {
-            $sub->where('CODIGO', 'like', "%{$term}%")
-                ->orWhere('NOMBRE', 'like', "%{$term}%");
-        });
-    }
 }

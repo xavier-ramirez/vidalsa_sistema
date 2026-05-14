@@ -365,9 +365,10 @@ class AlmacenController extends Controller
         ]);
         $this->assertPuedeVerAlmacen($request, $idAlmacen);
 
-        $stock = $this->inventario->asegurarStock($idAlmacen, $request->integer('id_producto'));
-        $stock->CANTIDAD_MINIMA = $request->filled('cantidad_minima') ? (float) $request->input('cantidad_minima') : null;
-        $stock->save();
+        // asegurarStock() crea (si no existe) la fila y aplica el mínimo en la misma transacción.
+        // Pasar null borra el mínimo; pasar un float lo fija.
+        $minimo = $request->filled('cantidad_minima') ? (float) $request->input('cantidad_minima') : null;
+        $stock  = $this->inventario->asegurarStock($idAlmacen, $request->integer('id_producto'), $minimo, /*forzarMinimo*/ true);
 
         return response()->json(['message' => 'Stock mínimo actualizado.', 'stock' => $stock->load('producto')]);
     }

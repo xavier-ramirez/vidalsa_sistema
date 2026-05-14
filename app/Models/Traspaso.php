@@ -112,16 +112,6 @@ class Traspaso extends Model
         return $q->whereIn('ESTADO', (array) $estados);
     }
 
-    /** "Por recibir": en tránsito hacia un almacén destino (ya enviados, no recibidos). */
-    public function scopePorRecibir(Builder $q, ?int $idAlmacenDestino = null): Builder
-    {
-        $q->where('ESTADO', self::ESTADO_ENVIADO);
-        if ($idAlmacenDestino !== null) {
-            $q->where('ID_ALMACEN_DESTINO', $idAlmacenDestino);
-        }
-        return $q;
-    }
-
     // ── Helpers ──────────────────────────────────────────────────
 
     public function esBorrador(): bool   { return $this->ESTADO === self::ESTADO_BORRADOR; }

@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Pedidos de Traspaso')
+@section('title', 'Recepción de Materiales')
 
 @section('content')
 @php
@@ -11,7 +11,9 @@
 
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
-    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all') || ($reqDestino && $reqDestino !== 'all');
+    // $hayAdv = ¿hay algún filtro activo del PANEL Avanzado? El "Almacén destino" vive en el
+    // header (no en el panel) — su estado se refleja en el dropdown del header, no aquí.
+    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all');
 
     $badgesEstado = [
         'BORRADOR'         => ['Borrador',         '#f1f5f9', '#64748b'],
@@ -33,46 +35,42 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;flex:1 1 auto;">
-            <h1 class="page-title" style="margin:0;">
-                <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
-            </h1>
-            {{-- Separador vertical sutil + selector de almacén destino. Mismo idioma visual
-                 que /admin/almacen y /admin/almacen/movimientos para que el usuario reconozca
-                 inmediatamente que "esta es la recepción DE este almacén". --}}
-            <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-            <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
-                <div style="width:260px;min-width:200px;max-width:100%;">
-                    <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
-                        <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
-                        <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
-                            <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
-                            <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                                   placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes destino' }}"
-                                   style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
-                                   oninput="window.filterDropdownOptions(this)">
-                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                               onclick="event.stopPropagation(); clearDropdownFilter('trDestHeaderDropdown');">close</i>
-                        </div>
-                        <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                            <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                                <div class="dropdown-item {{ !$destSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">TODOS LOS ALMACENES DESTINO</div>
-                                @foreach(($almacenes ?? collect()) as $a)
-                                    <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                         onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                        {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
-                                    </div>
-                                @endforeach
-                            </div>
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <h1 class="page-title" style="margin:0;">
+            <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
+        </h1>
+        {{-- Separador vertical sutil + selector de almacén destino. Mismo idioma visual
+             que /admin/almacen y /admin/almacen/movimientos para que el usuario reconozca
+             inmediatamente que "esta es la recepción DE este almacén". --}}
+        <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
+        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
+            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
+            <div style="width:260px;min-width:200px;max-width:100%;">
+                <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
+                    <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
+                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
+                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
+                        <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                               placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes destino' }}"
+                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                               oninput="window.filterDropdownOptions(this)">
+                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                           onclick="event.stopPropagation(); clearDropdownFilter('trDestHeaderDropdown');">close</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                            <div class="dropdown-item {{ !$destSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">TODOS LOS ALMACENES DESTINO</div>
+                            @foreach(($almacenes ?? collect()) as $a)
+                                <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                     onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                    {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-
     </div>
 </section>
 
@@ -82,9 +80,6 @@
     /* Filtro de N° de nota: ancho fijo y compacto (es un código corto tipo TR-2026-0001,
        no necesita una caja larga). Tiene su propia lista de sugerencias debajo. */
     #trFilters .tr-search-num  { flex:0 0 240px; max-width:240px; min-width:180px; position:relative; }
-    /* Filtro por material (descripción / código): ocupa el resto del espacio porque
-       admite textos más largos (códigos largos, palabras de la descripción). */
-    #trFilters .tr-search-prod { flex:2 1 280px; max-width:none; }
     .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
@@ -119,12 +114,9 @@
 
 <div class="admin-card" style="margin:0;min-height:70vh;padding:14px;">
 
-    {{-- ── Filtros (dos search boxes + filtros avanzados estilo equipos) ──
-         1) trSearch       → por NUMERO de la nota de entrega (TR-2026-…)
-         2) trSearchProd   → por DESCRIPCIÓN o CÓDIGO/SERIAL de algún material de la nota
-                             (muestra el traspaso si al menos UNA línea coincide).
-         Comparten un mismo estilo (.tr-search-box) y el placeholder hace explícito
-         qué hace cada uno para evitar confusión. --}}
+    {{-- ── Filtros (search por N° de nota + filtros avanzados estilo equipos) ──
+         trSearch → por NUMERO de la nota de entrega (TR-2026-…) con autocomplete
+         sobre la lista pre-cargada (`numerosNotas`). --}}
     <div id="trFilters">
         <div class="tr-item tr-search-num">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
@@ -335,13 +327,12 @@
         var p = el('trAdvPanel'); if (!p) return;
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
+    // Limpia SOLO los filtros del panel avanzado (Estado / Origen / Desde / Hasta).
+    // El "Almacén destino" vive en el dropdown del header y se limpia con su propia X
+    // (clearDropdownFilter) — no se toca aquí para no sorprender al usuario.
     window.trClearAdv = function () {
         ['trEstado','trOrigen'].forEach(function (id) { var e = el(id); if (e) e.value = 'all'; });
         ['trDesde','trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
-        // El destino vive en el dropdown del header; lo limpiamos por su API.
-        if (typeof window.clearDropdownFilter === 'function') {
-            window.clearDropdownFilter('trDestHeaderDropdown');
-        }
         window.trLoad();
     };
 
