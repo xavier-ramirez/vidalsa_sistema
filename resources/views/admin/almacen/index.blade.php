@@ -643,8 +643,17 @@
                     <div id="almDetMin" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
                 </div>
             </div>
-            <div id="almDetBajoBadge" style="display:none;background:#fff7ed;border:1px solid #fed7aa;color:#b45309;border-radius:8px;padding:8px 10px;font-size:12.5px;font-weight:700;text-align:center;">
-                <i class="material-icons" style="font-size:15px;vertical-align:middle;">warning</i> Este producto está en o por debajo de su stock mínimo en este almacén.
+            {{-- Aviso de stock bajo en este almacén. Misma paleta que .alm-row-bajo en la
+                 tabla (#fee2e2 / #fecaca / #b91c1c) para que el usuario asocie ambos avisos.
+                 Layout flex: icono a la izquierda con su propio ancho fijo, texto fluido a la
+                 derecha en 2 líneas equilibradas — antes el texto largo + icono inline se veía
+                 como un párrafo desordenado. --}}
+            <div id="almDetBajoBadge" style="display:none;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:10px 14px;align-items:center;gap:10px;">
+                <i class="material-icons" style="font-size:20px;flex:0 0 auto;">warning</i>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13px;font-weight:800;line-height:1.2;">Stock bajo en este almacén</div>
+                    <div style="font-size:11.5px;font-weight:500;line-height:1.35;margin-top:2px;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
+                </div>
             </div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
                 @if($puedeMover ?? false)
@@ -1218,7 +1227,9 @@
         el('almDetCat').textContent = (cat && String(cat).trim()) ? cat : '—';
         el('almDetMin').textContent = hasMin ? formatNum(minimo) : 'Sin definir';
         var bajo = hasMin && parseFloat(saldo || 0) <= parseFloat(minimo);
-        el('almDetBajoBadge').style.display = bajo ? '' : 'none';
+        // 'flex' (no '' ni 'block') porque el badge se layoutea con icono a la izquierda
+        // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.
+        el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         open('almDetalleModal');
     };
     window.almDetalleAccion = function (which) {
