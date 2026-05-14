@@ -385,13 +385,12 @@
             <div>
                 <label>Producto</label>
                 <div><strong id="almAjNombre" style="font-size:12.5px;color:#1e293b;"></strong></div>
-                <div style="font-size:12px;color:#64748b;margin-top:4px;">Saldo actual: <strong id="almAjSaldo">0</strong> <span id="almAjUm"></span></div>
             </div>
             <div>
                 <label>Saldo según conteo físico</label>
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Dejar vacío si solo cambias el mínimo">
                 <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
-                    Cuadra el saldo del sistema con lo que hay físicamente en el almacén. El delta queda registrado en la bitácora como <b>Auditoría</b>.
+                    La diferencia se registra en la bitácora como <b>Auditoría</b>.
                 </small>
             </div>
             <div>
@@ -1277,7 +1276,6 @@
         m.dataset.idProducto = idProducto;
         m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si el usuario lo cambió
         if (el('almAjNombre')) el('almAjNombre').textContent = nombre;
-        el('almAjSaldo').textContent = formatNum(saldo); el('almAjUm').textContent = um || '';
         el('almAjNuevoSaldo').value = ''; el('almAjMinimo').value = (minimo == null ? '' : minimo); el('almAjMotivo').value = '';
         showErr('almAjError', ''); open('almAjusteModal');
     };
@@ -1337,7 +1335,7 @@
     // confirmación reutilizable (usa el modal estándar de la app si existe; si no, confirm()).
     function almConfirm(msg, onYes) {
         if (window.showModal) {
-            window.showModal({ type: 'danger', title: '¿Confirmar?', message: msg, confirmText: 'Sí', cancelText: 'Cancelar', onConfirm: onYes });
+            window.showModal({ type: 'danger', title: '¿Confirmar?', message: msg, confirmText: 'Aceptar', cancelText: 'Cancelar', onConfirm: onYes });
         } else if (window.confirm(msg.replace(/<[^>]+>/g, ''))) { onYes(); }
     }
 
@@ -1497,7 +1495,7 @@
     window.almEditarProducto = function (id, cod, nom, um, cat) {
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
-        el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar cambios';
+        el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar';
         // El código es de sólo lectura al editar (puede ser PRD-XXXX o numérico).
         el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = true; el('almProdCodigo').style.background = '#f1f5f9';
         el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
