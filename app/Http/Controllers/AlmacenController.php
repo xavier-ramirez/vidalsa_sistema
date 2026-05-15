@@ -1434,35 +1434,57 @@ class NotaEntregaPDF extends \TCPDF
 {
     public function Header()
     {
-        // ── Logo (izquierda, alineado con el margen izquierdo del documento) ──
-        $img = public_path('img/imagen_uno.jpg');
+        // ── Cabezote oficial VID-FO-GEN-019: caja externa con 3 secciones
+        //    [LOGO]  |  NOTA DE ENTREGA DE MATERIALES  |  [Sello 5 filas]
+        //    Bordes dibujados con Rect()/Line() para garantizar el contorno externo;
+        //    el sello de la derecha se compone con Cell() para tener sus separadores
+        //    horizontales internos sin depender del soporte limitado de border-collapse
+        //    en writeHTMLCell de TCPDF.
+        $img    = public_path('img/imagen_uno.jpg');
+        $x0     = 12;       // margen izquierdo (igual a SetMargins)
+        $y0     = 6;        // top del cabezote
+        $wTotal = 186;      // 210 (A4) − 2×12 margen
+        $h      = 30;       // alto del cabezote
+        $wLogo  = 37;       // ≈20% del ancho (A1:B5 del Excel)
+        $wTitle = 101;      // ≈54% (C1:G5)
+        $wStamp = $wTotal - $wLogo - $wTitle; // 48mm (H1:I5)
+
+        $xTitle = $x0 + $wLogo;
+        $xStamp = $xTitle + $wTitle;
+
+        // 1) Caja externa + separadores verticales
+        $this->Rect($x0, $y0, $wTotal, $h);
+        $this->Line($xTitle, $y0, $xTitle, $y0 + $h);
+        $this->Line($xStamp, $y0, $xStamp, $y0 + $h);
+
+        // 2) Logo centrado en la celda izquierda
         if (file_exists($img)) {
-            // x=12 (== margen izquierdo del SetMargins), y=6, w=0(auto = mantiene aspecto), h=28mm.
-            // Equivale visualmente al área A1:B5 del Excel oficial.
-            $this->Image($img, 12, 6, 0, 28, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+            $this->Image($img, $x0 + 3, $y0 + 3, 0, 24, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
         }
 
-        // ── Título central ──
-        // Franja entre el logo (≈55mm) y el sello (≈145mm). 85mm de ancho útil.
-        $this->SetFont('helvetica', 'B', 15);
-        $this->writeHTMLCell(
-            85, 0, 55, 12,
-            '<div style="text-align:center;font-weight:bold;">NOTA DE ENTREGA<br>DE MATERIALES</div>',
-            0, 0, 0, true, 'C', true
-        );
+        // 3) Título centrado vertical y horizontalmente en la celda del medio
+        $this->SetFont('helvetica', 'B', 13);
+        $this->SetXY($xTitle, $y0);
+        $this->Cell($wTitle, $h, 'NOTA DE ENTREGA DE MATERIALES', 0, 0, 'C', false, '', 0, false, 'T', 'M');
 
-        // ── Sello de formato (derecha, 5 filas idénticas al Excel original) ──
-        // Las fechas EMIS/REV y el CODIGO son estáticos (parte del formulario oficial), NO
-        // datos del movimiento — por eso van hardcoded y no como variables del controlador.
-        $this->SetFont('helvetica', '', 7);
-        $stamp = '<table border="1" cellpadding="2" style="font-size:7pt;border-collapse:collapse;">'
-               . '<tr><td width="100%" align="left"><b>CODIGO:</b></td></tr>'
-               . '<tr><td align="center"><b>VID-FO-GEN-019</b></td></tr>'
-               . '<tr><td align="left">FECHA EMIS: 01/10/19</td></tr>'
-               . '<tr><td align="left">REV: 1. FECHA REV: 06/10/23</td></tr>'
-               . '<tr><td align="center">PAG. ' . $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages() . '</td></tr>'
-               . '</table>';
-        $this->writeHTMLCell(53, 0, 145, 6, $stamp, 0, 0, 0, true, 'L', true);
+        // 4) Sello derecho: 5 filas con separadores horizontales internos
+        $rowH = $h / 5; // 6mm cada fila
+        $rows = [
+            ['CODIGO:',                                                          'R', ''],   // label
+            ['VID-FO-GEN-019',                                                   'C', 'B'],  // bold
+            ['FECHA EMIS: 01/10/19',                                             'C', ''],
+            ['REV: 1. FECHA REV: 06/10/23',                                      'C', ''],
+            ['PAG. ' . $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages(), 'C', ''],
+        ];
+        foreach ($rows as $i => [$txt, $align, $style]) {
+            $yi = $y0 + $i * $rowH;
+            if ($i > 0) {
+                $this->Line($xStamp, $yi, $xStamp + $wStamp, $yi);
+            }
+            $this->SetFont('helvetica', $style, 7);
+            $this->SetXY($xStamp, $yi);
+            $this->Cell($wStamp, $rowH, $txt, 0, 0, $align, false, '', 0, false, 'T', 'M');
+        }
     }
 
     public function Footer()
