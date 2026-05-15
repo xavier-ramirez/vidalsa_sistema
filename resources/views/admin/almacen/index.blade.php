@@ -48,6 +48,12 @@
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
     /* En móvil .selected-row-maquinaria es desktop-only, así que damos un realce propio */
     .alm-table tbody tr.alm-row.selected-row-maquinaria { background: #e1effa !important; }
+    /* Anulación local: la regla global `tr.selected-row-maquinaria td { color:#0067b1 }`
+       (estilos_globales.css ~línea 1929) deja TODO el texto azul. En esta tabla solo
+       queremos el background azul, NO los textos: el código y el nombre tienen su propio
+       color especificado por celda. `unset` + `inherit` aseguran que cada celda use su
+       color inline original (font-weight + color de td) en vez del azul global. */
+    .alm-table tbody tr.alm-row.selected-row-maquinaria td { color: unset !important; }
 
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
@@ -161,10 +167,11 @@
     // Datos de los almacenes para el modal de edición (solo se usa si $puedeManage).
     $almacenesData = ($almacenes ?? collect())->keyBy('ID_ALMACEN')->map(function ($a) {
         return [
-            'NOMBRE'    => $a->NOMBRE,
-            'TIPO'      => $a->TIPO,
-            'UBICACION' => $a->UBICACION,
-            'frentes'   => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
+            'NOMBRE'      => $a->NOMBRE,
+            'TIPO'        => $a->TIPO,
+            'UBICACION'   => $a->UBICACION,
+            'ALMACENISTA' => $a->ALMACENISTA,
+            'frentes'     => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
         ];
     });
 @endphp
@@ -375,11 +382,10 @@
         <button type="button" onclick="window.almSelClear(event)" class="btn-bulk-clear" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
             <span class="desktop-text">Limpiar</span>
         </button>
-        <button type="button" onclick="window.almSelAccion('SALIDA')" class="btn-bulk-action" style="background:#dc2626;">
+        {{-- Botón único "Salida". Abre el modal Nota de Entrega; el backend decide si es
+             consumo (mismo almacén) o envío a otro proyecto (TRASPASO) según el frente destino. --}}
+        <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action" style="background:#dc2626;">
             <i class="material-icons" style="font-size:18px;">north_east</i><span class="desktop-text">Salida</span>
-        </button>
-        <button type="button" onclick="window.almSelAccion('TRASPASO')" class="btn-bulk-action" style="background:#0067b1;">
-            <i class="material-icons" style="font-size:18px;">swap_horiz</i><span class="desktop-text">Enviar a otro almacén</span>
         </button>
     </div>
 </div>
@@ -544,6 +550,13 @@
                 </div>
             </div>
             <div><label>Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional" autocomplete="off"></div>
+            {{-- Almacenista: nombre del responsable del almacén. Aparecerá como "Entregado por:"
+                 en la Nota de Entrega VID-FO-GEN-019. --}}
+            <div>
+                <label>Almacenista</label>
+                <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Ej: Juan Pérez (almacenista)" autocomplete="off">
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "Entregado por:" en la Nota de Entrega.</div>
+            </div>
             <div id="almNvFrentesWrap">
                 <label>Frentes que usan este almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
@@ -707,38 +720,25 @@
 </div>
 
 @if($puedeMover)
-{{-- ── Salida / Traspaso: en SALIDA se llena como Nota de Entrega de Materiales
-     (formato VID-FO-GEN-019: proyecto + contrato + fecha + RQ + solicitante + dpto).
-     En TRASPASO se muestran los selectores de almacén/frente destino. ── --}}
+{{-- ── Salida: un solo formulario unificado. Siempre llena la Nota de Entrega VID-FO-GEN-019
+     (proyecto + contrato + fecha + RQ + solicitante + dpto). El backend decide si la salida
+     es CONSUMO (mismo almacén del origen) o TRASPASO (envío a otro almacén) según el frente
+     elegido en "Proyecto destino" — ambos casos generan Nota de Entrega NE-YYYY-NNNN. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
     <div class="alm-modal alm-modal-wide" style="max-width:960px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" id="almSalidaIcon" style="font-size:20px;">north_east</i> <span id="almSalidaTitulo">Registrar salida</span></h3>
+            <h3><i class="material-icons" style="font-size:20px;">north_east</i> <span>Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
         </div>
         <div class="alm-modal-body">
 
-            {{-- TRASPASO: solo se elige el FRENTE destino. El almacén receptor lo deduce el
-                 backend desde la pivot almacen_frentes (un frente PROYECTO suele tener un
-                 único almacén asignado, propio o compartido entre frentes). --}}
-            <div id="almSalidaFrenteWrap" style="display:none;margin-bottom:12px;">
-                <label>Frente destino *</label>
-                <select id="almSalidaFrente">
-                    <option value="">— elige el frente —</option>
-                    @foreach(($frentesLista ?? collect()) as $f)
-                        <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
-                    @endforeach
-                </select>
-                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">El sistema usa el almacén asignado a ese frente como destino.</div>
-            </div>
-
-            {{-- SALIDA: cabecera tipo "Nota de Entrega de Materiales" ────────────────────
+            {{-- Cabecera tipo "Nota de Entrega de Materiales" ─────────────────────────────
                  Layout COPIA EXACTA del Excel VID-FO-GEN-019:
                    PROYECTO                                          (full)
                    CONTRATO N°                                       (full)
                    FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
                    DEPARTAMENTO                                      (full)              --}}
-            <div id="almSalidaNotaWrap" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+            <div id="almSalidaNotaWrap" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                 {{-- Encabezado del documento: título centrado + bloque de datos del formato a la derecha. --}}
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #1e293b;">
                     <div style="flex:1;text-align:center;">
@@ -794,8 +794,8 @@
                 </div>
 
                 {{-- OBSERVACIONES (full width) — campo libre de la Nota de Entrega
-                     (mapea a MOTIVO en BD). Solo visible/usado en SALIDA; en TRASPASO
-                     no se pide porque el envío ya queda identificado por su N° TR-... --}}
+                     (mapea a MOTIVO en BD). Se envía siempre en el flujo unificado: tanto
+                     en SALIDA pura (consumo) como en SALIDA vía traspaso a otro proyecto. --}}
                 <div>
                     <label class="alm-nota-label">Observaciones</label>
                     <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc.">
@@ -820,7 +820,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almSalidaModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="almSalidaSubmit" onclick="window.almSalidaConfirmar()">Registrar salida</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaConfirmar()">Registrar salida</button>
         </div>
     </div>
 </div>
@@ -834,10 +834,11 @@
     if (window.__almIndexInit) return;
     window.__almIndexInit = true;
 
-    var ROUTE_INDEX     = @json(route('almacen.index'));
-    var ROUTE_LOTE      = @json(route('almacen.movimientos.lote'));
-    var ROUTE_PROD      = @json(route('almacen.productos.store'));
-    var ROUTE_RECEPCION = @json(route('almacen.recepcion.store')); // crear+enviar Pedido de Traspaso en un paso
+    var ROUTE_INDEX = @json(route('almacen.index'));
+    // ROUTE_LOTE cubre TODOS los movimientos: ENTRADA, SALIDA (consumo) y SALIDA hacia otro
+    // proyecto (el backend crea internamente el Traspaso). El frontend solo conoce este endpoint.
+    var ROUTE_LOTE  = @json(route('almacen.movimientos.lote'));
+    var ROUTE_PROD  = @json(route('almacen.productos.store'));
     // Catálogo de productos (CODIGO/NOMBRE/UM) — lista global, alimenta los selects de los modales
     // (Nuevo/Editar producto, modal de salida con productos seleccionados, etc.).
     window.almProductosLista = @json($productosLista ?? collect());
@@ -959,11 +960,40 @@
         box.innerHTML = html || (emptyHtml || '<div class="alm-suggest-empty">Sin coincidencias.</div>');
         box.classList.add('open');
     }
+    // Construye los "tokens de búsqueda" para igualar la lógica del backend:
+    // tokeniza por espacios, normaliza (lower + sin acentos) y para cada token >3
+    // letras que termine en 'S' añade su variante singular. Devuelve { tokens, hasMatch(text) }.
+    function almBuildSearchMatcher(rawTerm) {
+        var tokens = (rawTerm || '').split(/\s+/).filter(Boolean).map(function (t) {
+            var n = almNorm(t);
+            var variantes = [n];
+            if (n.length > 3 && n.charAt(n.length - 1) === 's') variantes.push(n.slice(0, -1));
+            return variantes;
+        });
+        return {
+            isEmpty: tokens.length === 0,
+            // hasMatch retorna true si CADA token (en alguna de sus variantes) aparece
+            // como substring del texto normalizado pasado — AND entre tokens, OR entre variantes.
+            hasMatch: function (text) {
+                var n = almNorm(text || '');
+                for (var i = 0; i < tokens.length; i++) {
+                    var found = false;
+                    for (var j = 0; j < tokens[i].length; j++) {
+                        if (n.indexOf(tokens[i][j]) > -1) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+                return true;
+            }
+        };
+    }
+
     window.almBuscarSuggest = function () {
         almCatSuggestHide();
         var inp = el('almFiltroBuscar'), box = el('almFiltroBuscarSuggest');
         if (!inp || !box) return;
-        var term = almNorm(inp.value.trim());
+        var rawTerm = inp.value.trim();
+        var matcher = almBuildSearchMatcher(rawTerm);
         var lista = window.almProductosLista || [];
 
         // Cuando el usuario abre el autocomplete sin texto, ofrecemos arriba un acceso directo
@@ -971,7 +1001,7 @@
         // por el estado inicial "Usa los filtros…" y el usuario quiere ver todo de una vez.
         // Hover handlers inline porque la regla `.alm-suggest-item:hover` no le gana al style inline
         // del background (los inline styles tienen mayor especificidad que las pseudo-clases).
-        var verTodoLink = (term === '')
+        var verTodoLink = matcher.isEmpty
             ? '<div class="alm-suggest-item" data-action="ver-todo"'
             +   ' style="background:#ebf4ff;color:var(--maquinaria-blue,#0067b1);font-weight:700;display:flex;align-items:center;gap:8px;"'
             +   ' onmouseover="this.style.background=\'#dbeafe\'"'
@@ -995,14 +1025,16 @@
         // Recorremos la lista una vez y clasificamos: matches en este almacén vs solo catálogo.
         var matches = [];        // coinciden con el término Y estan en este almacén → se muestran
         var soloCatalogo = 0;    // coinciden con el término PERO no estan en este almacén → contador
-        if (term === '') {
+        if (matcher.isEmpty) {
             for (var i = 0; i < lista.length && matches.length < 12; i++) {
                 if (enEsteAlmacen(lista[i])) matches.push(lista[i]);
             }
         } else {
             for (var j = 0; j < lista.length; j++) {
                 var p = lista[j];
-                if (almNorm(p.CODIGO).indexOf(term) === -1 && almNorm(p.NOMBRE).indexOf(term) === -1) continue;
+                // Cada token (con su variante singular si aplica) debe aparecer en CODIGO o NOMBRE
+                // — concatenamos para que un token pueda matchear en cualquiera de los dos campos.
+                if (!matcher.hasMatch((p.CODIGO || '') + ' ' + (p.NOMBRE || ''))) continue;
                 if (enEsteAlmacen(p)) {
                     if (matches.length < 12) matches.push(p);
                 } else {
@@ -1180,13 +1212,15 @@
         almSelRefreshBar();
     });
     function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
-    // Botones de la barra flotante: abren el modal de cantidades (SALIDA directa / TRASPASO con destino).
-    window.almSelAccion = function (tipo) {
+    // Único botón de la barra flotante: abre el modal Nota de Entrega.
+    // El backend decide si es SALIDA (consumo en el mismo almacén) o TRASPASO (envío
+    // a otro almacén) según el frente destino elegido en el formulario.
+    window.almSelAccion = function () {
         if (!almSelCount()) { toast('Selecciona al menos un producto (clic en su fila).', 'error'); return; }
         if (typeof window.almAbrirSalidaModal !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
-        window.almAbrirSalidaModal(tipo === 'TRASPASO' ? 'TRASPASO' : 'SALIDA', idAlm);
+        window.almAbrirSalidaModal(idAlm);
     };
 
     // ── Campo "Categoría" del modal de producto: desplegable de categorías ya registradas + "escribir una nueva" ──
@@ -1593,6 +1627,7 @@
     function almResetAlmacenModal() {
         delete el('almAlmacenModal').dataset.idAlmacen;
         el('almNvNombre').value = ''; el('almNvUbicacion').value = '';
+        if (el('almNvAlmacenista')) el('almNvAlmacenista').value = '';
         almNvTipoSelect('PROYECTO', 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes([]);
         showErr('almNvError', '');
@@ -1608,6 +1643,7 @@
         el('almAlmacenModal').dataset.idAlmacen = id;
         el('almNvTitulo').textContent = 'Editar almacén'; el('almNvSubmit').textContent = 'Guardar cambios';
         el('almNvNombre').value = d.NOMBRE || ''; el('almNvUbicacion').value = d.UBICACION || '';
+        if (el('almNvAlmacenista')) el('almNvAlmacenista').value = d.ALMACENISTA || '';
         var tipo = d.TIPO || 'PROYECTO';
         almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'Global (Todos los frentes)' : 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes(d.frentes || []);
@@ -1628,7 +1664,7 @@
         fetch(url, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({ NOMBRE: nombre, TIPO: tipo, UBICACION: val('almNvUbicacion') || null, frentes: frentes })
+            body: JSON.stringify({ NOMBRE: nombre, TIPO: tipo, UBICACION: val('almNvUbicacion') || null, ALMACENISTA: val('almNvAlmacenista') || null, frentes: frentes })
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -1752,21 +1788,15 @@
     @endif
 
     @if($puedeMover)
-    // ── Modal de cantidades para la selección de la tabla: SALIDA directa / TRASPASO (pide almacén destino) ──
-    //  ALM_SAL.tipo = 'SALIDA' | 'TRASPASO' ; ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
-    var ALM_SAL = { tipo: 'SALIDA', idAlmacen: '' };
+    // ── Modal "Registrar salida" unificado ─────────────────────────────────────
+    //  Un solo formulario para ambos casos: salida para consumo (mismo almacén) o
+    //  salida hacia otro proyecto (TRASPASO). El backend decide qué hacer según el
+    //  frente destino — ambos generan Nota de Entrega NE-YYYY-NNNN.
+    //  ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
+    var ALM_SAL = { idAlmacen: '' };
     function almSalNum(n) { n = parseFloat(n || 0); if (isNaN(n)) return '0'; var s = n.toFixed(3).replace(/\.?0+$/, ''); return s === '' ? '0' : s; }
-    window.almAbrirSalidaModal = function (tipo, idAlmacen) {
-        ALM_SAL = { tipo: tipo === 'TRASPASO' ? 'TRASPASO' : 'SALIDA', idAlmacen: String(idAlmacen || '') };
-        var esTraspaso = ALM_SAL.tipo === 'TRASPASO';
-        if (el('almSalidaTitulo')) el('almSalidaTitulo').textContent = esTraspaso ? 'Enviar a otro almacén' : 'Registrar salida';
-        if (el('almSalidaIcon'))   el('almSalidaIcon').textContent   = esTraspaso ? 'swap_horiz' : 'north_east';
-        if (el('almSalidaSubmit')) el('almSalidaSubmit').textContent = esTraspaso ? 'Enviar' : 'Registrar salida';
-        // Bloques condicionales: TRASPASO muestra solo "Frente destino"; SALIDA muestra Nota de Entrega.
-        // El almacén receptor del traspaso se deduce en el backend desde el frente elegido.
-        var fw = el('almSalidaFrenteWrap'); if (fw) fw.style.display = esTraspaso ? 'block' : 'none';
-        var nw = el('almSalidaNotaWrap');   if (nw) nw.style.display = esTraspaso ? 'none'  : 'block';
-        var fs = el('almSalidaFrente'); if (fs) fs.value = '';
+    window.almAbrirSalidaModal = function (idAlmacen) {
+        ALM_SAL = { idAlmacen: String(idAlmacen || '') };
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
         ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
@@ -1831,13 +1861,10 @@
         if (!tb || !tb.children.length) almCerrar('almSalidaModal');
     };
     window.almSalidaConfirmar = function () {
-        var esTraspaso = ALM_SAL.tipo === 'TRASPASO';
-        var idFrenteDest = (esTraspaso && el('almSalidaFrente')) ? el('almSalidaFrente').value : '';
-        if (esTraspaso) {
-            if (!idFrenteDest) { showErr('almSalidaError', 'Elige el frente destino.'); return; }
-            // El almacén destino lo resuelve el backend desde el frente; si el frente no
-            // tiene almacén asignado o tiene varios, el server responde 422 con mensaje claro.
-        }
+        var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
+        var idFrenteDest = v('almSalidaProyecto');
+        if (!idFrenteDest) { showErr('almSalidaError', 'Elige el proyecto / frente destino.'); return; }
+
         var lineas = [], faltan = [];
         (el('almSalidaLineas') ? el('almSalidaLineas').querySelectorAll('tr') : []).forEach(function (tr) {
             var id = tr.getAttribute('data-id');
@@ -1852,42 +1879,30 @@
         if (faltan.length) { showErr('almSalidaError', 'Falta la cantidad (o es 0) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos o quítalos de la lista.'); return; }
         showErr('almSalidaError', '');
 
-        // SALIDA: registra movimientos atómicos (lote) en este almacén; los datos del lote
-        //   vienen de la sección "Nota de Entrega" del modal (proyecto + contrato + fecha + RQ + ...).
-        // TRASPASO: crea un Pedido de Traspaso en estado ENVIADO en un solo paso (enviar_ahora=true).
-        //   Resta del origen ahora; el destino tiene que confirmar en /admin/almacen/recepcion.
-        //   Solo se manda id_frente_destino; el backend deduce id_almacen_destino desde la pivot.
-        var url, payload;
-        if (esTraspaso) {
-            url = ROUTE_RECEPCION;
-            payload = {
-                id_almacen_origen:  parseInt(ALM_SAL.idAlmacen, 10),
-                id_frente_destino:  parseInt(idFrenteDest, 10),
-                lineas:             lineas,
-                enviar_ahora:       true,
-            };
-        } else {
-            var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
-            url = ROUTE_LOTE;
-            payload = { tipo: 'SALIDA', id_almacen: ALM_SAL.idAlmacen, lineas: lineas };
-            var idProy = v('almSalidaProyecto');
-            if (idProy) payload.id_frente = parseInt(idProy, 10);
-            var fecha  = v('almSalidaFecha');         if (fecha)  payload.fecha = fecha;
-            var contr  = v('almSalidaContrato');      if (contr)  payload.numero_contrato = contr;
-            var rqN    = v('almSalidaRq');            if (rqN)    payload.numero_rq = rqN;
-            var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
-            var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
-            var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
-        }
+        // Único endpoint: registrarMovimientoLote tipo=SALIDA + id_frente_destino.
+        // El backend decide internamente:
+        //   - Si el frente destino comparte el almacén origen → SALIDA pura (consumo).
+        //   - Si el frente destino tiene OTRO almacén → crea un Traspaso + envía + asigna
+        //     NUMERO_NOTA. En ambos casos se devuelve nota_url con el PDF.
+        var payload = {
+            tipo:               'SALIDA',
+            id_almacen:         ALM_SAL.idAlmacen,
+            id_frente_destino:  parseInt(idFrenteDest, 10),
+            id_frente:          parseInt(idFrenteDest, 10), // back-compat: SALIDA mismo-almacén usa id_frente
+            lineas:             lineas,
+        };
+        var fecha  = v('almSalidaFecha');         if (fecha)  payload.fecha = fecha;
+        var contr  = v('almSalidaContrato');      if (contr)  payload.numero_contrato = contr;
+        var rqN    = v('almSalidaRq');            if (rqN)    payload.numero_rq = rqN;
+        var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
+        var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
+        var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
 
-        // Para SALIDA: pre-abrimos una pestaña vacía AHORA, dentro del gesto del usuario (el click
-        // en "Registrar salida"). Si esperáramos a hacer window.open() después del fetch, los
-        // bloqueadores de pop-up de algunos navegadores (Chrome estricto, Firefox con prefs) lo
-        // rechazarían por no estar en el contexto del gesto original. Cuando llegue la respuesta:
-        //   - si todo OK     → redirigimos esa pestaña a la nota_url
-        //   - si algo falla  → la cerramos discretamente
-        // En TRASPASO no hace falta — no se genera PDF.
-        var pdfTab = (ALM_SAL.tipo !== 'TRASPASO') ? window.open('about:blank', '_blank') : null;
+        // Pre-abrimos pestaña vacía DENTRO del gesto del usuario para que el pop-up blocker
+        // no la rechace. La redirigimos a nota_url cuando llega la respuesta (o la cerramos
+        // si hubo error). Ambos flujos (consumo / traspaso) generan PDF.
+        var pdfTab = window.open('about:blank', '_blank');
+        var url = ROUTE_LOTE;
 
         pre();
         fetch(url, {

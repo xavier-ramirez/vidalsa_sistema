@@ -23,8 +23,10 @@ use Throwable;
  * Permisos (re-usa los que ya tienes; el único nuevo es `traspaso.recibir`):
  *  - almacen.movimiento : crear borrador, editar borrador, enviar, cancelar antes de enviar.
  *  - traspaso.recibir   : confirmar recepción en el almacén destino.
- *  - super.admin / almacen.view.all : ven TODOS los traspasos del sistema.
- *  - Resto de usuarios: ven solo traspasos donde origen o destino son almacenes visibles para ellos.
+ *
+ * Visibilidad de traspasos: depende SOLO de `Almacen::visiblesPara($user)` (es decir, de
+ * `NIVEL_ACCESO`). Los usuarios GLOBAL ven todos los traspasos; los LOCAL ven solo los
+ * traspasos donde origen o destino son almacenes ligados a sus frentes.
  */
 class TraspasoController extends Controller
 {
@@ -134,9 +136,11 @@ class TraspasoController extends Controller
 
     // ─────────────────────────────────────────────────────────────
     //  Crear / editar borrador (origen)
-    //  NOTA: no hay vista standalone GET /crear — el envío se inicia desde el botón
-    //  "Enviar a otro almacén" del inventario (/admin/almacen), que llama directo a
-    //  store() vía AJAX con enviar_ahora=true (crea pedido + lo envía en una transacción).
+    //  NOTA: no hay vista standalone GET /crear, y el frontend interno YA NO usa este
+    //  endpoint. El botón único "Salida" de /admin/almacen envía siempre a
+    //  AlmacenController::registrarMovimientoLote, que detecta cuando el frente destino
+    //  tiene otro almacén y delega a TraspasoService directamente. `store()` queda como
+    //  API pública (clientes externos / integraciones) y soporta `enviar_ahora=true`.
     // ─────────────────────────────────────────────────────────────
 
     public function store(Request $request)

@@ -71,34 +71,35 @@ class MovimientoInventario extends Model
 
     /**
      * Genera el siguiente NUMERO_NOTA (NE-YYYY-NNNN) para una Nota de Entrega
-     * de Materiales. Consecutivo GLOBAL — no se reinicia por año (mismo patrón
-     * que Traspaso::generarNumero()).
+     * de Materiales. Consecutivo por año.
      *
-     * Toma MAX(NNNN) histórico y suma 1 (no `count + 1`) — así si una nota se
-     * elimina o el NUMERO_NOTA se nulifica (DELETE de nota), el siguiente folio
-     * no choca con uno ya emitido. Debe llamarse DENTRO de la transacción que
-     * crea los movimientos del lote para serializar dos lotes simultáneos.
+     * Serializa el incremento usando la tabla `numero_nota_counter` con
+     * `lockForUpdate`: la segunda petición concurrente espera al COMMIT de la
+     * primera antes de leer su propio folio → cero duplicados aun bajo carga.
+     *
+     * DEBE llamarse DENTRO de una transacción (la propia que crea los movimientos
+     * del lote) — de otro modo el lock se libera de inmediato y la garantía cae.
      */
     public static function generarNumeroNota(): string
     {
-        $year = date('Y');
-        $max = 0;
-        self::query()
-            ->whereNotNull('NUMERO_NOTA')
-            ->where('NUMERO_NOTA', 'like', 'NE-%')
-            ->pluck('NUMERO_NOTA')
-            ->each(function ($num) use (&$max) {
-                if (preg_match('/^NE-\d{4}-(\d{4,})$/', (string) $num, $m)) {
-                    $max = max($max, (int) $m[1]);
-                }
-            });
-
-        $siguiente = $max + 1;
-        // Defensa contra colisión histórica con un folio ya emitido (raro pero barato verificar).
-        while (self::where('NUMERO_NOTA', sprintf('NE-%s-%04d', $year, $siguiente))->exists()) {
-            $siguiente++;
-        }
-        return sprintf('NE-%s-%04d', $year, $siguiente);
+        $year = (int) date('Y');
+        // Asegurar el row del año (idempotente vía INSERT IGNORE-equivalente con `insertOrIgnore`).
+        \DB::table('numero_nota_counter')->insertOrIgnore([
+            'ANIO'       => $year,
+            'SIGUIENTE'  => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        // Lock + incremento atómico del folio.
+        $row = \DB::table('numero_nota_counter')
+            ->where('ANIO', $year)
+            ->lockForUpdate()
+            ->first();
+        $siguiente = ((int) $row->SIGUIENTE) + 1;
+        \DB::table('numero_nota_counter')
+            ->where('ANIO', $year)
+            ->update(['SIGUIENTE' => $siguiente, 'updated_at' => now()]);
+        return sprintf('NE-%d-%04d', $year, $siguiente);
     }
 
     protected $casts = [

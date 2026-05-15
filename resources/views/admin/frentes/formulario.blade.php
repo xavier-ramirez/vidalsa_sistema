@@ -5,15 +5,33 @@
 @section('title', 'Gestión de Frentes')
 
 @section('content')
-    <section class="page-title-card" style="text-align: center; margin: 0 auto 10px auto;">
+    {{-- Espaciado compacto SOLO para este formulario: reduce el desperdicio vertical
+         (gap del grid, márgenes de los separadores de Responsables, etc.) sin tocar
+         el resto del sitio. Mantiene los inputs y dropdowns con su altura habitual. --}}
+    <style>
+        #frenteForm .form-grid { gap: 10px; }
+        #frenteForm .resp-grid { gap: 10px; }
+        /* Separadores de cada bloque "Responsable N": menos espacio arriba/abajo. */
+        #frenteForm > .form-grid > div[style*="border-bottom"][style*="margin-top: 20px"] {
+            margin-top: 12px !important;
+            padding: 6px 0 4px 0 !important;
+        }
+        /* Inputs y labels más compactos. */
+        #frenteForm .form-input-custom { padding: 8px 12px; font-size: 13.5px; }
+        #frenteForm .form-label        { margin-bottom: 3px; font-size: 12.5px; }
+        #frenteForm .dropdown-trigger  { padding: 8px 12px; }
+        /* Barra de búsqueda superior: 30px era exagerado. */
+        .admin-card > div[style*="margin-bottom: 30px"] { margin-bottom: 14px !important; }
+        /* Footer de botones (Cancelar / Guardar / Eliminar): 40px → 18px. */
+        .frentes-btn-row { margin-top: 18px !important; }
+    </style>
+
+    <section class="page-title-card" style="text-align: center; margin: 0 auto 8px auto;">
         <h1 class="page-title">
-            <span class="page-title-line2" style="color: #000; font-size: 28px;"
+            <span class="page-title-line2" style="color: #000; font-size: 26px;"
                 id="formTitle">{{ (isset($frente) && $frente->exists) ? 'Edición de Frente de Trabajo' : 'Registro de Frente de Trabajo' }}</span>
         </h1>
     </section>
-
-
-
 
 
 

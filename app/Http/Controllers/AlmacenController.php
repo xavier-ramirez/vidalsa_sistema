@@ -20,21 +20,24 @@ use Throwable;
  *  - Catálogo global de productos (CODIGO, PRODUCTO/NOMBRE, UM, CATEGORIA).
  *  - Stock por almacén + movimientos (entradas/salidas/ajustes/traspasos) vía InventarioService.
  *
- * Visibilidad (reusa Usuario::NIVEL_ACCESO, ver Almacen::visiblesPara()):
- *  - GLOBAL (NIVEL_ACCESO=1) / super.admin / 'almacen.view.all' → ve todos los almacenes.
+ * Visibilidad (depende ÚNICAMENTE de `usuarios.NIVEL_ACCESO`, ver Almacen::visiblesPara):
+ *  - GLOBAL (NIVEL_ACCESO=1) → ve todos los almacenes. La UI abre preseleccionada en el
+ *    almacén ligado a su frente (Usuario::almacenPorDefecto) pero puede filtrar a otros.
  *  - LOCAL  (NIVEL_ACCESO=2) → SOLO los almacenes PROYECTO de sus frentes; NUNCA los GENERAL.
+ *  - NO depende del rol ni de permisos (super.admin / almacen.view.all no influyen aquí).
  *
  * Permisos (claves en la columna PERMISOS):
  *  - (consulta)          : cualquier usuario autenticado (alcance limitado por visiblesPara()).
- *  - almacen.view.all    : ver el stock de CUALQUIER almacén (override del alcance).
  *  - almacen.manage      : crear/editar almacenes y productos.
  *  - almacen.movimiento  : registrar entradas / salidas / ajustes / traspasos / mínimo.
- *  (super.admin cubre todas.)
+ *  (super.admin cubre la creación/edición pero NO el alcance de visibilidad.)
  */
 class AlmacenController extends Controller
 {
-    public function __construct(private InventarioService $inventario)
-    {
+    public function __construct(
+        private InventarioService $inventario,
+        private \App\Services\TraspasoService $traspasos,
+    ) {
         // La consulta queda bajo 'auth' (lo aplica el grupo de rutas padre).
         $this->middleware('can:almacen.manage')->only([
             'storeAlmacen', 'updateAlmacen', 'destroyAlmacen',
@@ -84,6 +87,7 @@ class AlmacenController extends Controller
             $almacenSel = $almacenes->firstWhere('ID_ALMACEN', $idDef);
         }
         if (!$almacenSel) {
+            // Fallback final: para usuarios GLOBAL sin frente o sin almacén ligado.
             $almacenSel = $almacenes->first();
         }
         $idAlmacenSel = $almacenSel?->ID_ALMACEN;
@@ -171,9 +175,23 @@ class AlmacenController extends Controller
 
         if ($request->filled('search')) {
             $term = trim((string) $request->input('search'));
-            $q->where(function ($s) use ($term) {
-                $s->where('productos_inventario.CODIGO', 'like', "%{$term}%")
-                  ->orWhere('productos_inventario.NOMBRE', 'like', "%{$term}%");
+            // Búsqueda flexible: tokeniza por espacios, AND entre tokens, y para cada token
+            // intenta también el SINGULAR (sin 'S' final si tiene >3 letras) — así "BOTAS"
+            // encuentra "BOTA DE SEGURIDAD" sin que el usuario tenga que escribir el singular.
+            $tokens = array_values(array_filter(preg_split('/\s+/', $term)));
+            $q->where(function ($s) use ($tokens) {
+                foreach ($tokens as $tok) {
+                    $variantes = [$tok];
+                    if (mb_strlen($tok) > 3 && mb_strtoupper(mb_substr($tok, -1)) === 'S') {
+                        $variantes[] = mb_substr($tok, 0, -1);
+                    }
+                    $s->where(function ($t) use ($variantes) {
+                        foreach ($variantes as $v) {
+                            $t->orWhere('productos_inventario.CODIGO', 'like', "%{$v}%")
+                              ->orWhere('productos_inventario.NOMBRE', 'like', "%{$v}%");
+                        }
+                    });
+                }
             });
         }
         if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
@@ -806,17 +824,19 @@ class AlmacenController extends Controller
      * estilo de un ERP de tienda: ENTRADA / SALIDA / AJUSTE con N productos, todo
      * en UNA transacción (si una línea falla, no se aplica nada).
      *
-     * NOTA: el tipo TRASPASO se RETIRÓ de este endpoint. Los traspasos entre
-     * almacenes pasan ahora SIEMPRE por el flujo de Pedido de Recepción
-     * (POST /admin/almacen/recepcion con enviar_ahora=true), donde el destino
-     * confirma la llegada. Ver TraspasoController y TraspasoService.
+     * **Salida unificada**: cuando tipo=SALIDA se acepta `id_frente_destino` (alias
+     * `id_frente`). El backend decide automáticamente:
+     *   - si el frente destino comparte el almacén origen → SALIDA pura (consumo).
+     *   - si el frente destino tiene un almacén DISTINTO → crea un Traspaso, lo envía
+     *     (TraspasoService::enviar) y le estampa el mismo NUMERO_NOTA al movimiento
+     *     TRASPASO_SALIDA. Así ambos casos generan PDF Nota de Entrega VID-FO-GEN-019.
      *
      * Body:
      *  - tipo                : ENTRADA | SALIDA | AJUSTE
      *  - id_almacen          : almacén origen del movimiento
      *  - fecha, referencia, motivo, notas : opcionales
-     *  - id_frente           : opcional (SALIDA: frente que CONSUME el producto;
-     *                          en ENTRADA / AJUSTE se ignora).
+     *  - id_frente / id_frente_destino : opcional (SALIDA: frente destino del producto;
+     *                          en ENTRADA / AJUSTE se ignora salvo autollenado).
      *  - permitir_negativo   : opcional (sólo super.admin)
      *  - lineas              : [{ id_producto, cantidad }, ...]   (>= 1)
      *                          en AJUSTE, "cantidad" es el SALDO OBJETIVO de ese producto.
@@ -830,8 +850,12 @@ class AlmacenController extends Controller
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
             'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            // Alias del frente destino para el flujo unificado de SALIDA. El frontend lo
+            // manda como `id_frente_destino`; si solo viene `id_frente` lo usamos también.
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
             'referencia'           => 'nullable|string|max:100',
-            // Campos de la Nota de Entrega de Materiales (solo se usan en SALIDA).
+            // Campos de la Nota de Entrega de Materiales (se usan en SALIDA y en su
+            // variante "salida hacia otro proyecto" que internamente crea un Traspaso).
             'numero_contrato'      => 'nullable|string|max:100',
             'numero_rq'            => 'nullable|string|max:100',
             'solicitante'          => 'nullable|string|max:200',
@@ -846,6 +870,38 @@ class AlmacenController extends Controller
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
 
+        // ── Rama "Salida a otro proyecto" ───────────────────────────────────────
+        // Si tipo=SALIDA + frente destino con almacén distinto al origen → delegamos
+        // al TraspasoService (crea borrador + envía + asigna NUMERO_NOTA), de modo que
+        // el flujo termine con PDF Nota de Entrega igual que una SALIDA pura.
+        if ($data['tipo'] === 'SALIDA') {
+            $idFrenteDest = $data['id_frente_destino'] ?? $data['id_frente'] ?? null;
+            if ($idFrenteDest) {
+                $almacenesDelFrente = Almacen::query()
+                    ->where('TIPO', Almacen::TIPO_PROYECTO)
+                    ->where('ESTATUS', 'ACTIVO')
+                    ->where('ID_ALMACEN', '!=', (int) $data['id_almacen'])
+                    ->whereHas('frentes', fn ($q) => $q->where('frentes_trabajo.ID_FRENTE', (int) $idFrenteDest))
+                    ->pluck('ID_ALMACEN');
+
+                if ($almacenesDelFrente->count() === 1) {
+                    // SALIDA hacia un almacén distinto → vía traspaso.
+                    return $this->registrarSalidaViaTraspaso(
+                        $request,
+                        $data,
+                        (int) $idFrenteDest,
+                        (int) $almacenesDelFrente->first(),
+                    );
+                }
+                if ($almacenesDelFrente->count() > 1) {
+                    return response()->json([
+                        'message' => 'El frente destino tiene varios almacenes PROYECTO asignados; no se puede deducir el destino. Pide a un administrador que deje un único almacén por frente.',
+                    ], 422);
+                }
+                // 0 almacenes distintos → es consumo en el almacén actual (cae al flujo normal).
+            }
+        }
+
         // Resolución del frente del movimiento:
         //   - SALIDA  → el usuario elige el frente que CONSUME el producto (proyecto destino).
         //   - ENTRADA/AJUSTE en almacén PROYECTO con UN único frente asociado → autollenamos
@@ -854,10 +910,15 @@ class AlmacenController extends Controller
         //     vacía aunque el almacén perteneciera a un frente claro).
         //   - ENTRADA/AJUSTE en almacén GENERAL o PROYECTO multi-frente → queda NULL (el
         //     movimiento es "del almacén" sin proyecto específico).
+        // El frente del movimiento se acepta como `id_frente` o `id_frente_destino` (el
+        // formulario unificado de salida envía el segundo; clientes externos pueden mandar
+        // cualquiera de los dos). Esto evita atribuir mal el movimiento cuando solo viene
+        // el alias.
+        $idFrenteRequest = $data['id_frente'] ?? $data['id_frente_destino'] ?? null;
         if ($data['tipo'] === 'SALIDA') {
-            $idFrente = $data['id_frente'] ?? null;
+            $idFrente = $idFrenteRequest;
         } else {
-            $idFrente = $data['id_frente'] ?? null;
+            $idFrente = $idFrenteRequest;
             if ($idFrente === null) {
                 $alm = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
                 if ($alm && $alm->TIPO === Almacen::TIPO_PROYECTO && $alm->frentes->count() === 1) {
@@ -932,6 +993,67 @@ class AlmacenController extends Controller
         return response()->json($payload, 201);
     }
 
+    /**
+     * Rama de "Salida hacia otro proyecto": crea un Traspaso (BORRADOR), reemplaza
+     * sus líneas y lo envía en una sola transacción. Estampa la Nota de Entrega
+     * (NUMERO_NOTA + contrato/RQ/solicitante/dpto) en los movimientos TRASPASO_SALIDA
+     * para que sea reimprimible desde la bitácora, idéntico a una SALIDA pura.
+     *
+     * Devuelve la misma forma de respuesta que SALIDA: { message, nota_url, numero_nota }.
+     */
+    private function registrarSalidaViaTraspaso(Request $request, array $data, int $idFrenteDestino, int $idAlmacenDestino): \Illuminate\Http\JsonResponse
+    {
+        $idUsuario = optional($request->user())->ID_USUARIO;
+        $lineas    = array_map(
+            fn ($l) => ['id_producto' => (int) $l['id_producto'], 'cantidad' => (float) $l['cantidad']],
+            $data['lineas'],
+        );
+
+        try {
+            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request) {
+                $numeroNota = MovimientoInventario::generarNumeroNota();
+
+                $traspaso = $this->traspasos->crearBorrador(
+                    datos: [
+                        'id_almacen_origen'  => (int) $data['id_almacen'],
+                        'id_almacen_destino' => $idAlmacenDestino,
+                        'id_frente_destino'  => $idFrenteDestino,
+                        // El número de nota se usa también como REFERENCIA del traspaso
+                        // — así el kardex y el documento comparten el mismo identificador
+                        // visible al usuario (TR-... para auditoría, NE-... para el PDF).
+                        'referencia'         => $numeroNota,
+                        'motivo'             => $data['motivo'] ?? null,
+                        'id_usuario'         => $idUsuario,
+                    ],
+                    lineas: $lineas,
+                );
+
+                $this->traspasos->enviar($traspaso, [
+                    'id_usuario_envio'  => $idUsuario,
+                    'fecha_envio'       => $data['fecha'] ?? null,
+                    'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
+                    'numero_nota'       => $numeroNota,
+                    'numero_contrato'   => $data['numero_contrato'] ?? null,
+                    'numero_rq'         => $data['numero_rq']       ?? null,
+                    'solicitante'       => $data['solicitante']     ?? null,
+                    'departamento'      => $data['departamento']    ?? null,
+                ]);
+
+                return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
+            });
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $n = count($lineas);
+        return response()->json([
+            'message'         => "Salida hacia otro proyecto enviada ({$n} producto" . ($n === 1 ? '' : 's') . ') — pendiente de recepción.',
+            'nota_url'        => route('almacen.nota-entrega', ['numero' => $resultado['numero_nota']]),
+            'numero_nota'     => $resultado['numero_nota'],
+            'numero_traspaso' => $resultado['numero_traspaso'],
+        ], 201);
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Nota de Entrega de Materiales (PDF, formato VID-FO-GEN-019)
     // ─────────────────────────────────────────────────────────────
@@ -960,6 +1082,13 @@ class AlmacenController extends Controller
         // Cabecera del documento: todos los movimientos comparten estos campos porque
         // registrarMovimientoLote los stampa en cada línea con el mismo $opts.
         $hd = $movs->first();
+        // "Entregado por" es el ALMACENISTA del almacén origen (varía por proyecto/almacén,
+        // configurable en el modal Editar almacén). Si el almacén no tiene almacenista
+        // asignado, caemos al nombre del usuario que registró el movimiento — así nunca
+        // queda en blanco.
+        $entregadoPor = $hd->almacen?->ALMACENISTA
+            ?: ($hd->usuario?->NOMBRE_COMPLETO ?? '');
+
         $datos = [
             'numero_nota'   => $hd->NUMERO_NOTA ?? '',
             'proyecto'      => $hd->frente?->NOMBRE_FRENTE ?? '',
@@ -969,7 +1098,7 @@ class AlmacenController extends Controller
             'solicitante'   => $hd->SOLICITANTE ?? '',
             'departamento'  => $hd->DEPARTAMENTO ?? '',
             'almacen'       => $hd->almacen?->NOMBRE ?? '',
-            'entregado_por' => $hd->usuario?->NOMBRE_COMPLETO ?? '',
+            'entregado_por' => $entregadoPor,
             'motivo'        => $hd->MOTIVO ?? '',
         ];
 
@@ -1007,8 +1136,10 @@ class AlmacenController extends Controller
         $numero = trim((string) $request->query('numero', ''));
         $idsRaw = (string) $request->query('ids', '');
 
+        // La Nota de Entrega cubre SALIDAS puras y también las TRASPASO_SALIDA generadas
+        // por la rama "salida hacia otro proyecto" del flujo unificado (mismo PDF).
         $q = MovimientoInventario::with(['producto', 'almacen', 'frente', 'usuario'])
-            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
+            ->whereIn('TIPO', [MovimientoInventario::TIPO_SALIDA, MovimientoInventario::TIPO_TRASPASO_SALIDA])
             ->orderBy('ID_MOVIMIENTO');
 
         if ($numero !== '') {
@@ -1138,20 +1269,24 @@ class AlmacenController extends Controller
     private function validarAlmacen(Request $request, ?int $ignoreId = null): array
     {
         $data = $request->validate([
-            'CODIGO'    => ['nullable', 'string', 'max:30', Rule::unique('almacenes', 'CODIGO')->ignore($ignoreId, 'ID_ALMACEN')],
-            'NOMBRE'    => ['required', 'string', 'max:150', Rule::unique('almacenes', 'NOMBRE')->ignore($ignoreId, 'ID_ALMACEN')],
-            'TIPO'      => ['required', Rule::in([Almacen::TIPO_GENERAL, Almacen::TIPO_PROYECTO])],
-            'UBICACION' => 'nullable|string|max:150',
-            'ESTATUS'   => 'nullable|in:ACTIVO,INACTIVO',
-            'NOTAS'     => 'nullable|string',
-            'frentes'   => 'sometimes|array',
-            'frentes.*' => 'integer|exists:frentes_trabajo,ID_FRENTE',
+            'CODIGO'      => ['nullable', 'string', 'max:30', Rule::unique('almacenes', 'CODIGO')->ignore($ignoreId, 'ID_ALMACEN')],
+            'NOMBRE'      => ['required', 'string', 'max:150', Rule::unique('almacenes', 'NOMBRE')->ignore($ignoreId, 'ID_ALMACEN')],
+            'TIPO'        => ['required', Rule::in([Almacen::TIPO_GENERAL, Almacen::TIPO_PROYECTO])],
+            'UBICACION'   => 'nullable|string|max:150',
+            // ALMACENISTA: nombre del responsable del almacén (aparece como "Entregado por"
+            // en la Nota de Entrega VID-FO-GEN-019). Texto libre, varía por almacén/proyecto.
+            'ALMACENISTA' => 'nullable|string|max:200',
+            'ESTATUS'     => 'nullable|in:ACTIVO,INACTIVO',
+            'NOTAS'       => 'nullable|string',
+            'frentes'     => 'sometimes|array',
+            'frentes.*'   => 'integer|exists:frentes_trabajo,ID_FRENTE',
         ]);
 
         // Normalizar.
         $data['NOMBRE'] = mb_strtoupper(trim($data['NOMBRE']));
-        if (!empty($data['CODIGO'])) $data['CODIGO'] = mb_strtoupper(trim($data['CODIGO']));
-        if (!empty($data['UBICACION'])) $data['UBICACION'] = mb_strtoupper(trim($data['UBICACION']));
+        if (!empty($data['CODIGO']))      $data['CODIGO']      = mb_strtoupper(trim($data['CODIGO']));
+        if (!empty($data['UBICACION']))   $data['UBICACION']   = mb_strtoupper(trim($data['UBICACION']));
+        if (!empty($data['ALMACENISTA'])) $data['ALMACENISTA'] = mb_strtoupper(trim($data['ALMACENISTA']));
         
         // Evitar reactivar almacenes inactivos al editarlos sin mandar el campo ESTATUS.
         if ($ignoreId === null) {

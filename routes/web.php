@@ -173,8 +173,9 @@ Route::middleware(['auth'])->group(function () {
 
             // ── Almacén / Inventario ─────────────────────────────────────────
             // Permisos (claves en columna PERMISOS, gateados en AlmacenController::__construct):
-            //   almacen.view.all · almacen.manage · almacen.movimiento
-            // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara.)
+            //   almacen.manage · almacen.movimiento · traspaso.recibir
+            // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara,
+            //  que depende sólo de usuarios.NIVEL_ACCESO — ningún permiso da "ver todos los almacenes".)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
             Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
             // Exportación XLSX del inventario (sigue el patrón de /admin/equipos/export). Si hay
@@ -212,11 +213,14 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('almacen/almacenes/{id}',               [App\Http\Controllers\AlmacenController::class, 'destroyAlmacen'])  ->whereNumber('id')->name('almacen.almacenes.destroy');
 
             // ── Recepción de Materiales (envíos por confirmar + historial) ────
-            // Antes "Traspasos"; los envíos se generan desde /admin/almacen (botón "Enviar a otro almacén")
-            // que ya crea un Pedido con enviar_ahora=true. Aquí se ven los pendientes de confirmar.
+            // Los envíos a otros proyectos se generan desde /admin/almacen con el botón
+            // único "Salida": AlmacenController::registrarMovimientoLote detecta que el
+            // frente destino tiene un almacén distinto y delega a TraspasoService internamente
+            // (crea borrador + envía + estampa NUMERO_NOTA). Este módulo lista los pedidos
+            // pendientes para que el destinatario los confirme.
             // Permisos: almacen.movimiento (cancelar) · traspaso.recibir (confirmar recepción).
-            // Rutas estáticas ANTES del wildcard {id}. La store sigue existiendo para que el botón
-            // del inventario pueda crear pedidos via AJAX, pero NO hay página GET de creación.
+            // Rutas estáticas ANTES del wildcard {id}. `store` sigue como endpoint público
+            // (API/clientes externos); el frontend interno ya no la consume.
             Route::get   ('almacen/recepcion',                       [App\Http\Controllers\TraspasoController::class, 'index'])   ->name('almacen.recepcion.index');
             Route::post  ('almacen/recepcion',                       [App\Http\Controllers\TraspasoController::class, 'store'])   ->name('almacen.recepcion.store');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');

@@ -138,6 +138,19 @@ class TraspasoService
             $fecha  = $opts['fecha_envio'] ?? null;
             $permitirNegativo = !empty($opts['permitir_negativo']);
 
+            // Campos de la Nota de Entrega (VID-FO-GEN-019). Si vienen en $opts, se
+            // estampan en CADA TRASPASO_SALIDA — el flujo unificado de "Registrar salida"
+            // (botón único en /admin/almacen) los pasa para que el envío genere PDF NE-YYYY-NNNN
+            // igual que una SALIDA normal. Si no vienen, los movimientos quedan sin Nota
+            // (caso del flujo legacy de /admin/almacen/recepcion).
+            $notaOpts = [
+                'numero_nota'     => $opts['numero_nota']     ?? null,
+                'numero_contrato' => $opts['numero_contrato'] ?? null,
+                'numero_rq'       => $opts['numero_rq']       ?? null,
+                'solicitante'     => $opts['solicitante']     ?? null,
+                'departamento'    => $opts['departamento']    ?? null,
+            ];
+
             // Por cada línea: TRASPASO_SALIDA en el almacén origen + guardar el ID del movimiento
             // en la línea (para enlazar con la entrada cuando se reciba).
             foreach ($traspasoLock->lineas()->lockForUpdate()->get() as $linea) {
@@ -147,14 +160,14 @@ class TraspasoService
                     cantidad:         (float) $linea->CANTIDAD_ENVIADA,
                     idTraspaso:       (int) $traspasoLock->ID_TRASPASO,
                     idAlmacenDestino: (int) $traspasoLock->ID_ALMACEN_DESTINO,
-                    opts: [
+                    opts: array_merge([
                         'fecha'             => $fecha,
                         'id_frente'         => $traspasoLock->ID_FRENTE_DESTINO,
                         'id_usuario'        => $opUser ?: null,
                         'referencia'        => $traspasoLock->REFERENCIA ?: $traspasoLock->NUMERO,
                         'motivo'            => $traspasoLock->MOTIVO ?: ('Envío ' . $traspasoLock->NUMERO),
                         'permitir_negativo' => $permitirNegativo,
-                    ],
+                    ], $notaOpts),
                 );
                 $linea->ID_MOVIMIENTO_SALIDA = $salida->ID_MOVIMIENTO;
                 $linea->save();

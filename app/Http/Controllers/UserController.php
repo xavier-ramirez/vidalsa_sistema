@@ -139,7 +139,8 @@ class UserController extends Controller
             'equipos.create'      => 'Registrar Equipos',
             'equipos.edit'        => 'Actualizar Equipos',
             'equipos.assign'      => 'Asignar Equipos',
-            'almacen.view.all'    => 'Almacén: ver todos los almacenes (global)',
+            // 'almacen.view.all' fue retirado: la visibilidad de almacenes depende sólo de
+            //   usuarios.NIVEL_ACCESO (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos.
             'almacen.manage'      => 'Almacén: crear/editar almacenes y productos',
             'almacen.movimiento'  => 'Almacén: registrar entradas/salidas/ajustes/traspasos',
             'traspaso.recibir'    => 'Recepción: confirmar la llegada de traspasos en el almacén destino',
