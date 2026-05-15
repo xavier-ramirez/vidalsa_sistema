@@ -4,14 +4,18 @@
 
 @section('content')
 @php
-    $reqAlmacen  = request('id_almacen');
+    // `idAlmacenActivo` lo provee el controller (incluyendo el default-merge por frente del
+    // usuario). Es la fuente de verdad para preseleccionar el dropdown — no usamos
+    // request('id_almacen') porque el `$request->merge(...)` del controller no siempre
+    // se refleja en el helper global al renderizar el Blade.
+    $reqAlmacen  = $idAlmacenActivo ?? null;
     $reqTipo     = request('tipo');
     $reqFrente   = request('id_frente');
     $reqSearch   = request('search');
     $reqDesde    = request('desde');
     $reqHasta    = request('hasta');
     $hayAdv      = $reqDesde || $reqHasta;
-    $almSel      = ($reqAlmacen && $reqAlmacen !== 'all') ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
+    $almSel      = $reqAlmacen ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
     $tipos = [
         'ENTRADA'          => ['label' => 'Entradas', 'sub' => ''],
         'SALIDA'           => ['label' => 'Salidas', 'sub' => ''],
@@ -42,7 +46,7 @@
                      El estado "activo" se lee del nombre del almacén que aparece como
                      placeholder ya seleccionado. --}}
                 <div class="custom-dropdown" id="almMovFiltroAlmacen" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
-                    <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen && $reqAlmacen !== 'all' ? $reqAlmacen : '' }}">
+                    <input type="hidden" name="id_almacen" data-filter-value value="{{ $reqAlmacen ?: '' }}">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;transition:border-color .15s,background .15s;">
                         <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
                         <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
@@ -375,7 +379,11 @@
 
     function buildParams(pageUrl) {
         var p = new URLSearchParams();
-        var alm = hv('id_almacen'); if (alm && alm !== 'all') p.set('id_almacen', alm);
+        // OJO: cuando el usuario elige "Todos los almacenes" mandamos `id_almacen=all`
+        // explícito. Si no lo enviamos, el controller cree que NO vino el param y
+        // aplica el default-por-frente, volviendo a filtrar (el usuario veía solo su
+        // almacén aunque hubiera pedido "todos").
+        var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
         var tipo = hv('tipo'); if (tipo && tipo !== 'all') p.set('tipo', tipo);
         var fr = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
         var s = el('almMovSearch'); if (s && s.value.trim()) p.set('search', s.value.trim());

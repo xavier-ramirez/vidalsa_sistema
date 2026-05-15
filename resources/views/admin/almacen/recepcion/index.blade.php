@@ -6,7 +6,10 @@
 @php
     $reqEstado     = request('estado');
     $reqOrigen     = request('id_almacen_origen');
-    $reqDestino    = request('id_almacen_destino');
+    // `idAlmacenDestinoActivo` lo provee el controller incluyendo el default-merge por frente
+    // del usuario. Es la fuente de verdad — no usamos request('id_almacen_destino') porque
+    // el merge del controller no siempre llega al helper global al renderizar el Blade.
+    $reqDestino    = $idAlmacenDestinoActivo ?? null;
     $reqSearch     = request('search');           // por NUMERO de nota de entrega
 
     $reqDesde      = request('desde');
@@ -24,7 +27,7 @@
     // Almacén en /admin/almacen/movimientos). Cada almacén tiene SU propia bandeja de
     // recepción; el usuario LOCAL con un único almacén destino visible no necesita
     // este selector pero igual lo dejamos para coherencia (queda preseleccionado).
-    $destSel = ($reqDestino && $reqDestino !== 'all')
+    $destSel = $reqDestino
         ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqDestino)
         : null;
 @endphp
@@ -280,8 +283,10 @@
         if (v('trOrigen')  && v('trOrigen')  !== 'all')    p.set('id_almacen_origen', v('trOrigen'));
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
         // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
+        // Pasar `all` explícito para que el controller NO re-aplique el default
+        // por frente cuando el usuario eligió "Todos los almacenes destino".
         var dest = hv('id_almacen_destino');
-        if (dest && dest !== 'all')                        p.set('id_almacen_destino', dest);
+        if (dest)                                          p.set('id_almacen_destino', dest);
         if (v('trDesde'))                                  p.set('desde', v('trDesde'));
         if (v('trHasta'))                                  p.set('hasta', v('trHasta'));
         if (pageUrl) { try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {} }

@@ -53,16 +53,18 @@ class TraspasoController extends Controller
     public function index(Request $request)
     {
         $user             = $request->user();
+        $almacenesVisibles = Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
 
         // Default suave del filtro "Almacén destino": si el cliente NO mandó valor (param ausente o
         // vacío), preseleccionamos el almacén ligado al frente del usuario (ver Usuario::almacenPorDefecto).
         // `id_almacen_destino=all` o un valor explícito → se respeta. `filled` (vs `has`) cubre el caso
         // `?id_almacen_destino=` para que el default igual aplique.
+        // Solo aplicamos el default si el almacén está dentro de los visibles del usuario.
         if (!$request->filled('id_almacen_destino') && ($idDef = $user?->almacenPorDefecto())) {
-            $request->merge(['id_almacen_destino' => $idDef]);
+            if ($almacenesVisibles->contains((int) $idDef)) {
+                $request->merge(['id_almacen_destino' => $idDef]);
+            }
         }
-
-        $almacenesVisibles = Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
 
         // SIEMPRE: estado ENVIADO en almacenes destino visibles para el usuario.
         // (la columna ID_ALMACEN_DESTINO ya cubre la visibilidad de quien debe recibir).
@@ -126,11 +128,18 @@ class TraspasoController extends Controller
         // NOTA: el badge "[N] por recibir" del menú principal lo provee el View Composer
         // global registrado en AppServiceProvider (en `layouts.estructura_base`), no esta
         // vista — por eso aquí no se calcula ningún contador adicional.
+        // idAlmacenDestinoActivo: pasamos el id resuelto (con default por frente aplicado) a
+        // la vista para que el dropdown se preseleccione sin depender del helper global
+        // request(), que puede no reflejar el merge en algunos entornos.
+        $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
+            ? (int) $request->input('id_almacen_destino')
+            : null;
         return view('admin.almacen.recepcion.index', [
-            'traspasos'      => $paginator,
-            'almacenes'      => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
-            'productosLista' => $productosLista,
-            'numerosNotas'   => $numerosNotas,
+            'traspasos'              => $paginator,
+            'almacenes'              => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
+            'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
+            'productosLista'         => $productosLista,
+            'numerosNotas'           => $numerosNotas,
         ]);
     }
 

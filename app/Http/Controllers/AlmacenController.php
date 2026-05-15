@@ -473,8 +473,14 @@ class AlmacenController extends Controller
         //   - `id_almacen=all` o un valor explícito → se respetan.
         // Usamos `filled` (no `has`) para que también aplique cuando el param viene en la URL pero vacío
         // (caso edge si una navegación interna arma `?id_almacen=&search=X`).
+        // Validamos además que el default sea VISIBLE para el usuario — si por alguna razón el
+        // almacén ligado al frente quedó fuera de los visibles, no lo aplicamos (evita un filtro
+        // fantasma que oculta los movimientos del usuario).
         if (!$request->filled('id_almacen') && ($idDef = $request->user()?->almacenPorDefecto())) {
-            $request->merge(['id_almacen' => $idDef]);
+            $visiblesIds = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN')->all();
+            if (in_array((int) $idDef, array_map('intval', $visiblesIds), true)) {
+                $request->merge(['id_almacen' => $idDef]);
+            }
         }
 
         $q = MovimientoInventario::query()
@@ -523,16 +529,24 @@ class AlmacenController extends Controller
             ]);
         }
 
+        $almacenes = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        // `idAlmacenActivo`: el valor REAL del filtro tras el default-merge del controller —
+        // se lo pasamos a la vista para que el dropdown del header NO dependa del helper
+        // request() (que en algunos entornos no refleja el merge al renderizar el blade).
+        $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
+            ? (int) $request->input('id_almacen')
+            : null;
         return view('admin.almacen.movimientos', [
-            'movimientos'    => $paginator,
-            'total'          => $paginator->total(),
-            'almacenes'      => Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
-            'frentesLista'   => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
+            'movimientos'     => $paginator,
+            'total'           => $paginator->total(),
+            'almacenes'       => $almacenes,
+            'idAlmacenActivo' => $idAlmacenActivo,
+            'frentesLista'    => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
             // Lista de productos activos para el autocomplete del filtro de búsqueda.
-            'productosLista' => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']),
+            'productosLista'  => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']),
             // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
             // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
-            'consumo'        => $this->consumoRanking($request),
+            'consumo'         => $this->consumoRanking($request),
         ]);
     }
 
