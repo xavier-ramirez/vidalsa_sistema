@@ -311,6 +311,12 @@
                     <th style="text-align:center;">UND</th>
                     <th>Categoría</th>
                     <th style="text-align:center;">Stock</th>
+                    @if($puedeMover ?? false)
+                    {{-- Cant. salida: input habilitado solo cuando la fila está seleccionada.
+                         Al confirmar la Nota de Entrega, se toman las cantidades de cada fila
+                         seleccionada — sin pantalla intermedia "Productos" en el modal. --}}
+                    <th style="text-align:center;width:110px;">Cant. salida</th>
+                    @endif
                     <th style="text-align:center;width:60px;">Detalles</th>
                 </tr>
             </thead>
@@ -751,31 +757,61 @@
                     </div>
                 </div>
 
-                {{-- PROYECTO (full width) --}}
-                <div style="margin-bottom:10px;">
-                    <label class="alm-nota-label">Proyecto *</label>
-                    <select id="almSalidaProyecto" class="alm-nota-input" onchange="window.almSalidaOnProyectoChange()">
-                        <option value="">— elige el proyecto / frente —</option>
-                        @foreach(($frentesLista ?? collect()) as $f)
-                            <option value="{{ $f->ID_FRENTE }}">{{ $f->NOMBRE_FRENTE }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- CONTRATO Nº (full width) — input con sugerencias derivadas del proyecto.
-                     Si el frente elegido tiene 1 solo contrato registrado, se autocompleta;
-                     si tiene varios, se muestran como botones para que el usuario elija. --}}
-                <div style="margin-bottom:10px;position:relative;">
-                    <label class="alm-nota-label">Contrato N°</label>
-                    <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100" placeholder="Ej: CTR-2026-0042">
-                    <div id="almSalidaContratoSug" style="display:none;margin-top:5px;flex-wrap:wrap;gap:5px;"></div>
+                {{-- PROYECTO (ancho) | CONTRATO N° (estrecho) — misma fila.
+                     Contrato N° con sugerencias derivadas del proyecto: si el frente elegido
+                     tiene 1 solo contrato registrado se autocompleta; si tiene varios, se
+                     muestran como botones bajo el input. --}}
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
+                    <div>
+                        <label class="alm-nota-label">Proyecto *</label>
+                        {{-- Custom-dropdown estándar de la app: hidden #almSalidaProyecto guarda el ID
+                             (lo que lee el JS de envío); el trigger tiene un input data-filter-search
+                             que filtra los items mientras el usuario escribe (autocomplete nativo del
+                             componente). Cuando se elige una opción, dispatchea el evento
+                             `dropdown-selection` que el listener de almSalida usa para refrescar las
+                             sugerencias de Contrato N°. --}}
+                        <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="— elige el proyecto / frente —">
+                            <input type="hidden" id="almSalidaProyecto" data-filter-value value="">
+                            <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
+                                <input type="text" data-filter-search autocomplete="off"
+                                       placeholder="— elige el proyecto / frente —"
+                                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                                       oninput="window.filterDropdownOptions(this)">
+                                <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
+                                   onclick="event.stopPropagation(); clearDropdownFilter('almSalidaProyectoDropdown');">close</i>
+                                <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
+                            </div>
+                            <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                                <div class="dropdown-item-list" style="max-height:240px;overflow-y:auto;">
+                                    @foreach(($frentesLista ?? collect()) as $f)
+                                        <div class="dropdown-item" data-value="{{ $f->ID_FRENTE }}"
+                                             onclick="selectOption('almSalidaProyectoDropdown','{{ $f->ID_FRENTE }}','{{ addslashes($f->NOMBRE_FRENTE) }}');">
+                                            {{ $f->NOMBRE_FRENTE }}
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="position:relative;">
+                        <label class="alm-nota-label">Contrato N°</label>
+                        <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100" placeholder="Ej: CTR-2026-0042">
+                        <div id="almSalidaContratoSug" style="display:none;margin-top:5px;flex-wrap:wrap;gap:5px;"></div>
+                    </div>
                 </div>
 
                 {{-- FECHA DE ENTREGA | RQ N° | Solicitante (3 columnas en una sola fila — como en el Excel) --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label class="alm-nota-label">Fecha de entrega</label>
-                        <input type="date" id="almSalidaFecha" class="alm-nota-input">
+                        {{-- Wrapper clickable: cualquier click en el campo abre el calendario
+                             (en navegadores que soportan showPicker). El ícono va con pointer-events:none
+                             para que el click pase al wrapper y no se "coma" el evento. --}}
+                        <div id="almSalidaFechaBox" style="display:flex;align-items:center;background:#fff;border:1px solid #cbd5e0;border-radius:7px;height:38px;overflow:hidden;cursor:pointer;"
+                             onclick="var i=document.getElementById('almSalidaFecha'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
+                            <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;pointer-events:none;">event</i>
+                            <input type="date" id="almSalidaFecha" class="alm-nota-input" style="flex:1;width:auto;min-width:0;border:none;background:transparent;height:36px;padding:0 8px 0 0;border-radius:0;">
+                        </div>
                     </div>
                     <div>
                         <label class="alm-nota-label">RQ N°</label>
@@ -802,18 +838,12 @@
                 </div>
             </div>
 
-            {{-- Productos a entregar/enviar ─────────────────────────────────────────── --}}
-            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-                <span style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.5px;">Productos</span>
-                <span style="font-size:11px;color:#94a3b8;">Escribe la cantidad de cada producto y usa la papelera para quitar alguno.</span>
-            </div>
-            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;max-height:40vh;">
-                <table class="alm-kardex-table">
-                    <thead><tr>
-                        <th>Código</th><th>Descripción del producto</th><th style="text-align:right;">Stock actual</th><th style="text-align:right;width:120px;">Cantidad *</th><th style="width:36px;"></th>
-                    </tr></thead>
-                    <tbody id="almSalidaLineas"></tbody>
-                </table>
+            {{-- La lista de productos a entregar VIVE en la tabla principal: cada fila
+                 seleccionada tiene su propio input "Cant. salida". Por eso este modal
+                 ya no muestra una tabla de productos — solo recoge los datos de la
+                 Nota de Entrega y los cruza con las cantidades de almSeleccion. --}}
+            <div id="almSalidaResumen" style="margin-top:4px;font-size:12px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e0;border-radius:8px;padding:8px 12px;">
+                Se incluirán <strong id="almSalidaResumenN" style="color:#0f172a;">0</strong> producto(s) seleccionado(s) en la tabla. Las cantidades se toman de la columna <em>Cant. salida</em>.
             </div>
 
             <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
@@ -999,15 +1029,11 @@
         // Cuando el usuario abre el autocomplete sin texto, ofrecemos arriba un acceso directo
         // para cargar TODO el inventario (alias a almVerTodo). Útil si la tabla está vacía
         // por el estado inicial "Usa los filtros…" y el usuario quiere ver todo de una vez.
-        // Hover handlers inline porque la regla `.alm-suggest-item:hover` no le gana al style inline
-        // del background (los inline styles tienen mayor especificidad que las pseudo-clases).
+        // Usa la MISMA estructura que el resto de items (.alm-suggest-item > .nom) para no
+        // romper la consistencia visual — solo se distingue por el icono inline pequeño.
         var verTodoLink = matcher.isEmpty
-            ? '<div class="alm-suggest-item" data-action="ver-todo"'
-            +   ' style="background:#ebf4ff;color:var(--maquinaria-blue,#0067b1);font-weight:700;display:flex;align-items:center;gap:8px;"'
-            +   ' onmouseover="this.style.background=\'#dbeafe\'"'
-            +   ' onmouseout="this.style.background=\'#ebf4ff\'">'
-            +     '<i class="material-icons" style="font-size:16px;">visibility</i>'
-            +     '<span class="nom" style="color:var(--maquinaria-blue,#0067b1);">Ver todo el stock</span>'
+            ? '<div class="alm-suggest-item" data-action="ver-todo">'
+            +     '<span class="nom">Ver todo el stock</span>'
             + '</div>'
             : '';
 
@@ -1133,7 +1159,13 @@
     //    El hidden #almSelAlmacen sigue siendo la fuente de verdad que lee filtros(); el listener de abajo
     //    recarga la tabla cuando el usuario elige un almacén distinto.
     window.addEventListener('dropdown-selection', function (e) {
-        if (e.detail && e.detail.dropdownId === 'almSelAlmacenDropdown') almCargar();
+        var id = e.detail && e.detail.dropdownId;
+        if (id === 'almSelAlmacenDropdown') almCargar();
+        // Modal "Registrar salida": al elegir proyecto destino, refrescar sugerencias
+        // de "Contrato N°" (autollena si hay 1, muestra chips si hay varios).
+        if (id === 'almSalidaProyectoDropdown' && typeof window.almSalidaOnProyectoChange === 'function') {
+            window.almSalidaOnProyectoChange();
+        }
     });
 
     // Click en una sugerencia (Buscar / Categoría) / click fuera / Escape — el filtro Almacén ya no usa este sistema.
@@ -1166,13 +1198,13 @@
     //  Selección de productos en la tabla — IGUAL que /admin/equipos:
     //  clic en una fila → se resalta en azul (.selected-row-maquinaria) y aparece
     //  la barra flotante #almBulkBar con el conteo y las acciones.
-    //  Las cantidades a sacar/enviar se piden DESPUÉS, en el modal #almSalidaModal
-    //  (una fila por producto seleccionado), y se mandan a `almacen.movimientos.lote`.
-    //  La selección vive en memoria (id → {codigo,nombre,um,saldo}); sobrevive a
-    //  filtros/paginación (que recargan sólo el <tbody>) y se re-pinta con
-    //  almSelApplyToVisible() tras cada recarga.
+    //  Las cantidades a sacar/enviar viven AHORA en la propia fila de la tabla:
+    //  cada fila tiene un <input.alm-row-cant> que se habilita al seleccionarla. El
+    //  valor se guarda en almSeleccion[id].cantidad y sobrevive a recargas del tbody
+    //  (paginación/filtros) gracias a almSelApplyToVisible(). El modal #almSalidaModal
+    //  ya NO muestra una tabla de productos — solo los campos de la Nota de Entrega.
     // ════════════════════════════════════════════════════════════════════════
-    var almSeleccion = {}; // { id_producto: { codigo, nombre, um, saldo } }
+    var almSeleccion = {}; // { id_producto: { codigo, nombre, um, saldo, cantidad } }
     function almSelCount() { return Object.keys(almSeleccion).length; }
     function almSelRefreshBar() {
         var bar = el('almBulkBar'); if (!bar) return;
@@ -1180,8 +1212,28 @@
         bar.classList.toggle('active', n > 0);
         var c = el('almBulkCount'); if (c) c.textContent = n;
     }
-    function almSelMarkRow(tr, on) { if (tr) tr.classList.toggle('selected-row-maquinaria', !!on); }
-    // Re-pinta el resaltado azul de las filas visibles que estén en la selección (tras cada recarga AJAX del tbody).
+    function almSelMarkRow(tr, on) {
+        if (!tr) return;
+        tr.classList.toggle('selected-row-maquinaria', !!on);
+        // Habilitar / deshabilitar el input de cantidad de la propia fila, y restaurar
+        // el valor guardado en memoria (almSeleccion[id].cantidad) si lo hay.
+        var inp = tr.querySelector('.alm-row-cant');
+        if (!inp) return;
+        if (on) {
+            var id = tr.getAttribute('data-id-producto');
+            var s = id ? almSeleccion[id] : null;
+            inp.disabled = false;
+            inp.style.background = '#fff';
+            inp.style.color = '#0f172a';
+            inp.value = (s && s.cantidad != null && s.cantidad !== '') ? s.cantidad : '';
+        } else {
+            inp.disabled = true;
+            inp.style.background = '#f1f5f9';
+            inp.style.color = '#94a3b8';
+            inp.value = '';
+        }
+    }
+    // Re-pinta el resaltado azul + estado del input cantidad tras cada recarga AJAX del tbody.
     function almSelApplyToVisible() {
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
@@ -1190,13 +1242,23 @@
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         almSeleccion = {};
-        document.querySelectorAll('#almTableBody tr.selected-row-maquinaria').forEach(function (tr) { tr.classList.remove('selected-row-maquinaria'); });
+        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) { almSelMarkRow(tr, false); });
         almSelRefreshBar();
     };
-    // Clic en una fila de la tabla → toggle de selección (ignora botones / enlaces / inputs, como en /admin/equipos)
+    // Handler del input de cantidad en cada fila — guarda en almSeleccion (sobrevive a
+    // recargas del tbody). Validación final (> 0, ≤ stock) se hace al confirmar la Nota.
+    window.almRowCantInput = function (inp) {
+        var tr = inp.closest('tr.alm-row'); if (!tr) return;
+        var id = tr.getAttribute('data-id-producto'); if (!id) return;
+        var s  = almSeleccion[id]; if (!s) return;
+        s.cantidad = String(inp.value).replace(',', '.').trim();
+    };
+    // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
+    // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]).
     document.addEventListener('click', function (e) {
         var tr = e.target.closest('#almTableBody tr.alm-row');
         if (!tr) return;
+        if (e.target.closest('[data-no-toggle]')) return;
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
         if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); }
@@ -1206,8 +1268,11 @@
                 nombre: tr.getAttribute('data-nombre') || '',
                 um:     tr.getAttribute('data-um') || '',
                 saldo:  parseFloat(tr.getAttribute('data-saldo') || '0') || 0,
+                cantidad: '',
             };
             almSelMarkRow(tr, true);
+            // Foco automático en el input de cantidad recién habilitado.
+            setTimeout(function () { var inp = tr.querySelector('.alm-row-cant'); if (inp) inp.focus(); }, 30);
         }
         almSelRefreshBar();
     });
@@ -1220,6 +1285,25 @@
         if (typeof window.almAbrirSalidaModal !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
+        // Bloquear apertura del modal si alguna fila seleccionada no tiene cantidad válida.
+        // El usuario debe llenar la columna "Cant. salida" en la tabla antes de pasar al
+        // formulario de Nota de Entrega. Resaltamos las filas faltantes para guiarlo.
+        var faltan = [];
+        Object.keys(almSeleccion).forEach(function (id) {
+            var s = almSeleccion[id] || {};
+            var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim());
+            if (!isFinite(c) || c <= 0) faltan.push({ id: id, nombre: s.nombre || ('#' + id) });
+        });
+        if (faltan.length) {
+            // Foco al primer input faltante visible.
+            var firstId = faltan[0].id;
+            var firstTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + firstId + '"]');
+            var firstInp = firstTr && firstTr.querySelector('.alm-row-cant');
+            if (firstInp) { firstInp.focus(); }
+            var nombres = faltan.slice(0, 3).map(function (f) { return f.nombre; }).join(', ');
+            toast('Indica la cantidad de salida (> 0) en: ' + nombres + (faltan.length > 3 ? '…' : '') + '.', 'error');
+            return;
+        }
         window.almAbrirSalidaModal(idAlm);
     };
 
@@ -1794,33 +1878,28 @@
     //  frente destino — ambos generan Nota de Entrega NE-YYYY-NNNN.
     //  ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
     var ALM_SAL = { idAlmacen: '' };
-    function almSalNum(n) { n = parseFloat(n || 0); if (isNaN(n)) return '0'; var s = n.toFixed(3).replace(/\.?0+$/, ''); return s === '' ? '0' : s; }
     window.almAbrirSalidaModal = function (idAlmacen) {
         ALM_SAL = { idAlmacen: String(idAlmacen || '') };
         // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
-        ['almSalidaProyecto','almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        ['almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        // El campo Proyecto es un custom-dropdown: lo reseteamos con su helper para que
+        // el placeholder vuelva al default y el hidden #almSalidaProyecto quede vacío.
+        if (typeof window.clearDropdownFilter === 'function') {
+            window.clearDropdownFilter('almSalidaProyectoDropdown');
+        }
         var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
         // Reset de la lista de sugerencias de contrato (se llena al elegir proyecto).
         var cs = el('almSalidaContratoSug'); if (cs) { cs.style.display = 'none'; cs.innerHTML = ''; }
         showErr('almSalidaError', '');
-        var tb = el('almSalidaLineas');
-        if (tb) {
-            tb.innerHTML = '';
-            Object.keys(almSeleccion).forEach(function (id) {
-                var s = almSeleccion[id];
-                var tr = document.createElement('tr');
-                tr.setAttribute('data-id', id);
-                tr.innerHTML =
-                    '<td style="font-family:monospace;font-weight:700;white-space:nowrap;">' + escHtml(s.codigo) + '</td>' +
-                    '<td style="font-weight:600;">' + escHtml(s.nombre) + '</td>' +
-                    '<td style="text-align:right;color:#64748b;white-space:nowrap;">' + almSalNum(s.saldo) + ' ' + escHtml(s.um || '') + '</td>' +
-                    '<td style="text-align:right;"><input type="number" class="alm-sal-cant" min="0" step="any" placeholder="0" style="width:100px;padding:5px 8px;border:1px solid #cbd5e0;border-radius:7px;text-align:right;font-size:13px;font-weight:700;"></td>' +
-                    '<td style="text-align:center;"><button type="button" class="alm-btn alm-btn-del" title="Quitar de la lista" onclick="window.almSalidaQuitar(this,\'' + id + '\')"><i class="material-icons" style="font-size:16px;">close</i></button></td>';
-                tb.appendChild(tr);
-            });
-        }
+        // Resumen: contar productos seleccionados en la tabla principal (es la fuente
+        // de cantidades — el modal ya no tiene tabla de Productos propia).
+        var rn = el('almSalidaResumenN'); if (rn) rn.textContent = almSelCount();
         open('almSalidaModal');
-        setTimeout(function () { var f = el('almSalidaLineas') ? el('almSalidaLineas').querySelector('.alm-sal-cant') : null; if (f) f.focus(); }, 60);
+        // Foco en el primer campo útil de la Nota (el dropdown de proyecto).
+        setTimeout(function () {
+            var dd = document.querySelector('#almSalidaProyectoDropdown [data-filter-search]');
+            if (dd) dd.focus();
+        }, 60);
     };
     // Sugerencias de N° de Contrato segun el frente/proyecto elegido en el modal de salida.
     //   • 0 contratos asociados → la lista de sugerencias se oculta (el usuario lo teclea libre).
@@ -1852,31 +1931,24 @@
         });
         box.style.display = 'flex';
     };
-    window.almSalidaQuitar = function (btn, id) {
-        var tr = btn.closest('tr'); if (tr) tr.remove();
-        delete almSeleccion[id];
-        almSelApplyToVisible();
-        almSelRefreshBar();
-        var tb = el('almSalidaLineas');
-        if (!tb || !tb.children.length) almCerrar('almSalidaModal');
-    };
     window.almSalidaConfirmar = function () {
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
         var idFrenteDest = v('almSalidaProyecto');
         if (!idFrenteDest) { showErr('almSalidaError', 'Elige el proyecto / frente destino.'); return; }
 
+        // Las cantidades viven en almSeleccion (las edita el usuario en la columna
+        // "Cant. salida" de la tabla principal). Aquí solo validamos y armamos el payload.
         var lineas = [], faltan = [];
-        (el('almSalidaLineas') ? el('almSalidaLineas').querySelectorAll('tr') : []).forEach(function (tr) {
-            var id = tr.getAttribute('data-id');
-            var inp = tr.querySelector('.alm-sal-cant');
-            var raw = inp ? String(inp.value).replace(',', '.').trim() : '';
-            var c = parseFloat(raw);
-            var nombre = (almSeleccion[id] && almSeleccion[id].nombre) || ('#' + id);
+        Object.keys(almSeleccion).forEach(function (id) {
+            var s   = almSeleccion[id] || {};
+            var raw = String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim();
+            var c   = parseFloat(raw);
+            var nombre = s.nombre || ('#' + id);
             if (!isFinite(c) || c <= 0) faltan.push(nombre);
             else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
         });
-        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que 0 en al menos un producto.'); return; }
-        if (faltan.length) { showErr('almSalidaError', 'Falta la cantidad (o es 0) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos o quítalos de la lista.'); return; }
+        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que 0 en al menos un producto (columna "Cant. salida" de la tabla).'); return; }
+        if (faltan.length)  { showErr('almSalidaError', 'Falta la cantidad (o es 0) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return; }
         showErr('almSalidaError', '');
 
         // Único endpoint: registrarMovimientoLote tipo=SALIDA + id_frente_destino.

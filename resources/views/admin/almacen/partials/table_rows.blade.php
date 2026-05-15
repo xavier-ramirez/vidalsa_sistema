@@ -4,7 +4,7 @@
     $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
-    $cols    = 6;
+    $cols    = $puedeMover ? 7 : 6;
 @endphp
 
 @if(!$almacen)
@@ -69,7 +69,21 @@
                 {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
-            <td style="text-align:center;white-space:nowrap;width:60px;">
+            @if($puedeMover)
+            {{-- Cantidad de salida por fila: el input se habilita SOLO cuando la fila está
+                 seleccionada (clic en cualquier parte fuera de inputs/botones). El valor se
+                 persiste en almSeleccion[id].cantidad y sobrevive a recargas del tbody
+                 (paginación / filtros) gracias a almSelApplyToVisible. La validación
+                 (cantidad > 0 y ≤ stock) ocurre al confirmar la Nota de Entrega. --}}
+            <td style="text-align:center;white-space:nowrap;width:110px;" data-no-toggle>
+                <input type="number" class="alm-row-cant" min="0.001" step="any" placeholder="0"
+                       disabled
+                       style="width:90px;padding:5px 6px;border:1px solid #cbd5e0;border-radius:7px;text-align:right;font-size:13px;font-weight:700;background:#f1f5f9;color:#94a3b8;"
+                       onclick="event.stopPropagation();"
+                       oninput="window.almRowCantInput && window.almRowCantInput(this)">
+            </td>
+            @endif
+            <td style="text-align:center;white-space:nowrap;width:60px;" data-no-toggle>
                 <button type="button" class="btn-details-mini" title="Ver detalles del producto"
                         onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }},'{{ $ubiJs }}')">
                     <i class="material-icons" style="font-size:18px;">visibility</i>
