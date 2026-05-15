@@ -70,24 +70,27 @@
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
             @if($puedeMover)
-            {{-- Cantidad de salida por fila: stepper compacto [−][N][+]. Los tres elementos
-                 se habilitan SOLO cuando la fila está seleccionada (clic fuera de inputs/
-                 botones). El valor se persiste en almSeleccion[id].cantidad y sobrevive
-                 a recargas del tbody (paginación / filtros) vía almSelApplyToVisible.
+            {{-- Cantidad de salida por fila: stepper con input a la izquierda y dos botones
+                 verticales (+ arriba, − abajo) pegados a la derecha — patrón "spinner clásico".
+                 Los tres elementos se habilitan SOLO cuando la fila está seleccionada (clic
+                 fuera de inputs/botones). El valor se persiste en almSeleccion[id].cantidad
+                 y sobrevive a recargas del tbody (paginación / filtros) vía almSelApplyToVisible.
                  La validación final (> 0, ≤ stock) ocurre al confirmar la Nota de Entrega. --}}
             <td style="text-align:center;white-space:nowrap;width:100px;" data-no-toggle>
-                <div class="alm-cant-stepper" style="display:inline-flex;align-items:stretch;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;background:#f1f5f9;height:26px;">
-                    <button type="button" class="alm-cant-btn" data-step="-1" disabled
-                            style="width:22px;border:none;border-right:1px solid #cbd5e0;background:#e2e8f0;color:#94a3b8;font-weight:800;font-size:14px;line-height:1;cursor:not-allowed;padding:0;"
-                            onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,-1);">−</button>
+                <div class="alm-cant-stepper" style="display:inline-flex;align-items:stretch;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;background:#f1f5f9;height:30px;">
                     <input type="number" class="alm-row-cant" min="0.001" step="any" placeholder="0"
                            disabled
-                           style="width:48px;border:none;background:transparent;text-align:center;font-size:12.5px;font-weight:700;color:#94a3b8;outline:none;padding:0;-moz-appearance:textfield;"
+                           style="width:56px;border:none;background:transparent;text-align:center;font-size:13px;font-weight:700;color:#94a3b8;outline:none;padding:0;-moz-appearance:textfield;"
                            onclick="event.stopPropagation();"
                            oninput="window.almRowCantInput && window.almRowCantInput(this)">
-                    <button type="button" class="alm-cant-btn" data-step="1" disabled
-                            style="width:22px;border:none;border-left:1px solid #cbd5e0;background:#e2e8f0;color:#94a3b8;font-weight:800;font-size:14px;line-height:1;cursor:not-allowed;padding:0;"
-                            onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,1);">+</button>
+                    <div style="display:flex;flex-direction:column;border-left:1px solid #cbd5e0;width:18px;">
+                        <button type="button" class="alm-cant-btn" data-step="1" disabled
+                                style="flex:1;border:none;background:#e2e8f0;color:#94a3b8;font-weight:800;font-size:11px;line-height:1;cursor:not-allowed;padding:0;border-bottom:1px solid #cbd5e0;"
+                                onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,1);">▲</button>
+                        <button type="button" class="alm-cant-btn" data-step="-1" disabled
+                                style="flex:1;border:none;background:#e2e8f0;color:#94a3b8;font-weight:800;font-size:11px;line-height:1;cursor:not-allowed;padding:0;"
+                                onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,-1);">▼</button>
+                    </div>
                 </div>
             </td>
             @endif

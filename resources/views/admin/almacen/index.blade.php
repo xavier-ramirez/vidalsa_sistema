@@ -1101,16 +1101,13 @@
         var matcher = almBuildSearchMatcher(rawTerm);
         var lista = window.almProductosLista || [];
 
-        // Cuando el usuario abre el autocomplete sin texto, ofrecemos arriba un acceso directo
-        // para cargar TODO el inventario (alias a almVerTodo). Útil si la tabla está vacía
-        // por el estado inicial "Usa los filtros…" y el usuario quiere ver todo de una vez.
-        // Usa la MISMA estructura que el resto de items (.alm-suggest-item > .nom) para no
-        // romper la consistencia visual — solo se distingue por el icono inline pequeño.
-        var verTodoLink = matcher.isEmpty
-            ? '<div class="alm-suggest-item" data-action="ver-todo">'
-            +     '<span class="nom">VER TODO EL STOCK</span>'
-            + '</div>'
-            : '';
+        // Acceso directo "VER TODO EL STOCK" — siempre presente al inicio de la lista, sin
+        // importar si el usuario está escribiendo o no. Limpia el filtro y carga todo el
+        // inventario del almacén actual (alias a almVerTodo). Usa la MISMA estructura que
+        // el resto de items para mantener consistencia visual.
+        var verTodoLink = '<div class="alm-suggest-item" data-action="ver-todo">'
+                        +     '<span class="nom">VER TODO EL STOCK</span>'
+                        + '</div>';
 
         // IDs de productos que SI estan en el almacen seleccionado (set para lookup O(1)).
         // Si no hay almacen seleccionado o no tenemos info, se omite el filtro (mostrar todo).
