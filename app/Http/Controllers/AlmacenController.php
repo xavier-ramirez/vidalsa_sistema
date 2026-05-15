@@ -57,7 +57,7 @@ class AlmacenController extends Controller
      * con su saldo en el almacén seleccionado + sidebar "Consolidado de Inventario".
      *
      * - HTML normal → render completo (shell + primera página de la tabla + stats).
-     * - wantsJson()  → { html (filas), pagination, stats, distribucionHtml, almacen }
+     * - wantsJson()  → { html (filas), hasMore, nextOffset, stats, distribucionHtml, almacen }
      *   para los cambios de filtro/paginación sin recargar toda la página.
      *
      * Filtros: id_almacen, search (busca en CODIGO o NOMBRE), categoria,
@@ -93,18 +93,38 @@ class AlmacenController extends Controller
         $idAlmacenSel = $almacenSel?->ID_ALMACEN;
         $hayInventario = $idAlmacenSel !== null;
 
-        // Peticiones AJAX (cambio de filtro / paginación): devuelven las filas + stats.
+        // Peticiones AJAX (cambio de filtro / scroll infinito): paginación por offset.
+        //   - offset=0 (o ausente) → primera carga del filtro: reemplaza la tabla y refresca
+        //     stats + distribución.
+        //   - offset>0 → IntersectionObserver pidió más filas: solo se devuelven html + flags
+        //     (el frontend hace append y NO refresca stats).
+        // Se pide $PAGE_SIZE + 1 para detectar hasMore sin un COUNT extra.
         if ($request->wantsJson()) {
-            $productos = $hayInventario
-                ? $this->productosConSaldoQuery($idAlmacenSel, $request)->orderBy('productos_inventario.NOMBRE')->paginate(50)->withQueryString()
-                : null;
-            return response()->json([
-                'almacen'         => $almacenSel,
-                'html'            => view('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => false])->render(),
-                'pagination'      => $productos ? (string) $productos->links('vendor.pagination.custom-sliding') : '',
-                'stats'           => $this->statsInventario($idAlmacenSel, $request),
-                'distribucionHtml'=> view('admin.almacen.partials.distribucion_stats', ['distribucion' => $this->distribucionPorCategoria($idAlmacenSel, $request)])->render(),
-            ]);
+            $PAGE_SIZE = 50;
+            $offset = max(0, (int) $request->input('offset', 0));
+            $rows = collect();
+            $hasMore = false;
+            if ($hayInventario) {
+                $rows = $this->productosConSaldoQuery($idAlmacenSel, $request)
+                    ->orderBy('productos_inventario.NOMBRE')
+                    ->skip($offset)->take($PAGE_SIZE + 1)
+                    ->get();
+                $hasMore = $rows->count() > $PAGE_SIZE;
+                if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
+            }
+            $resp = [
+                'almacen'    => $almacenSel,
+                'html'       => view('admin.almacen.partials.table_rows', ['productos' => $rows, 'almacen' => $almacenSel, 'inicial' => false])->render(),
+                'hasMore'    => $hasMore,
+                'nextOffset' => $hasMore ? $offset + $PAGE_SIZE : null,
+            ];
+            // Stats y distribución solo en la primera página (offset=0) — son costosos y
+            // no cambian al hacer scroll, solo cuando el usuario cambia un filtro.
+            if ($offset === 0) {
+                $resp['stats']            = $this->statsInventario($idAlmacenSel, $request);
+                $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', ['distribucion' => $this->distribucionPorCategoria($idAlmacenSel, $request)])->render();
+            }
+            return response()->json($resp);
         }
 
         // Carga HTML: la tabla abre VACÍA — las filas se piden por AJAX en cuanto el usuario usa un filtro.

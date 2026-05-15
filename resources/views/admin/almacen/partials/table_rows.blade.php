@@ -1,4 +1,4 @@
-{{-- Filas de la tabla de inventario. $productos = paginator|null ; $almacen = Almacen|null ; $inicial = bool (la tabla abre vacía hasta que se filtre) --}}
+{{-- Filas de la tabla de inventario. $productos = Collection|null (lote del scroll infinito) ; $almacen = Almacen|null ; $inicial = bool (la tabla abre vacía hasta que se filtre) --}}
 @php
     $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
@@ -70,17 +70,25 @@
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
             @if($puedeMover)
-            {{-- Cantidad de salida por fila: el input se habilita SOLO cuando la fila está
-                 seleccionada (clic en cualquier parte fuera de inputs/botones). El valor se
-                 persiste en almSeleccion[id].cantidad y sobrevive a recargas del tbody
-                 (paginación / filtros) gracias a almSelApplyToVisible. La validación
-                 (cantidad > 0 y ≤ stock) ocurre al confirmar la Nota de Entrega. --}}
-            <td style="text-align:center;white-space:nowrap;width:110px;" data-no-toggle>
-                <input type="number" class="alm-row-cant" min="0.001" step="any" placeholder="0"
-                       disabled
-                       style="width:90px;padding:5px 6px;border:1px solid #cbd5e0;border-radius:7px;text-align:right;font-size:13px;font-weight:700;background:#f1f5f9;color:#94a3b8;"
-                       onclick="event.stopPropagation();"
-                       oninput="window.almRowCantInput && window.almRowCantInput(this)">
+            {{-- Cantidad de salida por fila: stepper compacto [−][N][+]. Los tres elementos
+                 se habilitan SOLO cuando la fila está seleccionada (clic fuera de inputs/
+                 botones). El valor se persiste en almSeleccion[id].cantidad y sobrevive
+                 a recargas del tbody (paginación / filtros) vía almSelApplyToVisible.
+                 La validación final (> 0, ≤ stock) ocurre al confirmar la Nota de Entrega. --}}
+            <td style="text-align:center;white-space:nowrap;width:100px;" data-no-toggle>
+                <div class="alm-cant-stepper" style="display:inline-flex;align-items:stretch;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;background:#f1f5f9;height:26px;">
+                    <button type="button" class="alm-cant-btn" data-step="-1" disabled
+                            style="width:22px;border:none;border-right:1px solid #cbd5e0;background:#e2e8f0;color:#94a3b8;font-weight:800;font-size:14px;line-height:1;cursor:not-allowed;padding:0;"
+                            onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,-1);">−</button>
+                    <input type="number" class="alm-row-cant" min="0.001" step="any" placeholder="0"
+                           disabled
+                           style="width:48px;border:none;background:transparent;text-align:center;font-size:12.5px;font-weight:700;color:#94a3b8;outline:none;padding:0;-moz-appearance:textfield;"
+                           onclick="event.stopPropagation();"
+                           oninput="window.almRowCantInput && window.almRowCantInput(this)">
+                    <button type="button" class="alm-cant-btn" data-step="1" disabled
+                            style="width:22px;border:none;border-left:1px solid #cbd5e0;background:#e2e8f0;color:#94a3b8;font-weight:800;font-size:14px;line-height:1;cursor:not-allowed;padding:0;"
+                            onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,1);">+</button>
+                </div>
             </td>
             @endif
             <td style="text-align:center;white-space:nowrap;width:60px;" data-no-toggle>

@@ -55,6 +55,15 @@
        color inline original (font-weight + color de td) en vez del azul global. */
     .alm-table tbody tr.alm-row.selected-row-maquinaria td { color: unset !important; }
 
+    /* Stepper compacto de "Cant. salida" (vive en cada fila de la tabla):
+       sin spinners nativos del browser; los botones +/− están manejados por JS. */
+    .alm-row-cant::-webkit-outer-spin-button,
+    .alm-row-cant::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .alm-cant-stepper.is-active { background:#fff; border-color:#94a3b8; }
+    .alm-cant-stepper.is-active .alm-cant-btn { background:#fff; color:#0067b1; cursor:pointer; }
+    .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe; }
+    .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a; }
+
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
         border-radius: 7px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; margin: 0 1px;
@@ -95,6 +104,7 @@
     .alm-admin-row:hover { background: #f8fafc; }
     @keyframes almIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
     @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     /* El filtro de almacén (en el título) NO se resalta en azul cuando está activo:
        sobrescribimos el estilo global .filter-active sólo para ese dropdown. */
     #almSelAlmacenDropdown .dropdown-trigger.filter-active {
@@ -326,8 +336,10 @@
         </table>
     </div>
 
-    <div style="margin-top:16px;" id="almPagination">
-        {!! $productos ? $productos->links('vendor.pagination.custom-sliding') : '' !!}
+    {{-- Indicador opcional cuando el scroll infinito está cargando más filas. --}}
+    <div id="almLoadingMore" style="display:none;text-align:center;padding:12px;color:#64748b;font-size:12.5px;font-weight:600;">
+        <i class="material-icons" style="font-size:16px;vertical-align:middle;animation:spin 1s linear infinite;">refresh</i>
+        Cargando más productos…
     </div>
 </div>
 
@@ -915,43 +927,96 @@
         return p;
     }
 
-    // ── carga AJAX de la tabla + sidebar ──
-    window.almCargar = function (url) {
+    // ── Carga AJAX de la tabla + sidebar — con scroll infinito ──────────────────
+    // almCargar(opts?) acepta { offset, append }:
+    //   • Sin args (o offset=0)    → reemplaza la tabla, refresca stats + distribución
+    //                                y actualiza la URL para compartir.
+    //   • { offset>0, append }     → trae la siguiente página y la appendea al tbody.
+    // Tras cada lote, si data.hasMore=true, observamos la última fila .alm-row con
+    // IntersectionObserver (rootMargin 400px) para disparar el siguiente fetch al
+    // acercarse el usuario al final — mismo patrón que /admin/equipos.
+    var almInfObs = null; // observer activo (se desconecta antes de crear uno nuevo)
+    function almAttachInfiniteObserver(nextOffset) {
         var body = el('almTableBody'); if (!body) return;
-        var finalUrl;
-        if (url) {
-            var u = new URL(url, window.location.origin);
-            // fusionar filtros actuales en la URL de paginación (y limpiar los obsoletos)
-            var f = filtros(); f.forEach(function (v, k) { u.searchParams.set(k, v); });
-            ['id_almacen','search','categoria','solo_bajo','solo_con_saldo'].forEach(function (k) { if (!f.has(k)) u.searchParams.delete(k); });
-            finalUrl = u.toString();
+        // Buscar la ÚLTIMA fila .alm-row (puede haber filas placeholder al final).
+        var last = body.lastElementChild;
+        while (last && !last.classList.contains('alm-row')) last = last.previousElementSibling;
+        if (!last) return;
+        if (almInfObs) { try { almInfObs.disconnect(); } catch (e) {} almInfObs = null; }
+        almInfObs = new IntersectionObserver(function (entries, obs) {
+            if (entries[0] && entries[0].isIntersecting) {
+                obs.disconnect();
+                almInfObs = null;
+                window.almCargar({ offset: nextOffset, append: true });
+            }
+        }, { root: null, rootMargin: '400px', threshold: 0 });
+        almInfObs.observe(last);
+    }
+    window.almCargar = function (opts) {
+        // back-compat: si llaman almCargar() sin args o almCargar('url-string') se trata
+        // como recarga completa (offset=0). Si se pasa un objeto, respetamos sus opciones.
+        if (typeof opts === 'string' || opts == null) opts = {};
+        var offset = Math.max(0, parseInt(opts.offset || 0, 10));
+        var append = !!opts.append && offset > 0;
+        var body = el('almTableBody'); if (!body) return;
+        var loadMore = el('almLoadingMore');
+        // Construir URL preservando los filtros activos + offset.
+        var f = filtros(); f.set('offset', String(offset));
+        var finalUrl = ROUTE_INDEX + '?' + f.toString();
+        if (append) {
+            if (loadMore) loadMore.style.display = 'block';
         } else {
-            finalUrl = ROUTE_INDEX + '?' + filtros().toString();
+            body.style.opacity = '0.5';
+            pre();
+            // Cancelar cualquier observer pendiente — los filtros cambiaron y la
+            // próxima lista será diferente (evita disparar un fetch obsoleto).
+            if (almInfObs) { try { almInfObs.disconnect(); } catch (e) {} almInfObs = null; }
         }
-        body.style.opacity = '0.5';
-        pre();
         fetch(finalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                if (data.html !== undefined) body.innerHTML = data.html;
-                almSelApplyToVisible(); // re-pintar el azul de las filas que sigan seleccionadas
-                var pg = el('almPagination'); if (pg) pg.innerHTML = data.pagination || '';
-                if (data.stats) {
+                if (data.html !== undefined) {
+                    if (append) {
+                        var tmp = document.createElement('tbody');
+                        tmp.innerHTML = data.html;
+                        while (tmp.firstElementChild) body.appendChild(tmp.firstElementChild);
+                    } else {
+                        body.innerHTML = data.html;
+                    }
+                }
+                almSelApplyToVisible();
+                // Stats + distribución solo en la primera página (el backend ya las omite
+                // cuando offset>0; aquí evitamos rebajar a "—" lo que ya pintamos).
+                if (!append && data.stats) {
                     var num = function (id, v) { var e = el(id); if (e) e.textContent = (v == null ? '—' : v); };
                     num('almStatsTotal',    data.stats.total);
                     num('almStatsConSaldo', data.stats.con_saldo);
                     num('almStatsBajo',     data.stats.stock_bajo);
                 }
-                if (data.distribucionHtml !== undefined) { var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml; }
-                // URL para compartir
-                try {
-                    var cleanU = new URL(ROUTE_INDEX, window.location.origin);
-                    filtros().forEach(function (v, k) { cleanU.searchParams.set(k, v); });
-                    window.history.replaceState({}, '', cleanU.toString());
-                } catch (e) {}
+                if (!append && data.distribucionHtml !== undefined) {
+                    var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml;
+                }
+                // URL para compartir — solo en recarga completa (offset no va a la URL).
+                if (!append) {
+                    try {
+                        var cleanU = new URL(ROUTE_INDEX, window.location.origin);
+                        filtros().forEach(function (v, k) { cleanU.searchParams.set(k, v); });
+                        window.history.replaceState({}, '', cleanU.toString());
+                    } catch (e) {}
+                }
+                // Scroll infinito: si hay más, observar la última fila para traer la siguiente página.
+                if (data.hasMore && typeof data.nextOffset === 'number') {
+                    almAttachInfiniteObserver(data.nextOffset);
+                }
             })
             .catch(function () { toast('No se pudo cargar el inventario.', 'error'); })
-            .finally(function () { body.style.opacity = '1'; unpre(); });
+            .finally(function () {
+                if (append) {
+                    if (loadMore) loadMore.style.display = 'none';
+                } else {
+                    body.style.opacity = '1'; unpre();
+                }
+            });
     };
 
     function formatNum(n) {
@@ -1033,7 +1098,7 @@
         // romper la consistencia visual — solo se distingue por el icono inline pequeño.
         var verTodoLink = matcher.isEmpty
             ? '<div class="alm-suggest-item" data-action="ver-todo">'
-            +     '<span class="nom">Ver todo el stock</span>'
+            +     '<span class="nom">VER TODO EL STOCK</span>'
             + '</div>'
             : '';
 
@@ -1188,12 +1253,7 @@
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { almSuggestHide(); almCatSuggestHide(); } });
 
-    // ── paginación (event delegation) ──
-    document.addEventListener('click', function (e) {
-        var a = e.target.closest('#almPagination a');
-        if (a) { e.preventDefault(); e.stopPropagation(); window.almCargar(a.href); }
-    }, true);
-
+    // El paginador clásico fue reemplazado por scroll infinito (ver almAttachInfiniteObserver).
     // ════════════════════════════════════════════════════════════════════════
     //  Selección de productos en la tabla — IGUAL que /admin/equipos:
     //  clic en una fila → se resalta en azul (.selected-row-maquinaria) y aparece
@@ -1215,24 +1275,40 @@
     function almSelMarkRow(tr, on) {
         if (!tr) return;
         tr.classList.toggle('selected-row-maquinaria', !!on);
-        // Habilitar / deshabilitar el input de cantidad de la propia fila, y restaurar
-        // el valor guardado en memoria (almSeleccion[id].cantidad) si lo hay.
-        var inp = tr.querySelector('.alm-row-cant');
+        // Stepper de cantidad: el input + los dos botones +/− se habilitan en bloque.
+        // El estilo "activo" lo aporta la clase .is-active sobre el wrapper (CSS arriba).
+        var wrap = tr.querySelector('.alm-cant-stepper');
+        var inp  = tr.querySelector('.alm-row-cant');
+        if (wrap) wrap.classList.toggle('is-active', !!on);
         if (!inp) return;
+        var btns = tr.querySelectorAll('.alm-cant-btn');
         if (on) {
             var id = tr.getAttribute('data-id-producto');
-            var s = id ? almSeleccion[id] : null;
+            var s  = id ? almSeleccion[id] : null;
             inp.disabled = false;
-            inp.style.background = '#fff';
-            inp.style.color = '#0f172a';
             inp.value = (s && s.cantidad != null && s.cantidad !== '') ? s.cantidad : '';
+            btns.forEach(function (b) { b.disabled = false; });
         } else {
             inp.disabled = true;
-            inp.style.background = '#f1f5f9';
-            inp.style.color = '#94a3b8';
             inp.value = '';
+            btns.forEach(function (b) { b.disabled = true; });
         }
     }
+    // Stepper +/−: incrementa/decrementa la cantidad del producto de esa fila. Mínimo 1
+    // (no permite 0 ni negativos — el "−" se queda en 1 cuando ya está en 1). El paso es
+    // entero porque en general se entregan unidades enteras; si el usuario necesita
+    // decimales puede teclearlos directamente en el input.
+    window.almRowCantStep = function (btn, dir) {
+        var tr = btn.closest('tr.alm-row'); if (!tr) return;
+        var inp = tr.querySelector('.alm-row-cant'); if (!inp || inp.disabled) return;
+        var id = tr.getAttribute('data-id-producto');
+        var s  = id ? almSeleccion[id] : null; if (!s) return;
+        var cur = parseFloat(String(inp.value || '0').replace(',', '.')) || 0;
+        var next = cur + (dir > 0 ? 1 : -1);
+        if (next < 1) next = 1;
+        inp.value = String(next);
+        s.cantidad = String(next);
+    };
     // Re-pinta el resaltado azul + estado del input cantidad tras cada recarga AJAX del tbody.
     function almSelApplyToVisible() {
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
