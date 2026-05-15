@@ -112,9 +112,15 @@ class AlmacenController extends Controller
                 $hasMore = $rows->count() > $PAGE_SIZE;
                 if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
             }
+            // En las páginas siguientes del scroll infinito ($offset > 0) NO devolvemos la
+            // empty-state row del partial — sería un mensaje "Sin coincidencias" appended al
+            // final de las filas ya pintadas. Si el lote viene vacío, el html es ''.
+            $html = ($offset > 0 && $rows->isEmpty())
+                ? ''
+                : view('admin.almacen.partials.table_rows', ['productos' => $rows, 'almacen' => $almacenSel, 'inicial' => false])->render();
             $resp = [
                 'almacen'    => $almacenSel,
-                'html'       => view('admin.almacen.partials.table_rows', ['productos' => $rows, 'almacen' => $almacenSel, 'inicial' => false])->render(),
+                'html'       => $html,
                 'hasMore'    => $hasMore,
                 'nextOffset' => $hasMore ? $offset + $PAGE_SIZE : null,
             ];

@@ -56,13 +56,16 @@
     .alm-table tbody tr.alm-row.selected-row-maquinaria td { color: unset !important; }
 
     /* Stepper compacto de "Cant. salida" (vive en cada fila de la tabla):
-       sin spinners nativos del browser; los botones +/− están manejados por JS. */
+       sin spinners nativos del browser; los botones ▲/▼ están manejados por JS.
+       Los estilos inline del partial pintan el estado DESHABILITADO (gris). Cuando
+       almSelMarkRow añade .is-active al wrapper estos selectores ganan con !important
+       para revertir el gris a los colores "activos" (texto negro, botón azul). */
     .alm-row-cant::-webkit-outer-spin-button,
     .alm-row-cant::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .alm-cant-stepper.is-active { background:#fff; border-color:#94a3b8; }
-    .alm-cant-stepper.is-active .alm-cant-btn { background:#fff; color:#0067b1; cursor:pointer; }
-    .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe; }
-    .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a; }
+    .alm-cant-stepper.is-active { background:#fff !important; border-color:#94a3b8 !important; }
+    .alm-cant-stepper.is-active .alm-cant-btn { background:#fff !important; color:#0067b1 !important; cursor:pointer !important; }
+    .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe !important; }
+    .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a !important; }
 
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
@@ -70,7 +73,7 @@
         transition: transform 0.12s, background 0.12s;
     }
     .alm-btn:hover { transform: scale(1.06); }
-    /* (sólo se usan en la lista "Gestionar almacenes" y en el botón "quitar" del modal de salida) */
+    /* (se usan en la lista "Gestionar almacenes" — editar / eliminar almacén) */
     .alm-btn-edit { color: #0891b2; border-color: #cffafe; } .alm-btn-edit:hover { background: #0891b2; color: #fff; }
     .alm-btn-del  { color: #ef4444; border-color: #fecaca; } .alm-btn-del:hover  { background: #ef4444; color: #fff; }
     /* Botón "ojo" de detalles por fila: mismo look que el de /admin/equipos */
@@ -96,9 +99,6 @@
     /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
     #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
     #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
-    .alm-kardex-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .alm-kardex-table th { text-align: left; color: #64748b; font-size: 10.5px; font-weight: 800; text-transform: uppercase; padding: 7px 9px; border-bottom: 2px solid #e2e8f0; background: #f8fafc; position: sticky; top: 0; }
-    .alm-kardex-table td { padding: 7px 9px; }
     .alm-admin-list { display: flex; flex-direction: column; gap: 6px; }
     .alm-admin-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
     .alm-admin-row:hover { background: #f8fafc; }
@@ -751,11 +751,12 @@
         <div class="alm-modal-body">
 
             {{-- Cabecera tipo "Nota de Entrega de Materiales" ─────────────────────────────
-                 Layout COPIA EXACTA del Excel VID-FO-GEN-019:
-                   PROYECTO                                          (full)
-                   CONTRATO N°                                       (full)
+                 Layout inspirado en el Excel VID-FO-GEN-019, optimizado para ocupar menos
+                 alto vertical:
+                   PROYECTO (2fr) | CONTRATO N° (1fr)                (misma fila)
                    FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
-                   DEPARTAMENTO                                      (full)              --}}
+                   DEPARTAMENTO                                      (full)
+                   OBSERVACIONES                                     (full) --}}
             <div id="almSalidaNotaWrap" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                 {{-- Encabezado del documento: título centrado + bloque de datos del formato a la derecha. --}}
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #1e293b;">
@@ -1042,6 +1043,7 @@
         if (el('almFiltroCat')) el('almFiltroCat').value = '';
         almSuggestHide(); almCatSuggestHide();
         soloBajo = false; soloConSaldo = false;
+        almBuscarPickedId = null; // descartar match exacto si quedó pegado de un clic previo
         almCargar();
     };
     window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCatSuggestHide(); almCargar(); };
