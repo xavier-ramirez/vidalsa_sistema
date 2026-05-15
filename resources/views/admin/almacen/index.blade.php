@@ -910,11 +910,21 @@
 
 
 
+    // Cuando el usuario hace clic en una sugerencia del filtro Descripción, guardamos
+    // aquí el ID del producto elegido → el backend filtra por match exacto (`id_producto`).
+    // Si el usuario edita el texto, presiona Enter o limpia el campo, se borra → vuelve
+    // al comportamiento LIKE %term% (búsqueda por similitudes).
+    var almBuscarPickedId = null;
+
     // ── filtros → params (única fuente de verdad de los filtros activos) ──
     function filtros() {
         var p = new URLSearchParams();
         var alm = val('almSelAlmacen'); if (alm) p.set('id_almacen', alm);
         var b   = val('almFiltroBuscar'); if (b) p.set('search', b);
+        // id_producto se manda SOLO si vino de un clic en sugerencia (match exacto).
+        // Se prioriza sobre `search` en el backend (que sigue yendo para que la UI
+        // muestre el texto y la URL compartible mantenga el contexto).
+        if (almBuscarPickedId) p.set('id_producto', String(almBuscarPickedId));
         var cat = val('almFiltroCat');  if (cat) p.set('categoria', cat);
         if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
@@ -1147,7 +1157,9 @@
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                return '<div class="alm-suggest-item" data-pick="' + nom + '" title="' + cod + '">'
+                // data-pid (ID_PRODUCTO) = match EXACTO al hacer clic; data-pick = nombre que
+                // se pega en el input para que se vea lo elegido y siga siendo editable.
+                return '<div class="alm-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-pick="' + nom + '" title="' + cod + '">'
                      + '<span class="nom">' + nom + '</span></div>';
             }).join('');
             // Pie informativo: si hay matches del catálogo no listados (porque no estan en este
@@ -1160,28 +1172,36 @@
         }
         box.classList.add('open');
     };
-    // Escribir SOLO refresca la lista de sugerencias — NO dispara la búsqueda en la tabla.
-    // La tabla se filtra cuando el usuario (a) elige una sugerencia [almBuscarPick],
-    // (b) pulsa Enter [almBuscarEnter], o (c) limpia el campo con la X [almBuscarLimpiar].
-    // El cambio respecto a la versión anterior es que almBuscarPick pega el NOMBRE del
-    // producto en el input (no el código PRD-XXXX), así si el usuario escribe encima del
-    // texto pegado, las sugerencias siguen apareciendo con coincidencias relevantes.
+    // Reglas del filtro "Descripción":
+    //   (a) Escribir refresca solo la LISTA de sugerencias, NO la tabla. Si el usuario
+    //       venía de un clic previo (id_producto fijado), se DESCARTA en cuanto edita el
+    //       texto — porque ya quiere algo distinto.
+    //   (b) Clic en una sugerencia [almBuscarPick] → fija id_producto = match EXACTO
+    //       (solo aparece esa fila en la tabla).
+    //   (c) Enter [almBuscarEnter] → similitudes via LIKE %term% del backend (sin id_producto).
+    //   (d) Limpiar [almBuscarLimpiar] → quita texto + id_producto, recarga sin filtro.
     window.almBuscarInput = function () {
+        // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
+        // de aplicar. Lo más simple: descartar siempre que se vuelva a teclear.
+        almBuscarPickedId = null;
         window.almBuscarSuggest();
     };
     window.almBuscarEnter = function (ev) {
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
+        almBuscarPickedId = null;
         almSuggestHide();
         almCargar();
     };
-    window.almBuscarPick = function (texto) {
+    window.almBuscarPick = function (texto, idProducto) {
         var inp = el('almFiltroBuscar'); if (inp) inp.value = texto;
+        almBuscarPickedId = idProducto ? parseInt(idProducto, 10) : null;
         almSuggestHide();
         almCargar();
     };
     window.almBuscarLimpiar = function () {
         var inp = el('almFiltroBuscar'); if (inp) inp.value = '';
+        almBuscarPickedId = null;
         almSuggestHide();
         almCargar();
     };
@@ -1244,7 +1264,8 @@
                 if (window.almVerTodo) window.almVerTodo();
                 return;
             }
-            window.almBuscarPick(item.getAttribute('data-pick') || '');
+            // data-pid → match exacto en el backend; data-pick → texto visible en el input.
+            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '');
             return;
         }
         var catItem = e.target.closest('#almFiltroCatSuggest .alm-suggest-item');

@@ -193,8 +193,14 @@ class AlmacenController extends Controller
             }
         });
 
-        if ($request->filled('search')) {
+        // `id_producto`: match EXACTO — lo envía el filtro "Descripción" cuando el usuario
+        // hace clic en una sugerencia (quiere VER esa fila concreta, no las similares).
+        // Tiene precedencia sobre `search` (que sí hace LIKE %term% con tokens y plural).
+        if ($request->filled('id_producto')) {
+            $q->where('productos_inventario.ID_PRODUCTO', '=', (int) $request->input('id_producto'));
+        } elseif ($request->filled('search')) {
             $term = trim((string) $request->input('search'));
+            // (cae aquí solo si NO vino id_producto — typed-and-Enter, no clic en sugerencia)
             // Búsqueda flexible: tokeniza por espacios, AND entre tokens, y para cada token
             // intenta también el SINGULAR (sin 'S' final si tiene >3 letras) — así "BOTAS"
             // encuentra "BOTA DE SEGURIDAD" sin que el usuario tenga que escribir el singular.
