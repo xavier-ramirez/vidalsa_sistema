@@ -57,34 +57,36 @@
     </tr>
 </table>
 
-{{-- ── Tabla de ítems: ITEM | CANTIDAD | UNIDAD | DESCRIPCIÓN | N° COLADA/SERIAL ── --}}
+{{-- ── Tabla de ítems: ITEM | CANTIDAD | UNIDAD | DESCRIPCIÓN | N° COLADA/SERIAL ──
+     IMPORTANTE: el width hay que repetirlo en CADA <td> de TODAS las filas (no solo el
+     header). TCPDF en writeHTML no propaga el width del <thead> al <tbody> cuando las
+     celdas estan casi vacias — sin esto las columnas se "fusionan" visualmente. --}}
 <table border="1" cellpadding="2" cellspacing="0" width="100%">
-    <thead>
-        <tr bgcolor="#1e293b">
-            <th width="7%"  align="center"><font size="8" color="#ffffff"><b>ITEM</b></font></th>
-            <th width="11%" align="center"><font size="8" color="#ffffff"><b>CANTIDAD</b></font></th>
-            <th width="12%" align="center"><font size="8" color="#ffffff"><b>UNIDAD</b></font></th>
-            <th width="50%" align="center"><font size="8" color="#ffffff"><b>DESCRIPCIÓN</b></font></th>
-            <th width="20%" align="center"><font size="8" color="#ffffff"><b>N° COLADA / SERIAL</b></font></th>
+    <tr bgcolor="#595959">
+        <td width="7%"  align="center"><font size="9" color="#ffffff"><b>ITEM</b></font></td>
+        <td width="11%" align="center"><font size="9" color="#ffffff"><b>CANTIDAD</b></font></td>
+        <td width="12%" align="center"><font size="9" color="#ffffff"><b>UNIDAD</b></font></td>
+        <td width="50%" align="center"><font size="9" color="#ffffff"><b>DESCRIPCIÓN</b></font></td>
+        <td width="20%" align="center"><font size="9" color="#ffffff"><b>N° COLADA / SERIAL</b></font></td>
+    </tr>
+    @foreach($movs as $i => $m)
+        <tr>
+            <td width="7%"  align="center"><font size="8">{{ $i + 1 }}</font></td>
+            <td width="11%" align="center"><font size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
+            <td width="12%" align="center"><font size="8">{{ $m->producto?->UM ?? '' }}</font></td>
+            <td width="50%"><font size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
+            <td width="20%" align="center"><font size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
         </tr>
-    </thead>
-    <tbody>
-        @foreach($movs as $i => $m)
-            <tr>
-                <td align="center"><font size="8">{{ $i + 1 }}</font></td>
-                <td align="center"><font size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
-                <td align="center"><font size="8">{{ $m->producto?->UM ?? '' }}</font></td>
-                <td><font size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
-                <td align="center"><font size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
-            </tr>
-        @endforeach
-        @for($j = $movs->count(); $j < $minFilas; $j++)
-            <tr>
-                <td align="center"><font size="8">{{ $j + 1 }}</font></td>
-                <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-            </tr>
-        @endfor
-    </tbody>
+    @endforeach
+    @for($j = $movs->count(); $j < $minFilas; $j++)
+        <tr>
+            <td width="7%"  align="center"><font size="8">{{ $j + 1 }}</font></td>
+            <td width="11%">&nbsp;</td>
+            <td width="12%">&nbsp;</td>
+            <td width="50%">&nbsp;</td>
+            <td width="20%">&nbsp;</td>
+        </tr>
+    @endfor
 </table>
 
 {{-- ── Observaciones: label + caja vacía para escribir ── --}}
@@ -129,44 +131,51 @@
     </tr>
 </table>
 
-{{-- ── Vehículo / Chofer: 2 cuadros separados side-by-side (no full-width) ── --}}
+{{-- ── Vehículo / Chofer: 2 cuadros separados side-by-side.
+     48% cada uno + 4% de gap = 100%. Cada cuadro ahora tiene espacio suficiente
+     para "Constructora Vidalsa 27, C.A." en una sola línea (la version anterior
+     era 40% y partía el texto en 2). Etiquetas a 28% del ancho del cuadro
+     (~13% del total) para que el campo de valor sea ancho. Font 8.5pt. --}}
 <table border="0" cellpadding="0" cellspacing="0" width="100%">
     <tr>
-        <td width="40%" valign="top">
+        <td width="48%" valign="top">
             <table border="1" cellpadding="2" cellspacing="0" width="100%">
-                <tr><td colspan="2" align="center"><font size="9"><b>DATOS DEL VEHICULO</b></font></td></tr>
-                <tr>
-                    <td width="35%"><font size="9"><b>VEHICULO:</b></font></td>
-                    <td>&nbsp;</td>
+                <tr bgcolor="#595959">
+                    <td colspan="2" align="center"><font size="9" color="#ffffff"><b>DATOS DEL VEHICULO</b></font></td>
                 </tr>
                 <tr>
-                    <td><font size="9"><b>PLACA:</b></font></td>
-                    <td>&nbsp;</td>
+                    <td width="28%"><font size="8"><b>VEHICULO:</b></font></td>
+                    <td width="72%">&nbsp;</td>
                 </tr>
                 <tr>
-                    <td><font size="9"><b>EMPRESA:</b></font></td>
-                    <td><font size="9">Constructora Vidalsa 27, C.A.</font></td>
+                    <td width="28%"><font size="8"><b>PLACA:</b></font></td>
+                    <td width="72%">&nbsp;</td>
+                </tr>
+                <tr>
+                    <td width="28%"><font size="8"><b>EMPRESA:</b></font></td>
+                    <td width="72%"><font size="8">Constructora Vidalsa 27, C.A.</font></td>
                 </tr>
             </table>
         </td>
-        <td width="6%">&nbsp;</td>
-        <td width="40%" valign="top">
+        <td width="4%">&nbsp;</td>
+        <td width="48%" valign="top">
             <table border="1" cellpadding="2" cellspacing="0" width="100%">
-                <tr><td colspan="2" align="center"><font size="9"><b>DATOS DEL CHOFER</b></font></td></tr>
-                <tr>
-                    <td width="35%"><font size="9"><b>NOMBRE:</b></font></td>
-                    <td>&nbsp;</td>
+                <tr bgcolor="#595959">
+                    <td colspan="2" align="center"><font size="9" color="#ffffff"><b>DATOS DEL CHOFER</b></font></td>
                 </tr>
                 <tr>
-                    <td><font size="9"><b>CEDULA:</b></font></td>
-                    <td>&nbsp;</td>
+                    <td width="28%"><font size="8"><b>NOMBRE:</b></font></td>
+                    <td width="72%">&nbsp;</td>
                 </tr>
                 <tr>
-                    <td><font size="9"><b>FIRMA:</b></font></td>
-                    <td>&nbsp;</td>
+                    <td width="28%"><font size="8"><b>CEDULA:</b></font></td>
+                    <td width="72%">&nbsp;</td>
+                </tr>
+                <tr>
+                    <td width="28%"><font size="8"><b>FIRMA:</b></font></td>
+                    <td width="72%">&nbsp;</td>
                 </tr>
             </table>
         </td>
-        <td width="14%">&nbsp;</td>
     </tr>
 </table>
