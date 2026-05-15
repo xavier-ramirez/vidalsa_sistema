@@ -46,8 +46,13 @@
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
-    /* En móvil .selected-row-maquinaria es desktop-only, así que damos un realce propio */
-    .alm-table tbody tr.alm-row.selected-row-maquinaria { background: #e1effa !important; }
+    /* Fila SELECCIONADA: azul claramente mas oscuro que el hover (#e0f2fe) para que se
+       distinga a simple vista cual esta marcada. Persiste tambien en hover (sin !important
+       el hover gana porque viene despues en cascada). */
+    .alm-table tbody tr.alm-row.selected-row-maquinaria,
+    .alm-table tbody tr.alm-row.selected-row-maquinaria:hover,
+    .alm-table tbody tr.alm-row.selected-row-maquinaria td,
+    .alm-table tbody tr.alm-row.selected-row-maquinaria:hover td { background: #93c5fd !important; }
     /* Anulación local: la regla global `tr.selected-row-maquinaria td { color:#0067b1 }`
        (estilos_globales.css ~línea 1929) deja TODO el texto azul. En esta tabla solo
        queremos el background azul, NO los textos: el código y el nombre tienen su propio
@@ -758,17 +763,10 @@
                    DEPARTAMENTO                                      (full)
                    OBSERVACIONES                                     (full) --}}
             <div id="almSalidaNotaWrap" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-                {{-- Encabezado del documento: título centrado + bloque de datos del formato a la derecha. --}}
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #1e293b;">
-                    <div style="flex:1;text-align:center;">
-                        <div style="font-size:14px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:1px;line-height:1.2;">Nota de Entrega de Materiales</div>
-                    </div>
-                    <div style="font-size:10px;color:#64748b;font-family:monospace;text-align:right;line-height:1.5;flex:0 0 auto;margin-left:10px;">
-                        <div><strong style="color:#0f172a;">CÓDIGO:</strong> VID-FO-GEN-019</div>
-                        <div><strong style="color:#0f172a;">FECHA EMIS:</strong> 01/10/19</div>
-                        <div><strong style="color:#0f172a;">REV:</strong> 1 — 06/10/23</div>
-                    </div>
-                </div>
+                {{-- NOTA: la metadata del formato (CÓDIGO VID-FO-GEN-019, FECHA EMIS, REV)
+                     y el título "Nota de Entrega de Materiales" se incluyen SOLO en el PDF
+                     generado por NotaEntregaPDF. En el modal son ruido visual — el título
+                     del modal ("Registrar salida") ya identifica suficientemente el formulario. --}}
 
                 {{-- PROYECTO (ancho) | CONTRATO N° (estrecho) — misma fila.
                      Contrato N° con sugerencias derivadas del proyecto: si el frente elegido
@@ -808,7 +806,7 @@
                     </div>
                     <div style="position:relative;">
                         <label class="alm-nota-label">Contrato N°</label>
-                        <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100" placeholder="Ej: CTR-2026-0042">
+                        <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100" placeholder="Ej: CTR-2026-0042" autocomplete="off">
                         <div id="almSalidaContratoSug" style="display:none;margin-top:5px;flex-wrap:wrap;gap:5px;"></div>
                     </div>
                 </div>
@@ -828,18 +826,18 @@
                     </div>
                     <div>
                         <label class="alm-nota-label">RQ N°</label>
-                        <input type="text" id="almSalidaRq" class="alm-nota-input" maxlength="100" placeholder="Ej: RQ-001">
+                        <input type="text" id="almSalidaRq" class="alm-nota-input" maxlength="100" placeholder="Ej: RQ-001" autocomplete="off">
                     </div>
                     <div>
                         <label class="alm-nota-label">Solicitante</label>
-                        <input type="text" id="almSalidaSolicitante" class="alm-nota-input" maxlength="200" placeholder="Nombre y apellido">
+                        <input type="text" id="almSalidaSolicitante" class="alm-nota-input" maxlength="200" placeholder="Nombre y apellido" autocomplete="off">
                     </div>
                 </div>
 
                 {{-- DEPARTAMENTO (full width) --}}
                 <div style="margin-bottom:10px;">
                     <label class="alm-nota-label">Departamento</label>
-                    <input type="text" id="almSalidaDepartamento" class="alm-nota-input" maxlength="150" placeholder="Ej: Mantenimiento">
+                    <input type="text" id="almSalidaDepartamento" class="alm-nota-input" maxlength="150" placeholder="Ej: Mantenimiento" autocomplete="off">
                 </div>
 
                 {{-- OBSERVACIONES (full width) — campo libre de la Nota de Entrega
@@ -847,7 +845,7 @@
                      en SALIDA pura (consumo) como en SALIDA vía traspaso a otro proyecto. --}}
                 <div>
                     <label class="alm-nota-label">Observaciones</label>
-                    <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc.">
+                    <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc." autocomplete="off">
                 </div>
             </div>
 
@@ -1990,12 +1988,12 @@
         // Resumen: contar productos seleccionados en la tabla principal (es la fuente
         // de cantidades — el modal ya no tiene tabla de Productos propia).
         var rn = el('almSalidaResumenN'); if (rn) rn.textContent = almSelCount();
+        // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
+        // dejo con .active (el helper global focusin auto-abre cuando el input del trigger
+        // recibe foco — por eso evitamos hacer .focus() automatico al abrir el modal).
+        var ddProy = el('almSalidaProyectoDropdown');
+        if (ddProy) ddProy.classList.remove('active');
         open('almSalidaModal');
-        // Foco en el primer campo útil de la Nota (el dropdown de proyecto).
-        setTimeout(function () {
-            var dd = document.querySelector('#almSalidaProyectoDropdown [data-filter-search]');
-            if (dd) dd.focus();
-        }, 60);
     };
     // Sugerencias de N° de Contrato segun el frente/proyecto elegido en el modal de salida.
     //   • 0 contratos asociados → la lista de sugerencias se oculta (el usuario lo teclea libre).
