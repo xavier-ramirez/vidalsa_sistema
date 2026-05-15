@@ -1163,6 +1163,10 @@ class AlmacenController extends Controller
         $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
         $pdf->SetCreator('Sistema de Gestión VIDALSA');
         $pdf->AddPage();
+        // Línea fina (0.15mm) para que las tablas HTML del cuerpo usen el mismo
+        // grosor que el cabezote — TCPDF usa SetLineWidth como default para los
+        // bordes de tablas en writeHTML.
+        $pdf->SetLineWidth(0.15);
         $pdf->SetFont('helvetica', '', 9.5);
 
         $html = view('admin.almacen.nota_entrega_pdf', [
@@ -1434,57 +1438,47 @@ class NotaEntregaPDF extends \TCPDF
 {
     public function Header()
     {
-        // ── Cabezote oficial VID-FO-GEN-019: caja externa con 3 secciones
-        //    [LOGO]  |  NOTA DE ENTREGA DE MATERIALES  |  [Sello 5 filas]
-        //    Bordes dibujados con Rect()/Line() para garantizar el contorno externo;
-        //    el sello de la derecha se compone con Cell() para tener sus separadores
-        //    horizontales internos sin depender del soporte limitado de border-collapse
-        //    en writeHTMLCell de TCPDF.
-        $img    = public_path('img/imagen_uno.jpg');
-        $x0     = 12;       // margen izquierdo (igual a SetMargins)
-        $y0     = 6;        // top del cabezote
-        $wTotal = 186;      // 210 (A4) − 2×12 margen
-        $h      = 30;       // alto del cabezote
-        $wLogo  = 37;       // ≈20% del ancho (A1:B5 del Excel)
-        $wTitle = 101;      // ≈54% (C1:G5)
-        $wStamp = $wTotal - $wLogo - $wTitle; // 48mm (H1:I5)
+        // ── Cabezote oficial VID-FO-GEN-019 — UNA tabla HTML con bordes ────────
+        //    [LOGO 22%]  |  NOTA DE ENTREGA DE MATERIALES (50%)  |  [SELLO 28%]
+        //    Se hace en una sola writeHTMLCell para que el grosor de las líneas
+        //    sea consistente entre cabezote y cuerpo (TCPDF renderiza todas las
+        //    tablas HTML con el mismo borderWidth basado en SetLineWidth).
+        //
+        //    El logo es una imagen (no se puede meter via HTML facil en TCPDF),
+        //    se superpone con Image() encima de la primera celda — vacía a
+        //    propósito y con rowspan=5 para que tenga el alto de las 5 filas
+        //    del sello.
 
-        $xTitle = $x0 + $wLogo;
-        $xStamp = $xTitle + $wTitle;
+        // Líneas finas. SetLineWidth se hereda al renderizar el cuerpo, por eso
+        // tablas posteriores quedan con el MISMO grosor que el cabezote.
+        $this->SetLineWidth(0.15);
 
-        // 1) Caja externa + separadores verticales
-        $this->Rect($x0, $y0, $wTotal, $h);
-        $this->Line($xTitle, $y0, $xTitle, $y0 + $h);
-        $this->Line($xStamp, $y0, $xStamp, $y0 + $h);
-
-        // 2) Logo centrado en la celda izquierda
+        $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
-            $this->Image($img, $x0 + 3, $y0 + 3, 0, 24, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+            // Logo overlaid en la celda izquierda del cabezote (x=15, y=9 → centrado dentro
+            // de la primera celda de 22% × 30mm). Alto fijo 24mm conserva proporción.
+            $this->Image($img, 15, 9, 0, 24, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
         }
 
-        // 3) Título centrado vertical y horizontalmente en la celda del medio
-        $this->SetFont('helvetica', 'B', 13);
-        $this->SetXY($xTitle, $y0);
-        $this->Cell($wTitle, $h, 'NOTA DE ENTREGA DE MATERIALES', 0, 0, 'C', false, '', 0, false, 'T', 'M');
+        // Sello + título + placeholder del logo, todo dentro de una tabla con border="1".
+        // rowspan="5" hace que la celda del logo y la del título ocupen las 5 filas
+        // del sello, sin tener que dibujar líneas manuales.
+        $page = $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages();
+        $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
+              . '<tr>'
+              .   '<td width="22%" rowspan="5" height="120">&nbsp;</td>'
+              .   '<td width="50%" rowspan="5" align="center" valign="middle"><font size="13"><b>NOTA DE ENTREGA DE MATERIALES</b></font></td>'
+              .   '<td width="28%" align="center"><font size="7"><b>CODIGO:</b></font></td>'
+              . '</tr>'
+              . '<tr><td align="center"><font size="7"><b>VID-FO-GEN-019</b></font></td></tr>'
+              . '<tr><td align="center"><font size="7">FECHA EMIS: 01/10/19</font></td></tr>'
+              . '<tr><td align="center"><font size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
+              . '<tr><td align="center"><font size="7">PAG. ' . $page . '</font></td></tr>'
+              . '</table>';
 
-        // 4) Sello derecho: 5 filas con separadores horizontales internos
-        $rowH = $h / 5; // 6mm cada fila
-        $rows = [
-            ['CODIGO:',                                                          'R', ''],   // label
-            ['VID-FO-GEN-019',                                                   'C', 'B'],  // bold
-            ['FECHA EMIS: 01/10/19',                                             'C', ''],
-            ['REV: 1. FECHA REV: 06/10/23',                                      'C', ''],
-            ['PAG. ' . $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages(), 'C', ''],
-        ];
-        foreach ($rows as $i => [$txt, $align, $style]) {
-            $yi = $y0 + $i * $rowH;
-            if ($i > 0) {
-                $this->Line($xStamp, $yi, $xStamp + $wStamp, $yi);
-            }
-            $this->SetFont('helvetica', $style, 7);
-            $this->SetXY($xStamp, $yi);
-            $this->Cell($wStamp, $rowH, $txt, 0, 0, $align, false, '', 0, false, 'T', 'M');
-        }
+        $this->SetFont('helvetica', '', 7);
+        // x=12, y=6 → margen izquierdo y top del cabezote.
+        $this->writeHTMLCell(186, 0, 12, 6, $html, 0, 0, 0, true, 'L', true);
     }
 
     public function Footer()
