@@ -101,6 +101,10 @@
     }
     .alm-modal-wide { max-width: 980px; }
     .alm-modal .alm-modal-body { overflow-y: auto; min-height: 0; }
+    /* Inputs del modal "Nuevo / Editar producto": todo se guarda en mayúsculas,
+       se ven en mayúsculas mientras se escribe para coincidir con lo que se guarda.
+       El placeholder NO se transforma. CODIGO queda fuera (solo dígitos). */
+    #almProdNombre, #almProdUm, #almProdCategoria, #almProdUbicacion { text-transform: uppercase; }
     /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
     #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
     #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
@@ -748,7 +752,7 @@
      es CONSUMO (mismo almacén del origen) o TRASPASO (envío a otro almacén) según el frente
      elegido en "Proyecto destino" — ambos casos generan Nota de Entrega NE-YYYY-NNNN. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:960px;">
+    <div class="alm-modal alm-modal-wide" style="max-width:820px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">north_east</i> <span>Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
@@ -781,11 +785,11 @@
                              componente). Cuando se elige una opción, dispatchea el evento
                              `dropdown-selection` que el listener de almSalida usa para refrescar las
                              sugerencias de Contrato N°. --}}
-                        <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="— elige el proyecto / frente —">
+                        <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="Selecciona uno">
                             <input type="hidden" id="almSalidaProyecto" data-filter-value value="">
                             <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                                 <input type="text" data-filter-search autocomplete="off"
-                                       placeholder="— elige el proyecto / frente —"
+                                       placeholder="Selecciona uno"
                                        style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                        oninput="window.filterDropdownOptions(this)">
                                 <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"

@@ -1382,7 +1382,7 @@ class AlmacenController extends Controller
         $data['NOMBRE']    = mb_strtoupper(trim($data['NOMBRE']));
         $data['UM']        = mb_strtoupper(trim($data['UM']));
         $data['CATEGORIA'] = !empty($data['CATEGORIA']) ? mb_strtoupper(trim($data['CATEGORIA'])) : null;
-        $data['UBICACION'] = !empty($data['UBICACION']) ? trim($data['UBICACION']) : null;
+        $data['UBICACION'] = !empty($data['UBICACION']) ? mb_strtoupper(trim($data['UBICACION'])) : null;
         
         // Evitar reactivar productos inactivos al editarlos sin mandar el campo ESTATUS.
         if ($ignoreId === null) {
