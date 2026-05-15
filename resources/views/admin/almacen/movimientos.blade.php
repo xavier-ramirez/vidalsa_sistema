@@ -53,8 +53,11 @@
                                placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
                                style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.filterDropdownOptions(this)">
+                        {{-- X = "ver todos los almacenes". Mandamos 'all' explícito (NO clearDropdownFilter
+                             que pondría '') porque el controller aplicaría el default por frente y el
+                             usuario seguiría viendo solo su almacén. --}}
                         <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroAlmacen');">close</i>
+                           onclick="event.stopPropagation(); selectOption('almMovFiltroAlmacen','all','TODOS LOS ALMACENES');">close</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                         <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">

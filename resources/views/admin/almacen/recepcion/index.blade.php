@@ -52,8 +52,11 @@
                                placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes destino' }}"
                                style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.filterDropdownOptions(this)">
+                        {{-- X = "ver todos los almacenes destino". Mandamos 'all' explícito (NO
+                             clearDropdownFilter que pondría '') para evitar que el controller
+                             re-aplique el default por frente. --}}
                         <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="event.stopPropagation(); clearDropdownFilter('trDestHeaderDropdown');">close</i>
+                           onclick="event.stopPropagation(); selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">close</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                         <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">

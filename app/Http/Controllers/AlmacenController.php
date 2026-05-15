@@ -467,6 +467,12 @@ class AlmacenController extends Controller
      */
     public function movimientos(Request $request)
     {
+        // Lista de almacenes visibles para el usuario: la usamos (a) para validar el
+        // default-por-frente, (b) para acotar la query cuando se ve "TODOS LOS ALMACENES"
+        // y (c) para pintar el dropdown de filtro. Una sola consulta por request.
+        $almacenes    = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        $visiblesIds  = $almacenes->pluck('ID_ALMACEN');
+
         // Default suave del filtro de almacén:
         //   - Si el cliente NO mandó un `id_almacen` con valor (primera vez que abre / link sin params /
         //     ?id_almacen=) y el usuario tiene un almacén ligado a su frente → lo aplicamos.
@@ -477,8 +483,7 @@ class AlmacenController extends Controller
         // almacén ligado al frente quedó fuera de los visibles, no lo aplicamos (evita un filtro
         // fantasma que oculta los movimientos del usuario).
         if (!$request->filled('id_almacen') && ($idDef = $request->user()?->almacenPorDefecto())) {
-            $visiblesIds = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN')->all();
-            if (in_array((int) $idDef, array_map('intval', $visiblesIds), true)) {
+            if ($visiblesIds->contains((int) $idDef)) {
                 $request->merge(['id_almacen' => $idDef]);
             }
         }
@@ -492,7 +497,7 @@ class AlmacenController extends Controller
             $q->where('ID_ALMACEN', $idAlmacen);
         } else {
             // Limitar a almacenes visibles para el usuario.
-            $q->whereIn('ID_ALMACEN', Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN'));
+            $q->whereIn('ID_ALMACEN', $visiblesIds);
         }
         if ($request->filled('id_producto')) {
             $q->where('ID_PRODUCTO', $request->integer('id_producto'));
@@ -529,7 +534,6 @@ class AlmacenController extends Controller
             ]);
         }
 
-        $almacenes = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         // `idAlmacenActivo`: el valor REAL del filtro tras el default-merge del controller —
         // se lo pasamos a la vista para que el dropdown del header NO dependa del helper
         // request() (que en algunos entornos no refleja el merge al renderizar el blade).

@@ -52,8 +52,11 @@ class TraspasoController extends Controller
      */
     public function index(Request $request)
     {
-        $user             = $request->user();
-        $almacenesVisibles = Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
+        $user      = $request->user();
+        // Una sola consulta: la usamos para (a) limitar el WHERE de la query, (b) llenar el
+        // dropdown del header y (c) validar el default-por-frente.
+        $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        $almacenesVisibles = $almacenes->pluck('ID_ALMACEN');
 
         // Default suave del filtro "Almacén destino": si el cliente NO mandó valor (param ausente o
         // vacío), preseleccionamos el almacén ligado al frente del usuario (ver Usuario::almacenPorDefecto).
@@ -136,7 +139,7 @@ class TraspasoController extends Controller
             : null;
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
-            'almacenes'              => Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
+            'almacenes'              => $almacenes,
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'productosLista'         => $productosLista,
             'numerosNotas'           => $numerosNotas,
