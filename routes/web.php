@@ -177,6 +177,10 @@ Route::middleware(['auth'])->group(function () {
             // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara.)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
             Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
+            // Exportación XLSX del inventario (sigue el patrón de /admin/equipos/export). Si hay
+            // ?id_almacen=N exporta sólo ese almacén con una columna de stock; si no, una columna
+            // por cada almacén visible + columna TOTAL.
+            Route::get   ('almacen/export',                       [App\Http\Controllers\AlmacenController::class, 'export'])           ->name('almacen.export');
 
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');

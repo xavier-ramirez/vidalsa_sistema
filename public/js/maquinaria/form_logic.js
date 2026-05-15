@@ -24,13 +24,20 @@ window.updateFrentesCount = function () {
     const checks = document.querySelectorAll('#frentesSelect input[type="checkbox"]:checked');
     const span = document.getElementById('frentesSelectedCount');
     if (!span) return;
+    // Cuando hay frentes seleccionados pintamos los nombres como chips DENTRO del trigger
+    // (en vez de "N frentes seleccionados"). El span se vuelve flex-wrap para que crezca
+    // verticalmente; el chevron del trigger queda fijo a la derecha gracias a `flex:1` aquí.
     if (checks.length === 0) {
         span.textContent = 'Seleccione frentes de trabajo...';
-    } else if (checks.length === 1) {
-        span.textContent = checks[0].closest('label').querySelector('span').textContent.trim();
-    } else {
-        span.textContent = checks.length + ' frentes seleccionados';
+        span.removeAttribute('style');
+        return;
     }
+    span.setAttribute('style', 'display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0;');
+    const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    span.innerHTML = Array.from(checks).map(c => {
+        const name = c.closest('label').querySelector('span').textContent.trim();
+        return '<span style="display:inline-flex;align-items:center;background:#e0f2fe;color:#0284c7;font-weight:600;padding:2px 10px;border-radius:999px;font-size:12.5px;line-height:1.6;">' + esc(name) + '</span>';
+    }).join('');
 };
 
 // NOTE: selectOption is now in uicomponents.js (single source of truth)

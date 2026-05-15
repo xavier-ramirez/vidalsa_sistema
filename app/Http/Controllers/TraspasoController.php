@@ -51,6 +51,15 @@ class TraspasoController extends Controller
     public function index(Request $request)
     {
         $user             = $request->user();
+
+        // Default suave del filtro "Almacén destino": si el cliente NO mandó valor (param ausente o
+        // vacío), preseleccionamos el almacén ligado al frente del usuario (ver Usuario::almacenPorDefecto).
+        // `id_almacen_destino=all` o un valor explícito → se respeta. `filled` (vs `has`) cubre el caso
+        // `?id_almacen_destino=` para que el default igual aplique.
+        if (!$request->filled('id_almacen_destino') && ($idDef = $user?->almacenPorDefecto())) {
+            $request->merge(['id_almacen_destino' => $idDef]);
+        }
+
         $almacenesVisibles = Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
 
         // SIEMPRE: estado ENVIADO en almacenes destino visibles para el usuario.

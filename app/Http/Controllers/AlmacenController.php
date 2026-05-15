@@ -71,10 +71,17 @@ class AlmacenController extends Controller
             ->with('frentes') // para el modal de edición de almacén (lista de frentes asociados)
             ->get();
 
-        // Almacén seleccionado: el de la request si es visible; si no, el primero visible.
+        // Almacén seleccionado:
+        //   1. El de la request si es visible (el usuario lo eligió explícitamente o llegó por link).
+        //   2. El almacén PROYECTO ligado al frente del usuario (ver Usuario::almacenPorDefecto)
+        //      — así un usuario de proyecto entra DIRECTO a su almacén sin tener que filtrarlo.
+        //   3. El primer almacén visible (fallback histórico — útil para super.admin sin frente).
         $almacenSel = null;
         if ($request->filled('id_almacen')) {
             $almacenSel = $almacenes->firstWhere('ID_ALMACEN', (int) $request->input('id_almacen'));
+        }
+        if (!$almacenSel && ($idDef = $user?->almacenPorDefecto())) {
+            $almacenSel = $almacenes->firstWhere('ID_ALMACEN', $idDef);
         }
         if (!$almacenSel) {
             $almacenSel = $almacenes->first();
@@ -195,6 +202,7 @@ class AlmacenController extends Controller
             'productos_inventario.NOMBRE',
             'productos_inventario.UM',
             'productos_inventario.CATEGORIA',
+            'productos_inventario.UBICACION',
             DB::raw('COALESCE(almacen_stock.CANTIDAD, 0) as saldo'),
             'almacen_stock.CANTIDAD_MINIMA as minimo',
             'almacen_stock.FECHA_ULT_MOVIMIENTO as fecha_ult_mov',
@@ -409,6 +417,16 @@ class AlmacenController extends Controller
      */
     public function movimientos(Request $request)
     {
+        // Default suave del filtro de almacén:
+        //   - Si el cliente NO mandó un `id_almacen` con valor (primera vez que abre / link sin params /
+        //     ?id_almacen=) y el usuario tiene un almacén ligado a su frente → lo aplicamos.
+        //   - `id_almacen=all` o un valor explícito → se respetan.
+        // Usamos `filled` (no `has`) para que también aplique cuando el param viene en la URL pero vacío
+        // (caso edge si una navegación interna arma `?id_almacen=&search=X`).
+        if (!$request->filled('id_almacen') && ($idDef = $request->user()?->almacenPorDefecto())) {
+            $request->merge(['id_almacen' => $idDef]);
+        }
+
         $q = MovimientoInventario::query()
             ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
 
@@ -450,6 +468,7 @@ class AlmacenController extends Controller
             return response()->json([
                 'html'       => view($partial, ['movimientos' => $paginator])->render(),
                 'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
+                'consumo'    => view('admin.almacen.partials.consumo_stats', ['consumo' => $this->consumoRanking($request)])->render(),
                 'total'      => $paginator->total(),
             ]);
         }
@@ -461,7 +480,325 @@ class AlmacenController extends Controller
             'frentesLista'   => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
             // Lista de productos activos para el autocomplete del filtro de búsqueda.
             'productosLista' => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']),
+            // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
+            // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
+            'consumo'        => $this->consumoRanking($request),
         ]);
+    }
+
+    /**
+     * Ranking de productos más consumidos para el sidebar de la bitácora.
+     *
+     * "Consumo" = suma de CANTIDAD aplicando los mismos filtros que la tabla
+     * (almacén, frente, fechas, búsqueda) salvo `tipo` (el ranking SIEMPRE es de salidas).
+     *
+     * Reglas para evitar doble conteo:
+     *  - Filtro por un almacén concreto → cuenta SALIDA y TRASPASO_SALIDA del almacén
+     *    (ambos restan stock de ese almacén, ambos son egresos legítimos).
+     *  - Vista global (todos los almacenes) → SOLO SALIDA. Los TRASPASO_SALIDA son
+     *    movimientos internos entre nuestros propios almacenes; contarlos junto a la
+     *    SALIDA que el almacén destino registra después sería sumar la misma unidad
+     *    dos veces.
+     *
+     * Retorna colección de stdClass con: {id_producto, codigo, nombre, um, total, movimientos}.
+     */
+    protected function consumoRanking(Request $request, int $limite = 30)
+    {
+        $almacenFiltrado = $request->filled('id_almacen') && $request->input('id_almacen') !== 'all';
+        $tipos = $almacenFiltrado ? ['SALIDA', 'TRASPASO_SALIDA'] : ['SALIDA'];
+
+        $q = MovimientoInventario::query()->whereIn('TIPO', $tipos);
+
+        if ($almacenFiltrado) {
+            $q->where('ID_ALMACEN', $request->integer('id_almacen'));
+        } else {
+            $q->whereIn('ID_ALMACEN', Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN'));
+        }
+        if ($request->filled('id_producto')) {
+            $q->where('ID_PRODUCTO', $request->integer('id_producto'));
+        }
+        if ($request->filled('search')) {
+            $term = trim((string) $request->input('search'));
+            $q->whereHas('producto', function ($p) use ($term) {
+                $p->where('CODIGO', 'like', "%{$term}%")->orWhere('NOMBRE', 'like', "%{$term}%");
+            });
+        }
+        if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
+            $q->where('ID_FRENTE', $request->integer('id_frente'));
+        }
+        $q->periodo($request->input('desde'), $request->input('hasta'));
+
+        return $q->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
+            ->groupBy('movimientos_inventario.ID_PRODUCTO', 'p.CODIGO', 'p.NOMBRE', 'p.UM')
+            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->limit($limite)
+            ->get([
+                'movimientos_inventario.ID_PRODUCTO as id_producto',
+                'p.CODIGO as codigo',
+                'p.NOMBRE as nombre',
+                'p.UM as um',
+                DB::raw('SUM(movimientos_inventario.CANTIDAD) as total'),
+                DB::raw('COUNT(*) as movimientos'),
+            ]);
+    }
+
+    /**
+     * Exporta el inventario a XLSX (PhpSpreadsheet).
+     *
+     * Estructura del archivo (sigue el patrón de /admin/equipos):
+     *  Fila 1-3 : logo (A1:B3) · título "COPIA DE INVENTARIO – <ALMACÉN>" (C1:E3) · EDICION/REV/FECHA (F1:..3)
+     *  Fila 4   : "Exportado por: Sistema de Gestión …"
+     *  Fila 5   : headers   [N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, MÍNIMO, <stock por almacén visible>, TOTAL]
+     *  Fila 6+  : datos
+     *
+     * Si el usuario filtró un almacén, sólo se exporta la columna de stock de ESE almacén
+     * (sin TOTAL — el saldo es el mismo). Si no hay filtro, se exporta una columna por
+     * cada almacén visible al usuario más una columna TOTAL a la derecha.
+     */
+    public function export(Request $request)
+    {
+        $almacenesVisibles = Almacen::visiblesPara($request->user())
+            ->orderBy('TIPO')->orderBy('NOMBRE')
+            ->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+
+        if ($almacenesVisibles->isEmpty()) {
+            return redirect()->back()->with('error', 'No hay almacenes visibles para exportar.');
+        }
+
+        // Determinar el almacén seleccionado (si lo hay) y su nombre para el título.
+        $idAlmacenSel = $request->filled('id_almacen') && $request->input('id_almacen') !== 'all'
+            ? $request->integer('id_almacen')
+            : null;
+        if ($idAlmacenSel !== null) {
+            $this->assertPuedeVerAlmacen($request, $idAlmacenSel);
+            $almacenSel = $almacenesVisibles->firstWhere('ID_ALMACEN', $idAlmacenSel);
+            if (!$almacenSel) {
+                return redirect()->back()->with('error', 'Almacén no accesible.');
+            }
+            $almacenesEnExport = collect([$almacenSel]);
+            $tituloProyecto = mb_strtoupper($almacenSel->NOMBRE);
+        } else {
+            $almacenesEnExport = $almacenesVisibles;
+            $tituloProyecto = 'GLOBAL';
+        }
+
+        // Catálogo de productos activos + sus stocks indexados por almacén.
+        $productos = ProductoInventario::activos()
+            ->orderBy('NOMBRE')
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+
+        $stocks = AlmacenStock::query()
+            ->whereIn('ID_ALMACEN', $almacenesEnExport->pluck('ID_ALMACEN'))
+            ->get(['ID_ALMACEN', 'ID_PRODUCTO', 'CANTIDAD', 'CANTIDAD_MINIMA']);
+        $stockMap = [];
+        $minimoMap = [];
+        foreach ($stocks as $s) {
+            $stockMap[$s->ID_PRODUCTO][$s->ID_ALMACEN] = (float) $s->CANTIDAD;
+            // El mínimo se toma del primer almacén que lo tenga (cada par producto/almacén
+            // tiene su mínimo; en la exportación mostramos el del almacén seleccionado o
+            // el primero encontrado en la vista global).
+            if (!isset($minimoMap[$s->ID_PRODUCTO]) && $s->CANTIDAD_MINIMA !== null) {
+                $minimoMap[$s->ID_PRODUCTO] = (float) $s->CANTIDAD_MINIMA;
+            }
+        }
+
+        // Construir el archivo.
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Inventario');
+
+        $spreadsheet->getProperties()
+            ->setCreator('Sistema de Gestión de Equipos Operacionales')
+            ->setLastModifiedBy('Sistema de Gestión de Equipos Operacionales')
+            ->setTitle('Copia de Inventario')
+            ->setSubject('Exportación de Inventario - ' . $tituloProyecto)
+            ->setCompany('Constructora Vidalsa 27, C.A.');
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+
+        // Layout: las primeras 6 columnas fijas (A..F = N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, MÍNIMO),
+        // luego N columnas para los stocks por almacén, y si hay >1 almacén una columna TOTAL al final.
+        // Usamos Coordinate::stringFromColumnIndex (1-indexed) en vez de range('A','Z') para no
+        // quedarnos cortos si algún día hay >20 almacenes visibles (a partir de la 21 vendría AA, AB…).
+        $col = fn (int $idx1) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx1);
+        $fixedCols = array_map($col, range(1, 6));            // A..F
+        $almCount  = $almacenesEnExport->count();
+        // Guard: range(7, 6) en PHP devuelve [7,6] (descendente). Si por algún motivo almCount=0,
+        // stockCols debe quedar vacío en vez de ['G','F'].
+        $stockCols = $almCount > 0 ? array_map($col, range(7, 6 + $almCount)) : [];
+        $totalCol  = $almCount > 1 ? $col(7 + $almCount) : null;
+        $lastCol   = $totalCol ?: ($stockCols ? end($stockCols) : 'F');
+
+        // ── Encabezado: logo + título + meta ───────────────────────────────────
+        $sheet->mergeCells('A1:B3');
+        $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $logoPath = public_path('img/imagen_uno.jpg');
+        if (file_exists($logoPath)) {
+            try {
+                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                $drawing->setName('Logo CVIDALSA');
+                $drawing->setDescription('Logo');
+                $drawing->setPath($logoPath);
+                $drawing->setCoordinates('A1');
+                $drawing->setOffsetX(45);
+                $drawing->setOffsetY(12);
+                $drawing->setHeight(110);
+                $drawing->setWorksheet($sheet);
+            } catch (\Throwable $e) {
+                // ignorar fallo de imagen
+            }
+        }
+
+        $sheet->mergeCells('C1:E3');
+        $titleText = "COPIA DE INVENTARIO\n" . ($idAlmacenSel ? 'PROYECTO: "' . $tituloProyecto . '"' : 'COPIA DE BASE DE DATOS DEL INVENTARIO');
+        $sheet->setCellValue('C1', $titleText);
+        $sheet->getStyle('C1')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('C1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('C1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        $sheet->mergeCells('F1:' . $lastCol . '1');
+        $sheet->setCellValue('F1', 'EDICION: 1');
+        $sheet->mergeCells('F2:' . $lastCol . '2');
+        $sheet->setCellValue('F2', 'REVISION: 0');
+        $sheet->mergeCells('F3:' . $lastCol . '3');
+        $sheet->setCellValue('F3', 'FECHA: ' . date('d/m/Y'));
+        foreach (['F1','F2','F3'] as $cell) {
+            $sheet->getStyle($cell)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle($cell)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+            $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11);
+        }
+        $sheet->getStyle('F1:' . $lastCol . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+
+        foreach ([1, 2, 3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
+
+        $sheet->mergeCells('A4:' . $lastCol . '4');
+        $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales — ' . optional($request->user())->NOMBRE_COMPLETO);
+        $sheet->getStyle('A4:' . $lastCol . '4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A4:' . $lastCol . '4')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('A4:' . $lastCol . '4')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A4:' . $lastCol . '4')->getFont()->setItalic(true)->setSize(9)->getColor()->setARGB('FF333333');
+        $sheet->getRowDimension(4)->setRowHeight(20);
+
+        $sheet->getStyle('A1:' . $lastCol . '4')->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+            ->getColor()->setARGB('FF000000');
+
+        // ── Fila 5 — encabezados de tabla ──────────────────────────────────────
+        $headers = ['N°', 'CÓDIGO', 'DESCRIPCIÓN DEL PRODUCTO', 'UND', 'CATEGORÍA', 'MÍNIMO'];
+        foreach ($almacenesEnExport as $a) {
+            $sufijo = $a->TIPO === 'GENERAL' ? ' (Principal)' : ' (Proyecto)';
+            $headers[] = mb_strtoupper($a->NOMBRE) . $sufijo;
+        }
+        if ($totalCol) $headers[] = 'TOTAL';
+
+        $colMap = array_merge($fixedCols, $stockCols, $totalCol ? [$totalCol] : []);
+        foreach ($headers as $i => $h) {
+            $sheet->setCellValue($colMap[$i] . '5', $h);
+        }
+        $sheet->getStyle('A5:' . $lastCol . '5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A5:' . $lastCol . '5')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('A5:' . $lastCol . '5')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A5:' . $lastCol . '5')->getFont()->setBold(true)->setSize(10)->getColor()->setARGB('FFFFFFFF');
+        $sheet->getStyle('A5:' . $lastCol . '5')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FF1B365D');
+        $sheet->getRowDimension(5)->setRowHeight(40);
+
+        // Anchos de columna
+        $sheet->getColumnDimension('A')->setWidth(7);
+        $sheet->getColumnDimension('B')->setWidth(16);
+        $sheet->getColumnDimension('C')->setWidth(45);
+        $sheet->getColumnDimension('D')->setWidth(8);
+        $sheet->getColumnDimension('E')->setWidth(22);
+        $sheet->getColumnDimension('F')->setWidth(10);
+        foreach ($stockCols as $col) $sheet->getColumnDimension($col)->setWidth(18);
+        if ($totalCol) $sheet->getColumnDimension($totalCol)->setWidth(12);
+
+        // ── Filas de datos ────────────────────────────────────────────────────
+        $rowNum = 6;
+        $n = 1;
+        foreach ($productos as $p) {
+            $stocksFila = [];
+            $total = 0.0;
+            foreach ($almacenesEnExport as $a) {
+                $v = $stockMap[$p->ID_PRODUCTO][$a->ID_ALMACEN] ?? 0.0;
+                $stocksFila[] = $v;
+                $total += $v;
+            }
+
+            // Saltar productos con stock 0 en TODOS los almacenes del export si el usuario filtró
+            // un almacén específico (es ruido); en la vista global SÍ los listamos (catálogo completo).
+            if ($idAlmacenSel !== null && $total == 0.0) {
+                continue;
+            }
+
+            $minimo = $minimoMap[$p->ID_PRODUCTO] ?? null;
+
+            $sheet->setCellValue('A' . $rowNum, $n);
+            $sheet->setCellValue('B' . $rowNum, $p->CODIGO ?? '');
+            $sheet->setCellValue('C' . $rowNum, $p->NOMBRE ?? '');
+            $sheet->setCellValue('D' . $rowNum, $p->UM ?? '');
+            $sheet->setCellValue('E' . $rowNum, $p->CATEGORIA ?? '');
+            $sheet->setCellValue('F' . $rowNum, $minimo);
+
+            foreach ($stocksFila as $i => $v) {
+                $sheet->setCellValue($stockCols[$i] . $rowNum, $v);
+            }
+            if ($totalCol) {
+                $sheet->setCellValue($totalCol . $rowNum, $total);
+                $sheet->getStyle($totalCol . $rowNum)->getFont()->setBold(true);
+            }
+
+            // Resaltar fila bajo mínimo (si hay mínimo y stock total ≤ mínimo).
+            if ($minimo !== null && $total <= $minimo) {
+                $sheet->getStyle('A' . $rowNum . ':' . $lastCol . $rowNum)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFFEF3C7'); // amarillo suave
+            } elseif ($rowNum % 2 === 0) {
+                $sheet->getStyle('A' . $rowNum . ':' . $lastCol . $rowNum)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF8FAFC'); // gris muy claro alternado
+            }
+
+            $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('B' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('D' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('F' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            foreach ($stockCols as $col) {
+                $sheet->getStyle($col . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            }
+            if ($totalCol) {
+                $sheet->getStyle($totalCol . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            }
+
+            $rowNum++;
+            $n++;
+        }
+
+        // Bordes a toda la zona de datos.
+        if ($rowNum > 6) {
+            $sheet->getStyle('A5:' . $lastCol . ($rowNum - 1))->getBorders()->getAllBorders()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
+                ->getColor()->setARGB('FFCBD5E0');
+        } else {
+            $sheet->setCellValue('A6', 'Sin productos para exportar.');
+            $sheet->mergeCells('A6:' . $lastCol . '6');
+            $sheet->getStyle('A6')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        }
+
+        // Freeze panes (header + columna N°/CÓDIGO).
+        $sheet->freezePane('C6');
+
+        // Salida.
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $tempFile = tempnam(sys_get_temp_dir(), 'inv_');
+        $writer->save($tempFile);
+
+        $fileName = 'Copia_Inventario_' . str_replace([' ', '/'], '_', $tituloProyecto) . '_' . date('Y-m-d_H-i') . '.xlsx';
+
+        return response()->download($tempFile, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     /**
@@ -839,6 +1176,9 @@ class AlmacenController extends Controller
             'NOMBRE'    => 'required|string|max:200',
             'UM'        => 'required|string|max:20',
             'CATEGORIA' => 'nullable|string|max:100',
+            // UBICACION: ubicación física en bodega (texto libre, ej. "Estante A3").
+            // Se edita en el modal "Editar producto" y se muestra como tooltip al hover de la fila.
+            'UBICACION' => 'nullable|string|max:150',
             'ESTATUS'   => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'     => 'nullable|string',
         ], [
@@ -850,12 +1190,14 @@ class AlmacenController extends Controller
             'UM.required'    => 'La unidad de medida es obligatoria.',
             'UM.max'         => 'La unidad de medida no puede superar los 20 caracteres.',
             'CATEGORIA.max'  => 'La categoría no puede superar los 100 caracteres.',
+            'UBICACION.max'  => 'La ubicación no puede superar los 150 caracteres.',
         ]);
 
         $data['CODIGO']    = !empty($data['CODIGO']) ? trim($data['CODIGO']) : null;
         $data['NOMBRE']    = mb_strtoupper(trim($data['NOMBRE']));
         $data['UM']        = mb_strtoupper(trim($data['UM']));
         $data['CATEGORIA'] = !empty($data['CATEGORIA']) ? mb_strtoupper(trim($data['CATEGORIA'])) : null;
+        $data['UBICACION'] = !empty($data['UBICACION']) ? trim($data['UBICACION']) : null;
         
         // Evitar reactivar productos inactivos al editarlos sin mandar el campo ESTATUS.
         if ($ignoreId === null) {

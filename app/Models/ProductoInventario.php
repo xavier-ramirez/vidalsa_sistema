@@ -25,6 +25,7 @@ class ProductoInventario extends Model
         'NOMBRE',
         'UM',
         'CATEGORIA',
+        'UBICACION',
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',

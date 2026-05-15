@@ -146,8 +146,11 @@
             <div class="amf-search-wrap">
                 <div class="amf-search-box {{ $reqSearch ? 'active' : '' }}">
                     <i class="material-icons lupa">search</i>
+                    {{-- Escribir SOLO refresca las sugerencias — NO dispara la consulta a la tabla.
+                         El filtro se aplica cuando el usuario (a) elige una sugerencia, (b) pulsa Enter,
+                         o (c) limpia el campo con la X. Mismo patrón que /admin/almacen (filtro Buscar). --}}
                     <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
-                           oninput="window.almMovSuggestFn(); clearTimeout(window._amfSearchTimer); window._amfSearchTimer = setTimeout(function(){ if (!window._amfPickPending) window.loadMovimientos(); }, 500);"
+                           oninput="window.almMovSuggestFn()"
                            onfocus="window.almMovSuggestFn()"
                            onkeydown="if(event.key==='Enter'){event.preventDefault();window.almMovSuggestHide();window.loadMovimientos();} if(event.key==='Escape') window.almMovSuggestHide();">
                     <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.almMovSuggestHide(); window.loadMovimientos();">close</i>
@@ -233,20 +236,26 @@
                          que es la API estándar para abrir el selector de fecha de <input type="date">. --}}
                     <div>
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
-                        <div style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
+                        <div id="almMovDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
                              onclick="var i=document.getElementById('almMovDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
                             <input type="date" id="almMovDesde" value="{{ $reqDesde }}" onchange="window.loadMovimientos()"
                                    style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
+                            <i class="material-icons" id="almMovDesdeClear"
+                               style="display:{{ $reqDesde ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
+                               onclick="event.stopPropagation(); var i=document.getElementById('almMovDesde'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovDesdeBox').style.background='white'; window.loadMovimientos();">close</i>
                         </div>
                     </div>
                     <div>
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
-                        <div style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
+                        <div id="almMovHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
                              onclick="var i=document.getElementById('almMovHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
                             <input type="date" id="almMovHasta" value="{{ $reqHasta }}" onchange="window.loadMovimientos()"
                                    style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
+                            <i class="material-icons" id="almMovHastaClear"
+                               style="display:{{ $reqHasta ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
+                               onclick="event.stopPropagation(); var i=document.getElementById('almMovHasta'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovHastaBox').style.background='white'; window.loadMovimientos();">close</i>
                         </div>
                     </div>
                 </div>
@@ -312,9 +321,9 @@
                     <th style="width:140px;">Tipo</th>
                     <th>Descripción del producto</th>
                     <th style="width:130px;">Cantidad</th>
-                    <th style="width:100px;">Stock</th>
+                    <th style="width:75px;">Stock</th>
                     <th style="width:170px;">Destino / contraparte</th>
-                    <th style="width:110px;">Ref</th>
+                    <th style="width:90px;">Ref</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">
@@ -329,9 +338,9 @@
 
 </div>
 
-{{-- Sidebar: contador --}}
-<div style="display:flex;flex-direction:column;gap:18px;">
-    <div style="background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 100%);border-radius:12px;padding:16px;color:#fff;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);position:relative;overflow:hidden;">
+{{-- Sidebar: contador + ranking de consumo (mismas dimensiones que /admin/equipos) --}}
+<div class="counter-sidebar" style="position:sticky;top:20px;display:flex;flex-direction:column;gap:8px;">
+    <div style="background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 100%);border-radius:12px;padding:15px;color:#fff;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);position:relative;overflow:hidden;">
         <i class="material-icons" style="position:absolute;right:-12px;bottom:-12px;font-size:78px;opacity:0.12;transform:rotate(-12deg);">receipt_long</i>
         <div style="position:relative;z-index:2;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;opacity:0.9;margin-bottom:5px;">Total movimientos</div>
@@ -339,6 +348,13 @@
                 <span id="almMovTotal" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">{{ $total }}</span>
                 <span style="font-size:12px;opacity:0.85;font-weight:500;">registros (según filtros)</span>
             </div>
+        </div>
+    </div>
+
+    {{-- Ranking de Consumo: mismo wrapper que el card de Distribución en /admin/equipos y /admin/almacen --}}
+    <div style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
+        <div id="almMovConsumoContainer">
+            @include('admin.almacen.partials.consumo_stats', ['consumo' => $consumo])
         </div>
     </div>
 </div>
@@ -384,6 +400,8 @@
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 ['almMovTotal', 'almMovTotalMobile'].forEach(function (id) { var e = el(id); if (e && data.total !== undefined) e.textContent = data.total; });
+                // Refresca el ranking de consumo del sidebar (mismas dimensiones que /admin/equipos).
+                var cc = el('almMovConsumoContainer'); if (cc && data.consumo !== undefined) cc.innerHTML = data.consumo;
                 // marca "activo" del buscador
                 var sb = document.querySelector('.amf-search-box'); var si = el('almMovSearch');
                 if (sb && si) sb.classList.toggle('active', !!si.value.trim());
@@ -446,6 +464,20 @@
         var id = e.detail && e.detail.dropdownId;
         if (id === 'almMovFiltroAlmacen' || id === 'almMovFiltroTipo' || id === 'almMovFiltroFrente') window.loadMovimientos();
     });
+
+    // Click en una fila del ranking de consumo → pega el nombre del producto en el
+    // buscador y recarga la tabla. El filtro backend hace LIKE %nombre%, suficiente
+    // para acotar a los movimientos de ese producto sin requerir id_producto exacto.
+    window.almMovFiltrarPorProducto = function (_idProducto, nombre) {
+        var inp = el('almMovSearch');
+        if (inp) {
+            inp.value = nombre || '';
+            var sb = document.querySelector('.amf-search-box'); if (sb) sb.classList.add('active');
+            var sc = el('almMovSearchClear'); if (sc) sc.style.display = inp.value ? 'block' : 'none';
+        }
+        window.almMovSuggestHide && window.almMovSuggestHide();
+        window.loadMovimientos();
+    };
 
     // Paginación AJAX
     document.addEventListener('click', function (e) {

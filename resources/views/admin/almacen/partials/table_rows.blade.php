@@ -43,12 +43,24 @@
             $nomJs   = addslashes($p->NOMBRE);
             $umJs    = addslashes($p->UM);
             $catJs   = addslashes($p->CATEGORIA ?? '');
+            $ubiJs   = addslashes($p->UBICACION ?? '');
             $minArg  = $minimo !== null ? $minimo : 'null';
         @endphp
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} {{ $puedeMover ? 'alm-row-clickable' : '' }}"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}">
             <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
-            <td style="font-weight:600;color:#1e293b;">{{ $p->NOMBRE }}</td>
+            {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
+                 El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
+                 `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php. --}}
+            <td style="font-weight:600;color:#1e293b;position:relative;">
+                {{ $p->NOMBRE }}
+                @if(!empty($p->UBICACION))
+                    <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
+                        📍 {{ $p->UBICACION }}
+                        <div style="position:absolute;top:100%;left:30px;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div>
+                    </div>
+                @endif
+            </td>
             <td style="text-align:center;color:#475569;">{{ $p->UM }}</td>
             <td style="color:#475569;">{{ $p->CATEGORIA ?: '—' }}</td>
             {{-- El color del texto siempre es negro (#0f172a). El stock bajo se indica con
@@ -59,7 +71,7 @@
             </td>
             <td style="text-align:center;white-space:nowrap;width:60px;">
                 <button type="button" class="btn-details-mini" title="Ver detalles del producto"
-                        onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }})">
+                        onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }},'{{ $ubiJs }}')">
                     <i class="material-icons" style="font-size:18px;">visibility</i>
                 </button>
             </td>

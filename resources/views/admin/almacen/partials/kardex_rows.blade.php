@@ -35,12 +35,14 @@
                     <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>
-            {{-- Descripción del producto: solo el NOMBRE (sin CODIGO al inicio, que se veía repetido cuando
-                 los nombres importados ya incluían el código como prefijo). La clase col-producto la convierte
-                 en ancla del tooltip de usuario; el código queda en title nativo como respaldo discreto.
+            {{-- Descripción del producto: "SERIAL: NOMBRE" — el CODIGO va primero (monoespaciado y resaltado)
+                 seguido del NOMBRE. La clase col-producto la convierte en ancla del tooltip de usuario.
                  font-size reducido (12.5px vs 14px global del tbody) para que los nombres largos no
                  acaparen visualmente la fila — son la única columna con texto extenso. --}}
-            <td class="col-producto" title="{{ $m->producto?->CODIGO ?? '' }}" style="font-weight:600;font-size:12.5px;">
+            <td class="col-producto" style="font-weight:600;font-size:12.5px;">
+                @if($m->producto?->CODIGO)
+                    <span style="font-family:monospace;font-weight:800;color:#0f172a;">{{ $m->producto->CODIGO }}:</span>
+                @endif
                 {{ $m->producto?->NOMBRE ?? '—' }}
                 <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
                     👤 {{ $usuarioTip }}

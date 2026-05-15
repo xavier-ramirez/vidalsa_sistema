@@ -78,18 +78,21 @@ class Almacen extends Model
 
     // ── Helpers ──────────────────────────────────────────────────
 
-    /** True si el usuario tiene acceso "global" (ve todos los almacenes). */
+    /**
+     * True si el usuario tiene acceso "global" (ve todos los almacenes).
+     *
+     * Decisión de producto: la visibilidad de almacenes depende ÚNICAMENTE de
+     * `usuarios.NIVEL_ACCESO` (1 = GLOBAL, 2 = LOCAL). NO depende del rol ni de
+     * permisos como `super.admin` o `almacen.view.all` — un super.admin con
+     * NIVEL_ACCESO=2 debe ver solo los almacenes de sus frentes asignados, igual
+     * que cualquier usuario LOCAL.
+     */
     public static function usuarioEsGlobal($user): bool
     {
         if (!$user) {
             return false;
         }
-        if ((int) ($user->NIVEL_ACCESO ?? 0) === 1) {
-            return true;
-        }
-        // super.admin y el permiso explícito 'almacen.view.all' también dan acceso total.
-        return \Illuminate\Support\Facades\Gate::forUser($user)->allows('super.admin')
-            || \Illuminate\Support\Facades\Gate::forUser($user)->allows('almacen.view.all');
+        return (int) ($user->NIVEL_ACCESO ?? 0) === 1;
     }
 
     /** IDs (int) de los frentes asignados a un usuario; robusto al formato. */
@@ -116,13 +119,18 @@ class Almacen extends Model
     /**
      * Almacenes que un usuario puede CONSULTAR.
      *
-     *  - GLOBAL (NIVEL_ACCESO=1) / super.admin / 'almacen.view.all':
+     *  - GLOBAL (NIVEL_ACCESO=1):
      *      ve TODOS los almacenes (principales GENERAL + secundarios PROYECTO).
+     *      Aún así, el módulo abre preseleccionado en el almacén ligado a su
+     *      frente (ver Usuario::almacenPorDefecto + AlmacenController) — pero
+     *      puede cambiar el filtro y ver los demás.
      *  - LOCAL (NIVEL_ACCESO=2):
      *      ve ÚNICAMENTE los almacenes PROYECTO ligados a sus frentes asignados.
-     *      NUNCA ve los almacenes GENERAL (los frentes no deben ver el stock del
-     *      almacén global).
-     *  - Sin usuario o sin frentes asignados → no ve ningún almacén.
+     *      NUNCA ve los almacenes GENERAL.
+     *  - Sin usuario o sin frentes asignados (siendo LOCAL) → no ve ningún almacén.
+     *
+     * NOTA: la visibilidad NO depende de roles ni permisos (super.admin /
+     * almacen.view.all). Es función pura de `usuarios.NIVEL_ACCESO`.
      *
      * @param  \App\Models\Usuario|null  $user
      */

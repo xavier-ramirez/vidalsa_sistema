@@ -123,6 +123,30 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * Resuelve el almacén "natural" del usuario para los módulos de Almacén.
+     *
+     * Convención: el primer almacén PROYECTO ligado a CUALQUIERA de los frentes
+     * asignados al usuario (orden por NOMBRE asc — determinístico). Si el usuario
+     * no tiene frentes asignados o ninguno de ellos tiene almacén PROYECTO, retorna
+     * `null` y los controllers caen al comportamiento por defecto (ver todos).
+     *
+     * Lo usan AlmacenController::index/movimientos y TraspasoController::index
+     * para preseleccionar el filtro de almacén al abrir cada módulo.
+     */
+    public function almacenPorDefecto(): ?int
+    {
+        $frentes = $this->getFrentesIds();
+        if (empty($frentes)) return null;
+
+        return \App\Models\Almacen::query()
+            ->where('TIPO', 'PROYECTO')
+            ->where('ESTATUS', 'ACTIVO')
+            ->whereHas('frentes', fn ($q) => $q->whereIn('frentes_trabajo.ID_FRENTE', $frentes))
+            ->orderBy('NOMBRE')
+            ->value('ID_ALMACEN');
+    }
+
+    /**
      * Get the access level as descriptive text.
      *
      * @return string

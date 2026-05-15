@@ -465,9 +465,12 @@
     };
     window.entCerrarModal = function () { el('entModal').style.display = 'none'; };
 
-    // Cerrar al hacer clic en el backdrop
-    document.addEventListener('click', function (e) {
-        if (e.target && e.target.id === 'entModal') window.entCerrarModal();
+    // Escape cierra el modal — paridad con los modales de /admin/almacen.
+    // El cierre por click en el backdrop fue removido por preferencia del usuario;
+    // cada modal tiene su botón "✕" / "Cancelar".
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var m = el('entModal'); if (m && m.style.display === 'flex') window.entCerrarModal();
     });
 
     window.entGuardar = function () {

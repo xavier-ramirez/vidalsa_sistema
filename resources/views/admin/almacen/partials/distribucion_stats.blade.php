@@ -7,7 +7,7 @@
 </h4>
 
 @if($dist->count() > 0)
-    <ul style="list-style:none;padding:0;margin:0;max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
+    <ul style="list-style:none;padding:0;margin:0;max-height:64vh;overflow-y:auto;overflow-x:visible;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
         @foreach($dist as $row)
             @php $pct = $totalDist > 0 ? ($row->total / $totalDist) * 100 : 0; @endphp
             <li onclick="window.almFilterByCategoria('{{ $row->categoria === 'SIN CATEGORÍA' ? '' : addslashes($row->categoria) }}')"
