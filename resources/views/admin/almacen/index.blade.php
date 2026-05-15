@@ -41,7 +41,8 @@
        quedaba naranja en hover y se sentia inconsistente). */
     .alm-row-bajo td { background: #fee2e2; }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
-    .alm-table tbody tr.alm-row-clickable { cursor: pointer; }
+    /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
+    .alm-table tbody tr.alm-row-clickable { cursor: default; }
     /* En móvil .selected-row-maquinaria es desktop-only, así que damos un realce propio */
     .alm-table tbody tr.alm-row.selected-row-maquinaria { background: #e1effa !important; }
 
@@ -335,9 +336,11 @@
         </div>
     </div>
 
-    <div style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
+    <div style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;min-height:240px;">
         <div id="almDistribucionContainer">
-            @include('admin.almacen.partials.distribucion_stats', ['distribucion' => $distribucion ?? collect()])
+            @if($distribucion && $distribucion->isNotEmpty())
+                @include('admin.almacen.partials.distribucion_stats', ['distribucion' => $distribucion])
+            @endif
         </div>
     </div>
 </div>
@@ -404,7 +407,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAjusteModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAjuste()">Registrar auditoría</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAjuste()">Guardar</button>
         </div>
     </div>
 </div>
@@ -554,7 +557,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAlmacenModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="almNvSubmit" onclick="window.almGuardarAlmacen()">Crear almacén</button>
+            <button type="button" class="btn-primary-maquinaria" id="almNvSubmit" onclick="window.almGuardarAlmacen()">Guardar</button>
         </div>
     </div>
 </div>
@@ -568,28 +571,34 @@
         </div>
         <div class="alm-modal-body">
             <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label>Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)"></div>
-                <div style="flex:0.7;"><label>Unidad de Medida *</label><input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND"></div>
+                <div style="flex:1;"><label>Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)" autocomplete="off"></div>
+                <div style="flex:0.9;position:relative;">
+                    <label>Unidad de Medida *</label>
+                    <input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND" autocomplete="off"
+                           oninput="window.almProdUmSuggest()" onfocus="window.almProdUmSuggest(true)"
+                           style="width:100%;box-sizing:border-box;">
+                    <div class="alm-suggest-inline" id="almProdUmSuggestBox" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
+                </div>
             </div>
-            <div><label>Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
+            <div><label>Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
             <div>
                 <label>Categoría</label>
                 <div class="alm-cat-field">
                     <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
                            placeholder="Elige una de la lista o escribe una nueva…"
                            oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)"
-                           onclick="window.almProdCatSuggest(true)">
+                           onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
                     <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
                             onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
                 </div>
                 <div class="alm-suggest-inline" id="almProdCatSuggest"></div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Selecciona de la lista o escribe una nueva para registrarla.</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Elige de la lista o escribe una nueva categoría.</div>
             </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almProductoModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="almProdSubmit" onclick="window.almGuardarProducto()">Crear</button>
+            <button type="button" class="btn-primary-maquinaria" id="almProdSubmit" onclick="window.almGuardarProducto()">Guardar</button>
         </div>
     </div>
 </div>
@@ -814,6 +823,8 @@
     window.almProductosEnAlmacen = @json($productosEnAlmacen ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
+    // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo "UM" del modal.
+    window.almUnidadesMedida = @json($unidadesMedida ?? []);
     // Mapa { ID_FRENTE: ["CTR-2026-0042", ...] } para sugerir contratos en el modal "Registrar salida".
     // Los contratos se gestionan en /admin/frentes (columna CONTRATOS JSON de frentes_trabajo).
     window.almFrenteContratos = @json(($frentesLista ?? collect())->mapWithKeys(fn ($f) => [$f->ID_FRENTE => array_values(array_filter((array) ($f->CONTRATOS ?? [])))]));
@@ -829,6 +840,7 @@
     // ── estado de los filtros que no tienen control visible propio ──
     var soloConSaldo = false; // alternado desde el atajo "Con stock" del sidebar
     var soloBajo     = false; // alternado desde el atajo "Stock bajo" del sidebar
+
 
     // ── debounce para los inputs de texto ──
     var _t = null;
@@ -873,7 +885,7 @@
                 almSelApplyToVisible(); // re-pintar el azul de las filas que sigan seleccionadas
                 var pg = el('almPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 if (data.stats) {
-                    var num = function (id, v) { var e = el(id); if (e) e.textContent = (v == null ? 0 : v); };
+                    var num = function (id, v) { var e = el(id); if (e) e.textContent = (v == null ? '—' : v); };
                     num('almStatsTotal',    data.stats.total);
                     num('almStatsConSaldo', data.stats.con_saldo);
                     num('almStatsBajo',     data.stats.stock_bajo);
@@ -1131,16 +1143,13 @@
         var raw = inp.value.trim(), term = almNorm(raw);
         var lista = (window.almCategoriasLista || []);
         var matches = (forceAll || term === '') ? lista.slice(0) : lista.filter(function (c) { return almNorm(c).indexOf(term) > -1; });
-        var existeExacta = lista.some(function (c) { return almNorm(c) === term; });
         var html = '';
-        if (raw !== '' && !existeExacta) {
-            html += '<div class="si-item si-new" data-cat="' + escHtml(raw) + '">Usar nueva categoría: “' + escHtml(raw.toUpperCase()) + '”</div>';
-        }
+        // Solo categorias existentes; el usuario puede escribir una nueva y se guardara al crear el producto.
         html += matches.map(function (c) {
             var sel = almNorm(c) === term ? ' si-sel' : '';
             return '<div class="si-item' + sel + '" data-cat="' + escHtml(c) + '">' + escHtml(c) + '</div>';
         }).join('');
-        if (!html) html = '<div class="alm-suggest-empty">No hay categorías registradas todavía. Escribe una para crearla.</div>';
+        if (!html) html = '<div class="alm-suggest-empty">Sin coincidencias. Escribe para crear una nueva categoría.</div>';
         box.innerHTML = html;
         box.classList.add('open');
         if (caret) caret.classList.add('open');
@@ -1168,10 +1177,59 @@
         else if (e.key === 'Escape') { almProdCatHide(); }
     });
 
+    // ── Campo "Unidad de Medida" del modal de producto: autocomplete con las UMs ya registradas ──
+    // Permite seleccionar una UM existente o escribir una nueva libremente.
+    function almProdUmHide() {
+        var b = el('almProdUmSuggestBox'); if (b) b.classList.remove('open');
+    }
+    window.almProdUmSuggest = function (forceAll) {
+        var inp = el('almProdUm'), box = el('almProdUmSuggestBox');
+        if (!inp || !box) return;
+        var raw = inp.value.trim(), term = almNorm(raw);
+        var lista = (window.almUnidadesMedida || []);
+        var matches = (forceAll || term === '') ? lista.slice(0) : lista.filter(function (u) { return almNorm(u).indexOf(term) > -1; });
+        var existeExacta = lista.some(function (u) { return almNorm(u) === term; });
+        var html = '';
+        // Si hay texto y no coincide exactamente, mostrar opción de "usar esta nueva UM"
+        if (raw !== '' && !existeExacta) {
+            html += '<div class="si-item si-new" data-um="' + escHtml(raw.toUpperCase()) + '">Usar: "' + escHtml(raw.toUpperCase()) + '"</div>';
+        }
+        html += matches.map(function (u) {
+            var sel = almNorm(u) === term ? ' si-sel' : '';
+            return '<div class="si-item' + sel + '" data-um="' + escHtml(u) + '">' + escHtml(u) + '</div>';
+        }).join('');
+        if (!html) html = '<div class="alm-suggest-empty">Sin coincidencias. Escribe la nueva UM.</div>';
+        box.innerHTML = html;
+        box.classList.add('open');
+    };
+    // Delegación de clic para las opciones del autocomplete de UM
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('#almProdUmSuggestBox .si-item');
+        if (item) {
+            e.preventDefault();
+            var inp = el('almProdUm');
+            if (inp) inp.value = item.getAttribute('data-um') || '';
+            almProdUmHide();
+            return;
+        }
+        if (!e.target.closest('#almProdUm') && !e.target.closest('#almProdUmSuggestBox')) almProdUmHide();
+    });
+    var _almProdUmInp = el('almProdUm');
+    if (_almProdUmInp) _almProdUmInp.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') almProdUmHide();
+    });
+
     // ── modales ──
     function open(id)  { var m = el(id); if (m) m.classList.add('open'); }
     window.almCerrar = function (id) { var m = el(id); if (m) m.classList.remove('open'); };
-    document.addEventListener('click', function (e) { if (e.target && e.target.classList && e.target.classList.contains('alm-modal-overlay')) e.target.classList.remove('open'); });
+    // Cierra el modal al hacer clic en el fondo oscuro. Como el overlay es un flex-container
+    // y el .alm-modal es un hijo, si el clic fue dentro del modal el e.target NUNCA será el
+    // overlay mismo → esta condición solo se cumple cuando se hace clic en el área gris externa.
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('alm-modal-overlay')) {
+            e.target.classList.remove('open');
+        }
+    });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.querySelectorAll('.alm-modal-overlay.open').forEach(function (m) { m.classList.remove('open'); }); });
 
     // ── Botón "Acciones" (dropdown estilo /admin/equipos) ──
@@ -1206,6 +1264,20 @@
 
     function hoy() { var d = new Date(); var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
     function showErr(id, msg) { var e = el(id); if (e) { e.textContent = msg; e.style.display = msg ? 'block' : 'none'; } }
+    // Resalta un campo input con borde rojo cuando hay error, lo quita cuando msg está vacío.
+    function almProdFieldErr(fieldId, hasError) {
+        var f = el(fieldId);
+        if (!f) return;
+        if (hasError) {
+            f.style.borderColor = '#dc2626';
+            f.style.boxShadow  = '0 0 0 2px rgba(220,38,38,0.18)';
+            f.style.background = '#fff5f5';
+        } else {
+            f.style.borderColor = '';
+            f.style.boxShadow  = '';
+            f.style.background = '';
+        }
+    }
 
     // Funciones almAbrirMovimiento / almGuardarMovimiento ELIMINADAS en 2026-05-13
     // junto con el modal #almMovModal. El flujo de entrada/salida ya no se hace
@@ -1473,7 +1545,7 @@
     }
     window.almAbrirAlmacen = function () {
         almResetAlmacenModal();
-        el('almNvTitulo').textContent = 'Nuevo almacén'; el('almNvSubmit').textContent = 'Crear almacén';
+        el('almNvTitulo').textContent = 'Nuevo almacén'; el('almNvSubmit').textContent = 'Guardar';
         open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
     };
     window.almEditarAlmacen = function (id) {
@@ -1535,12 +1607,17 @@
         delete el('almProductoModal').dataset.idProducto;
         el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
         var cs = el('almProdCatSuggest'); if (cs) cs.innerHTML = '';
+        var us = el('almProdUmSuggestBox'); if (us) { us.innerHTML = ''; us.classList.remove('open'); }
         almProdCatHide();
+        // Limpiar resaltados de error de todos los campos del modal
+        almProdFieldErr('almProdCodigo',  false);
+        almProdFieldErr('almProdNombre',  false);
+        almProdFieldErr('almProdUm',      false);
         showErr('almProdError', '');
     }
     window.almAbrirProducto = function () {
         almResetProductoModal();
-        el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Crear';
+        el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Guardar';
         el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
         open('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
     };
@@ -1557,13 +1634,17 @@
         var m = el('almProductoModal'), id = m.dataset.idProducto || null;
         var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
         // Validaciones previas al envío.
-        if (!nombre) { showErr('almProdError', 'La descripción es obligatoria.'); return; }
+        if (!nombre) { almProdFieldErr('almProdNombre', true); showErr('almProdError', 'La descripción es obligatoria.'); return; }
         // Al crear: el código manual debe ser solo dígitos enteros positivos.
         // Al editar: el código es readonly (puede ser PRD-XXXX), no se valida aquí.
         if (!id && codigo && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
+            almProdFieldErr('almProdCodigo', true);
             showErr('almProdError', 'El código debe ser un número entero positivo.');
             return;
         }
+        // Limpiar errores visuales antes de enviar
+        almProdFieldErr('almProdCodigo', false);
+        almProdFieldErr('almProdNombre', false);
         pre();
         fetch(id ? ROUTE_PROD_ITEM(id) : ROUTE_PROD, {
             method: id ? 'PATCH' : 'POST',
@@ -1581,7 +1662,14 @@
             if (res.ok) { almCerrar('almProductoModal'); toast(res.b.message || (id ? 'Producto actualizado.' : 'Producto creado.')); almCargar(); }
             else {
                 var msg = (res.b && res.b.message) || 'No se pudo guardar el producto.';
-                if (res.b && res.b.errors) { msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' '); }
+                var fieldError = false;
+                if (res.b && res.b.errors) {
+                    msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                    // Resaltar el campo específico según la clave de error
+                    if (res.b.errors.CODIGO)  { almProdFieldErr('almProdCodigo', true);  fieldError = true; }
+                    if (res.b.errors.NOMBRE)  { almProdFieldErr('almProdNombre', true);  fieldError = true; }
+                    if (res.b.errors.UM)      { almProdFieldErr('almProdUm',     true);  fieldError = true; }
+                }
                 showErr('almProdError', msg);
             }
         })

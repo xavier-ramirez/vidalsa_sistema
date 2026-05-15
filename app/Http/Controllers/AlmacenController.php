@@ -98,6 +98,9 @@ class AlmacenController extends Controller
 
         // Carga HTML: la tabla abre VACÍA — las filas se piden por AJAX en cuanto el usuario usa un filtro.
         $categorias    = $this->categoriasDistintas();
+        // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de producto.
+        $unidadesMedida = ProductoInventario::activos()
+            ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
         // CONTRATOS se carga junto al frente para alimentar las sugerencias del campo
         // "Contrato N°" del modal "Registrar salida" (Nota de Entrega).
@@ -127,8 +130,11 @@ class AlmacenController extends Controller
             'productosLista'     => $productosLista,
             'productosEnAlmacen' => $productosEnAlmacen,
             'frentesLista'       => $frentesLista,
-            'stats'              => $this->statsInventario($idAlmacenSel, $request),
-            'distribucion'       => $this->distribucionPorCategoria($idAlmacenSel, $request),
+            // Stats y distribución NO se calculan en la carga inicial:
+            // se obtienen por AJAX la primera vez que el usuario aplica un filtro.
+            'stats'              => null,
+            'distribucion'       => collect(),
+            'unidadesMedida'     => $unidadesMedida,
         ]);
     }
 
@@ -449,10 +455,12 @@ class AlmacenController extends Controller
         }
 
         return view('admin.almacen.movimientos', [
-            'movimientos'  => $paginator,
-            'total'        => $paginator->total(),
-            'almacenes'    => Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
-            'frentesLista' => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
+            'movimientos'    => $paginator,
+            'total'          => $paginator->total(),
+            'almacenes'      => Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']),
+            'frentesLista'   => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
+            // Lista de productos activos para el autocomplete del filtro de búsqueda.
+            'productosLista' => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']),
         ]);
     }
 
@@ -833,6 +841,15 @@ class AlmacenController extends Controller
             'CATEGORIA' => 'nullable|string|max:100',
             'ESTATUS'   => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'     => 'nullable|string',
+        ], [
+            'CODIGO.unique'  => 'El código ingresado ya está en uso. Usa otro o déjalo vacío para autogenerar.',
+            'CODIGO.regex'   => 'El código debe contener solo dígitos enteros.',
+            'CODIGO.max'     => 'El código no puede superar los 20 caracteres.',
+            'NOMBRE.required'=> 'La descripción del producto es obligatoria.',
+            'NOMBRE.max'     => 'La descripción no puede superar los 200 caracteres.',
+            'UM.required'    => 'La unidad de medida es obligatoria.',
+            'UM.max'         => 'La unidad de medida no puede superar los 20 caracteres.',
+            'CATEGORIA.max'  => 'La categoría no puede superar los 100 caracteres.',
         ]);
 
         $data['CODIGO']    = !empty($data['CODIGO']) ? trim($data['CODIGO']) : null;

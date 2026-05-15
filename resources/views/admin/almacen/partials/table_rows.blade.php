@@ -46,8 +46,7 @@
             $minArg  = $minimo !== null ? $minimo : 'null';
         @endphp
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} {{ $puedeMover ? 'alm-row-clickable' : '' }}"
-            data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
-            @if($puedeMover)title="Clic para seleccionar este producto"@endif>
+            data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}">
             <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
             <td style="font-weight:600;color:#1e293b;">{{ $p->NOMBRE }}</td>
             <td style="text-align:center;color:#475569;">{{ $p->UM }}</td>

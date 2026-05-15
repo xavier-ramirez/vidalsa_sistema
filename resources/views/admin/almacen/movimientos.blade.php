@@ -85,6 +85,19 @@
     .amf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
     .amf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
     .amf-adv-btn { height:45px; width:45px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:12px; box-shadow:none; }
+
+    /* Sugerencias del filtro de búsqueda — mismo diseño que /admin/almacen */
+    .amf-search-wrap { position:relative; }
+    .amf-suggest {
+        position:absolute; top:calc(100% + 5px); left:0; right:0; background:#fff;
+        border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
+        z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
+    }
+    .amf-suggest.open { display:block; animation:slideDown 0.18s ease-out; }
+    .amf-suggest-item { display:flex; flex-direction:column; gap:2px; padding:10px 15px; border-radius:8px; cursor:default; transition:background 0.2s; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); }
+    .amf-suggest-item:hover, .amf-suggest-item.active { background:#f0f4f8; }
+    .amf-suggest-item .nom { font-size:13.5px; color:#475569; font-weight:600; }
+    .amf-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
     /* Tabla limpia: thead oscuro + body con TODOS los valores CENTRADOS (verticales y horizontales).
        Sin bordes verticales entre columnas. */
     .alm-mov-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
@@ -130,11 +143,16 @@
 
         {{-- Buscar producto --}}
         <div class="amf-item amf-search">
-            <div class="amf-search-box {{ $reqSearch ? 'active' : '' }}">
-                <i class="material-icons lupa">search</i>
-                <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
-                       oninput="clearTimeout(window._amfSearchTimer); window._amfSearchTimer = setTimeout(function(){ window.loadMovimientos(); }, 400);">
-                <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.loadMovimientos();">close</i>
+            <div class="amf-search-wrap">
+                <div class="amf-search-box {{ $reqSearch ? 'active' : '' }}">
+                    <i class="material-icons lupa">search</i>
+                    <input type="text" id="almMovSearch" autocomplete="off" placeholder="Buscar producto (código o descripción)…" value="{{ $reqSearch }}"
+                           oninput="window.almMovSuggestFn(); clearTimeout(window._amfSearchTimer); window._amfSearchTimer = setTimeout(function(){ if (!window._amfPickPending) window.loadMovimientos(); }, 500);"
+                           onfocus="window.almMovSuggestFn()"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();window.almMovSuggestHide();window.loadMovimientos();} if(event.key==='Escape') window.almMovSuggestHide();">
+                    <i class="material-icons clr" id="almMovSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};" onclick="document.getElementById('almMovSearch').value=''; this.style.display='none'; window.almMovSuggestHide(); window.loadMovimientos();">close</i>
+                </div>
+                <div class="amf-suggest" id="almMovSuggest"></div>
             </div>
         </div>
 
@@ -375,6 +393,52 @@
             .catch(function () { body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
+
+    // ── Lista de productos para el autocomplete del filtro de búsqueda ──
+    window.almMovProductosLista = @json(($productosLista ?? collect())->map(fn($p) => ['ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE]));
+
+    function almMovNorm(s) { return s ? String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : ''; }
+    window.almMovSuggestHide = function () { var b = document.getElementById('almMovSuggest'); if (b) b.classList.remove('open'); };
+    window.almMovSuggestFn = function () {
+        var inp = document.getElementById('almMovSearch'), box = document.getElementById('almMovSuggest');
+        if (!inp || !box) return;
+        var term = almMovNorm(inp.value.trim());
+        var lista = window.almMovProductosLista || [];
+        var matches = [];
+        if (term === '') {
+            for (var i = 0; i < lista.length && matches.length < 12; i++) matches.push(lista[i]);
+        } else {
+            for (var j = 0; j < lista.length; j++) {
+                var p = lista[j];
+                if (almMovNorm(p.CODIGO).indexOf(term) > -1 || almMovNorm(p.NOMBRE).indexOf(term) > -1) {
+                    if (matches.length < 12) matches.push(p);
+                }
+            }
+        }
+        var html = '';
+        if (!matches.length) {
+            html = '<div class="amf-suggest-empty">Sin coincidencias.</div>';
+        } else {
+            html = matches.map(function (p) {
+                var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
+                return '<div class="amf-suggest-item" data-pick="' + nom + '"><span class="nom">' + nom + '</span></div>';
+            }).join('');
+        }
+        box.innerHTML = html;
+        box.classList.add('open');
+    };
+    // Delegación de clic en sugerencias
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('#almMovSuggest .amf-suggest-item');
+        if (item) {
+            var inp = document.getElementById('almMovSearch');
+            if (inp) inp.value = item.getAttribute('data-pick') || '';
+            window.almMovSuggestHide();
+            window.loadMovimientos();
+            return;
+        }
+        if (!e.target.closest('#almMovSearch') && !e.target.closest('#almMovSuggest')) window.almMovSuggestHide();
+    });
 
     // Selección en los custom-dropdown → recargar
     window.addEventListener('dropdown-selection', function (e) {
