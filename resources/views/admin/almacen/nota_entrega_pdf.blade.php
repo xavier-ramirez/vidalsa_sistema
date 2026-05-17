@@ -19,14 +19,9 @@
     $minFilas = 25;
 @endphp
 
-{{-- ── N° de Nota (NE-YYYY-NNNN) ── --}}
-@if(!empty($datos['numero_nota']))
-<table border="0" cellpadding="2" cellspacing="0" width="100%">
-    <tr>
-        <td align="right"><font size="9"><b>N° de Nota:</b> <font color="#0067b1">{{ $datos['numero_nota'] }}</font></font></td>
-    </tr>
-</table>
-@endif
+{{-- N° de Nota se renderiza en el cabezote (esquina derecha, Header() del PDF).
+     Antes esta vista lo imprimía arriba del cuerpo — lo que duplicaba el dato y
+     empujaba el contenido a una 2.ª página. Se quitó intencionalmente. --}}
 
 {{-- ── Bloque de datos del proyecto: una tabla con 4 filas ──
      fila 1: PROYECTO  (en itálica como el formato oficial)

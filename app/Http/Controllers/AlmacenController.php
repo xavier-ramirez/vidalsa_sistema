@@ -1190,6 +1190,9 @@ class AlmacenController extends Controller
         ];
 
         $pdf = new NotaEntregaPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
+        // Header() lo lee de esta propiedad pública.
+        $pdf->numeroNota = $hd->NUMERO_NOTA ?? '';
         $pdf->setPrintHeader(true);
         $pdf->setPrintFooter(true);
         $pdf->SetMargins(12, 42, 12);   // top=42 para que el contenido empiece debajo del cabezote
@@ -1473,6 +1476,9 @@ class AlmacenController extends Controller
  */
 class NotaEntregaPDF extends \TCPDF
 {
+    /** N° de Nota (NE-YYYY-NNNN) — lo inyecta el controller antes de generar el PDF. */
+    public string $numeroNota = '';
+
     public function Header()
     {
         // ── Cabezote oficial VID-FO-GEN-019 — UNA tabla HTML con bordes ────────
@@ -1500,14 +1506,22 @@ class NotaEntregaPDF extends \TCPDF
         // Sello + título + placeholder del logo, todo dentro de una tabla con border="1".
         // rowspan="5" hace que la celda del logo y la del título ocupen las 5 filas
         // del sello, sin tener que dibujar líneas manuales.
+        // Layout del sello (columna derecha, 28%):
+        //   Fila 1: N° de Nota: NE-YYYY-NNNN   ← antes esta fila tenía sólo "CODIGO:" solo
+        //   Fila 2: CODIGO: VID-FO-GEN-019     ← antes en 2 filas separadas
+        //   Fila 3: FECHA EMIS: 01/10/19
+        //   Fila 4: REV: 1. FECHA REV: 06/10/23
+        //   Fila 5: PAG. X DE Y
+        // Todo en letra negra (antes el N° de Nota se renderizaba en azul desde el body).
         $page = $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages();
+        $numNota = $this->numeroNota ?? '';
         $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
               . '<tr>'
               .   '<td width="22%" rowspan="5" height="120">&nbsp;</td>'
               .   '<td width="50%" rowspan="5" align="center" valign="middle"><font size="13"><b>NOTA DE ENTREGA DE MATERIALES</b></font></td>'
-              .   '<td width="28%" align="center"><font size="7"><b>CODIGO:</b></font></td>'
+              .   '<td width="28%" align="center"><font size="8"><b>N° de Nota:</b> ' . htmlspecialchars($numNota, ENT_QUOTES, 'UTF-8') . '</font></td>'
               . '</tr>'
-              . '<tr><td align="center"><font size="7"><b>VID-FO-GEN-019</b></font></td></tr>'
+              . '<tr><td align="center"><font size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
               . '<tr><td align="center"><font size="7">FECHA EMIS: 01/10/19</font></td></tr>'
               . '<tr><td align="center"><font size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
               . '<tr><td align="center"><font size="7">PAG. ' . $page . '</font></td></tr>'
