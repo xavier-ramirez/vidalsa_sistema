@@ -64,9 +64,22 @@
                     —
                 @endif
             </td>
-            {{-- Ref: solo el número de referencia/documento (antes mezclaba REFERENCIA + MOTIVO). El MOTIVO
-                 sigue grabado en BD; si se necesita verlo, se agrega columna o tooltip aparte. --}}
-            <td title="{{ $m->MOTIVO ?? '' }}">{{ $m->REFERENCIA ?: '—' }}</td>
+            {{-- Ref: N° de Nota (NE-YYYY-NNNN) como link al PDF + REFERENCIA debajo (más chica).
+                 NUMERO_NOTA lo asigna el backend cuando es SALIDA / TRASPASO_SALIDA generadas via
+                 Nota de Entrega VID-FO-GEN-019; REFERENCIA viene del modal de Entrada directa
+                 (N° de OC). Si ambos están presentes se muestran apilados; si ninguno → "—". --}}
+            <td title="{{ $m->MOTIVO ?? '' }}">
+                @if($m->NUMERO_NOTA)
+                    <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                       target="_blank" rel="noopener"
+                       style="color:#0067b1;text-decoration:none;font-weight:700;font-family:monospace;font-size:12px;"
+                       title="Abrir Nota de Entrega PDF">{{ $m->NUMERO_NOTA }}</a>
+                @endif
+                @if($m->REFERENCIA)
+                    <div style="font-size:10.5px;color:#64748b;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}">{{ $m->REFERENCIA }}</div>
+                @endif
+                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA)—@endif
+            </td>
         </tr>
     @endforeach
 @endif

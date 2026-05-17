@@ -330,7 +330,7 @@
                     <th style="width:130px;">Cantidad</th>
                     <th style="width:75px;">Stock</th>
                     <th style="width:170px;">Destino / contraparte</th>
-                    <th style="width:90px;">Ref</th>
+                    <th style="width:115px;">Ref</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">

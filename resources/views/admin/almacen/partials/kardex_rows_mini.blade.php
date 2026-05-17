@@ -44,10 +44,18 @@
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     <div style="font-weight:600;color:#0f172a;">{{ $m->almacenContraparte?->NOMBRE ?? '—' }}</div>
                 @endif
+                @if($m->NUMERO_NOTA)
+                    <div style="font-size:10.5px;margin-top:2px;">
+                        <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                           target="_blank" rel="noopener"
+                           style="color:#0067b1;text-decoration:none;font-weight:700;font-family:monospace;"
+                           title="Abrir Nota de Entrega PDF">{{ $m->NUMERO_NOTA }}</a>
+                    </div>
+                @endif
                 @if($m->REFERENCIA)
                     <div style="font-size:10.5px;color:#64748b;">Ref: {{ $m->REFERENCIA }}</div>
                 @endif
-                @if(!$m->frente && !$m->ID_ALMACEN_CONTRAPARTE && !$m->REFERENCIA)
+                @if(!$m->frente && !$m->ID_ALMACEN_CONTRAPARTE && !$m->NUMERO_NOTA && !$m->REFERENCIA)
                     —
                 @endif
             </td>
