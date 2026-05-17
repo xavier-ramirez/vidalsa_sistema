@@ -639,18 +639,30 @@
                 </div>
             </div>
             <div><label for="almProdNombre">Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
-            <div>
-                <label for="almProdCategoria">Categoría</label>
-                <div class="alm-cat-field">
-                    <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
-                           placeholder="Elige una de la lista o escribe una nueva…"
-                           oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)"
-                           onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
-                    <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
-                            onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+            {{-- Categoría (ancha, con suggest) + Cantidad inicial (angosta, solo al crear).
+                 Misma fila usando display:flex — igual patrón que Código + UM más arriba. --}}
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                <div style="flex:1.5;">
+                    <label for="almProdCategoria">Categoría</label>
+                    <div class="alm-cat-field">
+                        <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
+                               placeholder="Elige una de la lista o escribe una nueva…"
+                               oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)"
+                               onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
+                        <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
+                                onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+                    </div>
+                    <div class="alm-suggest-inline" id="almProdCatSuggest"></div>
+                    <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Elige de la lista o escribe una nueva categoría.</div>
                 </div>
-                <div class="alm-suggest-inline" id="almProdCatSuggest"></div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Elige de la lista o escribe una nueva categoría.</div>
+                {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
+                     el producto queda registrado en el almacén actual con stock 0 (asegurarStock).
+                     Si > 0, además se registra una ENTRADA en el kardex como "STOCK INICIAL". --}}
+                <div id="almProdCantInicialWrap" style="flex:1;">
+                    <label for="almProdCantInicial">Cantidad inicial</label>
+                    <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
+                    <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Vacío o 0 → stock 0 en este almacén.</div>
+                </div>
             </div>
             {{-- Ubicación física en bodega (texto libre). Se muestra como tooltip al pasar el
                  mouse sobre la fila en la tabla — mismo patrón que DETALLE_UBICACION en /admin/equipos. --}}
@@ -659,14 +671,6 @@
                 <input type="text" id="almProdUbicacion" maxlength="150" autocomplete="off"
                        placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Aparecerá como tooltip al pasar el mouse sobre la fila.</div>
-            </div>
-            {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
-                 el producto queda registrado en el almacén actual con stock 0 (asegurarStock).
-                 Si > 0, además se registra una ENTRADA en el kardex como "STOCK INICIAL". --}}
-            <div id="almProdCantInicialWrap">
-                <label for="almProdCantInicial">Cantidad inicial</label>
-                <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Si lo dejas vacío o en 0, el producto se registrará en este almacén con stock 0.</div>
             </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
