@@ -72,6 +72,20 @@
     .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe !important; }
     .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a !important; }
 
+    /* Filas seleccionadas a las que les falta "Cant. salida" tras tocar "Registrar salida".
+       Persistente hasta que el usuario teclee una cantidad > 0 o deseleccione el producto.
+       Sobrevive a recargas AJAX del tbody (vía almAplicarFaltantes en almSelApplyToVisible). */
+    #almTableBody tr.alm-row.alm-row-missing-cant td { background:#fef2f2 !important; }
+    #almTableBody tr.alm-row.alm-row-missing-cant td:first-child { box-shadow: inset 4px 0 0 #dc2626; }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper { border-color:#dc2626 !important; background:#fff5f5 !important; }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant { color:#b91c1c !important; }
+    /* Pulso suave para llamar la atención al primer pintado. */
+    #almTableBody tr.alm-row.alm-row-missing-cant { animation: almMissingPulse 1.1s ease-out 1; }
+    @keyframes almMissingPulse {
+        0%   { background:#fecaca; }
+        100% { background:transparent; }
+    }
+
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
         border-radius: 7px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; margin: 0 1px;
@@ -1301,7 +1315,23 @@
     //  ya NO muestra una tabla de productos — solo los campos de la Nota de Entrega.
     // ════════════════════════════════════════════════════════════════════════
     var almSeleccion = {}; // { id_producto: { codigo, nombre, um, saldo, cantidad } }
+    // IDs de productos seleccionados que NO tienen cantidad válida en el último intento de
+    // "Registrar salida". Sobrevive a recargas del tbody y se limpia cuando el usuario
+    // teclea una cantidad válida, deselecciona el producto, o limpia toda la selección.
+    var almFaltantes = {};
     function almSelCount() { return Object.keys(almSeleccion).length; }
+    function almAplicarFaltantes() {
+        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
+            var id = tr.getAttribute('data-id-producto');
+            tr.classList.toggle('alm-row-missing-cant', !!almFaltantes[id]);
+        });
+    }
+    function almLimpiarFaltante(id) {
+        if (!almFaltantes[id]) return;
+        delete almFaltantes[id];
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        if (tr) tr.classList.remove('alm-row-missing-cant');
+    }
     function almSelRefreshBar() {
         var bar = el('almBulkBar'); if (!bar) return;
         var n = almSelCount();
@@ -1350,11 +1380,17 @@
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
         });
+        // Repintar también el highlight rojo de las filas con cantidad faltante.
+        almAplicarFaltantes();
     }
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         almSeleccion = {};
-        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) { almSelMarkRow(tr, false); });
+        almFaltantes = {};
+        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
+            almSelMarkRow(tr, false);
+            tr.classList.remove('alm-row-missing-cant');
+        });
         almSelRefreshBar();
     };
     // Handler del input de cantidad en cada fila — guarda en almSeleccion (sobrevive a
@@ -1364,6 +1400,9 @@
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
         var s  = almSeleccion[id]; if (!s) return;
         s.cantidad = String(inp.value).replace(',', '.').trim();
+        // Si ahora la cantidad es válida (> 0), limpiar el resaltado rojo "faltante".
+        var c = parseFloat(s.cantidad);
+        if (isFinite(c) && c > 0) almLimpiarFaltante(id);
     };
     // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
     // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]).
@@ -1373,7 +1412,7 @@
         if (e.target.closest('[data-no-toggle]')) return;
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
-        if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); }
+        if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); almLimpiarFaltante(id); }
         else {
             almSeleccion[id] = {
                 codigo: tr.getAttribute('data-codigo') || '',
@@ -1399,21 +1438,33 @@
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
         // Bloquear apertura del modal si alguna fila seleccionada no tiene cantidad válida.
         // El usuario debe llenar la columna "Cant. salida" en la tabla antes de pasar al
-        // formulario de Nota de Entrega. Resaltamos las filas faltantes para guiarlo.
+        // formulario de Nota de Entrega. Las filas faltantes se resaltan en ROJO de forma
+        // persistente (sobrevive a recargas/filtros) hasta que el usuario teclee una cantidad
+        // válida, deseleccione el producto, o limpie toda la selección.
+        almFaltantes = {};
         var faltan = [];
         Object.keys(almSeleccion).forEach(function (id) {
             var s = almSeleccion[id] || {};
             var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim());
-            if (!isFinite(c) || c <= 0) faltan.push({ id: id, nombre: s.nombre || ('#' + id) });
+            if (!isFinite(c) || c <= 0) {
+                faltan.push({ id: id, nombre: s.nombre || ('#' + id) });
+                almFaltantes[id] = true;
+            }
         });
         if (faltan.length) {
-            // Foco al primer input faltante visible.
+            almAplicarFaltantes();
+            // Llevar la primera fila faltante a la vista + foco en su input de cantidad.
             var firstId = faltan[0].id;
             var firstTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + firstId + '"]');
-            var firstInp = firstTr && firstTr.querySelector('.alm-row-cant');
-            if (firstInp) { firstInp.focus(); }
-            var nombres = faltan.slice(0, 3).map(function (f) { return f.nombre; }).join(', ');
-            toast('Indica la cantidad de salida (> 0) en: ' + nombres + (faltan.length > 3 ? '…' : '') + '.', 'error');
+            if (firstTr) {
+                firstTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var firstInp = firstTr.querySelector('.alm-row-cant');
+                if (firstInp) firstInp.focus();
+            }
+            // Listar TODOS los nombres (no truncar): el usuario necesita saber cuáles son,
+            // sobre todo si algunos quedaron fuera de la página/filtro actual.
+            var nombres = faltan.map(function (f) { return f.nombre; }).join(', ');
+            toast('Falta cantidad (> 0) en: ' + nombres + '.', 'error');
             return;
         }
         window.almAbrirSalidaModal(idAlm);
