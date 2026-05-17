@@ -28,8 +28,10 @@
      fila 2: CONTRATO Nº
      fila 3: FECHA DE ENTREGA · RQ N° · Solicitante
      fila 4: DEPARTAMENTO
-     Grid de 6 columnas: 20% | 20% | 10% | 15% | 13% | 22% --}}
-<table border="1" cellpadding="3" cellspacing="0" width="100%">
+     Grid de 6 columnas: 20% | 20% | 10% | 15% | 13% | 22%
+     cellpadding=2 unificado con la tabla de items (antes era 3) para que los
+     bordes verticales coincidan visualmente con la tabla de items que viene abajo. --}}
+<table border="1" cellpadding="2" cellspacing="0" width="100%">
     <tr>
         <td width="20%"><font size="9"><b><i>PROYECTO:</i></b></font></td>
         <td colspan="5"><font size="9"><b><i>{{ $datos['proyecto'] ?: '' }}</i></b></font></td>
@@ -53,39 +55,51 @@
 </table>
 
 {{-- ── Tabla de ítems: ITEM | CANTIDAD | UNIDAD | DESCRIPCIÓN | N° COLADA/SERIAL ──
-     IMPORTANTE: el width hay que repetirlo en CADA <td> de TODAS las filas (no solo el
-     header). TCPDF en writeHTML no propaga el width del <thead> al <tbody> cuando las
-     celdas estan casi vacias — sin esto las columnas se "fusionan" visualmente. --}}
+     Notas TCPDF:
+     • El width hay que repetirlo en CADA <td> de TODAS las filas (no sólo el header).
+       TCPDF no propaga el width del header al resto cuando las celdas están casi vacías.
+     • <thead> + <tbody>: TCPDF re-imprime <thead> en cada nueva página si la tabla se
+       parte (writeHTMLDocument lo trata como TFOOT/THEAD del estándar HTML/CSS).
+     • Filas vacías: <font size="8">&nbsp;</font> explícito en cada celda — sin esto
+       el &nbsp; hereda el font del documento (9.5pt) y la fila vacía queda más alta
+       que las llenas (8pt). Con el font explícito, todas las filas tienen mismo alto. --}}
 <table border="1" cellpadding="2" cellspacing="0" width="100%">
-    <tr bgcolor="#C0C0C0">
-        <td width="7%"  align="center"><font size="9" color="#000000"><b>ITEM</b></font></td>
-        <td width="11%" align="center"><font size="9" color="#000000"><b>CANTIDAD</b></font></td>
-        <td width="12%" align="center"><font size="9" color="#000000"><b>UNIDAD</b></font></td>
-        <td width="50%" align="center"><font size="9" color="#000000"><b>DESCRIPCIÓN</b></font></td>
-        <td width="20%" align="center"><font size="9" color="#000000"><b>N° COLADA / SERIAL</b></font></td>
-    </tr>
-    @foreach($movs as $i => $m)
-        <tr>
-            <td width="7%"  align="center"><font size="8">{{ $i + 1 }}</font></td>
-            <td width="11%" align="center"><font size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
-            <td width="12%" align="center"><font size="8">{{ $m->producto?->UM ?? '' }}</font></td>
-            <td width="50%"><font size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
-            <td width="20%" align="center"><font size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
+    <thead>
+        <tr bgcolor="#C0C0C0">
+            <td width="7%"  align="center"><font size="9"><b>ITEM</b></font></td>
+            <td width="11%" align="center"><font size="9"><b>CANTIDAD</b></font></td>
+            <td width="12%" align="center"><font size="9"><b>UNIDAD</b></font></td>
+            <td width="50%" align="center"><font size="9"><b>DESCRIPCIÓN</b></font></td>
+            <td width="20%" align="center"><font size="9"><b>N° COLADA / SERIAL</b></font></td>
         </tr>
-    @endforeach
-    @for($j = $movs->count(); $j < $minFilas; $j++)
-        <tr>
-            <td width="7%"  align="center"><font size="8">{{ $j + 1 }}</font></td>
-            <td width="11%">&nbsp;</td>
-            <td width="12%">&nbsp;</td>
-            <td width="50%">&nbsp;</td>
-            <td width="20%">&nbsp;</td>
-        </tr>
-    @endfor
+    </thead>
+    <tbody>
+        @foreach($movs as $i => $m)
+            <tr>
+                <td width="7%"  align="center"><font size="8">{{ $i + 1 }}</font></td>
+                <td width="11%" align="center"><font size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
+                <td width="12%" align="center"><font size="8">{{ $m->producto?->UM ?? '' }}</font></td>
+                <td width="50%"><font size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
+                <td width="20%" align="center"><font size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
+            </tr>
+        @endforeach
+        @for($j = $movs->count(); $j < $minFilas; $j++)
+            <tr>
+                <td width="7%"  align="center"><font size="8">{{ $j + 1 }}</font></td>
+                <td width="11%"><font size="8">&nbsp;</font></td>
+                <td width="12%"><font size="8">&nbsp;</font></td>
+                <td width="50%"><font size="8">&nbsp;</font></td>
+                <td width="20%"><font size="8">&nbsp;</font></td>
+            </tr>
+        @endfor
+    </tbody>
 </table>
 
-{{-- ── Observaciones: label + caja vacía para escribir ── --}}
-<table border="1" cellpadding="3" cellspacing="0" width="100%">
+{{-- ── Observaciones: label + caja para escribir. cellpadding unificado a 2.
+     TCPDF interpreta el atributo HTML height como pixeles (getHTMLUnitToUnits con
+     unidad por defecto 'px'). height="30" ≈ 10.6mm a 72dpi (suficiente para 2 líneas
+     manuscritas) — se mantuvo del valor original. --}}
+<table border="1" cellpadding="2" cellspacing="0" width="100%">
     <tr>
         <td><font size="9"><b>OBSERVACIONES:</b></font></td>
     </tr>
@@ -97,8 +111,9 @@
 {{-- ── Firmas: label | ENTREGADO POR | RECIBIDO POR ──
      Almacenista del almacén origen va pre-impreso como ENTREGADO POR + cargo
      "COORD. DE MATERIALES" (estándar VIDALSA). RECIBIDO POR en blanco para
-     que la persona del proyecto lo rellene a mano al recibir. --}}
-<table border="1" cellpadding="3" cellspacing="0" width="100%">
+     que la persona del proyecto lo rellene a mano al recibir.
+     cellpadding unificado a 2 con el resto de tablas del body. --}}
+<table border="1" cellpadding="2" cellspacing="0" width="100%">
     <tr>
         <td width="14%">&nbsp;</td>
         <td width="43%" align="center"><font size="9"><b>ENTREGADO POR:</b></font></td>
