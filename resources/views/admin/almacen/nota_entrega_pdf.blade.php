@@ -126,17 +126,16 @@
     </tr>
 </table>
 
-{{-- ── Vehículo / Chofer: 2 cuadros separados side-by-side.
-     48% cada uno + 4% de gap = 100%. Cada cuadro ahora tiene espacio suficiente
-     para "Constructora Vidalsa 27, C.A." en una sola línea (la version anterior
-     era 40% y partía el texto en 2). Etiquetas a 28% del ancho del cuadro
-     (~13% del total) para que el campo de valor sea ancho. Font 8.5pt. --}}
+{{-- ── Vehículo / Chofer: 2 cuadros pegados side-by-side (50% + 50% = 100%).
+     Antes había un gap de 4% entre los dos cuadros; se eliminó para que las
+     cajas queden flush — donde termina la de Vehículo, empieza la de Chofer.
+     Etiquetas a 28% del ancho del cuadro. Font 8pt. --}}
 <table border="0" cellpadding="0" cellspacing="0" width="100%">
     <tr>
-        <td width="48%" valign="top">
+        <td width="50%" valign="top">
             <table border="1" cellpadding="2" cellspacing="0" width="100%">
-                <tr bgcolor="#595959">
-                    <td colspan="2" align="center"><font size="9" color="#ffffff"><b>DATOS DEL VEHICULO</b></font></td>
+                <tr bgcolor="#C0C0C0">
+                    <td colspan="2" align="center"><font size="9" color="#000000"><b>DATOS DEL VEHICULO</b></font></td>
                 </tr>
                 <tr>
                     <td width="28%"><font size="8"><b>VEHICULO:</b></font></td>
@@ -152,11 +151,10 @@
                 </tr>
             </table>
         </td>
-        <td width="4%">&nbsp;</td>
-        <td width="48%" valign="top">
+        <td width="50%" valign="top">
             <table border="1" cellpadding="2" cellspacing="0" width="100%">
-                <tr bgcolor="#595959">
-                    <td colspan="2" align="center"><font size="9" color="#ffffff"><b>DATOS DEL CHOFER</b></font></td>
+                <tr bgcolor="#C0C0C0">
+                    <td colspan="2" align="center"><font size="9" color="#000000"><b>DATOS DEL CHOFER</b></font></td>
                 </tr>
                 <tr>
                     <td width="28%"><font size="8"><b>NOMBRE:</b></font></td>

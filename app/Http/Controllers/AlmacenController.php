@@ -1195,7 +1195,7 @@ class AlmacenController extends Controller
         $pdf->numeroNota = $hd->NUMERO_NOTA ?? '';
         $pdf->setPrintHeader(true);
         $pdf->setPrintFooter(true);
-        $pdf->SetMargins(12, 42, 12);   // top=42 para que el contenido empiece debajo del cabezote
+        $pdf->SetMargins(12, 36, 12);   // top=36 para que el contenido empiece debajo del cabezote (height=80pt ≈ 28mm + 6mm margen sup)
         $pdf->SetHeaderMargin(6);
         $pdf->SetFooterMargin(10);
         $pdf->SetAutoPageBreak(true, 14);
@@ -1515,16 +1515,21 @@ class NotaEntregaPDF extends \TCPDF
         // Todo en letra negra (antes el N° de Nota se renderizaba en azul desde el body).
         $page = $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages();
         $numNota = $this->numeroNota ?? '';
+        // height="80" (≈ 28mm) en lugar de 120 (≈ 42mm): el cabezote se compacta
+        // y las 5 filas del sello dejan de tener espacio en blanco distribuido.
+        // El logo (imagen overlaid 24mm alto) sigue cabiendo con holgura.
+        // width="28%" explícito en cada fila del sello para que align="center" funcione
+        // de forma consistente — sin el width, TCPDF no siempre infiere el ancho del rowspan.
         $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
               . '<tr>'
-              .   '<td width="22%" rowspan="5" height="120">&nbsp;</td>'
-              .   '<td width="50%" rowspan="5" align="center" valign="middle"><font size="13"><b>NOTA DE ENTREGA DE MATERIALES</b></font></td>'
+              .   '<td width="22%" rowspan="5" height="80">&nbsp;</td>'
+              .   '<td width="50%" rowspan="5" align="center" valign="middle"><font size="12"><b>NOTA DE ENTREGA DE MATERIALES</b></font></td>'
               .   '<td width="28%" align="center"><font size="8"><b>N° de Nota:</b> ' . htmlspecialchars($numNota, ENT_QUOTES, 'UTF-8') . '</font></td>'
               . '</tr>'
-              . '<tr><td align="center"><font size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
-              . '<tr><td align="center"><font size="7">FECHA EMIS: 01/10/19</font></td></tr>'
-              . '<tr><td align="center"><font size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
-              . '<tr><td align="center"><font size="7">PAG. ' . $page . '</font></td></tr>'
+              . '<tr><td width="28%" align="center"><font size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
+              . '<tr><td width="28%" align="center"><font size="7">FECHA EMIS: 01/10/19</font></td></tr>'
+              . '<tr><td width="28%" align="center"><font size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
+              . '<tr><td width="28%" align="center"><font size="7">PAG. ' . $page . '</font></td></tr>'
               . '</table>';
 
         $this->SetFont('helvetica', '', 7);
@@ -1538,7 +1543,6 @@ class NotaEntregaPDF extends \TCPDF
         $this->SetFont('helvetica', 'I', 7);
         // Cell() en vez de writeHTMLCell porque el texto es ASCII puro (sin acentos) — más rápido
         // y suficiente. Mismo criterio que ReporteFallaPDF::Footer().
-        $emitido = 'Sistema de Gestion VIDALSA - emitido el ' . \Carbon\Carbon::now()->format('d/m/Y H:i');
-        $this->Cell(0, 6, $emitido, 0, 0, 'R');
+        $this->Cell(0, 6, 'Sistema de Gestion VIDALSA', 0, 0, 'R');
     }
 }
