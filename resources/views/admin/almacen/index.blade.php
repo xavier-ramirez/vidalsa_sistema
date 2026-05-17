@@ -75,16 +75,21 @@
     /* Filas seleccionadas a las que les falta "Cant. salida" tras tocar "Registrar salida".
        Persistente hasta que el usuario teclee una cantidad > 0 o deseleccione el producto.
        Sobrevive a recargas AJAX del tbody (vía almAplicarFaltantes en almSelApplyToVisible). */
-    #almTableBody tr.alm-row.alm-row-missing-cant td { background:#fef2f2 !important; }
-    #almTableBody tr.alm-row.alm-row-missing-cant td:first-child { box-shadow: inset 4px 0 0 #dc2626; }
-    #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper { border-color:#dc2626 !important; background:#fff5f5 !important; }
-    #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant { color:#b91c1c !important; }
-    /* Pulso suave para llamar la atención al primer pintado. */
-    #almTableBody tr.alm-row.alm-row-missing-cant { animation: almMissingPulse 1.1s ease-out 1; }
+    #almTableBody tr.alm-row.alm-row-missing-cant td { background:#fecaca !important; color:#991b1b; }
+    #almTableBody tr.alm-row.alm-row-missing-cant td:first-child { box-shadow: inset 6px 0 0 #b91c1c; }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant { color:#991b1b !important; font-weight:700; }
+    /* Pulso intenso para llamar la atención al primer pintado. */
+    #almTableBody tr.alm-row.alm-row-missing-cant { animation: almMissingPulse 0.9s ease-out 1; }
     @keyframes almMissingPulse {
-        0%   { background:#fecaca; }
+        0%   { background:#f87171; }
         100% { background:transparent; }
     }
+
+    /* Contador "inventory_2 N" clickable — toggle del filtro "Solo seleccionados". */
+    .alm-bulk-counter { cursor:pointer; user-select:none; transition:transform 0.12s, box-shadow 0.18s; }
+    .alm-bulk-counter:hover { transform:scale(1.04); }
+    .alm-bulk-counter.is-filtering { box-shadow:0 0 0 2px #fbbf24, 0 0 12px rgba(251,191,36,0.45); border-radius:999px; }
 
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
@@ -415,7 +420,9 @@
 @if($puedeMover)
 {{-- ── Barra flotante de selección (igual que /admin/equipos: clic en la fila → se resalta y aparece esta barra) ── --}}
 <div id="almBulkBar" class="selection-floating-bar">
-    <div class="selection-counter">
+    <div id="almBulkCounter" class="selection-counter alm-bulk-counter"
+         onclick="window.almToggleSoloSel(event)"
+         title="Clic para filtrar la tabla y ver SOLO los productos seleccionados (clic de nuevo para volver a ver todos).">
         <div style="background:rgba(255,255,255,0.1);padding:5px;border-radius:50%;display:flex;"><i class="material-icons" style="font-size:18px;color:white;">inventory_2</i></div>
         <span id="almBulkCount">0</span>
     </div>
@@ -1319,6 +1326,11 @@
     // "Registrar salida". Sobrevive a recargas del tbody y se limpia cuando el usuario
     // teclea una cantidad válida, deselecciona el producto, o limpia toda la selección.
     var almFaltantes = {};
+    // Modo "filtro local" activado desde el contador de la barra flotante: cuando es true,
+    // se ocultan vía CSS (display:none) las filas que NO están en almSeleccion. Cliente puro
+    // — no recarga datos del backend, solo esconde filas en el DOM actual. Se desactiva
+    // automáticamente al limpiar la selección.
+    var almSoloSel = false;
     function almSelCount() { return Object.keys(almSeleccion).length; }
     function almAplicarFaltantes() {
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
@@ -1332,11 +1344,39 @@
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.remove('alm-row-missing-cant');
     }
+    // Filtro local "Solo seleccionados": esconde/muestra filas según almSeleccion.
+    function almAplicarSoloSel() {
+        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
+            var id = tr.getAttribute('data-id-producto');
+            tr.style.display = (almSoloSel && !almSeleccion[id]) ? 'none' : '';
+        });
+        var btn = el('almBulkCounter');
+        if (btn) btn.classList.toggle('is-filtering', almSoloSel);
+    }
+    window.almToggleSoloSel = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (!almSelCount()) { toast('No hay productos seleccionados todavía.', 'error'); return; }
+        almSoloSel = !almSoloSel;
+        almAplicarSoloSel();
+        if (almSoloSel) {
+            // Llevar al usuario al inicio de la tabla para que vea inmediatamente las filas
+            // filtradas (la primera seleccionada). Sin "smooth" para que sea instantáneo.
+            var tbody = el('almTableBody');
+            if (tbody) tbody.scrollIntoView({ block: 'start' });
+        }
+    };
     function almSelRefreshBar() {
         var bar = el('almBulkBar'); if (!bar) return;
         var n = almSelCount();
         bar.classList.toggle('active', n > 0);
         var c = el('almBulkCount'); if (c) c.textContent = n;
+        // Si la selección quedó vacía y el filtro "solo seleccionados" estaba activo,
+        // hay que apagarlo y volver a mostrar todas las filas (la barra se oculta sola).
+        if (n === 0 && almSoloSel) {
+            almSoloSel = false;
+            document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) { tr.style.display = ''; });
+            var btn = el('almBulkCounter'); if (btn) btn.classList.remove('is-filtering');
+        }
     }
     function almSelMarkRow(tr, on) {
         if (!tr) return;
@@ -1380,17 +1420,22 @@
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
         });
-        // Repintar también el highlight rojo de las filas con cantidad faltante.
+        // Repintar también el highlight rojo de las filas con cantidad faltante
+        // y re-aplicar el filtro "solo seleccionados" si está activo.
         almAplicarFaltantes();
+        almAplicarSoloSel();
     }
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         almSeleccion = {};
         almFaltantes = {};
+        almSoloSel = false; // sin selección, el filtro local no tiene sentido
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, false);
             tr.classList.remove('alm-row-missing-cant');
+            tr.style.display = '';
         });
+        var btn = el('almBulkCounter'); if (btn) btn.classList.remove('is-filtering');
         almSelRefreshBar();
     };
     // Handler del input de cantidad en cada fila — guarda en almSeleccion (sobrevive a
@@ -1425,6 +1470,10 @@
             // Foco automático en el input de cantidad recién habilitado.
             setTimeout(function () { var inp = tr.querySelector('.alm-row-cant'); if (inp) inp.focus(); }, 30);
         }
+        // Si el filtro "solo seleccionados" está activo, mantener consistencia visual:
+        // al deseleccionar, la fila debe ocultarse (ya no es "selected"); al seleccionar
+        // una nueva, la nueva ya estaba visible (era la que el usuario hizo clic).
+        if (almSoloSel) almAplicarSoloSel();
         almSelRefreshBar();
     });
     function almSelAlmacenActual() { var s = el('almSelAlmacen'); return s ? s.value : ''; }
