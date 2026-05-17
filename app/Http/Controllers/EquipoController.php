@@ -642,10 +642,10 @@ class EquipoController extends Controller
         $equipos->with([
             'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'tipo:id,nombre',
-            'documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,LINK_POLIZA_SEGURO,LINK_RACDA,LINK_ROTC',
+            'documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC',
             'equiposAnclados:ID_EQUIPO,id_tipo_equipo,ID_FRENTE_ACTUAL,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR,ANIO,ESTADO_OPERATIVO,CATEGORIA_FLOTA,ID_ANCLAJE',
             'equiposAnclados.tipo:id,nombre',
-            'equiposAnclados.documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,LINK_POLIZA_SEGURO,LINK_RACDA,LINK_ROTC',
+            'equiposAnclados.documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC',
             'equiposAnclados.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'ancladoA:ID_EQUIPO,ID_FRENTE_ACTUAL',
             'ancladoA.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
@@ -696,11 +696,19 @@ class EquipoController extends Controller
             }
         }
 
+        $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
+        // +8 columnas de documentación: SÍ/NO + dato por cada uno (Tít.Prop+Titular / Póliza+Venc / RACDA+Venc / ROTC+Venc):
+        // con FRENTE → A..S ; sin FRENTE → A..R
+        $lastCol      = $showFrenteCol ? 'S' : 'R';
+        $endTitle     = $showFrenteCol ? 'O' : 'N'; // título C:endTitle (encabezado ancho)
+        $startEdicion = $showFrenteCol ? 'P' : 'O'; // EDICION/REV/FECHA: startEdicion..lastCol (4 cols, angosto)
+
         // Fila 1 a 3 - Título Empresa
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Fondo Blanco Puro
 
-        $sheet->mergeCells('C1:E3'); // EXTENDIDO HASTA LA 'E' PARA MÁS ANCHURA (C + D + E)
+        // Título: C..$endTitle (más ancho — ocupa la mayor parte del header)
+        $sheet->mergeCells('C1:'.$endTitle.'3');
         if ($nombreFrente !== 'TODOS LOS FRENTES') {
             $subTitle = 'PROYECTO: "' . mb_strtoupper($nombreFrente) . '"';
         } else {
@@ -712,33 +720,29 @@ class EquipoController extends Controller
         $sheet->getStyle('C1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('C1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle('C1')->getFont()->setBold(true)->setSize(14)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('C1:E3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
+        $sheet->getStyle('C1:'.$endTitle.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF'); // Blanco
 
-        $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
-        // +4 columnas de documentación (Título de propiedad / Póliza / Reg. RACDA / Reg. ROTC = SÍ/NO):
-        // con FRENTE → A..O ; sin FRENTE → A..N
-        $lastCol = $showFrenteCol ? 'O' : 'N';
+        // Bloque EDICION / REVISION / FECHA: a la derecha, ocupando sólo $startEdicion..$lastCol (angosto).
+        $sheet->mergeCells($startEdicion.'1:'.$lastCol.'1');
+        $sheet->setCellValue($startEdicion.'1', 'EDICION: 1');
+        $sheet->getStyle($startEdicion.'1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle($startEdicion.'1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle($startEdicion.'1')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle($startEdicion.'1:'.$lastCol.'1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
-        $sheet->mergeCells('F1:'.$lastCol.'1');
-        $sheet->setCellValue('F1', 'EDICION: 1');
-        $sheet->getStyle('F1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('F1')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('F1')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F1:'.$lastCol.'1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->mergeCells($startEdicion.'2:'.$lastCol.'2');
+        $sheet->setCellValue($startEdicion.'2', 'REVISION: 0');
+        $sheet->getStyle($startEdicion.'2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle($startEdicion.'2')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle($startEdicion.'2')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle($startEdicion.'2:'.$lastCol.'2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
-        $sheet->mergeCells('F2:'.$lastCol.'2');
-        $sheet->setCellValue('F2', 'REVISION: 0');
-        $sheet->getStyle('F2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('F2')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('F2')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F2:'.$lastCol.'2')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        $sheet->mergeCells('F3:'.$lastCol.'3');
-        $sheet->setCellValue('F3', 'FECHA: ' . $currentDate);
-        $sheet->getStyle('F3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('F3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('F3')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
-        $sheet->getStyle('F3:'.$lastCol.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $sheet->mergeCells($startEdicion.'3:'.$lastCol.'3');
+        $sheet->setCellValue($startEdicion.'3', 'FECHA: ' . $currentDate);
+        $sheet->getStyle($startEdicion.'3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle($startEdicion.'3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle($startEdicion.'3')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
+        $sheet->getStyle($startEdicion.'3:'.$lastCol.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
         $sheet->getRowDimension(1)->setRowHeight(40);
         $sheet->getRowDimension(2)->setRowHeight(40);
@@ -764,15 +768,19 @@ class EquipoController extends Controller
         ];
         $sheet->getStyle('A1:'.$lastCol.'4')->applyFromArray($headerBorders);
 
-        // Fila 5 - Encabezados de tabla (las 4 últimas: documentación cargada SÍ/NO)
-        // "TÍTULO DE PROPIEDAD" se parte en 2 líneas (la fila 5 tiene wrap text).
-        $docHeaders = ["TÍTULO DE\nPROPIEDAD", 'PÓLIZA', 'RACDA', 'ROTC'];
+        // Fila 5 - Encabezados de tabla. Cada documento usa 2 columnas: SÍ/NO + dato (titular o fecha de vencimiento).
+        $docHeaders = [
+            "TÍTULO DE\nPROPIEDAD", 'TITULAR',
+            'PÓLIZA',                "VENC.\nPÓLIZA",
+            'RACDA',                 "VENC.\nRACDA",
+            'ROTC',                  "VENC.\nROTC",
+        ];
         if ($showFrenteCol) {
             $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
-            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
+            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S'];
         } else {
             $headers = array_merge(['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
-            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
+            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'];
         }
 
         foreach($headers as $index => $hdr) {
@@ -798,10 +806,14 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('I')->setWidth(18);
             $sheet->getColumnDimension('J')->setWidth(10);
             $sheet->getColumnDimension('K')->setWidth(20);
-            $sheet->getColumnDimension('L')->setWidth(13); // Título de propiedad (SÍ/NO; encabezado en 2 líneas)
-            $sheet->getColumnDimension('M')->setWidth(12); // Póliza (SÍ/NO)
-            $sheet->getColumnDimension('N')->setWidth(11); // RACDA (SÍ/NO)
-            $sheet->getColumnDimension('O')->setWidth(11); // ROTC (SÍ/NO)
+            $sheet->getColumnDimension('L')->setWidth(9);  // Título de propiedad (SÍ/NO)
+            $sheet->getColumnDimension('M')->setWidth(30); // Titular
+            $sheet->getColumnDimension('N')->setWidth(9);  // Póliza (SÍ/NO)
+            $sheet->getColumnDimension('O')->setWidth(13); // Venc. Póliza
+            $sheet->getColumnDimension('P')->setWidth(9);  // RACDA (SÍ/NO)
+            $sheet->getColumnDimension('Q')->setWidth(13); // Venc. RACDA
+            $sheet->getColumnDimension('R')->setWidth(9);  // ROTC (SÍ/NO)
+            $sheet->getColumnDimension('S')->setWidth(13); // Venc. ROTC
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(32);
@@ -813,10 +825,14 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('H')->setWidth(18);
             $sheet->getColumnDimension('I')->setWidth(10);
             $sheet->getColumnDimension('J')->setWidth(20);
-            $sheet->getColumnDimension('K')->setWidth(13); // Título de propiedad (SÍ/NO; encabezado en 2 líneas)
-            $sheet->getColumnDimension('L')->setWidth(12); // Póliza (SÍ/NO)
-            $sheet->getColumnDimension('M')->setWidth(11); // RACDA (SÍ/NO)
-            $sheet->getColumnDimension('N')->setWidth(11); // ROTC (SÍ/NO)
+            $sheet->getColumnDimension('K')->setWidth(9);  // Título de propiedad (SÍ/NO)
+            $sheet->getColumnDimension('L')->setWidth(30); // Titular
+            $sheet->getColumnDimension('M')->setWidth(9);  // Póliza (SÍ/NO)
+            $sheet->getColumnDimension('N')->setWidth(13); // Venc. Póliza
+            $sheet->getColumnDimension('O')->setWidth(9);  // RACDA (SÍ/NO)
+            $sheet->getColumnDimension('P')->setWidth(13); // Venc. RACDA
+            $sheet->getColumnDimension('Q')->setWidth(9);  // ROTC (SÍ/NO)
+            $sheet->getColumnDimension('R')->setWidth(13); // Venc. ROTC
         }
 
         $printedIds = [];
@@ -884,17 +900,46 @@ class EquipoController extends Controller
                 $sheet->setCellValue('J'.$rowNum, $estadoVal);
             }
 
-            // Documentación cargada → SÍ / NO (las 4 últimas columnas, según haya o no link guardado)
-            $docSiNo = fn ($link) => (trim((string) $link) !== '') ? 'SÍ' : 'NO';
+            // Documentación → 8 columnas pareadas: por cada doc, una columna SÍ/NO y otra con el dato
+            // (Titular para Título de propiedad, fecha de vencimiento para Póliza/RACDA/ROTC).
+            // Si el doc no está cargado → "NO" en la SÍ/NO y "—" en la del dato.
+            // Si está cargado pero falta el dato → "SÍ" en la primera y "—" en el dato.
+            $cargado = fn ($link) => trim((string) $link) !== '';
+            $fmtFecha = function ($fecha) {
+                if (empty($fecha)) return '—';
+                try {
+                    return \Carbon\Carbon::parse($fecha)->format('d/m/Y');
+                } catch (\Exception $e) {
+                    return '—';
+                }
+            };
             $doc     = $equipo->documentacion;
-            $docCols = $showFrenteCol ? ['L', 'M', 'N', 'O'] : ['K', 'L', 'M', 'N'];
-            $sheet->setCellValue($docCols[0].$rowNum, $doc ? $docSiNo($doc->LINK_DOC_PROPIEDAD) : 'NO'); // Título de propiedad
-            $sheet->setCellValue($docCols[1].$rowNum, $doc ? $docSiNo($doc->LINK_POLIZA_SEGURO) : 'NO'); // Póliza de seguro
-            $sheet->setCellValue($docCols[2].$rowNum, $doc ? $docSiNo($doc->LINK_RACDA)         : 'NO'); // Registro RACDA
-            $sheet->setCellValue($docCols[3].$rowNum, $doc ? $docSiNo($doc->LINK_ROTC)          : 'NO'); // Registro ROTC
+            $docCols = $showFrenteCol
+                ? ['L','M','N','O','P','Q','R','S']  // Prop|Tit | Pol|Venc | Racda|Venc | Rotc|Venc
+                : ['K','L','M','N','O','P','Q','R'];
+
+            $tieneProp   = $doc && $cargado($doc->LINK_DOC_PROPIEDAD);
+            $tienePoliza = $doc && $cargado($doc->LINK_POLIZA_SEGURO);
+            $tieneRacda  = $doc && $cargado($doc->LINK_RACDA);
+            $tieneRotc   = $doc && $cargado($doc->LINK_ROTC);
+
+            $titular = ($doc && $tieneProp) ? trim((string) $doc->NOMBRE_DEL_TITULAR) : '';
+
+            $sheet->setCellValue($docCols[0].$rowNum, $tieneProp   ? 'SÍ' : 'NO'); // Título de propiedad (SÍ/NO)
+            $sheet->setCellValue($docCols[1].$rowNum, $titular !== '' ? mb_strtoupper($titular) : '—'); // Titular
+            $sheet->setCellValue($docCols[2].$rowNum, $tienePoliza ? 'SÍ' : 'NO'); // Póliza (SÍ/NO)
+            $sheet->setCellValue($docCols[3].$rowNum, $tienePoliza ? $fmtFecha($doc->FECHA_VENC_POLIZA) : '—'); // Venc. Póliza
+            $sheet->setCellValue($docCols[4].$rowNum, $tieneRacda  ? 'SÍ' : 'NO'); // RACDA (SÍ/NO)
+            $sheet->setCellValue($docCols[5].$rowNum, $tieneRacda  ? $fmtFecha($doc->FECHA_RACDA) : '—'); // Venc. RACDA
+            $sheet->setCellValue($docCols[6].$rowNum, $tieneRotc   ? 'SÍ' : 'NO'); // ROTC (SÍ/NO)
+            $sheet->setCellValue($docCols[7].$rowNum, $tieneRotc   ? $fmtFecha($doc->FECHA_ROTC) : '—'); // Venc. ROTC
+
+            // Todas las celdas de doc centradas; sólo Titular alineado a la izquierda (texto largo).
             foreach ($docCols as $dc) {
                 $sheet->getStyle($dc.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                // WrapText se aplica luego en el loop general de $colMap (más abajo).
             }
+            $sheet->getStyle($docCols[1].$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
 
             // Alternancia de colores en las filas (Zebra Striping)
             if ($counter % 2 === 0) {
@@ -942,7 +987,7 @@ class EquipoController extends Controller
             $sheet->getStyle($colAnio.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle($colEstado.$rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-            // Altura fija
+            // Altura fija (la columna TITULAR puede envolver nombres largos a 2 líneas)
             $sheet->getRowDimension($rowNum)->setRowHeight(30);
 
             $rowNum++;

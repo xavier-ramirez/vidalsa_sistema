@@ -285,9 +285,9 @@ class DashboardController extends Controller
         // Separate expired from warnings
         $expired = $alerts->where('status', 'expired')->sortBy('fecha')->values();
         $warnings = $alerts->where('status', 'warning')->sortBy('fecha')->values();
-        
-        // Combine: warnings first (upcoming), then expired
-        return $warnings->concat($expired)->values();
+
+        // Combine: expired first (los más vencidos arriba), then warnings (próximos a vencer)
+        return $expired->concat($warnings)->values();
     }
 
     /**
