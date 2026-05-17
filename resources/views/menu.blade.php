@@ -1055,14 +1055,20 @@
         </div>
     </div>
 
-@endsection
-
-@section('extra_js')
+    {{-- Scripts inline del dashboard. Van dentro de @section('content') (no en
+         @yield('extra_js')) para que el navegador SPA los re-ejecute al volver
+         a /menu desde otra página — si vivieran en extra_js quedarían fuera de
+         .main-viewport y window.downloadDashboardPdf sería undefined tras
+         navegar via SPA. --}}
     <script>
         // Animación del modal de recepción directa
-        const _styleRD = document.createElement('style');
-        _styleRD.textContent = '@keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
-        document.head.appendChild(_styleRD);
+        (function () {
+            if (window.__menuStyleRDInjected) return;
+            window.__menuStyleRDInjected = true;
+            const _styleRD = document.createElement('style');
+            _styleRD.textContent = '@keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+            document.head.appendChild(_styleRD);
+        })();
 
         // PDF download for Alertas Documentos — usa el spinner global de la app
         window.downloadDashboardPdf = async function(btn, url) {
@@ -1106,4 +1112,5 @@
             }
         };
     </script>
+
 @endsection
