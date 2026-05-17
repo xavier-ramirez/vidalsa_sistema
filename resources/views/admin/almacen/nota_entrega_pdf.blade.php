@@ -16,7 +16,7 @@
 --}}
 @php
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ','), '0'), '.') ?: '0';
-    $minFilas = 25;
+    $minFilas = 24;
 @endphp
 
 {{-- N° de Nota se renderiza en el cabezote (esquina derecha, Header() del PDF).
@@ -57,12 +57,12 @@
      header). TCPDF en writeHTML no propaga el width del <thead> al <tbody> cuando las
      celdas estan casi vacias — sin esto las columnas se "fusionan" visualmente. --}}
 <table border="1" cellpadding="2" cellspacing="0" width="100%">
-    <tr bgcolor="#595959">
-        <td width="7%"  align="center"><font size="9" color="#ffffff"><b>ITEM</b></font></td>
-        <td width="11%" align="center"><font size="9" color="#ffffff"><b>CANTIDAD</b></font></td>
-        <td width="12%" align="center"><font size="9" color="#ffffff"><b>UNIDAD</b></font></td>
-        <td width="50%" align="center"><font size="9" color="#ffffff"><b>DESCRIPCIÓN</b></font></td>
-        <td width="20%" align="center"><font size="9" color="#ffffff"><b>N° COLADA / SERIAL</b></font></td>
+    <tr bgcolor="#C0C0C0">
+        <td width="7%"  align="center"><font size="9" color="#000000"><b>ITEM</b></font></td>
+        <td width="11%" align="center"><font size="9" color="#000000"><b>CANTIDAD</b></font></td>
+        <td width="12%" align="center"><font size="9" color="#000000"><b>UNIDAD</b></font></td>
+        <td width="50%" align="center"><font size="9" color="#000000"><b>DESCRIPCIÓN</b></font></td>
+        <td width="20%" align="center"><font size="9" color="#000000"><b>N° COLADA / SERIAL</b></font></td>
     </tr>
     @foreach($movs as $i => $m)
         <tr>
