@@ -126,7 +126,8 @@
     .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
     .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
     .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #f1f5f9; display: flex; justify-content: center; gap: 8px; }
-    .alm-modal label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
+    .alm-modal label,
+    .alm-modal .alm-fake-label { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
     .alm-modal input, .alm-modal select, .alm-modal textarea {
         width: 100%; border: 1px solid #cbd5e0; border-radius: 8px; padding: 9px 10px; font-size: 14px; outline: none; box-sizing: border-box;
     }
@@ -436,22 +437,23 @@
         </div>
         <div class="alm-modal-body">
             <div>
-                <label>Producto</label>
+                {{-- "Producto" rotula un texto fijo, no un campo editable: usamos <div> en vez de <label>. --}}
+                <div class="alm-fake-label">Producto</div>
                 <div><strong id="almAjNombre" style="font-size:12.5px;color:#1e293b;"></strong></div>
             </div>
             <div>
-                <label>Saldo según conteo físico</label>
+                <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Dejar vacío si solo cambias el mínimo">
                 <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
                     La diferencia se registra en la bitácora como <b>Auditoría</b>.
                 </small>
             </div>
             <div>
-                <label>Stock mínimo (alerta)</label>
+                <label for="almAjMinimo">Stock mínimo (alerta)</label>
                 {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
                 <input type="number" id="almAjMinimo" min="0.001" step="any" placeholder="Vacío = sin alerta">
             </div>
-            <div><label>Motivo / observaciones de la auditoría</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Ej: conteo trimestral, merma detectada…"></div>
+            <div><label for="almAjMotivo">Motivo / observaciones de la auditoría</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Ej: conteo trimestral, merma detectada…"></div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -551,9 +553,9 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAlmacenModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div><label>Nombre</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
+            <div><label for="almNvNombre">Nombre</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
             <div>
-                <label>Tipo</label>
+                <label for="almNvTipoDisplay">Tipo</label>
                 <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
                     <input type="hidden" id="almNvTipo" value="PROYECTO">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
@@ -576,16 +578,16 @@
                     </div>
                 </div>
             </div>
-            <div><label>Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional" autocomplete="off"></div>
+            <div><label for="almNvUbicacion">Ubicación</label><input type="text" id="almNvUbicacion" maxlength="150" placeholder="Opcional" autocomplete="off"></div>
             {{-- Almacenista: nombre del responsable del almacén. Aparecerá como "Entregado por:"
                  en la Nota de Entrega VID-FO-GEN-019. --}}
             <div>
-                <label>Almacenista</label>
+                <label for="almNvAlmacenista">Almacenista</label>
                 <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Ej: Juan Pérez (almacenista)" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "Entregado por:" en la Nota de Entrega.</div>
             </div>
             <div id="almNvFrentesWrap">
-                <label>Frentes que usan este almacén</label>
+                <label for="almNvFrentesInput">Frentes que usan este almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
                     {{-- El trigger es un input directo: clic lo abre y escribir filtra la lista de abajo. --}}
                     <div class="multiselect-trigger" tabindex="-1" role="button" aria-haspopup="listbox" style="padding:0;display:flex;align-items:center;overflow:hidden;cursor:text;">
@@ -627,18 +629,18 @@
         </div>
         <div class="alm-modal-body">
             <div style="display:flex;gap:10px;">
-                <div style="flex:1;"><label>Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)" autocomplete="off"></div>
+                <div style="flex:1;"><label for="almProdCodigo">Código</label><input type="text" id="almProdCodigo" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Número (opcional)" autocomplete="off"></div>
                 <div style="flex:0.9;position:relative;">
-                    <label>Unidad de Medida *</label>
+                    <label for="almProdUm">Unidad de Medida *</label>
                     <input type="text" id="almProdUm" maxlength="20" placeholder="UND, KG, LTS..." value="UND" autocomplete="off"
                            oninput="window.almProdUmSuggest()" onfocus="window.almProdUmSuggest(true)"
                            style="width:100%;box-sizing:border-box;">
                     <div class="alm-suggest-inline" id="almProdUmSuggestBox" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
                 </div>
             </div>
-            <div><label>Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
+            <div><label for="almProdNombre">Descripción / producto *</label><input type="text" id="almProdNombre" maxlength="200" autocomplete="off" placeholder="Ej: TORNILLO HEXAGONAL 1/2&quot;"></div>
             <div>
-                <label>Categoría</label>
+                <label for="almProdCategoria">Categoría</label>
                 <div class="alm-cat-field">
                     <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
                            placeholder="Elige una de la lista o escribe una nueva…"
@@ -653,7 +655,7 @@
             {{-- Ubicación física en bodega (texto libre). Se muestra como tooltip al pasar el
                  mouse sobre la fila en la tabla — mismo patrón que DETALLE_UBICACION en /admin/equipos. --}}
             <div>
-                <label>Ubicación en bodega</label>
+                <label for="almProdUbicacion">Ubicación en bodega</label>
                 <input type="text" id="almProdUbicacion" maxlength="150" autocomplete="off"
                        placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Aparecerá como tooltip al pasar el mouse sobre la fila.</div>
@@ -778,7 +780,7 @@
                      muestran como botones bajo el input. --}}
                 <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
                     <div>
-                        <label class="alm-nota-label">Proyecto *</label>
+                        <label class="alm-nota-label" for="almSalidaProyecto">Proyecto *</label>
                         {{-- Custom-dropdown estándar de la app: hidden #almSalidaProyecto guarda el ID
                              (lo que lee el JS de envío); el trigger tiene un input data-filter-search
                              que filtra los items mientras el usuario escribe (autocomplete nativo del
@@ -809,7 +811,7 @@
                         </div>
                     </div>
                     <div style="position:relative;">
-                        <label class="alm-nota-label">Contrato N°</label>
+                        <label class="alm-nota-label" for="almSalidaContrato">Contrato N°</label>
                         <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100" placeholder="Ej: CTR-2026-0042" autocomplete="off">
                         <div id="almSalidaContratoSug" style="display:none;margin-top:5px;flex-wrap:wrap;gap:5px;"></div>
                     </div>
@@ -818,7 +820,7 @@
                 {{-- FECHA DE ENTREGA | RQ N° | Solicitante (3 columnas en una sola fila — como en el Excel) --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
                     <div>
-                        <label class="alm-nota-label">Fecha de entrega</label>
+                        <label class="alm-nota-label" for="almSalidaFecha">Fecha de entrega</label>
                         {{-- Wrapper clickable: cualquier click en el campo abre el calendario
                              (en navegadores que soportan showPicker). El ícono va con pointer-events:none
                              para que el click pase al wrapper y no se "coma" el evento. --}}
@@ -829,18 +831,18 @@
                         </div>
                     </div>
                     <div>
-                        <label class="alm-nota-label">RQ N°</label>
+                        <label class="alm-nota-label" for="almSalidaRq">RQ N°</label>
                         <input type="text" id="almSalidaRq" class="alm-nota-input" maxlength="100" placeholder="Ej: RQ-001" autocomplete="off">
                     </div>
                     <div>
-                        <label class="alm-nota-label">Solicitante</label>
+                        <label class="alm-nota-label" for="almSalidaSolicitante">Solicitante</label>
                         <input type="text" id="almSalidaSolicitante" class="alm-nota-input" maxlength="200" placeholder="Nombre y apellido" autocomplete="off">
                     </div>
                 </div>
 
                 {{-- DEPARTAMENTO (full width) --}}
                 <div style="margin-bottom:10px;">
-                    <label class="alm-nota-label">Departamento</label>
+                    <label class="alm-nota-label" for="almSalidaDepartamento">Departamento</label>
                     <input type="text" id="almSalidaDepartamento" class="alm-nota-input" maxlength="150" placeholder="Ej: Mantenimiento" autocomplete="off">
                 </div>
 
@@ -848,7 +850,7 @@
                      (mapea a MOTIVO en BD). Se envía siempre en el flujo unificado: tanto
                      en SALIDA pura (consumo) como en SALIDA vía traspaso a otro proyecto. --}}
                 <div>
-                    <label class="alm-nota-label">Observaciones</label>
+                    <label class="alm-nota-label" for="almSalidaMotivo">Observaciones</label>
                     <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc." autocomplete="off">
                 </div>
             </div>
