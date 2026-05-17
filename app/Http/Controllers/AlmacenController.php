@@ -365,6 +365,25 @@ class AlmacenController extends Controller
     public function storeProducto(Request $request)
     {
         $data = $this->validarProducto($request);
+
+        // Stock inicial opcional: si el cliente pasa `id_almacen`, el producto queda
+        // registrado en ese almacén (fila en almacen_stock) — así aparece de inmediato
+        // en la tabla de inventario aunque tenga saldo 0, sin esperar a un primer
+        // movimiento. Si además pasa `cantidad_inicial > 0`, se registra una ENTRADA
+        // en el kardex (requiere permiso almacen.movimiento).
+        $extra = $request->validate([
+            'id_almacen'       => 'nullable|integer|exists:almacenes,ID_ALMACEN',
+            'cantidad_inicial' => 'nullable|numeric|min:0',
+        ]);
+        $idAlmacen   = $extra['id_almacen']       ?? null;
+        $cantInicial = (float) ($extra['cantidad_inicial'] ?? 0);
+
+        if ($cantInicial > 0 && ! $request->user()?->can('almacen.movimiento')) {
+            return response()->json([
+                'message' => 'No tienes permiso para registrar movimientos de inventario (cantidad inicial > 0).',
+            ], 403);
+        }
+
         // Código opcional: si no se escribió, se genera automáticamente (PRD-####).
         // Si se escribió, se respeta tal cual (sirve para importar los códigos que la gente ya tiene en su Excel).
         if (empty($data['CODIGO'])) {
@@ -372,7 +391,25 @@ class AlmacenController extends Controller
         }
         $data['CREADO_POR'] = optional($request->user())->ID_USUARIO;
 
-        $producto = ProductoInventario::create($data);
+        $producto = DB::transaction(function () use ($data, $idAlmacen, $cantInicial, $request) {
+            $producto = ProductoInventario::create($data);
+
+            if ($idAlmacen) {
+                // Crea la fila almacen_stock con CANTIDAD=0 si no existía (idempotente).
+                $this->inventario->asegurarStock($idAlmacen, $producto->ID_PRODUCTO);
+
+                if ($cantInicial > 0) {
+                    $this->inventario->registrarEntrada(
+                        $idAlmacen,
+                        $producto->ID_PRODUCTO,
+                        $cantInicial,
+                        ['referencia' => 'STOCK INICIAL', 'motivo' => 'Stock inicial al crear el producto']
+                    );
+                }
+            }
+
+            return $producto;
+        });
 
         return response()->json(['message' => 'Producto creado.', 'producto' => $producto], 201);
     }

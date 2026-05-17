@@ -660,6 +660,14 @@
                        placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Aparecerá como tooltip al pasar el mouse sobre la fila.</div>
             </div>
+            {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
+                 el producto queda registrado en el almacén actual con stock 0 (asegurarStock).
+                 Si > 0, además se registra una ENTRADA en el kardex como "STOCK INICIAL". --}}
+            <div id="almProdCantInicialWrap">
+                <label for="almProdCantInicial">Cantidad inicial</label>
+                <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Si lo dejas vacío o en 0, el producto se registrará en este almacén con stock 0.</div>
+            </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -1881,6 +1889,7 @@
         delete el('almProductoModal').dataset.idProducto;
         el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
         if (el('almProdUbicacion')) el('almProdUbicacion').value = '';
+        if (el('almProdCantInicial')) el('almProdCantInicial').value = '';
         var cs = el('almProdCatSuggest'); if (cs) cs.innerHTML = '';
         var us = el('almProdUmSuggestBox'); if (us) { us.innerHTML = ''; us.classList.remove('open'); }
         almProdCatHide();
@@ -1894,6 +1903,10 @@
         almResetProductoModal();
         el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Guardar';
         el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
+        // Mostrar "Cantidad inicial" solo si hay un almacén seleccionado (el producto se
+        // registrará en ese almacén). Si no hay, ocultamos el campo (no tiene sentido).
+        var wrap = el('almProdCantInicialWrap');
+        if (wrap) wrap.style.display = almSelAlmacenActual() ? '' : 'none';
         open('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
     };
     window.almEditarProducto = function (id, cod, nom, um, cat, ubicacion) {
@@ -1904,6 +1917,9 @@
         el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = true; el('almProdCodigo').style.background = '#f1f5f9';
         el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
         if (el('almProdUbicacion')) el('almProdUbicacion').value = ubicacion || '';
+        // Cantidad inicial: solo aplica al CREAR. Al editar se oculta — el saldo se cambia
+        // desde el modal de Ajuste / Entrada / Salida.
+        var wrap = el('almProdCantInicialWrap'); if (wrap) wrap.style.display = 'none';
         open('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
     window.almGuardarProducto = function () {
@@ -1919,18 +1935,37 @@
             showErr('almProdError', 'El código debe ser un número entero positivo.');
             return;
         }
+        // Cantidad inicial (solo al CREAR y solo si hay almacén seleccionado).
+        var idAlmacen = !id ? almSelAlmacenActual() : '';
+        var cantInicial = 0;
+        if (!id && idAlmacen) {
+            var rawCant = val('almProdCantInicial');
+            if (rawCant !== '' && rawCant != null) {
+                var nCant = Number(rawCant);
+                if (!isFinite(nCant) || nCant < 0) {
+                    showErr('almProdError', 'La cantidad inicial debe ser un número ≥ 0.');
+                    return;
+                }
+                cantInicial = nCant;
+            }
+        }
         // Limpiar errores visuales antes de enviar
         almProdFieldErr('almProdCodigo', false);
         almProdFieldErr('almProdNombre', false);
         pre();
+        var bodyCreate = { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null };
+        if (idAlmacen) {
+            bodyCreate.id_almacen      = parseInt(idAlmacen, 10);
+            bodyCreate.cantidad_inicial = cantInicial;
+        }
         fetch(id ? ROUTE_PROD_ITEM(id) : ROUTE_PROD, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             body: JSON.stringify(id
                 // Al editar: CODIGO no se incluye → el backend conserva el existente (evita conflicto con regex).
                 ? { NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null }
-                // Al crear: CODIGO se incluye (número o null para auto-generar PRD-XXXX).
-                : { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null }
+                // Al crear: CODIGO + opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
+                : bodyCreate
             )
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
