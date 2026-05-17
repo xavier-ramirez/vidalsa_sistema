@@ -1659,8 +1659,6 @@ class EquipoController extends Controller
 
         // Invalidar caché SIEMPRE (antes del return, aplique a JSON o redirect)
         foreach ([
-            'dashboard_total_alerts',
-            'dashboard_expired_list_v3',
             'marcas_list_form_v3',
             'modelos_list_form_v3',
             'anios_list_form_v3',
@@ -1971,9 +1969,7 @@ class EquipoController extends Controller
                 \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $oldFileIdToDelete);
             }
 
-            // Clear Dashboard Caches to update alerts immediately
-            \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
-            \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
+            // Clear Dashboard Cache to update alerts immediately
             if (auth()->check()) {
                 \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
             }
@@ -2212,11 +2208,7 @@ class EquipoController extends Controller
             $cfg['autor'] => null,
         ]);
 
-        // ── 3. Invalidar caches del dashboard ──────────────────────────────
-        \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
-        \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
-
-        // ── 4. Audit log ───────────────────────────────────────────────────
+        // ── 3. Audit log ───────────────────────────────────────────────────
         \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'delete_' . $type, [
             'archivo_url' => $oldUrl,
         ]);
@@ -2356,8 +2348,6 @@ class EquipoController extends Controller
         );
 
         // Clear Dashboard Cache to update alerts immediately
-        \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
-        \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
         if (auth()->check()) {
             \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . auth()->id());
         }

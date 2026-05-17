@@ -334,8 +334,8 @@ class MovilizacionController extends Controller
 
             $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
 
-            // Crear movilizaciones una por una (dispara MovilizacionObserver, devuelve IDs exactos
-            // sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
+            // Crear movilizaciones una por una para obtener IDs exactos
+            // (sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
             $movilizacionIds = [];
             foreach ($equipos as $equipo) {
                 $mov = Movilizacion::create([
@@ -357,10 +357,6 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
-            // No llamamos triggerDashboardCacheRefresh aqui: Movilizacion::create()
-            // dispara MovilizacionObserver::created (afterCommit=true) que ya
-            // refresca los caches. recepcionDirecta SI lo necesita porque usa
-            // insert() que no dispara eventos.
 
             return response()->json([
                 'success'          => true,
@@ -433,7 +429,6 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
-            $this->triggerDashboardCacheRefresh();
 
             $ubicacionTexto = $frenteDestino->NOMBRE_FRENTE;
             if ($request->filled('DETALLE_UBICACION')) {
@@ -896,19 +891,6 @@ class MovilizacionController extends Controller
             ->update(['valor' => $nuevoValor, 'updated_at' => now()]);
 
         return $nuevoValor;
-    }
-
-    /**
-     * Fuerza la actualizaciÃ³n del cache (Ãºtil cuando se usa Movilizacion::insert que no dispara eventos Eloquent).
-     */
-    private function triggerDashboardCacheRefresh()
-    {
-        try {
-            $observer = new \App\Observers\MovilizacionObserver();
-            $observer->created(new Movilizacion());
-        } catch (\Exception $e) {
-            \Log::error('Error refrescando cache de dashboard en inserciones masivas: ' . $e->getMessage());
-        }
     }
 
 } // END MovilizacionController

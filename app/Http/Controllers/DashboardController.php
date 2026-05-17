@@ -89,15 +89,6 @@ class DashboardController extends Controller
             // 2. Specific Google Drive Circuit Breaker (Redundant but safe)
             \Illuminate\Support\Facades\Cache::forget('google_drive_connection_error');
 
-            // 3. Clear Dashboard Caches
-            // (alert caches are now user-scoped direct queries — no shared keys to clear)
-            // Legacy keys kept for safety:
-            \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
-            \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
-            \Illuminate\Support\Facades\Cache::forget('dashboard_movilizaciones_hoy');
-            \Illuminate\Support\Facades\Cache::forget('dashboard_pendientes');
-            \Illuminate\Support\Facades\Cache::forget('dashboard_recent_activity');
-
             return back()->with('success', 'Sistema reiniciado correctamente. Las conexiones han sido restablecidas.');
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Reset Cache Error: ' . $e->getMessage());
@@ -330,9 +321,7 @@ class DashboardController extends Controller
         $doc->$fechaField  = now();
         $doc->save();
 
-        // Limpiar toda la caché relevante del dashboard
-        \Illuminate\Support\Facades\Cache::forget('dashboard_total_alerts');
-        \Illuminate\Support\Facades\Cache::forget('dashboard_expired_list_v3');
+        // Limpiar caché del dashboard del usuario que inicia la gestión
         \Illuminate\Support\Facades\Cache::forget('dashboard_user_data_' . $user->ID_USUARIO);
 
         return response()->json(['success' => true, 'message' => 'Gestión iniciada correctamente.']);

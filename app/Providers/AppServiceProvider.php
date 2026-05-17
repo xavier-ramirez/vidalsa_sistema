@@ -7,11 +7,7 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use App\Models\Equipo;
-use App\Models\Movilizacion;
-use App\Models\Documentacion;
 use App\Observers\EquipoObserver;
-use App\Observers\MovilizacionObserver;
-use App\Observers\DocumentacionObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -68,8 +64,6 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Equipo::observe(EquipoObserver::class);
-        Movilizacion::observe(MovilizacionObserver::class);
-        Documentacion::observe(DocumentacionObserver::class);
 
         // View Composer: inyecta $traspasosPorRecibir en el layout base para que el badge
         // del menú "Almacén → Recepción de Materiales" se vea desde CUALQUIER página
