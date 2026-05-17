@@ -72,7 +72,7 @@
                 @if($m->NUMERO_NOTA)
                     <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
                        target="_blank" rel="noopener"
-                       style="color:#0067b1;text-decoration:none;font-weight:700;font-family:monospace;font-size:12px;"
+                       style="color:#334155;text-decoration:none;font-weight:700;font-family:monospace;font-size:12px;"
                        title="Abrir Nota de Entrega PDF">{{ $m->NUMERO_NOTA }}</a>
                 @endif
                 @if($m->REFERENCIA)

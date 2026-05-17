@@ -24,15 +24,15 @@
                 onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
                 title="{{ $row->movimientos }} {{ $row->movimientos == 1 ? 'movimiento' : 'movimientos' }} de salida — {{ $fmt($row->total) }} {{ $row->um }}">
                 <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;">
-                    <span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;word-break:break-word;">
+                    <span style="color:#334155;font-size:11px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;word-break:break-word;">
                         {{ $row->nombre }}
                     </span>
-                    <span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#fef2f2;color:#b91c1c;padding:2px 8px;border-radius:4px;white-space:nowrap;">
+                    <span style="font-weight:700;font-size:12.5px;background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:4px;white-space:nowrap;">
                         {{ $fmt($row->total) }} {{ $row->um }}
                     </span>
                 </div>
                 <div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
-                    <div style="width:{{ $pct }}%;height:100%;background:linear-gradient(90deg,#f87171 0%,#ef4444 100%);"></div>
+                    <div style="width:{{ $pct }}%;height:100%;background:linear-gradient(90deg,#4ade80 0%,#22c55e 100%);"></div>
                 </div>
             </li>
         @endforeach
