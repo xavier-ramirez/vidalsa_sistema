@@ -1422,11 +1422,10 @@ class AlmacenController extends Controller
      * almacen y stock disponible IGUAL que el endpoint real, asi un preview
      * exitoso garantiza que el "Confirmar" no va a rebotar. NO escribe en BD:
      * arma los datos y movimientos en memoria desde los lookups (almacen,
-     * frente, productos) y delega en renderNotaEntregaPdfBinary() con
-     * $esPreview=true (que pinta el watermark "VISTA PREVIA").
+     * frente, productos) y delega en renderNotaEntregaPdfBinary().
      *
      * El "Confirmar" del frontend llama al endpoint regular movimientos-lote y
-     * obtiene el PDF final (sin watermark) por la ruta normal.
+     * obtiene el PDF final por la ruta normal.
      */
     public function previewSalidaPdf(Request $request)
     {
@@ -1524,10 +1523,6 @@ class AlmacenController extends Controller
      *   • notaEntregaPdf()  → con datos cargados de movimientos persistidos.
      *   • previewSalidaPdf() → con datos del request, sin commit (vista previa).
      *
-     * Cuando $esPreview = true, NotaEntregaPDF pinta un watermark "VISTA PREVIA"
-     * diagonal sobre cada pagina para que un usuario que imprima/descargue el
-     * preview por error no lo confunda con un documento oficial registrado.
-     *
      * Retorna el binario del PDF (string) para que el caller decida headers y
      * disposition. Usa Output('','S') que devuelve el contenido como string sin
      * escribir a stdout/headers.
@@ -1538,7 +1533,6 @@ class AlmacenController extends Controller
         // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
         // Header() lo lee de esta propiedad pública.
         $pdf->numeroNota = $datos['numero_nota'] ?? '';
-        $pdf->isPreview  = $esPreview;
         $pdf->setPrintHeader(true);
         // Footer desactivado: ya no imprimimos "Sistema de Gestión VIDALSA" al pie.
         // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
@@ -1855,8 +1849,6 @@ class NotaEntregaPDF extends \TCPDF
 {
     /** N° de Nota (NE-YYYY-NNNN) — lo inyecta el controller antes de generar el PDF. */
     public string $numeroNota = '';
-    /** true → pinta watermark diagonal "VISTA PREVIA" sobre cada pagina. */
-    public bool $isPreview = false;
 
     public function Header()
     {
@@ -1962,31 +1954,6 @@ class NotaEntregaPDF extends \TCPDF
         $this->SetFont('helvetica', '', 7);
         // x=12, y=6 → margen izquierdo y top del cabezote.
         $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
-
-        // ── Watermark "VISTA PREVIA" ────────────────────────────────────────────
-        // Solo cuando el PDF es de preview (antes de confirmar el registro). Dejamos
-        // un texto diagonal grande en gris claro semitransparente atravesando la
-        // pagina, asi una impresion/descarga accidental NO se confunde con el
-        // documento oficial registrado en el sistema.
-        //
-        // Implementacion: SetAlpha + StartTransform/Rotate/StopTransform + Cell.
-        // La rotacion va centrada en el medio de A4 (105,148.5) con angulo -45°.
-        // SetTextColor gris claro (220) + Alpha 0.35 da un efecto "watermark sutil"
-        // que se ve detras del contenido sin estorbar la lectura.
-        if ($this->isPreview) {
-            $this->StartTransform();
-            $this->SetAlpha(0.35);
-            $this->SetTextColor(220, 220, 220);
-            $this->SetFont('helvetica', 'B', 80);
-            // Pivote = centro de A4. Rotamos -45° (de abajo-izq a arriba-der).
-            $this->Rotate(-45, 105, 148.5);
-            // Cell centrada: ancho/alto grandes, sin border, alineacion center.
-            $this->SetXY(0, 130);
-            $this->Cell(210, 30, 'VISTA PREVIA', 0, 0, 'C', false, '', 0, false, 'T', 'M');
-            $this->SetAlpha(1);
-            $this->SetTextColor(0, 0, 0);
-            $this->StopTransform();
-        }
     }
 
     public function Footer()

@@ -196,8 +196,8 @@ Route::middleware(['auth'])->group(function () {
             // Entrega) y AJUSTE (Auditoría de Inventario del modal de detalles).
             Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote');
             // Preview PDF de la Nota de Entrega ANTES de confirmar la salida — genera
-            // el documento con marca de agua "VISTA PREVIA" sin tocar BD. Si el
-            // usuario aprieta "Confirmar" se llama el endpoint regular movimientos-lote.
+            // el documento sin tocar BD para que el usuario lo revise antes de guardar.
+            // Si aprieta "Confirmar" se llama el endpoint regular movimientos-lote.
             Route::post  ('almacen/salida/preview-pdf',           [App\Http\Controllers\AlmacenController::class, 'previewSalidaPdf'])->name('almacen.salida.preview');
             // Nota de Entrega (PDF, VID-FO-GEN-019).
             //   ?numero=NE-2026-0001  → recupera el lote por NUMERO_NOTA (usado por el modal

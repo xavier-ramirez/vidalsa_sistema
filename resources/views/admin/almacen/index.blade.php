@@ -962,8 +962,8 @@
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almSalidaModal')">Cancelar</button>
             {{-- "Vista previa" en vez de "Registrar salida": el flujo de salida ahora pasa
-                 por el modal #almPreviewModal donde el usuario revisa el PDF (con marca de
-                 agua VISTA PREVIA) y aprieta "Confirmar y registrar" para que sea oficial. --}}
+                 por el modal #almPreviewModal donde el usuario revisa el PDF y aprieta
+                 "Confirmar y registrar" para que sea oficial. --}}
             <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaVistaPrevia()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">visibility</i>Vista previa</button>
         </div>
     </div>
@@ -971,11 +971,11 @@
 
 {{-- ── Modal "Vista previa de la Nota de Entrega" ────────────────────────────────
      Aparece después de "Vista previa" del modal de salida. Carga el PDF preview
-     (con watermark) en un iframe y ofrece dos acciones:
+     en un iframe y ofrece dos acciones:
        · Editar          → vuelve al modal de salida con todos los datos preservados
                             (almCerrar solo oculta el modal, no destruye los inputs).
        · Confirmar y registrar → POST a /almacen/movimientos-lote (endpoint real) →
-                                  guarda en BD y abre el PDF final sin watermark.
+                                  guarda en BD y abre el PDF final.
      ── --}}
 <div id="almPreviewModal" class="alm-modal-overlay">
     <div class="alm-modal alm-modal-wide" style="max-width:1080px;max-height:96vh;">
@@ -2601,9 +2601,9 @@
     }
 
     // Vista previa: POSTea al endpoint /salida/preview-pdf (NO commitea nada),
-    // recibe el binario del PDF (con watermark "VISTA PREVIA") y lo carga en el
-    // iframe del modal #almPreviewModal. Guarda el payload en almSalidaDraft
-    // para que "Confirmar y registrar" lo reuse exactamente igual.
+    // recibe el binario del PDF y lo carga en el iframe del modal #almPreviewModal.
+    // Guarda el payload en almSalidaDraft para que "Confirmar y registrar" lo
+    // reuse exactamente igual.
     window.almSalidaVistaPrevia = function () {
         var payload = almSalidaConstruirPayload();
         if (!payload) return;
@@ -2633,7 +2633,12 @@
             if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} }
             almPreviewBlobUrl = URL.createObjectURL(blob);
             var frame = el('almPreviewFrame');
-            if (frame) frame.src = almPreviewBlobUrl;
+            // Fragment hint del PDF viewer integrado de Chrome/Edge/Firefox: oculta
+            // toolbar (barra de imprimir/descargar/menu), navpanes (panel lateral
+            // de paginas) y la scrollbar — el preview se ve "como pdf empotrado",
+            // sin chrome del navegador. Safari ignora estos params (no es soportado
+            // oficialmente) pero no rompe nada.
+            if (frame) frame.src = almPreviewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
             // Ocultar el modal de salida (sin destruir sus inputs — almCerrar solo
             // quita .open, los valores quedan listos para "Editar").
             almCerrar('almSalidaModal');
@@ -2668,7 +2673,7 @@
 
     // "Confirmar y registrar" del preview: POSTea el draft al endpoint real
     // (movimientos-lote) que SI guarda en BD, asigna NUMERO_NOTA y devuelve la
-    // URL del PDF final (sin watermark). Mismo manejo de respuesta que tenia el
+    // URL del PDF final. Mismo manejo de respuesta que tenia el
     // viejo almSalidaConfirmar — pero el payload viene del draft, no se reconstruye
     // (asi el PDF final corresponde exactamente al que el usuario aprobo).
     window.almPreviewConfirmar = function () {
@@ -2686,7 +2691,7 @@
             unpre();
             if (res.ok) {
                 // Exito: cerramos ambos modales, limpiamos seleccion y el draft, recargamos
-                // la tabla y abrimos el PDF FINAL (sin watermark) en el visor in-page.
+                // la tabla y abrimos el PDF FINAL en el visor in-page.
                 almCerrar('almPreviewModal');
                 almCerrar('almSalidaModal');
                 if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
