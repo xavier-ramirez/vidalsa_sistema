@@ -209,18 +209,14 @@ class TraspasoController extends Controller
                 ->with('error', 'No tienes un almacén destino asignado para registrar entradas.');
         }
 
-        // Productos activos con CODIGO/NOMBRE/UM/CATEGORIA: alimentan el autocomplete
-        // del cliente (sin endpoint AJAX adicional — la lista cabe holgadamente en el
-        // HTML inicial). CATEGORIA va incluida porque el nuevo flujo permite filtrar
-        // las sugerencias por categoria antes de buscar.
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
-        // Lista de categorias distintas (no-null, ordenadas) — alimenta el <select>
-        // de filtro de categoria de la pantalla de captura.
-        $categorias = $productosLista->pluck('CATEGORIA')->filter()->unique()->sort()->values();
+        // Productos activos con CODIGO/NOMBRE/UM: alimentan el autocomplete del
+        // cliente (sin endpoint AJAX adicional — la lista cabe holgadamente en el
+        // HTML inicial). El autocomplete matchea por CODIGO o NOMBRE, no necesita
+        // CATEGORIA ni UBICACION.
+        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
         return view('admin.almacen.recepcion.nueva', [
             'almacenDestino' => $almacenDestino,
             'productosLista' => $productosLista,
-            'categorias'     => $categorias,
         ]);
     }
 

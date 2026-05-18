@@ -199,13 +199,9 @@
             <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:6px;pointer-events:none;">event</i>
             <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
         </div>
-        {{-- Nota de Entrega (#entNotaEntrega) ya NO va aqui — se movio al header
-             de la pagina junto al titulo, mismo patron que /admin/almacen. --}}
         <input type="text" id="entNotas" class="ent-input" maxlength="500" placeholder="Observación">
-        {{-- Atajo a la BANDEJA de envios en transito. Antes vivia en el page-title-card;
-             se movio aqui para que el header de la pagina quede ligero y la accion
-             secundaria conviva con la fila de datos. ?force=1 esquiva el redirect
-             del controller (GLOBAL → /recepcion/nueva). --}}
+        {{-- Atajo a la BANDEJA de envios en transito. ?force=1 esquiva el redirect
+             del controller que manda al GLOBAL a /recepcion/nueva por default. --}}
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
            class="ent-envios-btn"
            title="Ver los envíos en tránsito hacia otros almacenes pendientes de confirmación">
@@ -261,9 +257,6 @@
             <tbody id="entLineasTbody"></tbody>
         </table>
     </div>
-
-    {{-- El campo "Notas" se movio a la cabecera junto con Proveedor / Fecha / Nota
-         de Entrega — ya no hay textarea independiente debajo de la tabla. --}}
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
 
@@ -488,7 +481,6 @@
                 CODIGO:      p.CODIGO || '',
                 NOMBRE:      p.NOMBRE || nombre,
                 UM:          p.UM || 'UND',
-                CATEGORIA:   p.CATEGORIA || '',
             });
             entInsertarLinea({
                 id_producto: p.ID_PRODUCTO,
