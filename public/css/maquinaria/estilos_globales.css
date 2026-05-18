@@ -1143,6 +1143,38 @@ body {
     font-weight: 600;
 }
 
+/* Filtro "Almacén" del header en los tres modulos del modulo Almacen
+   (/admin/almacen, /admin/almacen/movimientos, /admin/almacen/notas):
+   el .dropdown-item global queda comprimido (35px alto, padding apretado)
+   cuando los nombres de almacen son largos del tipo
+   "ALMACEN PRINCIPAL CARACAS (Principal)". Aqui los hacemos mas respirables
+   solo en estos tres dropdowns (no tocamos el componente global). */
+#almSelAlmacenDropdown .dropdown-item,
+#almMovFiltroAlmacen   .dropdown-item,
+#almNotFiltroAlmacen   .dropdown-item {
+    height: auto;
+    min-height: 40px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    margin: 2px 0;
+    line-height: 1.3;
+    white-space: normal;
+    word-break: break-word;
+}
+#almSelAlmacenDropdown .dropdown-item:hover,
+#almMovFiltroAlmacen   .dropdown-item:hover,
+#almNotFiltroAlmacen   .dropdown-item:hover {
+    background: #e1effa;
+    color: var(--maquinaria-blue, #0067b1);
+}
+#almSelAlmacenDropdown .dropdown-item.selected,
+#almMovFiltroAlmacen   .dropdown-item.selected,
+#almNotFiltroAlmacen   .dropdown-item.selected {
+    background: #dbeafe;
+    color: var(--maquinaria-blue, #0067b1);
+    font-weight: 700;
+}
+
 .page-item.active .page-link {
     background-color: var(--maquinaria-blue);
     color: #fff;

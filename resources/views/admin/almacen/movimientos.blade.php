@@ -39,7 +39,7 @@
         {{-- Filtro de almacén junto al título (mismo patrón visual que /admin/almacen) --}}
         <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
             <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
-            <div style="width:240px;min-width:180px;max-width:100%;">
+            <div style="width:280px;min-width:200px;max-width:100%;">
                 {{-- NO se aplica .filter-active aunque haya almacén seleccionado: el filtro
                      queda con estilo neutro (sin tinte azul) porque junto al título se ve
                      como parte del encabezado, no como un filtro avanzado por accionar.
