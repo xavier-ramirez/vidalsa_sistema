@@ -2893,6 +2893,41 @@
         var cActivo = c && ((c.value && c.value.trim()) || (c.dataset.active && c.dataset.active.trim()));
         if (bActivo || cActivo || almBuscarPickedId) window.almCargar();
     })();
+
+    // ── Posicion del Consolidado de Inventario en mobile ─────────────────────
+    // Por default el sidebar es SIBLING del .admin-card dentro de .page-layout-grid,
+    // asi que cuando el grid colapsa a 1 columna en mobile el sidebar queda DEBAJO
+    // de toda la tabla. El cliente lo quiere ENTRE el boton Acciones y la tabla.
+    // Solucion: mover el nodo .counter-sidebar adentro del .admin-card (justo
+    // despues de #almFilters) cuando el viewport es ≤768px, y restaurarlo al
+    // grid en desktop. El selector global `.page-layout-grid .counter-sidebar`
+    // sigue matcheando (descendant combinator) — las reglas mobile no cambian.
+    (function placeSidebarMobile() {
+        var BREAKPOINT = 768;
+        function place() {
+            var sidebar = document.querySelector('.counter-sidebar');
+            var filters = document.getElementById('almFilters');
+            var grid    = document.querySelector('.page-layout-grid');
+            if (!sidebar || !filters || !grid) return;
+            if (window.innerWidth <= BREAKPOINT) {
+                // Mobile: dentro de admin-card, justo despues de #almFilters.
+                if (sidebar.previousElementSibling !== filters) {
+                    filters.parentNode.insertBefore(sidebar, filters.nextSibling);
+                }
+            } else {
+                // Desktop: re-anclar al .page-layout-grid (despues del admin-card).
+                if (sidebar.parentNode !== grid) {
+                    grid.appendChild(sidebar);
+                }
+            }
+        }
+        place();
+        var resizeTimer;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(place, 100);
+        });
+    })();
 })();
 </script>
 @endsection
