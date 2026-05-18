@@ -1340,7 +1340,10 @@ class AlmacenController extends Controller
         // Header() lo lee de esta propiedad pública.
         $pdf->numeroNota = $hd->NUMERO_NOTA ?? '';
         $pdf->setPrintHeader(true);
-        $pdf->setPrintFooter(true);
+        // Footer desactivado: ya no imprimimos "Sistema de Gestión VIDALSA" al pie.
+        // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
+        // reporte interno — el footer del sistema sobraba.
+        $pdf->setPrintFooter(false);
         // top=30: header arranca en y=6 con altura ~24mm (header=68pt) -> bottom = 30mm
         // EXACTOS. Sin gap entre el borde inferior del cabezote y el borde superior de la
         // tabla "PROYECTO/CONTRATO/..." -> las dos lineas se ven como una sola continua.

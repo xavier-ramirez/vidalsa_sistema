@@ -74,12 +74,21 @@
     /* Filas seleccionadas a las que les falta "Cant. salida" tras tocar "Registrar salida".
        Persistente hasta que el usuario teclee una cantidad > 0 o deseleccione el producto.
        Sobrevive a recargas AJAX del tbody (vía almAplicarFaltantes en almSelApplyToVisible). */
-    #almTableBody tr.alm-row.alm-row-missing-cant td { background:#fecaca !important; color:#991b1b; }
-    #almTableBody tr.alm-row.alm-row-missing-cant td:first-child { box-shadow: inset 6px 0 0 #b91c1c; }
-    #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
-    #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant { color:#991b1b !important; font-weight:700; }
+    /* MISMO tratamiento visual para 2 condiciones distintas que bloquean la salida:
+         · .alm-row-missing-cant    -> usuario no llenó la cantidad (vacia o <= 0)
+         · .alm-row-exceeds-stock   -> cantidad tecleada > saldo disponible
+       Ambas usan el mismo rojo + barra izquierda + outline en el stepper. */
+    #almTableBody tr.alm-row.alm-row-missing-cant td,
+    #almTableBody tr.alm-row.alm-row-exceeds-stock td { background:#fecaca !important; color:#991b1b; }
+    #almTableBody tr.alm-row.alm-row-missing-cant td:first-child,
+    #almTableBody tr.alm-row.alm-row-exceeds-stock td:first-child { box-shadow: inset 6px 0 0 #b91c1c; }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-cant-stepper,
+    #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-cant-stepper { border-color:#b91c1c !important; background:#fff !important; box-shadow:0 0 0 2px rgba(220,38,38,0.25); }
+    #almTableBody tr.alm-row.alm-row-missing-cant .alm-row-cant,
+    #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-row-cant { color:#991b1b !important; font-weight:700; }
     /* Pulso intenso para llamar la atención al primer pintado. */
-    #almTableBody tr.alm-row.alm-row-missing-cant { animation: almMissingPulse 0.9s ease-out 1; }
+    #almTableBody tr.alm-row.alm-row-missing-cant,
+    #almTableBody tr.alm-row.alm-row-exceeds-stock { animation: almMissingPulse 0.9s ease-out 1; }
     @keyframes almMissingPulse {
         0%   { background:#f87171; }
         100% { background:transparent; }
@@ -1390,6 +1399,12 @@
     // "Registrar salida". Sobrevive a recargas del tbody y se limpia cuando el usuario
     // teclea una cantidad válida, deselecciona el producto, o limpia toda la selección.
     var almFaltantes = {};
+    // IDs de productos cuya cantidad tecleada EXCEDE el saldo disponible. Misma mecánica
+    // que almFaltantes pero distinto motivo de bloqueo: aquí el usuario SÍ puso un número,
+    // pero ese número es mayor que el stock del almacén. Mantenemos lo escrito (no recortamos)
+    // para que el usuario vea el valor inválido y lo corrija — la fila se pinta de rojo y el
+    // modal "Registrar salida" queda bloqueado hasta que la cantidad baje al saldo o menos.
+    var almExceden = {};
     // Modo "filtro local" activado desde el contador de la barra flotante: cuando es true,
     // se ocultan vía CSS (display:none) las filas que NO están en almSeleccion. Cliente puro
     // — no recarga datos del backend, solo esconde filas en el DOM actual. Se desactiva
@@ -1407,6 +1422,23 @@
         delete almFaltantes[id];
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (tr) tr.classList.remove('alm-row-missing-cant');
+    }
+    function almAplicarExceden() {
+        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
+            var id = tr.getAttribute('data-id-producto');
+            tr.classList.toggle('alm-row-exceeds-stock', !!almExceden[id]);
+        });
+    }
+    function almLimpiarExceden(id) {
+        if (!almExceden[id]) return;
+        delete almExceden[id];
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        if (tr) tr.classList.remove('alm-row-exceeds-stock');
+    }
+    function almMarcarExceden(id) {
+        almExceden[id] = true;
+        var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
+        if (tr) tr.classList.add('alm-row-exceeds-stock');
     }
     // Filtro local "Solo seleccionados": esconde/muestra filas según almSeleccion.
     function almAplicarSoloSel() {
@@ -1467,8 +1499,10 @@
     // Stepper +/−: incrementa/decrementa la cantidad del producto de esa fila. Mínimo 1
     // (no permite 0 ni negativos — el "−" se queda en 1 cuando ya está en 1). El paso es
     // entero porque en general se entregan unidades enteras; si el usuario necesita
-    // decimales puede teclearlos directamente en el input. El "+" se topa al stock disponible
-    // (no se puede solicitar más de lo que hay) y avisa con un toast cuando intenta excederlo.
+    // decimales puede teclearlos directamente en el input. Si la cantidad supera el stock,
+    // NO se recorta: se permite teclear/subir el valor y la fila se pinta de rojo
+    // (.alm-row-exceeds-stock) para que el usuario vea el error y corrija. El modal de
+    // "Registrar salida" queda bloqueado hasta que la cantidad vuelva a ser <= saldo.
     window.almRowCantStep = function (btn, dir) {
         var tr = btn.closest('tr.alm-row'); if (!tr) return;
         var inp = tr.querySelector('.alm-row-cant'); if (!inp || inp.disabled) return;
@@ -1477,14 +1511,12 @@
         var cur = parseFloat(String(inp.value || '0').replace(',', '.')) || 0;
         var next = cur + (dir > 0 ? 1 : -1);
         if (next < 1) next = 1;
-        var saldo = parseFloat(s.saldo) || 0;
-        if (dir > 0 && next > saldo) {
-            next = saldo;
-            toast('La cantidad de salida no puede ser mayor que el stock disponible (' + saldo + (s.um ? ' ' + s.um : '') + ') de "' + (s.nombre || ('#' + id)) + '".', 'error');
-        }
         inp.value = String(next);
         s.cantidad = String(next);
-        if (next > 0) almLimpiarFaltante(id);
+        var saldo = parseFloat(s.saldo) || 0;
+        if (next > saldo) almMarcarExceden(id);
+        else              almLimpiarExceden(id);
+        if (next > 0)     almLimpiarFaltante(id);
     };
     // Bloquea en el teclado los caracteres prohibidos (signos, "e", letras) para que el
     // input solo acepte dígitos y un único separador decimal. Permite teclas de control
@@ -1521,29 +1553,33 @@
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
         });
-        // Repintar también el highlight rojo de las filas con cantidad faltante
-        // y re-aplicar el filtro "solo seleccionados" si está activo.
+        // Repintar también el highlight rojo de las filas con cantidad faltante o que
+        // exceden el stock, y re-aplicar el filtro "solo seleccionados" si está activo.
         almAplicarFaltantes();
+        almAplicarExceden();
         almAplicarSoloSel();
     }
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         almSeleccion = {};
         almFaltantes = {};
+        almExceden = {};
         almSoloSel = false; // sin selección, el filtro local no tiene sentido
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, false);
             tr.classList.remove('alm-row-missing-cant');
+            tr.classList.remove('alm-row-exceeds-stock');
             tr.style.display = '';
         });
         var btn = el('almBulkCounter'); if (btn) btn.classList.remove('is-filtering');
         almSelRefreshBar();
     };
     // Handler del input de cantidad en cada fila — guarda en almSeleccion (sobrevive a
-    // recargas del tbody). Sanitiza (sin letras ni negativos) y recorta al stock disponible
-    // mostrando un toast si el usuario intenta exceder el saldo del almacén.
-    // Para evitar avisar varias veces seguidas por la misma fila usamos un debounce simple.
-    var _almCantToastT = {};
+    // recargas del tbody). Sanitiza (sin letras ni negativos) PERO NO recorta al stock:
+    // si el usuario teclea más que el saldo disponible, dejamos el valor tal cual y
+    // pintamos la fila en rojo (.alm-row-exceeds-stock). El bloqueo del modal "Registrar
+    // salida" se hace en almSelAccion(); aquí solo marcamos visualmente el error para que
+    // el usuario vea exactamente qué número tecleó y pueda corregirlo sin perder dígitos.
     window.almRowCantInput = function (inp) {
         var tr = inp.closest('tr.alm-row'); if (!tr) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
@@ -1555,25 +1591,16 @@
         var parts = raw.split('.');
         if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
 
-        var c = parseFloat(raw);
-        var saldo = parseFloat(s.saldo) || 0;
-        var excede = false;
-        if (isFinite(c) && c > saldo) {
-            // Recortar al stock disponible y notificar al usuario.
-            raw = String(saldo);
-            c = saldo;
-            excede = true;
-        }
         if (raw !== inp.value) inp.value = raw;
         s.cantidad = raw;
 
-        if (excede) {
-            if (_almCantToastT[id]) clearTimeout(_almCantToastT[id]);
-            _almCantToastT[id] = setTimeout(function () {
-                toast('La cantidad de salida no puede ser mayor que el stock disponible (' + saldo + (s.um ? ' ' + s.um : '') + ') de "' + (s.nombre || ('#' + id)) + '".', 'error');
-                _almCantToastT[id] = null;
-            }, 120);
-        }
+        var c = parseFloat(raw);
+        var saldo = parseFloat(s.saldo) || 0;
+        // Marcar/desmarcar exceso de stock. Solo aplica si tecleó un número finito > 0,
+        // de lo contrario es "faltante" — esa otra condición la chequea almSelAccion al
+        // intentar abrir el modal (no queremos pintar rojo apenas se vacía el input).
+        if (isFinite(c) && c > 0 && c > saldo) almMarcarExceden(id);
+        else                                   almLimpiarExceden(id);
         // Si ahora la cantidad es válida (mayor que cero), limpiar el resaltado rojo "faltante".
         if (isFinite(c) && c > 0) almLimpiarFaltante(id);
     };
@@ -1585,7 +1612,7 @@
         if (e.target.closest('[data-no-toggle]')) return;
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
-        if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); almLimpiarFaltante(id); }
+        if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); almLimpiarFaltante(id); almLimpiarExceden(id); }
         else {
             almSeleccion[id] = {
                 codigo: tr.getAttribute('data-codigo') || '',
@@ -1613,23 +1640,53 @@
         if (typeof window.almAbrirSalidaModal !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
-        // Bloquear apertura del modal si alguna fila seleccionada no tiene cantidad válida.
-        // El usuario debe llenar la columna "Cant. salida" en la tabla antes de pasar al
-        // formulario de Nota de Entrega. Las filas faltantes se resaltan en ROJO de forma
-        // persistente (sobrevive a recargas/filtros) hasta que el usuario teclee una cantidad
-        // válida, deseleccione el producto, o limpie toda la selección.
+        // Bloquear apertura del modal si alguna fila seleccionada (a) excede el stock o
+        // (b) no tiene cantidad válida. Las dos condiciones se chequean por separado para
+        // dar mensajes específicos, pero AMBAS pintan la fila de rojo de forma persistente
+        // (sobrevive a recargas/filtros) hasta que el usuario corrija — teclee una cantidad
+        // <= saldo, deseleccione el producto, o limpie toda la selección.
+        //
+        // El orden importa: primero exceden (saldo insuficiente), luego faltan (vacío). Si
+        // un producto está en ambos estados imposibles, ganaría el de exceso, pero por la
+        // lógica del input ese caso no ocurre (un input vacío NO marca exceso).
+        almExceden = {};
         almFaltantes = {};
-        var faltan = [];
+        var exceden = [];
+        var faltan  = [];
         Object.keys(almSeleccion).forEach(function (id) {
             var s = almSeleccion[id] || {};
             var c = parseFloat(String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim());
+            var saldo = parseFloat(s.saldo) || 0;
             if (!isFinite(c) || c <= 0) {
                 faltan.push({ id: id, nombre: s.nombre || ('#' + id) });
                 almFaltantes[id] = true;
+            } else if (c > saldo) {
+                exceden.push({ id: id, nombre: s.nombre || ('#' + id), cant: c, saldo: saldo, um: s.um || '' });
+                almExceden[id] = true;
             }
         });
+        // Repintar SIEMPRE: si el usuario corrigió antes de pulsar el botón, las marcas rojas
+        // antiguas se borran solas; si quedan errores, se vuelven a pintar las filas afectadas.
+        almAplicarFaltantes();
+        almAplicarExceden();
+        if (exceden.length) {
+            // Llevar la primera fila con exceso a la vista + foco para corrección rápida.
+            var firstExId = exceden[0].id;
+            var firstExTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + firstExId + '"]');
+            if (firstExTr) {
+                firstExTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var firstExInp = firstExTr.querySelector('.alm-row-cant');
+                if (firstExInp) { firstExInp.focus(); firstExInp.select && firstExInp.select(); }
+            }
+            // Detalle por producto: "Aceite 10W30 (5 > 2 UND)". Ayuda a ver de un vistazo
+            // cuánto sobra en cada caso sin tener que abrir cada fila.
+            var det = exceden.map(function (e) {
+                return e.nombre + ' (' + e.cant + ' > ' + e.saldo + (e.um ? ' ' + e.um : '') + ')';
+            }).join(', ');
+            toast('La cantidad de salida supera el stock disponible en: ' + det + '. Corrige antes de registrar la salida.', 'error');
+            return;
+        }
         if (faltan.length) {
-            almAplicarFaltantes();
             // Llevar la primera fila faltante a la vista + foco en su input de cantidad.
             var firstId = faltan[0].id;
             var firstTr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + firstId + '"]');
