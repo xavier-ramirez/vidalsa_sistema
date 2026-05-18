@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\MojibakeFix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -102,11 +103,26 @@ class MovimientoInventario extends Model
         return sprintf('NE-%d-%04d', $year, $siguiente);
     }
 
+    /**
+     * Casts:
+     *  - CANTIDAD*: decimales con 3 posiciones (matching las columnas DECIMAL(15,3)).
+     *  - FECHA: Carbon date.
+     *  - MOTIVO / SOLICITANTE / DEPARTAMENTO / NUMERO_CONTRATO / NUMERO_RQ / NOTAS:
+     *    auto-decode mojibake (UTF-8 doble-encoded) al leer — strings limpios pasan
+     *    sin tocar. Asi el kardex y los PDFs muestran tildes correctas sin tener
+     *    que llamar a un helper manualmente en cada vista.
+     */
     protected $casts = [
         'CANTIDAD'            => 'decimal:3',
         'CANTIDAD_ANTERIOR'   => 'decimal:3',
         'CANTIDAD_RESULTANTE' => 'decimal:3',
         'FECHA'               => 'date',
+        'MOTIVO'              => MojibakeFix::class,
+        'SOLICITANTE'         => MojibakeFix::class,
+        'DEPARTAMENTO'        => MojibakeFix::class,
+        'NUMERO_CONTRATO'     => MojibakeFix::class,
+        'NUMERO_RQ'           => MojibakeFix::class,
+        'NOTAS'               => MojibakeFix::class,
     ];
 
     // ── Relaciones ───────────────────────────────────────────────

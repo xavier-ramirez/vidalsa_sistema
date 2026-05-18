@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\MojibakeFix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -39,6 +40,20 @@ class Almacen extends Model
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',
+    ];
+
+    /**
+     * Auto-decode mojibake (UTF-8 doble-encoded) en los campos de texto que pueden
+     * traer datos legacy mal encodeados. Aplica solo si detecta el patron; strings
+     * limpios se devuelven intactos. Asi cualquier vista, PDF o JSON ve el texto
+     * correcto sin tener que llamar a un helper manualmente.
+     */
+    protected $casts = [
+        'NOMBRE'            => MojibakeFix::class,
+        'UBICACION'         => MojibakeFix::class,
+        'ALMACENISTA'       => MojibakeFix::class,
+        'CARGO_ALMACENISTA' => MojibakeFix::class,
+        'NOTAS'             => MojibakeFix::class,
     ];
 
     // ── Relaciones ───────────────────────────────────────────────

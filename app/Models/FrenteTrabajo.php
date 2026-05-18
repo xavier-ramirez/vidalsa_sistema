@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\MojibakeFix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -51,11 +52,15 @@ class FrenteTrabajo extends Model
     ];
 
     /**
-     * CONTRATOS se almacena como JSON en BD; se accede como array PHP.
-     * Cada elemento es un string (ej: ["CTR-2026-0042", "CTR-2026-0099"]).
+     * - CONTRATOS: JSON en BD → array PHP (ej: ["CTR-2026-0042", "CTR-2026-0099"]).
+     * - NOMBRE_FRENTE / UBICACION: cast MojibakeFix auto-decodea UTF-8 doble-encoded
+     *   ("ASIGNACIÃ"N UPATA" → "ASIGNACIÓN UPATA") al leer. Aplica solo si detecta
+     *   el patron mojibake; strings limpios se devuelven intactos.
      */
     protected $casts = [
-        'CONTRATOS' => 'array',
+        'CONTRATOS'     => 'array',
+        'NOMBRE_FRENTE' => MojibakeFix::class,
+        'UBICACION'     => MojibakeFix::class,
     ];
 
     public function usuarios()

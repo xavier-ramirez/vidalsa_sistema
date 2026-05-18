@@ -1811,24 +1811,14 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Detecta y corrige mojibake (UTF-8 doble-codificado). Patron tipico:
-     * "ASIGNACIÓN" -> "ASIGNACIÃ"N"  cuando los bytes UTF-8 originales se
-     * interpretaron como Windows-1252 y luego se re-encodearon como UTF-8.
-     *
-     * Estrategia conservadora: solo dispara la conversion si el string contiene
-     * la secuencia "Ã[\x80-\xBF]" (signature de UTF-8 mal interpretado). Asi
-     * los strings ya correctos no se tocan.
-     *
-     * Si la conversion produce algo invalido (no es UTF-8) devolvemos el
-     * original — nunca corrompemos datos buenos.
+     * Wrapper sobre App\Casts\MojibakeFix::fix() — el helper centralizado que
+     * decodea mojibake (UTF-8 doble-codificado). Se mantiene la firma local
+     * para no tocar las llamadas internas; toda la logica vive en una sola
+     * clase reusada por los model casts (FrenteTrabajo, Almacen, etc.).
      */
     private function decodeMojibake(?string $s): string
     {
-        if ($s === null || $s === '') return (string) $s;
-        if (!preg_match('/Ã[\x80-\xBF]/', $s)) return $s;
-        $decoded = @mb_convert_encoding($s, 'ISO-8859-1', 'UTF-8');
-        if ($decoded === false || !mb_check_encoding($decoded, 'UTF-8')) return $s;
-        return $decoded;
+        return (string) \App\Casts\MojibakeFix::fix($s);
     }
 }
 

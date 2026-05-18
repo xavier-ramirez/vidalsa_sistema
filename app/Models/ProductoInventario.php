@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\MojibakeFix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -29,6 +30,18 @@ class ProductoInventario extends Model
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',
+    ];
+
+    /**
+     * Auto-decode mojibake (UTF-8 doble-encoded) en los campos de texto. Datos
+     * legacy importados desde Excel/CSV mal configurado guardan tildes como
+     * "Ã"" (mojibake); el cast los devuelve correctos al leer.
+     */
+    protected $casts = [
+        'NOMBRE'    => MojibakeFix::class,
+        'CATEGORIA' => MojibakeFix::class,
+        'UBICACION' => MojibakeFix::class,
+        'NOTAS'     => MojibakeFix::class,
     ];
 
     // ── Relaciones ───────────────────────────────────────────────
