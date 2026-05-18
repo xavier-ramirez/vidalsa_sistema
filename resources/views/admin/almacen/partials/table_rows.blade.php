@@ -49,12 +49,13 @@
             $minArg  = $minimo !== null ? $minimo : 'null';
         @endphp
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} {{ $puedeMover ? 'alm-row-clickable' : '' }}"
-            data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}">
-            <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
+            data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
+            data-bajo="{{ $bajo ? '1' : '0' }}">
+            <td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
                  `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php. --}}
-            <td style="font-weight:600;color:#1e293b;position:relative;">
+            <td class="alm-td-nombre" style="font-weight:600;color:#1e293b;position:relative;">
                 {{ $p->NOMBRE }}
                 @if(!empty($p->UBICACION))
                     <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
@@ -63,11 +64,11 @@
                     </div>
                 @endif
             </td>
-            <td style="text-align:center;color:#475569;">{{ $p->UM }}</td>
-            <td style="color:#475569;">{{ $p->CATEGORIA ?: '—' }}</td>
+            <td class="alm-td-um" style="text-align:center;color:#475569;">{{ $p->UM }}</td>
+            <td class="alm-td-cat" style="color:#475569;">{{ $p->CATEGORIA ?: '—' }}</td>
             {{-- El color del texto siempre es negro (#0f172a). El stock bajo se indica con
                  el fondo rojo de la fila (.alm-row-bajo) y el icono ⚠ amarillo. --}}
-            <td style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
+            <td class="alm-td-stock" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
                 {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
@@ -81,7 +82,7 @@
                  stock disponible y muestran un toast si el usuario intenta excederlo.
                  La validación de "cantidad > 0" en cada fila se vuelve a verificar al
                  confirmar la Nota de Entrega (las filas faltantes se resaltan en rojo). --}}
-            <td style="text-align:center;white-space:nowrap;width:100px;" data-no-toggle>
+            <td class="alm-td-cant" style="text-align:center;white-space:nowrap;width:100px;" data-no-toggle>
                 <div class="alm-cant-stepper" style="display:inline-flex;align-items:stretch;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;background:#f1f5f9;height:30px;">
                     <input type="text" inputmode="decimal" class="alm-row-cant" placeholder="0"
                            disabled autocomplete="off"
@@ -101,7 +102,7 @@
                 </div>
             </td>
             @endif
-            <td style="text-align:center;white-space:nowrap;width:60px;" data-no-toggle>
+            <td class="alm-td-det" style="text-align:center;white-space:nowrap;width:60px;" data-no-toggle>
                 <button type="button" class="btn-details-mini" title="Ver detalles del producto"
                         onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }},'{{ $ubiJs }}')">
                     <i class="material-icons" style="font-size:18px;">visibility</i>

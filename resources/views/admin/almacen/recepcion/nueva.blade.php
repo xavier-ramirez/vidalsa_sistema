@@ -71,14 +71,16 @@
     .ent-input::placeholder { color:#64748b; opacity:1; }
     select.ent-input { cursor:pointer; }
 
-    /* ── Fila de captura: [Buscar] [Cantidad] siempre LADO A LADO ─────────────
-       Uso CSS GRID `1fr auto` en vez de flex — comportamiento mas predecible
-       en todos los browsers/viewports. Columna 1 (buscador) absorbe el espacio
-       restante, columna 2 (cantidad stepper) toma su tamano natural (~114px).
-       En ningun ancho la Cantidad se va a otra fila — el grid no hace wrap. */
-    .ent-capt-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:flex-start; position:relative; }
-    .ent-capt-row > .ent-search-field { min-width:0; }
-    .ent-capt-row > .ent-cant-stepper { width:auto; }
+    /* ── Fila de captura: [Buscar] [Cantidad] SIEMPRE lado a lado ───────────
+       Flex en vez de grid: mas predecible en mobile. El buscador absorbe
+       el espacio sobrante (flex:1 1 0; min-width:0) y el stepper nunca
+       se va a otra fila (flex:0 0 auto; min-width:114px).
+       IMPORTANTE: NO tiene position:relative — el anclaje del dropdown
+       es .ent-search-field, que SÍ la tiene. Agregar position:relative
+       al row creaba un stacking-context que acotaba el z-index del dropdown. */
+    .ent-capt-row { display:flex; gap:10px; align-items:flex-start; }
+    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; }
+    .ent-capt-row > .ent-cant-stepper { flex:0 0 auto; min-width:114px; }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
@@ -102,7 +104,10 @@
         background:#fff; border:1px solid #e2e8f0; border-radius:10px;
         box-shadow:0 12px 24px -8px rgba(15,23,42,0.20);
         max-height:300px; overflow-y:auto; padding:4px;
-        z-index:60; display:none;
+        /* z-index alto: debe quedar ENCIMA del stepper y de cualquier otro
+           elemento — el valor 60 anterior no era suficiente cuando el padre
+           tenia position:relative (creaba nuevo stacking context). */
+        z-index:9000; display:none;
     }
     .ent-suggest.open { display:block; }
     .ent-suggest-item { display:flex; flex-direction:column; gap:1px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
@@ -212,26 +217,35 @@
          apretar Enter se crea automaticamente (codigo auto, UM=UND) y la linea
          igual se agrega — sin friccion. --}}
     <div class="ent-capt-row">
+
+        {{-- ── Columna 1: buscador de producto ── --}}
         <div class="ent-search-field">
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
                    placeholder="Buscar por código (serial) o descripción…"
                    oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
+            {{-- Badge del producto seleccionado: tapa el input con position:absolute --}}
             <div id="entSelectedBadge" class="ent-selected-badge">
                 <span class="cod" id="entSelectedCod"></span>
                 <span id="entSelectedNom"></span>
                 <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>
             </div>
+            {{-- Dropdown de sugerencias: z-index:9000, NO se superpone al stepper --}}
             <div id="entSuggest" class="ent-suggest"></div>
         </div>
-        <div class="ent-cant-stepper" title="Cantidad (Enter agrega)">
+
+        {{-- ── Columna 2: stepper de cantidad (RECONSTRUIDO) ── --}}
+        {{-- flex:0 0 auto + min-width:114px garantizan que nunca baje a una segunda
+             fila ni se encoja. Se ancla al top del buscador (align-items:flex-start). --}}
+        <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
             <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
-                   placeholder="0" autocomplete="off"
+                   placeholder="Cant." autocomplete="off"
                    onkeydown="window.entCantKey(event)">
             <div class="ent-cant-btns">
-                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)" tabindex="-1" title="+1">▲</button>
+                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>
                 <button type="button" class="ent-cant-btn" onclick="window.entCantStep(-1)" tabindex="-1" title="−1">▼</button>
             </div>
         </div>
+
     </div>
 
     {{-- Tabla de productos ya agregados — estilo clon de .alm-table del modulo

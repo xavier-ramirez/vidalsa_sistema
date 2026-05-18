@@ -273,6 +273,118 @@
         .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
         .counter-sidebar h4 .material-icons { font-size: 15px !important; }
         .counter-sidebar li span { font-size: 9.5px !important; }
+
+        /* ═══════════════════════════════════════════════════════════
+           MOBILE CARD LAYOUT — Inventario de Almacén
+           Cada <tr.alm-row> se convierte en una tarjeta GRID:
+             ┌──────────────────────────────────────────────────┐
+             │ #00042  NOMBRE DEL PRODUCTO (bold)               │  ← codigo + nombre (misma banda)
+             ├──────────────────────────────────────────────────┤
+             │ 5.000 ⚠   UND   [▲0▼]            [👁]          │  ← stock | UM | cant | det
+             └──────────────────────────────────────────────────┘
+           ═══════════════════════════════════════════════════════════ */
+
+        .alm-table-wrap { overflow-x: visible !important; border: none !important; border-radius: 0 !important; }
+        .alm-table { min-width: 0 !important; display: block !important; }
+        .alm-table thead { display: none !important; }
+        .alm-table tbody { display: flex !important; flex-direction: column !important; gap: 10px !important; }
+
+        .alm-table tr.alm-row {
+            display: grid !important;
+            grid-template-columns: auto 1fr auto auto !important;
+            grid-template-areas:
+                "codigo nombre nombre nombre"
+                "stock  um     cant   det  " !important;
+            gap: 0 8px !important;
+            background: #fff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 14px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07) !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        .alm-table tr.alm-row.alm-row-bajo { border-left: 4px solid #f59e0b !important; }
+
+        .alm-table tr.alm-row td {
+            display: flex !important;
+            align-items: center !important;
+            border: none !important;
+            padding: 4px 6px !important;
+            background: transparent !important;
+            font-size: 13px !important;
+            white-space: normal !important;
+            min-width: 0 !important;
+        }
+        .alm-table tr.alm-row td .tooltip-bubble { display: none !important; }
+
+        /* Banda de cabecera compartida: código + nombre */
+        .alm-table tr.alm-row td.alm-td-codigo,
+        .alm-table tr.alm-row td.alm-td-nombre {
+            background: #f1f5f9 !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            line-height: 1.35 !important;
+        }
+        .alm-table tr.alm-row td.alm-td-codigo {
+            grid-area: codigo !important;
+            font-size: 11px !important;
+            font-family: monospace !important;
+            font-weight: 700 !important;
+            color: #64748b !important;
+        }
+        .alm-table tr.alm-row td.alm-td-stock {
+            grid-area: stock !important;
+            font-size: 18px !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            justify-content: flex-end !important;
+            gap: 4px !important;
+        }
+        .alm-table tr.alm-row td.alm-td-cat {
+            grid-area: cat !important;
+            font-size: 11px !important;
+            color: #64748b !important;
+            gap: 3px !important;
+        }
+        .alm-table tr.alm-row td.alm-td-cat::before {
+            content: "Cat: ";
+            font-weight: 800;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: #94a3b8;
+        }
+        .alm-table tr.alm-row td.alm-td-um {
+            grid-area: um !important;
+            font-size: 10.5px !important;
+            font-weight: 700 !important;
+            color: #94a3b8 !important;
+            justify-content: flex-end !important;
+            text-transform: uppercase !important;
+        }
+        .alm-table tr.alm-row td.alm-td-cant {
+            grid-area: cant !important;
+            padding-top: 6px !important;
+        }
+        .alm-table tr.alm-row td.alm-td-det {
+            grid-area: det !important;
+            justify-content: flex-end !important;
+            padding-top: 6px !important;
+        }
+        /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta */
+        .alm-table tbody tr:not(.alm-row) {
+            display: block !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .alm-table tbody tr:not(.alm-row) td {
+            display: block !important;
+            text-align: center !important;
+            border: none !important;
+            padding: 36px 16px !important;
+            font-size: 14px !important;
+        }
     }
 </style>
 
@@ -448,7 +560,7 @@
     </div>
 
     {{-- ── Tabla ── --}}
-    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
+    <div class="alm-table-wrap" style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
         <table class="alm-table">
             <thead>
                 <tr>
