@@ -849,9 +849,10 @@
                      del modal ("Registrar salida") ya identifica suficientemente el formulario. --}}
 
                 {{-- PROYECTO (ancho) | CONTRATO N° (estrecho) — misma fila.
-                     Contrato N° con sugerencias derivadas del proyecto: si el frente elegido
-                     tiene 1 solo contrato registrado se autocompleta; si tiene varios, se
-                     muestran como botones bajo el input. --}}
+                     Contrato N° es input + caret (igual patron que "Categoria" del modal de
+                     producto): al elegir proyecto destino, el dropdown se abre automaticamente
+                     con los contratos registrados de ese frente — el usuario elige uno, escribe
+                     uno nuevo, o deja en blanco. --}}
                 <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
                     <div>
                         {{-- El for= apunta al input VISIBLE (data-filter-search) en vez de al
@@ -1401,8 +1402,8 @@
     window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
         if (id === 'almSelAlmacenDropdown') almCargar();
-        // Modal "Registrar salida": al elegir proyecto destino, refrescar sugerencias
-        // de "Contrato N°" (autollena si hay 1, muestra chips si hay varios).
+        // Modal "Registrar salida": al elegir proyecto destino, auto-abrir el dropdown
+        // de "Contrato N°" con los contratos de ese proyecto (o mensaje "sin contratos").
         if (id === 'almSalidaProyectoDropdown' && typeof window.almSalidaOnProyectoChange === 'function') {
             window.almSalidaOnProyectoChange();
         }
@@ -2438,9 +2439,11 @@
         if (!sel) return;
         var idF  = sel.value;
         almSalContratosActuales = (window.almFrenteContratos || {})[idF] || [];
-        // Si la lista estaba abierta y cambiaron los contratos, repintar al vuelo.
-        var box = el('almSalidaContratoSug');
-        if (box && box.classList.contains('open')) window.almSalidaContratoSuggest();
+        // Auto-abrir la lista de contratos al elegir proyecto: justo despues de seleccionar
+        // proyecto, lo siguiente que el usuario quiere ver son los contratos disponibles
+        // para ese proyecto. Si no hay contratos, la lista igual se abre con el mensaje
+        // explicativo (no es ruido — confirma al usuario que el dropdown SI esta funcionando).
+        window.almSalidaContratoSuggest();
     };
     window.almSalidaConfirmar = function () {
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
