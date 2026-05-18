@@ -22,22 +22,24 @@ window.updateSelectedCount = function () {
 
 window.updateFrentesCount = function () {
     const checks = document.querySelectorAll('#frentesSelect input[type="checkbox"]:checked');
-    const span = document.getElementById('frentesSelectedCount');
+    const span  = document.getElementById('frentesSelectedCount');
+    const input = document.getElementById('frentesSearchInput');
     if (!span) return;
-    // Cuando hay frentes seleccionados pintamos los nombres como chips DENTRO del trigger
-    // (en vez de "N frentes seleccionados"). El span se vuelve flex-wrap para que crezca
-    // verticalmente; el chevron del trigger queda fijo a la derecha gracias a `flex:1` aquí.
+    // Chips de frentes seleccionados van DENTRO del trigger, a la izquierda del
+    // input de busqueda. Cuando 0 estan seleccionados, span queda vacio y el
+    // placeholder del input ("Seleccione o escriba frentes...") informa.
     if (checks.length === 0) {
-        span.textContent = 'Seleccione frentes de trabajo...';
-        span.removeAttribute('style');
+        span.innerHTML = '';
+        if (input) input.placeholder = 'Seleccione o escriba frentes...';
         return;
     }
-    span.setAttribute('style', 'display:flex;flex-wrap:wrap;gap:4px;flex:1;min-width:0;');
     const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     span.innerHTML = Array.from(checks).map(c => {
         const name = c.closest('label').querySelector('span').textContent.trim();
         return '<span style="display:inline-flex;align-items:center;background:#e0f2fe;color:#0284c7;font-weight:600;padding:2px 10px;border-radius:999px;font-size:12.5px;line-height:1.6;">' + esc(name) + '</span>';
     }).join('');
+    // Placeholder mas corto cuando ya hay chips — el campo se entiende como "buscar mas".
+    if (input) input.placeholder = 'Buscar...';
 };
 
 // NOTE: selectOption is now in uicomponents.js (single source of truth)

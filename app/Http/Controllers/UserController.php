@@ -151,8 +151,8 @@ class UserController extends Controller
             //                        y confirmar recepcion de traspasos en el destino.
             //
             // Solo el literal en PERMISOS otorga acceso. No hay alias ni atajos.
-            'almacen.productos'  => 'Almacén: Registrar y editar productos del catálogo',
-            'almacen.movimiento' => 'Almacén: Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
+            'almacen.productos'  => 'Registrar y editar productos del catálogo',
+            'almacen.movimiento' => 'Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
             'super.admin'         => 'Acceso Total (Super Admin)',
         ];
     }

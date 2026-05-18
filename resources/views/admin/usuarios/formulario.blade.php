@@ -132,21 +132,29 @@
             <div>
                 <span id="lbl_usuario_frente_title" class="form-label">Frentes Asignados</span>
 
+                {{-- Trigger con input de busqueda inline (mismo patron que Rol Asignado):
+                     - El usuario tipea y filtra .frente-item-opt en vivo.
+                     - Los frentes seleccionados se muestran como chips dentro del mismo
+                       trigger (a la izquierda del input).
+                     - Antes habia un buscador SEPARADO dentro del dropdown — el cliente
+                       lo encontro innecesario; ahora el filtrado vive en el campo
+                       principal y la lista solo muestra los items. --}}
                 <div class="custom-multiselect" id="frentesSelect">
-                    <div class="multiselect-trigger" id="frentesMultiselectTrigger" onclick="toggleDropdown('frentesSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_title frentesSelectedCount" style="cursor: default;">
-                        <span id="frentesSelectedCount">Seleccione frentes de trabajo...</span>
-                        <i class="material-icons">expand_more</i>
+                    <div class="multiselect-trigger" id="frentesMultiselectTrigger"
+                         style="cursor: text; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;"
+                         onclick="document.getElementById('frentesSearchInput').focus(); if(!document.getElementById('frentesSelect').classList.contains('active')) toggleDropdown('frentesSelect', event)"
+                         tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_title">
+                        <span id="frentesSelectedCount" style="display:flex;flex-wrap:wrap;gap:4px;padding-left:8px;"></span>
+                        <input type="text" id="frentesSearchInput"
+                               placeholder="Seleccione o escriba frentes..."
+                               autocomplete="off"
+                               style="flex: 1; min-width: 120px; border: none; background: transparent; padding: 12px 8px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit;"
+                               oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');"
+                               onfocus="document.getElementById('frentesSelect').classList.add('active');"
+                               onclick="event.stopPropagation();">
+                        <i class="material-icons" style="padding-right: 15px; color: var(--maquinaria-gray-text);">expand_more</i>
                     </div>
                     <div class="multiselect-content" id="frentesMultiselectContent">
-                        <div style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; background: white; z-index: 10;">
-                            <div style="display: flex; align-items: center; border: 1px solid #cbd5e0; border-radius: 6px; background: #fbfcfd; padding: 0 8px;">
-                                <i class="material-icons" style="font-size: 16px; color: #94a3b8;">search</i>
-                                <input type="text" placeholder="Buscar frente..." 
-                                       style="flex: 1; border: none; background: transparent; padding: 8px; outline: none; font-size: 13px;" 
-                                       oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');" 
-                                       onclick="event.stopPropagation();">
-                            </div>
-                        </div>
                         @php
                             $rawFrente = old('ID_FRENTE_ASIGNADO', isset($user) ? $user->getRawOriginal('ID_FRENTE_ASIGNADO') : '');
                             $selectedFrentes = is_array($rawFrente)
@@ -207,7 +215,7 @@
                 onclick="event.preventDefault(); if(window.showToast) window.showToast('Acceso denegado: Necesitas el permiso super.admin para guardar cambios de usuarios.', 'error');"
                 @endcannot>
                 <i class="material-icons">save</i>
-                {{ isset($user) ? 'Actualizar Información' : 'Registrar en el Sistema' }}
+                {{ isset($user) ? 'Actualizar' : 'Registrar en el Sistema' }}
             </button>
         </div>
     </form>
