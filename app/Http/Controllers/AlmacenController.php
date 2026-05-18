@@ -211,6 +211,29 @@ class AlmacenController extends Controller
             }
         });
 
+        // ─── Modo "Ver solo seleccionados" del bulk counter ────────────────────────
+        // El frontend manda los IDs ya seleccionados como CSV en `id_producto_in`.
+        // Cuando esta presente, la query se ACOTA EXCLUSIVAMENTE a esos productos e
+        // IGNORA los demas filtros de contenido (search, categoria, id_producto,
+        // solo_bajo, solo_con_saldo). Razon: el usuario quiere ver SU seleccion sin
+        // que se la recorten los filtros que estaban activos cuando seleccionaba
+        // (ej: selecciono 5 productos navegando por 2 categorias distintas → al
+        // activar "solo seleccionados" quiere ver los 5, no la interseccion con la
+        // categoria activa). id_almacen NO se ignora porque la seleccion vive en
+        // el contexto del almacen actual de la tabla.
+        if ($request->filled('id_producto_in')) {
+            $ids = collect(explode(',', (string) $request->input('id_producto_in')))
+                ->map(fn ($s) => (int) trim($s))
+                ->filter(fn ($n) => $n > 0)
+                ->unique()
+                ->values()
+                ->all();
+            if (!empty($ids)) {
+                $q->whereIn('productos_inventario.ID_PRODUCTO', $ids);
+                return $q; // short-circuit: ignoramos los demas filtros
+            }
+        }
+
         // `id_producto`: match EXACTO — lo envía el filtro "Descripción" cuando el usuario
         // hace clic en una sugerencia (quiere VER esa fila concreta, no las similares).
         // Tiene precedencia sobre `search` (que sí hace LIKE %term% con tokens y plural).

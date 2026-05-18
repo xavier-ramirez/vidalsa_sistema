@@ -1069,6 +1069,14 @@
         var cat = valActive('almFiltroCat'); if (cat) p.set('categoria', cat);
         if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
+        // "Ver solo seleccionados" (bulk counter clickado): manda los IDs como CSV. El
+        // backend hace whitelist por estos IDs e IGNORA search/categoria/solo_bajo —
+        // asi el usuario ve TODOS sus seleccionados, incluso si los otros filtros los
+        // habian excluido de la vista cuando seleccionaba. Solo se manda si hay algo
+        // seleccionado (si no, el backend caeria al modo normal sin filtro).
+        if (almSoloSel && typeof almSelCount === 'function' && almSelCount() > 0) {
+            p.set('id_producto_in', Object.keys(almSeleccion).join(','));
+        }
         // reflejar estado "active" en los wrappers
         var setActive = function (sel, on) { var w = sel && sel.closest('.alm-filter'); if (w) w.classList.toggle('active', !!on); };
         setActive(el('almFiltroBuscar'), b); setActive(el('almFiltroCat'), cat && cat !== 'all');
@@ -1153,10 +1161,16 @@
                     var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml;
                 }
                 // URL para compartir — solo en recarga completa (offset no va a la URL).
+                // id_producto_in queda EXCLUIDO porque es estado efimero del bulk counter
+                // (la seleccion vive solo en memoria JS; meterla en la URL confundiria a
+                // quien abra el link: veria los productos pero sin badge de seleccion).
                 if (!append) {
                     try {
                         var cleanU = new URL(ROUTE_INDEX, window.location.origin);
-                        filtros().forEach(function (v, k) { cleanU.searchParams.set(k, v); });
+                        filtros().forEach(function (v, k) {
+                            if (k === 'id_producto_in') return;
+                            cleanU.searchParams.set(k, v);
+                        });
                         window.history.replaceState({}, '', cleanU.toString());
                     } catch (e) {}
                 }
@@ -1521,7 +1535,13 @@
         if (e) { e.preventDefault(); e.stopPropagation(); }
         if (!almSelCount()) { toast('No hay productos seleccionados todavía.', 'error'); return; }
         almSoloSel = !almSoloSel;
-        almAplicarSoloSel();
+        // El glow amarillo del contador (.is-filtering) refleja el estado actual.
+        var btn = el('almBulkCounter');
+        if (btn) btn.classList.toggle('is-filtering', almSoloSel);
+        // Recargar la tabla via AJAX. Cuando solo_sel esta ON, filtros() manda
+        // id_producto_in y el backend hace whitelist por esos IDs (ignorando los
+        // demas filtros de contenido). Cuando esta OFF, vuelve al filtrado normal.
+        almCargar();
         if (almSoloSel) {
             // Llevar al usuario al inicio de la tabla para que vea inmediatamente las filas
             // filtradas (la primera seleccionada). Sin "smooth" para que sea instantáneo.
