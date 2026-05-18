@@ -276,12 +276,17 @@
 
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
-           Cada <tr.alm-row> se convierte en una tarjeta GRID:
+           Cada <tr.alm-row> es una tarjeta GRID 2-col × 4 filas:
              ┌──────────────────────────────────────────────────┐
-             │ #00042  NOMBRE DEL PRODUCTO (bold)               │  ← codigo + nombre (misma banda)
+             │ NOMBRE DEL PRODUCTO  (banda gris, bold, full)    │  ← nombre
              ├──────────────────────────────────────────────────┤
-             │ 5.000 ⚠   UND   [▲0▼]            [👁]          │  ← stock | UM | cant | det
+             │ #00042                          5.000 ⚠          │  ← codigo | stock
+             │ Cat: LUBRICANTES                       UND        │  ← cat    | um
+             │ [▲ 0 ▼ stepper]                       [👁 Det]   │  ← cant   | det
              └──────────────────────────────────────────────────┘
+           CADA celda lleva `grid-area: <nombre>` EXPLICITO. La rev
+           anterior solo asignaba algunas → las demas se auto-colocaban
+           en lugares aleatorios (el cliente lo vio desordenado).
            ═══════════════════════════════════════════════════════════ */
 
         .alm-table-wrap { overflow-x: visible !important; border: none !important; border-radius: 0 !important; }
@@ -291,11 +296,13 @@
 
         .alm-table tr.alm-row {
             display: grid !important;
-            grid-template-columns: auto 1fr auto auto !important;
+            grid-template-columns: 1fr 1fr !important;
             grid-template-areas:
-                "codigo nombre nombre nombre"
-                "stock  um     cant   det  " !important;
-            gap: 0 8px !important;
+                "nombre nombre"
+                "codigo stock"
+                "cat    um"
+                "cant   det" !important;
+            gap: 0 !important;
             background: #fff !important;
             border: 1px solid #e2e8f0 !important;
             border-radius: 14px !important;
@@ -303,51 +310,63 @@
             padding: 0 !important;
             overflow: hidden !important;
         }
-        .alm-table tr.alm-row.alm-row-bajo { border-left: 4px solid #f59e0b !important; }
+        .alm-table tr.alm-row.alm-row-bajo { border-left: 4px solid #f59e0b !important; background: #fffbeb !important; }
 
         .alm-table tr.alm-row td {
             display: flex !important;
             align-items: center !important;
             border: none !important;
-            padding: 4px 6px !important;
             background: transparent !important;
-            font-size: 13px !important;
             white-space: normal !important;
             min-width: 0 !important;
+            width: auto !important;
+            font-size: 13px !important;
         }
         .alm-table tr.alm-row td .tooltip-bubble { display: none !important; }
 
-        /* Banda de cabecera compartida: código + nombre */
-        .alm-table tr.alm-row td.alm-td-codigo,
+        /* Fila 1: nombre del producto — banda gris full width */
         .alm-table tr.alm-row td.alm-td-nombre {
+            grid-area: nombre !important;
             background: #f1f5f9 !important;
             border-bottom: 1px solid #e2e8f0 !important;
-            line-height: 1.35 !important;
+            padding: 8px 12px !important;
+            font-size: 13.5px !important;
+            font-weight: 700 !important;
+            color: #1e293b !important;
+            line-height: 1.3 !important;
         }
+
+        /* Fila 2: codigo (monospace, izq) | stock (grande bold, der) */
         .alm-table tr.alm-row td.alm-td-codigo {
             grid-area: codigo !important;
-            font-size: 11px !important;
+            padding: 6px 12px 2px !important;
             font-family: monospace !important;
+            font-size: 12px !important;
             font-weight: 700 !important;
             color: #64748b !important;
         }
         .alm-table tr.alm-row td.alm-td-stock {
             grid-area: stock !important;
-            font-size: 18px !important;
+            padding: 6px 12px 2px !important;
+            font-size: 17px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
             justify-content: flex-end !important;
             gap: 4px !important;
+            text-align: right !important;
         }
+
+        /* Fila 3: cat (con label "Cat:", izq) | um (UND, der, gris) */
         .alm-table tr.alm-row td.alm-td-cat {
             grid-area: cat !important;
-            font-size: 11px !important;
+            padding: 2px 12px 6px !important;
+            font-size: 11.5px !important;
             color: #64748b !important;
-            gap: 3px !important;
+            gap: 4px !important;
         }
         .alm-table tr.alm-row td.alm-td-cat::before {
             content: "Cat: ";
-            font-weight: 800;
+            font-weight: 700;
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.3px;
@@ -355,20 +374,29 @@
         }
         .alm-table tr.alm-row td.alm-td-um {
             grid-area: um !important;
-            font-size: 10.5px !important;
+            padding: 2px 12px 6px !important;
+            font-size: 11px !important;
             font-weight: 700 !important;
             color: #94a3b8 !important;
             justify-content: flex-end !important;
             text-transform: uppercase !important;
         }
+
+        /* Fila 4: stepper de cantidad (izq) | boton ver detalle (der). Borde
+           superior sutil para separar de la info estatica. Si el usuario no
+           tiene permiso almacen.movimiento, alm-td-cant no se renderiza y la
+           celda izquierda queda vacia — det se ve solo a la derecha. */
         .alm-table tr.alm-row td.alm-td-cant {
             grid-area: cant !important;
-            padding-top: 6px !important;
+            padding: 6px 12px 8px !important;
+            border-top: 1px solid #f1f5f9 !important;
+            justify-content: flex-start !important;
         }
         .alm-table tr.alm-row td.alm-td-det {
             grid-area: det !important;
+            padding: 6px 12px 8px !important;
+            border-top: 1px solid #f1f5f9 !important;
             justify-content: flex-end !important;
-            padding-top: 6px !important;
         }
         /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta */
         .alm-table tbody tr:not(.alm-row) {
