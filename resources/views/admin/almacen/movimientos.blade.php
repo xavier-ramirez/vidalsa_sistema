@@ -180,30 +180,36 @@
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Movimientos
            Cada <tr> se convierte en una tarjeta GRID compacta:
-             ┌───────────────────────────────────────┐
-             │ CODIGO: NOMBRE PRODUCTO               │  ← producto (full row)
-             ├───────────────────────────────────────┤
-             │ 18/05/2026          [+ Entrada]       │  ← fecha | tipo
-             │ +5 UND               12 stock         │  ← cantidad | stock
-             ├───────────────────────────────────────┤
-             │ DESTINO        FRENTE NORTE           │  ← destino (full row)
-             │ REF            NE-2026-0001           │  ← ref (full row)
-             └───────────────────────────────────────┘
-           Las celdas pareadas (fecha/tipo, cantidad/stock) NO muestran label —
-           sus valores son auto-explicativos (formato fecha, pill con icono+texto
-           para tipo, signo +/- y UM para cantidad). Destino y Ref si muestran
-           label porque son strings opacos.
+             ┌────────────────────────────────────────────┐
+             │ CODIGO: NOMBRE PRODUCTO                    │  ← producto (full row)
+             ├────────────────────────────────────────────┤
+             │ 18/05/2026                  [+ Entrada]    │  ← fecha | tipo
+             │ +5 UND      12 stock     NE-2026-0001      │  ← cantidad | stock | ref
+             ├────────────────────────────────────────────┤
+             │ DESTINO                                    │  ← destino (full row)
+             │ FRENTE NORTE                               │
+             └────────────────────────────────────────────┘
+           Cliente prefirio REF en la misma fila que cantidad/stock (es un dato
+           "duro" como ellos — numero + indicador, sin texto narrativo) y dejar
+           DESTINO solo en una fila completa (string mas largo, soporta nombre
+           del frente sin truncar). Solo destino lleva data-label visible:
+           cantidad/stock/ref/fecha/tipo son auto-explicativos.
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
         .alm-mov-table, .alm-mov-table tbody { display: block !important; width: 100% !important; }
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
+            /* 3 columnas equitativas (1fr×3): cantidad / stock / ref siempre
+               reciben el mismo ancho. Si usaramos `auto` en la 3a columna un
+               REFERENCIA largo (raro pero posible: "Compra OC-XXXX Materiales
+               Frente N…") podia inflarla y comerse las otras dos celdas. Los
+               textos largos hacen wrap dentro de la columna en vez de romper. */
+            grid-template-columns: 1fr 1fr 1fr !important;
             grid-template-areas:
-                "producto producto"
-                "fecha    tipo"
-                "cantidad stock"
-                "destino  ref" !important;
+                "producto producto producto"
+                "fecha    fecha    tipo"
+                "cantidad stock    ref"
+                "destino  destino  destino" !important;
             gap: 4px 10px !important;
             background: #fff !important;
             border: 1px solid #cbd5e1 !important;
@@ -229,9 +235,9 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha    { grid-area: fecha; }
         .alm-mov-table tr.alm-mov-row td.mv-td-tipo     { grid-area: tipo; justify-content: flex-end; text-align: right; }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad { grid-area: cantidad; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-stock    { grid-area: stock; justify-content: flex-end; text-align: right; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-stock    { grid-area: stock; justify-content: center; text-align: center; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref      { grid-area: ref; justify-content: flex-end; text-align: right; }
         .alm-mov-table tr.alm-mov-row td.mv-td-destino  { grid-area: destino; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref      { grid-area: ref; }
 
         /* Producto: titulo destacado — fondo claro, padding mayor, separador inferior */
         .alm-mov-table tr.alm-mov-row td.mv-td-producto {
@@ -255,11 +261,20 @@
             text-transform: uppercase;
             letter-spacing: 0.3px;
         }
-        /* Destino y Ref: comparten fila en el grid (50% cada uno). Stack vertical
-           label arriba + valor abajo — asi caben en celdas estrechas con strings
-           potencialmente largos (FRENTE NORTE 3, NE-2026-0001…). */
-        .alm-mov-table tr.alm-mov-row td.mv-td-destino,
+        /* Ref: comparte fila con cantidad/stock. Stack vertical (NE-xxxx arriba y
+           REFERENCIA debajo) cuando vienen los dos, alineado a la derecha. Sin
+           label propio: "NE-AAAA-NNNN" es auto-explicativo. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
+            flex-direction: column !important;
+            align-items: flex-end !important;
+            gap: 1px !important;
+            min-width: 0;
+            overflow: hidden;
+        }
+        /* Destino: fila completa al final de la tarjeta, label arriba + valor
+           abajo. Es el unico que conserva data-label (los demas son numericos
+           o pills auto-explicativas). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             flex-direction: column !important;
             align-items: flex-start !important;
             border-top: 1px solid #f1f5f9 !important;
@@ -269,8 +284,7 @@
             overflow: hidden;
             text-align: left !important;
         }
-        .alm-mov-table tr.alm-mov-row td.mv-td-destino::before,
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref::before {
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
             content: attr(data-label);
             font-size: 8.5px;
             font-weight: 700;
