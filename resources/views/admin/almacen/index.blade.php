@@ -99,6 +99,13 @@
     .alm-bulk-counter:hover { transform:scale(1.04); }
     .alm-bulk-counter.is-filtering { box-shadow:0 0 0 2px #fbbf24, 0 0 12px rgba(251,191,36,0.45); border-radius:999px; }
 
+    /* Badges "Con stock" / "Stock bajo" en el header del almacen — cuando uno de los dos
+       filtros esta aplicado, el badge correspondiente se marca como activo (anillo blanco
+       + fondo mas saturado). Asi el usuario VE cual filtro esta filtrando la tabla y puede
+       clickearlo otra vez para apagarlo (toggle). */
+    #almBadgeConSaldo.is-on { background:rgba(34,197,94,0.45) !important; border-color:rgba(255,255,255,0.6) !important; box-shadow:0 0 0 2px rgba(255,255,255,0.5), 0 0 10px rgba(34,197,94,0.55); }
+    #almBadgeBajo.is-on     { background:rgba(245,158,11,0.45) !important; border-color:rgba(255,255,255,0.6) !important; box-shadow:0 0 0 2px rgba(255,255,255,0.5), 0 0 10px rgba(245,158,11,0.55); }
+
     .alm-btn {
         display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
         border-radius: 7px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; margin: 0 1px;
@@ -412,14 +419,14 @@
                     <span style="font-size:12px;opacity:0.8;font-weight:700;margin-top:2px;">PRODUCTOS</span>
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;flex:1;">
-                    <div onclick="window.almFiltrarConSaldo()" title="Solo con saldo"
-                         style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(34,197,94,0.15);padding:6px 2px;border-radius:8px;border:1px solid rgba(34,197,94,0.25);cursor:pointer;">
+                    <div id="almBadgeConSaldo" onclick="window.almFiltrarConSaldo()" title="Solo con saldo (clic para activar/desactivar)"
+                         style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(34,197,94,0.15);padding:6px 2px;border-radius:8px;border:1px solid rgba(34,197,94,0.25);cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s;">
                         <i class="material-icons" style="font-size:18px;color:#22c55e;margin-bottom:2px;">inventory_2</i>
                         <strong id="almStatsConSaldo" style="font-weight:800;font-size:16px;color:white;">{{ $st['con_saldo'] }}</strong>
                         <span style="font-size:10.5px;opacity:0.9;font-weight:700;text-transform:uppercase;">Con stock</span>
                     </div>
-                    <div onclick="window.almFiltrarBajo()" title="Solo stock bajo"
-                         style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(245,158,11,0.18);padding:6px 2px;border-radius:8px;border:1px solid rgba(245,158,11,0.3);cursor:pointer;">
+                    <div id="almBadgeBajo" onclick="window.almFiltrarBajo()" title="Solo stock bajo (clic para activar/desactivar)"
+                         style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(245,158,11,0.18);padding:6px 2px;border-radius:8px;border:1px solid rgba(245,158,11,0.3);cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s;">
                         <i class="material-icons" style="font-size:18px;color:#f59e0b;margin-bottom:2px;">warning</i>
                         <strong id="almStatsBajo" style="font-weight:800;font-size:16px;color:white;">{{ $st['stock_bajo'] }}</strong>
                         <span style="font-size:10.5px;opacity:0.9;font-weight:700;text-transform:uppercase;">Stock bajo</span>
@@ -884,8 +891,21 @@
                     </div>
                     <div style="position:relative;">
                         <label class="alm-nota-label" for="almSalidaContrato">Contrato N°</label>
-                        <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100" placeholder="Ej: CTR-2026-0042" autocomplete="off">
-                        <div id="almSalidaContratoSug" style="display:none;margin-top:5px;flex-wrap:wrap;gap:5px;"></div>
+                        {{-- Input + caret: el caret abre la lista de contratos del proyecto elegido.
+                             El usuario puede (a) elegir uno de la lista, (b) escribir uno nuevo, o
+                             (c) dejarlo en blanco. La lista NO autocompleta al escribir — es solo
+                             el caret + foco lo que la abre, para no estorbar al usuario que ya sabe
+                             el numero. --}}
+                        <div class="alm-cat-field">
+                            <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100"
+                                   placeholder="Ej: CTR-2026-0042 (opcional)" autocomplete="off"
+                                   onfocus="window.almSalidaContratoSuggest(true)"
+                                   onclick="event.stopPropagation(); window.almSalidaContratoSuggest(true);">
+                            <button type="button" class="alm-cat-caret" id="almSalidaContratoCaret" tabindex="-1"
+                                    title="Ver contratos registrados de este proyecto"
+                                    onclick="window.almSalidaContratoToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+                        </div>
+                        <div class="alm-suggest-inline" id="almSalidaContratoSug"></div>
                     </div>
                 </div>
 
@@ -978,8 +998,15 @@
     function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
 
     // ── estado de los filtros que no tienen control visible propio ──
-    var soloConSaldo = false; // alternado desde el atajo "Con stock" del sidebar
-    var soloBajo     = false; // alternado desde el atajo "Stock bajo" del sidebar
+    // Inicializamos LEYENDO la URL: la pagina pudo ser cargada con ?solo_bajo=1 o
+    // ?solo_con_saldo=1 (link directo desde otra pagina, o tras un redirect del backend).
+    // Si no sincronizamos, el render servidor SI los aplica pero la primera llamada AJAX
+    // los pierde silenciosamente (el JS los considera "false" y replaceState los borra de
+    // la URL), dejando al usuario con un filtro fantasma: ve la cuenta del badge en 0 y
+    // ningun resultado, sin pista visual de por que. Sincronizar arregla ese desfase.
+    var _almInitParams = (function () { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); } })();
+    var soloConSaldo = _almInitParams.get('solo_con_saldo') === '1'; // atajo "Con stock"
+    var soloBajo     = _almInitParams.get('solo_bajo')      === '1'; // atajo "Stock bajo"
 
 
 
@@ -1141,12 +1168,31 @@
         if (ci) { ci.value = ''; ci.dataset.active = ''; ci.placeholder = ci.dataset.placeholderEmpty || 'Filtrar por categoría…'; }
         almSuggestHide(); almCatSuggestHide();
         soloBajo = false; soloConSaldo = false;
+        almPintarBadges();
         almBuscarPickedId = null; // descartar match exacto si quedó pegado de un clic previo
         almCargar();
     };
     window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCatSuggestHide(); almCargar(); };
-    window.almFiltrarConSaldo = function () { soloConSaldo = true; soloBajo = false; almCargar(); };
-    window.almFiltrarBajo = function () { soloBajo = true; soloConSaldo = false; almCargar(); };
+    // Los dos badges del header son TOGGLES: clic con el mismo filtro activo lo apaga.
+    // Clic en uno mientras el otro estaba encendido los hace mutuamente exclusivos.
+    // En cualquier caso, almPintarBadges() refleja el estado para que el usuario VEA
+    // cual filtro esta limitando la tabla (anillo blanco + fondo saturado en .is-on).
+    window.almFiltrarConSaldo = function () {
+        soloConSaldo = !soloConSaldo;
+        if (soloConSaldo) soloBajo = false;
+        almPintarBadges(); almCargar();
+    };
+    window.almFiltrarBajo = function () {
+        soloBajo = !soloBajo;
+        if (soloBajo) soloConSaldo = false;
+        almPintarBadges(); almCargar();
+    };
+    function almPintarBadges() {
+        var bcs = el('almBadgeConSaldo'); if (bcs) bcs.classList.toggle('is-on', !!soloConSaldo);
+        var bb  = el('almBadgeBajo');     if (bb)  bb.classList.toggle('is-on',  !!soloBajo);
+    }
+    // Pintar al inicio para reflejar el estado leido de la URL.
+    almPintarBadges();
 
     // ── Autocompletado del filtro "Buscar" (código o descripción), con el look de los desplegables de la app ──
     function almNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
@@ -2321,8 +2367,9 @@
             window.clearDropdownFilter('almSalidaProyectoDropdown');
         }
         var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
-        // Reset de la lista de sugerencias de contrato (se llena al elegir proyecto).
-        var cs = el('almSalidaContratoSug'); if (cs) { cs.style.display = 'none'; cs.innerHTML = ''; }
+        // Reset de la lista desplegable de contratos (se llena al elegir proyecto).
+        var cs = el('almSalidaContratoSug'); if (cs) { cs.classList.remove('open'); cs.innerHTML = ''; }
+        var cc = el('almSalidaContratoCaret'); if (cc) cc.classList.remove('open');
         showErr('almSalidaError', '');
         // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
         // dejo con .active (el helper global focusin auto-abre cuando el input del trigger
@@ -2331,50 +2378,69 @@
         if (ddProy) ddProy.classList.remove('active');
         open('almSalidaModal');
     };
-    // Sugerencias de N° de Contrato segun el frente/proyecto elegido en el modal de salida.
-    // Pinta los contratos del frente actualmente elegido como chips clicables
-    // debajo del input Contrato. Comportamiento unificado:
+    // Lista desplegable de N° de Contrato segun el frente/proyecto elegido en el modal de
+    // salida. Mismo patron visual que el campo "Categoria" del modal de producto:
+    //   - el caret (boton flecha) o el focus en el input abre la lista
+    //   - clic en un item = autocompleta el input (y cierra la lista)
     //   - 0 contratos -> mensaje "este proyecto no tiene contratos registrados"
-    //   - 1+ contratos -> chips clicables (clic = autocompletar el input).
-    // Antes con 1 contrato auto-rellenaba el input sin mostrar nada visible;
-    // ahora SIEMPRE se muestra la lista para que el usuario vea las opciones
-    // y elija (o escriba un contrato distinto si la nota lo requiere).
-    function almSalidaPintarContratos(list) {
-        var box = el('almSalidaContratoSug');
-        var inp = el('almSalidaContrato');
-        if (!box || !inp) return;
-        box.innerHTML = '';
-        if (!list || list.length === 0) {
-            box.style.display = 'block';
-            box.style.cssText = 'display:block;margin-top:5px;font-size:11.5px;color:#94a3b8;font-style:italic;line-height:1.4;';
-            box.textContent = 'Este proyecto no tiene contratos registrados. Puedes escribir uno aquí o agregarlo en /admin/frentes para que se sugiera la próxima vez.';
-            return;
-        }
-        // Resetear estilos a flex (para chips).
-        box.style.cssText = 'display:flex;margin-top:5px;flex-wrap:wrap;gap:5px;align-items:center;';
-        var lbl = document.createElement('span');
-        lbl.style.cssText = 'font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-right:3px;';
-        lbl.textContent = list.length === 1 ? 'Contrato registrado:' : 'Contratos registrados:';
-        box.appendChild(lbl);
-        list.forEach(function (c) {
-            var btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = c;
-            btn.title = 'Clic para usar este contrato';
-            btn.style.cssText = 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;transition:background .12s;';
-            btn.addEventListener('mouseover', function () { this.style.background = '#bae6fd'; });
-            btn.addEventListener('mouseout',  function () { this.style.background = '#e0f2fe'; });
-            btn.addEventListener('click', function () { inp.value = c; inp.focus(); });
-            box.appendChild(btn);
-        });
+    //   - el usuario puede escribir un contrato distinto si la nota lo requiere, o
+    //     dejarlo en blanco (campo opcional)
+    //
+    // contratosActuales se actualiza cada vez que cambia el proyecto destino y es la
+    // unica fuente que lee almSalidaContratoSuggest al abrir el dropdown.
+    var almSalContratosActuales = [];
+    function almSalidaContratoHide() {
+        var b = el('almSalidaContratoSug'); if (b) b.classList.remove('open');
+        var c = el('almSalidaContratoCaret'); if (c) c.classList.remove('open');
     }
+    window.almSalidaContratoSuggest = function () {
+        var box = el('almSalidaContratoSug');
+        var caret = el('almSalidaContratoCaret');
+        if (!box) return;
+        var list = almSalContratosActuales || [];
+        if (!list.length) {
+            almSuggestApply(box,
+                '',
+                '<div class="alm-suggest-empty">Este proyecto no tiene contratos registrados. Puedes escribir uno aquí o agregarlo en /admin/frentes para que se sugiera la próxima vez.</div>'
+            );
+        } else {
+            var html = list.map(function (c) {
+                return '<div class="si-item" data-contrato="' + escHtml(c) + '">' + escHtml(c) + '</div>';
+            }).join('');
+            almSuggestApply(box, html);
+        }
+        if (caret) caret.classList.add('open');
+    };
+    window.almSalidaContratoToggle = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var box = el('almSalidaContratoSug');
+        if (box && box.classList.contains('open')) { almSalidaContratoHide(); return; }
+        window.almSalidaContratoSuggest();
+        var inp = el('almSalidaContrato'); if (inp) inp.focus();
+    };
+    window.almSalidaContratoPick = function (c) {
+        var inp = el('almSalidaContrato'); if (inp) inp.value = c || '';
+        almSalidaContratoHide();
+    };
+    // Delegacion: clic en una opcion / clic fuera cierra.
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('#almSalidaContratoSug .si-item');
+        if (item) { e.preventDefault(); window.almSalidaContratoPick(item.getAttribute('data-contrato') || ''); return; }
+        if (!e.target.closest('.alm-cat-field') && !e.target.closest('#almSalidaContratoSug')) almSalidaContratoHide();
+    });
+    // Escape cierra la lista.
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') almSalidaContratoHide();
+    });
 
     window.almSalidaOnProyectoChange = function () {
         var sel  = el('almSalidaProyecto');
         if (!sel) return;
         var idF  = sel.value;
-        var list = (window.almFrenteContratos || {})[idF] || [];
-        almSalidaPintarContratos(list);
+        almSalContratosActuales = (window.almFrenteContratos || {})[idF] || [];
+        // Si la lista estaba abierta y cambiaron los contratos, repintar al vuelo.
+        var box = el('almSalidaContratoSug');
+        if (box && box.classList.contains('open')) window.almSalidaContratoSuggest();
     };
     window.almSalidaConfirmar = function () {
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
