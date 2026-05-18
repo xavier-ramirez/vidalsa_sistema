@@ -241,9 +241,7 @@
            ocultan en pantallas chicas — catalogo.css:22 (≤768px) y
            estilos_globales.css:2924 (`.page-layout-grid .counter-sidebar`
            en ≤900px, mas especifica). Para ganarles la cascada usamos el
-           mismo selector compuesto. El cliente quiere ver PRODUCTOS /
-           Con stock / Stock bajo debajo del boton Acciones, igual que
-           /admin/equipos. */
+           mismo selector compuesto. Va debajo del boton Acciones. */
         .page-layout-grid .counter-sidebar {
             display: flex !important;
             flex-direction: column !important;
@@ -252,6 +250,22 @@
             gap: 10px !important;
             margin-top: 10px;
         }
+        /* Mismo redimensionamiento que /admin/equipos para el sidebar:
+           tipografias mas chicas en pantallas de telefono. */
+        .counter-sidebar [style*="font-size: 13px"] { font-size: 11px !important; }
+        .counter-sidebar [style*="font-size: 14px"] { font-size: 12px !important; }
+        .counter-sidebar [style*="font-size: 16px"] { font-size: 14px !important; }
+        .counter-sidebar [style*="font-size: 18px"] { font-size: 15px !important; }
+        .counter-sidebar [style*="font-size: 34px"] { font-size: 26px !important; }
+        .counter-sidebar [style*="font-size: 36px"] { font-size: 26px !important; }
+        /* Ocultar el titulo "Consolidado de Inventario" en mobile — no aporta
+           cuando el usuario ya esta dentro del modulo y los iconos PRODUCTOS /
+           inventory_2 / warning explican por si mismos. */
+        .counter-sidebar .alm-consolidado-title { display: none !important; }
+        /* Distribucion por categoria: comprimir el panel — h4 + lis mas chicos. */
+        .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
+        .counter-sidebar h4 .material-icons { font-size: 15px !important; }
+        .counter-sidebar li span { font-size: 9.5px !important; }
     }
 </style>
 
@@ -464,7 +478,7 @@
     <div style="background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%);border-radius:12px;padding:15px;color:white;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);position:relative;overflow:hidden;">
         <i class="material-icons" style="position:absolute;right:-15px;bottom:-15px;font-size:80px;opacity:0.1;transform:rotate(-15deg);">inventory</i>
         <div style="position:relative;z-index:2;">
-            <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;opacity:0.8;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+            <div class="alm-consolidado-title" style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;opacity:0.8;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
                 <i class="material-icons" style="font-size:14px;">pie_chart</i> Consolidado de Inventario
             </div>
 

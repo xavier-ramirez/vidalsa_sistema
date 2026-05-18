@@ -118,12 +118,11 @@
        width como header efectivo, boton Filtros Avanzados full-width (no
        icono chiquito perdido), boton "Recepcion ODC" full-width al final. */
     @media (max-width: 768px) {
-        /* Contenedor blanco (.admin-card) ocupa todo el ancho disponible y
-           reduce padding lateral — calcado de /admin/almacen mobile. El inline
-           style `padding:14px` queda overridado por el global catalogo.css que
-           pone padding:5px en mobile; reforzamos aqui margin:0 y width:100%
-           con !important por si algun selector externo lo apretara. */
-        .admin-card { padding: 6px !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+        /* Contenedor blanco (.admin-card) ocupa todo el ancho disponible.
+           Padding 4px (antes 14px inline) para que la tabla y los filtros
+           tengan el maximo de ancho del telefono. width:100% y margin:0
+           por si algun selector externo apretara desde fuera. */
+        .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important; }
         /* Titulo + separador ocultos en mobile */
         .page-title-card .page-title { display: none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
