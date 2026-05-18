@@ -1020,7 +1020,15 @@
     // aquí el ID del producto elegido → el backend filtra por match exacto (`id_producto`).
     // Si el usuario edita el texto, presiona Enter o limpia el campo, se borra → vuelve
     // al comportamiento LIKE %term% (búsqueda por similitudes).
-    var almBuscarPickedId = null;
+    // Init desde URL: si llegamos por link directo con ?id_producto=NNN, sincronizar el
+    // estado JS para que la primera llamada AJAX SI mande id_producto (sin esto la
+    // pagina dropearia el parametro y el sidebar cruzado nunca apareceria).
+    var almBuscarPickedId = (function () {
+        var v = _almInitParams.get('id_producto');
+        if (!v) return null;
+        var n = parseInt(v, 10);
+        return isFinite(n) && n > 0 ? n : null;
+    })();
 
     // Resuelve el valor "real" de un filtro con patron placeholder-background:
     //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active

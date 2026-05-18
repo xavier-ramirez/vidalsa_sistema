@@ -127,8 +127,20 @@ class AlmacenController extends Controller
             // Stats y distribución solo en la primera página (offset=0) — son costosos y
             // no cambian al hacer scroll, solo cuando el usuario cambia un filtro.
             if ($offset === 0) {
-                $resp['stats']            = $this->statsInventario($idAlmacenSel, $request);
-                $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', ['distribucion' => $this->distribucionPorCategoria($idAlmacenSel, $request)])->render();
+                $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
+                // El sidebar "Distribución de Inventario" tiene DOS modos:
+                //  - normal: lista por categoria (cuando el filtro NO apunta a un producto unico)
+                //  - cruzado: cuando el usuario clickeo una sugerencia (id_producto en la URL),
+                //    el panel muestra ese producto en otros almacenes visibles — util para saber
+                //    a donde pedir un traspaso si el almacen actual quedo en cero o bajo minimo.
+                $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
+                $productoOtros = $idProductoSel ? $this->productoEnOtrosAlmacenes($idProductoSel, $idAlmacenSel, $user) : null;
+                $productoSel   = $idProductoSel ? ProductoInventario::find($idProductoSel) : null;
+                $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
+                    'distribucion'  => $this->distribucionPorCategoria($idAlmacenSel, $request),
+                    'productoOtros' => $productoOtros,
+                    'productoSel'   => $productoSel,
+                ])->render();
             }
             return response()->json($resp);
         }
@@ -294,6 +306,43 @@ class AlmacenController extends Controller
             ->selectRaw('COALESCE(SUM(almacen_stock.CANTIDAD), 0) as unidades')
             ->groupBy('categoria')
             ->orderByDesc('total')
+            ->get();
+    }
+
+    /**
+     * Inventario de UN producto especifico en TODOS los demas almacenes visibles para
+     * el usuario (excluye el almacen actual — que ya se ve en la tabla principal).
+     *
+     * Lo consume el sidebar "Distribución de Inventario" cuando el usuario clickea
+     * una sugerencia del filtro "Buscar" (id_producto en la URL): asi puede ver, en
+     * un solo vistazo, donde mas existe el producto y pedir un traspaso al almacen
+     * que tenga saldo si el actual se quedo corto.
+     *
+     * INNER JOIN con `almacenes` para descartar filas huerfanas (almacen eliminado
+     * via soft-delete) y obtener el nombre/tipo para pintar la lista.
+     */
+    private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
+    {
+        $visibles = Almacen::visiblesPara($user)->pluck('almacenes.ID_ALMACEN');
+        if ($visibles->isEmpty()) {
+            return collect();
+        }
+        $q = AlmacenStock::query()
+            ->join('almacenes', 'almacenes.ID_ALMACEN', '=', 'almacen_stock.ID_ALMACEN')
+            ->where('almacen_stock.ID_PRODUCTO', $idProducto)
+            ->whereIn('almacen_stock.ID_ALMACEN', $visibles);
+        if ($idAlmacenActual !== null) {
+            $q->where('almacen_stock.ID_ALMACEN', '!=', $idAlmacenActual);
+        }
+        return $q->select(
+                'almacenes.ID_ALMACEN',
+                'almacenes.NOMBRE',
+                'almacenes.TIPO',
+                'almacen_stock.CANTIDAD',
+                'almacen_stock.CANTIDAD_MINIMA'
+            )
+            ->orderByDesc('almacen_stock.CANTIDAD')
+            ->orderBy('almacenes.NOMBRE')
             ->get();
     }
 
