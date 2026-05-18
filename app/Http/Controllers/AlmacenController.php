@@ -1719,7 +1719,14 @@ class NotaEntregaPDF extends \TCPDF
         // Cada fila del sello lleva valign="middle" para que su texto se vea
         // centrado vertical dentro de la celda (en especial "PAG. X DE Y", la
         // ultima fila que tendia a quedar pegada arriba).
-        $page = $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages();
+        //
+        // PAG: usamos numeros REALES (PageNo + getNumPages) en vez de los alias
+        // {:pnb:}/{:ptp:}. Los alias son strings largos que TCPDF reemplaza por
+        // el numero corto DESPUES de calcular el centrado -> el texto "PAG. 1
+        // DE 1" quedaba shifteado a la izquierda porque el centrado se computo
+        // para "PAG. {:pnb:} DE {:ptp:}" (mucho mas ancho). Las Notas son de 1
+        // pagina, asi que la cuenta real es exacta.
+        $page = $this->PageNo() . ' DE ' . max(1, $this->getNumPages());
         $numNota = $this->numeroNota ?? '';
         // line-height aprox = altura del rowspan en pt (68pt). El font-size del
         // titulo es 13pt, asi que line-height:68pt deja ~27pt arriba y ~27pt abajo
@@ -1735,7 +1742,7 @@ class NotaEntregaPDF extends \TCPDF
               . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
               . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">FECHA EMIS: 01/10/19</font></td></tr>'
               . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
-              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">PAG. ' . $page . '</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle"><div style="text-align:center;font-family:helvetica;font-size:7pt;">PAG. ' . $page . '</div></td></tr>'
               . '</table>';
 
         // Fuente del documento = helvetica (Arial-equivalente). Tambien la setea

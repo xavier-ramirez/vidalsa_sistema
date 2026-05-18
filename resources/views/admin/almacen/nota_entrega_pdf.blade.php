@@ -119,14 +119,14 @@
 
 {{-- ── Observaciones: label + caja para escribir. cellpadding unificado a 2.
      TCPDF interpreta el atributo HTML height como pixeles (getHTMLUnitToUnits con
-     unidad por defecto 'px'). height="30" ≈ 10.6mm a 72dpi (suficiente para 2 líneas
-     manuscritas) — se mantuvo del valor original. --}}
+     unidad por defecto 'px'). height="42" ≈ 15mm a 72dpi — espacio comodo para
+     2-3 lineas manuscritas. --}}
 <table border="1" cellpadding="2" cellspacing="0" width="100%">
     <tr>
         <td><font face="helvetica" size="9"><b>OBSERVACIONES:</b></font></td>
     </tr>
     <tr>
-        <td height="30"><font face="helvetica" size="9">{{ $datos['motivo'] ?: ' ' }}</font></td>
+        <td height="42"><font face="helvetica" size="9">{{ $datos['motivo'] ?: ' ' }}</font></td>
     </tr>
 </table>
 
