@@ -2562,14 +2562,16 @@
     window.almAbrirSalidaModal = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
 
-    // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria), se carga al entrar;
-    // si no, queda en blanco hasta que el usuario use un filtro.
-    // Con el patron placeholder-background, value="" siempre — leemos del data-active.
+    // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria /
+    // id_producto), se carga al entrar; si no, queda en blanco hasta que el usuario use
+    // un filtro. Con el patron placeholder-background, value="" siempre — leemos del
+    // data-active. Incluir almBuscarPickedId garantiza que un link directo del tipo
+    // ?id_producto=NNN dispare la carga y pinte el sidebar cruzado "En otros almacenes".
     (function () {
         var b = el('almFiltroBuscar'), c = el('almFiltroCat');
         var bActivo = b && ((b.value && b.value.trim()) || (b.dataset.active && b.dataset.active.trim()));
         var cActivo = c && ((c.value && c.value.trim()) || (c.dataset.active && c.dataset.active.trim()));
-        if (bActivo || cActivo) window.almCargar();
+        if (bActivo || cActivo || almBuscarPickedId) window.almCargar();
     })();
 })();
 </script>
