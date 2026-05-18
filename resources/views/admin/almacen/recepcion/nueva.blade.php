@@ -73,14 +73,14 @@
     select.ent-input { cursor:pointer; }
 
     /* ── Fila de captura: [Buscar] [Cantidad] siempre LADO A LADO ─────────────
-       Pedido del cliente (2026-05-20): la Cantidad NUNCA debe quedar debajo
-       del buscador. Antes habia un wrap en <560px que la mandaba abajo y un
-       max-width:520px en el search que la dejaba "lejos" cuando habia mucho
-       ancho. Ahora: el buscador absorbe el espacio sobrante (flex:1 1 0;
-       min-width:0 para que pueda encogerse hasta cero sin romper el flow) y
-       el stepper queda fijo a la derecha en todas las anchuras. */
+       El buscador es el campo dominante PERO con tope de 480px — antes era
+       flex:1 1 0 (absorbia TODO el ancho restante) y dejaba a la Cantidad
+       visualmente apretada / oculta atras del buscador a partir de cierto
+       viewport. Ahora flex:0 1 480px lo deja crecer hasta 480px max y la
+       Cantidad queda claramente visible a su derecha en todas las anchuras.
+       En mobile (≤560px) el search se contrae naturalmente con el viewport. */
     .ent-capt-row { display:flex; flex-wrap:nowrap; align-items:flex-start; position:relative; }
-    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; margin-right:12px; }
+    .ent-capt-row > .ent-search-field { flex:1 1 480px; min-width:0; max-width:480px; margin-right:12px; }
     .ent-capt-row > .ent-cant-stepper { flex:0 0 auto; }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
@@ -236,7 +236,7 @@
         <table class="ent-list-table">
             <thead>
                 <tr>
-                    <th class="col-num">#</th>
+                    <th class="col-num">Nº</th>
                     <th class="col-codigo">Código</th>
                     <th>Descripción del producto</th>
                     <th class="col-cant">Cantidad</th>
