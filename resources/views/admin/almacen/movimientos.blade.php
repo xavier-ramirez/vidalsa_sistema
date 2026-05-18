@@ -248,21 +248,32 @@
                     Filtros Avanzados
                     <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.almMovLimpiarFechas()">Limpiar Todo</span>
                 </h4>
-                {{-- Tipo de movimiento — dropdown nativo (no usamos custom-dropdown porque
-                     dentro del panel position:absolute su content se cliparia con el ancho fijo
-                     de 360px). Cambio dispara loadMovimientos directo via onchange. --}}
+                {{-- Tipo de movimiento — custom-dropdown (estilo general de la app,
+                     igual que los filtros de Almacen / Frente). Sin opcion "Todos":
+                     la X (data-clear-btn) limpia el filtro y muestra todo. --}}
                 <div style="margin-bottom:10px;">
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Tipo</span>
-                    <select id="almMovTipoSelect" name="tipo" data-filter-value
-                            onchange="window.almMovTipoSelChange(this)"
-                            style="width:100%;height:36px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;font-size:13px;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};color:#0f172a;outline:none;cursor:pointer;">
-                        <option value="" {{ !$tipoSelLabel ? 'selected' : '' }}>Todos los tipos</option>
-                        @foreach($tipos as $k => $t)
-                            <option value="{{ $k }}" {{ $reqTipo === $k ? 'selected' : '' }}>
-                                {{ $t['label'] }}{{ $t['sub'] ? ' '.$t['sub'] : '' }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="custom-dropdown" id="almMovTipoDropdown" data-filter-type="tipo" data-default-label="Tipo de movimiento">
+                        <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}">
+                        <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid #cbd5e0;border-radius:8px;height:36px;">
+                            <span style="padding:0 8px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">swap_vert</i></span>
+                            <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                                   placeholder="{{ $tipoSelLabel ?: 'Tipo de movimiento' }}"
+                                   style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;"
+                                   oninput="window.filterDropdownOptions(this)">
+                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                               onclick="event.stopPropagation(); clearDropdownFilter('almMovTipoDropdown');">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                            <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                                @foreach($tipos as $k => $t)
+                                    @php $label = $t['label'] . ($t['sub'] ? ' '.$t['sub'] : ''); @endphp
+                                    <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}"
+                                         onclick="selectOption('almMovTipoDropdown','{{ $k }}','{{ addslashes($label) }}');">{{ $label }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 {{-- Desde + Hasta (2 columnas, mismo grid que Marca/Modelo en /admin/equipos) --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -514,7 +525,9 @@
     window.addEventListener('dropdown-selection', function (e) {
         if (!document.getElementById('almMovTableBody')) return;
         var id = e.detail && e.detail.dropdownId;
-        if (id === 'almMovFiltroAlmacen' || id === 'almMovFiltroFrente') window.loadMovimientos();
+        if (id === 'almMovFiltroAlmacen' || id === 'almMovFiltroFrente' || id === 'almMovTipoDropdown') {
+            window.loadMovimientos();
+        }
     });
 
     // Click en una fila del ranking de consumo → pega el nombre del producto en el
@@ -551,19 +564,18 @@
 
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
-    // "Limpiar Todo" del panel: ahora también incluye Tipo (vive dentro del panel).
+    // "Limpiar Todo" del panel: limpia Desde/Hasta + el filtro Tipo (custom-dropdown).
+    // clearDropdownFilter ya emite el evento dropdown-selection — el listener de arriba
+    // dispara loadMovimientos, asi que no lo llamamos dos veces.
     window.almMovLimpiarFechas = function () {
         if (el('almMovDesde')) el('almMovDesde').value = '';
         if (el('almMovHasta')) el('almMovHasta').value = '';
-        var ts = el('almMovTipoSelect');
-        if (ts) { ts.value = ''; ts.style.background = '#fff'; }
-        window.loadMovimientos();
-    };
-    // onchange del nuevo <select> de Tipo: tinte azul cuando hay seleccion + recarga.
-    window.almMovTipoSelChange = function (sel) {
-        if (!sel) return;
-        sel.style.background = sel.value ? '#e1effa' : '#fff';
-        window.loadMovimientos();
+        if (document.getElementById('almMovTipoDropdown')
+            && typeof window.clearDropdownFilter === 'function') {
+            window.clearDropdownFilter('almMovTipoDropdown');
+        } else {
+            window.loadMovimientos();
+        }
     };
     document.addEventListener('click', function (e) {
         var p = el('almMovFechasPanel');
