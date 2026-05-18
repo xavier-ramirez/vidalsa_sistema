@@ -175,8 +175,8 @@ Route::middleware(['auth'])->group(function () {
             // Permisos (claves en columna PERMISOS, gateados en AlmacenController::__construct):
             //   super.admin (CRUD almacenes) · almacen.productos (CRUD catalogo) · almacen.movimiento
             //   (entradas/salidas/ajustes/traspasos + confirmar recepcion).
-            //   Las claves viejas `almacen.manage`, `almacen.salidas_recepciones` y
-            //   `traspaso.recibir` se resuelven via alias en Usuario::can() para back-compat.
+            //   Las claves viejas (almacen.manage / almacen.salidas_recepciones /
+            //   traspaso.recibir) se renombraron en migration 2026_05_20_120000.
             // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara,
             //  que depende sólo de usuarios.NIVEL_ACCESO — ningún permiso da "ver todos los almacenes".)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.

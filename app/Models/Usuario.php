@@ -202,49 +202,13 @@ class Usuario extends Authenticatable
                 return true;
             }
 
-            // Verificación del permiso específico solicitado
+            // Verificación del permiso específico solicitado.
+            // No hay alias ni atajos: la clave debe estar LITERAL en PERMISOS.
+            // Las claves viejas (almacen.manage, traspaso.recibir,
+            // almacen.salidas_recepciones) se renombraron a las consolidadas via
+            // migration 2026_05_20_120000_migrate_legacy_permission_keys, asi que
+            // el picker es la unica fuente de verdad.
             if (in_array($ability, $permisos)) {
-                return true;
-            }
-
-            // ── Alias de back-compat ──
-            // Modelo final del picker:
-            //   super.admin · almacen.productos · almacen.movimiento
-            //
-            // Claves viejas que ya no aparecen en el picker pero pueden estar guardadas
-            // en la columna PERMISOS de usuarios creados antes de la consolidacion. Las
-            // mapeamos al nuevo modelo para no perder accesos hasta que un admin los
-            // re-asigne explicitamente.
-            //
-            // Forward (clave nueva pedida → clave vieja en PERMISOS): cuando el codigo
-            // ahora chequea la clave nueva (ej. `can('almacen.productos')`), tambien
-            // pasamos si el usuario tenia la clave amplia vieja correspondiente
-            // (ej. `almacen.manage`).
-            static $ALIASES_FORWARD = [
-                // CRUD productos: usuarios con la vieja `almacen.manage` siguen pudiendo
-                // operar el catalogo de productos sin re-asignacion.
-                'almacen.productos'  => 'almacen.manage',
-            ];
-            if (isset($ALIASES_FORWARD[$ability]) && in_array($ALIASES_FORWARD[$ability], $permisos)) {
-                return true;
-            }
-
-            // Reverse (clave vieja pedida → clave nueva en PERMISOS): cubre codigo
-            // legacy / vistas / extensiones que aun llamen a `can('traspaso.recibir')`
-            // o `can('almacen.salidas_recepciones')` por nombre. Si el usuario tiene
-            // la clave consolidada `almacen.movimiento`, los pasamos.
-            if (in_array($ability, ['traspaso.recibir', 'almacen.salidas_recepciones'], true)
-                && in_array('almacen.movimiento', $permisos)
-            ) {
-                return true;
-            }
-            // Reverse para usuarios con CLAVES VIEJAS en PERMISOS que ahora se chequea
-            // por la clave consolidada `almacen.movimiento`. Si el usuario aun tiene
-            // `traspaso.recibir` o `almacen.salidas_recepciones` guardadas, los
-            // consideramos equivalentes a `almacen.movimiento`.
-            if ($ability === 'almacen.movimiento'
-                && (in_array('traspaso.recibir', $permisos) || in_array('almacen.salidas_recepciones', $permisos))
-            ) {
                 return true;
             }
         }

@@ -153,10 +153,11 @@ class UserController extends Controller
             //                       en el destino. Absorbio a las claves antiguas
             //                       `almacen.salidas_recepciones` y `traspaso.recibir`.
             //
-            // Los alias en Usuario::can() preservan back-compat: usuarios cuya columna
-            // PERMISOS aun tenga las claves viejas (`almacen.manage`, `traspaso.recibir`,
-            // `almacen.salidas_recepciones`) siguen pasando los checks correspondientes
-            // hasta que un admin los re-asigne con las claves nuevas.
+            // Las claves viejas (`almacen.manage`, `traspaso.recibir`,
+            // `almacen.salidas_recepciones`) se renombraron a las nuevas en la
+            // migration 2026_05_20_120000_migrate_legacy_permission_keys.
+            // Ya no hay alias en Usuario::can(): solo el literal en PERMISOS
+            // (mas super.admin con sus exclusiones) otorga acceso.
             'almacen.productos'  => 'Almacén: Registrar y editar productos del catálogo',
             'almacen.movimiento' => 'Almacén: Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
             'super.admin'         => 'Acceso Total (Super Admin)',
