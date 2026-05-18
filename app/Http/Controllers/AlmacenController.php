@@ -1376,36 +1376,23 @@ class AlmacenController extends Controller
         // asignado el campo queda VACIO en el PDF: NO caemos al usuario que
         // registró el movimiento — eso confundia al firmante (el almacenista
         // quien entrega rara vez es la persona que opera el sistema).
-        $entregadoPor = trim((string) ($hd->almacen?->ALMACENISTA ?? ''));
-        $cargoEntrega = trim((string) ($hd->almacen?->CARGO_ALMACENISTA ?? ''));
-
-        // Normaliza mojibake (texto guardado como UTF-8 doble-codificado, ej.
-        // "ASIGNACIÓN" -> "ASIGNACIÃ”N"). Aplicado a TODOS los campos de
-        // texto que vienen de BD para que el PDF imprima acentos correctos
-        // independientemente de como esten almacenados.
-        $fix = fn ($v) => $this->decodeMojibake($v);
-
+        // Todos los campos de texto pasan por el cast App\Casts\MojibakeFix aplicado en
+        // los modelos correspondientes (FrenteTrabajo, Almacen, MovimientoInventario,
+        // ProductoInventario) — el mojibake legacy ya se decodea automaticamente al
+        // leer. NO necesitamos llamar a un helper aqui.
         $datos = [
             'numero_nota'   => $hd->NUMERO_NOTA ?? '',
-            'proyecto'      => $fix($hd->frente?->NOMBRE_FRENTE ?? ''),
-            'contrato'      => $fix($hd->NUMERO_CONTRATO ?? ''),
+            'proyecto'      => $hd->frente?->NOMBRE_FRENTE ?? '',
+            'contrato'      => $hd->NUMERO_CONTRATO ?? '',
             'fecha'         => optional($hd->FECHA)->format('d/m/Y') ?: now()->format('d/m/Y'),
-            'rq'            => $fix($hd->NUMERO_RQ ?? ''),
-            'solicitante'   => $fix($hd->SOLICITANTE ?? ''),
-            'departamento'  => $fix($hd->DEPARTAMENTO ?? ''),
-            'almacen'       => $fix($hd->almacen?->NOMBRE ?? ''),
-            'entregado_por' => $fix($entregadoPor),
-            'cargo_entrega' => $fix($cargoEntrega),
-            'motivo'        => $fix($hd->MOTIVO ?? ''),
+            'rq'            => $hd->NUMERO_RQ ?? '',
+            'solicitante'   => $hd->SOLICITANTE ?? '',
+            'departamento'  => $hd->DEPARTAMENTO ?? '',
+            'almacen'       => $hd->almacen?->NOMBRE ?? '',
+            'entregado_por' => trim((string) ($hd->almacen?->ALMACENISTA ?? '')),
+            'cargo_entrega' => trim((string) ($hd->almacen?->CARGO_ALMACENISTA ?? '')),
+            'motivo'        => $hd->MOTIVO ?? '',
         ];
-
-        // Las descripciones de productos tambien pueden venir con mojibake — las
-        // normalizamos in-place (el blade itera $movs y lee $m->producto?->NOMBRE).
-        foreach ($movs as $m) {
-            if ($m->producto) {
-                $m->producto->NOMBRE = $fix($m->producto->NOMBRE);
-            }
-        }
 
         $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
         $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false);
@@ -1471,39 +1458,41 @@ class AlmacenController extends Controller
         }
 
         // ── Armar $datos y $movs en MEMORIA (mismas claves que notaEntregaPdf) ──
+        // Los atributos de modelos (frente, almacen, productos) pasan por el cast
+        // App\Casts\MojibakeFix automaticamente. Para los campos que vienen del
+        // request directamente (numero_contrato, numero_rq, solicitante, etc.) NO
+        // hay cast, asi que llamamos MojibakeFix::fix() de defensa por si el usuario
+        // pega texto con mojibake en el formulario (caso raro pero posible).
         $almacen = Almacen::find((int) $data['id_almacen']);
         $frente  = !empty($data['id_frente_destino'])
             ? \App\Models\FrenteTrabajo::find((int) $data['id_frente_destino'])
             : null;
-        $fix = fn ($v) => $this->decodeMojibake($v);
+        $fixReq = fn ($v) => \App\Casts\MojibakeFix::fix($v) ?? '';
 
         $datos = [
             'numero_nota'   => 'NE-VISTA-PREVIA',
-            'proyecto'      => $fix($frente?->NOMBRE_FRENTE ?? ''),
-            'contrato'      => $fix($data['numero_contrato'] ?? ''),
+            'proyecto'      => $frente?->NOMBRE_FRENTE ?? '',
+            'contrato'      => $fixReq($data['numero_contrato'] ?? ''),
             'fecha'         => !empty($data['fecha'])
                 ? \Carbon\Carbon::parse($data['fecha'])->format('d/m/Y')
                 : now()->format('d/m/Y'),
-            'rq'            => $fix($data['numero_rq'] ?? ''),
-            'solicitante'   => $fix($data['solicitante'] ?? ''),
-            'departamento'  => $fix($data['departamento'] ?? ''),
-            'almacen'       => $fix($almacen?->NOMBRE ?? ''),
-            'entregado_por' => $fix($almacen?->ALMACENISTA ?? ''),
-            'cargo_entrega' => $fix($almacen?->CARGO_ALMACENISTA ?? ''),
-            'motivo'        => $fix($data['motivo'] ?? ''),
+            'rq'            => $fixReq($data['numero_rq'] ?? ''),
+            'solicitante'   => $fixReq($data['solicitante'] ?? ''),
+            'departamento'  => $fixReq($data['departamento'] ?? ''),
+            'almacen'       => $almacen?->NOMBRE ?? '',
+            'entregado_por' => $almacen?->ALMACENISTA ?? '',
+            'cargo_entrega' => $almacen?->CARGO_ALMACENISTA ?? '',
+            'motivo'        => $fixReq($data['motivo'] ?? ''),
         ];
 
         // Cada $m del blade lee: CANTIDAD, producto->{UM, NOMBRE, CODIGO}. Armamos
         // stdClass que cumple ese contrato — la coleccion mantiene el orden del
-        // payload para que el preview se vea EXACTO al PDF final.
-        $movs = collect($data['lineas'])->map(function ($l) use ($productos, $fix) {
-            $prod = $productos[(int) $l['id_producto']] ?? null;
-            if ($prod) {
-                $prod->NOMBRE = $fix($prod->NOMBRE);
-            }
+        // payload para que el preview se vea EXACTO al PDF final. NOMBRE pasa por
+        // el cast de ProductoInventario, no necesita fix manual.
+        $movs = collect($data['lineas'])->map(function ($l) use ($productos) {
             return (object) [
                 'CANTIDAD' => (float) $l['cantidad'],
-                'producto' => $prod,
+                'producto' => $productos[(int) $l['id_producto']] ?? null,
             ];
         });
 
@@ -1810,16 +1799,6 @@ class AlmacenController extends Controller
         Almacen::assertVisibleOrFail($request->user(), $idAlmacen);
     }
 
-    /**
-     * Wrapper sobre App\Casts\MojibakeFix::fix() — el helper centralizado que
-     * decodea mojibake (UTF-8 doble-codificado). Se mantiene la firma local
-     * para no tocar las llamadas internas; toda la logica vive en una sola
-     * clase reusada por los model casts (FrenteTrabajo, Almacen, etc.).
-     */
-    private function decodeMojibake(?string $s): string
-    {
-        return (string) \App\Casts\MojibakeFix::fix($s);
-    }
 }
 
 /**

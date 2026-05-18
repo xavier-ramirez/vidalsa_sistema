@@ -29,9 +29,9 @@ use Illuminate\Database\Eloquent\Model;
  *    decodea igual al leerlo.
  *
  * Cero impacto en strings limpios: la regex no matchea, retorna inmediato.
- * Para reemplazar el helper privado AlmacenController::decodeMojibake() —
- * misma logica, mismo regex, expuesto via cast para reusarlo en cualquier
- * modelo sin duplicar codigo.
+ * Centraliza toda la logica de detecccion/correccion de mojibake del proyecto —
+ * los modelos usan el cast en sus $casts, el codigo no-Eloquent usa el helper
+ * estatico fix(). Una sola implementacion, sin duplicar.
  */
 class MojibakeFix implements CastsAttributes
 {
