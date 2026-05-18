@@ -72,12 +72,10 @@
     .ent-envios-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:40px; padding:0 16px; border-radius:10px; text-decoration:none; background:var(--maquinaria-blue,#0067b1); color:#fff; font-weight:700; font-size:13.5px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,103,177,0.18); transition:background .15s; }
     .ent-envios-btn:hover { background:#005391; }
     .ent-envios-btn i { font-size:20px; }
-    /* Pill del almacen destino: clon visual del bloque "ALMACÉN" del header de
-       /admin/almacen — mini-label uppercase + nombre del almacen. Sin icono (antes
-       llevaba un `warehouse` que el cliente pidio quitar para mantener consistencia
-       con el resto de los modulos donde los selectores no llevan iconos en linea). */
-    .ent-dest-pill { display:inline-flex; align-items:center; gap:10px; height:40px; padding:0 14px; background:#f8fafc; border:1px solid #cbd5e0; border-radius:10px; white-space:nowrap; }
-    .ent-dest-pill .label { font-size:10.5px; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:1px; }
+    /* Pill del almacen destino (read-only): vive en el page-title-card al lado
+       del mini-label "Almacén". Solo muestra el NOMBRE — la etiqueta uppercase
+       se renderiza por fuera (mismo patron que el dropdown de /admin/almacen). */
+    .ent-dest-pill { display:inline-flex; align-items:center; height:40px; padding:0 14px; background:#f8fafc; border:1px solid #cbd5e0; border-radius:10px; white-space:nowrap; }
     .ent-dest-pill .name  { font-size:13.5px; color:#0f172a; font-weight:700; }
     .ent-input    { width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px; font-size:13.5px; background:#fbfcfd; outline:none; box-sizing:border-box; color:#0f172a; }
     .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
