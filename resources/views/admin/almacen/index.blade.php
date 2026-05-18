@@ -890,23 +890,28 @@
                             </div>
                         </div>
                     </div>
-                    <div style="position:relative;">
+                    <div>
                         <label class="alm-nota-label" for="almSalidaContrato">Contrato N°</label>
-                        {{-- Input + caret: el caret abre la lista de contratos del proyecto elegido.
-                             El usuario puede (a) elegir uno de la lista, (b) escribir uno nuevo, o
-                             (c) dejarlo en blanco. La lista NO autocompleta al escribir — es solo
-                             el caret + foco lo que la abre, para no estorbar al usuario que ya sabe
-                             el numero. --}}
-                        <div class="alm-cat-field">
-                            <input type="text" id="almSalidaContrato" class="alm-nota-input" maxlength="100"
-                                   placeholder="Ej: CTR-2026-0042 (opcional)" autocomplete="off"
-                                   onfocus="window.almSalidaContratoSuggest(true)"
-                                   onclick="event.stopPropagation(); window.almSalidaContratoSuggest(true);">
-                            <button type="button" class="alm-cat-caret" id="almSalidaContratoCaret" tabindex="-1"
-                                    title="Ver contratos registrados de este proyecto"
-                                    onclick="window.almSalidaContratoToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+                        {{-- Custom-dropdown (mismo componente que Proyecto): el panel flota
+                             absolutamente (NO empuja el modal hacia abajo) y se abre con clic en
+                             el trigger / foco en el input. El input SI es libre — el usuario
+                             puede escribir un contrato que no este en la lista, dejarlo en blanco
+                             (es opcional), o elegir uno de los contratos registrados del proyecto.
+                             La lista de items se rellena al elegir proyecto destino. --}}
+                        <div class="custom-dropdown" id="almSalidaContratoDropdown">
+                            <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
+                                <input type="text" id="almSalidaContrato" autocomplete="off" maxlength="100"
+                                       placeholder="Selecciona o escribe (opcional)"
+                                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                                       oninput="window.almSalidaContratoFilter(this)">
+                                <i class="material-icons" id="almSalidaContratoClearBtn" style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
+                                   onclick="event.stopPropagation(); window.almSalidaContratoClear();">close</i>
+                                <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
+                            </div>
+                            <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                                <div class="dropdown-item-list" id="almSalidaContratoItems" style="max-height:240px;overflow-y:auto;"></div>
+                            </div>
                         </div>
-                        <div class="alm-suggest-inline" id="almSalidaContratoSug"></div>
                     </div>
                 </div>
 
@@ -2368,9 +2373,11 @@
             window.clearDropdownFilter('almSalidaProyectoDropdown');
         }
         var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
-        // Reset de la lista desplegable de contratos (se llena al elegir proyecto).
-        var cs = el('almSalidaContratoSug'); if (cs) { cs.classList.remove('open'); cs.innerHTML = ''; }
-        var cc = el('almSalidaContratoCaret'); if (cc) cc.classList.remove('open');
+        // Reset del dropdown de contratos: vaciar items, cerrar el panel, ocultar el clear-btn.
+        // La lista se rellena cuando el usuario elige proyecto destino.
+        var citems = el('almSalidaContratoItems'); if (citems) citems.innerHTML = '';
+        var cdd    = el('almSalidaContratoDropdown'); if (cdd) cdd.classList.remove('active');
+        var cbtn   = el('almSalidaContratoClearBtn'); if (cbtn) cbtn.style.display = 'none';
         showErr('almSalidaError', '');
         // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
         // dejo con .active (el helper global focusin auto-abre cuando el input del trigger
@@ -2379,71 +2386,83 @@
         if (ddProy) ddProy.classList.remove('active');
         open('almSalidaModal');
     };
-    // Lista desplegable de N° de Contrato segun el frente/proyecto elegido en el modal de
-    // salida. Mismo patron visual que el campo "Categoria" del modal de producto:
-    //   - el caret (boton flecha) o el focus en el input abre la lista
-    //   - clic en un item = autocompleta el input (y cierra la lista)
-    //   - 0 contratos -> mensaje "este proyecto no tiene contratos registrados"
-    //   - el usuario puede escribir un contrato distinto si la nota lo requiere, o
-    //     dejarlo en blanco (campo opcional)
+    // Campo "Contrato N°" del modal Registrar salida — es un custom-dropdown (mismo
+    // componente que Proyecto) con UNA particularidad: el input es libre. El usuario
+    // puede (a) elegir un contrato de la lista, (b) escribir uno nuevo que no este en
+    // la lista, o (c) dejarlo en blanco (es opcional). La fuente de la verdad para el
+    // payload es SIEMPRE el .value del input visible #almSalidaContrato — no hay hidden.
     //
-    // contratosActuales se actualiza cada vez que cambia el proyecto destino y es la
-    // unica fuente que lee almSalidaContratoSuggest al abrir el dropdown.
-    var almSalContratosActuales = [];
-    function almSalidaContratoHide() {
-        var b = el('almSalidaContratoSug'); if (b) b.classList.remove('open');
-        var c = el('almSalidaContratoCaret'); if (c) c.classList.remove('open');
+    // Lista de items: se rebuilds desde window.almFrenteContratos[idFrente] cada vez que
+    // cambia el Proyecto destino. La apertura/cierre del panel la maneja el sistema global
+    // de custom-dropdown (uicomponents.js) — no duplicamos esa logica aqui.
+    function almSalidaContratoSync() {
+        // Mostrar/ocultar el boton "x" de limpiar segun haya texto en el input.
+        var inp = el('almSalidaContrato');
+        var btn = el('almSalidaContratoClearBtn');
+        if (!inp || !btn) return;
+        btn.style.display = (inp.value || '').trim() ? 'block' : 'none';
     }
-    window.almSalidaContratoSuggest = function () {
-        var box = el('almSalidaContratoSug');
-        var caret = el('almSalidaContratoCaret');
+    function almSalidaContratoBuildList(idFrente) {
+        var box = el('almSalidaContratoItems');
         if (!box) return;
-        var list = almSalContratosActuales || [];
+        var list = ((window.almFrenteContratos || {})[idFrente] || []);
         if (!list.length) {
-            almSuggestApply(box,
-                '',
-                '<div class="alm-suggest-empty">Este proyecto no tiene contratos registrados. Puedes escribir uno aquí o agregarlo en /admin/frentes para que se sugiera la próxima vez.</div>'
-            );
-        } else {
-            var html = list.map(function (c) {
-                return '<div class="si-item" data-contrato="' + escHtml(c) + '">' + escHtml(c) + '</div>';
-            }).join('');
-            almSuggestApply(box, html);
+            // Mensaje informativo dentro del propio panel del dropdown — no rompe layout
+            // (el panel flota absolutamente, no empuja el modal hacia abajo).
+            box.innerHTML = '<div style="padding:12px 15px;font-size:12.5px;color:#94a3b8;font-style:italic;line-height:1.4;">Este proyecto no tiene contratos registrados. Puedes escribir uno aquí o agregarlo en /admin/frentes para que se sugiera la próxima vez.</div>';
+            return;
         }
-        if (caret) caret.classList.add('open');
-    };
-    window.almSalidaContratoToggle = function (e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        var box = el('almSalidaContratoSug');
-        if (box && box.classList.contains('open')) { almSalidaContratoHide(); return; }
-        window.almSalidaContratoSuggest();
-        var inp = el('almSalidaContrato'); if (inp) inp.focus();
+        // dropdown-item es la misma clase que usa Proyecto — hereda el hover/selected del
+        // sistema global. El click llama almSalidaContratoPick (no selectOption, porque NO
+        // queremos que el sistema toque hidden/placeholder/clear-btn — eso lo manejamos aqui).
+        box.innerHTML = list.map(function (c) {
+            var safe = escHtml(c);
+            var jsArg = safe.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return '<div class="dropdown-item" data-value="' + safe + '" onclick="window.almSalidaContratoPick(\'' + jsArg + '\')">' + safe + '</div>';
+        }).join('');
+    }
+    window.almSalidaContratoFilter = function (input) {
+        // Filtro local de items por lo que el usuario teclea — mismo comportamiento que
+        // filterDropdownOptions del sistema global, pero contenido al item-list de contrato.
+        // Reimplementamos en lugar de delegar para evitar acoplarse a data-filter-type/value
+        // (este dropdown no usa hidden + label, es input libre).
+        var box = el('almSalidaContratoItems');
+        if (!box) return;
+        var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+        var term = norm(input.value);
+        box.querySelectorAll('.dropdown-item').forEach(function (item) {
+            var show = !term || norm(item.textContent).indexOf(term) !== -1;
+            item.style.setProperty('display', show ? 'block' : 'none', 'important');
+        });
+        almSalidaContratoSync();
     };
     window.almSalidaContratoPick = function (c) {
-        var inp = el('almSalidaContrato'); if (inp) inp.value = c || '';
-        almSalidaContratoHide();
+        var inp = el('almSalidaContrato');
+        if (inp) inp.value = c || '';
+        // Re-mostrar TODOS los items para la proxima apertura (el filtro previo pudo ocultar varios).
+        var box = el('almSalidaContratoItems');
+        if (box) box.querySelectorAll('.dropdown-item').forEach(function (item) { item.style.removeProperty('display'); });
+        var dd = el('almSalidaContratoDropdown');
+        if (dd) dd.classList.remove('active');
+        almSalidaContratoSync();
     };
-    // Delegacion: clic en una opcion / clic fuera cierra.
-    document.addEventListener('click', function (e) {
-        var item = e.target.closest('#almSalidaContratoSug .si-item');
-        if (item) { e.preventDefault(); window.almSalidaContratoPick(item.getAttribute('data-contrato') || ''); return; }
-        if (!e.target.closest('.alm-cat-field') && !e.target.closest('#almSalidaContratoSug')) almSalidaContratoHide();
-    });
-    // Escape cierra la lista.
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') almSalidaContratoHide();
-    });
+    window.almSalidaContratoClear = function () {
+        var inp = el('almSalidaContrato'); if (inp) inp.value = '';
+        var box = el('almSalidaContratoItems');
+        if (box) box.querySelectorAll('.dropdown-item').forEach(function (item) { item.style.removeProperty('display'); });
+        almSalidaContratoSync();
+        if (inp) inp.focus();
+    };
 
     window.almSalidaOnProyectoChange = function () {
         var sel  = el('almSalidaProyecto');
         if (!sel) return;
-        var idF  = sel.value;
-        almSalContratosActuales = (window.almFrenteContratos || {})[idF] || [];
-        // Auto-abrir la lista de contratos al elegir proyecto: justo despues de seleccionar
-        // proyecto, lo siguiente que el usuario quiere ver son los contratos disponibles
-        // para ese proyecto. Si no hay contratos, la lista igual se abre con el mensaje
-        // explicativo (no es ruido — confirma al usuario que el dropdown SI esta funcionando).
-        window.almSalidaContratoSuggest();
+        almSalidaContratoBuildList(sel.value);
+        // Auto-abrir el panel justo despues de elegir proyecto: el usuario acaba de
+        // seleccionar destino, lo siguiente que querra ver son los contratos disponibles.
+        // Si no hay contratos, el panel igual se abre con el mensaje explicativo.
+        var dd = el('almSalidaContratoDropdown');
+        if (dd) dd.classList.add('active');
     };
     window.almSalidaConfirmar = function () {
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
