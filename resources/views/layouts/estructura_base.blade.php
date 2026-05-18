@@ -1625,6 +1625,19 @@
                     printBtn.style.display = showActions ? 'flex' : 'none';
                 }
 
+                // Botones "Subir/reemplazar" (pdfUpdateLabel) y "Eliminar" (pdfDeleteBtn):
+                // pertenecen al flujo de gestion documental de equipos (Drive + BD). NO aplican
+                // a PDFs que el backend genera en vivo con TCPDF (Nota de Entrega del almacen,
+                // Reporte de Fallas, etc.). Deteccion: si NO viene un uploadUrl NI un equipoId,
+                // este preview es "solo lectura" -> ocultamos ambos. El gate por permisos del
+                // Blade (la directiva can/super.admin) ya pudo no haberlos renderizado; aqui
+                // solo nos aseguramos de no mostrarlos cuando el documento no es gestionable.
+                const docGestionable = !!uploadUrl || !!equipoId;
+                const updateLabel = document.getElementById('pdfUpdateLabel');
+                const deleteBtn   = document.getElementById('pdfDeleteBtn');
+                if (updateLabel) updateLabel.style.display = docGestionable ? 'flex' : 'none';
+                if (deleteBtn)   deleteBtn.style.display   = docGestionable ? 'flex' : 'none';
+
                 // Track timing to ensure loader shows for minimum duration
                 const loaderStartTime = Date.now();
                 const minimumLoaderDuration = 800; // Minimum time (ms) to show loader

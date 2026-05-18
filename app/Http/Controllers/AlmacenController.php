@@ -592,6 +592,124 @@ class AlmacenController extends Controller
     }
 
     /**
+     * Vista alterna de la bitácora — agrupada por NUMERO_NOTA (una fila por
+     * Nota de Entrega de Materiales). Sólo lista movimientos SALIDA / TRASPASO_SALIDA
+     * con N° NE-YYYY-NNNN asignado (los que tienen PDF oficial VID-FO-GEN-019).
+     * El clic en una fila abre el PDF en el visor in-page (window.openPdfPreview).
+     *
+     * Filtros aceptados: id_almacen, id_frente, tipo (SALIDA|TRASPASO_SALIDA), search
+     * (NUMERO_NOTA / NUMERO_RQ / NUMERO_CONTRATO / SOLICITANTE), desde, hasta.
+     */
+    public function notas(Request $request)
+    {
+        $almacenes   = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        $visiblesIds = $almacenes->pluck('ID_ALMACEN');
+
+        // Default-merge por almacén ligado al frente (mismo patrón que movimientos()).
+        if (!$request->filled('id_almacen') && ($idDef = $request->user()?->almacenPorDefecto())) {
+            if ($visiblesIds->contains((int) $idDef)) {
+                $request->merge(['id_almacen' => $idDef]);
+            }
+        }
+
+        // Lista de categorías para el filtro avanzado (mismo helper que /admin/almacen).
+        $categorias = $this->categoriasDistintas();
+
+        // Sólo tipos que tienen Nota de Entrega con PDF.
+        $tiposNota = [
+            MovimientoInventario::TIPO_SALIDA,
+            MovimientoInventario::TIPO_TRASPASO_SALIDA,
+        ];
+        $tipoFiltro = $request->input('tipo');
+        $tiposAplicar = ($tipoFiltro && in_array($tipoFiltro, $tiposNota, true)) ? [$tipoFiltro] : $tiposNota;
+
+        // Subquery a nivel de NUMERO_NOTA. Aggregamos solo los campos que se muestran
+        // en la tabla — el "tipo" se decide por MIN porque todas las líneas de una nota
+        // comparten tipo (registrarMovimientoLote sólo asigna NUMERO_NOTA a un único TIPO).
+        // Ya no calculamos COUNT(*) NI SUM(CANTIDAD) — esas columnas "N° Líneas" y
+        // "Cant. total" se quitaron de la tabla (la info vive dentro del propio PDF).
+        $q = MovimientoInventario::query()
+            ->selectRaw(
+                'NUMERO_NOTA,'
+                . ' MIN(FECHA)                    AS FECHA,'
+                . ' MIN(TIPO)                     AS TIPO,'
+                . ' MIN(ID_ALMACEN)               AS ID_ALMACEN,'
+                . ' MIN(ID_ALMACEN_CONTRAPARTE)   AS ID_ALMACEN_CONTRAPARTE,'
+                . ' MIN(ID_FRENTE)                AS ID_FRENTE,'
+                . ' MAX(ID_MOVIMIENTO)            AS ULT_ID'
+            )
+            ->whereIn('TIPO', $tiposAplicar)
+            ->whereNotNull('NUMERO_NOTA')
+            ->where('NUMERO_NOTA', '!=', '')
+            ->groupBy('NUMERO_NOTA');
+
+        if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
+            $idAlmacen = $request->integer('id_almacen');
+            $this->assertPuedeVerAlmacen($request, $idAlmacen);
+            $q->where('ID_ALMACEN', $idAlmacen);
+        } else {
+            $q->whereIn('ID_ALMACEN', $visiblesIds);
+        }
+        if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
+            $q->where('ID_FRENTE', $request->integer('id_frente'));
+        }
+        if ($request->filled('search')) {
+            $term = trim((string) $request->input('search'));
+            $q->where(function ($w) use ($term) {
+                $w->where('NUMERO_NOTA',     'like', "%{$term}%")
+                  ->orWhere('NUMERO_RQ',     'like', "%{$term}%")
+                  ->orWhere('NUMERO_CONTRATO','like', "%{$term}%")
+                  ->orWhere('SOLICITANTE',    'like', "%{$term}%");
+            });
+        }
+        // Filtro por categoría del producto (misma semántica que /admin/almacen): si una
+        // NOTA tiene al menos una línea cuyo producto pertenece a esa categoría, se incluye.
+        // Implementado con whereExists para no ensuciar el SELECT/GROUP BY del aggregate.
+        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
+            $cat = trim((string) $request->input('categoria'));
+            $q->whereExists(function ($sub) use ($cat) {
+                $sub->select(DB::raw(1))
+                    ->from('productos_inventario as p')
+                    ->whereColumn('p.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
+                    ->where('p.CATEGORIA', 'like', "%{$cat}%");
+            });
+        }
+        $q->periodo($request->input('desde'), $request->input('hasta'));
+
+        // La fila más reciente arriba.
+        $q->orderByDesc('FECHA')->orderByDesc('ULT_ID');
+
+        // paginate() sobre groupBy: Laravel hace el COUNT con DISTINCT internamente.
+        $paginator = $q->paginate($request->integer('per_page') ?: 50)->withQueryString();
+
+        // Eager load de los almacenes (origen + contraparte) y frentes referenciados en
+        // las filas de esta página — UN solo viaje por relación. NO cargamos usuarios
+        // porque la vista no muestra "registrado por" (cabe en el PDF, no en la tabla).
+        $idsAlm   = $paginator->getCollection()->pluck('ID_ALMACEN')->merge($paginator->getCollection()->pluck('ID_ALMACEN_CONTRAPARTE'))->filter()->unique()->values();
+        $idsFre   = $paginator->getCollection()->pluck('ID_FRENTE')->filter()->unique()->values();
+        $almById  = $idsAlm->isEmpty() ? collect() : Almacen::whereIn('ID_ALMACEN', $idsAlm)->get(['ID_ALMACEN', 'NOMBRE', 'TIPO'])->keyBy('ID_ALMACEN');
+        $freById  = $idsFre->isEmpty() ? collect() : \App\Models\FrenteTrabajo::whereIn('ID_FRENTE', $idsFre)->get(['ID_FRENTE', 'NOMBRE_FRENTE'])->keyBy('ID_FRENTE');
+
+        $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
+            ? (int) $request->input('id_almacen')
+            : null;
+
+        return view('admin.almacen.notas', [
+            'notas'           => $paginator,
+            'total'           => $paginator->total(),
+            'almacenes'       => $almacenes,
+            'idAlmacenActivo' => $idAlmacenActivo,
+            'frentesLista'    => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
+            'categorias'      => $categorias,
+            'almById'         => $almById,
+            'freById'         => $freById,
+            // Ranking de consumo (mismo cálculo y filtros que /admin/almacen/movimientos).
+            // Aplica al sidebar y respeta id_almacen / id_frente / desde / hasta / search / categoria.
+            'consumo'         => $this->consumoRanking($request),
+        ]);
+    }
+
+    /**
      * Ranking de productos más consumidos para el sidebar de la bitácora.
      *
      * "Consumo" = suma de CANTIDAD aplicando los mismos filtros que la tabla
@@ -630,6 +748,16 @@ class AlmacenController extends Controller
         }
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
             $q->where('ID_FRENTE', $request->integer('id_frente'));
+        }
+        // Filtro por categoría — aplica al ranking igual que a la tabla principal.
+        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
+            $cat = trim((string) $request->input('categoria'));
+            $q->whereExists(function ($sub) use ($cat) {
+                $sub->select(DB::raw(1))
+                    ->from('productos_inventario as pc')
+                    ->whereColumn('pc.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
+                    ->where('pc.CATEGORIA', 'like', "%{$cat}%");
+            });
         }
         $q->periodo($request->input('desde'), $request->input('hasta'));
 
@@ -1071,7 +1199,8 @@ class AlmacenController extends Controller
         ][$data['tipo']] ?? 'Movimiento registrado';
 
         $payload = ['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'];
-        // Sólo en SALIDA devolvemos la URL del PDF de Nota de Entrega; el frontend la abre en pestaña nueva.
+        // Sólo en SALIDA devolvemos la URL del PDF de Nota de Entrega; el frontend la abre
+        // en el visor in-page (#pdfPreviewModal vía window.openPdfPreview).
         if ($data['tipo'] === 'SALIDA') {
             $payload['nota_url']    = route('almacen.nota-entrega', ['numero' => $result['numero_nota']]);
             $payload['numero_nota'] = $result['numero_nota'];
@@ -1154,9 +1283,9 @@ class AlmacenController extends Controller
      *                           es el flujo que usa "Generar Nota por código" desde el
      *                           dropdown Acciones de /admin/almacen/movimientos).
      *   ?ids=10,11,12         → recupera los SALIDA con esos IDs (lo que devuelve
-     *                           registrarMovimientoLote inmediatamente tras crear la nota,
-     *                           y la URL que se abre en la pestaña pre-abierta del modal
-     *                           de salida).
+     *                           registrarMovimientoLote inmediatamente tras crear la nota;
+     *                           el frontend abre el PDF en el visor in-page del modal de
+     *                           salida vía window.openPdfPreview).
      *
      * Permisos: lectura. Sólo se valida que el usuario pueda VER el almacén involucrado;
      * no se exige 'almacen.movimiento' (eso es para crear).
@@ -1176,18 +1305,32 @@ class AlmacenController extends Controller
         $entregadoPor = $hd->almacen?->ALMACENISTA
             ?: ($hd->usuario?->NOMBRE_COMPLETO ?? '');
 
+        // Normaliza mojibake (texto guardado como UTF-8 doble-codificado, ej.
+        // "ASIGNACIÓN" -> "ASIGNACIÃ”N"). Aplicado a TODOS los campos de
+        // texto que vienen de BD para que el PDF imprima acentos correctos
+        // independientemente de como esten almacenados.
+        $fix = fn ($v) => $this->decodeMojibake($v);
+
         $datos = [
             'numero_nota'   => $hd->NUMERO_NOTA ?? '',
-            'proyecto'      => $hd->frente?->NOMBRE_FRENTE ?? '',
-            'contrato'      => $hd->NUMERO_CONTRATO ?? '',
+            'proyecto'      => $fix($hd->frente?->NOMBRE_FRENTE ?? ''),
+            'contrato'      => $fix($hd->NUMERO_CONTRATO ?? ''),
             'fecha'         => optional($hd->FECHA)->format('d/m/Y') ?: now()->format('d/m/Y'),
-            'rq'            => $hd->NUMERO_RQ ?? '',
-            'solicitante'   => $hd->SOLICITANTE ?? '',
-            'departamento'  => $hd->DEPARTAMENTO ?? '',
-            'almacen'       => $hd->almacen?->NOMBRE ?? '',
-            'entregado_por' => $entregadoPor,
-            'motivo'        => $hd->MOTIVO ?? '',
+            'rq'            => $fix($hd->NUMERO_RQ ?? ''),
+            'solicitante'   => $fix($hd->SOLICITANTE ?? ''),
+            'departamento'  => $fix($hd->DEPARTAMENTO ?? ''),
+            'almacen'       => $fix($hd->almacen?->NOMBRE ?? ''),
+            'entregado_por' => $fix($entregadoPor),
+            'motivo'        => $fix($hd->MOTIVO ?? ''),
         ];
+
+        // Las descripciones de productos tambien pueden venir con mojibake — las
+        // normalizamos in-place (el blade itera $movs y lee $m->producto?->NOMBRE).
+        foreach ($movs as $m) {
+            if ($m->producto) {
+                $m->producto->NOMBRE = $fix($m->producto->NOMBRE);
+            }
+        }
 
         $pdf = new NotaEntregaPDF('P', 'mm', 'A4', true, 'UTF-8', false);
         // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
@@ -1195,7 +1338,11 @@ class AlmacenController extends Controller
         $pdf->numeroNota = $hd->NUMERO_NOTA ?? '';
         $pdf->setPrintHeader(true);
         $pdf->setPrintFooter(true);
-        $pdf->SetMargins(12, 36, 12);   // top=36 para que el contenido empiece debajo del cabezote (height=80pt ≈ 28mm + 6mm margen sup)
+        // top=30: header arranca en y=6 con altura ~24mm (header=68pt) -> bottom = 30mm
+        // EXACTOS. Sin gap entre el borde inferior del cabezote y el borde superior de la
+        // tabla "PROYECTO/CONTRATO/..." -> las dos lineas se ven como una sola continua.
+        // Si subes/bajas $headerHeight en NotaEntregaPDF::Header(), recalcular este top.
+        $pdf->SetMargins(12, 30, 12);
         $pdf->SetHeaderMargin(6);
         $pdf->SetFooterMargin(10);
         $pdf->SetAutoPageBreak(true, 14);
@@ -1459,6 +1606,27 @@ class AlmacenController extends Controller
     {
         Almacen::assertVisibleOrFail($request->user(), $idAlmacen);
     }
+
+    /**
+     * Detecta y corrige mojibake (UTF-8 doble-codificado). Patron tipico:
+     * "ASIGNACIÓN" -> "ASIGNACIÃ"N"  cuando los bytes UTF-8 originales se
+     * interpretaron como Windows-1252 y luego se re-encodearon como UTF-8.
+     *
+     * Estrategia conservadora: solo dispara la conversion si el string contiene
+     * la secuencia "Ã[\x80-\xBF]" (signature de UTF-8 mal interpretado). Asi
+     * los strings ya correctos no se tocan.
+     *
+     * Si la conversion produce algo invalido (no es UTF-8) devolvemos el
+     * original — nunca corrompemos datos buenos.
+     */
+    private function decodeMojibake(?string $s): string
+    {
+        if ($s === null || $s === '') return (string) $s;
+        if (!preg_match('/Ã[\x80-\xBF]/', $s)) return $s;
+        $decoded = @mb_convert_encoding($s, 'ISO-8859-1', 'UTF-8');
+        if ($decoded === false || !mb_check_encoding($decoded, 'UTF-8')) return $s;
+        return $decoded;
+    }
 }
 
 /**
@@ -1496,53 +1664,95 @@ class NotaEntregaPDF extends \TCPDF
         // tablas posteriores quedan con el MISMO grosor que el cabezote.
         $this->SetLineWidth(0.15);
 
+        // Cabezote oficial VID-FO-GEN-019.
+        // Geometria del cabezote:
+        //   x = 12 mm  (margen izquierdo)         width = 186 mm  (210 - 12*2)
+        //   y = 6 mm   (top del cabezote)         height = 68 pt = 24 mm
+        //   bottom = y + height = 30 mm           ← coincide con SetMargins top=30
+        //                                          para que la tabla del body
+        //                                          arranque PEGADA al cabezote.
+        // Celda del logo (22% de 186 = 40.92 mm):
+        //   left   = 12     right = 12 + 40.92 = 52.92      center x = 32.46
+        //   top    =  6     bottom = 30                      center y = 18
+        $headerHeight = 68;          // pt (= ~24 mm)
+        $cabX = 12;
+        $cabY = 6;
+        $cabW = 186;
+        $cabH = 24;                  // mm (≈ 68 pt)
+        $logoCellW = $cabW * 0.22;   // 40.92 mm
+
         $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
-            // Logo overlaid en la celda izquierda del cabezote (x=15, y=9 → centrado dentro
-            // de la primera celda de 22% × 30mm). Alto fijo 24mm conserva proporción.
-            $this->Image($img, 15, 9, 0, 24, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+            // Logo centrado HORIZONTAL + VERTICALMENTE dentro de la celda 22% × 24 mm.
+            // Usamos $fitbox = 'CM' (Center-Middle) — TCPDF escala la imagen para que
+            // entre dentro del bbox preservando aspect ratio y la centra en ambos ejes.
+            // Padding interno de 1 mm para que el logo no toque el borde de la celda.
+            $padding = 1;
+            $bx = $cabX + $padding;                 // 13
+            $by = $cabY + $padding;                 // 7
+            $bw = $logoCellW - ($padding * 2);      // 38.92
+            $bh = $cabH - ($padding * 2);           // 22
+            // Image(file, x, y, w, h, type, link, align, resize, dpi, palign, ismask, imgmask, border, fitbox, hidden, fitonpage, alt, altimgs)
+            $this->Image($img, $bx, $by, $bw, $bh, 'JPG', '', '', false, 300, '', false, false, 0, 'CM', false, false);
         }
 
-        // Sello + título + placeholder del logo, todo dentro de una tabla con border="1".
-        // rowspan="5" hace que la celda del logo y la del título ocupen las 5 filas
-        // del sello, sin tener que dibujar líneas manuales.
+        // Sello + titulo + placeholder del logo, todo dentro de una tabla con border="1".
+        // rowspan="5" hace que la celda del logo y la del titulo ocupen las 5 filas
+        // del sello sin tener que dibujar lineas manuales.
+        //
+        // Fuente: TCPDF no trae Arial nativamente — solo helvetica (visualmente
+        // identica: Arial fue creada como sustituto de Helvetica). Forzamos
+        // face="helvetica" explicito en cada <font> para garantizar consistencia
+        // y que ningun fragmento herede una fuente distinta.
+        //
+        // VERTICAL-CENTER del titulo: TCPDF NO centra verticalmente el contenido
+        // de una celda con rowspan aunque pongas valign="middle". El truco que
+        // SI funciona es envolver el titulo en un <div> con line-height igual a
+        // la altura del rowspan en puntos — el texto queda centrado en el line-box.
+        //
         // Layout del sello (columna derecha, 28%):
-        //   Fila 1: N° de Nota: NE-YYYY-NNNN   ← antes esta fila tenía sólo "CODIGO:" solo
-        //   Fila 2: CODIGO: VID-FO-GEN-019     ← antes en 2 filas separadas
+        //   Fila 1: N° de Nota: NE-YYYY-NNNN
+        //   Fila 2: CODIGO: VID-FO-GEN-019
         //   Fila 3: FECHA EMIS: 01/10/19
         //   Fila 4: REV: 1. FECHA REV: 06/10/23
         //   Fila 5: PAG. X DE Y
-        // Todo en letra negra (antes el N° de Nota se renderizaba en azul desde el body).
+        // Cada fila del sello lleva valign="middle" para que su texto se vea
+        // centrado vertical dentro de la celda (en especial "PAG. X DE Y", la
+        // ultima fila que tendia a quedar pegada arriba).
         $page = $this->getAliasNumPage() . ' DE ' . $this->getAliasNbPages();
         $numNota = $this->numeroNota ?? '';
-        // height="80" (≈ 28mm) en lugar de 120 (≈ 42mm): el cabezote se compacta
-        // y las 5 filas del sello dejan de tener espacio en blanco distribuido.
-        // El logo (imagen overlaid 24mm alto) sigue cabiendo con holgura.
-        // width="28%" explícito en cada fila del sello para que align="center" funcione
-        // de forma consistente — sin el width, TCPDF no siempre infiere el ancho del rowspan.
+        // line-height aprox = altura del rowspan en pt (68pt). El font-size del
+        // titulo es 13pt, asi que line-height:68pt deja ~27pt arriba y ~27pt abajo
+        // del texto -> visualmente centrado en el rowspan.
+        $tituloDiv = '<div style="text-align:center;line-height:' . ($headerHeight - 4) . 'pt;font-family:helvetica;font-size:13pt;font-weight:bold;">NOTA DE ENTREGA DE MATERIALES</div>';
+
         $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
               . '<tr>'
-              .   '<td width="22%" rowspan="5" height="80">&nbsp;</td>'
-              .   '<td width="50%" rowspan="5" align="center" valign="middle"><font size="12"><b>NOTA DE ENTREGA DE MATERIALES</b></font></td>'
-              .   '<td width="28%" align="center"><font size="8"><b>N° de Nota:</b> ' . htmlspecialchars($numNota, ENT_QUOTES, 'UTF-8') . '</font></td>'
+              .   '<td width="22%" rowspan="5" height="' . $headerHeight . '">&nbsp;</td>'
+              .   '<td width="50%" rowspan="5" height="' . $headerHeight . '" align="center" valign="middle">' . $tituloDiv . '</td>'
+              .   '<td width="28%" align="center" valign="middle"><font face="helvetica" size="8"><b>N° de Nota:</b> ' . htmlspecialchars($numNota, ENT_QUOTES, 'UTF-8') . '</font></td>'
               . '</tr>'
-              . '<tr><td width="28%" align="center"><font size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
-              . '<tr><td width="28%" align="center"><font size="7">FECHA EMIS: 01/10/19</font></td></tr>'
-              . '<tr><td width="28%" align="center"><font size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
-              . '<tr><td width="28%" align="center"><font size="7">PAG. ' . $page . '</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">FECHA EMIS: 01/10/19</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">REV: 1. FECHA REV: 06/10/23</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">PAG. ' . $page . '</font></td></tr>'
               . '</table>';
 
+        // Fuente del documento = helvetica (Arial-equivalente). Tambien la setea
+        // notaEntregaPdf() antes del writeHTML del cuerpo — la repetimos aqui
+        // por si el Header() se invoca antes que el primer SetFont del body.
         $this->SetFont('helvetica', '', 7);
         // x=12, y=6 → margen izquierdo y top del cabezote.
-        $this->writeHTMLCell(186, 0, 12, 6, $html, 0, 0, 0, true, 'L', true);
+        $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
     }
 
     public function Footer()
     {
         $this->SetY(-10);
         $this->SetFont('helvetica', 'I', 7);
-        // Cell() en vez de writeHTMLCell porque el texto es ASCII puro (sin acentos) — más rápido
-        // y suficiente. Mismo criterio que ReporteFallaPDF::Footer().
-        $this->Cell(0, 6, 'Sistema de Gestion VIDALSA', 0, 0, 'R');
+        // writeHTMLCell en vez de Cell(): Cell() con helvetica no procesa UTF-8
+        // y rompe los acentos (la 'ó' de "Gestión" se mostraba como "Ã³").
+        // writeHTMLCell respeta el encoding del documento (configurado como UTF-8).
+        $this->writeHTMLCell(0, 6, '', $this->GetY(), '<div style="text-align:right;font-family:helvetica;font-style:italic;font-size:7pt;">Sistema de Gesti&oacute;n VIDALSA</div>', 0, 0, 0, true, 'R', true);
     }
 }

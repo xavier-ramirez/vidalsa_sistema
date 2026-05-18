@@ -61,12 +61,11 @@
     .alm-table tbody tr.alm-row.selected-row-maquinaria td { color: unset !important; }
 
     /* Stepper compacto de "Cant. salida" (vive en cada fila de la tabla):
-       sin spinners nativos del browser; los botones ▲/▼ están manejados por JS.
+       el input es <type="text" inputmode="decimal"> (sin spinners nativos por construcción)
+       y los botones ▲/▼ están manejados por JS — almRowCantKeyDown bloquea letras/signos.
        Los estilos inline del partial pintan el estado DESHABILITADO (gris). Cuando
        almSelMarkRow añade .is-active al wrapper estos selectores ganan con !important
        para revertir el gris a los colores "activos" (texto negro, botón azul). */
-    .alm-row-cant::-webkit-outer-spin-button,
-    .alm-row-cant::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     .alm-cant-stepper.is-active { background:#fff !important; border-color:#94a3b8 !important; }
     .alm-cant-stepper.is-active .alm-cant-btn { background:#fff !important; color:#0067b1 !important; cursor:pointer !important; }
     .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe !important; }
@@ -813,7 +812,12 @@
                      muestran como botones bajo el input. --}}
                 <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
                     <div>
-                        <label class="alm-nota-label" for="almSalidaProyecto">Proyecto *</label>
+                        {{-- El for= apunta al input VISIBLE (data-filter-search) en vez de al
+                             hidden #almSalidaProyecto: Chrome marca como inválido un <label for=>
+                             que rotula un <input type="hidden"> (no es focuseable ni autofillable),
+                             y rompe la asociación a11y. El hidden mantiene su id porque el JS lo
+                             lee con el('almSalidaProyecto').value para enviar el ID del frente. --}}
+                        <label class="alm-nota-label" for="almSalidaProyectoSearch">Proyecto *</label>
                         {{-- Custom-dropdown estándar de la app: hidden #almSalidaProyecto guarda el ID
                              (lo que lee el JS de envío); el trigger tiene un input data-filter-search
                              que filtra los items mientras el usuario escribe (autocomplete nativo del
@@ -823,7 +827,7 @@
                         <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="Selecciona uno">
                             <input type="hidden" id="almSalidaProyecto" data-filter-value value="">
                             <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
-                                <input type="text" data-filter-search autocomplete="off"
+                                <input type="text" id="almSalidaProyectoSearch" data-filter-search autocomplete="off"
                                        placeholder="Selecciona uno"
                                        style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                        oninput="window.filterDropdownOptions(this)">
@@ -1403,7 +1407,8 @@
     // Stepper +/−: incrementa/decrementa la cantidad del producto de esa fila. Mínimo 1
     // (no permite 0 ni negativos — el "−" se queda en 1 cuando ya está en 1). El paso es
     // entero porque en general se entregan unidades enteras; si el usuario necesita
-    // decimales puede teclearlos directamente en el input.
+    // decimales puede teclearlos directamente en el input. El "+" se topa al stock disponible
+    // (no se puede solicitar más de lo que hay) y avisa con un toast cuando intenta excederlo.
     window.almRowCantStep = function (btn, dir) {
         var tr = btn.closest('tr.alm-row'); if (!tr) return;
         var inp = tr.querySelector('.alm-row-cant'); if (!inp || inp.disabled) return;
@@ -1412,8 +1417,44 @@
         var cur = parseFloat(String(inp.value || '0').replace(',', '.')) || 0;
         var next = cur + (dir > 0 ? 1 : -1);
         if (next < 1) next = 1;
+        var saldo = parseFloat(s.saldo) || 0;
+        if (dir > 0 && next > saldo) {
+            next = saldo;
+            toast('La cantidad de salida no puede ser mayor que el stock disponible (' + saldo + (s.um ? ' ' + s.um : '') + ') de "' + (s.nombre || ('#' + id)) + '".', 'error');
+        }
         inp.value = String(next);
         s.cantidad = String(next);
+        if (next > 0) almLimpiarFaltante(id);
+    };
+    // Bloquea en el teclado los caracteres prohibidos (signos, "e", letras) para que el
+    // input solo acepte dígitos y un único separador decimal. Permite teclas de control
+    // (Backspace, Delete, flechas, Tab, Enter, Home/End, copiar/pegar/cortar/seleccionar).
+    window.almRowCantKeyDown = function (e) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return true;
+        var k = e.key || '';
+        var control = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Enter','Home','End','Escape'];
+        if (control.indexOf(k) !== -1) return true;
+        // Solo dígitos o un único punto/coma decimal.
+        if (/^[0-9]$/.test(k)) return true;
+        if ((k === '.' || k === ',') && e.target && (e.target.value || '').indexOf('.') === -1 && (e.target.value || '').indexOf(',') === -1) return true;
+        e.preventDefault();
+        return false;
+    };
+    // Sanitiza lo pegado: deja solo dígitos y a lo más un punto decimal.
+    window.almRowCantPaste = function (e) {
+        try {
+            var raw = (e.clipboardData || window.clipboardData).getData('text');
+            if (raw == null) return true;
+            var clean = String(raw).replace(',', '.').replace(/[^0-9.]/g, '');
+            var parts = clean.split('.');
+            if (parts.length > 2) clean = parts[0] + '.' + parts.slice(1).join('');
+            e.preventDefault();
+            if (e.target) {
+                e.target.value = clean;
+                if (typeof window.almRowCantInput === 'function') window.almRowCantInput(e.target);
+            }
+        } catch (_) {}
+        return false;
     };
     // Re-pinta el resaltado azul + estado del input cantidad tras cada recarga AJAX del tbody.
     function almSelApplyToVisible() {
@@ -1439,14 +1480,41 @@
         almSelRefreshBar();
     };
     // Handler del input de cantidad en cada fila — guarda en almSeleccion (sobrevive a
-    // recargas del tbody). Validación final (> 0, ≤ stock) se hace al confirmar la Nota.
+    // recargas del tbody). Sanitiza (sin letras ni negativos) y recorta al stock disponible
+    // mostrando un toast si el usuario intenta exceder el saldo del almacén.
+    // Para evitar avisar varias veces seguidas por la misma fila usamos un debounce simple.
+    var _almCantToastT = {};
     window.almRowCantInput = function (inp) {
         var tr = inp.closest('tr.alm-row'); if (!tr) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
         var s  = almSeleccion[id]; if (!s) return;
-        s.cantidad = String(inp.value).replace(',', '.').trim();
-        // Si ahora la cantidad es válida (> 0), limpiar el resaltado rojo "faltante".
-        var c = parseFloat(s.cantidad);
+
+        // Sanitizar: dejar solo dígitos y un único punto decimal.
+        var raw = String(inp.value == null ? '' : inp.value).replace(',', '.');
+        raw = raw.replace(/[^0-9.]/g, '');
+        var parts = raw.split('.');
+        if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+
+        var c = parseFloat(raw);
+        var saldo = parseFloat(s.saldo) || 0;
+        var excede = false;
+        if (isFinite(c) && c > saldo) {
+            // Recortar al stock disponible y notificar al usuario.
+            raw = String(saldo);
+            c = saldo;
+            excede = true;
+        }
+        if (raw !== inp.value) inp.value = raw;
+        s.cantidad = raw;
+
+        if (excede) {
+            if (_almCantToastT[id]) clearTimeout(_almCantToastT[id]);
+            _almCantToastT[id] = setTimeout(function () {
+                toast('La cantidad de salida no puede ser mayor que el stock disponible (' + saldo + (s.um ? ' ' + s.um : '') + ') de "' + (s.nombre || ('#' + id)) + '".', 'error');
+                _almCantToastT[id] = null;
+            }, 120);
+        }
+        // Si ahora la cantidad es válida (mayor que cero), limpiar el resaltado rojo "faltante".
         if (isFinite(c) && c > 0) almLimpiarFaltante(id);
     };
     // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
@@ -1513,7 +1581,7 @@
             // Listar TODOS los nombres (no truncar): el usuario necesita saber cuáles son,
             // sobre todo si algunos quedaron fuera de la página/filtro actual.
             var nombres = faltan.map(function (f) { return f.nombre; }).join(', ');
-            toast('Falta cantidad (> 0) en: ' + nombres + '.', 'error');
+            toast('Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + nombres + '.', 'error');
             return;
         }
         window.almAbrirSalidaModal(idAlm);
@@ -2186,8 +2254,8 @@
             if (!isFinite(c) || c <= 0) faltan.push(nombre);
             else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
         });
-        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que 0 en al menos un producto (columna "Cant. salida" de la tabla).'); return; }
-        if (faltan.length)  { showErr('almSalidaError', 'Falta la cantidad (o es 0) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return; }
+        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Cant. salida" de la tabla).'); return; }
+        if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return; }
         showErr('almSalidaError', '');
 
         // Único endpoint: registrarMovimientoLote tipo=SALIDA + id_frente_destino.
@@ -2209,10 +2277,9 @@
         var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
         var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
 
-        // Pre-abrimos pestaña vacía DENTRO del gesto del usuario para que el pop-up blocker
-        // no la rechace. La redirigimos a nota_url cuando llega la respuesta (o la cerramos
-        // si hubo error). Ambos flujos (consumo / traspaso) generan PDF.
-        var pdfTab = window.open('about:blank', '_blank');
+        // El PDF se abre dentro del visor in-page (#pdfPreviewModal del layout base),
+        // no en una pestaña nueva — por eso ya no necesitamos pre-abrir about:blank ni
+        // luchar contra el pop-up blocker.
         var url = ROUTE_LOTE;
 
         pre();
@@ -2230,13 +2297,15 @@
                 toast(res.b.message || 'Movimiento registrado.');
                 almCargar();
                 // SALIDA: el backend devuelve nota_url con el PDF de la Nota de Entrega (VID-FO-GEN-019).
-                if (res.b && res.b.nota_url && pdfTab) {
-                    try { pdfTab.location.href = res.b.nota_url; } catch (e) { try { pdfTab.close(); } catch (_) {} }
-                } else if (pdfTab) {
-                    try { pdfTab.close(); } catch (e) {}
+                if (res.b && res.b.nota_url) {
+                    var label = res.b.numero_nota ? ('Nota ' + res.b.numero_nota) : 'Nota de Entrega';
+                    if (typeof window.openPdfPreview === 'function') {
+                        window.openPdfPreview(res.b.nota_url, 'nota_entrega', label, 0, '', true, 'almacen');
+                    } else {
+                        window.open(res.b.nota_url, '_blank', 'noopener');
+                    }
                 }
             } else {
-                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
                 showErr('almSalidaError', msg);
@@ -2244,7 +2313,6 @@
         })
         .catch(function () {
             unpre();
-            if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
             showErr('almSalidaError', 'Error de red.');
         });
     };

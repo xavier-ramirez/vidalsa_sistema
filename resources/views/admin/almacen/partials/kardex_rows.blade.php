@@ -70,10 +70,14 @@
                  (N° de OC). Si ambos están presentes se muestran apilados; si ninguno → "—". --}}
             <td title="{{ $m->MOTIVO ?? '' }}">
                 @if($m->NUMERO_NOTA)
+                    {{-- Mismo visor in-page que usa /admin/almacen/notas y el resto del módulo
+                         (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
+                         en pestaña nueva si el layout no provee la función. --}}
                     <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                       onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
                        style="color:#334155;text-decoration:none;font-weight:700;font-family:monospace;font-size:12px;"
-                       title="Abrir Nota de Entrega PDF">{{ $m->NUMERO_NOTA }}</a>
+                       title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
                 @endif
                 @if($m->REFERENCIA)
                     <div style="font-size:10.5px;color:#64748b;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}">{{ $m->REFERENCIA }}</div>

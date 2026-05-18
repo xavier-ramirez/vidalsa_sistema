@@ -46,10 +46,12 @@
                 @endif
                 @if($m->NUMERO_NOTA)
                     <div style="font-size:10.5px;margin-top:2px;">
+                        {{-- Visor in-page (#pdfPreviewModal) — fallback a pestaña nueva. --}}
                         <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                           onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
                            target="_blank" rel="noopener"
                            style="color:#0067b1;text-decoration:none;font-weight:700;font-family:monospace;"
-                           title="Abrir Nota de Entrega PDF">{{ $m->NUMERO_NOTA }}</a>
+                           title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
                     </div>
                 @endif
                 @if($m->REFERENCIA)

@@ -185,6 +185,11 @@ Route::middleware(['auth'])->group(function () {
 
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
+            // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de
+            // Entrega (SALIDA / TRASPASO_SALIDA con N° NE-YYYY-NNNN); clic en la fila abre el
+            // PDF oficial. Acceso desde el botón "Bitácora por Nota" del menú Acciones de
+            // /admin/almacen/movimientos.
+            Route::get   ('almacen/notas',                        [App\Http\Controllers\AlmacenController::class, 'notas'])             ->name('almacen.notas');
 
             // Movimientos de inventario: SIEMPRE en lote (1+ líneas en una transacción).
             // Maneja ENTRADA (Recepción → entrada directa), SALIDA (selección de filas → Nota de

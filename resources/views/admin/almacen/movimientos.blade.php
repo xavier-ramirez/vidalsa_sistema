@@ -287,6 +287,17 @@
 
             <div id="splitDropdownMenuMovInv"
                  style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:260px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);z-index:50;overflow:hidden;">
+                {{-- Bitácora por Nota: vista alterna agrupada por NUMERO_NOTA — una fila por
+                     Nota de Entrega; clic abre el PDF oficial. Conserva los filtros activos. --}}
+                <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
+                    <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
+                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;text-decoration:none;"
+                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'"
+                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none';">
+                        <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#16a34a;">description</i></div>
+                        <span>Bitácora por Nota (PDF)</span>
+                    </a>
+                </div>
                 {{-- Generar Nota: cualquier usuario que pueda ver la bitácora puede reimprimir. --}}
                 <div style="padding:6px;">
                     <button type="button"
@@ -528,12 +539,29 @@
         if (ev) ev.stopPropagation();
         var m = el('splitDropdownMenuMovInv'); if (!m) return;
         var p = el('almMovFechasPanel'); if (p) p.style.display = 'none';
-        
+
         // Forma correcta de cerrar los custom-dropdowns de uicomponents.js
         if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
         document.querySelectorAll('.custom-dropdown.active').forEach(d => d.classList.remove('active'));
         // Limpiar cualquier estilo inline residual
         document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
+
+        // Refrescar el href del link "Bitácora por Nota" con los filtros activos para
+        // que la vista por nota se abra ya filtrada por almacén / frente / fechas / tipo
+        // (sólo SALIDA / TRASPASO_SALIDA — los demás los ignora la vista por nota).
+        var lnk = el('lnkBitNotas');
+        if (lnk) {
+            var p2 = new URLSearchParams();
+            var alm = hv('id_almacen'); if (alm) p2.set('id_almacen', alm);
+            var fr  = hv('id_frente'); if (fr && fr !== 'all') p2.set('id_frente', fr);
+            var tp  = hv('tipo'); if (tp === 'SALIDA' || tp === 'TRASPASO_SALIDA') p2.set('tipo', tp);
+            var s   = el('almMovSearch'); if (s && s.value.trim()) p2.set('search', s.value.trim());
+            var d   = el('almMovDesde'); if (d && d.value) p2.set('desde', d.value);
+            var h   = el('almMovHasta'); if (h && h.value) p2.set('hasta', h.value);
+            var base = @json(route('almacen.notas'));
+            var qs = p2.toString();
+            lnk.href = base + (qs ? ('?' + qs) : '');
+        }
 
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     };
@@ -554,7 +582,8 @@
 
 {{-- ═════════════════════════════════════════════════════════════════
      MODAL: GENERAR NOTA DE ENTREGA POR CÓDIGO
-     Ingresa NE-YYYY-NNNN y abre el PDF en una pestaña nueva.
+     Ingresa NE-YYYY-NNNN y abre el PDF en el visor in-page
+     (#pdfPreviewModal del layout base, vía window.openPdfPreview).
      Patrón calcado del modal "Reimprimir Acta" de /admin/movilizaciones.
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="generarNotaOverlay"
@@ -712,9 +741,9 @@
             fb('generarNotaFeedback', 'error', 'Ingresa un N° de Nota para continuar.');
             if (input) input.focus(); return;
         }
-        // Pre-abrimos pestaña dentro del gesto del usuario (mismo truco que en el modal de
-        // salida del inventario) — si esperamos al fetch, los pop-up blockers la rechazan.
-        var pdfTab = window.open('about:blank', '_blank');
+        // Usamos el visor in-page (window.openPdfPreview → #pdfPreviewModal del layout base);
+        // por eso ya NO pre-abrimos pestaña con about:blank — el PDF se muestra dentro del
+        // navegador en un iframe modal sin riesgo de pop-up blocker.
 
         var btn = document.getElementById('generarNotaSubmitBtn');
         var html = btn ? btn.innerHTML : '';
@@ -725,28 +754,29 @@
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
             });
             if (r.status === 404) {
-                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
                 fb('generarNotaFeedback', 'error', 'No se encontró ninguna Nota con ese N°.');
                 var box2 = document.getElementById('generarNotaBox'); if (box2) box2.style.borderColor = '#ef4444';
                 return;
             }
             if (!r.ok) {
-                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
                 var err = await r.json().catch(function(){ return {}; });
                 fb('generarNotaFeedback', 'error', err.message || ('Error del servidor (' + r.status + ').'));
                 return;
             }
             var data = await r.json();
             if (!data.success || !data.url) {
-                if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
                 fb('generarNotaFeedback', 'error', data.message || 'Respuesta inválida del servidor.');
                 return;
             }
             fb('generarNotaFeedback', 'success', 'Nota encontrada. Abriendo PDF…');
-            if (pdfTab) { try { pdfTab.location.href = data.url; } catch (e) {} }
-            setTimeout(function(){ window.closeGenerarNotaModal(); }, 600);
+            // Cierra el modal de búsqueda y abre el visor de PDF in-page.
+            window.closeGenerarNotaModal();
+            if (typeof window.openPdfPreview === 'function') {
+                window.openPdfPreview(data.url, 'nota_entrega', 'Nota ' + raw, 0, '', true, 'almacen');
+            } else {
+                window.open(data.url, '_blank', 'noopener');
+            }
         } catch (err) {
-            if (pdfTab) { try { pdfTab.close(); } catch (e) {} }
             console.error('[Generar Nota]', err);
             fb('generarNotaFeedback', 'error', 'No se pudo contactar al servidor.');
         } finally {

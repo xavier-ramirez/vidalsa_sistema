@@ -75,13 +75,18 @@
                  Los tres elementos se habilitan SOLO cuando la fila está seleccionada (clic
                  fuera de inputs/botones). El valor se persiste en almSeleccion[id].cantidad
                  y sobrevive a recargas del tbody (paginación / filtros) vía almSelApplyToVisible.
-                 La validación final (> 0, ≤ stock) ocurre al confirmar la Nota de Entrega. --}}
+                 Sanitización + tope al saldo: almRowCantInput / almRowCantStep recortan al
+                 stock disponible y muestran un toast si el usuario intenta excederlo.
+                 La validación de "cantidad > 0" en cada fila se vuelve a verificar al
+                 confirmar la Nota de Entrega (las filas faltantes se resaltan en rojo). --}}
             <td style="text-align:center;white-space:nowrap;width:100px;" data-no-toggle>
                 <div class="alm-cant-stepper" style="display:inline-flex;align-items:stretch;border:1px solid #cbd5e0;border-radius:6px;overflow:hidden;background:#f1f5f9;height:30px;">
-                    <input type="number" class="alm-row-cant" min="0.001" step="any" placeholder="0"
-                           disabled
-                           style="width:56px;border:none;background:transparent;text-align:center;font-size:13px;font-weight:700;color:#94a3b8;outline:none;padding:0;-moz-appearance:textfield;"
+                    <input type="text" inputmode="decimal" class="alm-row-cant" placeholder="0"
+                           disabled autocomplete="off"
+                           style="width:56px;border:none;background:transparent;text-align:center;font-size:13px;font-weight:700;color:#94a3b8;outline:none;padding:0;"
                            onclick="event.stopPropagation();"
+                           onkeydown="return (window.almRowCantKeyDown ? window.almRowCantKeyDown(event) : true)"
+                           onpaste="return (window.almRowCantPaste ? window.almRowCantPaste(event) : true)"
                            oninput="window.almRowCantInput && window.almRowCantInput(this)">
                     <div style="display:flex;flex-direction:column;border-left:1px solid #cbd5e0;width:18px;">
                         <button type="button" class="alm-cant-btn" data-step="1" disabled
