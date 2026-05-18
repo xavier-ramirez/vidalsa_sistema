@@ -35,6 +35,7 @@ class Almacen extends Model
         'TIPO',
         'UBICACION',
         'ALMACENISTA',
+        'CARGO_ALMACENISTA',
         'ESTATUS',
         'NOTAS',
         'CREADO_POR',

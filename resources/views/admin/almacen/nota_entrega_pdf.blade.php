@@ -131,9 +131,11 @@
 </table>
 
 {{-- ── Firmas: label | ENTREGADO POR | RECIBIDO POR ──
-     Almacenista del almacén origen va pre-impreso como ENTREGADO POR + cargo
-     "COORD. DE MATERIALES" (estándar VIDALSA). RECIBIDO POR en blanco para
-     que la persona del proyecto lo rellene a mano al recibir.
+     Almacenista del almacén origen va pre-impreso como ENTREGADO POR +
+     cargo (ambos vienen de la BD: almacenes.ALMACENISTA y
+     almacenes.CARGO_ALMACENISTA, configurables en el modal "Editar almacén").
+     RECIBIDO POR en blanco para que la persona del proyecto lo rellene a
+     mano al recibir.
 
      Grid de 3 columnas: 14% | 43% | 43% = 100%. WIDTH EXPLICITO en TODOS los
      <td> de TODAS las filas — sin esto TCPDF recalcula a partir del contenido
@@ -155,7 +157,7 @@
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>Cargo:</b></font></td>
-        <td width="43%" align="center"><font face="helvetica" size="9"><b>CARGO:</b> COORD. DE MATERIALES</font></td>
+        <td width="43%" align="center"><font face="helvetica" size="9"><b>CARGO:</b> {{ $datos['cargo_entrega'] ?? '' }}</font></td>
         <td width="43%"><font face="helvetica" size="9"><b>CARGO:</b></font></td>
     </tr>
     <tr>

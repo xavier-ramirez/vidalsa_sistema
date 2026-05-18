@@ -1298,12 +1298,14 @@ class AlmacenController extends Controller
         // Cabecera del documento: todos los movimientos comparten estos campos porque
         // registrarMovimientoLote los stampa en cada línea con el mismo $opts.
         $hd = $movs->first();
-        // "Entregado por" = ALMACENISTA del almacén origen, configurable en el modal
-        // "Editar almacén" (/admin/almacen → Acciones → Gestionar almacenes). Si el
-        // almacén no tiene almacenista asignado el campo queda VACIO en el PDF: NO
-        // caemos al usuario que registró el movimiento — eso confundia al firmante
-        // (el almacenista quien entrega rara vez es la persona que opera el sistema).
+        // "Entregado por" = ALMACENISTA + CARGO_ALMACENISTA del almacén origen,
+        // ambos configurables en el modal "Editar almacén" (/admin/almacen →
+        // Acciones → Gestionar almacenes). Si el almacén no tiene almacenista
+        // asignado el campo queda VACIO en el PDF: NO caemos al usuario que
+        // registró el movimiento — eso confundia al firmante (el almacenista
+        // quien entrega rara vez es la persona que opera el sistema).
         $entregadoPor = trim((string) ($hd->almacen?->ALMACENISTA ?? ''));
+        $cargoEntrega = trim((string) ($hd->almacen?->CARGO_ALMACENISTA ?? ''));
 
         // Normaliza mojibake (texto guardado como UTF-8 doble-codificado, ej.
         // "ASIGNACIÓN" -> "ASIGNACIÃ”N"). Aplicado a TODOS los campos de
@@ -1321,6 +1323,7 @@ class AlmacenController extends Controller
             'departamento'  => $fix($hd->DEPARTAMENTO ?? ''),
             'almacen'       => $fix($hd->almacen?->NOMBRE ?? ''),
             'entregado_por' => $fix($entregadoPor),
+            'cargo_entrega' => $fix($cargoEntrega),
             'motivo'        => $fix($hd->MOTIVO ?? ''),
         ];
 
@@ -1516,18 +1519,22 @@ class AlmacenController extends Controller
             'UBICACION'   => 'nullable|string|max:150',
             // ALMACENISTA: nombre del responsable del almacén (aparece como "Entregado por"
             // en la Nota de Entrega VID-FO-GEN-019). Texto libre, varía por almacén/proyecto.
-            'ALMACENISTA' => 'nullable|string|max:200',
-            'ESTATUS'     => 'nullable|in:ACTIVO,INACTIVO',
-            'NOTAS'       => 'nullable|string',
-            'frentes'     => 'sometimes|array',
-            'frentes.*'   => 'integer|exists:frentes_trabajo,ID_FRENTE',
+            'ALMACENISTA'       => 'nullable|string|max:200',
+            // CARGO_ALMACENISTA: cargo / titulo (aparece como "CARGO:" en el PDF debajo del
+            // NOMBRE del almacenista; sustituye al literal hardcodeado "COORD. DE MATERIALES").
+            'CARGO_ALMACENISTA' => 'nullable|string|max:200',
+            'ESTATUS'           => 'nullable|in:ACTIVO,INACTIVO',
+            'NOTAS'             => 'nullable|string',
+            'frentes'           => 'sometimes|array',
+            'frentes.*'         => 'integer|exists:frentes_trabajo,ID_FRENTE',
         ]);
 
         // Normalizar.
         $data['NOMBRE'] = mb_strtoupper(trim($data['NOMBRE']));
-        if (!empty($data['CODIGO']))      $data['CODIGO']      = mb_strtoupper(trim($data['CODIGO']));
-        if (!empty($data['UBICACION']))   $data['UBICACION']   = mb_strtoupper(trim($data['UBICACION']));
-        if (!empty($data['ALMACENISTA'])) $data['ALMACENISTA'] = mb_strtoupper(trim($data['ALMACENISTA']));
+        if (!empty($data['CODIGO']))            $data['CODIGO']            = mb_strtoupper(trim($data['CODIGO']));
+        if (!empty($data['UBICACION']))         $data['UBICACION']         = mb_strtoupper(trim($data['UBICACION']));
+        if (!empty($data['ALMACENISTA']))       $data['ALMACENISTA']       = mb_strtoupper(trim($data['ALMACENISTA']));
+        if (!empty($data['CARGO_ALMACENISTA'])) $data['CARGO_ALMACENISTA'] = mb_strtoupper(trim($data['CARGO_ALMACENISTA']));
         
         // Evitar reactivar almacenes inactivos al editarlos sin mandar el campo ESTATUS.
         if ($ignoreId === null) {

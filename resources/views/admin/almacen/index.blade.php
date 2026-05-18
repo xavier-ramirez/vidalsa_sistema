@@ -205,11 +205,12 @@
     // Datos de los almacenes para el modal de edición (solo se usa si $puedeManage).
     $almacenesData = ($almacenes ?? collect())->keyBy('ID_ALMACEN')->map(function ($a) {
         return [
-            'NOMBRE'      => $a->NOMBRE,
-            'TIPO'        => $a->TIPO,
-            'UBICACION'   => $a->UBICACION,
-            'ALMACENISTA' => $a->ALMACENISTA,
-            'frentes'     => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
+            'NOMBRE'            => $a->NOMBRE,
+            'TIPO'              => $a->TIPO,
+            'UBICACION'         => $a->UBICACION,
+            'ALMACENISTA'       => $a->ALMACENISTA,
+            'CARGO_ALMACENISTA' => $a->CARGO_ALMACENISTA,
+            'frentes'           => $a->relationLoaded('frentes') ? $a->frentes->pluck('ID_FRENTE')->values() : [],
         ];
     });
 @endphp
@@ -619,6 +620,14 @@
                 <label for="almNvAlmacenista">Almacenista</label>
                 <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Ej: Juan Pérez (almacenista)" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "Entregado por:" en la Nota de Entrega.</div>
+            </div>
+            {{-- Cargo del almacenista: aparece como "CARGO:" debajo del NOMBRE en la
+                 seccion "ENTREGADO POR" del PDF. Sustituye al literal "COORD. DE
+                 MATERIALES" que antes estaba hardcodeado en el template. --}}
+            <div>
+                <label for="almNvCargoAlmacenista">Cargo del almacenista</label>
+                <input type="text" id="almNvCargoAlmacenista" maxlength="200" placeholder="Ej: COORD. DE MATERIALES" autocomplete="off">
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "CARGO:" debajo del nombre en la Nota de Entrega.</div>
             </div>
             <div id="almNvFrentesWrap">
                 <label for="almNvFrentesInput">Frentes que usan este almacén</label>
@@ -2046,7 +2055,8 @@
     function almResetAlmacenModal() {
         delete el('almAlmacenModal').dataset.idAlmacen;
         el('almNvNombre').value = ''; el('almNvUbicacion').value = '';
-        if (el('almNvAlmacenista')) el('almNvAlmacenista').value = '';
+        if (el('almNvAlmacenista'))      el('almNvAlmacenista').value = '';
+        if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = '';
         almNvTipoSelect('PROYECTO', 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes([]);
         showErr('almNvError', '');
@@ -2062,7 +2072,8 @@
         el('almAlmacenModal').dataset.idAlmacen = id;
         el('almNvTitulo').textContent = 'Editar almacén'; el('almNvSubmit').textContent = 'Guardar cambios';
         el('almNvNombre').value = d.NOMBRE || ''; el('almNvUbicacion').value = d.UBICACION || '';
-        if (el('almNvAlmacenista')) el('almNvAlmacenista').value = d.ALMACENISTA || '';
+        if (el('almNvAlmacenista'))      el('almNvAlmacenista').value      = d.ALMACENISTA || '';
+        if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = d.CARGO_ALMACENISTA || '';
         var tipo = d.TIPO || 'PROYECTO';
         almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'Global (Todos los frentes)' : 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes(d.frentes || []);
@@ -2083,7 +2094,14 @@
         fetch(url, {
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            body: JSON.stringify({ NOMBRE: nombre, TIPO: tipo, UBICACION: val('almNvUbicacion') || null, ALMACENISTA: val('almNvAlmacenista') || null, frentes: frentes })
+            body: JSON.stringify({
+                NOMBRE:            nombre,
+                TIPO:              tipo,
+                UBICACION:         val('almNvUbicacion') || null,
+                ALMACENISTA:       val('almNvAlmacenista') || null,
+                CARGO_ALMACENISTA: val('almNvCargoAlmacenista') || null,
+                frentes:           frentes,
+            })
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
