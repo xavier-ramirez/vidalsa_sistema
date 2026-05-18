@@ -237,13 +237,14 @@
         #almBtnAcciones { width: 100% !important; justify-content: center; }
         #almAccionesMenu { left: 0 !important; right: 0 !important; width: 100% !important; max-width: calc(100vw - 20px) !important; }
 
-        /* Consolidado de Inventario en mobile: el CSS global de
-           public/css/maquinaria/catalogo.css oculta .counter-sidebar con
-           display:none !important en ≤768px (regla pensada para el catalogo
-           de maquinaria). Aqui la sobreescribimos para que el cliente vea
-           PRODUCTOS / Con stock / Stock bajo debajo del boton Acciones,
-           siguiendo el patron de /admin/equipos. */
-        .counter-sidebar {
+        /* Consolidado de Inventario en mobile: dos reglas globales lo
+           ocultan en pantallas chicas — catalogo.css:22 (≤768px) y
+           estilos_globales.css:2924 (`.page-layout-grid .counter-sidebar`
+           en ≤900px, mas especifica). Para ganarles la cascada usamos el
+           mismo selector compuesto. El cliente quiere ver PRODUCTOS /
+           Con stock / Stock bajo debajo del boton Acciones, igual que
+           /admin/equipos. */
+        .page-layout-grid .counter-sidebar {
             display: flex !important;
             flex-direction: column !important;
             width: 100% !important;
