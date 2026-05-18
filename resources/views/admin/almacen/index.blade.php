@@ -262,22 +262,31 @@
            cuando el usuario ya esta dentro del modulo y los iconos PRODUCTOS /
            inventory_2 / warning explican por si mismos. */
         .counter-sidebar .alm-consolidado-title { display: none !important; }
-        /* Panel "En otros almacenes" (modo cruzado): se muestra en mobile pero
-           comprimido — items mas chicos (similar al patron de cards de
-           /admin/almacen/movimientos en mobile) para no comerse pantalla. */
-        .counter-sidebar .alm-otros-almacenes ul { max-height: 50vh !important; gap: 2px !important; }
-        .counter-sidebar .alm-otros-almacenes li { padding: 5px 7px !important; }
-        .counter-sidebar .alm-otros-almacenes li > span:first-child { font-size: 11px !important; }
-        .counter-sidebar .alm-otros-almacenes li > span:last-child { font-size: 11px !important; padding: 1px 7px !important; }
-        /* Cuando el producto NO existe en mas almacenes (alm-otros-empty), ocultar
-           el panel entero en mobile — el mensaje "Este producto solo existe…" no
-           aporta y desperdicia espacio vertical. Desktop conserva el aviso. */
-        .counter-sidebar .alm-otros-almacenes.alm-otros-empty { display: none !important; }
+        /* Panel "En otros almacenes" en mobile — compacto verticalmente.
+           NO usa selector .counter-sidebar como ancestor porque el JS mueve el
+           wrapper (#almDistWrapper) fuera de .counter-sidebar a "despues de la
+           tabla" (separado del Consolidado). */
+        .alm-otros-almacenes h4 { margin-bottom: 6px !important; padding-bottom: 5px !important; font-size: 11px !important; }
+        .alm-otros-almacenes h4 .material-icons { font-size: 15px !important; }
+        .alm-otros-almacenes ul { max-height: 40vh !important; gap: 2px !important; }
+        .alm-otros-almacenes li { padding: 5px 7px !important; }
+        .alm-otros-almacenes li > span:first-child { font-size: 11px !important; }
+        .alm-otros-almacenes li > span:last-child { font-size: 11px !important; padding: 1px 7px !important; }
+        /* Empty state del modo cruzado: mensaje "Este producto solo existe…"
+           AHORA SE MUESTRA en mobile (cliente lo pidio explicitamente). Margenes
+           comprimidos para no malgastar alto. */
+        .alm-otros-almacenes .alm-otros-empty-msg,
+        .alm-otros-almacenes > p { margin: 4px 0 0 !important; font-size: 11.5px !important; line-height: 1.35 !important; }
         /* "Distribucion de Inventario" (grafico por categoria, modo default): se
-           oculta en mobile. El cliente lo encontro redundante con la columna
-           Categoria que cada tarjeta ya muestra inline, y comia mucho espacio
-           vertical. Desktop lo conserva (es util como mapa rapido del inventario). */
-        .counter-sidebar .alm-distribucion-cats { display: none !important; }
+           oculta en mobile. Cliente lo encontro redundante con la columna
+           Categoria que cada tarjeta ya muestra. */
+        .alm-distribucion-cats { display: none !important; }
+        /* Wrapper #almDistWrapper en mobile: hide cuando solo contiene el chart
+           (default) o esta vacio. Solo se muestra cuando hay panel "En otros
+           almacenes" util (modo cruzado con o sin contenido — el empty state
+           ahora sale tambien). Usa :has() — soportado en chromium 105+. */
+        #almDistWrapper { display: none !important; }
+        #almDistWrapper:has(.alm-otros-almacenes) { display: block !important; padding: 10px 12px !important; }
         /* "Ver movimientos del producto" del modal de detalles: el kardex tabular
            que abre es pesado en mobile. Cliente prefirio quitar el boton en
            telefono y mantener el modal de detalles compacto. */
@@ -687,7 +696,12 @@
         </div>
     </div>
 
-    <div style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
+    {{-- Wrapper del panel "En otros almacenes" / "Distribución de Inventario".
+         Lleva id="almDistWrapper" porque en mobile el JS lo mueve a DESPUES de
+         la tabla (separado del Consolidado, que queda donde esta). El white-box
+         se oculta en mobile cuando solo contiene el grafico de categorias o esta
+         vacio — solo se ve cuando hay info util de "otros almacenes". --}}
+    <div id="almDistWrapper" style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
         <div id="almDistribucionContainer">
             @if($distribucion && $distribucion->isNotEmpty())
                 @include('admin.almacen.partials.distribucion_stats', ['distribucion' => $distribucion])
@@ -3075,32 +3089,47 @@
         if (bActivo || cActivo || almBuscarPickedId) window.almCargar();
     })();
 
-    // ── Posicion del Consolidado de Inventario en mobile ─────────────────────
-    // Por default el sidebar es SIBLING del .admin-card dentro de .page-layout-grid;
-    // cuando el grid colapsa a 1 columna en mobile termina abajo de TODO. El cliente
-    // lo quiere ENTRE el boton "Acciones" y la tabla (debajo del header de filtros).
+    // ── Posicion de Consolidado + "En otros almacenes" en mobile ─────────────
+    // Default DOM (desktop): .counter-sidebar es sibling del .admin-card dentro
+    // de .page-layout-grid. Contiene el Consolidado (totales) Y el #almDistWrapper
+    // (panel "En otros almacenes" / chart de categorias).
     //
-    // Anchor mobile: #almFilters (el bloque de filtros Buscar+Categoria, que vive
-    // justo bajo el header del modulo donde esta el menu de Acciones). Insertando
-    // la sidebar despues de ese nodo queda inmediatamente debajo del boton Acciones
-    // y arriba de la tabla — la posicion original que pidio el cliente.
-    // Anchor desktop: re-anclar al .page-layout-grid para que sea sibling del
-    // admin-card y aparezca a la derecha.
+    // Mobile: el cliente quiere los DOS bloques en posiciones DISTINTAS:
+    //   - Consolidado: debajo del boton Acciones (despues de #almFilters), arriba
+    //     de la tabla. Movemos la .counter-sidebar entera ahi (el #almDistWrapper
+    //     hijo se saca antes para no arrastrarlo).
+    //   - #almDistWrapper (En otros almacenes): al FINAL de la tabla, separado.
+    //     Anchor: #almLoadingMore (vive justo despues del .alm-table-wrap).
+    //
+    // Desktop: restaurar el #almDistWrapper DENTRO de .counter-sidebar y la
+    // sidebar al .page-layout-grid — vuelve al layout original.
     (function placeSidebarMobile() {
         var BREAKPOINT = 768;
         function place() {
-            var sidebar = document.querySelector('.counter-sidebar');
-            var filters = document.getElementById('almFilters');
-            var grid    = document.querySelector('.page-layout-grid');
+            var sidebar  = document.querySelector('.counter-sidebar');
+            var distWrap = document.getElementById('almDistWrapper');
+            var filters  = document.getElementById('almFilters');
+            var anchor   = document.getElementById('almLoadingMore');
+            var grid     = document.querySelector('.page-layout-grid');
             if (!sidebar || !filters || !grid) return;
             if (window.innerWidth <= BREAKPOINT) {
-                // Mobile: dentro de admin-card, justo despues de #almFilters
-                // (bajo el header / boton Acciones, arriba de la tabla).
+                // Sacar el #almDistWrapper de la sidebar (si aun esta dentro) y
+                // anclarlo despues de la tabla.
+                if (distWrap && anchor) {
+                    if (distWrap.previousElementSibling !== anchor) {
+                        anchor.parentNode.insertBefore(distWrap, anchor.nextSibling);
+                    }
+                }
+                // Sidebar (ahora solo con el Consolidado) → despues de #almFilters
                 if (sidebar.previousElementSibling !== filters) {
                     filters.parentNode.insertBefore(sidebar, filters.nextSibling);
                 }
             } else {
-                // Desktop: re-anclar al .page-layout-grid (sibling del admin-card).
+                // Desktop: restaurar el #almDistWrapper dentro de la sidebar.
+                if (distWrap && sidebar && distWrap.parentNode !== sidebar) {
+                    sidebar.appendChild(distWrap);
+                }
+                // Y la sidebar como sibling del admin-card.
                 if (sidebar.parentNode !== grid) {
                     grid.appendChild(sidebar);
                 }
