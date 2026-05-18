@@ -79,10 +79,10 @@
        es .ent-search-field, que SÍ la tiene. Agregar position:relative
        al row creaba un stacking-context que acotaba el z-index del dropdown. */
     .ent-capt-row { display:flex; gap:10px; align-items:flex-start; }
-    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; overflow:hidden; }
-    /* Ancho fijo explícito: flex:0 0 120px impide que el search input
+    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; }
+    /* Ancho fijo explícito: flex:0 0 100px impide que el search input
        (que tiene width:100% + padding) lo aplaste. */
-    .ent-capt-row > .ent-cant-stepper { flex:0 0 120px; width:120px; }
+    .ent-capt-row > .ent-cant-stepper { flex:0 0 100px; width:100px; }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
@@ -127,8 +127,8 @@
        con los otros campos. */
     .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:42px; }
     .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
-    /* El input ocupa el espacio disponible dentro del stepper (120px - 24px botones - 2px borde = ~94px) */
-    .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:14px; font-weight:700; color:#0f172a; outline:none; padding:0; }
+    /* El input ocupa el espacio disponible dentro del stepper (100px - 24px botones - 2px borde = ~74px) */
+    .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
     .ent-cant-btns { display:flex; flex-direction:column; border-left:1px solid #cbd5e0; width:24px; }
     .ent-cant-btn  { flex:1; border:none; background:#fff; color:#0067b1; font-weight:800; font-size:12px; line-height:1; cursor:pointer; padding:0; }
     .ent-cant-btn:first-child { border-bottom:1px solid #cbd5e0; }
@@ -200,7 +200,6 @@
         <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
              onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }"
              title="Fecha (default hoy)">
-            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:6px;pointer-events:none;">event</i>
             <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
         </div>
         {{-- Atajo a la BANDEJA de envios en transito. ?force=1 esquiva el redirect
@@ -243,7 +242,7 @@
              fila ni se encoja. Se ancla al top del buscador (align-items:flex-start). --}}
         <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
             <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
-                   placeholder="Cant." autocomplete="off"
+                   placeholder="" autocomplete="off"
                    onkeydown="window.entCantKey(event)">
             <div class="ent-cant-btns">
                 <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>

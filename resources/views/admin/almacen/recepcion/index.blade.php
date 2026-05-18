@@ -178,7 +178,7 @@
                     onclick="window.trToggleAdv(event)">
                 <i class="material-icons">filter_list</i>
             </button>
-            <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:280px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100;margin-top:10px;padding:14px;">
+            <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:360px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100;margin-top:10px;padding:14px;">
                 <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
                     Filtros Avanzados
                     <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.trClearAdv()">Limpiar Todo</span>
@@ -208,25 +208,24 @@
                     </div>
                     {{-- "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown).
                          Aquí ya no aparece para no tener dos selectores fuera de sincronía. --}}
-                    {{-- Desde / Hasta apilados (no en 2 columnas): el panel mide 280px y el
-                         input de fecha tiene un ancho minimo nativo del navegador (~110px
-                         para mm/dd/yyyy + boton calendario); a 2 columnas el segundo se
-                         desbordaba a la derecha. Apilados van full-width y coinciden con
-                         el resto de los filtros (Estado / Origen). --}}
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
-                        <div id="trDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 10px;cursor:pointer;"
-                             onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:6px;pointer-events:none;">event</i>
-                            <input type="date" id="trDesde" value="{{ $reqDesde }}" onchange="window.trLoad()" style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:13px;outline:none;color:#0f172a;cursor:pointer;">
+                    {{-- Desde / Hasta lado a lado — el panel tiene 360px, cada campo
+                         queda con ~155px que sobra para el input nativo de fecha. --}}
+                    <div style="display:flex;gap:8px;">
+                        <div style="flex:1;min-width:0;">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
+                            <div id="trDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 8px;cursor:pointer;"
+                                 onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                                <i class="material-icons" style="font-size:15px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
+                                <input type="date" id="trDesde" value="{{ $reqDesde }}" onchange="window.trLoad()" style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#0f172a;cursor:pointer;">
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
-                        <div id="trHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 10px;cursor:pointer;"
-                             onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:6px;pointer-events:none;">event</i>
-                            <input type="date" id="trHasta" value="{{ $reqHasta }}" onchange="window.trLoad()" style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:13px;outline:none;color:#0f172a;cursor:pointer;">
+                        <div style="flex:1;min-width:0;">
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
+                            <div id="trHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 8px;cursor:pointer;"
+                                 onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                                <i class="material-icons" style="font-size:15px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
+                                <input type="date" id="trHasta" value="{{ $reqHasta }}" onchange="window.trLoad()" style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#0f172a;cursor:pointer;">
+                            </div>
                         </div>
                     </div>
                 </div>
