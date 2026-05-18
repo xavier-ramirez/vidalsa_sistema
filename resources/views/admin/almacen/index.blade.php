@@ -919,12 +919,8 @@
             </div>
 
             {{-- La lista de productos a entregar VIVE en la tabla principal: cada fila
-                 seleccionada tiene su propio input "Cant. salida". Por eso este modal
-                 ya no muestra una tabla de productos — solo recoge los datos de la
-                 Nota de Entrega y los cruza con las cantidades de almSeleccion. --}}
-            <div id="almSalidaResumen" style="margin-top:4px;font-size:12px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e0;border-radius:8px;padding:8px 12px;">
-                Se incluirán <strong id="almSalidaResumenN" style="color:#0f172a;">0</strong> producto(s) seleccionado(s) en la tabla. Las cantidades se toman de la columna <em>Cant. salida</em>.
-            </div>
+                 seleccionada tiene su propio input "Cant. salida". Este modal solo
+                 recoge los datos de la Nota de Entrega y los cruza con almSeleccion. --}}
 
             <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
         </div>
@@ -2271,9 +2267,6 @@
         // Reset de la lista de sugerencias de contrato (se llena al elegir proyecto).
         var cs = el('almSalidaContratoSug'); if (cs) { cs.style.display = 'none'; cs.innerHTML = ''; }
         showErr('almSalidaError', '');
-        // Resumen: contar productos seleccionados en la tabla principal (es la fuente
-        // de cantidades — el modal ya no tiene tabla de Productos propia).
-        var rn = el('almSalidaResumenN'); if (rn) rn.textContent = almSelCount();
         // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
         // dejo con .active (el helper global focusin auto-abre cuando el input del trigger
         // recibe foco — por eso evitamos hacer .focus() automatico al abrir el modal).
