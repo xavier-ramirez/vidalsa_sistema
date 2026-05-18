@@ -43,12 +43,10 @@ class AlmacenController extends Controller
         private \App\Services\TraspasoService $traspasos,
     ) {
         // La consulta queda bajo 'auth' (lo aplica el grupo de rutas padre). Gates:
-        //   super.admin        → CRUD de almacenes (warehouses). Antes era `almacen.manage`,
-        //                        consolidado bajo la clave maestra a pedido del cliente.
+        //   super.admin        → CRUD de almacenes (warehouses).
         //   almacen.productos  → CRUD del catalogo de productos.
         //   almacen.movimiento → registrar lotes (entradas/salidas/ajustes/traspasos)
-        //                        y confirmar recepciones (merge con la antigua
-        //                        `almacen.salidas_recepciones` y `traspaso.recibir`).
+        //                        y confirmar recepciones.
         $this->middleware('can:super.admin')->only([
             'storeAlmacen', 'updateAlmacen', 'destroyAlmacen',
         ]);

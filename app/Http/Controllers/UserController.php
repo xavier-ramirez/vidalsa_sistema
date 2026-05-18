@@ -139,25 +139,18 @@ class UserController extends Controller
             'equipos.create'      => 'Registrar Equipos',
             'equipos.edit'        => 'Actualizar Equipos',
             'equipos.assign'      => 'Asignar Equipos',
-            // 'almacen.view.all' fue retirado: la visibilidad de almacenes depende sólo de
-            //   usuarios.NIVEL_ACCESO (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos.
+            // La visibilidad de almacenes depende solo de usuarios.NIVEL_ACCESO
+            // (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos.
             //
-            // Modelo de permisos de almacén (final tras consolidacion):
-            //   super.admin       → CRUD de almacenes (crear/editar/eliminar warehouses) +
-            //                       acceso total al sistema. Antes existia `almacen.manage`
-            //                       para esto pero se elimino para concentrar la administracion
-            //                       del catalogo de almacenes en la clave maestra.
-            //   almacen.productos → CRUD del catalogo de productos. Perfil "gestor del catalogo".
-            //   almacen.movimiento → unica clave operativa: registrar entradas, salidas,
-            //                       ajustes, traspasos Y confirmar recepcion de traspasos
-            //                       en el destino. Absorbio a las claves antiguas
-            //                       `almacen.salidas_recepciones` y `traspaso.recibir`.
+            // Modelo de permisos de almacen:
+            //   super.admin        → CRUD de almacenes + acceso total al sistema,
+            //                        EXCEPTO almacen.productos / almacen.movimiento
+            //                        que requieren la clave especifica.
+            //   almacen.productos  → CRUD del catalogo de productos.
+            //   almacen.movimiento → registrar entradas, salidas, ajustes, traspasos
+            //                        y confirmar recepcion de traspasos en el destino.
             //
-            // Las claves viejas (`almacen.manage`, `traspaso.recibir`,
-            // `almacen.salidas_recepciones`) se renombraron a las nuevas en la
-            // migration 2026_05_20_120000_migrate_legacy_permission_keys.
-            // Ya no hay alias en Usuario::can(): solo el literal en PERMISOS
-            // (mas super.admin con sus exclusiones) otorga acceso.
+            // Solo el literal en PERMISOS otorga acceso. No hay alias ni atajos.
             'almacen.productos'  => 'Almacén: Registrar y editar productos del catálogo',
             'almacen.movimiento' => 'Almacén: Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
             'super.admin'         => 'Acceso Total (Super Admin)',

@@ -22,9 +22,7 @@ use Throwable;
  *
  * Permisos:
  *  - almacen.movimiento : crear borrador, editar borrador, enviar, cancelar antes de enviar
- *                          Y confirmar recepción en el almacén destino. Antes la confirmación
- *                          tenía su propia clave `traspaso.recibir`, ahora absorbida aquí — el
- *                          alias en Usuario::can() preserva back-compat con usuarios legacy.
+ *                          y confirmar recepción en el almacén destino.
  *
  * Visibilidad de traspasos: depende SOLO de `Almacen::visiblesPara($user)` (es decir, de
  * `NIVEL_ACCESO`). Los usuarios GLOBAL ven todos los traspasos; los LOCAL ven solo los

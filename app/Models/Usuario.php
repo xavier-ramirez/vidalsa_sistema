@@ -17,6 +17,20 @@ class Usuario extends Authenticatable
     public $timestamps = false;
 
     /**
+     * Operaciones que NO se conceden por la regla maestra super.admin: el
+     * usuario debe tener la clave literal en PERMISOS. Decision del cliente
+     * — separar la administracion del sistema de la operacion diaria de
+     * almacen. Esta constante es la UNICA fuente de verdad de las
+     * exclusiones — Usuario::can() y AppServiceProvider::Gate::before la
+     * consultan para mantenerse coherentes (sin esto, el middleware can:
+     * pasaba por Gate::before que ignoraba las exclusiones).
+     */
+    public const PERMISOS_EXPLICITOS = [
+        'almacen.movimiento' => true,
+        'almacen.productos'  => true,
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -183,31 +197,16 @@ class Usuario extends Authenticatable
             $permisos = array_map('strtolower', $permisosRaw);
             $ability = strtolower($abilities);
 
-            // Operaciones que NO se conceden por la regla maestra de super.admin: el
-            // usuario debe tener la clave explicita correspondiente. Decision del cliente
-            // — separar la administracion del sistema (super.admin) de la operacion
-            // diaria de almacen (movimientos, productos). Un super.admin sin
-            // `almacen.movimiento` no puede registrar entradas/salidas; sin
-            // `almacen.productos` no puede tocar el catalogo. Asi se evita que un super
-            // tecnico (que cubre TI / usuarios / equipos / almacenes) pueda accidentalmente
-            // mover stock o editar el catalogo sin que se lo asignen formalmente.
-            static $OPERACIONES_EXPLICITAS = [
-                'almacen.movimiento' => true,
-                'almacen.productos'  => true,
-            ];
-
-            // REGLA MAESTRA: clave super.admin explícita = acceso total, EXCEPTO las
-            // operaciones listadas arriba (que requieren clave especifica).
-            if (! isset($OPERACIONES_EXPLICITAS[$ability]) && in_array('super.admin', $permisos)) {
+            // REGLA MAESTRA: clave super.admin explicita = acceso total, EXCEPTO las
+            // claves en self::PERMISOS_EXPLICITOS (que requieren la clave literal).
+            if (! isset(self::PERMISOS_EXPLICITOS[$ability]) && in_array('super.admin', $permisos)) {
                 return true;
             }
 
             // Verificación del permiso específico solicitado.
             // No hay alias ni atajos: la clave debe estar LITERAL en PERMISOS.
-            // Las claves viejas (almacen.manage, traspaso.recibir,
-            // almacen.salidas_recepciones) se renombraron a las consolidadas via
-            // migration 2026_05_20_120000_migrate_legacy_permission_keys, asi que
-            // el picker es la unica fuente de verdad.
+            // El picker (UserController::availablePermissions) es la unica
+            // fuente de verdad.
             if (in_array($ability, $permisos)) {
                 return true;
             }

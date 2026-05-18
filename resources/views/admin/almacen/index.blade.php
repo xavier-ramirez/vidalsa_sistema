@@ -259,12 +259,10 @@
     $reqAlm    = $almacenSel?->ID_ALMACEN;
     $reqBuscar = request('search');
     $reqCat    = request('categoria');
-    // Permisos finos tras la consolidacion del modelo:
-    //   $puedeAlmManage  → CRUD de almacenes (warehouses). Antes `almacen.manage`,
-    //                      ahora exclusivo de super.admin.
-    //   $puedeProductos  → CRUD del catalogo de productos.
-    //   $puedeMover      → registrar entradas/salidas/ajustes/traspasos + confirmar
-    //                      recepciones (clave unica consolidada).
+    // Permisos:
+    //   $puedeAlmManage  → super.admin (CRUD de almacenes / warehouses).
+    //   $puedeProductos  → almacen.productos (CRUD del catalogo de productos).
+    //   $puedeMover      → almacen.movimiento (entradas/salidas/ajustes/traspasos + confirmar recepciones).
     //   $puedeManage     → flag combinado (almacenes O productos) que controla la
     //                      ENTRADA al bloque JS compartido — los routes individuales
     //                      adentro hacen el check fino segun la accion.
