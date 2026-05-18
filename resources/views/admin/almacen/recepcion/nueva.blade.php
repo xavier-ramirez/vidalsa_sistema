@@ -75,21 +75,16 @@
     .ent-input::placeholder { color:#64748b; opacity:1; }
     select.ent-input { cursor:pointer; }
 
-    /* ── Fila de captura: Buscar · Cantidad ──────────────────────────────────
-       Estilo "linea de facturacion": sin boton explicito de "Agregar"; Enter en
-       Cantidad agrega la linea (o crea el producto al vuelo si no existe) y
-       devuelve el foco al buscador. FLEX `nowrap` mantiene las 2 cajas en una
-       fila salvo en mobile (<560px).
-         - hijo 1: campo de busqueda (max 520px — antes absorbia todo el ancho)
-         - hijo 2: stepper de cantidad (auto, ~140px) */
-    .ent-capt-row { display:flex; flex-wrap:nowrap; gap:14px; align-items:flex-start; position:relative; }
-    .ent-capt-row > .ent-search-field { flex:0 1 520px; min-width:0; max-width:520px; }
+    /* ── Fila de captura: [Buscar] [Cantidad] siempre LADO A LADO ─────────────
+       Pedido del cliente (2026-05-20): la Cantidad NUNCA debe quedar debajo
+       del buscador. Antes habia un wrap en <560px que la mandaba abajo y un
+       max-width:520px en el search que la dejaba "lejos" cuando habia mucho
+       ancho. Ahora: el buscador absorbe el espacio sobrante (flex:1 1 0;
+       min-width:0 para que pueda encogerse hasta cero sin romper el flow) y
+       el stepper queda fijo a la derecha en todas las anchuras. */
+    .ent-capt-row { display:flex; flex-wrap:nowrap; gap:10px; align-items:flex-start; position:relative; }
+    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; }
     .ent-capt-row > .ent-cant-stepper { flex:0 0 auto; }
-    @media (max-width: 560px) {
-        .ent-capt-row { flex-wrap:wrap; }
-        .ent-capt-row > .ent-search-field { flex:1 1 100%; max-width:none; }
-        .ent-capt-row > .ent-cant-stepper { flex:0 0 auto; align-self:stretch; }
-    }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
@@ -140,9 +135,11 @@
     .ent-list-table thead tr { background:#1e293b; }
     .ent-list-table thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
     .ent-list-table thead th:last-child { border-right:none; }
+    .ent-list-table thead th.col-num    { width:48px; text-align:center; }
     .ent-list-table thead th.col-codigo { width:140px; }
     .ent-list-table thead th.col-cant   { text-align:right; width:170px; }
     .ent-list-table thead th.col-del    { width:60px; text-align:center; }
+    .ent-list-table tbody .col-num      { text-align:center; font-weight:700; color:#64748b; font-size:13px; }
     /* Codigo del producto en la tabla: negro (no azul). Se mantiene monospace +
        letter-spacing para que los codigos auto-generados (PRD-0042) se lean alineados. */
     .ent-list-table tbody .col-codigo   { font-family:monospace; font-size:12.5px; font-weight:800; color:#0f172a; letter-spacing:.3px; white-space:nowrap; }
@@ -202,19 +199,13 @@
 </div>
 
 <div class="ent-card">
-    {{-- Fila de captura: [Buscar serial/desc] [Cantidad].
-         El flujo es: tipea codigo o descripcion → elige sugerencia (queda como
+    {{-- Fila de captura: [Buscar serial/desc] [Cantidad] siempre lado a lado.
+         Flujo: tipea codigo o descripcion → elige sugerencia (queda como
          badge azul) → escribe cantidad → Enter → la linea cae a la tabla y el
          foco vuelve al buscador. Si el producto NO existe en el catalogo, al
          apretar Enter se crea automaticamente (codigo auto, UM=UND) y la linea
-         igual se agrega — sin friccion para el usuario. --}}
+         igual se agrega — sin friccion. --}}
     <div class="ent-capt-row">
-        {{-- Categoria fue removida: el flujo es busqueda directa por codigo o nombre.
-             Si el producto NO existe en el catalogo, se registra al vuelo (ver
-             entCrearProductoYAgregar en el JS): se crea via almacen.productos.store
-             con CODIGO auto-generado (PRD-####) y UM=UND, y la linea cae a la tabla.
-             El usuario puede editar el producto despues desde /admin/almacen si necesita
-             ajustarle categoria, UM o ubicacion. --}}
         <div class="ent-search-field">
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
                    placeholder="Buscar por código (serial) o descripción…"
@@ -226,11 +217,6 @@
             </div>
             <div id="entSuggest" class="ent-suggest"></div>
         </div>
-        {{-- Cantidad: stepper estilo /admin/almacen. Enter = "agregar a la tabla"
-             (estilo facturacion). El boton explicito "Agregar" fue removido — el
-             flujo es 100% por teclado: buscar → Enter (elige) → cantidad → Enter
-             (agrega) → cursor de vuelta al buscador para el siguiente producto.
-             Los botones ▲▼ son alternativa visual (suman/restan 1 al valor). --}}
         <div class="ent-cant-stepper" title="Cantidad (Enter agrega)">
             <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
                    placeholder="0" autocomplete="off"
@@ -248,6 +234,7 @@
         <table class="ent-list-table">
             <thead>
                 <tr>
+                    <th class="col-num">#</th>
                     <th class="col-codigo">Código</th>
                     <th>Descripción del producto</th>
                     <th class="col-cant">Cantidad</th>
@@ -264,7 +251,6 @@
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
 
     <div class="ent-footer-bar">
-        <a href="{{ route('almacen.recepcion.index') }}" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;height:42px;padding:0 18px;display:inline-flex;align-items:center;text-decoration:none;">Cancelar</a>
         <button type="button" class="btn-primary-maquinaria" id="entSubmit" onclick="window.entGuardar()" style="height:42px;padding:0 22px;display:inline-flex;align-items:center;gap:6px;">
             <i class="material-icons" style="font-size:18px;">save</i> Registrar entrada
         </button>
@@ -550,6 +536,7 @@
         // unicamente el nombre del producto para que se lea limpio sin el codigo encima.
         tb.innerHTML = entLineas.map(function (l, idx) {
             return '<tr data-idx="' + idx + '">'
+                +   '<td class="col-num">' + (idx + 1) + '</td>'
                 +   '<td class="col-codigo">' + escHtml(l.codigo) + '</td>'
                 +   '<td><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
                 +   '<td class="col-cant">' + escHtml(fmtCant(l.cantidad)) + ' <span class="ent-list-meta">' + escHtml(l.um) + '</span></td>'

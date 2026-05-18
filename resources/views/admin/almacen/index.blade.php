@@ -2549,7 +2549,7 @@
     };
     window.almEliminarProducto = function (id) {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para eliminar productos.')) return;
-        almConfirm('¿Eliminar este producto? Si tiene saldo o movimientos se desactivará.', function () {
+        almConfirm('¿Eliminar este producto?', function () {
             pre();
             fetch(ROUTE_PROD_ITEM(id), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })

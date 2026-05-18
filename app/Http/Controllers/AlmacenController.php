@@ -550,17 +550,12 @@ class AlmacenController extends Controller
 
     public function destroyProducto(int $id)
     {
+        // Soft-delete siempre (Laravel SoftDeletes pone deleted_at). El producto
+        // desaparece de las vistas pero las FKs de stock/movimientos siguen
+        // validas. La rama vieja que marcaba ESTATUS=INACTIVO se elimino — no
+        // habia UI para reactivar y duplicaba el efecto del soft-delete.
         $producto = ProductoInventario::findOrFail($id);
-
-        $tieneSaldo      = $producto->stock()->where('CANTIDAD', '>', 0)->exists();
-        $tieneMovimiento = $producto->movimientos()->exists();
-
-        if ($tieneSaldo || $tieneMovimiento) {
-            $producto->update(['ESTATUS' => 'INACTIVO']);
-            return response()->json(['message' => 'El producto tiene saldo o movimientos; se marcó como INACTIVO en lugar de eliminarse.']);
-        }
-
-        $producto->delete(); // soft delete
+        $producto->delete();
         return response()->json(['message' => 'Producto eliminado.']);
     }
 
