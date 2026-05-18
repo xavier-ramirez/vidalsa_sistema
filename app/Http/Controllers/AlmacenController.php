@@ -27,10 +27,14 @@ use Throwable;
  *  - NO depende del rol ni de permisos (super.admin / almacen.view.all no influyen aquí).
  *
  * Permisos (claves en la columna PERMISOS):
- *  - (consulta)          : cualquier usuario autenticado (alcance limitado por visiblesPara()).
- *  - almacen.manage      : crear/editar almacenes y productos.
- *  - almacen.movimiento  : registrar entradas / salidas / ajustes / traspasos / mínimo.
- *  (super.admin cubre la creación/edición pero NO el alcance de visibilidad.)
+ *  - (consulta)         : cualquier usuario autenticado (alcance limitado por visiblesPara()).
+ *  - super.admin        : crear / editar / eliminar almacenes (warehouses). NO da acceso
+ *                         automatico a las dos operaciones de abajo — esas son explicitas.
+ *  - almacen.productos  : registrar y editar productos del catálogo. Clave EXCLUSIVA: ni
+ *                         siquiera super.admin pasa este gate sin la clave en sus PERMISOS.
+ *  - almacen.movimiento : registrar entradas, salidas, ajustes, traspasos, mínimo
+ *                         y confirmar recepción de traspasos en el destino. Clave EXCLUSIVA
+ *                         igual que almacen.productos — super.admin tampoco la implica.
  */
 class AlmacenController extends Controller
 {
@@ -38,9 +42,17 @@ class AlmacenController extends Controller
         private InventarioService $inventario,
         private \App\Services\TraspasoService $traspasos,
     ) {
-        // La consulta queda bajo 'auth' (lo aplica el grupo de rutas padre).
-        $this->middleware('can:almacen.manage')->only([
+        // La consulta queda bajo 'auth' (lo aplica el grupo de rutas padre). Gates:
+        //   super.admin        → CRUD de almacenes (warehouses). Antes era `almacen.manage`,
+        //                        consolidado bajo la clave maestra a pedido del cliente.
+        //   almacen.productos  → CRUD del catalogo de productos.
+        //   almacen.movimiento → registrar lotes (entradas/salidas/ajustes/traspasos)
+        //                        y confirmar recepciones (merge con la antigua
+        //                        `almacen.salidas_recepciones` y `traspaso.recibir`).
+        $this->middleware('can:super.admin')->only([
             'storeAlmacen', 'updateAlmacen', 'destroyAlmacen',
+        ]);
+        $this->middleware('can:almacen.productos')->only([
             'storeProducto', 'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
@@ -810,7 +822,11 @@ class AlmacenController extends Controller
             $q->whereIn('ID_ALMACEN', Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN'));
         }
         if ($request->filled('id_producto')) {
-            $q->where('ID_PRODUCTO', $request->integer('id_producto'));
+            // PREFIJAR con `movimientos_inventario.` — sin esto, el JOIN con
+            // `productos_inventario as p` que hacemos al final (linea ~836) deja
+            // la columna ID_PRODUCTO ambigua (existe en AMBAS tablas) y MySQL
+            // dispara error 1052 → la pantalla queda en blanco.
+            $q->where('movimientos_inventario.ID_PRODUCTO', $request->integer('id_producto'));
         }
         if ($request->filled('search')) {
             $term = trim((string) $request->input('search'));
@@ -1703,14 +1719,18 @@ class AlmacenController extends Controller
             'TIPO'        => ['required', Rule::in([Almacen::TIPO_GENERAL, Almacen::TIPO_PROYECTO])],
             'UBICACION'   => 'nullable|string|max:150',
             // ALMACENISTA: nombre del responsable del almacén (aparece como "Entregado por"
-            // en la Nota de Entrega VID-FO-GEN-019). Texto libre, varía por almacén/proyecto.
-            'ALMACENISTA'       => 'nullable|string|max:200',
+            // en la Nota de Entrega VID-FO-GEN-019). Obligatorio para no dejar el PDF sin
+            // firma de quien entrega.
+            'ALMACENISTA'       => 'required|string|max:200',
             // CARGO_ALMACENISTA: cargo / titulo (aparece como "CARGO:" en el PDF debajo del
             // NOMBRE del almacenista; sustituye al literal hardcodeado "COORD. DE MATERIALES").
-            'CARGO_ALMACENISTA' => 'nullable|string|max:200',
+            'CARGO_ALMACENISTA' => 'required|string|max:200',
             'ESTATUS'           => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'             => 'nullable|string',
-            'frentes'           => 'sometimes|array',
+            // frentes: array de IDs. Requerido solo si TIPO=PROYECTO (un almacen GLOBAL
+            // no se asocia a frentes especificos — sirve a todos). En PROYECTO debe
+            // tener al menos 1 frente para que alguien pueda usarlo.
+            'frentes'           => ['nullable', 'array', Rule::requiredIf(fn () => ($request->input('TIPO') === Almacen::TIPO_PROYECTO))],
             'frentes.*'         => 'integer|exists:frentes_trabajo,ID_FRENTE',
         ]);
 

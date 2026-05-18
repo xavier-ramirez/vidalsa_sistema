@@ -205,8 +205,35 @@
     .alm-cat-caret .material-icons { font-size:22px; transition:transform .15s; }
     .alm-cat-caret.open .material-icons { transform:rotate(180deg); }
 
+    /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
+       En mobile: titulo + selector de almacen apilados (cada uno full-width);
+       filtros apilados full-width; boton "Acciones" full-width al final; menu
+       desplegable de acciones limitado al viewport (no overflow horizontal). */
     @media (max-width: 768px) {
-        #almFilters .alm-filter { max-width: none; flex: 1 1 100%; }
+        /* Cabecera: el wrapper interno (`.page-title-card > div`) usaba flex
+           horizontal con separador vertical — en mobile lo apilamos en columna
+           y ocultamos el separador (era visualmente innecesario al apilar). */
+        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
+        /* El bloque del selector de almacen (mini-label + dropdown) tomaba flex:0 1 auto;
+           en mobile lo forzamos full-width para que el dropdown ocupe la pantalla completa. */
+        .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
+        .page-title-card > div > div > div[style*="width:280px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+
+        /* Filtros: cada caja full-width, una debajo de la otra. La fila completa
+           ya hace wrap nativamente (flex-wrap:wrap en #almFilters); aqui solo
+           ajustamos el flex-basis para evitar tracks anchos. */
+        #almFilters { gap: 8px; }
+        #almFilters .alm-filter { max-width: none !important; flex: 1 1 100% !important; }
+
+        /* Boton "Acciones" full-width — antes quedaba angosto a la derecha por
+           `margin-left:auto`, raro en mobile. Y el menu desplegable se alinea
+           a la izquierda para entrar en pantalla sin overflow. */
+        #almFilters > div:last-child { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
+        #almFilters > div:last-child > div { width: 100%; }
+        #almBtnAcciones { width: 100% !important; justify-content: center; }
+        #almAccionesMenu { left: 0 !important; right: 0 !important; width: 100% !important; max-width: calc(100vw - 20px) !important; }
+
         .counter-sidebar { gap: 10px !important; }
     }
 </style>
@@ -215,10 +242,21 @@
     $reqAlm    = $almacenSel?->ID_ALMACEN;
     $reqBuscar = request('search');
     $reqCat    = request('categoria');
-    $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
-    $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
+    // Permisos finos tras la consolidacion del modelo:
+    //   $puedeAlmManage  → CRUD de almacenes (warehouses). Antes `almacen.manage`,
+    //                      ahora exclusivo de super.admin.
+    //   $puedeProductos  → CRUD del catalogo de productos.
+    //   $puedeMover      → registrar entradas/salidas/ajustes/traspasos + confirmar
+    //                      recepciones (clave unica consolidada).
+    //   $puedeManage     → flag combinado (almacenes O productos) que controla la
+    //                      ENTRADA al bloque JS compartido — los routes individuales
+    //                      adentro hacen el check fino segun la accion.
+    $puedeAlmManage = auth()->user()?->can('super.admin')        ?? false;
+    $puedeProductos = auth()->user()?->can('almacen.productos')  ?? false;
+    $puedeManage    = $puedeAlmManage || $puedeProductos;
+    $puedeMover     = auth()->user()?->can('almacen.movimiento') ?? false;
     $st = $stats ?? ['total' => '—', 'con_saldo' => '—', 'stock_bajo' => '—', 'unidades' => 0];
-    // Datos de los almacenes para el modal de edición (solo se usa si $puedeManage).
+    // Datos de los almacenes para el modal de edición (solo se usa si $puedeAlmManage).
     $almacenesData = ($almacenes ?? collect())->keyBy('ID_ALMACEN')->map(function ($a) {
         return [
             'NOMBRE'            => $a->NOMBRE,
@@ -259,7 +297,7 @@
                             @foreach($almacenes as $a)
                                 <div class="dropdown-item {{ $almacenSel && $almacenSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                      onclick="selectOption('almSelAlmacenDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                                    {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
                                 </div>
                             @endforeach
                         </div>
@@ -351,7 +389,8 @@
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
                     </button>
-                    @if($puedeManage)
+                    {{-- Items administrativos de ALMACENES: solo super.admin. --}}
+                    @if($puedeAlmManage)
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
                         <span style="font-size:14px;font-weight:500;">Gestionar almacenes</span>
@@ -360,6 +399,9 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_business</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
                     </button>
+                    @endif
+                    {{-- Item de PRODUCTOS: usuarios con almacen.productos. --}}
+                    @if($puedeProductos)
                     <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_circle</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
@@ -595,8 +637,8 @@
 #almKpPag a, #almKpPag span { padding:3px 8px; font-size:11px; border-radius:5px; }
 </style>
 
-@if($puedeManage)
-{{-- Nuevo almacén --}}
+@if($puedeAlmManage)
+{{-- Nuevo almacén — solo super.admin. --}}
 <div id="almAlmacenModal" class="alm-modal-overlay">
     <div class="alm-modal">
         <div class="alm-modal-head">
@@ -604,9 +646,9 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAlmacenModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div><label for="almNvNombre">Nombre</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
+            <div><label for="almNvNombre">Nombre *</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
             <div>
-                <label for="almNvTipoDisplay">Tipo</label>
+                <label for="almNvTipoDisplay">Tipo *</label>
                 <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
                     <input type="hidden" id="almNvTipo" value="PROYECTO">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
@@ -633,7 +675,7 @@
             {{-- Almacenista: nombre del responsable del almacén. Aparecerá como "Entregado por:"
                  en la Nota de Entrega VID-FO-GEN-019. --}}
             <div>
-                <label for="almNvAlmacenista">Almacenista</label>
+                <label for="almNvAlmacenista">Almacenista *</label>
                 <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Ej: Juan Pérez (almacenista)" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "Entregado por:" en la Nota de Entrega.</div>
             </div>
@@ -641,12 +683,12 @@
                  seccion "ENTREGADO POR" del PDF. Sustituye al literal "COORD. DE
                  MATERIALES" que antes estaba hardcodeado en el template. --}}
             <div>
-                <label for="almNvCargoAlmacenista">Cargo del almacenista</label>
+                <label for="almNvCargoAlmacenista">Cargo del almacenista *</label>
                 <input type="text" id="almNvCargoAlmacenista" maxlength="200" placeholder="Ej: COORD. DE MATERIALES" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "CARGO:" debajo del nombre en la Nota de Entrega.</div>
             </div>
             <div id="almNvFrentesWrap">
-                <label for="almNvFrentesInput">Frentes que usan este almacén</label>
+                <label for="almNvFrentesInput">Frentes que usan este almacén *</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
                     {{-- El trigger es un input directo: clic lo abre y escribir filtra la lista de abajo. --}}
                     <div class="multiselect-trigger" tabindex="-1" role="button" aria-haspopup="listbox" style="padding:0;display:flex;align-items:center;overflow:hidden;cursor:text;">
@@ -670,7 +712,7 @@
                 </div>
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Varios proyectos pueden compartir un mismo almacén.</div>
             </div>
-            <div id="almNvError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
+            <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAlmacenModal')">Cancelar</button>
@@ -679,7 +721,10 @@
     </div>
 </div>
 
-{{-- Nuevo / Editar producto --}}
+@endif
+
+@if($puedeProductos)
+{{-- Nuevo / Editar producto — usuarios con almacen.productos. --}}
 <div id="almProductoModal" class="alm-modal-overlay">
     <div class="alm-modal">
         <div class="alm-modal-head">
@@ -740,7 +785,10 @@
     </div>
 </div>
 
-{{-- Gestionar almacenes (editar / eliminar) --}}
+@endif
+
+@if($puedeAlmManage)
+{{-- Gestionar almacenes (editar / eliminar) — solo super.admin. --}}
 <div id="almAdminAlmacenesModal" class="alm-modal-overlay">
     <div class="alm-modal" style="max-width:440px;">
         <div class="alm-modal-head">
@@ -809,7 +857,7 @@
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('ajuste')"><span class="alm-det-ic" style="background:#dbeafe;color:#0067b1;"><i class="material-icons" style="font-size:18px;">fact_check</i></span> Auditoría de Inventario</button>
                 @endif
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('kardex')"><span class="alm-det-ic" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:18px;">history</i></span> Ver movimientos del producto</button>
-                @if($puedeManage ?? false)
+                @if($puedeProductos ?? false)
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('editar')"><span class="alm-det-ic" style="background:#cffafe;color:#0891b2;"><i class="material-icons" style="font-size:18px;">edit</i></span> Editar producto</button>
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('eliminar')"><span class="alm-det-ic" style="background:#fee2e2;color:#ef4444;"><i class="material-icons" style="font-size:18px;">delete_outline</i></span> Eliminar / desactivar producto</button>
                 @endif
@@ -963,7 +1011,7 @@
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almSalidaModal')">Cancelar</button>
             {{-- "Vista previa" en vez de "Registrar salida": el flujo de salida ahora pasa
                  por el modal #almPreviewModal donde el usuario revisa el PDF y aprieta
-                 "Confirmar y registrar" para que sea oficial. --}}
+                 "Registrar" para que sea oficial. --}}
             <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaVistaPrevia()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">visibility</i>Vista previa</button>
         </div>
     </div>
@@ -972,25 +1020,26 @@
 {{-- ── Modal "Vista previa de la Nota de Entrega" ────────────────────────────────
      Aparece después de "Vista previa" del modal de salida. Carga el PDF preview
      en un iframe y ofrece dos acciones:
-       · Editar          → vuelve al modal de salida con todos los datos preservados
-                            (almCerrar solo oculta el modal, no destruye los inputs).
-       · Confirmar y registrar → POST a /almacen/movimientos-lote (endpoint real) →
-                                  guarda en BD y abre el PDF final.
+       · Editar    → vuelve al modal de salida con todos los datos preservados
+                     (almCerrar solo oculta el modal, no destruye los inputs).
+       · Registrar → POST a /almacen/movimientos-lote (endpoint real) → guarda
+                     en BD, descarga el PDF final al disco y devuelve al usuario
+                     al modulo de inventario (NO abre ningun visor in-page).
      ── --}}
 <div id="almPreviewModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:1080px;max-height:96vh;">
-        <div class="alm-modal-head">
+    <div class="alm-modal alm-modal-wide" style="max-width:1180px;max-height:98vh;">
+        <div class="alm-modal-head" style="padding:8px 40px;">
             <h3><i class="material-icons" style="font-size:20px;color:#0067b1;">visibility</i> <span>Vista previa de la Nota de Entrega</span></h3>
             <i class="material-icons alm-x" onclick="window.almPreviewCerrar()">close</i>
         </div>
         <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
             {{-- Iframe ocupa toda el area disponible del modal. min-height fija un piso
                  razonable para que el PDF no se vea aplastado en pantallas pequeñas. --}}
-            <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:72vh;min-height:480px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
+            <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:82vh;min-height:560px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almPreviewConfirmar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Confirmar y registrar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almPreviewConfirmar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Registrar</button>
         </div>
     </div>
 </div>
@@ -1001,7 +1050,10 @@
     'use strict';
     // Guard: si el módulo se re-monta (navegación SPA) no re-bindear listeners
     // de documento; las funciones window.alm* del primer montaje siguen válidas.
-    if (window.__almIndexInit) return;
+    if (window.__almIndexInit) {
+        if (typeof window.almResetBadges === 'function') window.almResetBadges();
+        return;
+    }
     window.__almIndexInit = true;
 
     var ROUTE_INDEX = @json(route('almacen.index'));
@@ -1259,6 +1311,11 @@
         var bcs = el('almBadgeConSaldo'); if (bcs) bcs.classList.toggle('is-on', !!soloConSaldo);
         var bb  = el('almBadgeBajo');     if (bb)  bb.classList.toggle('is-on',  !!soloBajo);
     }
+    window.almResetBadges = function() {
+        soloConSaldo = false;
+        soloBajo = false;
+        almPintarBadges();
+    };
     // Pintar al inicio para reflejar el estado leido de la URL.
     almPintarBadges();
 
@@ -1276,6 +1333,10 @@
     }
     function almSuggestApply(box, html, emptyHtml) {
         if (!box) return;
+        // Mutex con el menu Acciones: si las sugerencias se abren mientras Acciones
+        // estaba desplegado, cerramos Acciones (no deben coexistir dos overlays).
+        var accMenu = document.getElementById('almAccionesMenu');
+        if (accMenu && accMenu.style.display === 'block') accMenu.style.display = 'none';
         box.innerHTML = html || (emptyHtml || '<div class="alm-suggest-empty">Sin coincidencias.</div>');
         box.classList.add('open');
     }
@@ -1927,11 +1988,15 @@
     window.almToggleAcciones = function (e) {
         if (e) e.stopPropagation();
         var m = el('almAccionesMenu'); if (!m) return;
-        
+
         // Cerrar los demás filtros estándar si están abiertos
         if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
         document.querySelectorAll('.custom-dropdown.active').forEach(d => d.classList.remove('active'));
         document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
+        // Mutex con los paneles de sugerencias (Buscar / Categoría): si estaban
+        // abiertos los cerramos ahora — no debe haber dos overlays a la vez.
+        almSuggestHide();
+        almCatSuggestHide();
 
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     };
@@ -2266,12 +2331,27 @@
         open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
     };
     window.almGuardarAlmacen = function () {
-        var m = el('almAlmacenModal'), id = m.dataset.idAlmacen || null;
+        var m = el('almAlmacenModal');
+        if (!m) { toast('Modal no encontrado.', 'error'); return; } // defensa: nunca deberia pasar
+        var id = m.dataset.idAlmacen || null;
         var nombre = val('almNvNombre'), tipo = val('almNvTipo') || 'PROYECTO';
-        if (!nombre) { showErr('almNvError', 'El nombre es obligatorio.'); return; }
+        var almacenista = val('almNvAlmacenista');
+        var cargo       = val('almNvCargoAlmacenista');
+        // Validacion local: mostramos banner + toast + foco. Sin esto el usuario solo
+        // veia una linea chiquita al pie del modal y reportaba "el boton no hace nada".
+        function _fail(msg, focusId) {
+            showErr('almNvError', msg);
+            toast(msg, 'error');
+            if (focusId) { var inp = el(focusId); if (inp) inp.focus(); }
+        }
+        if (!nombre)      { _fail('El nombre es obligatorio.',                'almNvNombre');          return; }
+        if (!tipo)        { _fail('El tipo es obligatorio.',                  'almNvTipoDisplay');     return; }
+        if (!almacenista) { _fail('El almacenista es obligatorio.',           'almNvAlmacenista');     return; }
+        if (!cargo)       { _fail('El cargo del almacenista es obligatorio.', 'almNvCargoAlmacenista');return; }
         var frentes = [];
         if (tipo === 'PROYECTO') {
             almNvFrenteChecks().forEach(function (c) { if (c.checked) frentes.push(parseInt(c.value, 10)); });
+            if (frentes.length === 0) { _fail('Selecciona al menos un frente.', 'almNvFrentesInput'); return; }
         }
         var url = id ? ROUTE_ALM_ITEM(id) : ROUTE_ALM;
         pre();
@@ -2296,12 +2376,15 @@
                 // recargar: cambió la lista del selector / nombres
                 setTimeout(function () { window.location = ROUTE_INDEX + ((id || newId) ? ('?id_almacen=' + (id || newId)) : ''); }, 500);
             } else {
+                // Error del servidor (validacion 422, conflicto, etc.). Mostramos
+                // banner + toast — el toast es la garantia visual de que algo paso.
                 var msg = (res.b && res.b.message) || 'No se pudo guardar el almacén.';
                 if (res.b && res.b.errors) { msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' '); }
                 showErr('almNvError', msg);
+                toast(msg, 'error');
             }
         })
-        .catch(function () { unpre(); showErr('almNvError', 'Error de red.'); });
+        .catch(function () { unpre(); showErr('almNvError', 'Error de red.'); toast('Error de red.', 'error'); });
     };
     window.almAbrirAdminAlmacenes = function () { open('almAdminAlmacenesModal'); };
     window.almEliminarAlmacen = function (id, nombre) {
@@ -2488,7 +2571,7 @@
         if (!list.length) {
             // Mensaje informativo dentro del propio panel del dropdown — no rompe layout
             // (el panel flota absolutamente, no empuja el modal hacia abajo).
-            box.innerHTML = '<div style="padding:12px 15px;font-size:12.5px;color:#94a3b8;font-style:italic;line-height:1.4;">Este proyecto no tiene contratos registrados. Puedes escribir uno aquí o agregarlo en /admin/frentes para que se sugiera la próxima vez.</div>';
+            box.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:#94a3b8;font-style:italic;">Sin contratos previos — puedes escribirlo.</div>';
             return;
         }
         // dropdown-item es la misma clase que usa Proyecto — hereda el hover/selected del
@@ -2537,14 +2620,12 @@
         var sel  = el('almSalidaProyecto');
         if (!sel) return;
         almSalidaContratoBuildList(sel.value);
-        // Auto-abrir el panel justo despues de elegir proyecto: el usuario acaba de
-        // seleccionar destino, lo siguiente que querra ver son los contratos disponibles.
-        // Si no hay contratos, el panel igual se abre con el mensaje explicativo.
-        var dd = el('almSalidaContratoDropdown');
-        if (dd) dd.classList.add('active');
+        // NO auto-abrimos el panel: el campo Contrato N° es opcional y abrirlo
+        // automaticamente al elegir proyecto resultaba intrusivo. El usuario decide
+        // cuando ver la lista haciendo clic en el trigger o en el input.
     };
     // Payload de la salida congelado al apretar "Vista previa". Lo reusamos en
-    // "Confirmar y registrar" para que el PDF final corresponda EXACTAMENTE al que
+    // "Registrar" del preview para que el PDF final corresponda EXACTAMENTE al que
     // el usuario revisó (si edita despues, se regenera al apretar "Vista previa"
     // de nuevo). Tambien guardamos el blob URL del preview para revocarlo al
     // cerrar el modal y no acumular memoria.
@@ -2596,7 +2677,7 @@
 
     // Vista previa: POSTea al endpoint /salida/preview-pdf (NO commitea nada),
     // recibe el binario del PDF y lo carga en el iframe del modal #almPreviewModal.
-    // Guarda el payload en almSalidaDraft para que "Confirmar y registrar" lo
+    // Guarda el payload en almSalidaDraft para que "Registrar" del preview lo
     // reuse exactamente igual.
     window.almSalidaVistaPrevia = function () {
         var payload = almSalidaConstruirPayload();
@@ -2665,11 +2746,12 @@
         open('almSalidaModal');
     };
 
-    // "Confirmar y registrar" del preview: POSTea el draft al endpoint real
-    // (movimientos-lote) que SI guarda en BD, asigna NUMERO_NOTA y devuelve la
-    // URL del PDF final. Mismo manejo de respuesta que tenia el
-    // viejo almSalidaConfirmar — pero el payload viene del draft, no se reconstruye
-    // (asi el PDF final corresponde exactamente al que el usuario aprobo).
+    // "Registrar" del preview: POSTea el draft al endpoint real (movimientos-lote)
+    // que SI guarda en BD, asigna NUMERO_NOTA y devuelve la URL del PDF final.
+    // Tras el commit, descargamos el PDF al disco (fetch → blob → anchor) y
+    // dejamos al usuario en el modulo de inventario — NO abrimos visor in-page
+    // (el flujo ya pidio aprobacion en el modal #almPreviewModal). El payload
+    // viene del draft sin reconstruir, asi el PDF final = exactamente lo aprobado.
     window.almPreviewConfirmar = function () {
         if (!almSalidaDraft) { toast('Sin datos para registrar — vuelve a "Editar" y aprieta "Vista previa".', 'error'); return; }
         var payload = almSalidaDraft;
@@ -2685,7 +2767,8 @@
             unpre();
             if (res.ok) {
                 // Exito: cerramos ambos modales, limpiamos seleccion y el draft, recargamos
-                // la tabla y abrimos el PDF FINAL en el visor in-page.
+                // la tabla y DESCARGAMOS el PDF al disco (NO abrimos el visor in-page —
+                // el usuario ya aprobo la vista previa, ese segundo visor sobra).
                 almCerrar('almPreviewModal');
                 almCerrar('almSalidaModal');
                 if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
@@ -2695,27 +2778,44 @@
                 toast(res.b.message || 'Movimiento registrado.');
                 almCargar();
                 if (res.b && res.b.nota_url) {
-                    var label = res.b.numero_nota ? ('Nota ' + res.b.numero_nota) : 'Nota de Entrega';
-                    if (typeof window.openPdfPreview === 'function') {
-                        window.openPdfPreview(res.b.nota_url, 'nota_entrega', label, 0, '', true, 'almacen');
-                    } else {
-                        window.open(res.b.nota_url, '_blank', 'noopener');
-                    }
+                    // fetch → blob → anchor con download: garantiza que el navegador SIEMPRE
+                    // guarde como archivo, sin importar Content-Disposition (el endpoint manda
+                    // 'inline'). Si usaramos solo `<a href download>`, algunos navegadores
+                    // navegan a la URL en la misma pestaña y el usuario "pierde" la pagina
+                    // del inventario — con blob URL eso no ocurre nunca.
+                    var dlName = res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf';
+                    fetch(res.b.nota_url, { headers: { 'Accept': 'application/pdf', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+                        .then(function (rr) { return rr.ok ? rr.blob() : null; })
+                        .then(function (blob) {
+                            if (!blob) return;
+                            var burl = URL.createObjectURL(blob);
+                            var a = document.createElement('a');
+                            a.href = burl; a.download = dlName; a.style.display = 'none';
+                            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                            setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+                        })
+                        .catch(function () { /* silencioso: el movimiento ya se registro, la descarga es secundaria */ });
                 }
             } else {
                 // Error tardio (algo cambio entre el preview y el confirm: stock se
-                // movio, etc.). Cerramos preview y reabrimos salida con el mensaje
-                // — el usuario puede ajustar y volver a previewar.
+                // movio, validacion fallo, etc.). Cerramos preview y reabrimos salida
+                // con el mensaje. Mostramos el error EN DOS LADOS:
+                //   1) toast — visible incluso si el usuario cierra el modal de salida
+                //      sin leer (clave para no creer que se registro cuando no fue asi).
+                //   2) inline (almSalidaError) — contexto al pie del modal de salida.
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
                 window.almPreviewCerrar(); // tambien reabre salida
                 showErr('almSalidaError', msg);
+                toast(msg, 'error');
             }
         })
         .catch(function () {
             unpre();
             window.almPreviewCerrar();
-            showErr('almSalidaError', 'Error de red al confirmar la salida.');
+            var netMsg = 'Error de red al confirmar la salida.';
+            showErr('almSalidaError', netMsg);
+            toast(netMsg, 'error');
         });
     };
     @else

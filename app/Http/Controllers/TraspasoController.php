@@ -20,9 +20,11 @@ use Throwable;
  *   DESTINO : show (bandeja "por recibir") → recibir
  *   AMBOS   : cancelar (origen antes de enviar, admin después)
  *
- * Permisos (re-usa los que ya tienes; el único nuevo es `traspaso.recibir`):
- *  - almacen.movimiento : crear borrador, editar borrador, enviar, cancelar antes de enviar.
- *  - traspaso.recibir   : confirmar recepción en el almacén destino.
+ * Permisos:
+ *  - almacen.movimiento : crear borrador, editar borrador, enviar, cancelar antes de enviar
+ *                          Y confirmar recepción en el almacén destino. Antes la confirmación
+ *                          tenía su propia clave `traspaso.recibir`, ahora absorbida aquí — el
+ *                          alias en Usuario::can() preserva back-compat con usuarios legacy.
  *
  * Visibilidad de traspasos: depende SOLO de `Almacen::visiblesPara($user)` (es decir, de
  * `NIVEL_ACCESO`). Los usuarios GLOBAL ven todos los traspasos; los LOCAL ven solo los
@@ -32,8 +34,8 @@ class TraspasoController extends Controller
 {
     public function __construct(private TraspasoService $traspasos)
     {
-        $this->middleware('can:almacen.movimiento')->only(['store', 'update', 'enviar', 'cancelar', 'destroy']);
-        $this->middleware('can:traspaso.recibir')->only(['recibir']);
+        // store/update/enviar/cancelar/destroy + recibir → todos bajo almacen.movimiento.
+        $this->middleware('can:almacen.movimiento')->only(['store', 'update', 'enviar', 'cancelar', 'destroy', 'recibir']);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -53,6 +55,29 @@ class TraspasoController extends Controller
     public function index(Request $request)
     {
         $user      = $request->user();
+
+        // Enrutamiento por rol: los usuarios GLOBAL (NIVEL_ACCESO=1) compran directo al
+        // proveedor por Orden de Compra — su "Recepcion de Materiales" es el formulario
+        // de entrada directa (almacen.recepcion.nueva), no la bandeja de traspasos por
+        // confirmar. Los LOCAL (NIVEL_ACCESO=2) reciben traspasos del almacen GENERAL y
+        // su flujo es la bandeja (este controlador). Si quieren registrar una OC directa
+        // tienen el boton "Recepcion ODC" en la misma bandeja.
+        //
+        // Solo redirigimos cuando NO es AJAX (los filtros/paginacion piden JSON a la misma
+        // URL y deben quedarse aqui) y solo en la primera carga sin parametros explicitos
+        // — si el GLOBAL navego a la bandeja a proposito (con filtros o ?force=1) no
+        // interceptamos. Asi mantenemos ambas rutas accesibles para todos.
+        if (
+            $user !== null
+            && ! $request->wantsJson()
+            && (int) ($user->NIVEL_ACCESO ?? 0) === 1
+            && $user->can('almacen.movimiento')   // sin este permiso /nueva da 403, no redirigir
+            && ! $request->boolean('force')
+            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta'])
+        ) {
+            return redirect()->route('almacen.recepcion.nueva');
+        }
+
         // Una sola consulta: la usamos para (a) limitar el WHERE de la query, (b) llenar el
         // dropdown del header y (c) validar el default-por-frente.
         $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
@@ -112,10 +137,6 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Datos extra para el modal "Registrar entrada directa" (alimenta su <select> de productos
-        // y de almacenes destino — son los mismos que el usuario puede ver/operar).
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
-
         // Lista de NÚMEROS de nota visibles para el usuario — alimenta el autocomplete
         // del filtro "Buscar por número de nota" del toolbar. Limitada a los 300 más
         // recientes para no inflar el HTML (lo típico será 30-50 en circulación).
@@ -137,12 +158,61 @@ class TraspasoController extends Controller
         $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
             ? (int) $request->input('id_almacen_destino')
             : null;
+        // NOTA: $productosLista YA NO se pasa a esta vista — el modal que lo usaba se
+        // movio a /admin/almacen/recepcion/nueva (ver nuevaEntrada() mas abajo).
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
             'almacenes'              => $almacenes,
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
-            'productosLista'         => $productosLista,
             'numerosNotas'           => $numerosNotas,
+        ]);
+    }
+
+    /**
+     * Pantalla "Registrar entrada directa" — reemplaza al viejo modal #entModal de
+     * /admin/almacen/recepcion. Página dedicada con el mismo flujo: el usuario llena
+     * la cabecera (Nº OC, proveedor, fecha) + las líneas (producto + cantidad con
+     * autocomplete por código o descripción) y al submit el front POSTea a
+     * almacen.movimientos.lote con tipo=ENTRADA — no hay backend nuevo aquí, solo
+     * la pantalla del formulario. Gateada por can:almacen.movimiento en la ruta.
+     *
+     * El "almacén destino" YA NO se elige: se deriva del frente asignado al usuario
+     * via Usuario::almacenPorDefecto() — convención del módulo (mismo helper que usa
+     * AlmacenController para el default-merge del filtro de almacén). Si el usuario
+     * no tiene un almacén natural (caso GLOBAL sin frente, o frente sin almacén
+     * PROYECTO), cae al primer almacén visible. Si NO hay ningún almacén visible se
+     * redirige a la bandeja con un mensaje — esa situación bloquea la operación.
+     */
+    public function nuevaEntrada(Request $request)
+    {
+        $user      = $request->user();
+        $almacenes = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+
+        // 1) Almacén-por-frente del usuario (helper canónico del módulo).
+        // 2) Fallback: primer almacén visible si el helper devolvió null pero hay almacenes.
+        // 3) Si no hay ninguno → bloqueamos el flujo (no tiene sentido cargar la pantalla).
+        $idDest = $user?->almacenPorDefecto();
+        $almacenDestino = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
+        if (!$almacenDestino) {
+            $almacenDestino = $almacenes->first();
+        }
+        if (!$almacenDestino) {
+            return redirect()->route('almacen.recepcion.index')
+                ->with('error', 'No tienes un almacén destino asignado para registrar entradas.');
+        }
+
+        // Productos activos con CODIGO/NOMBRE/UM/CATEGORIA: alimentan el autocomplete
+        // del cliente (sin endpoint AJAX adicional — la lista cabe holgadamente en el
+        // HTML inicial). CATEGORIA va incluida porque el nuevo flujo permite filtrar
+        // las sugerencias por categoria antes de buscar.
+        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+        // Lista de categorias distintas (no-null, ordenadas) — alimenta el <select>
+        // de filtro de categoria de la pantalla de captura.
+        $categorias = $productosLista->pluck('CATEGORIA')->filter()->unique()->sort()->values();
+        return view('admin.almacen.recepcion.nueva', [
+            'almacenDestino' => $almacenDestino,
+            'productosLista' => $productosLista,
+            'categorias'     => $categorias,
         ]);
     }
 
@@ -224,7 +294,7 @@ class TraspasoController extends Controller
         $this->assertPuedeVerTraspaso($request, $traspaso);
 
         $puedeRecibir = $traspaso->esEnviado()
-            && $request->user()?->can('traspaso.recibir')
+            && $request->user()?->can('almacen.movimiento')
             && $traspaso->almacenDestino?->visiblePara($request->user());
 
         return view('admin.almacen.recepcion.detalle', [

@@ -141,9 +141,24 @@ class UserController extends Controller
             'equipos.assign'      => 'Asignar Equipos',
             // 'almacen.view.all' fue retirado: la visibilidad de almacenes depende sólo de
             //   usuarios.NIVEL_ACCESO (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos.
-            'almacen.manage'      => 'Almacén: crear/editar almacenes y productos',
-            'almacen.movimiento'  => 'Almacén: registrar entradas/salidas/ajustes/traspasos',
-            'traspaso.recibir'    => 'Recepción: confirmar la llegada de traspasos en el almacén destino',
+            //
+            // Modelo de permisos de almacén (final tras consolidacion):
+            //   super.admin       → CRUD de almacenes (crear/editar/eliminar warehouses) +
+            //                       acceso total al sistema. Antes existia `almacen.manage`
+            //                       para esto pero se elimino para concentrar la administracion
+            //                       del catalogo de almacenes en la clave maestra.
+            //   almacen.productos → CRUD del catalogo de productos. Perfil "gestor del catalogo".
+            //   almacen.movimiento → unica clave operativa: registrar entradas, salidas,
+            //                       ajustes, traspasos Y confirmar recepcion de traspasos
+            //                       en el destino. Absorbio a las claves antiguas
+            //                       `almacen.salidas_recepciones` y `traspaso.recibir`.
+            //
+            // Los alias en Usuario::can() preservan back-compat: usuarios cuya columna
+            // PERMISOS aun tenga las claves viejas (`almacen.manage`, `traspaso.recibir`,
+            // `almacen.salidas_recepciones`) siguen pasando los checks correspondientes
+            // hasta que un admin los re-asigne con las claves nuevas.
+            'almacen.productos'  => 'Almacén: Registrar y editar productos del catálogo',
+            'almacen.movimiento' => 'Almacén: Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
             'super.admin'         => 'Acceso Total (Super Admin)',
         ];
     }

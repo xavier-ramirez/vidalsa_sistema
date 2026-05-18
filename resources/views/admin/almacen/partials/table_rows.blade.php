@@ -1,7 +1,6 @@
 {{-- Filas de la tabla de inventario. $productos = Collection|null (lote del scroll infinito) ; $almacen = Almacen|null ; $inicial = bool (la tabla abre vacía hasta que se filtre) --}}
 @php
     $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
-    $puedeManage = auth()->user()?->can('almacen.manage') ?? false;
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
     $cols    = $puedeMover ? 7 : 6;

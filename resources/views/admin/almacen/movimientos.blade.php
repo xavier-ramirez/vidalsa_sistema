@@ -14,8 +14,6 @@
     $reqSearch   = request('search');
     $reqDesde    = request('desde');
     $reqHasta    = request('hasta');
-    $hayAdv      = $reqDesde || $reqHasta;
-    $almSel      = $reqAlmacen ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
     $tipos = [
         'ENTRADA'          => ['label' => 'Entradas', 'sub' => ''],
         'SALIDA'           => ['label' => 'Salidas', 'sub' => ''],
@@ -24,6 +22,11 @@
         'TRASPASO_SALIDA'  => ['label' => 'Traspasos (salen)', 'sub' => ''],
     ];
     $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
+    // $hayAdv pinta el boton Filtros Avanzados en rojo si HAY filtros aplicados
+    // dentro del panel. Tipo vive ahora ahí también — sin esto, seleccionar
+    // Entrada/Salida no resaltaría visualmente el botón.
+    $hayAdv      = $reqDesde || $reqHasta || $tipoSelLabel;
+    $almSel      = $reqAlmacen ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
     $frenteSel    = ($reqFrente && $reqFrente !== 'all') ? ($frentesLista ?? collect())->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
 @endphp
 
@@ -65,7 +68,7 @@
                             @foreach(($almacenes ?? collect()) as $a)
                                 <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                      onclick="selectOption('almMovFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }} {{ $a->TIPO === 'GENERAL' ? '(Principal)' : '(Proyecto)' }}
+                                    {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
                                 </div>
                             @endforeach
                         </div>
@@ -132,18 +135,46 @@
         visibility:visible !important;
         transform:translateY(0) !important;
     }
-    .amf-stat-pill { display:none; }
-    @media (max-width: 900px) {
-        #almMovFilters .amf-item, #almMovFilters .amf-search { max-width:none; flex:1 1 100%; }
-        .amf-stat-pill { display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
-        .amf-stat-pill i { font-size:16px; color:#0369a1; }
+    /* Chip de conteo: visible en todos los viewports. Antes solo aparecia en mobile
+       (el desktop dependia del big-counter del sidebar) — el cliente pidio tener
+       el conteo siempre a la vista en la parte superior del modulo. */
+    .amf-stat-pill { display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
+    .amf-stat-pill i { font-size:16px; color:#0369a1; }
+
+    /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
+       En mobile: titulo + selector de almacen apilados (cada uno full-width);
+       filtros apilados full-width; boton "Acciones" full-width al final; menu
+       desplegable de acciones limitado al viewport (no overflow horizontal). */
+    @media (max-width: 768px) {
+        /* Cabecera: el wrapper interno (`.page-title-card > div`) usaba flex
+           horizontal con separador vertical — en mobile lo apilamos en columna
+           y ocultamos el separador (era visualmente innecesario al apilar). */
+        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
+        /* Bloque del selector de almacen: full-width en mobile. */
+        .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
+        .page-title-card > div > div > div[style*="width:280px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+
+        /* Filtros y boton Acciones: stack vertical full-width. El boton Acciones
+           tenia `margin-left:auto` que en mobile lo dejaba pegado a la derecha;
+           ahora full-width, y el menu desplegable no overflow horizontal. */
+        #almMovFilters { gap: 8px; }
+        #almMovFilters .amf-item, #almMovFilters .amf-search { max-width: none !important; flex: 1 1 100% !important; }
+        #almMovFilters > div:last-child { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
+        #btnAccionesMov { width: 100% !important; }
+        #splitDropdownMenuMovInv { left: 0 !important; right: 0 !important; min-width: 0 !important; max-width: calc(100vw - 20px) !important; }
+    }
+    /* Tablet (768-900px): los filtros se quedan en grilla compacta sin forzar
+       full-width — el viewport todavia da para 2 filtros por fila. */
+    @media (min-width: 769px) and (max-width: 900px) {
+        #almMovFilters .amf-item { flex: 1 1 calc(50% - 6px); max-width: none; }
     }
 </style>
 
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:70vh;min-width:0;width:100%;padding:14px;">
 
-    <div class="amf-stat-pill"><i class="material-icons">receipt_long</i> <span id="almMovTotalMobile">{{ $total }}</span> movimientos</div>
+    <div class="amf-stat-pill"><i class="material-icons">receipt_long</i> <span id="almMovTotalChip">{{ $total }}</span> movimientos</div>
 
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almMovFilters">
@@ -192,39 +223,7 @@
             </div>
         </div>
 
-        {{-- Tipo --}}
-        <div class="amf-item">
-            <div class="custom-dropdown" id="almMovFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
-                <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
-                <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    {{-- Icono de lupa (consistente con los tres filtros de esta vista). --}}
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;transform:none !important;">search</i></span>
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
-                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                       onclick="event.stopPropagation(); clearDropdownFilter('almMovFiltroTipo');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        <div class="dropdown-item {{ !$tipoSelLabel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almMovFiltroTipo','all','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
-                        @foreach($tipos as $k => $t)
-                            <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}" onclick="selectOption('almMovFiltroTipo','{{ $k }}','{{ addslashes($t['label'] . ($t['sub'] ? ' ' . $t['sub'] : '')) }}');">
-                                <div style="line-height:1.2;">
-                                    <div>{{ $t['label'] }}</div>
-                                    @if($t['sub'])
-                                        <div style="font-size:10.5px;color:#64748b;margin-top:2px;">{{ $t['sub'] }}</div>
-                                    @endif
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Filtros Avanzados (mismo estilo que /admin/equipos) — contiene rango de fechas Desde/Hasta --}}
+        {{-- Filtros Avanzados (mismo estilo que /admin/equipos) — contiene Tipo + rango Desde/Hasta --}}
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" id="btnAdvancedFilterMov" class="btn-primary-maquinaria amf-adv-btn" title="Filtros Avanzados"
                     style="background:{{ $hayAdv ? '#fee2e2' : '#fff' }};border:1px solid {{ $hayAdv ? '#ef4444' : '#cbd5e0' }};color:{{ $hayAdv ? '#ef4444' : '#64748b' }};box-shadow:none;"
@@ -236,6 +235,22 @@
                     Filtros Avanzados
                     <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.almMovLimpiarFechas()">Limpiar Todo</span>
                 </h4>
+                {{-- Tipo de movimiento — dropdown nativo (no usamos custom-dropdown porque
+                     dentro del panel position:absolute su content se cliparia con el ancho fijo
+                     de 360px). Cambio dispara loadMovimientos directo via onchange. --}}
+                <div style="margin-bottom:10px;">
+                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Tipo</span>
+                    <select id="almMovTipoSelect" name="tipo" data-filter-value
+                            onchange="window.almMovTipoSelChange(this)"
+                            style="width:100%;height:36px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;font-size:13px;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};color:#0f172a;outline:none;cursor:pointer;">
+                        <option value="" {{ !$tipoSelLabel ? 'selected' : '' }}>Todos los tipos</option>
+                        @foreach($tipos as $k => $t)
+                            <option value="{{ $k }}" {{ $reqTipo === $k ? 'selected' : '' }}>
+                                {{ $t['label'] }}{{ $t['sub'] ? ' '.$t['sub'] : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                 {{-- Desde + Hasta (2 columnas, mismo grid que Marca/Modelo en /admin/equipos) --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     {{-- Cajas Desde/Hasta: la caja COMPLETA dispara el date picker (no
@@ -389,7 +404,9 @@
     function el(id) { return document.getElementById(id); }
     // Busca los hidden de los filtros por name. NOTA: no restringimos a #almMovFilters porque el dropdown de
     // almacén vive ahora junto al título (fuera de ese contenedor); el atributo data-filter-value es el ancla.
-    function hv(name) { var e = document.querySelector('input[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
+    // Acepta tanto `<input type=hidden>` (custom-dropdowns: almacen, frente) como
+    // `<select>` (tipo — vive ahora dentro del panel Filtros Avanzados).
+    function hv(name) { var e = document.querySelector('[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
     function buildParams(pageUrl) {
         var p = new URLSearchParams();
@@ -421,7 +438,7 @@
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination || '';
-                ['almMovTotal', 'almMovTotalMobile'].forEach(function (id) { var e = el(id); if (e && data.total !== undefined) e.textContent = data.total; });
+                ['almMovTotal', 'almMovTotalChip'].forEach(function (id) { var e = el(id); if (e && data.total !== undefined) e.textContent = data.total; });
                 // Refresca el ranking de consumo del sidebar (mismas dimensiones que /admin/equipos).
                 var cc = el('almMovConsumoContainer'); if (cc && data.consumo !== undefined) cc.innerHTML = data.consumo;
                 // marca "activo" del buscador
@@ -484,7 +501,7 @@
     window.addEventListener('dropdown-selection', function (e) {
         if (!document.getElementById('almMovTableBody')) return;
         var id = e.detail && e.detail.dropdownId;
-        if (id === 'almMovFiltroAlmacen' || id === 'almMovFiltroTipo' || id === 'almMovFiltroFrente') window.loadMovimientos();
+        if (id === 'almMovFiltroAlmacen' || id === 'almMovFiltroFrente') window.loadMovimientos();
     });
 
     // Click en una fila del ranking de consumo → pega el nombre del producto en el
@@ -521,9 +538,18 @@
 
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
+    // "Limpiar Todo" del panel: ahora también incluye Tipo (vive dentro del panel).
     window.almMovLimpiarFechas = function () {
         if (el('almMovDesde')) el('almMovDesde').value = '';
         if (el('almMovHasta')) el('almMovHasta').value = '';
+        var ts = el('almMovTipoSelect');
+        if (ts) { ts.value = ''; ts.style.background = '#fff'; }
+        window.loadMovimientos();
+    };
+    // onchange del nuevo <select> de Tipo: tinte azul cuando hay seleccion + recarga.
+    window.almMovTipoSelChange = function (sel) {
+        if (!sel) return;
+        sel.style.background = sel.value ? '#e1effa' : '#fff';
         window.loadMovimientos();
     };
     document.addEventListener('click', function (e) {
@@ -596,7 +622,7 @@
                     <i class="material-icons" style="font-size:20px;">print</i>
                     <h2 style="margin:0;font-size:15px;font-weight:800;">Generar Nota de Entrega</h2>
                 </div>
-                <p style="margin:0;font-size:12px;opacity:0.85;">Busca por N° de Nota (NE-YYYY-NNNN)</p>
+                <p style="margin:0;font-size:12px;opacity:0.85;">Busca por N° de Nota</p>
             </div>
             <button type="button" onclick="window.closeGenerarNotaModal()" aria-label="Cerrar"
                 style="background:rgba(255,255,255,0.15);border:none;color:white;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:12px;">
@@ -637,52 +663,46 @@
      MODAL: ELIMINAR NOTA DE ENTREGA POR CÓDIGO  (super.admin only)
      Ingresa NE-YYYY-NNNN → confirma → DELETE → reversa stock.
 ═════════════════════════════════════════════════════════════════ --}}
+{{-- Diseño alineado con el patron de alertas de la app (#standardModal de
+     estructura_base.blade.php): card blanca completa, icono centrado arriba,
+     titulo + mensaje centrados, botones al pie. Sin banner rojo de cabecera y
+     sin icono en el boton de confirmar — el color rojo del CTA basta como
+     senal de accion destructiva. --}}
 <div id="eliminarNotaOverlay"
      style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
      onclick="if(event.target===this) window.closeEliminarNotaModal()">
-    <div style="background:white;width:100%;max-width:460px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);">
-        <div style="background:#b91c1c;padding:10px 16px;color:white;position:relative;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <i class="material-icons" style="font-size:20px;">delete_forever</i>
-                    <h2 style="margin:0;font-size:15px;font-weight:800;">Eliminar Nota de Entrega</h2>
-                </div>
-                <p style="margin:0;font-size:12px;opacity:0.9;">El stock se devuelve a su almacén — irreversible</p>
-            </div>
-            <button type="button" onclick="window.closeEliminarNotaModal()" aria-label="Cerrar"
-                style="background:rgba(255,255,255,0.15);border:none;color:white;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:12px;">
-                <i class="material-icons" style="font-size:16px;">close</i>
-            </button>
-        </div>
-        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;color:#7f1d1d;font-size:12px;font-weight:600;line-height:1.45;">
-                Esta acción <b>reversa el stock</b> de cada línea de la Nota (registra una
-                <b>ENTRADA</b> inversa en el kardex) y deja la Nota como eliminada — los
-                movimientos originales se conservan para auditoría pero ya no se podrán
-                reimprimir.
-            </div>
+    <div style="background:#fff;width:100%;max-width:420px;border-radius:14px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);position:relative;">
+        <button type="button" onclick="window.closeEliminarNotaModal()" aria-label="Cerrar"
+            style="background:transparent;border:none;color:#94a3b8;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:10px;z-index:2;">
+            <i class="material-icons" style="font-size:20px;">close</i>
+        </button>
+        <div style="padding:24px 22px 18px;display:flex;flex-direction:column;gap:14px;text-align:center;">
+            <i class="material-icons" style="font-size:42px;color:#dc2626;margin:0 auto;">error</i>
             <div>
-                <label for="eliminarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">
-                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:2px;color:#b91c1c;">tag</i>
-                    N° de Nota a eliminar
-                </label>
+                <h2 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#0f172a;">Eliminar Nota de Entrega</h2>
+                <p style="margin:0;font-size:12.5px;color:#475569;line-height:1.45;">
+                    El stock vuelve al almacén y la Nota queda eliminada. Acción <b>irreversible</b>.
+                </p>
+            </div>
+            <div style="text-align:left;">
+                <label for="eliminarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">N° de Nota a eliminar</label>
                 <div id="eliminarNotaBox"
-                     style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:8px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
+                     style="display:flex;align-items:center;border:1px solid #cbd5e0;border-radius:8px;background:#fbfcfd;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;height:38px;">
                     <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
                     <input type="text" id="eliminarNotaInput" placeholder="Ej: NE-{{ date('Y') }}-0001" autocomplete="off"
-                        style="flex:1;border:none;outline:none;padding:8px 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;"
+                        style="flex:1;border:none;outline:none;padding:0 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;height:100%;"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitEliminarNota();}">
                 </div>
             </div>
-            <div id="eliminarNotaFeedback" style="display:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+            <div id="eliminarNotaFeedback" style="display:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;text-align:left;"></div>
             <div style="display:flex;gap:10px;justify-content:center;margin-top:2px;">
                 <button type="button" onclick="window.closeEliminarNotaModal()"
-                    style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">
+                    style="padding:8px 18px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">
                     Cancelar
                 </button>
                 <button type="button" id="eliminarNotaSubmitBtn" onclick="window.submitEliminarNota()"
-                    style="padding:8px 16px;border-radius:8px;border:none;background:#b91c1c;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
-                    <i class="material-icons" style="font-size:16px;">delete_forever</i> Eliminar Nota
+                    style="padding:8px 22px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:13px;font-weight:800;cursor:pointer;">
+                    Eliminar
                 </button>
             </div>
         </div>

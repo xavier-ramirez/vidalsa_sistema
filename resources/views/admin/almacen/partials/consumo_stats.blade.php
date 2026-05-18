@@ -27,7 +27,7 @@
                     <span style="color:#334155;font-size:11px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;word-break:break-word;">
                         {{ $row->nombre }}
                     </span>
-                    <span style="font-weight:700;font-size:12.5px;color:#334155;white-space:nowrap;padding:2px 0;">
+                    <span style="font-weight:600;font-size:10.5px;color:#475569;white-space:nowrap;padding:2px 0;">
                         {{ $fmt($row->total) }} {{ $row->um }}
                     </span>
                 </div>

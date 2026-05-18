@@ -173,7 +173,10 @@ Route::middleware(['auth'])->group(function () {
 
             // ── Almacén / Inventario ─────────────────────────────────────────
             // Permisos (claves en columna PERMISOS, gateados en AlmacenController::__construct):
-            //   almacen.manage · almacen.movimiento · traspaso.recibir
+            //   super.admin (CRUD almacenes) · almacen.productos (CRUD catalogo) · almacen.movimiento
+            //   (entradas/salidas/ajustes/traspasos + confirmar recepcion).
+            //   Las claves viejas `almacen.manage`, `almacen.salidas_recepciones` y
+            //   `traspaso.recibir` se resuelven via alias en Usuario::can() para back-compat.
             // (la consulta básica solo exige 'auth'; el alcance se acota con Almacen::visiblesPara,
             //  que depende sólo de usuarios.NIVEL_ACCESO — ningún permiso da "ver todos los almacenes".)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
@@ -227,11 +230,16 @@ Route::middleware(['auth'])->group(function () {
             // frente destino tiene un almacén distinto y delega a TraspasoService internamente
             // (crea borrador + envía + estampa NUMERO_NOTA). Este módulo lista los pedidos
             // pendientes para que el destinatario los confirme.
-            // Permisos: almacen.movimiento (cancelar) · traspaso.recibir (confirmar recepción).
+            // Permisos: almacen.movimiento (cubre cancelar + confirmar recepción tras el merge).
             // Rutas estáticas ANTES del wildcard {id}. `store` sigue como endpoint público
             // (API/clientes externos); el frontend interno ya no la consume.
             Route::get   ('almacen/recepcion',                       [App\Http\Controllers\TraspasoController::class, 'index'])   ->name('almacen.recepcion.index');
             Route::post  ('almacen/recepcion',                       [App\Http\Controllers\TraspasoController::class, 'store'])   ->name('almacen.recepcion.store');
+            // Pagina dedicada "Registrar entrada directa" (compras / devoluciones / conteo inicial).
+            // Reemplaza al viejo modal #entModal — misma funcionalidad pero como pantalla propia
+            // con autocomplete de producto por codigo o descripcion. POSTea al endpoint existente
+            // almacen.movimientos.lote (tipo=ENTRADA), no requiere backend nuevo.
+            Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->middleware('can:almacen.movimiento')->name('almacen.recepcion.nueva');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
             Route::patch ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.recepcion.update');
             Route::delete('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'destroy']) ->whereNumber('id')->name('almacen.recepcion.destroy');
