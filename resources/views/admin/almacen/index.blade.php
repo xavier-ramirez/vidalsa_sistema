@@ -961,7 +961,42 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almSalidaModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaConfirmar()">Registrar salida</button>
+            {{-- "Vista previa" en vez de "Registrar salida": el flujo de salida ahora pasa
+                 por el modal #almPreviewModal donde el usuario revisa el PDF (con marca de
+                 agua VISTA PREVIA) y aprieta "Confirmar y registrar" para que sea oficial. --}}
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaVistaPrevia()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">visibility</i>Vista previa</button>
+        </div>
+    </div>
+</div>
+
+{{-- ── Modal "Vista previa de la Nota de Entrega" ────────────────────────────────
+     Aparece después de "Vista previa" del modal de salida. Carga el PDF preview
+     (con watermark) en un iframe y ofrece dos acciones:
+       · Editar          → vuelve al modal de salida con todos los datos preservados
+                            (almCerrar solo oculta el modal, no destruye los inputs).
+       · Confirmar y registrar → POST a /almacen/movimientos-lote (endpoint real) →
+                                  guarda en BD y abre el PDF final sin watermark.
+     ── --}}
+<div id="almPreviewModal" class="alm-modal-overlay">
+    <div class="alm-modal alm-modal-wide" style="max-width:1080px;max-height:96vh;">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;color:#0067b1;">visibility</i> <span>Vista previa de la Nota de Entrega</span></h3>
+            <i class="material-icons alm-x" onclick="window.almPreviewCerrar()">close</i>
+        </div>
+        <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
+            {{-- Iframe ocupa toda el area disponible del modal. min-height fija un piso
+                 razonable para que el PDF no se vea aplastado en pantallas pequeñas. --}}
+            <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:72vh;min-height:480px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
+        </div>
+        <div class="alm-modal-foot" style="justify-content:space-between;">
+            <div style="font-size:12px;color:#64748b;line-height:1.3;text-align:left;max-width:60%;">
+                <i class="material-icons" style="font-size:14px;vertical-align:-2px;color:#f59e0b;">info</i>
+                Este documento aún <b>NO ha sido registrado</b>. Aprieta <b>Confirmar y registrar</b> para guardarlo en el sistema.
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
+                <button type="button" class="btn-primary-maquinaria" onclick="window.almPreviewConfirmar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Confirmar y registrar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -979,6 +1014,9 @@
     // ROUTE_LOTE cubre TODOS los movimientos: ENTRADA, SALIDA (consumo) y SALIDA hacia otro
     // proyecto (el backend crea internamente el Traspaso). El frontend solo conoce este endpoint.
     var ROUTE_LOTE  = @json(route('almacen.movimientos.lote'));
+    // Endpoint del preview PDF (sin commit a BD) — se usa antes del registro real
+    // para que el usuario vea como quedaria la Nota y pueda editar/confirmar.
+    var ROUTE_PREVIEW_SALIDA = @json(route('almacen.salida.preview'));
     var ROUTE_PROD  = @json(route('almacen.productos.store'));
     // Catálogo de productos (CODIGO/NOMBRE/UM) — lista global, alimenta los selects de los modales
     // (Nuevo/Editar producto, modal de salida con productos seleccionados, etc.).
@@ -2500,13 +2538,23 @@
         var dd = el('almSalidaContratoDropdown');
         if (dd) dd.classList.add('active');
     };
-    window.almSalidaConfirmar = function () {
+    // Payload de la salida congelado al apretar "Vista previa". Lo reusamos en
+    // "Confirmar y registrar" para que el PDF final corresponda EXACTAMENTE al que
+    // el usuario revisó (si edita despues, se regenera al apretar "Vista previa"
+    // de nuevo). Tambien guardamos el blob URL del preview para revocarlo al
+    // cerrar el modal y no acumular memoria.
+    var almSalidaDraft   = null;
+    var almPreviewBlobUrl = null;
+
+    // Construye el payload desde los campos del modal + almSeleccion. Devuelve
+    // null y muestra error si falta el frente destino o no hay lineas validas.
+    // Lo usan almSalidaVistaPrevia (POST a preview) y almPreviewConfirmar (POST
+    // a lote real) — separado para garantizar consistencia: el PDF preview y el
+    // registro final se generan a partir del MISMO payload.
+    function almSalidaConstruirPayload() {
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
         var idFrenteDest = v('almSalidaProyecto');
-        if (!idFrenteDest) { showErr('almSalidaError', 'Elige el proyecto / frente destino.'); return; }
-
-        // Las cantidades viven en almSeleccion (las edita el usuario en la columna
-        // "Cant. salida" de la tabla principal). Aquí solo validamos y armamos el payload.
+        if (!idFrenteDest) { showErr('almSalidaError', 'Elige el proyecto / frente destino.'); return null; }
         var lineas = [], faltan = [];
         Object.keys(almSeleccion).forEach(function (id) {
             var s   = almSeleccion[id] || {};
@@ -2516,8 +2564,8 @@
             if (!isFinite(c) || c <= 0) faltan.push(nombre);
             else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
         });
-        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Cant. salida" de la tabla).'); return; }
-        if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return; }
+        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Cant. salida" de la tabla).'); return null; }
+        if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return null; }
         showErr('almSalidaError', '');
 
         // Único endpoint: registrarMovimientoLote tipo=SALIDA + id_frente_destino.
@@ -2538,14 +2586,86 @@
         var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
         var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
         var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
+        return payload;
+    }
 
-        // El PDF se abre dentro del visor in-page (#pdfPreviewModal del layout base),
-        // no en una pestaña nueva — por eso ya no necesitamos pre-abrir about:blank ni
-        // luchar contra el pop-up blocker.
-        var url = ROUTE_LOTE;
+    // Vista previa: POSTea al endpoint /salida/preview-pdf (NO commitea nada),
+    // recibe el binario del PDF (con watermark "VISTA PREVIA") y lo carga en el
+    // iframe del modal #almPreviewModal. Guarda el payload en almSalidaDraft
+    // para que "Confirmar y registrar" lo reuse exactamente igual.
+    window.almSalidaVistaPrevia = function () {
+        var payload = almSalidaConstruirPayload();
+        if (!payload) return;
+        almSalidaDraft = payload;
 
         pre();
-        fetch(url, {
+        fetch(ROUTE_PREVIEW_SALIDA, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/pdf, application/json' },
+            body: JSON.stringify(payload),
+        })
+        .then(function (r) {
+            // El backend devuelve PDF binario en exito, JSON con {message} en error.
+            var ct = r.headers.get('Content-Type') || '';
+            if (!r.ok) {
+                return r.json().then(function (b) { throw new Error(b.message || 'No se pudo generar la vista previa.'); });
+            }
+            if (ct.indexOf('application/pdf') === -1) {
+                throw new Error('Respuesta inesperada del servidor (no es PDF).');
+            }
+            return r.blob();
+        })
+        .then(function (blob) {
+            unpre();
+            // Revocar blob URL viejo (sesion anterior) antes de crear uno nuevo
+            // para no filtrar memoria si el usuario reabre el preview varias veces.
+            if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} }
+            almPreviewBlobUrl = URL.createObjectURL(blob);
+            var frame = el('almPreviewFrame');
+            if (frame) frame.src = almPreviewBlobUrl;
+            // Ocultar el modal de salida (sin destruir sus inputs — almCerrar solo
+            // quita .open, los valores quedan listos para "Editar").
+            almCerrar('almSalidaModal');
+            open('almPreviewModal');
+        })
+        .catch(function (err) {
+            unpre();
+            showErr('almSalidaError', err.message || 'Error generando vista previa.');
+        });
+    };
+
+    // "Editar" del modal preview: vuelve al modal de salida con todos los datos
+    // intactos (los inputs no se destruyen, solo se ocultan via .open). El usuario
+    // puede cambiar campos del formulario o salir, modificar la seleccion en la
+    // tabla, y volver a apretar "Vista previa" — se regenera el PDF.
+    window.almPreviewEditar = function () {
+        almCerrar('almPreviewModal');
+        open('almSalidaModal');
+    };
+
+    // Cerrar preview con la X: equivalente a "Editar" — vuelve al modal de salida
+    // con los datos preservados, asi el usuario decide si cancela todo (boton
+    // Cancelar del modal de salida) o continua. Limpia el blob URL para no
+    // acumular memoria, pero NO descarta el draft (lo descarta almAbrirSalidaModal
+    // cuando se reabre el modal con un id distinto).
+    window.almPreviewCerrar = function () {
+        almCerrar('almPreviewModal');
+        if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
+        var frame = el('almPreviewFrame'); if (frame) frame.src = 'about:blank';
+        open('almSalidaModal');
+    };
+
+    // "Confirmar y registrar" del preview: POSTea el draft al endpoint real
+    // (movimientos-lote) que SI guarda en BD, asigna NUMERO_NOTA y devuelve la
+    // URL del PDF final (sin watermark). Mismo manejo de respuesta que tenia el
+    // viejo almSalidaConfirmar — pero el payload viene del draft, no se reconstruye
+    // (asi el PDF final corresponde exactamente al que el usuario aprobo).
+    window.almPreviewConfirmar = function () {
+        if (!almSalidaDraft) { toast('Sin datos para registrar — vuelve a "Editar" y aprieta "Vista previa".', 'error'); return; }
+        var payload = almSalidaDraft;
+
+        pre();
+        fetch(ROUTE_LOTE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             body: JSON.stringify(payload)
@@ -2554,11 +2674,16 @@
         .then(function (res) {
             unpre();
             if (res.ok) {
+                // Exito: cerramos ambos modales, limpiamos seleccion y el draft, recargamos
+                // la tabla y abrimos el PDF FINAL (sin watermark) en el visor in-page.
+                almCerrar('almPreviewModal');
                 almCerrar('almSalidaModal');
+                if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
+                var frame0 = el('almPreviewFrame'); if (frame0) frame0.src = 'about:blank';
+                almSalidaDraft = null;
                 if (window.almSelClear) window.almSelClear();
                 toast(res.b.message || 'Movimiento registrado.');
                 almCargar();
-                // SALIDA: el backend devuelve nota_url con el PDF de la Nota de Entrega (VID-FO-GEN-019).
                 if (res.b && res.b.nota_url) {
                     var label = res.b.numero_nota ? ('Nota ' + res.b.numero_nota) : 'Nota de Entrega';
                     if (typeof window.openPdfPreview === 'function') {
@@ -2568,14 +2693,19 @@
                     }
                 }
             } else {
+                // Error tardio (algo cambio entre el preview y el confirm: stock se
+                // movio, etc.). Cerramos preview y reabrimos salida con el mensaje
+                // — el usuario puede ajustar y volver a previewar.
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el movimiento.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                window.almPreviewCerrar(); // tambien reabre salida
                 showErr('almSalidaError', msg);
             }
         })
         .catch(function () {
             unpre();
-            showErr('almSalidaError', 'Error de red.');
+            window.almPreviewCerrar();
+            showErr('almSalidaError', 'Error de red al confirmar la salida.');
         });
     };
     @else

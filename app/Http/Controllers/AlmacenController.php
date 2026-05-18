@@ -44,7 +44,7 @@ class AlmacenController extends Controller
             'storeProducto', 'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
-            'registrarMovimientoLote', 'actualizarMinimo',
+            'registrarMovimientoLote', 'actualizarMinimo', 'previewSalidaPdf',
         ]);
     }
 
@@ -1407,10 +1407,138 @@ class AlmacenController extends Controller
             }
         }
 
+        $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false);
+        return response($binary, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf"',
+        ]);
+    }
+
+    /**
+     * Vista previa del PDF de la Nota de Entrega ANTES de confirmar la salida.
+     *
+     * Mismo payload que registrarMovimientoLote (rama SALIDA) — valida acceso al
+     * almacen y stock disponible IGUAL que el endpoint real, asi un preview
+     * exitoso garantiza que el "Confirmar" no va a rebotar. NO escribe en BD:
+     * arma los datos y movimientos en memoria desde los lookups (almacen,
+     * frente, productos) y delega en renderNotaEntregaPdfBinary() con
+     * $esPreview=true (que pinta el watermark "VISTA PREVIA").
+     *
+     * El "Confirmar" del frontend llama al endpoint regular movimientos-lote y
+     * obtiene el PDF final (sin watermark) por la ruta normal.
+     */
+    public function previewSalidaPdf(Request $request)
+    {
+        $data = $request->validate([
+            'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
+            'fecha'                => 'nullable|date',
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'numero_contrato'      => 'nullable|string|max:100',
+            'numero_rq'            => 'nullable|string|max:100',
+            'solicitante'          => 'nullable|string|max:200',
+            'departamento'         => 'nullable|string|max:150',
+            'motivo'               => 'nullable|string|max:200',
+            'lineas'               => 'required|array|min:1',
+            'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            'lineas.*.cantidad'    => 'required|numeric|gt:0',
+        ]);
+
+        $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
+
+        // Mismo gate de stock que registrarMovimientoLote — si esta funcion deja
+        // pasar algo, el "Confirmar" tambien lo dejara (consistencia preview/final).
+        $idsProd = collect($data['lineas'])->pluck('id_producto')->map(fn ($n) => (int) $n)->all();
+        $stocks  = AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
+            ->whereIn('ID_PRODUCTO', $idsProd)
+            ->get(['ID_PRODUCTO', 'CANTIDAD'])->keyBy('ID_PRODUCTO');
+        $productos = ProductoInventario::whereIn('ID_PRODUCTO', $idsProd)
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM'])->keyBy('ID_PRODUCTO');
+
+        $excesos = [];
+        foreach ($data['lineas'] as $l) {
+            $idp   = (int) $l['id_producto'];
+            $disp  = (float) ($stocks[$idp]->CANTIDAD ?? 0);
+            if ((float) $l['cantidad'] > $disp) {
+                $excesos[] = ($productos[$idp]->NOMBRE ?? ('#' . $idp))
+                    . ' (' . rtrim(rtrim(number_format((float) $l['cantidad'], 3, '.', ''), '0'), '.')
+                    . ' > ' . rtrim(rtrim(number_format($disp, 3, '.', ''), '0'), '.') . ')';
+            }
+        }
+        if (!empty($excesos)) {
+            return response()->json([
+                'message' => 'Las cantidades superan el saldo disponible en: ' . implode(', ', $excesos) . '.',
+            ], 422);
+        }
+
+        // ── Armar $datos y $movs en MEMORIA (mismas claves que notaEntregaPdf) ──
+        $almacen = Almacen::find((int) $data['id_almacen']);
+        $frente  = !empty($data['id_frente_destino'])
+            ? \App\Models\FrenteTrabajo::find((int) $data['id_frente_destino'])
+            : null;
+        $fix = fn ($v) => $this->decodeMojibake($v);
+
+        $datos = [
+            'numero_nota'   => 'NE-VISTA-PREVIA',
+            'proyecto'      => $fix($frente?->NOMBRE_FRENTE ?? ''),
+            'contrato'      => $fix($data['numero_contrato'] ?? ''),
+            'fecha'         => !empty($data['fecha'])
+                ? \Carbon\Carbon::parse($data['fecha'])->format('d/m/Y')
+                : now()->format('d/m/Y'),
+            'rq'            => $fix($data['numero_rq'] ?? ''),
+            'solicitante'   => $fix($data['solicitante'] ?? ''),
+            'departamento'  => $fix($data['departamento'] ?? ''),
+            'almacen'       => $fix($almacen?->NOMBRE ?? ''),
+            'entregado_por' => $fix($almacen?->ALMACENISTA ?? ''),
+            'cargo_entrega' => $fix($almacen?->CARGO_ALMACENISTA ?? ''),
+            'motivo'        => $fix($data['motivo'] ?? ''),
+        ];
+
+        // Cada $m del blade lee: CANTIDAD, producto->{UM, NOMBRE, CODIGO}. Armamos
+        // stdClass que cumple ese contrato — la coleccion mantiene el orden del
+        // payload para que el preview se vea EXACTO al PDF final.
+        $movs = collect($data['lineas'])->map(function ($l) use ($productos, $fix) {
+            $prod = $productos[(int) $l['id_producto']] ?? null;
+            if ($prod) {
+                $prod->NOMBRE = $fix($prod->NOMBRE);
+            }
+            return (object) [
+                'CANTIDAD' => (float) $l['cantidad'],
+                'producto' => $prod,
+            ];
+        });
+
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, true);
+        return response($binary, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Vista_Previa_Nota_Entrega.pdf"',
+            // No cachear el preview — cada cambio del usuario debe regenerar.
+            'Cache-Control'       => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'              => 'no-cache',
+        ]);
+    }
+
+    /**
+     * Construye y serializa el PDF de la Nota de Entrega a partir de los datos ya
+     * normalizados — NO toca BD. Lo usan dos endpoints:
+     *   • notaEntregaPdf()  → con datos cargados de movimientos persistidos.
+     *   • previewSalidaPdf() → con datos del request, sin commit (vista previa).
+     *
+     * Cuando $esPreview = true, NotaEntregaPDF pinta un watermark "VISTA PREVIA"
+     * diagonal sobre cada pagina para que un usuario que imprima/descargue el
+     * preview por error no lo confunda con un documento oficial registrado.
+     *
+     * Retorna el binario del PDF (string) para que el caller decida headers y
+     * disposition. Usa Output('','S') que devuelve el contenido como string sin
+     * escribir a stdout/headers.
+     */
+    private function renderNotaEntregaPdfBinary(array $datos, $movs, bool $esPreview = false): string
+    {
         $pdf = new NotaEntregaPDF('P', 'mm', 'A4', true, 'UTF-8', false);
         // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
         // Header() lo lee de esta propiedad pública.
-        $pdf->numeroNota = $hd->NUMERO_NOTA ?? '';
+        $pdf->numeroNota = $datos['numero_nota'] ?? '';
+        $pdf->isPreview  = $esPreview;
         $pdf->setPrintHeader(true);
         // Footer desactivado: ya no imprimimos "Sistema de Gestión VIDALSA" al pie.
         // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
@@ -1424,7 +1552,7 @@ class AlmacenController extends Controller
         $pdf->SetHeaderMargin(6);
         $pdf->SetFooterMargin(10);
         $pdf->SetAutoPageBreak(true, 14);
-        $pdf->SetTitle('Nota de Entrega de Materiales');
+        $pdf->SetTitle('Nota de Entrega de Materiales' . ($esPreview ? ' (Vista previa)' : ''));
         $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
         $pdf->SetCreator('Sistema de Gestión VIDALSA');
         $pdf->AddPage();
@@ -1440,8 +1568,7 @@ class AlmacenController extends Controller
         ])->render();
         $pdf->writeHTML($html, true, false, true, false, '');
 
-        $slug = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
-        return $pdf->Output('Nota_Entrega_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $slug) . '.pdf', 'I');
+        return $pdf->Output('', 'S');
     }
 
     /**
@@ -1728,6 +1855,8 @@ class NotaEntregaPDF extends \TCPDF
 {
     /** N° de Nota (NE-YYYY-NNNN) — lo inyecta el controller antes de generar el PDF. */
     public string $numeroNota = '';
+    /** true → pinta watermark diagonal "VISTA PREVIA" sobre cada pagina. */
+    public bool $isPreview = false;
 
     public function Header()
     {
@@ -1833,6 +1962,31 @@ class NotaEntregaPDF extends \TCPDF
         $this->SetFont('helvetica', '', 7);
         // x=12, y=6 → margen izquierdo y top del cabezote.
         $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
+
+        // ── Watermark "VISTA PREVIA" ────────────────────────────────────────────
+        // Solo cuando el PDF es de preview (antes de confirmar el registro). Dejamos
+        // un texto diagonal grande en gris claro semitransparente atravesando la
+        // pagina, asi una impresion/descarga accidental NO se confunde con el
+        // documento oficial registrado en el sistema.
+        //
+        // Implementacion: SetAlpha + StartTransform/Rotate/StopTransform + Cell.
+        // La rotacion va centrada en el medio de A4 (105,148.5) con angulo -45°.
+        // SetTextColor gris claro (220) + Alpha 0.35 da un efecto "watermark sutil"
+        // que se ve detras del contenido sin estorbar la lectura.
+        if ($this->isPreview) {
+            $this->StartTransform();
+            $this->SetAlpha(0.35);
+            $this->SetTextColor(220, 220, 220);
+            $this->SetFont('helvetica', 'B', 80);
+            // Pivote = centro de A4. Rotamos -45° (de abajo-izq a arriba-der).
+            $this->Rotate(-45, 105, 148.5);
+            // Cell centrada: ancho/alto grandes, sin border, alineacion center.
+            $this->SetXY(0, 130);
+            $this->Cell(210, 30, 'VISTA PREVIA', 0, 0, 'C', false, '', 0, false, 'T', 'M');
+            $this->SetAlpha(1);
+            $this->SetTextColor(0, 0, 0);
+            $this->StopTransform();
+        }
     }
 
     public function Footer()
