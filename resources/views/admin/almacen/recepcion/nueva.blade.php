@@ -79,14 +79,18 @@
        es .ent-search-field, que SÍ la tiene. Agregar position:relative
        al row creaba un stacking-context que acotaba el z-index del dropdown. */
     .ent-capt-row { display:flex; gap:10px; align-items:flex-start; }
-    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; }
-    .ent-capt-row > .ent-cant-stepper { flex:0 0 auto; min-width:114px; }
+    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; overflow:hidden; }
+    /* Ancho fijo explícito: flex:0 0 120px impide que el search input
+       (que tiene width:100% + padding) lo aplaste. */
+    .ent-capt-row > .ent-cant-stepper { flex:0 0 120px; width:120px; }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
        sugerencias en absolute. */
     .ent-search-field { position:relative; height:42px; }
-    .ent-search-input { width:100%; height:42px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
+    /* box-sizing:border-box: los 50px de padding (38px izq + 12px der) quedan DENTRO
+       del width:100%, sin desbordar el contenedor flex ni empujar al stepper. */
+    .ent-search-input { width:100%; box-sizing:border-box; height:42px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
     .ent-search-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
     /* Badge de producto seleccionado: SE SUPERPONE al input via position:absolute
@@ -123,7 +127,8 @@
        con los otros campos. */
     .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:42px; }
     .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
-    .ent-cant-input { width:90px; height:100%; border:none; background:transparent; text-align:center; font-size:14px; font-weight:700; color:#0f172a; outline:none; padding:0; }
+    /* El input ocupa el espacio disponible dentro del stepper (120px - 24px botones - 2px borde = ~94px) */
+    .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:14px; font-weight:700; color:#0f172a; outline:none; padding:0; }
     .ent-cant-btns { display:flex; flex-direction:column; border-left:1px solid #cbd5e0; width:24px; }
     .ent-cant-btn  { flex:1; border:none; background:#fff; color:#0067b1; font-weight:800; font-size:12px; line-height:1; cursor:pointer; padding:0; }
     .ent-cant-btn:first-child { border-bottom:1px solid #cbd5e0; }

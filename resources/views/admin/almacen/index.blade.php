@@ -284,18 +284,20 @@
 
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
-           Cada <tr.alm-row> es una tarjeta GRID 3-col × 4 filas:
+           Cada <tr.alm-row> es una tarjeta GRID 3-col × 3 filas:
              ┌──────────────────────────────────────────────────┐
-             │ NOMBRE DEL PRODUCTO  (banda gris, bold, full)    │  ← nombre (3 cols)
+             │ 00042 · ABRAZADERA INOXIDABLE 1/2  (banda gris)  │  ← nombre+codigo (3 cols)
              ├──────────────────────────────────────────────────┤
-             │ #00042                          5.000 UND ⚠      │  ← codigo | stock | um
-             │ Cat: LUBRICANTES                                  │  ← cat (3 cols)
+             │ Cat: LUBRICANTES        5.000 UND ⚠              │  ← cat | stock | um
              │ [▲ 0 ▼ stepper]                          [👁]    │  ← cant (2 cols) | det
              └──────────────────────────────────────────────────┘
+           Cliente pidio CODIGO en la misma casilla que el nombre como un
+           solo dato — el <td> alm-td-codigo se oculta y su valor se renderiza
+           via ::before de alm-td-nombre leyendo data-codigo.
+
            Colores tipograficos = los del desktop (inline style):
-             codigo: #0f172a  | nombre: #1e293b  | stock: #0f172a
-             cat:    #475569  | um:     #475569
-           Solo el prefijo "Cat:" mantiene gris #94a3b8 (es label, no dato).
+             nombre: #1e293b  | stock: #0f172a  | cat: #475569  | um: #475569
+           El prefijo del codigo y el "Cat:" mantienen gris (son labels/secundarios).
            CADA celda lleva grid-area explicito — no auto-placement.
            ═══════════════════════════════════════════════════════════ */
 
@@ -306,12 +308,11 @@
 
         .alm-table tr.alm-row {
             display: grid !important;
-            /* col 1 = 1fr (codigo/cant), col 2/3 = auto (stock + um pegados a la derecha) */
+            /* col 1 = 1fr (cat/cant), col 2/3 = auto (stock + um pegados a la derecha) */
             grid-template-columns: 1fr auto auto !important;
             grid-template-areas:
                 "nombre nombre nombre"
-                "codigo stock  um"
-                "cat    cat    cat"
+                "cat    stock  um"
                 "cant   cant   det" !important;
             gap: 0 !important;
             background: #fff !important;
@@ -335,7 +336,12 @@
         }
         .alm-table tr.alm-row td .tooltip-bubble { display: none !important; }
 
-        /* Fila 1: nombre del producto — banda gris full width */
+        /* Codigo: en mobile no tiene celda propia — se renderiza como prefijo
+           monospace de la celda nombre (via ::before leyendo data-codigo). */
+        .alm-table tr.alm-row td.alm-td-codigo { display: none !important; }
+
+        /* Fila 1: nombre del producto con codigo prefijo — banda gris full width.
+           El "00042 · " sale del atributo data-codigo del propio <td>. */
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
             background: #f1f5f9 !important;
@@ -345,42 +351,23 @@
             font-weight: 700 !important;
             color: #1e293b !important;
             line-height: 1.3 !important;
+            gap: 6px !important;
+        }
+        .alm-table tr.alm-row td.alm-td-nombre::before {
+            content: attr(data-codigo) " · ";
+            font-family: monospace;
+            font-weight: 800;
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
         }
 
-        /* Fila 2: codigo (izq) | stock (centro-der) | um (der, pegada al stock).
+        /* Fila 2: cat (izq, con label "Cat:") | stock (centro-der) | um (der).
            stock+um se ven como un par "12 UND" alineado a la derecha. */
-        .alm-table tr.alm-row td.alm-td-codigo {
-            grid-area: codigo !important;
-            padding: 6px 12px 2px !important;
-            font-family: monospace !important;
-            font-size: 12px !important;
-            font-weight: 700 !important;
-            color: #0f172a !important;
-        }
-        .alm-table tr.alm-row td.alm-td-stock {
-            grid-area: stock !important;
-            padding: 6px 4px 2px 12px !important;
-            font-size: 17px !important;
-            font-weight: 800 !important;
-            color: #0f172a !important;
-            justify-content: flex-end !important;
-            gap: 4px !important;
-            text-align: right !important;
-        }
-        .alm-table tr.alm-row td.alm-td-um {
-            grid-area: um !important;
-            padding: 6px 12px 2px 0 !important;
-            font-size: 12px !important;
-            font-weight: 700 !important;
-            color: #475569 !important;
-            justify-content: flex-start !important;
-            text-transform: uppercase !important;
-        }
-
-        /* Fila 3: cat full width (con prefijo "Cat:" como label) */
         .alm-table tr.alm-row td.alm-td-cat {
             grid-area: cat !important;
-            padding: 2px 12px 6px !important;
+            padding: 6px 12px 6px !important;
             font-size: 12px !important;
             color: #475569 !important;
             gap: 4px !important;
@@ -393,8 +380,27 @@
             letter-spacing: 0.3px;
             color: #94a3b8;
         }
+        .alm-table tr.alm-row td.alm-td-stock {
+            grid-area: stock !important;
+            padding: 6px 4px 6px 12px !important;
+            font-size: 17px !important;
+            font-weight: 800 !important;
+            color: #0f172a !important;
+            justify-content: flex-end !important;
+            gap: 4px !important;
+            text-align: right !important;
+        }
+        .alm-table tr.alm-row td.alm-td-um {
+            grid-area: um !important;
+            padding: 6px 12px 6px 0 !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            color: #475569 !important;
+            justify-content: flex-start !important;
+            text-transform: uppercase !important;
+        }
 
-        /* Fila 4: stepper de cantidad (izq, 2 cols) | boton ver detalle (der).
+        /* Fila 3: stepper de cantidad (izq, 2 cols) | boton ver detalle (der).
            Borde superior sutil. Si no hay permiso almacen.movimiento, alm-td-cant
            no se renderiza y det queda solo a la derecha (sin huecos raros). */
         .alm-table tr.alm-row td.alm-td-cant {
@@ -1060,10 +1066,10 @@
      es CONSUMO (mismo almacén del origen) o TRASPASO (envío a otro almacén) según el frente
      elegido en "Proyecto destino" — ambos casos generan Nota de Entrega NE-YYYY-NNNN. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
-    {{-- max-width reducido a 680px para que los cuadros de texto se vean mas
-         compactos. El layout de 2-3 columnas (Proyecto/Contrato, Fecha/RQ/Solic)
-         sigue acomodando bien — los inputs heredan width:100% del .alm-nota-input. --}}
-    <div class="alm-modal alm-modal-wide" style="max-width:680px;">
+    {{-- max-width reducido a 600px (de 680) — cliente pidio comprimir un poco mas.
+         El layout de 2-3 columnas (Proyecto/Contrato, Fecha/RQ/Solic) sigue
+         acomodando bien — los inputs heredan width:100% del .alm-nota-input. --}}
+    <div class="alm-modal alm-modal-wide" style="max-width:600px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">north_east</i> <span>Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>
@@ -1155,12 +1161,13 @@
                     <div>
                         <label class="alm-nota-label" for="almSalidaFecha">Fecha de entrega</label>
                         {{-- Wrapper clickable: cualquier click en el campo abre el calendario
-                             (en navegadores que soportan showPicker). El ícono va con pointer-events:none
-                             para que el click pase al wrapper y no se "coma" el evento. --}}
+                             (en navegadores que soportan showPicker). YA NO incluye un icono
+                             custom (event) porque el <input type="date"> nativo de Chrome/Edge
+                             pinta su propio indicador de calendario a la derecha — antes se veian
+                             DOS calendarios (custom izq + nativo der). Dejamos solo el nativo. --}}
                         <div id="almSalidaFechaBox" style="display:flex;align-items:center;background:#fff;border:1px solid #cbd5e0;border-radius:7px;height:38px;overflow:hidden;cursor:pointer;"
                              onclick="var i=document.getElementById('almSalidaFecha'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
-                            <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;pointer-events:none;">event</i>
-                            <input type="date" id="almSalidaFecha" class="alm-nota-input" style="flex:1;width:auto;min-width:0;border:none;background:transparent;height:36px;padding:0 8px 0 0;border-radius:0;">
+                            <input type="date" id="almSalidaFecha" class="alm-nota-input" style="flex:1;width:auto;min-width:0;border:none;background:transparent;height:36px;padding:0 10px;border-radius:0;">
                         </div>
                     </div>
                     <div>
@@ -3054,25 +3061,26 @@
     // ── Posicion del Consolidado de Inventario en mobile ─────────────────────
     // Por default el sidebar es SIBLING del .admin-card dentro de .page-layout-grid;
     // cuando el grid colapsa a 1 columna en mobile termina abajo de TODO. El cliente
-    // lo quiere DEBAJO de la tabla/tarjetas pero AUN dentro del admin-card (para
-    // que herede su padding/borde y se vea como parte del bloque).
+    // lo quiere ENTRE el boton "Acciones" y la tabla (debajo del header de filtros).
     //
-    // Anchor mobile: #almLoadingMore (el indicador "Cargando mas productos…",
-    // hidden por default) que vive justo despues del .alm-table-wrap. Insertar
-    // el sidebar despues de ese nodo lo deja literalmente "abajo de la tabla".
-    // Anchor desktop: re-anclar al .page-layout-grid para que vuelva a ser
-    // sibling del admin-card y aparezca a la derecha.
+    // Anchor mobile: #almFilters (el bloque de filtros Buscar+Categoria, que vive
+    // justo bajo el header del modulo donde esta el menu de Acciones). Insertando
+    // la sidebar despues de ese nodo queda inmediatamente debajo del boton Acciones
+    // y arriba de la tabla — la posicion original que pidio el cliente.
+    // Anchor desktop: re-anclar al .page-layout-grid para que sea sibling del
+    // admin-card y aparezca a la derecha.
     (function placeSidebarMobile() {
         var BREAKPOINT = 768;
         function place() {
             var sidebar = document.querySelector('.counter-sidebar');
-            var anchor  = document.getElementById('almLoadingMore');
+            var filters = document.getElementById('almFilters');
             var grid    = document.querySelector('.page-layout-grid');
-            if (!sidebar || !anchor || !grid) return;
+            if (!sidebar || !filters || !grid) return;
             if (window.innerWidth <= BREAKPOINT) {
-                // Mobile: inmediatamente despues del bloque de tabla/tarjetas.
-                if (sidebar.previousElementSibling !== anchor) {
-                    anchor.parentNode.insertBefore(sidebar, anchor.nextSibling);
+                // Mobile: dentro de admin-card, justo despues de #almFilters
+                // (bajo el header / boton Acciones, arriba de la tabla).
+                if (sidebar.previousElementSibling !== filters) {
+                    filters.parentNode.insertBefore(sidebar, filters.nextSibling);
                 }
             } else {
                 // Desktop: re-anclar al .page-layout-grid (sibling del admin-card).

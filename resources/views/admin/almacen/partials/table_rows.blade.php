@@ -54,8 +54,12 @@
             <td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
-                 `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php. --}}
-            <td class="alm-td-nombre" style="font-weight:600;color:#1e293b;position:relative;">
+                 `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php.
+                 data-codigo lo lee la regla mobile ::before para mostrar el codigo como
+                 prefijo monospace de la descripcion (el cliente lo quiere como un solo
+                 dato "00042 · ABRAZADERA"). En desktop hay columna codigo aparte, asi que
+                 el atributo queda sin uso pero no estorba. --}}
+            <td class="alm-td-nombre" data-codigo="{{ $p->CODIGO }}" style="font-weight:600;color:#1e293b;position:relative;">
                 {{ $p->NOMBRE }}
                 @if(!empty($p->UBICACION))
                     <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
