@@ -142,8 +142,8 @@
      y los bordes verticales no alinean entre filas (esto era parte del problema
      "casillas no alineadas" que reportaste).
 
-     Fila "Firma": height=42 (era 18). Necesita espacio real para una firma
-     manuscrita — antes se veía como una línea apretada. --}}
+     Fila "Firma": height=24 (~8.5 mm). Suficiente para una firma manuscrita
+     compacta — antes 42 (~15 mm) era exagerado y desbalanceaba el bloque. --}}
 <table border="1" cellpadding="2" cellspacing="0" width="100%">
     <tr>
         <td width="14%">&nbsp;</td>
@@ -162,8 +162,8 @@
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>Firma:</b></font></td>
-        <td width="43%" height="42">&nbsp;</td>
-        <td width="43%" height="42">&nbsp;</td>
+        <td width="43%" height="24">&nbsp;</td>
+        <td width="43%" height="24">&nbsp;</td>
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>Fecha:</b></font></td>
