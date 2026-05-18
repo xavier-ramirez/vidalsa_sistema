@@ -800,7 +800,10 @@
      es CONSUMO (mismo almacén del origen) o TRASPASO (envío a otro almacén) según el frente
      elegido en "Proyecto destino" — ambos casos generan Nota de Entrega NE-YYYY-NNNN. ── --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:820px;">
+    {{-- max-width reducido a 680px para que los cuadros de texto se vean mas
+         compactos. El layout de 2-3 columnas (Proyecto/Contrato, Fecha/RQ/Solic)
+         sigue acomodando bien — los inputs heredan width:100% del .alm-nota-input. --}}
+    <div class="alm-modal alm-modal-wide" style="max-width:680px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">north_east</i> <span>Registrar salida</span></h3>
             <i class="material-icons alm-x" onclick="almCerrar('almSalidaModal')">close</i>

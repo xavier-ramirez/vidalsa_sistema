@@ -1298,12 +1298,12 @@ class AlmacenController extends Controller
         // Cabecera del documento: todos los movimientos comparten estos campos porque
         // registrarMovimientoLote los stampa en cada línea con el mismo $opts.
         $hd = $movs->first();
-        // "Entregado por" es el ALMACENISTA del almacén origen (varía por proyecto/almacén,
-        // configurable en el modal Editar almacén). Si el almacén no tiene almacenista
-        // asignado, caemos al nombre del usuario que registró el movimiento — así nunca
-        // queda en blanco.
-        $entregadoPor = $hd->almacen?->ALMACENISTA
-            ?: ($hd->usuario?->NOMBRE_COMPLETO ?? '');
+        // "Entregado por" = ALMACENISTA del almacén origen, configurable en el modal
+        // "Editar almacén" (/admin/almacen → Acciones → Gestionar almacenes). Si el
+        // almacén no tiene almacenista asignado el campo queda VACIO en el PDF: NO
+        // caemos al usuario que registró el movimiento — eso confundia al firmante
+        // (el almacenista quien entrega rara vez es la persona que opera el sistema).
+        $entregadoPor = trim((string) ($hd->almacen?->ALMACENISTA ?? ''));
 
         // Normaliza mojibake (texto guardado como UTF-8 doble-codificado, ej.
         // "ASIGNACIÓN" -> "ASIGNACIÃ”N"). Aplicado a TODOS los campos de
