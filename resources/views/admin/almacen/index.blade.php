@@ -276,17 +276,19 @@
 
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
-           Cada <tr.alm-row> es una tarjeta GRID 2-col × 4 filas:
+           Cada <tr.alm-row> es una tarjeta GRID 3-col × 4 filas:
              ┌──────────────────────────────────────────────────┐
-             │ NOMBRE DEL PRODUCTO  (banda gris, bold, full)    │  ← nombre
+             │ NOMBRE DEL PRODUCTO  (banda gris, bold, full)    │  ← nombre (3 cols)
              ├──────────────────────────────────────────────────┤
-             │ #00042                          5.000 ⚠          │  ← codigo | stock
-             │ Cat: LUBRICANTES                       UND        │  ← cat    | um
-             │ [▲ 0 ▼ stepper]                       [👁 Det]   │  ← cant   | det
+             │ #00042                          5.000 UND ⚠      │  ← codigo | stock | um
+             │ Cat: LUBRICANTES                                  │  ← cat (3 cols)
+             │ [▲ 0 ▼ stepper]                          [👁]    │  ← cant (2 cols) | det
              └──────────────────────────────────────────────────┘
-           CADA celda lleva `grid-area: <nombre>` EXPLICITO. La rev
-           anterior solo asignaba algunas → las demas se auto-colocaban
-           en lugares aleatorios (el cliente lo vio desordenado).
+           Colores tipograficos = los del desktop (inline style):
+             codigo: #0f172a  | nombre: #1e293b  | stock: #0f172a
+             cat:    #475569  | um:     #475569
+           Solo el prefijo "Cat:" mantiene gris #94a3b8 (es label, no dato).
+           CADA celda lleva grid-area explicito — no auto-placement.
            ═══════════════════════════════════════════════════════════ */
 
         .alm-table-wrap { overflow-x: visible !important; border: none !important; border-radius: 0 !important; }
@@ -296,12 +298,13 @@
 
         .alm-table tr.alm-row {
             display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
+            /* col 1 = 1fr (codigo/cant), col 2/3 = auto (stock + um pegados a la derecha) */
+            grid-template-columns: 1fr auto auto !important;
             grid-template-areas:
-                "nombre nombre"
-                "codigo stock"
-                "cat    um"
-                "cant   det" !important;
+                "nombre nombre nombre"
+                "codigo stock  um"
+                "cat    cat    cat"
+                "cant   cant   det" !important;
             gap: 0 !important;
             background: #fff !important;
             border: 1px solid #e2e8f0 !important;
@@ -336,18 +339,19 @@
             line-height: 1.3 !important;
         }
 
-        /* Fila 2: codigo (monospace, izq) | stock (grande bold, der) */
+        /* Fila 2: codigo (izq) | stock (centro-der) | um (der, pegada al stock).
+           stock+um se ven como un par "12 UND" alineado a la derecha. */
         .alm-table tr.alm-row td.alm-td-codigo {
             grid-area: codigo !important;
             padding: 6px 12px 2px !important;
             font-family: monospace !important;
             font-size: 12px !important;
             font-weight: 700 !important;
-            color: #64748b !important;
+            color: #0f172a !important;
         }
         .alm-table tr.alm-row td.alm-td-stock {
             grid-area: stock !important;
-            padding: 6px 12px 2px !important;
+            padding: 6px 4px 2px 12px !important;
             font-size: 17px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
@@ -355,13 +359,22 @@
             gap: 4px !important;
             text-align: right !important;
         }
+        .alm-table tr.alm-row td.alm-td-um {
+            grid-area: um !important;
+            padding: 6px 12px 2px 0 !important;
+            font-size: 12px !important;
+            font-weight: 700 !important;
+            color: #475569 !important;
+            justify-content: flex-start !important;
+            text-transform: uppercase !important;
+        }
 
-        /* Fila 3: cat (con label "Cat:", izq) | um (UND, der, gris) */
+        /* Fila 3: cat full width (con prefijo "Cat:" como label) */
         .alm-table tr.alm-row td.alm-td-cat {
             grid-area: cat !important;
             padding: 2px 12px 6px !important;
-            font-size: 11.5px !important;
-            color: #64748b !important;
+            font-size: 12px !important;
+            color: #475569 !important;
             gap: 4px !important;
         }
         .alm-table tr.alm-row td.alm-td-cat::before {
@@ -372,20 +385,10 @@
             letter-spacing: 0.3px;
             color: #94a3b8;
         }
-        .alm-table tr.alm-row td.alm-td-um {
-            grid-area: um !important;
-            padding: 2px 12px 6px !important;
-            font-size: 11px !important;
-            font-weight: 700 !important;
-            color: #94a3b8 !important;
-            justify-content: flex-end !important;
-            text-transform: uppercase !important;
-        }
 
-        /* Fila 4: stepper de cantidad (izq) | boton ver detalle (der). Borde
-           superior sutil para separar de la info estatica. Si el usuario no
-           tiene permiso almacen.movimiento, alm-td-cant no se renderiza y la
-           celda izquierda queda vacia — det se ve solo a la derecha. */
+        /* Fila 4: stepper de cantidad (izq, 2 cols) | boton ver detalle (der).
+           Borde superior sutil. Si no hay permiso almacen.movimiento, alm-td-cant
+           no se renderiza y det queda solo a la derecha (sin huecos raros). */
         .alm-table tr.alm-row td.alm-td-cant {
             grid-area: cant !important;
             padding: 6px 12px 8px !important;
