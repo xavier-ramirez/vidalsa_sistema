@@ -15,7 +15,11 @@
 
 @if($modoCruzado)
     {{-- Modo cruzado: encabezado verde con el nombre del producto + lista minimal
-         "almacen — cantidad". Pensado para responder rapido "¿donde mas hay de esto?". --}}
+         "almacen — cantidad". Pensado para responder rapido "¿donde mas hay de
+         esto?". El wrapper `.alm-otros-almacenes` permite ocultar todo el bloque
+         en mobile (regla en index.blade.php @media ≤768px) — el cliente lo pidio
+         porque ocupa demasiado espacio vertical en telefono. --}}
+    <div class="alm-otros-almacenes">
     <h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">
         <i class="material-icons" style="font-size:18px;color:#10b981;">place</i>
         En otros almacenes
@@ -54,6 +58,7 @@
             Este producto solo existe en el almacén actual.
         </p>
     @endif
+    </div>
 @else
     {{-- Modo default: distribucion por categoria. --}}
     <h4 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">

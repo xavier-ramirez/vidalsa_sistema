@@ -118,10 +118,13 @@
        width como header efectivo, boton Filtros Avanzados full-width (no
        icono chiquito perdido), boton "Recepcion ODC" full-width al final. */
     @media (max-width: 768px) {
-        /* Contenedor blanco (.admin-card) ocupa todo el ancho disponible.
-           Padding 4px (antes 14px inline) para que la tabla y los filtros
-           tengan el maximo de ancho del telefono. width:100% y margin:0
-           por si algun selector externo apretara desde fuera. */
+        /* Viewport principal: por default .main-viewport tiene padding:20px y
+           width:98% (estilos_globales.css:92). En /admin/almacen el global lo
+           reduce a 8px porque tiene .page-layout-grid; aqui NO tenemos esa
+           clase asi que replicamos el override para que el contenedor blanco
+           ocupe casi todo el ancho del telefono. */
+        .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100vw !important; box-sizing: border-box !important; padding-top: 12px !important; }
+        /* Contenedor blanco (.admin-card): padding interno chico y full-width */
         .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important; }
         /* Titulo + separador ocultos en mobile */
         .page-title-card .page-title { display: none !important; }

@@ -154,10 +154,15 @@
     .ent-footer-bar { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; padding-top:14px; border-top:1px solid #e2e8f0; }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
-       Titulo OCULTO, separadores OCULTOS, bloques de header (Almacen + Nota
-       de entrega) apilados full-width. La pill del almacen y el input de la
-       nota se expanden al 100% para ocupar todo el ancho del telefono. */
+       Titulo OCULTO, separadores OCULTOS, bloque del Almacen full-width.
+       Viewport con padding lateral chico (calcado del override que el global
+       hace para .page-layout-grid en estilos_globales.css:2962). */
     @media (max-width: 768px) {
+        /* Viewport global: padding lateral 8px (igual que /admin/almacen) */
+        .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100vw !important; box-sizing: border-box !important; padding-top: 12px !important; }
+        /* Cards internas: padding reducido en mobile para ganar ancho de contenido */
+        .ent-card { padding: 8px !important; }
+
         .page-title-card .page-title { display: none !important; }
         .page-title-card .ent-header-sep { display: none !important; }
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
@@ -298,7 +303,13 @@
     // ── Autocomplete de producto ─────────────────────────────────────────
     // Filtra PRODUCTOS por match de CODIGO o NOMBRE contra el termino tipeado.
     // Sin endpoint AJAX — todo en cliente.
+    // Flag para suprimir UNA sola llamada a entSuggest — usado cuando devolvemos
+    // foco al buscador programaticamente despues de agregar una linea (Enter en
+    // Cantidad). Sin esto el `onfocus="entSuggest()"` reabriria la lista de
+    // sugerencias inmediatamente, confundiendo el flujo del usuario.
+    var entSkipNextSuggest = false;
     window.entSuggest = function () {
+        if (entSkipNextSuggest) { entSkipNextSuggest = false; var b0 = el('entSuggest'); if (b0) b0.classList.remove('open'); return; }
         var inp = el('entSearch'); if (!inp) return;
         var box = el('entSuggest'); if (!box) return;
         // Si ya hay un producto seleccionado, no mostrar sugerencias — el usuario
@@ -362,10 +373,16 @@
         // Saltar a cantidad para captura rapida: codigo → enter → cantidad → enter.
         setTimeout(function () { var c = el('entCant'); if (c) c.focus(); }, 30);
     }
-    window.entClearSelected = function () {
+    // clearAfterAdd=true cuando se llama desde entInsertarLinea (post agregar una
+    // linea): suprimimos el siguiente entSuggest para que el dropdown NO se abra
+    // automaticamente al refocar el buscador. El usuario apreto Enter para AGREGAR,
+    // no para volver a buscar — si quiere otra busqueda hace click o tipea.
+    window.entClearSelected = function (clearAfterAdd) {
         entSelected = null;
         el('entSelectedBadge').classList.remove('show');
-        var inp = el('entSearch'); inp.style.display = ''; inp.value = ''; inp.focus();
+        var inp = el('entSearch'); inp.style.display = ''; inp.value = '';
+        if (clearAfterAdd) entSkipNextSuggest = true;
+        inp.focus();
     };
 
     // Click en sugerencia → pick. Click fuera → cerrar dropdown.
@@ -432,24 +449,63 @@
             });
         }
         entRender();
-        // Limpiar inputs y devolver foco al buscador — siguiente producto.
-        window.entClearSelected();
+        // Limpiar inputs y devolver foco al buscador — siguiente producto. El flag
+        // `true` suprime la auto-apertura del dropdown (Enter en Cantidad agrega
+        // la linea; no es una intencion de "ver mas sugerencias").
+        window.entClearSelected(true);
         el('entCant').value = '';
     }
 
-    // Crea un producto nuevo al vuelo via almacen.productos.store (codigo
-    // auto-generado tipo PRD-####, UM=UND por defecto). Al volver con el id
-    // real del backend, lo insertamos a entLineas como una linea mas y al
-    // catalogo en memoria (PRODUCTOS) para que aparezca en busquedas
-    // posteriores sin recargar.
+    // Antes de crear un producto al vuelo, abrimos un mini-modal (window.showModal)
+    // para que el usuario elija la UNIDAD DE MEDIDA. Antes se creaba siempre con
+    // UM='UND' silenciosamente; el cliente pidio (2026-05-20) elegirla explicitamente
+    // al registrar producto desde Recepcion ODC.
     function entCrearProductoYAgregar(nombre, cant) {
         if (entCreandoProducto) return;
+        // UMs mas comunes en inventario — orden por frecuencia de uso esperada.
+        var UM_OPTIONS = ['UND','KG','L','M','M2','M3','CAJA','PAR','ROLLO','GAL'];
+        var selectHtml = '<select id="entNewUmPicker" style="width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:8px;font-size:14px;background:#fff;outline:none;color:#0f172a;font-weight:600;">'
+            + UM_OPTIONS.map(function (u) { return '<option value="' + u + '">' + u + '</option>'; }).join('')
+            + '</select>';
+        var msg = '<div style="text-align:left;font-size:13.5px;line-height:1.45;">'
+            +    '<div style="margin-bottom:10px;">El producto <strong>"' + escHtml(nombre) + '"</strong> no esta en el catalogo.</div>'
+            +    '<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:4px;">Unidad de medida</div>'
+            +    selectHtml
+            +  '</div>';
+        if (typeof window.showModal !== 'function') {
+            // Fallback si por alguna razon showModal no esta cargado — UM=UND.
+            entDoCreateProducto(nombre, cant, 'UND');
+            return;
+        }
+        window.showModal({
+            type:        'info',
+            title:       'Producto nuevo',
+            message:     msg,
+            confirmText: 'Crear y agregar',
+            cancelText:  'Cancelar',
+            onConfirm: function () {
+                var sel = document.getElementById('entNewUmPicker');
+                var um = sel ? String(sel.value || '').trim() : 'UND';
+                if (!um) um = 'UND';
+                entDoCreateProducto(nombre, cant, um);
+            },
+            onCancel: function () {
+                var i = el('entSearch'); if (i) i.focus();
+            }
+        });
+    }
+
+    // POST al endpoint almacen.productos.store con el UM elegido por el usuario.
+    // Al volver con el id real del backend, lo insertamos a entLineas como una
+    // linea mas y al catalogo en memoria (PRODUCTOS) para que aparezca en
+    // busquedas posteriores sin recargar la pagina.
+    function entDoCreateProducto(nombre, cant, um) {
         entCreandoProducto = true;
         if (window.showPreloader) window.showPreloader();
         fetch(ROUTE_PROD, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ NOMBRE: nombre, UM: 'UND' }),
+            body: JSON.stringify({ NOMBRE: nombre, UM: um }),
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
