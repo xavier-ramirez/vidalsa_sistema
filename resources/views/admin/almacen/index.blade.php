@@ -293,16 +293,22 @@
              ┌──────────────────────────────────────────────────┐
              │ 00042 · ABRAZADERA INOXIDABLE 1/2  (banda gris)  │  ← nombre+codigo (3 cols)
              ├──────────────────────────────────────────────────┤
-             │ Cat: LUBRICANTES        5.000 UND ⚠              │  ← cat | stock | um
+             │                          5.000 UND ⚠             │  ← stock (2 cols) | um
              │ [▲ 0 ▼ stepper]                          [👁]    │  ← cant (2 cols) | det
              └──────────────────────────────────────────────────┘
            Cliente pidio CODIGO en la misma casilla que el nombre como un
            solo dato — el <td> alm-td-codigo se oculta y su valor se renderiza
            via ::before de alm-td-nombre leyendo data-codigo.
 
+           Categoria (alm-td-cat) OCULTA en mobile — el cliente la encontro
+           ruido visual: la info ya esta accesible filtrando o desde el modal
+           de detalles. La fila stock+um pasa a span 2-cols+auto (stock spans
+           cols 1-2 con justify-content:flex-end → "5.000 UND" queda como par
+           pegado al borde derecho, sin huecos).
+
            Colores tipograficos = los del desktop (inline style):
-             nombre: #1e293b  | stock: #0f172a  | cat: #475569  | um: #475569
-           El prefijo del codigo y el "Cat:" mantienen gris (son labels/secundarios).
+             nombre: #1e293b  | stock: #0f172a  | um: #475569
+           El prefijo del codigo mantiene gris (es secundario).
            CADA celda lleva grid-area explicito — no auto-placement.
            ═══════════════════════════════════════════════════════════ */
 
@@ -313,11 +319,14 @@
 
         .alm-table tr.alm-row {
             display: grid !important;
-            /* col 1 = 1fr (cat/cant), col 2/3 = auto (stock + um pegados a la derecha) */
-            grid-template-columns: 1fr auto auto !important;
+            /* col 1+2 = 1fr cada una (stepper a la izq, stock spans 1+2), col 3 = auto
+               (um pegado al stock, ancho minimo). En la fila stock, justify-content
+               flex-end alinea "5.000" al borde derecho de su celda de 2-cols, dejando
+               UND inmediatamente al lado. */
+            grid-template-columns: 1fr 1fr auto !important;
             grid-template-areas:
                 "nombre nombre nombre"
-                "cat    stock  um"
+                "stock  stock  um"
                 "cant   cant   det" !important;
             gap: 0 !important;
             background: #fff !important;
@@ -368,23 +377,12 @@
             letter-spacing: 0.2px;
         }
 
-        /* Fila 2: cat (izq, con label "Cat:") | stock (centro-der) | um (der).
-           stock+um se ven como un par "12 UND" alineado a la derecha. */
-        .alm-table tr.alm-row td.alm-td-cat {
-            grid-area: cat !important;
-            padding: 6px 12px 6px !important;
-            font-size: 12px !important;
-            color: #475569 !important;
-            gap: 4px !important;
-        }
-        .alm-table tr.alm-row td.alm-td-cat::before {
-            content: "Cat: ";
-            font-weight: 700;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            color: #94a3b8;
-        }
+        /* Categoria oculta en mobile (peticion explicita del cliente — el dato es
+           accesible al filtrar o desde el modal de detalles). */
+        .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
+
+        /* Fila 2: stock spans cols 1-2 (right-aligned) | um col 3.
+           Visual: "5.000 UND" como par pegado al borde derecho. */
         .alm-table tr.alm-row td.alm-td-stock {
             grid-area: stock !important;
             padding: 6px 4px 6px 12px !important;
