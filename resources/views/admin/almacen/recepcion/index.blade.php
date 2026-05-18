@@ -135,7 +135,8 @@
         /* Boton dentro del wrapper: pasa de icono 45x45 a fila completa con icono centrado */
         #trFilters > div:not(.tr-search-num) > button { width: 100% !important; height: 45px !important; }
         /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
-           Si el usuario no tiene `almacen.movimiento` el @can oculta la <a> y no pasa nada. */
+           Si el usuario no tiene `almacen.movimiento` el directive Blade oculta
+           la `<a>` y no pasa nada. */
         #trFilters > a { flex: 1 1 100% !important; width: 100% !important; margin-left: 0 !important; justify-content: center !important; }
         /* Panel Filtros Avanzados desplegado: ancho del viewport (10px de margen lateral) */
         #trAdvPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
