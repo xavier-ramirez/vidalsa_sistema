@@ -91,7 +91,7 @@ class AlmacenController extends Controller
         // asi que entrar a una pantalla vacia donde no puede hacer nada era frustrante. El
         // GLOBAL sigue entrando aunque no haya almacenes (puede crearlos con "Nuevo almacén").
         // Se respeta el flujo AJAX (paginacion / cambio de filtro vuelven JSON) para no romperlo.
-        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($user->NIVEL_ACCESO ?? 0) === 2) {
+        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($user?->NIVEL_ACCESO ?? 0) === 2) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
                 'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',

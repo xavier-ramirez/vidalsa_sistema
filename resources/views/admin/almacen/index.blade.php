@@ -2244,11 +2244,15 @@
     }
 
     // ── Bloque CRUD de Almacenes + Productos ──
-    // Las funciones se definen SIEMPRE (sin @if guard). Cada una llama a
-    // ensurePerm(...) antes de actuar — si el usuario no tiene la clave necesaria,
-    // se muestra toast moderno y no se ejecuta nada mas. Esto reemplaza al viejo
-    // patron @if($puedeManage){real}@else{stubs}@endif que dejaba al usuario sin
-    // feedback visible (los botones se ocultaban). Cliente pidio el cambio explicito.
+    // Las funciones se definen SIEMPRE (sin guard de Blade alrededor del bloque).
+    // Cada una llama a ensurePerm(...) antes de actuar — si el usuario no tiene
+    // la clave necesaria, se muestra toast moderno y no se ejecuta nada mas. Esto
+    // reemplaza al viejo patron donde el bloque entero estaba envuelto en un
+    // condicional Blade con stubs en la rama alternativa, que dejaba al usuario
+    // sin feedback visible (los botones se ocultaban).
+    // NOTA: NUNCA escribas directivas Blade textualmente dentro de comentarios
+    // JavaScript — Blade las compila aunque esten en un comentario y produce PHP
+    // invalido al renderizar la vista.
     var ROUTE_ALM = @json(route('almacen.almacenes.store'));
     function ROUTE_ALM_ITEM(id) { return ROUTE_INDEX + '/almacenes/' + id; }
     function ROUTE_PROD_ITEM(id) { return ROUTE_INDEX + '/productos/' + id; }
@@ -2539,8 +2543,9 @@
             .catch(function () { unpre(); toast('Error de red.', 'error'); });
         });
     };
-    // Stubs @else fueron removidos: cada funcion CRUD verifica permiso via
-    // ensurePerm(...) al inicio y muestra toast si falta. Sin guard duplicado.
+    // Stubs de la rama alternativa fueron removidos: cada funcion CRUD verifica
+    // permiso via ensurePerm(...) al inicio y muestra toast si falta. Sin guard
+    // duplicado en el bloque.
 
     @if($puedeMover)
     // ── Modal "Registrar salida" unificado ─────────────────────────────────────
