@@ -4,7 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@hasSection('title')@yield('title') · Sistema Vidalsa@else{{ 'Sistema Vidalsa' }}@endif</title>
+    {{-- Title: SOLO el nombre de la pagina (sin sufijo " · Sistema Vidalsa").
+         En la PWA instalada de Windows el sistema agrega automaticamente
+         " - <manifest.name>" al titulo de la ventana — si aqui repetimos
+         "Sistema Vidalsa" en document.title aparece DOS veces en el borde
+         superior ("Inventario de Almacen · Sistema Vidalsa - Sistema Vidalsa"). --}}
+    <title>@hasSection('title')@yield('title')@else{{ 'Sistema Vidalsa' }}@endif</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
     {{-- ===== PWA ===== --}}
