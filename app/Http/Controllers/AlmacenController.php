@@ -390,6 +390,30 @@ class AlmacenController extends Controller
             ->get();
     }
 
+    /**
+     * Frente al que se atribuye implícitamente un movimiento cuando el formulario
+     * no trae frente destino explícito. Devuelve el ID solo si el almacén es
+     * PROYECTO y tiene EXACTAMENTE UN frente asociado — en ese caso atribuir el
+     * movimiento a ese frente es inequívoco y la bitácora muestra el nombre del
+     * frente en la columna "Destino" en lugar de "—".
+     *
+     * Para almacenes GENERAL o PROYECTO multi-frente devuelve null (el movimiento
+     * queda como "del almacén" sin proyecto específico, que es lo correcto:
+     * no podemos adivinar a cuál de los frentes pertenece).
+     *
+     * Lo usan registrarMovimientoLote (ENTRADA/AJUSTE) y storeProducto (stock
+     * inicial al crear un producto nuevo) — ambos comparten el mismo criterio
+     * para que la columna Destino se vea coherente sin importar el flujo.
+     */
+    private function frenteImplicitoDelAlmacen(int $idAlmacen): ?int
+    {
+        $alm = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+        if ($alm && $alm->TIPO === Almacen::TIPO_PROYECTO && $alm->frentes->count() === 1) {
+            return (int) $alm->frentes->first()->ID_FRENTE;
+        }
+        return null;
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Almacenes
     // ─────────────────────────────────────────────────────────────
@@ -492,11 +516,18 @@ class AlmacenController extends Controller
                 $this->inventario->asegurarStock($idAlmacen, $producto->ID_PRODUCTO);
 
                 if ($cantInicial > 0) {
+                    // Atribuimos la ENTRADA inicial al frente del almacén (cuando es
+                    // PROYECTO con UN solo frente) — antes quedaba NULL y la columna
+                    // "Destino" del kardex se veía como "—" para cada producto nuevo.
                     $this->inventario->registrarEntrada(
                         $idAlmacen,
                         $producto->ID_PRODUCTO,
                         $cantInicial,
-                        ['referencia' => 'STOCK INICIAL', 'motivo' => 'Stock inicial al crear el producto']
+                        [
+                            'id_frente'  => $this->frenteImplicitoDelAlmacen($idAlmacen),
+                            'referencia' => 'STOCK INICIAL',
+                            'motivo'     => 'Stock inicial al crear el producto',
+                        ]
                     );
                 }
             }
@@ -1235,13 +1266,7 @@ class AlmacenController extends Controller
         if ($data['tipo'] === 'SALIDA') {
             $idFrente = $idFrenteRequest;
         } else {
-            $idFrente = $idFrenteRequest;
-            if ($idFrente === null) {
-                $alm = Almacen::with('frentes:ID_FRENTE')->find((int) $data['id_almacen']);
-                if ($alm && $alm->TIPO === Almacen::TIPO_PROYECTO && $alm->frentes->count() === 1) {
-                    $idFrente = (int) $alm->frentes->first()->ID_FRENTE;
-                }
-            }
+            $idFrente = $idFrenteRequest ?? $this->frenteImplicitoDelAlmacen((int) $data['id_almacen']);
         }
 
         // Los campos de la Nota de Entrega solo se preservan en SALIDA. Para ENTRADA/AJUSTE se ignoran
