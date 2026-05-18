@@ -13,11 +13,17 @@
 @endphp
 
 @if($modoCruzado)
+    @php $otrosVacio = $productoOtros->count() === 0; @endphp
     {{-- Modo cruzado: lista minimal "almacen — cantidad". Pensado para responder
          rapido "¿donde mas hay de este producto?". El nombre del producto NO se
          repite aqui porque ya esta en la cabecera de la tabla principal (el chip
-         "Filtros: ...") — duplicarlo confundia al cliente. --}}
-    <div class="alm-otros-almacenes">
+         "Filtros: ...") — duplicarlo confundia al cliente.
+
+         La clase .alm-otros-empty se aplica cuando el producto NO existe en mas
+         almacenes. Permite ocultar todo el bloque en mobile (regla en index
+         @media ≤768px) — el mensaje "Este producto solo existe…" no aporta y
+         ocupa espacio. En desktop sigue mostrandose porque hay sitio. --}}
+    <div class="alm-otros-almacenes {{ $otrosVacio ? 'alm-otros-empty' : '' }}">
     <h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">
         <i class="material-icons" style="font-size:18px;color:#10b981;">place</i>
         En otros almacenes

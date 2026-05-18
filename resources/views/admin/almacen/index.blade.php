@@ -269,6 +269,10 @@
         .counter-sidebar .alm-otros-almacenes li { padding: 5px 7px !important; }
         .counter-sidebar .alm-otros-almacenes li > span:first-child { font-size: 11px !important; }
         .counter-sidebar .alm-otros-almacenes li > span:last-child { font-size: 11px !important; padding: 1px 7px !important; }
+        /* Cuando el producto NO existe en mas almacenes (alm-otros-empty), ocultar
+           el panel entero en mobile — el mensaje "Este producto solo existe…" no
+           aporta y desperdicia espacio vertical. Desktop conserva el aviso. */
+        .counter-sidebar .alm-otros-almacenes.alm-otros-empty { display: none !important; }
         /* Distribucion por categoria: comprimir el panel — h4 + lis mas chicos. */
         .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
         .counter-sidebar h4 .material-icons { font-size: 15px !important; }
@@ -3040,27 +3044,30 @@
     })();
 
     // ── Posicion del Consolidado de Inventario en mobile ─────────────────────
-    // Por default el sidebar es SIBLING del .admin-card dentro de .page-layout-grid,
-    // asi que cuando el grid colapsa a 1 columna en mobile el sidebar queda DEBAJO
-    // de toda la tabla. El cliente lo quiere ENTRE el boton Acciones y la tabla.
-    // Solucion: mover el nodo .counter-sidebar adentro del .admin-card (justo
-    // despues de #almFilters) cuando el viewport es ≤768px, y restaurarlo al
-    // grid en desktop. El selector global `.page-layout-grid .counter-sidebar`
-    // sigue matcheando (descendant combinator) — las reglas mobile no cambian.
+    // Por default el sidebar es SIBLING del .admin-card dentro de .page-layout-grid;
+    // cuando el grid colapsa a 1 columna en mobile termina abajo de TODO. El cliente
+    // lo quiere DEBAJO de la tabla/tarjetas pero AUN dentro del admin-card (para
+    // que herede su padding/borde y se vea como parte del bloque).
+    //
+    // Anchor mobile: #almLoadingMore (el indicador "Cargando mas productos…",
+    // hidden por default) que vive justo despues del .alm-table-wrap. Insertar
+    // el sidebar despues de ese nodo lo deja literalmente "abajo de la tabla".
+    // Anchor desktop: re-anclar al .page-layout-grid para que vuelva a ser
+    // sibling del admin-card y aparezca a la derecha.
     (function placeSidebarMobile() {
         var BREAKPOINT = 768;
         function place() {
             var sidebar = document.querySelector('.counter-sidebar');
-            var filters = document.getElementById('almFilters');
+            var anchor  = document.getElementById('almLoadingMore');
             var grid    = document.querySelector('.page-layout-grid');
-            if (!sidebar || !filters || !grid) return;
+            if (!sidebar || !anchor || !grid) return;
             if (window.innerWidth <= BREAKPOINT) {
-                // Mobile: dentro de admin-card, justo despues de #almFilters.
-                if (sidebar.previousElementSibling !== filters) {
-                    filters.parentNode.insertBefore(sidebar, filters.nextSibling);
+                // Mobile: inmediatamente despues del bloque de tabla/tarjetas.
+                if (sidebar.previousElementSibling !== anchor) {
+                    anchor.parentNode.insertBefore(sidebar, anchor.nextSibling);
                 }
             } else {
-                // Desktop: re-anclar al .page-layout-grid (despues del admin-card).
+                // Desktop: re-anclar al .page-layout-grid (sibling del admin-card).
                 if (sidebar.parentNode !== grid) {
                     grid.appendChild(sidebar);
                 }
