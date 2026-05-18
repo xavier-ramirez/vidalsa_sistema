@@ -22,15 +22,14 @@
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
     {{-- Layout calcado de /admin/almacen: titulo + separador vertical + pill del
-         almacen destino (derivado del frente del usuario) + separador + mini-bloque
-         "Nota de entrega". El almacen se muestra aqui (mismo lugar donde
-         /admin/almacen exhibe su dropdown) para que el usuario tenga al primer
-         vistazo el contexto: "estoy registrando entrada A este almacen". --}}
+         almacen destino (derivado del frente del usuario). El campo "Nota de
+         entrega" vive en la fila de datos (.ent-head-row) al lado del Proveedor
+         para mantener el header limpio. --}}
     <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
             <span class="page-title-line2" style="color:#000;">Registrar entrada directa</span>
         </h1>
-        {{-- Separador vertical (se oculta al wrappear / en mobile). --}}
+        {{-- Separador vertical (se oculta en mobile). --}}
         <span aria-hidden="true" class="ent-header-sep" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
         {{-- Bloque "Almacén": mini-label + nombre del almacen destino (read-only;
              se deriva del frente del usuario en TraspasoController@nuevaEntrada). --}}
@@ -39,15 +38,6 @@
             <div class="ent-dest-pill" title="Almacén destino del usuario (derivado del frente asignado)">
                 <span class="name">{{ $almacenDestino->NOMBRE }}{{ $almacenDestino->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}</span>
             </div>
-        </div>
-        {{-- Separador entre Almacén y Nota de entrega. --}}
-        <span aria-hidden="true" class="ent-header-sep" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-        {{-- Bloque "Nota de entrega": mini-label + input compacto. --}}
-        <div class="ent-header-block" style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Nota de entrega</span>
-            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100"
-                   placeholder="Opcional"
-                   style="width:220px;height:40px;font-weight:600;">
         </div>
     </div>
 </section>
@@ -58,14 +48,14 @@
     .ent-section-title { margin:0 0 8px 0; font-size:13px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; gap:8px; }
     .ent-section-title i { font-size:16px; color:#0284c7; }
 
-    /* Cabecera de "Datos de la entrada": Proveedor + Fecha + Observación + boton
-       "En transito". La pill del Almacen se movio al page-title-card (al lado del
-       titulo) para coincidir con el patron de /admin/almacen — el usuario ve el
-       almacen destino en el header, no en la fila de datos. Los 4 items comparten
-       40px de alto. Sin <label> arriba. */
-    .ent-head-row { display:grid; grid-template-columns:0.9fr 160px 1fr auto; gap:10px; align-items:center; }
-    @media (max-width: 1000px) { .ent-head-row { grid-template-columns:1fr 1fr; } }
-    @media (max-width: 560px)  { .ent-head-row { grid-template-columns:1fr; } }
+    /* Cabecera de "Datos de la entrada": Nota de entrega + Proveedor + Fecha +
+       Observación + boton "En transito". La pill del Almacen se muestra en el
+       page-title-card (al lado del titulo) — patron de /admin/almacen. Los 5
+       items comparten 40px de alto. Sin <label> arriba (placeholder = titulo). */
+    .ent-head-row { display:grid; grid-template-columns:1fr 1fr 160px 1fr auto; gap:10px; align-items:center; }
+    @media (max-width: 1100px) { .ent-head-row { grid-template-columns:1fr 1fr 1fr; } }
+    @media (max-width: 700px)  { .ent-head-row { grid-template-columns:1fr 1fr; } }
+    @media (max-width: 480px)  { .ent-head-row { grid-template-columns:1fr; } }
     /* Boton "Envios en transito" dentro de la fila de datos — calibrado a la altura
        de los .ent-input (40px) para alinearse. En mobile (cuando el grid colapsa
        a 1fr) ocupa todo el ancho como cualquier otro item. */
@@ -175,8 +165,6 @@
         /* Almacen pill: ocupa lo que sobre del mini-label "Almacén" */
         .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; }
         .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* Nota de entrega input: full-width (era 220px fijo) */
-        .page-title-card .ent-header-block #entNotaEntrega { width: 100% !important; flex: 1 1 0 !important; }
     }
 </style>
 
@@ -189,6 +177,7 @@
          comprimir vertical. --}}
     <input type="hidden" id="entAlmacen" value="{{ $almacenDestino->ID_ALMACEN }}">
     <div class="ent-head-row">
+        <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Nota de entrega (opcional)">
         <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Proveedor (opcional)">
         {{-- Wrapper de fecha: clic en CUALQUIER parte abre el picker via showPicker()
              (antes solo respondia el iconito nativo al extremo derecho). Mismo patron
