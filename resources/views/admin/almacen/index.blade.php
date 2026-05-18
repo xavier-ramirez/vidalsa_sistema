@@ -988,15 +988,9 @@
                  razonable para que el PDF no se vea aplastado en pantallas pequeñas. --}}
             <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:72vh;min-height:480px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
         </div>
-        <div class="alm-modal-foot" style="justify-content:space-between;">
-            <div style="font-size:12px;color:#64748b;line-height:1.3;text-align:left;max-width:60%;">
-                <i class="material-icons" style="font-size:14px;vertical-align:-2px;color:#f59e0b;">info</i>
-                Este documento aún <b>NO ha sido registrado</b>. Aprieta <b>Confirmar y registrar</b> para guardarlo en el sistema.
-            </div>
-            <div style="display:flex;gap:8px;">
-                <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
-                <button type="button" class="btn-primary-maquinaria" onclick="window.almPreviewConfirmar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Confirmar y registrar</button>
-            </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almPreviewConfirmar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Confirmar y registrar</button>
         </div>
     </div>
 </div>
