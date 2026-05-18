@@ -125,8 +125,12 @@
                     @endphp
                     <tr data-id-linea="{{ $linea->ID_LINEA }}">
                         <td>
-                            <div style="font-family:monospace;font-weight:700;color:#0f172a;">{{ optional($linea->producto)->CODIGO }}</div>
-                            <div style="color:#475569;font-size:12.5px;">{{ optional($linea->producto)->NOMBRE }} <span style="color:#94a3b8;">({{ optional($linea->producto)->UM }})</span></div>
+                            {{-- Codigo y descripcion lado a lado (mismo renglon). El codigo
+                                 va en monospace negrita; al lado la descripcion + UM. --}}
+                            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+                                <span style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ optional($linea->producto)->CODIGO }}</span>
+                                <span style="color:#475569;font-size:13px;">{{ optional($linea->producto)->NOMBRE }} <span style="color:#94a3b8;">({{ optional($linea->producto)->UM }})</span></span>
+                            </div>
                         </td>
                         <td style="text-align:right;font-weight:700;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ','), '0'), '.') }}</td>
                         @if($puedeRecibir)
