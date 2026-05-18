@@ -934,7 +934,22 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             tableBody.style.opacity = '1';
         })
         .finally(() => {
-            if (window.hidePreloader) window.hidePreloader();
+            // BUG reportado solo en la PWA instalada (chromium standalone, Windows):
+            // el preloader se quitaba ANTES de que la fila aparezca → blank → fila.
+            // Causa: .finally corre como microtask justo despues de .then; el renderNextChunk
+            // sincronicamente inserta el primer chunk en el DOM, pero el navegador todavia
+            // no ha commiteado un paint con esa insertion. En modo navegador el timing del
+            // paint y del fade-out (transicion 500ms con corte a display:none a 100ms del
+            // hidePreloader) coincidian por casualidad. En la PWA el fade-out arranca con
+            // el primer paint del preloader-en-fade sin haber pintado aun el row.
+            //
+            // Fix: doble rAF. El primer rAF agenda la callback para el frame siguiente
+            // (corre antes del layout/paint de ese frame); el segundo rAF la agenda para
+            // el frame DESPUES del paint que ya tiene la fila — recien ahi arranca el
+            // fade-out del preloader, garantizando "fila visible → spinner se va".
+            if (window.hidePreloader) {
+                requestAnimationFrame(() => requestAnimationFrame(() => window.hidePreloader()));
+            }
         });
 };
 
