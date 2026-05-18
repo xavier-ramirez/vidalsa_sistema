@@ -152,15 +152,17 @@
 
                 <!-- Contratos asociados al proyecto (chips multi-valor; se sugieren en el modal
                      "Registrar salida" del inventario cuando se elige este frente como proyecto).
-                     Ocupa 1 columna (no `span 2`) para que tenga ancho proporcional al resto
-                     de campos del formulario. Los chips se acomodan en multiples lineas si el
-                     proyecto tiene varios contratos — flex-wrap se encarga. -->
+                     Ocupa 1 columna y el contenedor imita exactamente el estilo de los demas
+                     `.form-input-custom` del formulario: border-radius 12px, border 1px #cbd5e0,
+                     background blanco, padding 8px 12px. Asi el chip-box se ve como un input
+                     normal (misma altura y curvatura que UBICACION, NOMBRE_FRENTE, etc.). -->
                 <div>
                     <label class="form-label" for="contratos_input">N° de Contrato(s) asociados al proyecto</label>
-                    <div id="contratos_chip_box" style="background:white;border:1px solid #cbd5e0;border-radius:8px;padding:6px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:42px;">
+                    <div id="contratos_chip_box"
+                         style="background:white;border:1px solid #cbd5e0;border-radius:12px;padding:4px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;box-sizing:border-box;transition:border-color .2s;">
                         <input type="text" id="contratos_input" autocomplete="off"
                                placeholder="Escribe y pulsa Enter o coma"
-                               style="flex:1;min-width:120px;border:none;outline:none;background:transparent;font-size:14px;padding:6px 4px;text-transform:uppercase;">
+                               style="flex:1;min-width:110px;border:none;outline:none;background:transparent;font-size:13.5px;padding:4px 2px;text-transform:uppercase;line-height:1.4;">
                     </div>
                     {{-- El hidden guarda los contratos como CSV; el backend lo splittea + normaliza. --}}
                     <input type="hidden" id="CONTRATOS_HIDDEN" name="CONTRATOS"
