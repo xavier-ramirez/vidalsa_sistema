@@ -275,29 +275,43 @@
 
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almFilters">
-        {{-- Buscar (código o descripción) — con sugerencias estilo app. Ancho amplio: es el filtro principal. --}}
-        <div class="alm-filter {{ $reqBuscar ? 'active' : '' }}" style="flex:3 1 340px;max-width:560px;">
+        {{-- Buscar (código o descripción) — con sugerencias estilo app. Ancho amplio.
+             Patron "placeholder de fondo" (mismo que dropdowns de /admin/equipos):
+               · value=""                    → el input arranca vacio para escribir directo
+               · placeholder="<term activo>" → se ve el filtro activo en gris (como background)
+               · data-active="<term>"        → el JS lee de aqui para reconstruir la URL al
+                                                cambiar otro filtro (asi no se pierde el activo
+                                                mientras el usuario no escribe nada nuevo). --}}
+        @php $bActivo = trim((string) ($reqBuscar ?? '')); @endphp
+        <div class="alm-filter {{ $bActivo ? 'active' : '' }}" style="flex:3 1 340px;max-width:560px;">
             <div class="alm-filter-box">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
                 <input type="text" id="almFiltroBuscar" autocomplete="off"
-                       placeholder="Buscar por código o descripción…" value="{{ $reqBuscar }}"
+                       placeholder="{{ $bActivo ?: 'Buscar por código o descripción…' }}"
+                       value=""
+                       data-active="{{ $bActivo }}"
+                       data-placeholder-empty="Buscar por código o descripción…"
                        oninput="window.almBuscarInput()" onfocus="window.almBuscarSuggest()"
                        onkeydown="window.almBuscarEnter(event)">
-                <i class="material-icons filter-clear" style="display:{{ $reqBuscar ? 'flex' : 'none' }};"
+                <i class="material-icons filter-clear" style="display:{{ $bActivo ? 'flex' : 'none' }};"
                    onclick="window.almBuscarLimpiar()">close</i>
             </div>
             <div class="alm-suggest" id="almFiltroBuscarSuggest"></div>
         </div>
 
-        {{-- Categoría — input con lupa + sugerencias (como el filtro "Buscar") --}}
-        <div class="alm-filter {{ $reqCat && $reqCat !== 'all' ? 'active' : '' }}" style="flex:1 1 190px;">
+        {{-- Categoría — mismo patron placeholder-background. --}}
+        @php $cActivo = ($reqCat && $reqCat !== 'all') ? trim((string) $reqCat) : ''; @endphp
+        <div class="alm-filter {{ $cActivo ? 'active' : '' }}" style="flex:1 1 190px;">
             <div class="alm-filter-box">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
                 <input type="text" id="almFiltroCat" autocomplete="off"
-                       placeholder="Filtrar por categoría…" value="{{ $reqCat && $reqCat !== 'all' ? $reqCat : '' }}"
+                       placeholder="{{ $cActivo ?: 'Filtrar por categoría…' }}"
+                       value=""
+                       data-active="{{ $cActivo }}"
+                       data-placeholder-empty="Filtrar por categoría…"
                        oninput="window.almCatInput()" onfocus="window.almCatSuggest()"
                        onkeydown="window.almCatEnter(event)">
-                <i class="material-icons filter-clear" style="display:{{ $reqCat && $reqCat !== 'all' ? 'flex' : 'none' }};"
+                <i class="material-icons filter-clear" style="display:{{ $cActivo ? 'flex' : 'none' }};"
                    onclick="window.almCatLimpiar()">close</i>
             </div>
             <div class="alm-suggest" id="almFiltroCatSuggest"></div>
@@ -958,23 +972,47 @@
     // al comportamiento LIKE %term% (búsqueda por similitudes).
     var almBuscarPickedId = null;
 
+    // Resuelve el valor "real" de un filtro con patron placeholder-background:
+    //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active
+    //     (clear el value y poner el typed como placeholder, asi sigue visible
+    //     pero el input queda listo para reescribir sin borrar).
+    //   - Si no tipeo nada → cae al data-active (filtro previo que se mantiene).
+    // Mismo patron que /admin/equipos: el filtro activo se muestra como
+    // background gris, no como texto editable que toca borrar.
+    function valActive(id) {
+        var e = el(id); if (!e) return '';
+        var typed = String(e.value || '').trim();
+        if (typed) {
+            e.dataset.active = typed;
+            e.value = '';
+            e.placeholder = typed;
+            return typed;
+        }
+        return String(e.dataset.active || '').trim();
+    }
+
     // ── filtros → params (única fuente de verdad de los filtros activos) ──
     function filtros() {
         var p = new URLSearchParams();
         var alm = val('almSelAlmacen'); if (alm) p.set('id_almacen', alm);
-        var b   = val('almFiltroBuscar'); if (b) p.set('search', b);
+        var b   = valActive('almFiltroBuscar'); if (b) p.set('search', b);
         // id_producto se manda SOLO si vino de un clic en sugerencia (match exacto).
         // Se prioriza sobre `search` en el backend (que sigue yendo para que la UI
         // muestre el texto y la URL compartible mantenga el contexto).
         if (almBuscarPickedId) p.set('id_producto', String(almBuscarPickedId));
-        var cat = val('almFiltroCat');  if (cat) p.set('categoria', cat);
+        var cat = valActive('almFiltroCat'); if (cat) p.set('categoria', cat);
         if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
         // reflejar estado "active" en los wrappers
         var setActive = function (sel, on) { var w = sel && sel.closest('.alm-filter'); if (w) w.classList.toggle('active', !!on); };
         setActive(el('almFiltroBuscar'), b); setActive(el('almFiltroCat'), cat && cat !== 'all');
-        // toggle de la "x" de limpiar
-        var tx = function (inputId) { var i = el(inputId); if (!i) return; var x = i.parentElement.querySelector('.filter-clear'); if (x) x.style.display = i.value ? 'flex' : 'none'; };
+        // toggle de la "x" de limpiar — visible si hay typed value O data-active.
+        var tx = function (inputId) {
+            var i = el(inputId); if (!i) return;
+            var x = i.parentElement.querySelector('.filter-clear'); if (!x) return;
+            var hasFilter = (i.value && i.value.trim()) || (i.dataset.active && i.dataset.active.trim());
+            x.style.display = hasFilter ? 'flex' : 'none';
+        };
         tx('almFiltroBuscar'); tx('almFiltroCat');
         return p;
     }
@@ -1080,8 +1118,10 @@
 
     // ── helpers desde el sidebar / distribución ──
     window.almVerTodo = function () {
-        if (el('almFiltroBuscar')) el('almFiltroBuscar').value = '';
-        if (el('almFiltroCat')) el('almFiltroCat').value = '';
+        var bi = el('almFiltroBuscar');
+        if (bi) { bi.value = ''; bi.dataset.active = ''; bi.placeholder = bi.dataset.placeholderEmpty || 'Buscar por código o descripción…'; }
+        var ci = el('almFiltroCat');
+        if (ci) { ci.value = ''; ci.dataset.active = ''; ci.placeholder = ci.dataset.placeholderEmpty || 'Filtrar por categoría…'; }
         almSuggestHide(); almCatSuggestHide();
         soloBajo = false; soloConSaldo = false;
         almBuscarPickedId = null; // descartar match exacto si quedó pegado de un clic previo
@@ -1234,13 +1274,20 @@
         almCargar();
     };
     window.almBuscarPick = function (texto, idProducto) {
+        // Patron placeholder-background: el termino elegido va al value temporalmente
+        // para que filtros() -> valActive() lo promueva a data-active + placeholder.
         var inp = el('almFiltroBuscar'); if (inp) inp.value = texto;
         almBuscarPickedId = idProducto ? parseInt(idProducto, 10) : null;
         almSuggestHide();
         almCargar();
     };
     window.almBuscarLimpiar = function () {
-        var inp = el('almFiltroBuscar'); if (inp) inp.value = '';
+        var inp = el('almFiltroBuscar');
+        if (inp) {
+            inp.value = '';
+            inp.dataset.active = '';                                  // borrar el filtro activo
+            inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…';
+        }
         almBuscarPickedId = null;
         almSuggestHide();
         almCargar();
@@ -1275,7 +1322,12 @@
         almCargar();
     };
     window.almCatLimpiar = function () {
-        var inp = el('almFiltroCat'); if (inp) inp.value = '';
+        var inp = el('almFiltroCat');
+        if (inp) {
+            inp.value = '';
+            inp.dataset.active = '';
+            inp.placeholder = inp.dataset.placeholderEmpty || 'Filtrar por categoría…';
+        }
         almCatSuggestHide();
         almCargar();
     };
@@ -2322,9 +2374,12 @@
 
     // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria), se carga al entrar;
     // si no, queda en blanco hasta que el usuario use un filtro.
+    // Con el patron placeholder-background, value="" siempre — leemos del data-active.
     (function () {
         var b = el('almFiltroBuscar'), c = el('almFiltroCat');
-        if ((b && b.value.trim() !== '') || (c && c.value.trim() !== '')) window.almCargar();
+        var bActivo = b && ((b.value && b.value.trim()) || (b.dataset.active && b.dataset.active.trim()));
+        var cActivo = c && ((c.value && c.value.trim()) || (c.dataset.active && c.dataset.active.trim()));
+        if (bActivo || cActivo) window.almCargar();
     })();
 })();
 </script>

@@ -151,18 +151,21 @@
                 </div>
 
                 <!-- Contratos asociados al proyecto (chips multi-valor; se sugieren en el modal
-                     "Registrar salida" del inventario cuando se elige este frente como proyecto). -->
-                <div style="grid-column: span 2;">
+                     "Registrar salida" del inventario cuando se elige este frente como proyecto).
+                     Ocupa 1 columna (no `span 2`) para que tenga ancho proporcional al resto
+                     de campos del formulario. Los chips se acomodan en multiples lineas si el
+                     proyecto tiene varios contratos — flex-wrap se encarga. -->
+                <div>
                     <label class="form-label" for="contratos_input">N° de Contrato(s) asociados al proyecto</label>
                     <div id="contratos_chip_box" style="background:white;border:1px solid #cbd5e0;border-radius:8px;padding:6px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:42px;">
                         <input type="text" id="contratos_input" autocomplete="off"
-                               placeholder="Escribe un N° de contrato y pulsa Enter o coma"
-                               style="flex:1;min-width:140px;border:none;outline:none;background:transparent;font-size:14px;padding:6px 4px;text-transform:uppercase;">
+                               placeholder="Escribe y pulsa Enter o coma"
+                               style="flex:1;min-width:120px;border:none;outline:none;background:transparent;font-size:14px;padding:6px 4px;text-transform:uppercase;">
                     </div>
                     {{-- El hidden guarda los contratos como CSV; el backend lo splittea + normaliza. --}}
                     <input type="hidden" id="CONTRATOS_HIDDEN" name="CONTRATOS"
                            value="{{ old('CONTRATOS', is_array($frente->CONTRATOS ?? null) ? implode(',', $frente->CONTRATOS) : '') }}">
-                    <small style="display:block;font-size:11px;color:#94a3b8;margin-top:4px;">Un proyecto puede tener uno o varios contratos. Estos se sugerirán al generar Nota de Entrega.</small>
+                    <small style="display:block;font-size:11px;color:#94a3b8;margin-top:4px;">Uno o varios contratos. Se sugieren al generar Nota de Entrega.</small>
                 </div>
 
                 <!-- Responsable 1 -->
