@@ -272,10 +272,10 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-destino::before,
         .alm-mov-table tr.alm-mov-row td.mv-td-ref::before {
             content: attr(data-label);
-            font-size: 10px;
+            font-size: 8.5px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             color: #94a3b8;
         }
 

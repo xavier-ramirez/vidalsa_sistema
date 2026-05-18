@@ -10,25 +10,18 @@
     $modoCruzado = isset($productoOtros) && $productoOtros !== null;
     $dist        = $distribucion ?? collect();
     $totalDist   = $dist->sum('total');
-    $nombreProd  = $modoCruzado && isset($productoSel) && $productoSel ? trim($productoSel->NOMBRE) : '';
 @endphp
 
 @if($modoCruzado)
-    {{-- Modo cruzado: encabezado verde con el nombre del producto + lista minimal
-         "almacen — cantidad". Pensado para responder rapido "¿donde mas hay de
-         esto?". El wrapper `.alm-otros-almacenes` permite ocultar todo el bloque
-         en mobile (regla en index.blade.php @media ≤768px) — el cliente lo pidio
-         porque ocupa demasiado espacio vertical en telefono. --}}
+    {{-- Modo cruzado: lista minimal "almacen — cantidad". Pensado para responder
+         rapido "¿donde mas hay de este producto?". El nombre del producto NO se
+         repite aqui porque ya esta en la cabecera de la tabla principal (el chip
+         "Filtros: ...") — duplicarlo confundia al cliente. --}}
     <div class="alm-otros-almacenes">
     <h4 style="margin:0 0 10px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">
         <i class="material-icons" style="font-size:18px;color:#10b981;">place</i>
         En otros almacenes
     </h4>
-    @if($nombreProd !== '')
-        <div style="margin:0 0 8px 0;padding:7px 9px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:7px;font-size:12px;font-weight:700;color:#065f46;line-height:1.3;text-transform:uppercase;">
-            {{ $nombreProd }}
-        </div>
-    @endif
 
     @if($productoOtros->count() > 0)
         <ul style="list-style:none;padding:0;margin:0;max-height:64vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;" class="custom-scrollbar">

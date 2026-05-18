@@ -262,11 +262,13 @@
            cuando el usuario ya esta dentro del modulo y los iconos PRODUCTOS /
            inventory_2 / warning explican por si mismos. */
         .counter-sidebar .alm-consolidado-title { display: none !important; }
-        /* Ocultar el panel "En otros almacenes" en mobile (modo cruzado, cuando
-           el usuario hace clic en una sugerencia del filtro Buscar). Ocupa
-           demasiado espacio vertical en telefono y la info se ve igual al
-           navegar al almacen correspondiente. */
-        .counter-sidebar .alm-otros-almacenes { display: none !important; }
+        /* Panel "En otros almacenes" (modo cruzado): se muestra en mobile pero
+           comprimido — items mas chicos (similar al patron de cards de
+           /admin/almacen/movimientos en mobile) para no comerse pantalla. */
+        .counter-sidebar .alm-otros-almacenes ul { max-height: 50vh !important; gap: 2px !important; }
+        .counter-sidebar .alm-otros-almacenes li { padding: 5px 7px !important; }
+        .counter-sidebar .alm-otros-almacenes li > span:first-child { font-size: 11px !important; }
+        .counter-sidebar .alm-otros-almacenes li > span:last-child { font-size: 11px !important; padding: 1px 7px !important; }
         /* Distribucion por categoria: comprimir el panel — h4 + lis mas chicos. */
         .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
         .counter-sidebar h4 .material-icons { font-size: 15px !important; }

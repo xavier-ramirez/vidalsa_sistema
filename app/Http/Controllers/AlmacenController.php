@@ -158,11 +158,9 @@ class AlmacenController extends Controller
                 //    a donde pedir un traspaso si el almacen actual quedo en cero o bajo minimo.
                 $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
                 $productoOtros = $idProductoSel ? $this->productoEnOtrosAlmacenes($idProductoSel, $idAlmacenSel, $user) : null;
-                $productoSel   = $idProductoSel ? ProductoInventario::find($idProductoSel) : null;
                 $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
                     'distribucion'  => $this->distribucionPorCategoria($idAlmacenSel, $request),
                     'productoOtros' => $productoOtros,
-                    'productoSel'   => $productoSel,
                 ])->render();
             }
             return response()->json($resp);

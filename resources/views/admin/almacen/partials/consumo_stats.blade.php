@@ -19,7 +19,9 @@
     <ul style="list-style:none;padding:0;margin:0;max-height:64vh;overflow-y:auto;overflow-x:visible;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
         @foreach($cons as $row)
             @php $pct = $maxTotal > 0 ? ($row->total / $maxTotal) * 100 : 0; @endphp
-            <li onclick="window.almMovFiltrarPorProducto && window.almMovFiltrarPorProducto({{ (int) $row->id_producto }}, @json($row->nombre))"
+            {{-- json_encode + {{ }} HTML-escapa las " del JSON → &quot;; necesario porque @json() emite
+                 " literales que rompen el atributo onclick="" (causaba JS "Unexpected end of input"). --}}
+            <li onclick="window.almMovFiltrarPorProducto && window.almMovFiltrarPorProducto({{ (int) $row->id_producto }}, {{ json_encode($row->nombre) }})"
                 style="padding:5px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;"
                 onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
                 title="{{ $row->movimientos }} {{ $row->movimientos == 1 ? 'movimiento' : 'movimientos' }} de salida — {{ $fmt($row->total) }} {{ $row->um }}">
