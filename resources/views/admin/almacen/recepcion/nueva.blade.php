@@ -21,36 +21,24 @@
      ──────────────────────────────────────────────────────────────── --}}
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Layout calcado de /admin/almacen: titulo a la izquierda + separador vertical
-         + bloque secundario (alli es el filtro de almacen; aqui es "Nota de Entrega",
-         que es el dato corto que el usuario captura primero). En la derecha el atajo
-         a la bandeja de envios en transito. Sin iconos en el titulo — texto plano,
-         mismo patron visual que /admin/almacen. --}}
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;flex:1 1 auto;min-width:0;">
-            <h1 class="page-title" style="margin:0;">
-                <span class="page-title-line2" style="color:#000;">Registrar entrada directa</span>
-            </h1>
-            {{-- Separador vertical (igual que en /admin/almacen — se oculta al wrappear). --}}
-            <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-            {{-- Bloque "Nota de Entrega": mini-label + input compacto, mismo patron
-                 que el bloque "Almacén" del header de /admin/almacen. --}}
-            <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-                <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Nota de entrega</span>
-                <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100"
-                       placeholder="Opcional"
-                       style="width:220px;height:40px;font-weight:600;">
-            </div>
+    {{-- Layout calcado de /admin/almacen: titulo + separador vertical + mini-bloque
+         "Nota de entrega" (dato corto que el usuario captura primero). El boton
+         "Envios en transito" se movio a la fila de datos (.ent-head-row) al lado
+         de "Observacion" para mantener el header de la pagina ligero y enfocado
+         en el dato principal. --}}
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <h1 class="page-title" style="margin:0;">
+            <span class="page-title-line2" style="color:#000;">Registrar entrada directa</span>
+        </h1>
+        {{-- Separador vertical (se oculta al wrappear). --}}
+        <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
+        {{-- Bloque "Nota de entrega": mini-label + input compacto. --}}
+        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
+            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Nota de entrega</span>
+            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100"
+                   placeholder="Opcional"
+                   style="width:220px;height:40px;font-weight:600;">
         </div>
-        {{-- Atajo a la BANDEJA de envios en transito. El controller redirige al GLOBAL
-             de /recepcion → /recepcion/nueva, asi que para VER la bandeja necesita el
-             param ?force=1 (lo respeta el guard del controller). Color primario global. --}}
-        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="btn-primary-maquinaria"
-           style="height:42px;padding:0 16px;display:inline-flex;align-items:center;gap:8px;border-radius:12px;text-decoration:none;background:var(--maquinaria-blue,#0067b1);color:#fff;flex:0 0 auto;"
-           title="Ver los envíos en tránsito hacia otros almacenes pendientes de confirmación">
-            <i class="material-icons" style="font-size:20px;">local_shipping</i>
-            <span style="font-weight:700;font-size:13.5px;">Envíos en tránsito</span>
-        </a>
     </div>
 </section>
 
@@ -60,14 +48,21 @@
     .ent-section-title { margin:0 0 8px 0; font-size:13px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; gap:8px; }
     .ent-section-title i { font-size:16px; color:#0284c7; }
 
-    /* Cabecera: pill almacen + Proveedor (angosto) + Fecha (fijo) + Observación (ancho).
-       Nota de Entrega NO va en esta fila — se movio al header de la pagina junto al
-       titulo (mismo patron que /admin/almacen). Todos los campos comparten 40px de alto.
-       Sin <label> arriba — cada caja lleva su titulo en el placeholder. */
-    .ent-head-row { display:grid; grid-template-columns:auto 0.9fr 160px 1.6fr; gap:10px; align-items:center; }
+    /* Cabecera: pill almacen + Proveedor + Fecha + Observación (mas angosta) + boton
+       "Envios en transito". El boton se movio al final de esta fila (antes vivia en
+       el page-title-card) — asi queda alineado con los inputs y el header de la pagina
+       queda ligero. La Observacion pasa de 1.6fr a 1fr para dejar espacio al boton.
+       Todos los items comparten 40px de alto. Sin <label> arriba. */
+    .ent-head-row { display:grid; grid-template-columns:auto 0.9fr 160px 1fr auto; gap:10px; align-items:center; }
     @media (max-width: 1100px) { .ent-head-row { grid-template-columns:1fr 1fr 1fr; } }
     @media (max-width: 700px)  { .ent-head-row { grid-template-columns:1fr 1fr; } }
     @media (max-width: 480px)  { .ent-head-row { grid-template-columns:1fr; } }
+    /* Boton "Envios en transito" dentro de la fila de datos — calibrado a la altura
+       de los .ent-input (40px) para alinearse. En mobile (cuando el grid colapsa
+       a 1fr) ocupa todo el ancho como cualquier otro item. */
+    .ent-envios-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:40px; padding:0 16px; border-radius:10px; text-decoration:none; background:var(--maquinaria-blue,#0067b1); color:#fff; font-weight:700; font-size:13.5px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,103,177,0.18); transition:background .15s; }
+    .ent-envios-btn:hover { background:#005391; }
+    .ent-envios-btn i { font-size:20px; }
     /* Pill del almacen destino: clon visual del bloque "ALMACÉN" del header de
        /admin/almacen — mini-label uppercase + nombre del almacen. Sin icono (antes
        llevaba un `warehouse` que el cliente pidio quitar para mantener consistencia
@@ -193,6 +188,16 @@
         {{-- Nota de Entrega (#entNotaEntrega) ya NO va aqui — se movio al header
              de la pagina junto al titulo, mismo patron que /admin/almacen. --}}
         <input type="text" id="entNotas" class="ent-input" maxlength="500" placeholder="Observación">
+        {{-- Atajo a la BANDEJA de envios en transito. Antes vivia en el page-title-card;
+             se movio aqui para que el header de la pagina quede ligero y la accion
+             secundaria conviva con la fila de datos. ?force=1 esquiva el redirect
+             del controller (GLOBAL → /recepcion/nueva). --}}
+        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+           class="ent-envios-btn"
+           title="Ver los envíos en tránsito hacia otros almacenes pendientes de confirmación">
+            <i class="material-icons">local_shipping</i>
+            <span>Envíos en tránsito</span>
+        </a>
     </div>
 </div>
 
