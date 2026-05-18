@@ -112,32 +112,32 @@
     .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
     .estado-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
 
-    /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen y
-       /admin/almacen/movimientos. En mobile:
-         · titulo OCULTO (no aporta — el usuario ya esta dentro del modulo).
-         · selector "Almacen destino" full-width como header efectivo.
-         · Fila 1: buscador N° de nota full-width.
-         · Fila 2: boton Filtros Avanzados (45px) + Recepcion ODC (toma el resto).
-         · Panel Filtros Avanzados no se desborda lateralmente. */
+    /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
+       Cada hijo de #trFilters toma su propia fila full-width (mismo flujo que
+       el modulo Inventario). Titulo oculto, selector de almacen destino full-
+       width como header efectivo, boton Filtros Avanzados full-width (no
+       icono chiquito perdido), boton "Recepcion ODC" full-width al final. */
     @media (max-width: 768px) {
+        /* Titulo + separador ocultos en mobile */
         .page-title-card .page-title { display: none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
+        /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
         .page-title-card > div > div > div[style*="width:260px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
-        #trFilters { gap: 8px; }
-        /* Buscar N° de nota: full-width en fila propia */
+        /* Filtros: cada hijo full-width en su propia fila — igual que /admin/almacen */
+        #trFilters { gap: 8px !important; }
+        /* Buscar N° de nota */
         #trFilters > .tr-search-num { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        /* Filtros Avanzados (wrapper del boton + panel): tamano natural (45px), NO
-           expande a fila propia — comparte fila con Recepcion ODC. */
-        #trFilters > div:not(.tr-search-num) { flex: 0 0 auto !important; }
-        /* Recepcion ODC: toma el resto de la fila junto al boton de Filtros Avanzados.
-           Si el usuario no tiene `almacen.movimiento` la `<a>` no se renderiza (el
-           @can la oculta) — el FA button queda solo a la izquierda y no pasa nada. */
-        #trFilters > a { flex: 1 1 0 !important; margin-left: 0 !important; min-width: 0 !important; justify-content: center !important; }
-        /* Panel Filtros Avanzados: ancho del viewport (con 10px de margen lateral)
-           para que no se recorte ni desborde en pantallas chicas. */
+        /* Wrapper del boton Filtros Avanzados (div con position:relative;flex:0 0 auto inline) */
+        #trFilters > div:not(.tr-search-num) { flex: 1 1 100% !important; width: 100% !important; }
+        /* Boton dentro del wrapper: pasa de icono 45x45 a fila completa con icono centrado */
+        #trFilters > div:not(.tr-search-num) > button { width: 100% !important; height: 45px !important; }
+        /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
+           Si el usuario no tiene `almacen.movimiento` el @can oculta la <a> y no pasa nada. */
+        #trFilters > a { flex: 1 1 100% !important; width: 100% !important; margin-left: 0 !important; justify-content: center !important; }
+        /* Panel Filtros Avanzados desplegado: ancho del viewport (10px de margen lateral) */
         #trAdvPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
     }
 </style>
