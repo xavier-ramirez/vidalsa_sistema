@@ -282,6 +282,20 @@
            que abre es pesado en mobile. Cliente prefirio quitar el boton en
            telefono y mantener el modal de detalles compacto. */
         #almDetalleModal .alm-det-act-kardex { display: none !important; }
+
+        /* Modal "Registrar salida" en mobile: los grids inline (Proyecto+Contrato a
+           2 cols, Fecha+RQ+Solicitante a 3 cols) comprimian demasiado cada campo a
+           ~100px y los inputs quedaban con casi nada de ancho util. Forzamos 1 col:
+           cada campo full-width, apilados verticalmente. Mismo patron que el modal
+           ya respira mejor en pantallas chicas. */
+        #almSalidaModal .alm-modal-grid-2,
+        #almSalidaModal .alm-modal-grid-3 { grid-template-columns: 1fr !important; }
+        /* Tambien comprimimos el padding del wrapper de la "Nota de Entrega" para
+           ganar unos px de ancho en mobile. */
+        #almSalidaModal #almSalidaNotaWrap { padding: 12px !important; }
+        /* Y reducimos el max-width del modal en mobile para que pegue al viewport
+           sin margenes laterales gigantes (alm-modal default era 600px en desktop). */
+        #almSalidaModal .alm-modal { max-width: calc(100vw - 16px) !important; width: calc(100vw - 16px) !important; }
         /* Distribucion por categoria: comprimir el panel — h4 + lis mas chicos. */
         .counter-sidebar h4 { font-size: 11px !important; margin-bottom: 8px !important; }
         .counter-sidebar h4 .material-icons { font-size: 15px !important; }
@@ -1097,7 +1111,7 @@
                      producto): al elegir proyecto destino, el dropdown se abre automaticamente
                      con los contratos registrados de ese frente — el usuario elige uno, escribe
                      uno nuevo, o deja en blanco. --}}
-                <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
+                <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
                     <div>
                         {{-- El for= apunta al input VISIBLE (data-filter-search) en vez de al
                              hidden #almSalidaProyecto: Chrome marca como inválido un <label for=>
@@ -1116,7 +1130,7 @@
                             <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                                 <input type="text" id="almSalidaProyectoSearch" data-filter-search autocomplete="off"
                                        placeholder="Selecciona uno"
-                                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
                                        oninput="window.filterDropdownOptions(this)">
                                 <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
                                    onclick="event.stopPropagation(); clearDropdownFilter('almSalidaProyectoDropdown');">close</i>
@@ -1146,7 +1160,7 @@
                             <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                                 <input type="text" id="almSalidaContrato" autocomplete="off" maxlength="100"
                                        placeholder="Selecciona o escribe (opcional)"
-                                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
                                        oninput="window.almSalidaContratoFilter(this)">
                                 <i class="material-icons" id="almSalidaContratoClearBtn" style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
                                    onclick="event.stopPropagation(); window.almSalidaContratoClear();">close</i>
@@ -1160,7 +1174,7 @@
                 </div>
 
                 {{-- FECHA DE ENTREGA | RQ N° | Solicitante (3 columnas en una sola fila — como en el Excel) --}}
-                <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
+                <div class="alm-modal-grid alm-modal-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-bottom:10px;">
                     <div>
                         <label class="alm-nota-label" for="almSalidaFecha">Fecha de entrega</label>
                         {{-- Wrapper clickable: cualquier click en el campo abre el calendario
