@@ -273,6 +273,11 @@
            el panel entero en mobile — el mensaje "Este producto solo existe…" no
            aporta y desperdicia espacio vertical. Desktop conserva el aviso. */
         .counter-sidebar .alm-otros-almacenes.alm-otros-empty { display: none !important; }
+        /* "Distribucion de Inventario" (grafico por categoria, modo default): se
+           oculta en mobile. El cliente lo encontro redundante con la columna
+           Categoria que cada tarjeta ya muestra inline, y comia mucho espacio
+           vertical. Desktop lo conserva (es util como mapa rapido del inventario). */
+        .counter-sidebar .alm-distribucion-cats { display: none !important; }
         /* "Ver movimientos del producto" del modal de detalles: el kardex tabular
            que abre es pesado en mobile. Cliente prefirio quitar el boton en
            telefono y mantener el modal de detalles compacto. */
