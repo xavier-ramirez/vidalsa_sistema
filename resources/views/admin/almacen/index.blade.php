@@ -381,16 +381,19 @@
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#e2e8f0;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
-                    {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el módulo.
-                         Construye la URL de export respetando el filtro de almacén actual.
-                         El border-bottom solo se pinta cuando hay items abajo (puedeManage) para evitar
-                         un separador huérfano si "Descargar Excel" es el único item del menú. --}}
-                    <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;{{ $puedeManage ? 'border-bottom:1px solid #f1f5f9;' : '' }}width:100%;text-align:left;cursor:pointer;">
+                    {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
+                         módulo. Construye la URL de export respetando el filtro de almacén
+                         actual. Como ahora todos los items siguen visibles bajo el de export,
+                         el border-bottom se pinta siempre. --}}
+                    <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
                     </button>
-                    {{-- Items administrativos de ALMACENES: solo super.admin. --}}
-                    @if($puedeAlmManage)
+                    {{-- Todos los items SIEMPRE visibles — la verificacion de permiso vive
+                         dentro del handler JS de cada funcion (ver almAbrirAlmacen, etc.).
+                         Si el usuario no tiene el permiso, aparece toast moderno; antes los
+                         botones se ocultaban — el cliente pidio cambio: ver lo que existe +
+                         notificacion de denegacion, no ocultar nada. --}}
                     <button type="button" onclick="window.almAccion('admin')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#475569;">warehouse</i></div>
                         <span style="font-size:14px;font-weight:500;">Gestionar almacenes</span>
@@ -399,14 +402,10 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_business</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
                     </button>
-                    @endif
-                    {{-- Item de PRODUCTOS: usuarios con almacen.productos. --}}
-                    @if($puedeProductos)
                     <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_circle</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
                     </button>
-                    @endif
                 </div>
             </div>
         </div>
@@ -850,17 +849,14 @@
                 </div>
             </div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
-                @if($puedeMover ?? false)
-                {{-- Únicamente Auditoría: las entradas reales van por /admin/almacen/recepcion
-                     y las salidas por la selección de filas (Nota de Entrega). Aquí solo se
-                     corrige el saldo cuando un conteo físico no coincide con el sistema. --}}
+                {{-- Botones SIEMPRE visibles. La verificacion de permiso vive dentro de
+                     almDetalleAccion / almAbrirAjuste / almEditarProducto / almEliminarProducto
+                     — si el usuario no tiene la clave necesaria, salta toast moderno con la
+                     razon. Antes se ocultaban; el cliente pidio "ver botones + notificacion". --}}
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('ajuste')"><span class="alm-det-ic" style="background:#dbeafe;color:#0067b1;"><i class="material-icons" style="font-size:18px;">fact_check</i></span> Auditoría de Inventario</button>
-                @endif
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('kardex')"><span class="alm-det-ic" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:18px;">history</i></span> Ver movimientos del producto</button>
-                @if($puedeProductos ?? false)
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('editar')"><span class="alm-det-ic" style="background:#cffafe;color:#0891b2;"><i class="material-icons" style="font-size:18px;">edit</i></span> Editar producto</button>
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('eliminar')"><span class="alm-det-ic" style="background:#fee2e2;color:#ef4444;"><i class="material-icons" style="font-size:18px;">delete_outline</i></span> Eliminar / desactivar producto</button>
-                @endif
             </div>
         </div>
 
@@ -1060,6 +1056,21 @@
     // ROUTE_LOTE cubre TODOS los movimientos: ENTRADA, SALIDA (consumo) y SALIDA hacia otro
     // proyecto (el backend crea internamente el Traspaso). El frontend solo conoce este endpoint.
     var ROUTE_LOTE  = @json(route('almacen.movimientos.lote'));
+    // ── Flags de permiso del usuario actual, leidos desde Blade ──
+    // Cada funcion CRUD verifica el flag relevante antes de actuar; si falta, salta
+    // toast en lugar de ejecutar. Antes los botones se ocultaban; el cliente pidio
+    // "ver todo + notificacion" para que ningun acceso quede silencioso.
+    var HAS_ALM_MANAGE = @json($puedeAlmManage);
+    var HAS_PRODUCTOS  = @json($puedeProductos);
+    var HAS_MOVER      = @json($puedeMover);
+    // Helper: chequea permiso y si falta, emite toast con la razon. Devuelve true
+    // si el usuario PASA (puede proceder). Asi las funciones se leen como:
+    //   if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
+    function ensurePerm(flag, msg) {
+        if (flag) return true;
+        if (window.showToast) window.showToast(msg, 'error'); else alert(msg);
+        return false;
+    }
     // Endpoint del preview PDF (sin commit a BD) — se usa antes del registro real
     // para que el usuario vea como quedaria la Nota y pueda editar/confirmar.
     var ROUTE_PREVIEW_SALIDA = @json(route('almacen.salida.preview'));
@@ -2159,6 +2170,7 @@
     }, true);
 
     window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo, minimo) {
+        if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
         m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si el usuario lo cambió
@@ -2228,7 +2240,12 @@
         } else if (window.confirm(msg.replace(/<[^>]+>/g, ''))) { onYes(); }
     }
 
-    @if($puedeManage)
+    // ── Bloque CRUD de Almacenes + Productos ──
+    // Las funciones se definen SIEMPRE (sin @if guard). Cada una llama a
+    // ensurePerm(...) antes de actuar — si el usuario no tiene la clave necesaria,
+    // se muestra toast moderno y no se ejecuta nada mas. Esto reemplaza al viejo
+    // patron @if($puedeManage){real}@else{stubs}@endif que dejaba al usuario sin
+    // feedback visible (los botones se ocultaban). Cliente pidio el cambio explicito.
     var ROUTE_ALM = @json(route('almacen.almacenes.store'));
     function ROUTE_ALM_ITEM(id) { return ROUTE_INDEX + '/almacenes/' + id; }
     function ROUTE_PROD_ITEM(id) { return ROUTE_INDEX + '/productos/' + id; }
@@ -2311,11 +2328,13 @@
         showErr('almNvError', '');
     }
     window.almAbrirAlmacen = function () {
+        if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
         almResetAlmacenModal();
         el('almNvTitulo').textContent = 'Nuevo almacén'; el('almNvSubmit').textContent = 'Guardar';
         open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
     };
     window.almEditarAlmacen = function (id) {
+        if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para editar almacenes.')) return;
         var d = (window.almAlmacenesData || {})[id]; if (!d) { toast('No se encontró el almacén.', 'error'); return; }
         almResetAlmacenModal();
         el('almAlmacenModal').dataset.idAlmacen = id;
@@ -2331,6 +2350,7 @@
         open('almAlmacenModal'); setTimeout(function () { el('almNvNombre').focus(); }, 60);
     };
     window.almGuardarAlmacen = function () {
+        if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para guardar almacenes.')) return;
         var m = el('almAlmacenModal');
         if (!m) { toast('Modal no encontrado.', 'error'); return; } // defensa: nunca deberia pasar
         var id = m.dataset.idAlmacen || null;
@@ -2386,8 +2406,12 @@
         })
         .catch(function () { unpre(); showErr('almNvError', 'Error de red.'); toast('Error de red.', 'error'); });
     };
-    window.almAbrirAdminAlmacenes = function () { open('almAdminAlmacenesModal'); };
+    window.almAbrirAdminAlmacenes = function () {
+        if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para gestionar almacenes.')) return;
+        open('almAdminAlmacenesModal');
+    };
     window.almEliminarAlmacen = function (id, nombre) {
+        if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para eliminar almacenes.')) return;
         almConfirm('¿Eliminar el almacén "<strong>' + nombre + '</strong>"? Si tiene movimientos registrados se desactivará en lugar de borrarse.', function () {
             pre();
             fetch(ROUTE_ALM_ITEM(id), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
@@ -2412,6 +2436,7 @@
         showErr('almProdError', '');
     }
     window.almAbrirProducto = function () {
+        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para crear productos.')) return;
         almResetProductoModal();
         el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Guardar';
         el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
@@ -2422,6 +2447,7 @@
         open('almProductoModal'); setTimeout(function () { el('almProdCodigo').focus(); }, 60);
     };
     window.almEditarProducto = function (id, cod, nom, um, cat, ubicacion) {
+        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
         el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar';
@@ -2435,6 +2461,7 @@
         open('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
     window.almGuardarProducto = function () {
+        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para guardar productos.')) return;
         var m = el('almProductoModal'), id = m.dataset.idProducto || null;
         var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
         var ubicacion = val('almProdUbicacion');
@@ -2500,6 +2527,7 @@
         .catch(function () { unpre(); showErr('almProdError', 'Error de red.'); });
     };
     window.almEliminarProducto = function (id) {
+        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para eliminar productos.')) return;
         almConfirm('¿Eliminar este producto? Si tiene saldo o movimientos se desactivará.', function () {
             pre();
             fetch(ROUTE_PROD_ITEM(id), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
@@ -2508,15 +2536,8 @@
             .catch(function () { unpre(); toast('Error de red.', 'error'); });
         });
     };
-    @else
-    window.almAbrirAlmacen        = function () { toast('No tienes permiso para crear almacenes.', 'error'); };
-    window.almEditarAlmacen       = function () { toast('No tienes permiso para editar almacenes.', 'error'); };
-    window.almEliminarAlmacen     = function () { toast('No tienes permiso para eliminar almacenes.', 'error'); };
-    window.almAbrirAdminAlmacenes = function () { toast('No tienes permiso para gestionar almacenes.', 'error'); };
-    window.almAbrirProducto       = function () { toast('No tienes permiso para crear productos.', 'error'); };
-    window.almEditarProducto      = function () { toast('No tienes permiso para editar productos.', 'error'); };
-    window.almEliminarProducto    = function () { toast('No tienes permiso para eliminar productos.', 'error'); };
-    @endif
+    // Stubs @else fueron removidos: cada funcion CRUD verifica permiso via
+    // ensurePerm(...) al inicio y muestra toast si falta. Sin guard duplicado.
 
     @if($puedeMover)
     // ── Modal "Registrar salida" unificado ─────────────────────────────────────
