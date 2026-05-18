@@ -142,27 +142,40 @@
     .amf-stat-pill i { font-size:16px; color:#0369a1; }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
-       En mobile: titulo + selector de almacen apilados (cada uno full-width);
-       filtros apilados full-width; boton "Acciones" full-width al final; menu
-       desplegable de acciones limitado al viewport (no overflow horizontal). */
+       En mobile, el modulo se compacta así:
+         · Titulo de pagina OCULTO (la nav ya indica donde esta el usuario).
+         · Selector de almacen full-width como header efectivo.
+         · Fila 1 de filtros: Buscar (full-width).
+         · Fila 2 de filtros: Frente (flex-grow) + boton Filtros Avanzados (icono
+           compacto a la derecha, mismo patron que /admin/equipos).
+         · Fila 3: boton "Acciones" full-width.
+         · Menu desplegable de Acciones limitado al viewport (no overflow). */
     @media (max-width: 768px) {
-        /* Cabecera: el wrapper interno (`.page-title-card > div`) usaba flex
-           horizontal con separador vertical — en mobile lo apilamos en columna
-           y ocultamos el separador (era visualmente innecesario al apilar). */
-        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+        /* Titulo de pagina oculto en mobile + separador vertical (ya no tiene sentido) */
+        .page-title-card .page-title { display: none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
-        /* Bloque del selector de almacen: full-width en mobile. */
+        /* Cabecera apilada para que el selector de almacen ocupe todo el ancho */
+        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
         .page-title-card > div > div > div[style*="width:280px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
-        /* Filtros y boton Acciones: stack vertical full-width. El boton Acciones
-           tenia `margin-left:auto` que en mobile lo dejaba pegado a la derecha;
-           ahora full-width, y el menu desplegable no overflow horizontal. */
+        /* Buscar: fila propia full-width. */
         #almMovFilters { gap: 8px; }
-        #almMovFilters .amf-item, #almMovFilters .amf-search { max-width: none !important; flex: 1 1 100% !important; }
-        #almMovFilters > div:last-child { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
+        #almMovFilters > .amf-search { flex: 1 1 100% !important; max-width: none !important; }
+        /* Frente: ocupa el resto de su fila (basis 0 hace que comparta espacio
+           con el boton Filtros Avanzados — flex:1 los hace flexibles juntos). */
+        #almMovFilters > .amf-item:not(.amf-search) { flex: 1 1 0 !important; min-width: 0 !important; max-width: none !important; }
+        /* Boton Filtros Avanzados: tamano natural (~45px) a la derecha del Frente,
+           NO wrappea a fila propia. Selector: div hijo directo SIN clase .amf-item
+           que NO sea el ultimo (el ultimo es Acciones). */
+        #almMovFilters > div:not(.amf-item):not(:last-child) { flex: 0 0 auto !important; }
+        /* Acciones: fila propia full-width al final (era margin-left:auto). */
+        #almMovFilters > div:last-child:not(.amf-item) { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
         #btnAccionesMov { width: 100% !important; }
         #splitDropdownMenuMovInv { left: 0 !important; right: 0 !important; min-width: 0 !important; max-width: calc(100vw - 20px) !important; }
+        /* Panel de Filtros Avanzados (Tipo + Desde/Hasta): no overflow lateral
+           en mobile, mismo patron que el panel #advancedFilterPanel de /admin/equipos. */
+        #almMovFechasPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
     }
     /* Tablet (768-900px): los filtros se quedan en grilla compacta sin forzar
        full-width — el viewport todavia da para 2 filtros por fila. */

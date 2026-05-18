@@ -206,15 +206,18 @@
     .alm-cat-caret.open .material-icons { transform:rotate(180deg); }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
-       En mobile: titulo + selector de almacen apilados (cada uno full-width);
-       filtros apilados full-width; boton "Acciones" full-width al final; menu
-       desplegable de acciones limitado al viewport (no overflow horizontal). */
+       En mobile: titulo OCULTO (el espacio vertical es caro en telefono — el
+       usuario ya sabe que esta en el modulo de almacen por la nav); el selector
+       de almacen queda full-width como header efectivo. Filtros apilados, boton
+       Acciones full-width al final, menu desplegable limitado al viewport. */
     @media (max-width: 768px) {
+        /* Titulo de pagina oculto en mobile + separador vertical (ya no tiene sentido) */
+        .page-title-card .page-title { display: none !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
         /* Cabecera: el wrapper interno (`.page-title-card > div`) usaba flex
            horizontal con separador vertical — en mobile lo apilamos en columna
-           y ocultamos el separador (era visualmente innecesario al apilar). */
+           para que el selector de almacen ocupe todo el ancho. */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
-        .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
         /* El bloque del selector de almacen (mini-label + dropdown) tomaba flex:0 1 auto;
            en mobile lo forzamos full-width para que el dropdown ocupe la pantalla completa. */
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
