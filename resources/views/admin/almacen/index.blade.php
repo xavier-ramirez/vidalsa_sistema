@@ -1916,7 +1916,18 @@
     window.almCerrar = function (id) { var m = el(id); if (m) m.classList.remove('open'); };
     // El cierre por clic en el backdrop fue removido por preferencia del usuario:
     // cada modal tiene su propio botón "✕" / "Cancelar". Escape sí lo sigue cerrando.
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.querySelectorAll('.alm-modal-overlay.open').forEach(function (m) { m.classList.remove('open'); }); });
+    // Caso especial: el modal #almPreviewModal tiene cleanup propio (revoca el blob
+    // URL del PDF y reabre el modal de salida) — delegamos en almPreviewCerrar para
+    // no filtrar memoria ni dejar al usuario sin camino de vuelta a la edicion.
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var preview = el('almPreviewModal');
+        if (preview && preview.classList.contains('open') && typeof window.almPreviewCerrar === 'function') {
+            window.almPreviewCerrar();
+            return; // almPreviewCerrar ya manejo el cleanup + reabrir salida; no cerrar mas.
+        }
+        document.querySelectorAll('.alm-modal-overlay.open').forEach(function (m) { m.classList.remove('open'); });
+    });
 
     // ── Botón "Acciones" (dropdown estilo /admin/equipos) ──
     window.almToggleAcciones = function (e) {
