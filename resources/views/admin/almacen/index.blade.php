@@ -2275,34 +2275,49 @@
         open('almSalidaModal');
     };
     // Sugerencias de N° de Contrato segun el frente/proyecto elegido en el modal de salida.
-    //   • 0 contratos asociados → la lista de sugerencias se oculta (el usuario lo teclea libre).
-    //   • 1 contrato            → se autocompleta el input.
-    //   • 2+ contratos          → aparecen como botones; clic en uno lo pega en el input.
-    window.almSalidaOnProyectoChange = function () {
-        var sel  = el('almSalidaProyecto');
-        var inp  = el('almSalidaContrato');
-        var box  = el('almSalidaContratoSug');
-        if (!sel || !inp || !box) return;
-        var idF  = sel.value;
-        var list = (window.almFrenteContratos || {})[idF] || [];
+    // Pinta los contratos del frente actualmente elegido como chips clicables
+    // debajo del input Contrato. Comportamiento unificado:
+    //   - 0 contratos -> mensaje "este proyecto no tiene contratos registrados"
+    //   - 1+ contratos -> chips clicables (clic = autocompletar el input).
+    // Antes con 1 contrato auto-rellenaba el input sin mostrar nada visible;
+    // ahora SIEMPRE se muestra la lista para que el usuario vea las opciones
+    // y elija (o escriba un contrato distinto si la nota lo requiere).
+    function almSalidaPintarContratos(list) {
+        var box = el('almSalidaContratoSug');
+        var inp = el('almSalidaContrato');
+        if (!box || !inp) return;
         box.innerHTML = '';
-        if (list.length === 0) { box.style.display = 'none'; return; }
-        if (list.length === 1) {
-            inp.value = list[0];
-            box.style.display = 'none';
+        if (!list || list.length === 0) {
+            box.style.display = 'block';
+            box.style.cssText = 'display:block;margin-top:5px;font-size:11.5px;color:#94a3b8;font-style:italic;line-height:1.4;';
+            box.textContent = 'Este proyecto no tiene contratos registrados. Puedes escribir uno aquí o agregarlo en /admin/frentes para que se sugiera la próxima vez.';
             return;
         }
-        // Varios contratos: pintar como chips clicables. NO autocompletar para no
-        // elegir uno arbitrario por el usuario.
+        // Resetear estilos a flex (para chips).
+        box.style.cssText = 'display:flex;margin-top:5px;flex-wrap:wrap;gap:5px;align-items:center;';
+        var lbl = document.createElement('span');
+        lbl.style.cssText = 'font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-right:3px;';
+        lbl.textContent = list.length === 1 ? 'Contrato registrado:' : 'Contratos registrados:';
+        box.appendChild(lbl);
         list.forEach(function (c) {
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = c;
-            btn.style.cssText = 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;';
-            btn.addEventListener('click', function () { inp.value = c; });
+            btn.title = 'Clic para usar este contrato';
+            btn.style.cssText = 'background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;font-family:monospace;transition:background .12s;';
+            btn.addEventListener('mouseover', function () { this.style.background = '#bae6fd'; });
+            btn.addEventListener('mouseout',  function () { this.style.background = '#e0f2fe'; });
+            btn.addEventListener('click', function () { inp.value = c; inp.focus(); });
             box.appendChild(btn);
         });
-        box.style.display = 'flex';
+    }
+
+    window.almSalidaOnProyectoChange = function () {
+        var sel  = el('almSalidaProyecto');
+        if (!sel) return;
+        var idF  = sel.value;
+        var list = (window.almFrenteContratos || {})[idF] || [];
+        almSalidaPintarContratos(list);
     };
     window.almSalidaConfirmar = function () {
         var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
