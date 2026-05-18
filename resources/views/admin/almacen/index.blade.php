@@ -237,7 +237,20 @@
         #almBtnAcciones { width: 100% !important; justify-content: center; }
         #almAccionesMenu { left: 0 !important; right: 0 !important; width: 100% !important; max-width: calc(100vw - 20px) !important; }
 
-        .counter-sidebar { gap: 10px !important; }
+        /* Consolidado de Inventario en mobile: el CSS global de
+           public/css/maquinaria/catalogo.css oculta .counter-sidebar con
+           display:none !important en ≤768px (regla pensada para el catalogo
+           de maquinaria). Aqui la sobreescribimos para que el cliente vea
+           PRODUCTOS / Con stock / Stock bajo debajo del boton Acciones,
+           siguiendo el patron de /admin/equipos. */
+        .counter-sidebar {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            position: static !important;
+            gap: 10px !important;
+            margin-top: 10px;
+        }
     }
 </style>
 
