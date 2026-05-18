@@ -86,6 +86,18 @@ class AlmacenController extends Controller
             ->with('frentes') // para el modal de edición de almacén (lista de frentes asociados)
             ->get();
 
+        // Guard: usuario LOCAL (NIVEL_ACCESO=2) sin almacenes visibles → redirigir al menu
+        // con notificacion. El LOCAL NO puede crear almacenes (esa accion es solo super.admin),
+        // asi que entrar a una pantalla vacia donde no puede hacer nada era frustrante. El
+        // GLOBAL sigue entrando aunque no haya almacenes (puede crearlos con "Nuevo almacén").
+        // Se respeta el flujo AJAX (paginacion / cambio de filtro vuelven JSON) para no romperlo.
+        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($user->NIVEL_ACCESO ?? 0) === 2) {
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
+            ]);
+        }
+
         // Almacén seleccionado:
         //   1. El de la request si es visible (el usuario lo eligió explícitamente o llegó por link).
         //   2. El almacén PROYECTO ligado al frente del usuario (ver Usuario::almacenPorDefecto)
@@ -593,6 +605,16 @@ class AlmacenController extends Controller
         // y (c) para pintar el dropdown de filtro. Una sola consulta por request.
         $almacenes    = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         $visiblesIds  = $almacenes->pluck('ID_ALMACEN');
+
+        // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
+        // (Mismo razonamiento que index(): un LOCAL sin almacen asignado no puede tomar
+        // ninguna accion util en la bitacora, mejor avisarle que falta configuracion.)
+        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($request->user()?->NIVEL_ACCESO ?? 0) === 2) {
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
+            ]);
+        }
 
         // Default suave del filtro de almacén:
         //   - Si el cliente NO mandó un `id_almacen` con valor (primera vez que abre / link sin params /

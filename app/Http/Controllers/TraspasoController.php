@@ -83,6 +83,17 @@ class TraspasoController extends Controller
         $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         $almacenesVisibles = $almacenes->pluck('ID_ALMACEN');
 
+        // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
+        // (Igual que AlmacenController::index/movimientos: un LOCAL sin almacen no puede
+        // recibir traspasos — mejor avisarle que falta configurar su frente que abrir una
+        // bandeja vacia sin acciones disponibles.)
+        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($user?->NIVEL_ACCESO ?? 0) === 2) {
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
+            ]);
+        }
+
         // Default suave del filtro "Almacén destino": si el cliente NO mandó valor (param ausente o
         // vacío), preseleccionamos el almacén ligado al frente del usuario (ver Usuario::almacenPorDefecto).
         // `id_almacen_destino=all` o un valor explícito → se respeta. `filled` (vs `has`) cubre el caso
