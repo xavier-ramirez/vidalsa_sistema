@@ -237,7 +237,9 @@ Route::middleware(['auth'])->group(function () {
             // Reemplaza al viejo modal #entModal — misma funcionalidad pero como pantalla propia
             // con autocomplete de producto por codigo o descripcion. POSTea al endpoint existente
             // almacen.movimientos.lote (tipo=ENTRADA), no requiere backend nuevo.
-            Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->middleware('can:almacen.movimiento')->name('almacen.recepcion.nueva');
+            // Recepcion ODC: acceso por usuario autenticado con almacen visible
+            // (Almacen::visiblesPara → NIVEL_ACCESO + frente). Sin permiso.
+            Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->name('almacen.recepcion.nueva');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
             Route::patch ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.recepcion.update');
             Route::delete('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'destroy']) ->whereNumber('id')->name('almacen.recepcion.destroy');

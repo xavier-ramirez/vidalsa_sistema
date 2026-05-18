@@ -28,13 +28,14 @@ use Throwable;
  *
  * Permisos (claves en la columna PERMISOS):
  *  - (consulta)         : cualquier usuario autenticado (alcance limitado por visiblesPara()).
- *  - super.admin        : crear / editar / eliminar almacenes (warehouses). NO da acceso
- *                         automatico a las dos operaciones de abajo — esas son explicitas.
+ *  - super.admin        : crear / editar / eliminar almacenes (warehouses) + heredar
+ *                         `almacen.movimiento` automaticamente.
  *  - almacen.productos  : registrar y editar productos del catálogo. Clave EXCLUSIVA: ni
- *                         siquiera super.admin pasa este gate sin la clave en sus PERMISOS.
- *  - almacen.movimiento : registrar entradas, salidas, ajustes, traspasos, mínimo
- *                         y confirmar recepción de traspasos en el destino. Clave EXCLUSIVA
- *                         igual que almacen.productos — super.admin tampoco la implica.
+ *                         siquiera super.admin pasa este gate sin la clave en sus PERMISOS
+ *                         (editar el catalogo impacta historial y reportes, requiere
+ *                         asignacion formal).
+ *  - almacen.movimiento : registrar entradas, salidas, ajustes, traspasos, mínimo y
+ *                         confirmar recepción de traspasos. Heredable por super.admin.
  */
 class AlmacenController extends Controller
 {

@@ -17,17 +17,20 @@ class Usuario extends Authenticatable
     public $timestamps = false;
 
     /**
-     * Operaciones que NO se conceden por la regla maestra super.admin: el
-     * usuario debe tener la clave literal en PERMISOS. Decision del cliente
-     * — separar la administracion del sistema de la operacion diaria de
-     * almacen. Esta constante es la UNICA fuente de verdad de las
-     * exclusiones — Usuario::can() y AppServiceProvider::Gate::before la
-     * consultan para mantenerse coherentes (sin esto, el middleware can:
-     * pasaba por Gate::before que ignoraba las exclusiones).
+     * Claves que NO se conceden por la regla maestra super.admin — el usuario
+     * debe tener la clave LITERAL en PERMISOS. Es la UNICA fuente de verdad
+     * de las exclusiones; Usuario::can() y AppServiceProvider::Gate::before
+     * la consultan para mantenerse coherentes.
+     *
+     * Por que solo `almacen.productos`: editar el catalogo (CODIGO/NOMBRE/UM/
+     * categoria/ubicacion) impacta a TODO el sistema y al historial — un
+     * cambio mal hecho rompe reportes, kardex y NEs. Por eso requiere
+     * asignacion explicita. La operacion diaria (entradas/salidas/ajustes/
+     * traspasos via almacen.movimiento) la heredan los super.admin: vivir
+     * sin esa permission obligaba a re-asignar a todos los admin existentes.
      */
     public const PERMISOS_EXPLICITOS = [
-        'almacen.movimiento' => true,
-        'almacen.productos'  => true,
+        'almacen.productos' => true,
     ];
 
     /**

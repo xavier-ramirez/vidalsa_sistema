@@ -54,22 +54,21 @@ class TraspasoController extends Controller
     {
         $user      = $request->user();
 
-        // Enrutamiento por rol: los usuarios GLOBAL (NIVEL_ACCESO=1) compran directo al
-        // proveedor por Orden de Compra — su "Recepcion de Materiales" es el formulario
-        // de entrada directa (almacen.recepcion.nueva), no la bandeja de traspasos por
-        // confirmar. Los LOCAL (NIVEL_ACCESO=2) reciben traspasos del almacen GENERAL y
-        // su flujo es la bandeja (este controlador). Si quieren registrar una OC directa
-        // tienen el boton "Recepcion ODC" en la misma bandeja.
+        // Enrutamiento por NIVEL_ACCESO: los GLOBAL (1) compran directo al proveedor
+        // por Orden de Compra — su "Recepcion de Materiales" es el formulario de
+        // entrada directa (almacen.recepcion.nueva), no la bandeja. Los LOCAL (2)
+        // reciben traspasos del almacen GENERAL — su flujo es la bandeja. Si un
+        // LOCAL quiere registrar una OC directa tiene el boton "Recepcion ODC" en
+        // la misma bandeja.
         //
-        // Solo redirigimos cuando NO es AJAX (los filtros/paginacion piden JSON a la misma
-        // URL y deben quedarse aqui) y solo en la primera carga sin parametros explicitos
-        // — si el GLOBAL navego a la bandeja a proposito (con filtros o ?force=1) no
-        // interceptamos. Asi mantenemos ambas rutas accesibles para todos.
+        // Solo redirigimos cuando NO es AJAX (los filtros/paginacion piden JSON a la
+        // misma URL y deben quedarse aqui) y solo en la primera carga sin parametros
+        // explicitos — si el GLOBAL navego a la bandeja a proposito (con filtros o
+        // ?force=1) no interceptamos.
         if (
             $user !== null
             && ! $request->wantsJson()
             && (int) ($user->NIVEL_ACCESO ?? 0) === 1
-            && $user->can('almacen.movimiento')   // sin este permiso /nueva da 403, no redirigir
             && ! $request->boolean('force')
             && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta'])
         ) {
