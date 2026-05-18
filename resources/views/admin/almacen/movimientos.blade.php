@@ -179,66 +179,106 @@
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Movimientos
-           Cada <tr> se convierte en tarjeta apilada con labels (data-label)
-           a la izquierda y los valores a la derecha. Patron calcado del
-           rediseno mobile de /admin/movilizaciones.
+           Cada <tr> se convierte en una tarjeta GRID compacta:
+             ┌───────────────────────────────────────┐
+             │ CODIGO: NOMBRE PRODUCTO               │  ← producto (full row)
+             ├───────────────────────────────────────┤
+             │ 18/05/2026          [+ Entrada]       │  ← fecha | tipo
+             │ +5 UND               12 stock         │  ← cantidad | stock
+             ├───────────────────────────────────────┤
+             │ DESTINO        FRENTE NORTE           │  ← destino (full row)
+             │ REF            NE-2026-0001           │  ← ref (full row)
+             └───────────────────────────────────────┘
+           Las celdas pareadas (fecha/tipo, cantidad/stock) NO muestran label —
+           sus valores son auto-explicativos (formato fecha, pill con icono+texto
+           para tipo, signo +/- y UM para cantidad). Destino y Ref si muestran
+           label porque son strings opacos.
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
         .alm-mov-table, .alm-mov-table tbody { display: block !important; width: 100% !important; }
         .alm-mov-table tr.alm-mov-row {
-            display: block !important;
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            grid-template-areas:
+                "producto producto"
+                "fecha    tipo"
+                "cantidad stock"
+                "destino  ref" !important;
+            gap: 4px 10px !important;
             background: #fff !important;
             border: 1px solid #cbd5e1 !important;
             border-radius: 12px !important;
             box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
-            margin-bottom: 12px !important;
-            padding: 10px 12px !important;
+            margin-bottom: 10px !important;
+            padding: 8px 12px !important;
             position: relative !important;
             overflow: hidden;
         }
+        /* Cada td: limpia border y padding desktop, queda como grid cell */
         .alm-mov-table tr.alm-mov-row td {
             display: flex !important;
-            justify-content: space-between !important;
-            align-items: flex-start !important;
-            gap: 12px !important;
-            padding: 5px 0 !important;
+            align-items: center !important;
             border: none !important;
-            border-bottom: 1px solid #f1f5f9 !important;
-            width: 100% !important;
-            box-sizing: border-box;
+            padding: 3px 0 !important;
             white-space: normal !important;
-            text-align: right !important;
+            box-sizing: border-box;
+            min-width: 0;
         }
-        .alm-mov-table tr.alm-mov-row td:last-child { border-bottom: none !important; }
-        /* Label a la izquierda — generado desde data-label="Fecha"/"Tipo"/etc. */
-        .alm-mov-table tr.alm-mov-row td::before {
-            content: attr(data-label);
-            flex: 0 0 auto;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #64748b;
-            padding-top: 2px;
-        }
-        /* Producto: titulo destacado de la tarjeta — ocupa todo el ancho sin label */
+        /* Asignacion de grid-area por celda */
+        .alm-mov-table tr.alm-mov-row td.mv-td-producto { grid-area: producto; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha    { grid-area: fecha; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-tipo     { grid-area: tipo; justify-content: flex-end; text-align: right; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad { grid-area: cantidad; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-stock    { grid-area: stock; justify-content: flex-end; text-align: right; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino  { grid-area: destino; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref      { grid-area: ref; }
+
+        /* Producto: titulo destacado — fondo claro, padding mayor, separador inferior */
         .alm-mov-table tr.alm-mov-row td.mv-td-producto {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            text-align: left !important;
             background: #f8fafc !important;
-            margin: 0 -12px 8px -12px !important;
+            margin: -8px -12px 4px -12px !important;
             padding: 8px 12px !important;
             border-bottom: 1px solid #e2e8f0 !important;
             font-size: 13.5px !important;
-        }
-        .alm-mov-table tr.alm-mov-row td.mv-td-producto::before {
-            content: "Producto";
-            margin-bottom: 4px;
-            color: #94a3b8;
+            display: block !important;
         }
         /* La burbuja-tooltip del usuario no aporta en mobile (hover no existe). */
         .alm-mov-table tr.alm-mov-row td .tooltip-bubble { display: none !important; }
+
+        /* Stock: sufijo "stock" suave para que el numero solo no sea ambiguo */
+        .alm-mov-table tr.alm-mov-row td.mv-td-stock::after {
+            content: " stock";
+            margin-left: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        /* Destino y Ref: comparten fila en el grid (50% cada uno). Stack vertical
+           label arriba + valor abajo — asi caben en celdas estrechas con strings
+           potencialmente largos (FRENTE NORTE 3, NE-2026-0001…). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            border-top: 1px solid #f1f5f9 !important;
+            padding-top: 5px !important;
+            gap: 1px !important;
+            min-width: 0;
+            overflow: hidden;
+            text-align: left !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino::before,
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref::before {
+            content: attr(data-label);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+        }
+
         /* Empty state: el <tr><td colspan="7"> del partial — sin tarjeta */
         .alm-mov-table tbody tr:not(.alm-mov-row) {
             display: block !important;
@@ -253,7 +293,6 @@
             border: none !important;
             padding: 36px 16px !important;
         }
-        .alm-mov-table tbody tr:not(.alm-mov-row) td::before { content: none !important; }
     }
     /* Tablet (768-900px): los filtros se quedan en grilla compacta sin forzar
        full-width — el viewport todavia da para 2 filtros por fila. */

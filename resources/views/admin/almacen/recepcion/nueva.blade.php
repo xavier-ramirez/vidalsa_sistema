@@ -49,13 +49,12 @@
     .ent-section-title i { font-size:16px; color:#0284c7; }
 
     /* Cabecera de "Datos de la entrada": Nota de entrega + Proveedor + Fecha +
-       Observación + boton "En transito". La pill del Almacen se muestra en el
-       page-title-card (al lado del titulo) — patron de /admin/almacen. Los 5
-       items comparten 40px de alto. Sin <label> arriba (placeholder = titulo). */
-    .ent-head-row { display:grid; grid-template-columns:1fr 1fr 160px 1fr auto; gap:10px; align-items:center; }
-    @media (max-width: 1100px) { .ent-head-row { grid-template-columns:1fr 1fr 1fr; } }
-    @media (max-width: 700px)  { .ent-head-row { grid-template-columns:1fr 1fr; } }
-    @media (max-width: 480px)  { .ent-head-row { grid-template-columns:1fr; } }
+       boton "En transito". La pill del Almacen se muestra en el page-title-card
+       (al lado del titulo) — patron de /admin/almacen. La Observacion se removio
+       a pedido del cliente (2026-05-20). Los 4 items comparten 40px de alto. */
+    .ent-head-row { display:grid; grid-template-columns:1fr 1fr 160px auto; gap:10px; align-items:center; }
+    @media (max-width: 900px) { .ent-head-row { grid-template-columns:1fr 1fr; } }
+    @media (max-width: 480px) { .ent-head-row { grid-template-columns:1fr; } }
     /* Boton "Envios en transito" dentro de la fila de datos — calibrado a la altura
        de los .ent-input (40px) para alinearse. En mobile (cuando el grid colapsa
        a 1fr) ocupa todo el ancho como cualquier otro item. */
@@ -73,15 +72,13 @@
     select.ent-input { cursor:pointer; }
 
     /* ── Fila de captura: [Buscar] [Cantidad] siempre LADO A LADO ─────────────
-       El buscador es el campo dominante PERO con tope de 480px — antes era
-       flex:1 1 0 (absorbia TODO el ancho restante) y dejaba a la Cantidad
-       visualmente apretada / oculta atras del buscador a partir de cierto
-       viewport. Ahora flex:0 1 480px lo deja crecer hasta 480px max y la
-       Cantidad queda claramente visible a su derecha en todas las anchuras.
-       En mobile (≤560px) el search se contrae naturalmente con el viewport. */
-    .ent-capt-row { display:flex; flex-wrap:nowrap; align-items:flex-start; position:relative; }
-    .ent-capt-row > .ent-search-field { flex:1 1 480px; min-width:0; max-width:480px; margin-right:12px; }
-    .ent-capt-row > .ent-cant-stepper { flex:0 0 auto; }
+       Uso CSS GRID `1fr auto` en vez de flex — comportamiento mas predecible
+       en todos los browsers/viewports. Columna 1 (buscador) absorbe el espacio
+       restante, columna 2 (cantidad stepper) toma su tamano natural (~114px).
+       En ningun ancho la Cantidad se va a otra fila — el grid no hace wrap. */
+    .ent-capt-row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:flex-start; position:relative; }
+    .ent-capt-row > .ent-search-field { min-width:0; }
+    .ent-capt-row > .ent-cant-stepper { width:auto; }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
@@ -162,6 +159,9 @@
         .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100vw !important; box-sizing: border-box !important; padding-top: 12px !important; }
         /* Cards internas: padding reducido en mobile para ganar ancho de contenido */
         .ent-card { padding: 8px !important; }
+        /* Titulo de seccion centrado en mobile (pedido del cliente). En desktop
+           queda alineado a la izquierda como en el resto de los modulos. */
+        .ent-section-title { justify-content: center !important; text-align: center !important; }
 
         .page-title-card .page-title { display: none !important; }
         .page-title-card .ent-header-sep { display: none !important; }
@@ -193,7 +193,6 @@
             <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:6px;pointer-events:none;">event</i>
             <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
         </div>
-        <input type="text" id="entNotas" class="ent-input" maxlength="500" placeholder="Observación">
         {{-- Atajo a la BANDEJA de envios en transito. ?force=1 esquiva el redirect
              del controller que manda al GLOBAL a /recepcion/nueva por default. --}}
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
@@ -612,13 +611,11 @@
         }
 
         // El backend acepta `referencia` (Nº OC), `motivo` (proveedor) y `notas`.
-        // Nº de Nota de Entrega externa: lo concatenamos a `notas` con un prefijo
-        // claro — el endpoint no tiene columna dedicada y notas es texto libre.
-        var notasBase = v('entNotas');
+        // Nº de Nota de Entrega externa: lo metemos en `notas` con un prefijo claro
+        // — el endpoint no tiene columna dedicada y notas es texto libre. El input
+        // de Observacion del usuario fue removido a pedido del cliente (2026-05-20).
         var notaEntrega = v('entNotaEntrega');
-        var notasFinal = '';
-        if (notaEntrega) notasFinal += 'Nota de entrega: ' + notaEntrega;
-        if (notasBase)   notasFinal += (notasFinal ? '\n' : '') + notasBase;
+        var notasFinal = notaEntrega ? ('Nota de entrega: ' + notaEntrega) : '';
 
         var payload = {
             tipo:       'ENTRADA',
