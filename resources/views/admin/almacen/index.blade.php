@@ -1004,15 +1004,23 @@
     function escHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
 
     // ── estado de los filtros que no tienen control visible propio ──
-    // Inicializamos LEYENDO la URL: la pagina pudo ser cargada con ?solo_bajo=1 o
-    // ?solo_con_saldo=1 (link directo desde otra pagina, o tras un redirect del backend).
-    // Si no sincronizamos, el render servidor SI los aplica pero la primera llamada AJAX
-    // los pierde silenciosamente (el JS los considera "false" y replaceState los borra de
-    // la URL), dejando al usuario con un filtro fantasma: ve la cuenta del badge en 0 y
-    // ningun resultado, sin pista visual de por que. Sincronizar arregla ese desfase.
+    // Estos dos atajos del header (Con stock / Stock bajo) son SIEMPRE off al entrar al
+    // modulo, sin importar lo que diga la URL. Es preferencia del cliente: "cuando entro
+    // al modulo no debe estar nada activo" — ver feedback Stock-bajo-no-persist. Si la
+    // URL trae los parametros (link viejo en historial, etc.) los limpiamos abajo via
+    // replaceState para que no queden contaminando la barra de direcciones.
     var _almInitParams = (function () { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); } })();
-    var soloConSaldo = _almInitParams.get('solo_con_saldo') === '1'; // atajo "Con stock"
-    var soloBajo     = _almInitParams.get('solo_bajo')      === '1'; // atajo "Stock bajo"
+    var soloConSaldo = false; // atajo "Con stock" — el usuario lo enciende explicitamente
+    var soloBajo     = false; // atajo "Stock bajo" — el usuario lo enciende explicitamente
+    (function () {
+        if (!_almInitParams.has('solo_bajo') && !_almInitParams.has('solo_con_saldo')) return;
+        try {
+            var u = new URL(window.location.href);
+            u.searchParams.delete('solo_bajo');
+            u.searchParams.delete('solo_con_saldo');
+            window.history.replaceState({}, '', u.toString());
+        } catch (e) {}
+    })();
 
 
 
