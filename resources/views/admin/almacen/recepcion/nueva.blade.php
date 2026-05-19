@@ -139,12 +139,6 @@
     .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
     .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
 
-    /* Contador "N productos" al lado del boton Registrar entrada. En desktop queda a la
-       izquierda del boton (justify-content space-between). En mobile el boton es full-width,
-       el contador queda arriba centrado. */
-    .ent-lineas-count { font-size:13px; color:#64748b; font-weight:700; padding:0 4px; }
-    .ent-lineas-count strong { color:#0f172a; font-weight:800; }
-
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
        sugerencias en absolute. */
@@ -225,11 +219,6 @@
     .ent-row-del-btn { background:none; border:none; cursor:pointer; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
     .ent-row-del-btn:hover { background:#fee2e2; }
 
-    /* Footer de la card: solo cuenta el total de lineas capturadas (el boton
-       "Registrar entrada" se movio al sidebar derecho). Alineado a la derecha
-       para que quede pegado al borde de la tabla. */
-    .ent-footer-bar { display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0; }
-
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
        Titulo OCULTO, separadores OCULTOS, bloque del Almacen full-width.
        Viewport con padding lateral chico (calcado del override que el global
@@ -251,10 +240,6 @@
         .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; }
         .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* Footer mobile: solo queda el counter (el boton se movio al sidebar) —
-           lo centramos para que quede balanceado en pantallas chicas. */
-        .ent-footer-bar { justify-content: center !important; }
-        .ent-footer-bar .ent-lineas-count { text-align: center; }
     }
 
     /* ── Layout 2-columnas: card principal (izq) + sidebar "Resumen de Recepción" (der) ──
@@ -440,13 +425,9 @@
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
 
-    <div class="ent-footer-bar">
-        {{-- Counter del total de productos agregados a la tabla. Se actualiza desde
-             entRender() cada vez que cambia entLineas (push / merge / remove).
-             El boton "Registrar entrada" se movio al sidebar derecho — aqui solo
-             queda el contador como feedback visual del progreso de captura. --}}
-        <span class="ent-lineas-count" id="entLineasCount"><strong>0</strong> productos</span>
-    </div>
+    {{-- Sin contador "N productos" debajo de la tabla — el sidebar derecho ya
+         muestra "Total Productos" y "Unidades Totales", duplicarlo aqui era
+         ruido visual (pedido del cliente 2026-05-19). --}}
 </div>
 
 {{-- ── Sidebar "Resumen de Recepción" ────────────────────────────────────
@@ -603,7 +584,9 @@
         };
         var badge = el('entSelectedBadge');
         el('entSelectedCod').textContent = entSelected.codigo;
-        el('entSelectedNom').textContent = ' · ' + entSelected.nombre + ' (' + entSelected.um + ')';
+        // Solo CODIGO · NOMBRE en el badge. La UM se muestra (y eventualmente se edita)
+        // en el input `#entUm` que tenemos al lado — duplicarla aqui era ruido visual.
+        el('entSelectedNom').textContent = ' · ' + entSelected.nombre;
         var inp = el('entSearch');
         // Ocultamos el input y mostramos el badge encima — UX clara de "ya elegiste".
         inp.value = '';
@@ -878,17 +861,12 @@
     }
     function entRender() {
         var tb = el('entLineasTbody');
-        // Counter del footer "N productos" + contadores del sidebar "Resumen de Recepción".
-        // Ambos ANTES del possible early return del tbody vacio para que reflejen 0
-        // cuando se borran todas las lineas.
-        var counter = el('entLineasCount');
+        // Contadores del sidebar "Resumen de Recepción": Total Productos = numero de
+        // lineas (productos distintos), Unidades Totales = suma de cantidades. Se
+        // calculan ANTES del posible early return del tbody vacio para que reflejen
+        // 0 cuando se borran todas las lineas. Padding con cero a la izquierda
+        // (n<10 → "0N") siguiendo el diseño de referencia.
         var n = entLineas.length;
-        if (counter) {
-            counter.innerHTML = '<strong>' + n + '</strong> ' + (n === 1 ? 'producto' : 'productos');
-        }
-        // Sidebar "Resumen de Recepción": Total Productos = numero de lineas (productos
-        // distintos), Unidades Totales = suma de cantidades. Padding con cero a la
-        // izquierda (n<10 → "0N") para el mismo estilo del diseño de referencia.
         var sbProd = el('entSbTotalProd');
         if (sbProd) sbProd.textContent = (n < 10 ? '0' : '') + n;
         var sbUnid = el('entSbUnidades');
