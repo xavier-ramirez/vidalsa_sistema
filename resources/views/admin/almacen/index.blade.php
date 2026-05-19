@@ -312,27 +312,22 @@
 
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
-           Cada <tr.alm-row> es una tarjeta GRID 3-col × 3 filas:
-             ┌──────────────────────────────────────────────────┐
-             │ 00042 · ABRAZADERA INOXIDABLE 1/2  (banda gris)  │  ← nombre+codigo (3 cols)
-             ├──────────────────────────────────────────────────┤
-             │                          5.000 UND ⚠             │  ← stock (2 cols) | um
-             │ [▲ 0 ▼ stepper]                          [👁]    │  ← cant (2 cols) | det
-             └──────────────────────────────────────────────────┘
-           Cliente pidio CODIGO en la misma casilla que el nombre como un
-           solo dato — el <td> alm-td-codigo se oculta y su valor se renderiza
-           via ::before de alm-td-nombre leyendo data-codigo.
+           Cada <tr.alm-row> es una tarjeta GRID 3-col × 2 filas:
+             ┌──────────────────────────────────────────────────────┐
+             │ 00042 ABRAZADERA INOXIDABLE 1/2  (banda gris)        │  ← nombre+codigo (full)
+             ├──────────────────────────────────────────────────────┤
+             │ STOCK 5.000 UND ⚠    [▲ 0 ▼ stepper]      [👁]       │  ← stock | cant | det
+             └──────────────────────────────────────────────────────┘
 
-           Categoria (alm-td-cat) OCULTA en mobile — el cliente la encontro
-           ruido visual: la info ya esta accesible filtrando o desde el modal
-           de detalles. La fila stock+um pasa a span 2-cols+auto (stock spans
-           cols 1-2 con justify-content:flex-end → "5.000 UND" queda como par
-           pegado al borde derecho, sin huecos).
-
-           Colores tipograficos = los del desktop (inline style):
-             nombre: #1e293b  | stock: #0f172a  | um: #475569
-           El prefijo del codigo mantiene gris (es secundario).
-           CADA celda lleva grid-area explicito — no auto-placement.
+           - Codigo + nombre se renderizan como UN solo texto unificado:
+             mismo font, mismo color, mismo peso. El ::before agrega el codigo
+             como prefijo del nombre sin separadores especiales.
+           - alm-td-codigo OCULTO (su valor se reusa via attr data-codigo).
+           - alm-td-cat OCULTO (peticion previa del cliente).
+           - alm-td-um OCULTO (su valor se inyecta inline en stock via ::after
+             leyendo data-um — antes vivia en una celda aparte).
+           - Stock row: ::before "STOCK" label + texto valor + ::after unidad,
+             todo flex en la misma linea. A la derecha: stepper y boton ver.
            ═══════════════════════════════════════════════════════════ */
 
         .alm-table-wrap { overflow-x: visible !important; border: none !important; border-radius: 0 !important; background: transparent !important; }
@@ -342,11 +337,12 @@
 
         .alm-table tr.alm-row {
             display: grid !important;
-            grid-template-columns: 1fr 1fr auto !important;
+            /* col 1 = 1fr (stock-info absorbe el ancho sobrante), col 2 = auto
+               (stepper natural ~76px), col 3 = auto (boton ojo ~30px). */
+            grid-template-columns: 1fr auto auto !important;
             grid-template-areas:
                 "nombre nombre nombre"
-                "stock  stock  um"
-                "cant   cant   det" !important;
+                "stock  cant   det" !important;
             gap: 0 !important;
             background: #fff !important;
             /* Sombra multi-capa moderna (mismo lenguaje visual de /admin/equipos):
@@ -381,12 +377,16 @@
         }
         .alm-table tr.alm-row td .tooltip-bubble { display: none !important; }
 
-        /* Codigo: en mobile no tiene celda propia — se renderiza como prefijo
-           monospace de la celda nombre (via ::before leyendo data-codigo). */
-        .alm-table tr.alm-row td.alm-td-codigo { display: none !important; }
+        /* Codigo, categoria y UM SE OCULTAN como celdas propias en mobile —
+           sus valores se reusan inline en otras celdas via data-* + pseudo. */
+        .alm-table tr.alm-row td.alm-td-codigo,
+        .alm-table tr.alm-row td.alm-td-cat,
+        .alm-table tr.alm-row td.alm-td-um { display: none !important; }
 
-        /* Fila 1: nombre del producto con codigo prefijo — banda gris full width.
-           El "00042 · " sale del atributo data-codigo del propio <td>. */
+        /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
+           El ::before pone "00042 " como prefijo, heredando font/color/weight
+           del td padre (sin monospace, sin separador "·", sin gris distinto).
+           El cliente lo pidio: "todo en el mismo texto, sin separar". */
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
@@ -396,66 +396,53 @@
             font-weight: 700 !important;
             color: #1e293b !important;
             line-height: 1.3 !important;
-            gap: 6px !important;
         }
         .alm-table tr.alm-row td.alm-td-nombre::before {
-            content: attr(data-codigo) " · ";
-            font-family: monospace;
-            font-weight: 800;
-            font-size: 12px;
-            color: #64748b;
-            white-space: nowrap;
-            letter-spacing: 0.2px;
+            content: attr(data-codigo) "  ";
+            /* Sin font-family, sin color, sin font-weight: HEREDA del padre →
+               el codigo se ve identico al nombre. UN solo texto visual. */
+            white-space: pre;
         }
 
-        /* Categoria oculta en mobile (peticion explicita del cliente — el dato es
-           accesible al filtrar o desde el modal de detalles). */
-        .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
-
-        /* Fila 2: stock spans cols 1-2 (label "STOCK" izq + valor der) | um col 3.
-           Visual: "STOCK     5.000 UND" — el label balancea el peso visual y la
-           tarjeta no se ve floja con la izquierda vacia. */
+        /* Fila 2: stock-info (label STOCK + valor + UM) | stepper | boton ojo.
+           Todo en una sola linea — el cliente pidio ver "STOCK valor unidad
+           stepper" lado a lado, no apilados. */
         .alm-table tr.alm-row td.alm-td-stock {
             grid-area: stock !important;
-            padding: 10px 4px 10px 14px !important;
-            font-size: 17px !important;
+            padding: 10px 8px 10px 14px !important;
+            font-size: 16px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
-            justify-content: space-between !important;
-            gap: 4px !important;
-            text-align: right !important;
+            justify-content: flex-start !important;
+            gap: 6px !important;
         }
         .alm-table tr.alm-row td.alm-td-stock::before {
             content: "Stock";
-            font-size: 10.5px;
+            font-size: 10px;
             font-weight: 700;
             color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: 0.6px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
         }
-        .alm-table tr.alm-row td.alm-td-um {
-            grid-area: um !important;
-            padding: 10px 14px 10px 0 !important;
-            font-size: 12px !important;
-            font-weight: 700 !important;
-            color: #475569 !important;
-            justify-content: flex-start !important;
-            text-transform: uppercase !important;
+        .alm-table tr.alm-row td.alm-td-stock::after {
+            content: " " attr(data-um);
+            font-size: 11px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
         }
 
-        /* Fila 3: stepper de cantidad (izq, 2 cols) | boton ver detalle (der).
-           Borde superior sutil. Si no hay permiso almacen.movimiento, alm-td-cant
-           no se renderiza y det queda solo a la derecha (sin huecos raros). */
+        /* Stepper de cantidad: en la misma fila que stock, alineado a la derecha
+           justo antes del boton ojo. Sin border-top (ya no es una fila separada). */
         .alm-table tr.alm-row td.alm-td-cant {
             grid-area: cant !important;
-            padding: 8px 14px 10px !important;
-            border-top: 1px solid #f1f5f9 !important;
-            justify-content: flex-start !important;
+            padding: 8px 4px !important;
+            justify-content: flex-end !important;
         }
         .alm-table tr.alm-row td.alm-td-det {
             grid-area: det !important;
-            padding: 8px 14px 10px !important;
-            border-top: 1px solid #f1f5f9 !important;
+            padding: 8px 14px 8px 4px !important;
             justify-content: flex-end !important;
         }
         /* Estado vacío / sin almacén: el <tr><td colspan> sin tarjeta */

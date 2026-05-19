@@ -72,7 +72,10 @@
             <td class="alm-td-cat" style="color:#475569;">{{ $p->CATEGORIA ?: '—' }}</td>
             {{-- El color del texto siempre es negro (#0f172a). El stock bajo se indica con
                  el fondo rojo de la fila (.alm-row-bajo) y el icono ⚠ amarillo. --}}
-            <td class="alm-td-stock" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
+            {{-- data-um lo lee la regla mobile ::after para mostrar la unidad
+                 ("UND", "C/U", etc.) inline al lado del numero — en mobile la
+                 columna UM se oculta y la unidad vive dentro del td de stock. --}}
+            <td class="alm-td-stock" data-um="{{ $p->UM }}" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
                 {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
