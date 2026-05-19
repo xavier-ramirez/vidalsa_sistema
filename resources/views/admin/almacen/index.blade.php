@@ -2757,7 +2757,36 @@
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             unpre();
-            if (res.ok) { almCerrar('almProductoModal'); toast(res.b.message || (id ? 'Producto actualizado.' : 'Producto creado.')); almCargar(); }
+            if (res.ok) {
+                almCerrar('almProductoModal');
+                toast(res.b.message || (id ? 'Producto actualizado.' : 'Producto creado.'));
+
+                // Sincronizar window.almProductosLista (cache en memoria que usa el dropdown
+                // de sugerencias) para que el producto nuevo / editado aparezca en la busqueda
+                // sin tener que recargar la pestaña. Antes: el producto recien creado solo
+                // aparecia tras un F5 porque la lista se cargaba 1 vez al render del server.
+                if (res.b && res.b.producto && Array.isArray(window.almProductosLista)) {
+                    var p = res.b.producto;
+                    var entry = {
+                        ID_PRODUCTO: p.ID_PRODUCTO,
+                        CODIGO:      p.CODIGO,
+                        NOMBRE:      p.NOMBRE,
+                        UM:          p.UM
+                    };
+                    if (id) {
+                        // EDICION: reemplazar la entry existente
+                        var idx = window.almProductosLista.findIndex(function (x) {
+                            return String(x.ID_PRODUCTO) === String(p.ID_PRODUCTO);
+                        });
+                        if (idx !== -1) window.almProductosLista[idx] = entry;
+                    } else {
+                        // CREACION: agregar al final
+                        window.almProductosLista.push(entry);
+                    }
+                }
+
+                almCargar();
+            }
             else {
                 var msg = (res.b && res.b.message) || 'No se pudo guardar el producto.';
                 var fieldError = false;
