@@ -410,31 +410,33 @@
             font-style: italic !important;
         }
 
-        /* Destino: ahora spans las 2 columnas (fila 3 sola). Lo centramos en
-           la tarjeta porque visualmente queda mejor cuando es el unico dato
-           de la fila — antes estaba a la derecha pero compartia fila con el
-           chip ref que ahora se movio a burbuja flotante. */
+        /* Destino: spans las 2 columnas (fila 3 sola). Lo renderizamos como un
+           chip compacto — fondo gris claro + letras negras (pedido del cliente
+           2026-05-19) — centrado y con ancho que se adapta al contenido. Asi
+           el frente destino se distingue claramente del resto de los datos de
+           la tarjeta sin invadir todo el ancho de la fila. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
             justify-content: center !important;
-            justify-self: stretch !important;
+            justify-self: center !important;
             font-size: 11px !important;
-            font-weight: 600 !important;
-            color: #45464d !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            background: #f1f5f9 !important;
+            border-radius: 8px !important;
+            padding: 5px 12px !important;
+            margin-top: 8px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            max-width: 100% !important;
+            max-width: calc(100% - 16px) !important;
             gap: 4px !important;
-            border-top: 1px solid #f1f5f9 !important;
-            padding-top: 6px !important;
-            margin-top: 2px !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
             content: "location_on";
             font-family: 'Material Icons';
             font-size: 13px;
-            color: #c6c6cd;
+            color: #64748b;
             font-weight: normal;
             flex-shrink: 0;
         }
