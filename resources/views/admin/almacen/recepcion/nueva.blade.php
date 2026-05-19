@@ -107,17 +107,32 @@
         .ent-capt-row > .ent-um-wrap { flex: 1 1 0; width: auto; }
         .ent-capt-row > .ent-cant-stepper { flex: 1 1 0; width: auto; }
     }
-    /* Select de UM — same look que .ent-input pero estilo dropdown con caret custom. */
-    .ent-um-select {
+    /* Campo de UM — text input con autocomplete (mismo patron que el modal "Nuevo
+       producto" de /admin/almacen). NO es un select con lista cerrada — el usuario
+       puede escribir cualquier UM nueva (KG, ROLLO, M, M2, BARRIL, etc.) y queda
+       guardada al crear el producto. El autocomplete sugiere las UMs YA registradas
+       en el catalogo (window.entUnidadesMedida) para favorecer reutilizacion. */
+    .ent-um-wrap { position:relative; }
+    .ent-um-input {
         width:100%; height:42px; border:1px solid #cbd5e0; border-radius:10px;
-        padding:0 24px 0 10px; font-size:13.5px; font-weight:700; color:#0f172a;
-        background:#fff; cursor:pointer; outline:none; box-sizing:border-box;
-        appearance:none; -webkit-appearance:none; -moz-appearance:none;
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 24 24'><path d='M7 10l5 5 5-5z'/></svg>");
-        background-repeat:no-repeat; background-position:right 6px center; background-size:14px;
+        padding:0 10px; font-size:13.5px; font-weight:700; color:#0f172a;
+        background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
-    .ent-um-select:focus { border-color:var(--maquinaria-blue,#0067b1); }
-    .ent-um-select:disabled { background-color:#f1f5f9; cursor:not-allowed; color:#475569; }
+    .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
+    .ent-um-input:disabled { background-color:#f1f5f9; cursor:not-allowed; color:#475569; }
+    /* Dropdown de sugerencias del campo UM — mismo estilo que .ent-suggest pero mas
+       compacto (solo lista UMs cortas). */
+    .ent-um-suggest {
+        position:absolute; top:calc(100% + 4px); left:0; right:0;
+        background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+        box-shadow:0 12px 24px -8px rgba(15,23,42,0.20);
+        max-height:240px; overflow-y:auto; padding:4px;
+        z-index:9000; display:none;
+    }
+    .ent-um-suggest.open { display:block; }
+    .ent-um-suggest-item { padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12.5px; font-weight:700; color:#0f172a; }
+    .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
+    .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
 
     /* Contador "N productos" al lado del boton Registrar entrada. En desktop queda a la
        izquierda del boton (justify-content space-between). En mobile el boton es full-width,
@@ -305,24 +320,18 @@
         </div>
 
         {{-- ── Columna 2: Unidad de Medida (UM) ──
-             Cuando el usuario elige un producto del catalogo, el select se completa con
-             su UM y queda DISABLED (la UM del producto no se cambia desde aqui).
-             Cuando el usuario tipea un producto NUEVO (no esta en el catalogo), el select
-             queda habilitado para que elija la UM antes de presionar Enter.
-             Esto reemplaza al mini-modal anterior que pedia la UM al crear producto. --}}
-        <div class="ent-um-wrap" title="Unidad de medida">
-            <select id="entUm" class="ent-um-select" aria-label="Unidad de medida">
-                <option value="UND">UND</option>
-                <option value="KG">KG</option>
-                <option value="L">L</option>
-                <option value="M">M</option>
-                <option value="M2">M²</option>
-                <option value="M3">M³</option>
-                <option value="CAJA">CAJA</option>
-                <option value="PAR">PAR</option>
-                <option value="ROLLO">ROLLO</option>
-                <option value="GAL">GAL</option>
-            </select>
+             Text input con autocomplete — MISMO patron que el modal "Nuevo producto"
+             de /admin/almacen. Sugiere las UMs YA registradas en el catalogo, pero
+             permite tipear una UM nueva libremente (queda guardada al crear el producto).
+             Cuando el usuario elige un producto del catalogo, este input se completa
+             con su UM y queda READONLY (la UM de un producto del catalogo no se cambia
+             desde aqui). Cuando tipea un producto NUEVO, el input queda editable. --}}
+        <div class="ent-um-wrap" title="Unidad de medida (UND, KG, L, M, etc.)">
+            <input type="text" id="entUm" class="ent-um-input" value="UND"
+                   maxlength="20" autocomplete="off" aria-label="Unidad de medida"
+                   placeholder="UND"
+                   oninput="window.entUmSuggest()" onfocus="window.entUmSuggest(true)" onkeydown="window.entUmKey(event)">
+            <div id="entUmSuggest" class="ent-um-suggest"></div>
         </div>
 
         {{-- ── Columna 3: stepper de cantidad (RECONSTRUIDO) ── --}}
@@ -381,6 +390,15 @@
     // un producto que no estaba en el catalogo — asi la proxima busqueda lo
     // encuentra como una sugerencia normal sin recargar la pagina.
     var PRODUCTOS     = @json($productosLista ?? []);
+    // UMs distintas ya registradas en el catalogo — sirven de sugerencias para el
+    // autocomplete del campo UM. El usuario puede tipear una UM nueva libremente.
+    var UNIDADES_MEDIDA = @json($unidadesMedida ?? []);
+    // Frente implicito del almacen destino: primer frente asociado (si lo tiene).
+    // Se incluye en el payload de la entrada para que el kardex muestre el frente
+    // en "Destino" en vez de "—". Null cuando el almacen no tiene frentes asociados
+    // (el backend cae a su logica habitual y el partial del kardex muestra el nombre
+    // del almacen como fallback — fix b6c326b).
+    var ID_FRENTE_DESTINO = @json($idFrenteDestino ?? null);
 
     function el(id) { return document.getElementById(id); }
     function v(id)  { var e = el(id); return e ? String(e.value).trim() : ''; }
@@ -482,23 +500,16 @@
         badge.classList.add('show');
         entSuggestHide();
 
-        // Sincronizar el select de UM con la UM del producto. Si la UM no esta en
-        // las opciones predefinidas (UND, KG, L, ...), la agregamos al vuelo para
-        // que el control la muestre correctamente. Luego lo dejamos disabled.
-        var umSel = el('entUm');
-        if (umSel && entSelected.um) {
-            var found = false;
-            for (var i = 0; i < umSel.options.length; i++) {
-                if (umSel.options[i].value === entSelected.um) { found = true; break; }
-            }
-            if (!found) {
-                var opt = document.createElement('option');
-                opt.value = entSelected.um;
-                opt.textContent = entSelected.um;
-                umSel.appendChild(opt);
-            }
-            umSel.value = entSelected.um;
-            umSel.disabled = true;
+        // Sincronizar el input de UM con la UM del producto y bloquearlo (la UM de
+        // un producto del catalogo no se modifica desde Recepcion ODC — ya esta
+        // definida en /admin/almacen). Usamos readOnly en vez de disabled para que
+        // el valor se siga enviando en el form si fuera necesario.
+        var umInp = el('entUm');
+        if (umInp && entSelected.um) {
+            umInp.value = entSelected.um;
+            umInp.readOnly = true;
+            umInp.classList.add('is-locked');
+            entUmHide();
         }
 
         // Saltar a cantidad para captura rapida: codigo → enter → cantidad → enter.
@@ -512,15 +523,59 @@
         entSelected = null;
         el('entSelectedBadge').classList.remove('show');
         var inp = el('entSearch'); inp.style.display = ''; inp.value = '';
-        // Re-habilitar y resetear el select de UM para la siguiente captura
+        // Re-habilitar y resetear el input de UM para la siguiente captura
         // (queda en UND como default — el usuario lo cambia si registra producto nuevo).
-        var umSel = el('entUm');
-        if (umSel) {
-            umSel.disabled = false;
-            umSel.value = 'UND';
+        var umInp = el('entUm');
+        if (umInp) {
+            umInp.readOnly = false;
+            umInp.classList.remove('is-locked');
+            umInp.value = 'UND';
         }
         if (clearAfterAdd) entSkipNextSuggest = true;
         inp.focus();
+    };
+
+    // ── Autocomplete del campo UM (Unidad de Medida) ──────────────────────
+    // Sugiere las UMs distintas YA presentes en el catalogo de productos. Permite
+    // tipear una UM nueva libremente (queda guardada al crear el producto). Mismo
+    // patron que el modal "Nuevo producto" de /admin/almacen.
+    function entUmHide() {
+        var b = el('entUmSuggest'); if (b) b.classList.remove('open');
+    }
+    window.entUmSuggest = function (forceAll) {
+        var inp = el('entUm'), box = el('entUmSuggest');
+        if (!inp || !box) return;
+        if (inp.readOnly) { entUmHide(); return; }
+        var term = norm(inp.value.trim());
+        var matches = [];
+        for (var i = 0; i < UNIDADES_MEDIDA.length; i++) {
+            var u = UNIDADES_MEDIDA[i];
+            if (forceAll || term === '' || norm(u).indexOf(term) !== -1) {
+                matches.push(u);
+                if (matches.length >= 20) break;
+            }
+        }
+        if (matches.length === 0) {
+            box.innerHTML = '<div class="ent-um-suggest-empty">Sin coincidencias. La UM se guardará tal cual la escribiste.</div>';
+        } else {
+            box.innerHTML = matches.map(function (u) {
+                return '<div class="ent-um-suggest-item" data-um="' + escHtml(u) + '">' + escHtml(u) + '</div>';
+            }).join('');
+        }
+        box.classList.add('open');
+    };
+    window.entUmKey = function (ev) {
+        if (ev.key === 'Escape') { entUmHide(); return; }
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            // Si hay una sugerencia ACTIVA, la toma; sino conserva lo tipeado.
+            var first = document.querySelector('#entUmSuggest .ent-um-suggest-item');
+            var inp = el('entUm');
+            if (first && inp) inp.value = first.getAttribute('data-um') || inp.value;
+            entUmHide();
+            // Saltar a cantidad — pipeline rapido para producto nuevo.
+            var c = el('entCant'); if (c) c.focus();
+        }
     };
 
     // Click en sugerencia → pick. Click fuera → cerrar dropdown.
@@ -528,6 +583,16 @@
         var item = e.target.closest('#entSuggest .ent-suggest-item');
         if (item) { e.preventDefault(); entPick(item); return; }
         if (!e.target.closest('.ent-search-field')) entSuggestHide();
+        // Autocomplete UM
+        var umItem = e.target.closest('#entUmSuggest .ent-um-suggest-item');
+        if (umItem) {
+            e.preventDefault();
+            var inp = el('entUm');
+            if (inp) inp.value = umItem.getAttribute('data-um') || '';
+            entUmHide();
+            return;
+        }
+        if (!e.target.closest('.ent-um-wrap')) entUmHide();
     });
     // Teclas en el input search: Esc cierra; Enter elige la PRIMERA sugerencia.
     window.entSearchKey = function (ev) {
@@ -662,13 +727,13 @@
             return;
         }
         // Caso 2: el usuario tipeo algo que no esta en el catalogo → registrar
-        // producto nuevo al vuelo. La UM se toma del select #entUm (el usuario la eligio
-        // antes de presionar Enter). Reemplaza al mini-modal que antes pedia la UM en
-        // un dialogo aparte — ahora la UM esta in-line en la fila de captura.
+        // producto nuevo al vuelo. La UM se toma del input #entUm (autocompletado,
+        // permite tipear UM nueva). Reemplaza al mini-modal que antes pedia la UM
+        // en un dialogo aparte — ahora la UM esta in-line en la fila de captura.
         var textoBuscador = String(el('entSearch').value || '').trim();
         if (textoBuscador.length >= 2) {
-            var umSel = el('entUm');
-            var um = umSel ? String(umSel.value || 'UND').trim() : 'UND';
+            var umInp = el('entUm');
+            var um = umInp ? String(umInp.value || 'UND').trim().toUpperCase() : 'UND';
             if (!um) um = 'UND';
             entDoCreateProducto(textoBuscador, cant, um);
             return;
@@ -736,6 +801,12 @@
         var payload = {
             tipo:       'ENTRADA',
             id_almacen: parseInt(idAlm, 10),
+            // id_frente: cuando el almacen destino tiene al menos un frente asociado,
+            // lo mandamos en el payload para que la columna "Destino" del kardex
+            // muestre el frente. Si es null, el backend cae a su logica
+            // (frenteImplicitoDelAlmacen estricto) y el partial del kardex muestra
+            // el nombre del almacen como fallback (b6c326b).
+            id_frente:  ID_FRENTE_DESTINO,
             fecha:      v('entFecha') || null,
             motivo:     v('entProveedor') || null,   // Proveedor
             notas:      notasFinal || null,

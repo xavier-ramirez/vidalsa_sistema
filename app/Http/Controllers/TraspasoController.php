@@ -214,9 +214,27 @@ class TraspasoController extends Controller
         // HTML inicial). El autocomplete matchea por CODIGO o NOMBRE, no necesita
         // CATEGORIA ni UBICACION.
         $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
+
+        // Unidades de medida DISTINTAS ya registradas en el catalogo — alimentan el
+        // autocomplete del campo UM (mismo patron que el modal "Nuevo producto" de
+        // /admin/almacen). Si el usuario quiere una UM nueva la escribe libremente.
+        $unidadesMedida = ProductoInventario::activos()
+            ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
+
+        // Frente implicito del almacen destino: el PRIMER frente asociado (si tiene
+        // alguno) — se manda en el payload de la entrada para que el kardex muestre
+        // "Destino" con el nombre del frente en vez de "—". A diferencia del helper
+        // `frenteImplicitoDelAlmacen` de AlmacenController (que solo retorna frente
+        // si el almacen es PROYECTO con UN solo frente), aca somos permisivos: para
+        // STOCK INICIAL / ENTRADA via Recepcion ODC siempre queremos atribuir destino.
+        $almForFrente   = \App\Models\Almacen::with('frentes:ID_FRENTE')->find($almacenDestino->ID_ALMACEN);
+        $idFrenteDestino = optional($almForFrente?->frentes->first())->ID_FRENTE;
+
         return view('admin.almacen.recepcion.nueva', [
-            'almacenDestino' => $almacenDestino,
-            'productosLista' => $productosLista,
+            'almacenDestino'  => $almacenDestino,
+            'productosLista'  => $productosLista,
+            'unidadesMedida'  => $unidadesMedida,
+            'idFrenteDestino' => $idFrenteDestino,
         ]);
     }
 
