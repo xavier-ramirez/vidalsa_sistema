@@ -15,8 +15,9 @@
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
     // $hayAdv = ¿hay algún filtro activo del PANEL Avanzado? El "Almacén destino" vive en el
-    // header (no en el panel) — su estado se refleja en el dropdown del header, no aquí.
-    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all') || ($reqOrigen && $reqOrigen !== 'all');
+    // header y el "Almacén origen" vive in-line al lado del N° de nota (no en el panel) —
+    // sus estados se reflejan en sus propios controles, no en el botón embudo.
+    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all');
 
     // Metadata visual de los estados — definida en \App\Models\Traspaso::ESTADOS_META.
     $badgesEstado = \App\Models\Traspaso::ESTADOS_META;
@@ -81,6 +82,9 @@
     /* Filtro de N° de nota: ancho fijo y compacto (es un código corto tipo TR-2026-0001,
        no necesita una caja larga). Tiene su propia lista de sugerencias debajo. */
     #trFilters .tr-search-num  { flex:0 0 240px; max-width:240px; min-width:180px; position:relative; }
+    /* Filtro "Almacén origen" — vive al lado del N° de nota (no en el panel avanzado).
+       Ancho un poco mayor porque los nombres de almacenes pueden ser largos. */
+    #trFilters .tr-origen      { flex:0 0 260px; max-width:260px; min-width:200px; }
     .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
@@ -138,8 +142,10 @@
         #trFilters { gap: 8px !important; }
         /* Buscar N° de nota */
         #trFilters > .tr-search-num { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+        /* Almacén origen (in-line al lado de N° de nota en desktop, full-width en mobile) */
+        #trFilters > .tr-origen { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         /* Wrapper del boton Filtros Avanzados (div con position:relative;flex:0 0 auto inline) */
-        #trFilters > div:not(.tr-search-num) { flex: 1 1 100% !important; width: 100% !important; }
+        #trFilters > div:not(.tr-search-num):not(.tr-origen) { flex: 1 1 100% !important; width: 100% !important; }
         /* Boton dentro del wrapper: pasa de icono 45x45 a fila completa con icono centrado */
         #trFilters > div:not(.tr-search-num) > button { width: 100% !important; height: 45px !important; }
         /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
@@ -170,6 +176,20 @@
             <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
 
+        {{-- Filtro "Almacén origen": antes vivia dentro del panel "Filtros Avanzados"; el
+             cliente lo movio AL LADO del filtro de Nota de Entrega porque es un filtro
+             que se usa MUY seguido (saber "que viene de tal almacen" es la pregunta natural
+             al recepcionar). Mismo estilo visual que el dropdown del header (height 40-45px,
+             border-radius 10px, fondo tinted cuando hay seleccion). --}}
+        <div class="tr-item tr-origen">
+            <select id="trOrigen" onchange="window.trLoad()"
+                    style="width:100%;height:45px;border:1px solid {{ ($reqOrigen && $reqOrigen !== 'all') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;padding:0 12px;background:{{ ($reqOrigen && $reqOrigen !== 'all') ? '#e1effa' : '#fbfcfd' }};font-size:13.5px;font-weight:600;color:#0f172a;outline:none;cursor:pointer;box-sizing:border-box;">
+                <option value="all">Todos los almacenes origen</option>
+                @foreach($almacenes as $a)
+                    <option value="{{ $a->ID_ALMACEN }}" {{ (string) $reqOrigen === (string) $a->ID_ALMACEN ? 'selected' : '' }}>{{ $a->NOMBRE }}</option>
+                @endforeach
+            </select>
+        </div>
 
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" class="btn-primary-maquinaria" title="Filtros Avanzados"
@@ -197,17 +217,9 @@
                             @endforeach
                         </select>
                     </div>
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Almacén origen</span>
-                        <select id="trOrigen" onchange="window.trLoad()" style="width:100%;height:36px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;background:{{ ($reqOrigen && $reqOrigen !== 'all') ? '#e1effa' : '#fff' }};font-size:13px;color:#0f172a;outline:none;cursor:pointer;">
-                            <option value="all">Todos</option>
-                            @foreach($almacenes as $a)
-                                <option value="{{ $a->ID_ALMACEN }}" {{ (string) $reqOrigen === (string) $a->ID_ALMACEN ? 'selected' : '' }}>{{ $a->NOMBRE }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    {{-- "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown).
-                         Aquí ya no aparece para no tener dos selectores fuera de sincronía. --}}
+                    {{-- "Almacén origen" se movio AFUERA del panel (al lado del filtro de
+                         Nota de Entrega) — el cliente lo usa muy seguido y no debe estar oculto.
+                         "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown). --}}
                     {{-- Desde / Hasta lado a lado — el panel tiene 360px, cada campo
                          queda con ~155px que sobra para el input nativo de fecha. --}}
                     <div style="display:flex;gap:8px;">
@@ -358,6 +370,9 @@
     // Refresca el tinte azul de cada filtro segun si tiene valor activo, y el rojo
     // del boton "Filtros Avanzados" si alguno del panel esta activo. Se llama en
     // trLoad y trClearAdv para mantener UI = estado tras cualquier cambio.
+    // Nota: trOrigen vive AFUERA del panel (al lado de Nota de Entrega), por eso no
+    // cuenta para el indicador rojo del botón embudo, pero SÍ se le aplica el tinte
+    // azul propio cuando tiene seleccion para que el usuario vea el estado activo.
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
@@ -366,13 +381,20 @@
         var hasDes = !!sel('trDesde');
         var hasHas = !!sel('trHasta');
         paint('trEstado',   hasEst);
-        paint('trOrigen',   hasOri);
+        // trOrigen es un <select> in-line con borde + fondo tinted segun seleccion —
+        // su tinte se maneja con CSS inline al render, y se refresca aca tambien.
+        var oriSel = el('trOrigen');
+        if (oriSel) {
+            oriSel.style.background   = hasOri ? '#e1effa' : '#fbfcfd';
+            oriSel.style.borderColor  = hasOri ? '#0067b1' : '#cbd5e0';
+        }
         paint('trDesdeBox', hasDes);
         paint('trHastaBox', hasHas);
-        // Boton de embudo: rojo si HAY filtros avanzados aplicados.
+        // Boton de embudo: rojo si HAY filtros DEL PANEL aplicados (origen ya no cuenta —
+        // tiene su propio indicador visual al lado del N° de nota).
         var btn = document.querySelector('[onclick*="trToggleAdv"]');
         if (btn) {
-            var any = hasEst || hasOri || hasDes || hasHas;
+            var any = hasEst || hasDes || hasHas;
             btn.style.background  = any ? '#fee2e2' : '#fff';
             btn.style.borderColor = any ? '#ef4444' : '#cbd5e0';
             btn.style.color       = any ? '#ef4444' : '#64748b';
@@ -414,11 +436,13 @@
         var p = el('trAdvPanel'); if (!p) return;
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
-    // Limpia SOLO los filtros del panel avanzado (Estado / Origen / Desde / Hasta).
+    // Limpia SOLO los filtros del panel avanzado (Estado / Desde / Hasta).
+    // El "Almacén origen" ya NO esta en el panel (vive al lado del N° de nota) y se
+    // limpia eligiendo "Todos los almacenes origen" en su propio <select>.
     // El "Almacén destino" vive en el dropdown del header y se limpia con su propia X
     // (clearDropdownFilter) — no se toca aquí para no sorprender al usuario.
     window.trClearAdv = function () {
-        ['trEstado','trOrigen'].forEach(function (id) { var e = el(id); if (e) e.value = 'all'; });
+        var est = el('trEstado'); if (est) est.value = 'all';
         ['trDesde','trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         window.trLoad();
     };
