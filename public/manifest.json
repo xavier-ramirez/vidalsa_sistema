@@ -10,11 +10,14 @@
   "display_override": ["tabbed", "standalone"],
   "tab_strip": {
     "home_tab": {
-      "scope_patterns": [{ "pathname": "/" }]
+      "scope_patterns": [{ "pathname": "/*" }]
     },
     "new_tab_button": {
       "url": "/"
     }
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
   },
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
