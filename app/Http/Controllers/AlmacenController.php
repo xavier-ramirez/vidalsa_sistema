@@ -516,16 +516,24 @@ class AlmacenController extends Controller
                 $this->inventario->asegurarStock($idAlmacen, $producto->ID_PRODUCTO);
 
                 if ($cantInicial > 0) {
-                    // Atribuimos la ENTRADA inicial al frente del almacén (cuando es
-                    // PROYECTO con UN solo frente) — antes quedaba NULL y la columna
-                    // "Destino" del kardex se veía como "—" para cada producto nuevo.
+                    // STOCK INICIAL: atribuimos la entrada al PRIMER frente del almacen
+                    // (si tiene alguno), independiente del TIPO de almacen o de cuantos
+                    // frentes tenga. A diferencia de frenteImplicitoDelAlmacen (que es
+                    // estricto y se usa en movimientos manuales donde la ambiguedad debe
+                    // forzar al usuario a elegir), aca el sistema necesita SI O SI un
+                    // destino para que la columna "Destino" del kardex no se vea "—" en
+                    // cada producto nuevo — el primer frente del almacen es siempre el
+                    // mas representativo.
+                    $almForFrente   = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+                    $idFrenteInicial = optional($almForFrente?->frentes->first())->ID_FRENTE;
+
                     $this->inventario->registrarEntrada(
                         $idAlmacen,
                         $producto->ID_PRODUCTO,
                         $cantInicial,
                         [
-                            'id_frente'  => $this->frenteImplicitoDelAlmacen($idAlmacen),
-                            'referencia' => 'STOCK INICIAL',
+                            'id_frente'  => $idFrenteInicial,
+                            'referencia' => 'STOCK INICIAL registro de nuevo material',
                             'motivo'     => 'Stock inicial al crear el producto',
                         ]
                     );
