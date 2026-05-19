@@ -32,7 +32,7 @@
      Anchos: 20% | 20% | 10% | 15% | 13% | 22%  (suma 100%)
      fila 1: PROYECTO  (itálica, como el formato oficial)
      fila 2: CONTRATO Nº
-     fila 3: FECHA DE ENTREGA · RQ N° · Solicitante
+     fila 3: FECHA DE ENTREGA · RQ N° · SOLICITANTE
      fila 4: DEPARTAMENTO
 
      TCPDF: width EXPLICITO en TODOS los <td> incluidos los colspan (con width =
@@ -55,7 +55,7 @@
         <td width="20%"><font face="helvetica" size="9">{{ $datos['fecha'] }}</font></td>
         <td width="10%"><font face="helvetica" size="9"><b>RQ N°:</b></font></td>
         <td width="15%"><font face="helvetica" size="9">{{ $datos['rq'] ?: '' }}</font></td>
-        <td width="13%"><font face="helvetica" size="9"><b>Solicitante:</b></font></td>
+        <td width="13%"><font face="helvetica" size="9"><b>SOLICITANTE:</b></font></td>
         <td width="22%"><font face="helvetica" size="9">{{ $datos['solicitante'] ?: '' }}</font></td>
     </tr>
     <tr>
