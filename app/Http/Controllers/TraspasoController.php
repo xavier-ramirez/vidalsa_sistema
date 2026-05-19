@@ -96,8 +96,19 @@ class TraspasoController extends Controller
         // `id_almacen_destino=all` o un valor explícito → se respeta. `filled` (vs `has`) cubre el caso
         // `?id_almacen_destino=` para que el default igual aplique.
         // Solo aplicamos el default si el almacén está dentro de los visibles del usuario.
-        if (!$request->filled('id_almacen_destino') && ($idDef = $user?->almacenPorDefecto())) {
-            if ($almacenesVisibles->contains((int) $idDef)) {
+        //
+        // Fallback adicional para usuarios LOCAL: si el helper devuelve null (caso raro:
+        // usuario LOCAL cuyo frente no tiene almacenes asociados en la tabla pivote, pero
+        // SI tiene almacenes visibles por otra ruta), preseleccionamos el primer visible.
+        // Esto garantiza que un LOCAL nunca abra la bandeja con "Todos" — siempre con SU
+        // almacén. Los GLOBAL sin frente siguen viendo "Todos" (es lo correcto: ellos NO
+        // tienen un "su almacen" — operan a nivel sistema).
+        if (!$request->filled('id_almacen_destino')) {
+            $idDef = $user?->almacenPorDefecto();
+            if (!$idDef && (int) ($user?->NIVEL_ACCESO ?? 0) === 2 && $almacenesVisibles->isNotEmpty()) {
+                $idDef = (int) $almacenesVisibles->first();
+            }
+            if ($idDef && $almacenesVisibles->contains((int) $idDef)) {
                 $request->merge(['id_almacen_destino' => $idDef]);
             }
         }

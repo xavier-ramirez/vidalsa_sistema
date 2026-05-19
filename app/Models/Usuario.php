@@ -142,12 +142,20 @@ class Usuario extends Authenticatable
     /**
      * Resuelve el almacén "natural" del usuario para los módulos de Almacén.
      *
-     * Convención: el primer almacén PROYECTO ligado a CUALQUIERA de los frentes
-     * asignados al usuario (orden por NOMBRE asc — determinístico). Si el usuario
-     * no tiene frentes asignados o ninguno de ellos tiene almacén PROYECTO, retorna
-     * `null` y los controllers caen al comportamiento por defecto (ver todos).
+     * Convención (en orden de preferencia, primer match gana):
+     *   1) Almacén PROYECTO ligado a alguno de los frentes asignados al usuario.
+     *      Es el caso típico: cada frente tiene SU almacén PROYECTO donde llega
+     *      la mercadería de los traspasos.
+     *   2) Fallback: cualquier almacén ACTIVO (PROYECTO o GENERAL) ligado a alguno
+     *      de los frentes del usuario. Cubre el caso donde el frente solo tiene
+     *      asignado un almacén GENERAL — antes retornaba null y la bandeja de
+     *      recepción se abría con "Todos los almacenes destino" (pedido del cliente
+     *      corregido: 2026-05-19).
      *
-     * Lo usan AlmacenController::index/movimientos y TraspasoController::index
+     * Si el usuario no tiene frentes O sus frentes no tienen NINGÚN almacén,
+     * retorna `null` y los controllers caen al comportamiento por defecto.
+     *
+     * Lo usan AlmacenController::index/movimientos y TraspasoController::index/nuevaEntrada
      * para preseleccionar el filtro de almacén al abrir cada módulo.
      */
     public function almacenPorDefecto(): ?int
@@ -155,12 +163,27 @@ class Usuario extends Authenticatable
         $frentes = $this->getFrentesIds();
         if (empty($frentes)) return null;
 
-        return \App\Models\Almacen::query()
+        $almacenModel = \App\Models\Almacen::class;
+
+        // 1) Preferir PROYECTO (es el destino natural de los traspasos).
+        $proyecto = $almacenModel::query()
             ->where('TIPO', 'PROYECTO')
             ->where('ESTATUS', 'ACTIVO')
             ->whereHas('frentes', fn ($q) => $q->whereIn('frentes_trabajo.ID_FRENTE', $frentes))
             ->orderBy('NOMBRE')
             ->value('ID_ALMACEN');
+
+        if ($proyecto !== null) return (int) $proyecto;
+
+        // 2) Fallback: cualquier almacén ACTIVO ligado al frente (cubre frentes
+        //    que solo tienen GENERAL asociado).
+        $cualquiera = $almacenModel::query()
+            ->where('ESTATUS', 'ACTIVO')
+            ->whereHas('frentes', fn ($q) => $q->whereIn('frentes_trabajo.ID_FRENTE', $frentes))
+            ->orderBy('NOMBRE')
+            ->value('ID_ALMACEN');
+
+        return $cualquiera !== null ? (int) $cualquiera : null;
     }
 
     /**
