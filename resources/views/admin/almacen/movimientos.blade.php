@@ -214,13 +214,14 @@
 
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
-            grid-template-columns: auto 1fr auto !important;
-            grid-template-rows: auto auto !important;
+            grid-template-columns: 1fr auto !important;
+            grid-template-rows: auto auto auto !important;
             grid-template-areas:
-                "producto producto cantidad"
-                "fecha    ref      destino" !important;
+                "producto cantidad"
+                "producto fecha"
+                "ref      destino" !important;
             column-gap: 10px !important;
-            row-gap: 8px !important;
+            row-gap: 4px !important;
             background: #fff !important;
             border: 1px solid #cbd5e1 !important;
             border-radius: 12px !important;
@@ -260,7 +261,7 @@
            "la descripcion del producto debe salir completa". */
         .alm-mov-table tr.alm-mov-row td.mv-td-producto {
             grid-area: producto !important;
-            font-size: 12.5px !important;
+            font-size: 11.5px !important;
             font-weight: 600 !important;
             color: #0b1c30 !important;
             line-height: 1.35 !important;
@@ -303,15 +304,20 @@
             font-weight: 600 !important;
         }
 
-        /* Meta-row (fila 2): fecha con icono | ref como chip | destino con icono.
-           Tipografia chica para no competir con producto + cantidad arriba. */
+        /* Fecha: AHORA va DEBAJO de la cantidad (col 2 fila 2), alineada a la
+           derecha. Cliente la sacó de la meta-row para que cantidad y fecha
+           formen un bloque visual a la derecha (cuando + dónde), y dejar el
+           bottom row solo para ref + destino. */
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha {
             grid-area: fecha !important;
-            font-size: 11.5px !important;
+            font-size: 10.5px !important;
             color: #76777d !important;
             font-weight: 500 !important;
             white-space: nowrap !important;
-            gap: 4px !important;
+            gap: 3px !important;
+            justify-content: flex-end !important;
+            justify-self: end !important;
+            align-self: flex-start !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha::before {
             content: "calendar_today";
