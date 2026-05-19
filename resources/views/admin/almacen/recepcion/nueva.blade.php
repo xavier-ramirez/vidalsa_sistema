@@ -220,8 +220,10 @@
     .ent-row-del-btn { background:none; border:none; cursor:pointer; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
     .ent-row-del-btn:hover { background:#fee2e2; }
 
-    /* Botones del footer: counter "N productos" a la izquierda + boton a la derecha. */
-    .ent-footer-bar { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px; padding-top:14px; border-top:1px solid #e2e8f0; }
+    /* Footer de la card: solo cuenta el total de lineas capturadas (el boton
+       "Registrar entrada" se movio al sidebar derecho). Alineado a la derecha
+       para que quede pegado al borde de la tabla. */
+    .ent-footer-bar { display:flex; justify-content:flex-end; align-items:center; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0; }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
        Titulo OCULTO, separadores OCULTOS, bloque del Almacen full-width.
@@ -244,28 +246,96 @@
         .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; }
         .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* Footer mobile: counter arriba CENTRADO, boton "Registrar entrada" abajo
-           full-width + altura touch-friendly (48px). Antes el boton quedaba a la
-           derecha con ancho segun contenido — incomodo en pantallas chicas. */
-        .ent-footer-bar {
-            flex-direction: column-reverse !important;
-            align-items: stretch !important;
-            gap: 8px !important;
-        }
-        .ent-footer-bar #entSubmit {
-            width: 100% !important;
-            height: 48px !important;
-            font-size: 14.5px !important;
-            justify-content: center !important;
-        }
+        /* Footer mobile: solo queda el counter (el boton se movio al sidebar) —
+           lo centramos para que quede balanceado en pantallas chicas. */
+        .ent-footer-bar { justify-content: center !important; }
         .ent-footer-bar .ent-lineas-count { text-align: center; }
     }
+
+    /* ── Layout 2-columnas: card principal (izq) + sidebar "Resumen de Recepción" (der) ──
+       Inspirado en stitch design — la columna derecha aprovecha el espacio horizontal sobrante
+       y mueve las acciones (Registrar / Cancelar) fuera del flujo de captura. En desktop el
+       sidebar queda STICKY pegado debajo del nav (top:90px) para que el usuario lo vea
+       siempre mientras carga lineas. */
+    .ent-layout {
+        display:grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap:18px;
+        align-items: flex-start;
+    }
+    @media (max-width: 1024px) {
+        /* Bajo 1024px se apila — la tabla ya consume todo el ancho disponible y
+           comprimir mas el sidebar solo dejaria los botones pequeños. */
+        .ent-layout { grid-template-columns: 1fr; gap:14px; }
+    }
+
+    .ent-sidebar {
+        background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px;
+        box-shadow:0 4px 12px rgba(15,23,42,0.04);
+        position:sticky; top:90px;
+        display:flex; flex-direction:column; gap:14px;
+    }
+    @media (max-width: 1024px) {
+        .ent-sidebar { position:static; top:auto; }
+    }
+    .ent-sb-title {
+        margin:0; padding-bottom:10px;
+        font-size:16px; font-weight:700; color:#0f172a;
+        border-bottom:1px solid #e2e8f0;
+    }
+    .ent-sb-stats { display:flex; flex-direction:column; gap:10px; }
+    .ent-sb-row { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; }
+    .ent-sb-row .label { color:#64748b; }
+    .ent-sb-row .value { color:#0f172a; font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; }
+    .ent-sb-status-pill {
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 10px; border-radius:999px;
+        background:#d5e0f8; color:#3c475a;
+        font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
+    }
+    .ent-sb-status-pill i { font-size:14px; }
+    /* Caja "Observaciones" — fondo gris para diferenciarla del resto, textarea blanca dentro */
+    .ent-sb-obs-wrap { background:#f1f5f9; padding:10px 12px; border-radius:10px; }
+    .ent-sb-obs-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+    .ent-sb-obs-input {
+        width:100%; box-sizing:border-box;
+        border:1px solid #cbd5e0; border-radius:8px;
+        padding:8px 10px; font-size:13px;
+        background:#fff; outline:none; resize:vertical; min-height:60px;
+        font-family:inherit; color:#0f172a;
+    }
+    .ent-sb-obs-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
+
+    .ent-sb-actions { display:flex; flex-direction:column; gap:8px; }
+    .ent-sb-btn-primary {
+        background:var(--maquinaria-blue,#0067b1); color:#fff;
+        height:48px; width:100%;
+        border:none; border-radius:12px;
+        font-size:14.5px; font-weight:700; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; gap:6px;
+        transition:background .15s, transform .1s;
+        box-shadow:0 4px 8px -2px rgba(0,103,177,0.3);
+    }
+    .ent-sb-btn-primary:hover { background:#005391; }
+    .ent-sb-btn-primary:active { transform:scale(0.98); }
+    .ent-sb-btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+    .ent-sb-btn-secondary {
+        background:#fff; color:#475569;
+        height:42px; width:100%;
+        border:1px solid #cbd5e0; border-radius:10px;
+        font-size:13.5px; font-weight:700; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; gap:6px;
+        transition:background .15s, color .15s, border-color .15s;
+    }
+    .ent-sb-btn-secondary:hover { background:#fee2e2; color:#dc2626; border-color:#fca5a5; }
 </style>
 
-{{-- Card UNICA — antes habia DOS .ent-card separadas (Datos de la entrada + Tabla)
-     pero el cliente pidio que todo quede en el mismo contenedor blanco para no
-     duplicar el "frame" visual. La fila de captura va separada de los datos por
-     un thin border-top para que se distinga el bloque de productos. --}}
+{{-- Layout 2-columnas: card principal (cabecera + captura + tabla) a la izquierda y
+     sidebar "Resumen de Recepción" a la derecha. En <1024px se apila. La card de la
+     izquierda mantiene la estructura UNICA anterior (Datos + captura + tabla); el
+     boton "Registrar entrada" se movio al sidebar (junto con "Cancelar operacion"
+     y la textarea de Observaciones). --}}
+<div class="ent-layout">
 <div class="ent-card">
     <h3 class="ent-section-title"><i class="material-icons">tune</i>Datos de la entrada</h3>
     {{-- Almacén destino: derivado del frente del usuario (TraspasoController@nuevaEntrada);
@@ -374,13 +444,58 @@
 
     <div class="ent-footer-bar">
         {{-- Counter del total de productos agregados a la tabla. Se actualiza desde
-             entRender() cada vez que cambia entLineas (push / merge / remove). --}}
+             entRender() cada vez que cambia entLineas (push / merge / remove).
+             El boton "Registrar entrada" se movio al sidebar derecho — aqui solo
+             queda el contador como feedback visual del progreso de captura. --}}
         <span class="ent-lineas-count" id="entLineasCount"><strong>0</strong> productos</span>
-        <button type="button" class="btn-primary-maquinaria" id="entSubmit" onclick="window.entGuardar()" style="height:42px;padding:0 22px;display:inline-flex;align-items:center;gap:6px;">
-            <i class="material-icons" style="font-size:18px;">save</i> Registrar entrada
-        </button>
     </div>
 </div>
+
+{{-- ── Sidebar "Resumen de Recepción" ────────────────────────────────────
+     En desktop ≥1024px aparece a la derecha de la tabla (sticky para que las
+     acciones queden siempre visibles mientras el usuario captura lineas).
+     En mobile baja debajo de la card. NO incluye:
+       · Botón "Escanear" (la captura es manual con autocomplete).
+       · Sugerencia "Ctrl+F" (la tabla es chica, el atajo no aporta). --}}
+<aside class="ent-sidebar">
+    <h2 class="ent-sb-title">Resumen de Recepción</h2>
+
+    <div class="ent-sb-stats">
+        <div class="ent-sb-row">
+            <span class="label">Total Productos</span>
+            <span class="value" id="entSbTotalProd">0</span>
+        </div>
+        <div class="ent-sb-row">
+            <span class="label">Unidades Totales</span>
+            <span class="value" id="entSbUnidades">0</span>
+        </div>
+        <div class="ent-sb-row">
+            <span class="label">Status</span>
+            <span class="ent-sb-status-pill" title="Mientras se captura, la entrada es un BORRADOR. Al confirmar pasa al kardex como ENTRADA registrada.">
+                <i class="material-icons">edit_note</i> Borrador
+            </span>
+        </div>
+    </div>
+
+    {{-- Observaciones: texto libre que se anexa al payload (campo `notas`) junto a
+         la "Nota de entrega" externa. Quedan en MovimientoInventario.NOTAS para
+         consulta posterior desde el kardex. --}}
+    <div class="ent-sb-obs-wrap">
+        <span class="ent-sb-obs-label">Observaciones</span>
+        <textarea id="entObservaciones" class="ent-sb-obs-input" rows="3"
+                  maxlength="500" placeholder="Añadir comentarios internos..."></textarea>
+    </div>
+
+    <div class="ent-sb-actions">
+        <button type="button" class="ent-sb-btn-primary" id="entSubmit" onclick="window.entGuardar()">
+            <i class="material-icons">check_circle</i> Registrar entrada
+        </button>
+        <button type="button" class="ent-sb-btn-secondary" onclick="window.entCancelar()">
+            <i class="material-icons">cancel</i> Cancelar operación
+        </button>
+    </div>
+</aside>
+</div>{{-- /ent-layout --}}
 
 <script>
 (function () {
@@ -771,12 +886,24 @@
     }
     function entRender() {
         var tb = el('entLineasTbody');
-        // Counter del footer "N productos". Se actualiza ANTES del posible early return
-        // del tbody vacio para que el contador refleje 0 cuando se borran todas las lineas.
+        // Counter del footer "N productos" + contadores del sidebar "Resumen de Recepción".
+        // Ambos ANTES del possible early return del tbody vacio para que reflejen 0
+        // cuando se borran todas las lineas.
         var counter = el('entLineasCount');
+        var n = entLineas.length;
         if (counter) {
-            var n = entLineas.length;
             counter.innerHTML = '<strong>' + n + '</strong> ' + (n === 1 ? 'producto' : 'productos');
+        }
+        // Sidebar "Resumen de Recepción": Total Productos = numero de lineas (productos
+        // distintos), Unidades Totales = suma de cantidades. Padding con cero a la
+        // izquierda (n<10 → "0N") para el mismo estilo del diseño de referencia.
+        var sbProd = el('entSbTotalProd');
+        if (sbProd) sbProd.textContent = (n < 10 ? '0' : '') + n;
+        var sbUnid = el('entSbUnidades');
+        if (sbUnid) {
+            var total = 0;
+            for (var i = 0; i < entLineas.length; i++) total += parseFloat(entLineas[i].cantidad) || 0;
+            sbUnid.textContent = fmtCant(total);
         }
         if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
@@ -810,10 +937,15 @@
 
         // El backend acepta `referencia` (Nº OC), `motivo` (proveedor) y `notas`.
         // Nº de Nota de Entrega externa: lo metemos en `notas` con un prefijo claro
-        // — el endpoint no tiene columna dedicada y notas es texto libre. El input
-        // de Observacion del usuario fue removido a pedido del cliente (2026-05-20).
+        // — el endpoint no tiene columna dedicada y notas es texto libre. Las
+        // Observaciones del sidebar tambien viajan en el mismo campo `notas`
+        // separadas con " — " para que se lean limpias en el kardex.
         var notaEntrega = v('entNotaEntrega');
-        var notasFinal = notaEntrega ? ('Nota de entrega: ' + notaEntrega) : '';
+        var observaciones = v('entObservaciones');
+        var partes = [];
+        if (notaEntrega)   partes.push('Nota de entrega: ' + notaEntrega);
+        if (observaciones) partes.push(observaciones);
+        var notasFinal = partes.join(' — ');
 
         var payload = {
             tipo:       'ENTRADA',
@@ -858,6 +990,19 @@
             var m = 'Error de red al registrar la entrada.';
             showErr(m); toast(m, 'error');
         });
+    };
+
+    // ── Cancelar operacion: descarta el borrador y vuelve a la bandeja ──
+    // Si hay lineas capturadas pedimos confirmacion — perder una captura larga
+    // por un click accidental seria frustrante. Si no hay nada, redirige directo.
+    window.entCancelar = function () {
+        if (entLineas.length > 0) {
+            var msg = '¿Cancelar la entrada? Se perderán ' + entLineas.length
+                    + ' producto' + (entLineas.length === 1 ? '' : 's') + ' capturado'
+                    + (entLineas.length === 1 ? '' : 's') + '.';
+            if (!window.confirm(msg)) return;
+        }
+        window.location = ROUTE_BACK;
     };
 
     // ── Init ─────────────────────────────────────────────────────────────
