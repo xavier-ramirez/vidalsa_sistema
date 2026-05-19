@@ -7,6 +7,15 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["tabbed", "standalone"],
+  "tab_strip": {
+    "home_tab": {
+      "scope_patterns": [{ "pathname": "/" }]
+    },
+    "new_tab_button": {
+      "url": "/"
+    }
+  },
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
