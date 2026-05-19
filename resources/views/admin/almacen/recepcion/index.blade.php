@@ -178,17 +178,46 @@
 
         {{-- Filtro "Almacén origen": antes vivia dentro del panel "Filtros Avanzados"; el
              cliente lo movio AL LADO del filtro de Nota de Entrega porque es un filtro
-             que se usa MUY seguido (saber "que viene de tal almacen" es la pregunta natural
-             al recepcionar). Mismo estilo visual que el dropdown del header (height 40-45px,
-             border-radius 10px, fondo tinted cuando hay seleccion). --}}
+             que se usa MUY seguido.
+
+             Usa el componente .custom-dropdown global (el MISMO que el dropdown de
+             "Almacén destino" en el header, ver linea 47) — asi la lista de sugerencias
+             y la fuente del control coinciden con el resto de la app. Antes usaba un
+             <select> nativo cuyo popup renderiza con el font del SO y se veia
+             inconsistente con el resto. --}}
+        @php
+            $origenSel = ($reqOrigen && $reqOrigen !== 'all')
+                ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqOrigen)
+                : null;
+        @endphp
         <div class="tr-item tr-origen">
-            <select id="trOrigen" onchange="window.trLoad()"
-                    style="width:100%;height:45px;border:1px solid {{ ($reqOrigen && $reqOrigen !== 'all') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;padding:0 12px;background:{{ ($reqOrigen && $reqOrigen !== 'all') ? '#e1effa' : '#fbfcfd' }};font-size:13.5px;font-weight:600;color:#0f172a;outline:none;cursor:pointer;box-sizing:border-box;">
-                <option value="all">Todos los almacenes origen</option>
-                @foreach($almacenes as $a)
-                    <option value="{{ $a->ID_ALMACEN }}" {{ (string) $reqOrigen === (string) $a->ID_ALMACEN ? 'selected' : '' }}>{{ $a->NOMBRE }}</option>
-                @endforeach
-            </select>
+            <div class="custom-dropdown" id="trOrigenDropdown" data-filter-type="id_almacen_origen" data-default-label="Todos los almacenes origen">
+                <input type="hidden" name="id_almacen_origen" data-filter-value value="{{ $origenSel ? $origenSel->ID_ALMACEN : '' }}">
+                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $origenSel ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $origenSel ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;">
+                    <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">factory</i></span>
+                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                           placeholder="{{ $origenSel ? $origenSel->NOMBRE : 'Todos los almacenes origen' }}"
+                           style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                           oninput="window.filterDropdownOptions(this)">
+                    {{-- X = quitar el filtro de origen (volver a "Todos"). Mandamos 'all' explicito
+                         (NO clearDropdownFilter que pondria '' y disparariamos el evento como si
+                         no se hubiera seleccionado nada — el listener trataria '' = 'all' igual,
+                         pero mantenemos coherencia con el dropdown del header). --}}
+                    <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $origenSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                       onclick="event.stopPropagation(); selectOption('trOrigenDropdown','all','TODOS LOS ALMACENES ORIGEN');">close</i>
+                </div>
+                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                        <div class="dropdown-item {{ !$origenSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trOrigenDropdown','all','TODOS LOS ALMACENES ORIGEN');">TODOS LOS ALMACENES ORIGEN</div>
+                        @foreach(($almacenes ?? collect()) as $a)
+                            <div class="dropdown-item {{ $origenSel && $origenSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                 onclick="selectOption('trOrigenDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div style="position:relative;flex:0 0 auto;">
@@ -354,7 +383,10 @@
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
 
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
-        if (v('trOrigen')  && v('trOrigen')  !== 'all')    p.set('id_almacen_origen', v('trOrigen'));
+        // trOrigen ahora es un custom-dropdown (no <select>) — el valor vive en el
+        // input hidden con name="id_almacen_origen". Mismo patron que id_almacen_destino.
+        var ori = hv('id_almacen_origen');
+        if (ori && ori !== 'all')                          p.set('id_almacen_origen', ori);
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
         // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
         // Pasar `all` explícito para que el controller NO re-aplique el default
@@ -370,24 +402,16 @@
     // Refresca el tinte azul de cada filtro segun si tiene valor activo, y el rojo
     // del boton "Filtros Avanzados" si alguno del panel esta activo. Se llama en
     // trLoad y trClearAdv para mantener UI = estado tras cualquier cambio.
-    // Nota: trOrigen vive AFUERA del panel (al lado de Nota de Entrega), por eso no
-    // cuenta para el indicador rojo del botón embudo, pero SÍ se le aplica el tinte
-    // azul propio cuando tiene seleccion para que el usuario vea el estado activo.
+    // Nota: trOrigen es un custom-dropdown (no <select>) — el componente se renderiza
+    // ya con el estado correcto desde el server (data-value en hidden) y se actualiza
+    // solo via selectOption() del componente global. No necesita paint manual aca.
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
         var hasEst = sel('trEstado')  && sel('trEstado')  !== 'all';
-        var hasOri = sel('trOrigen')  && sel('trOrigen')  !== 'all';
         var hasDes = !!sel('trDesde');
         var hasHas = !!sel('trHasta');
         paint('trEstado',   hasEst);
-        // trOrigen es un <select> in-line con borde + fondo tinted segun seleccion —
-        // su tinte se maneja con CSS inline al render, y se refresca aca tambien.
-        var oriSel = el('trOrigen');
-        if (oriSel) {
-            oriSel.style.background   = hasOri ? '#e1effa' : '#fbfcfd';
-            oriSel.style.borderColor  = hasOri ? '#0067b1' : '#cbd5e0';
-        }
         paint('trDesdeBox', hasDes);
         paint('trHastaBox', hasHas);
         // Boton de embudo: rojo si HAY filtros DEL PANEL aplicados (origen ya no cuenta —
@@ -447,11 +471,12 @@
         window.trLoad();
     };
 
-    // El dropdown del header dispara este evento cuando el usuario cambia el almacén
-    // destino. Re-carga la tabla con el nuevo filtro.
+    // Los custom-dropdowns disparan 'dropdown-selection' cuando el usuario elige una
+    // opcion. Recargamos la tabla cuando cambia el almacen destino (header) o el
+    // almacen origen (in-line al lado del N° de nota).
     window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
-        if (id === 'trDestHeaderDropdown') window.trLoad();
+        if (id === 'trDestHeaderDropdown' || id === 'trOrigenDropdown') window.trLoad();
     });
 
     document.addEventListener('click', function (e) {
