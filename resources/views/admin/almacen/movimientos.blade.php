@@ -138,8 +138,6 @@
     /* Chip de conteo: visible en todos los viewports. Antes solo aparecia en mobile
        (el desktop dependia del big-counter del sidebar) — el cliente pidio tener
        el conteo siempre a la vista en la parte superior del modulo. */
-    .amf-stat-pill { display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
-    .amf-stat-pill i { font-size:16px; color:#0369a1; }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
        En mobile, el modulo se compacta así:
@@ -456,8 +454,6 @@
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:70vh;min-width:0;width:100%;padding:14px;">
 
-    <div class="amf-stat-pill"><i class="material-icons">receipt_long</i> <span id="almMovTotalChip">{{ $total }}</span> movimientos</div>
-
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almMovFilters">
 
@@ -729,7 +725,7 @@
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination || '';
-                ['almMovTotal', 'almMovTotalChip'].forEach(function (id) { var e = el(id); if (e && data.total !== undefined) e.textContent = data.total; });
+                { var e = el('almMovTotal'); if (e && data.total !== undefined) e.textContent = data.total; }
                 // Refresca el ranking de consumo del sidebar (mismas dimensiones que /admin/equipos).
                 var cc = el('almMovConsumoContainer'); if (cc && data.consumo !== undefined) cc.innerHTML = data.consumo;
                 // marca "activo" del buscador
