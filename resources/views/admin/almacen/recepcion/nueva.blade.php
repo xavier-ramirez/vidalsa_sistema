@@ -446,8 +446,7 @@
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
 
     {{-- Sin contador "N productos" debajo de la tabla — el sidebar derecho ya
-         muestra "Total Productos" y "Unidades Totales", duplicarlo aqui era
-         ruido visual (pedido del cliente 2026-05-19). --}}
+         muestra "Total Productos", duplicarlo aqui era ruido visual. --}}
 </div>
 
 {{-- ── Sidebar "Resumen de Recepción" ────────────────────────────────────
@@ -463,10 +462,6 @@
         <div class="ent-sb-row">
             <span class="label">Total Productos</span>
             <span class="value" id="entSbTotalProd">0</span>
-        </div>
-        <div class="ent-sb-row">
-            <span class="label">Unidades Totales</span>
-            <span class="value" id="entSbUnidades">0</span>
         </div>
     </div>
 
@@ -881,31 +876,15 @@
     }
     function entRender() {
         var tb = el('entLineasTbody');
-        // Contadores del sidebar "Resumen de Recepción". Se calculan ANTES del
-        // posible early return del tbody vacio para que reflejen 0 cuando se
-        // borran todas las lineas.
-        //   Total Productos: numero de lineas distintas, padded "0N" si n<10.
-        //   Unidades Totales: agrupado POR UM ("30 UND · 5 KG · 2 ROLLO"), porque
-        //     sumar cantidades de UMs distintas no tiene sentido (10 UND + 5 KG
-        //     no son 15 de nada). Pedido del cliente 2026-05-19.
+        // Sidebar "Resumen de Recepción" — solo "Total Productos" (numero de lineas
+        // distintas, padded "0N" si n<10). El contador "Unidades Totales" fue
+        // removido (pedido del cliente 2026-05-19): sumar cantidades de UMs distintas
+        // no tiene sentido y desglosar el detalle ocupaba demasiado espacio del sidebar.
+        // Se ejecuta ANTES del posible early return del tbody vacio para que refleje 0
+        // cuando se borran todas las lineas.
         var n = entLineas.length;
         var sbProd = el('entSbTotalProd');
         if (sbProd) sbProd.textContent = (n < 10 ? '0' : '') + n;
-        var sbUnid = el('entSbUnidades');
-        if (sbUnid) {
-            // Map por UM preservando el orden de aparicion (Map mantiene insertion order).
-            // Asi el sidebar muestra las UMs en el mismo orden en que el usuario las cargo
-            // — el primer producto define la primera UM mostrada, etc.
-            var porUm = new Map();
-            for (var i = 0; i < entLineas.length; i++) {
-                var l = entLineas[i];
-                var um = String(l.um || 'UND').toUpperCase();
-                porUm.set(um, (porUm.get(um) || 0) + (parseFloat(l.cantidad) || 0));
-            }
-            var partes = [];
-            porUm.forEach(function (cant, um) { partes.push(fmtCant(cant) + ' ' + um); });
-            sbUnid.textContent = partes.length ? partes.join(' · ') : '0';
-        }
         if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
         // contexto suficiente y el usuario sabe que tiene que capturar arriba.

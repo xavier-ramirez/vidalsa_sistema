@@ -196,6 +196,11 @@
             border-radius: 0 !important;
         }
 
+        /* Tarjeta calcada visualmente de .ent-card de /admin/almacen/recepcion/nueva
+           para que ambos modulos del flujo Recepcion tengan el mismo lenguaje visual:
+           fondo blanco puro (no gradient), border 1px slate-200, border-radius 14px,
+           sombra suave 0 4px 12px. Sin el acento `inset 3px` lateral — el cliente
+           prefirio el look mas limpio y minimal de las cards de /recepcion/nueva. */
         .tr-table tbody tr[data-id] {
             display: grid !important;
             grid-template-columns: 1fr auto !important;
@@ -205,24 +210,19 @@
                 "meta    meta" !important;
             row-gap: 8px !important;
             column-gap: 10px !important;
-            background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%) !important;
+            background: #fff !important;
             border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            box-shadow:
-                inset 3px 0 0 #cbd5e1,
-                0 1px 3px rgba(15,23,42,0.04),
-                0 4px 12px rgba(15,23,42,0.06) !important;
-            padding: 12px 14px !important;
+            border-radius: 14px !important;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.04) !important;
+            padding: 14px 16px !important;
             overflow: hidden !important;
             cursor: pointer !important;
-            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.15s ease !important;
         }
         .tr-table tbody tr[data-id]:active {
             transform: translateY(-1px) !important;
-            box-shadow:
-                inset 3px 0 0 #cbd5e1,
-                0 2px 6px rgba(15,23,42,0.06),
-                0 8px 20px rgba(15,23,42,0.12) !important;
+            border-color: #cbd5e0 !important;
+            box-shadow: 0 8px 20px rgba(15,23,42,0.08) !important;
         }
         /* Anulamos el hover de tabla (e0f2fe) en mobile — las cards usan :active. */
         .tr-table tbody tr[data-id]:hover td { background: transparent !important; }
