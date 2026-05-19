@@ -45,7 +45,7 @@
         <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
         <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
             <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
-            <div style="width:280px;min-width:200px;max-width:100%;">
+            <div style="width:320px;min-width:200px;max-width:100%;">
                 <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
                     <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
@@ -147,7 +147,7 @@
         /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
-        .page-title-card > div > div > div[style*="width:280px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+        .page-title-card > div > div > div[style*="width:320px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
         /* Filtros: cada hijo full-width en su propia fila — igual que /admin/almacen */
         #trFilters { gap: 8px !important; }

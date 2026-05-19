@@ -410,26 +410,29 @@
             font-style: italic !important;
         }
 
-        /* Destino: spans las 2 columnas (fila 3 sola). Lo renderizamos como un
-           chip compacto — fondo gris claro + letras negras (pedido del cliente
-           2026-05-19) — centrado y con ancho que se adapta al contenido. Asi
-           el frente destino se distingue claramente del resto de los datos de
-           la tarjeta sin invadir todo el ancho de la fila. */
+        /* Destino: spans las 2 columnas (fila 3 sola). Se renderiza como una
+           BANDA gris full-width pegada al pie de la tarjeta — el fondo gris
+           cubre TODA la zona del frente destino (no solo un chip centrado),
+           pedido del cliente 2026-05-19. Los margins negativos extienden el
+           td hasta los bordes internos de la card (compensan el padding
+           12px 14px del .alm-mov-row). Border-radius solo en esquinas
+           inferiores para que la banda se vea integrada con el border-radius
+           de la tarjeta. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
             justify-content: center !important;
-            justify-self: center !important;
+            justify-self: stretch !important;
             font-size: 11px !important;
             font-weight: 700 !important;
             color: #0f172a !important;
             background: #f1f5f9 !important;
-            border-radius: 8px !important;
-            padding: 5px 12px !important;
-            margin-top: 8px !important;
+            border-radius: 0 0 9px 9px !important;
+            padding: 7px 14px !important;
+            margin: 8px -14px -12px -14px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            max-width: calc(100% - 16px) !important;
+            max-width: none !important;
             gap: 4px !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
