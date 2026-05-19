@@ -114,10 +114,13 @@
         z-index:9000; display:none;
     }
     .ent-suggest.open { display:block; }
-    .ent-suggest-item { display:flex; flex-direction:column; gap:1px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
+    /* Sugerencias del dropdown: CODIGO + NOMBRE LADO A LADO (no apilados verticalmente).
+       El codigo va fijo a la izquierda (no se encoge) y el nombre absorbe el resto
+       truncando con ellipsis si es largo — patron de autocompletes profesionales. */
+    .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
-    .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0067b1; letter-spacing:.3px; }
-    .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; }
+    .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0067b1; letter-spacing:.3px; flex:0 0 auto; white-space:nowrap; }
+    .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
 
     /* Stepper de cantidad — clon del .alm-cant-stepper de /admin/almacen (variante
@@ -183,7 +186,11 @@
     }
 </style>
 
-<div class="ent-card" style="margin-bottom:14px;">
+{{-- Card UNICA — antes habia DOS .ent-card separadas (Datos de la entrada + Tabla)
+     pero el cliente pidio que todo quede en el mismo contenedor blanco para no
+     duplicar el "frame" visual. La fila de captura va separada de los datos por
+     un thin border-top para que se distinga el bloque de productos. --}}
+<div class="ent-card">
     <h3 class="ent-section-title"><i class="material-icons">tune</i>Datos de la entrada</h3>
     {{-- Almacén destino: derivado del frente del usuario (TraspasoController@nuevaEntrada);
          se muestra como pill en el page-title-card (arriba), aqui solo guardamos el id
@@ -211,9 +218,12 @@
             <span>En tránsito</span>
         </a>
     </div>
-</div>
 
-<div class="ent-card">
+    {{-- Separador fino entre "Datos de la entrada" y el bloque de captura/tabla.
+         Margin horizontal 0 (no negativos) para que no se salga del card en mobile,
+         donde el padding de .ent-card pasa a 8px (ver media query mas abajo). --}}
+    <div style="border-top:1px solid #e2e8f0;margin:16px 0 14px;"></div>
+
     {{-- Fila de captura: [Buscar serial/desc] [Cantidad] siempre lado a lado.
          Flujo: tipea codigo o descripcion → elige sugerencia (queda como
          badge azul) → escribe cantidad → Enter → la linea cae a la tabla y el
