@@ -391,8 +391,8 @@
             grid-area: nombre !important;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
             border-bottom: 1px solid #e2e8f0 !important;
-            padding: 10px 14px !important;
-            font-size: 13.5px !important;
+            padding: 9px 14px !important;
+            font-size: 12px !important;
             font-weight: 700 !important;
             color: #1e293b !important;
             line-height: 1.3 !important;
@@ -1088,7 +1088,7 @@
                      clase .alm-det-act-kardex permite el override CSS. --}}
                 <button type="button" class="alm-det-act alm-det-act-kardex" onclick="window.almDetalleAccion('kardex')"><span class="alm-det-ic" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:18px;">history</i></span> Ver movimientos del producto</button>
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('editar')"><span class="alm-det-ic" style="background:#cffafe;color:#0891b2;"><i class="material-icons" style="font-size:18px;">edit</i></span> Editar producto</button>
-                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('eliminar')"><span class="alm-det-ic" style="background:#fee2e2;color:#ef4444;"><i class="material-icons" style="font-size:18px;">delete_outline</i></span> Eliminar / desactivar producto</button>
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('eliminar')"><span class="alm-det-ic" style="background:#fee2e2;color:#ef4444;"><i class="material-icons" style="font-size:18px;">delete_outline</i></span> Eliminar</button>
             </div>
         </div>
 
