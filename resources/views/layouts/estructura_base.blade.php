@@ -563,7 +563,7 @@
                         class="nav-dropdown-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                         style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
                         <span style="display:flex;align-items:center;gap:8px;">
-                            <i class="material-icons">move_to_inbox</i> Recepción de Materiales
+                            <i class="material-icons">move_to_inbox</i> Recepción
                         </span>
                         @php $__nav_traspasosPorRecibir = $traspasosPorRecibir ?? 0; @endphp
                         @if($__nav_traspasosPorRecibir > 0)
@@ -572,7 +572,7 @@
                     </a>
                     <a href="{{ route('almacen.movimientos') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
-                        <i class="material-icons">receipt_long</i> Historial de Movimientos
+                        <i class="material-icons">receipt_long</i> Historial
                     </a>
                 </div>
             </div>
@@ -735,7 +735,7 @@
                     class="mobile-nav-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                     style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
                     <span style="display:flex;align-items:center;gap:10px;">
-                        <i class="material-icons">move_to_inbox</i> Recepción de Materiales
+                        <i class="material-icons">move_to_inbox</i> Recepción
                     </span>
                     @php $__nav_traspasosPorRecibir_m = $traspasosPorRecibir ?? 0; @endphp
                     @if($__nav_traspasosPorRecibir_m > 0)
@@ -744,7 +744,7 @@
                 </a>
                 <a href="{{ route('almacen.movimientos') }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.movimientos') ? 'active' : '' }}">
-                    <i class="material-icons">receipt_long</i> Historial de Movimientos
+                    <i class="material-icons">receipt_long</i> Historial
                 </a>
             </div>
         </div>

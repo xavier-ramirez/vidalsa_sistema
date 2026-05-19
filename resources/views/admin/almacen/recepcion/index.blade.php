@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Recepción de Materiales')
+@section('title', 'Recepción')
 
 @section('content')
 @php
@@ -36,7 +36,7 @@
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
     <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Recepción de Materiales</span>
+            <span class="page-title-line2" style="color:#000;">Recepción</span>
         </h1>
         {{-- Separador vertical sutil + selector de almacén destino. Mismo idioma visual
              que /admin/almacen y /admin/almacen/movimientos para que el usuario reconozca

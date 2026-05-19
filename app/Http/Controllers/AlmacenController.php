@@ -511,33 +511,46 @@ class AlmacenController extends Controller
         $producto = DB::transaction(function () use ($data, $idAlmacen, $cantInicial, $request) {
             $producto = ProductoInventario::create($data);
 
-            if ($idAlmacen) {
-                // Crea la fila almacen_stock con CANTIDAD=0 si no existía (idempotente).
-                $this->inventario->asegurarStock($idAlmacen, $producto->ID_PRODUCTO);
+            // INVARIANTE DEL SISTEMA (pedido del cliente 2026-05-19): todo producto del
+            // catalogo debe aparecer en la tabla de inventario de CUALQUIER almacen activo
+            // con stock=0, hasta que llegue una entrada que lo incremente. Asi el buscador
+            // de cualquier modulo lo encuentra desde el momento de creacion, sin importar
+            // si el producto fue registrado desde un almacen especifico o sin contexto.
+            // Llamamos a asegurarStock (idempotente — usa firstOrCreate internamente)
+            // para preservar la logica del service (locking, eventos, no pisar filas
+            // existentes con CANTIDAD > 0).
+            $idsAlmacenes = Almacen::where('ESTATUS', 'ACTIVO')->pluck('ID_ALMACEN');
+            foreach ($idsAlmacenes as $idAlm) {
+                $this->inventario->asegurarStock((int) $idAlm, $producto->ID_PRODUCTO);
+            }
 
-                if ($cantInicial > 0) {
-                    // STOCK INICIAL: atribuimos la entrada al PRIMER frente del almacen
-                    // (si tiene alguno), independiente del TIPO de almacen o de cuantos
-                    // frentes tenga. A diferencia de frenteImplicitoDelAlmacen (que es
-                    // estricto y se usa en movimientos manuales donde la ambiguedad debe
-                    // forzar al usuario a elegir), aca el sistema necesita SI O SI un
-                    // destino para que la columna "Destino" del kardex no se vea "—" en
-                    // cada producto nuevo — el primer frente del almacen es siempre el
-                    // mas representativo.
-                    $almForFrente   = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
-                    $idFrenteInicial = optional($almForFrente?->frentes->first())->ID_FRENTE;
+            // STOCK INICIAL: solo si el cliente paso EXPLICITAMENTE id_almacen y una
+            // cantidad > 0 (caso tipico: modal "Nuevo producto" de /admin/almacen con
+            // el campo "Cantidad inicial" lleno). Otros flujos (creacion al vuelo en
+            // recepcion/nueva) pasan id_almacen pero cantidad_inicial=0 — solo crean
+            // las filas de stock, sin movimiento.
+            if ($idAlmacen && $cantInicial > 0) {
+                // STOCK INICIAL: atribuimos la entrada al PRIMER frente del almacen
+                // (si tiene alguno), independiente del TIPO de almacen o de cuantos
+                // frentes tenga. A diferencia de frenteImplicitoDelAlmacen (que es
+                // estricto y se usa en movimientos manuales donde la ambiguedad debe
+                // forzar al usuario a elegir), aca el sistema necesita SI O SI un
+                // destino para que la columna "Destino" del kardex no se vea "—" en
+                // cada producto nuevo — el primer frente del almacen es siempre el
+                // mas representativo.
+                $almForFrente   = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+                $idFrenteInicial = optional($almForFrente?->frentes->first())->ID_FRENTE;
 
-                    $this->inventario->registrarEntrada(
-                        $idAlmacen,
-                        $producto->ID_PRODUCTO,
-                        $cantInicial,
-                        [
-                            'id_frente'  => $idFrenteInicial,
-                            'referencia' => 'STOCK INICIAL registro de nuevo material',
-                            'motivo'     => 'Stock inicial al crear el producto',
-                        ]
-                    );
-                }
+                $this->inventario->registrarEntrada(
+                    $idAlmacen,
+                    $producto->ID_PRODUCTO,
+                    $cantInicial,
+                    [
+                        'id_frente'  => $idFrenteInicial,
+                        'referencia' => 'STOCK INICIAL registro de nuevo material',
+                        'motivo'     => 'Stock inicial al crear el producto',
+                    ]
+                );
             }
 
             return $producto;
