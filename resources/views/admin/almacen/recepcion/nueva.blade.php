@@ -36,6 +36,7 @@
         <div class="ent-header-block" style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
             <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
             <div class="ent-dest-pill" title="Almacén destino del usuario (derivado del frente asignado)">
+                <span class="ic"><i class="material-icons">warehouse</i></span>
                 <span class="name">{{ $almacenDestino->NOMBRE }}{{ $almacenDestino->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}</span>
             </div>
         </div>
@@ -73,10 +74,21 @@
     .ent-envios-btn:hover { background:#005391; }
     .ent-envios-btn i { font-size:20px; }
     /* Pill del almacen destino (read-only): vive en el page-title-card al lado
-       del mini-label "Almacén". Solo muestra el NOMBRE — la etiqueta uppercase
-       se renderiza por fuera (mismo patron que el dropdown de /admin/almacen). */
-    .ent-dest-pill { display:inline-flex; align-items:center; height:40px; padding:0 14px; background:#f8fafc; border:1px solid #cbd5e0; border-radius:10px; white-space:nowrap; }
-    .ent-dest-pill .name  { font-size:13.5px; color:#0f172a; font-weight:700; }
+       del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
+       dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
+       — mismo ancho min:200px, mismo radius:10px, mismo height:40px, mismo icono
+       warehouse en azul al inicio. La unica diferencia funcional es que es read-only
+       (no abre dropdown — el almacen se deriva del frente del usuario). */
+    .ent-dest-pill {
+        display:inline-flex; align-items:center;
+        height:40px; min-width:200px;
+        padding:0;
+        background:#f8fafc; border:1px solid #cbd5e0; border-radius:10px;
+        white-space:nowrap; overflow:hidden;
+    }
+    .ent-dest-pill .ic { padding:0 10px; display:flex; align-items:center; color:#0067b1; }
+    .ent-dest-pill .ic .material-icons { font-size:18px; transform:none !important; }
+    .ent-dest-pill .name { padding:0 12px 0 4px; font-size:13.5px; color:#0f172a; font-weight:700; overflow:hidden; text-overflow:ellipsis; }
     .ent-input    { width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px; font-size:13.5px; background:#fbfcfd; outline:none; box-sizing:border-box; color:#0f172a; }
     .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
     .ent-input::placeholder { color:#64748b; opacity:1; }
@@ -982,16 +994,63 @@
     };
 
     // ── Cancelar operacion: descarta el borrador y vuelve a la bandeja ──
-    // Si hay lineas capturadas pedimos confirmacion — perder una captura larga
-    // por un click accidental seria frustrante. Si no hay nada, redirige directo.
+    //
+    // Flujo profesional:
+    //  · Sin lineas capturadas → redirect inmediato (no hay nada que perder).
+    //  · Con lineas capturadas → modal del sistema (window.showModal) tipo
+    //    warning, NO el confirm() nativo del navegador. Cuando el usuario
+    //    confirma, se muestra el preloader global y se redirige con un pequeño
+    //    delay para que el modal cierre con animacion antes del cambio de pagina
+    //    (sino se veia un flash brusco de "modal abierto → pagina vacia").
+    //  · Fallback: si por alguna razon showModal no estuviera disponible
+    //    (carga parcial / SPA bug), caemos al confirm() nativo para no dejar
+    //    al usuario sin via de salida.
+    //
+    // Doble click guard: la flag `entCancelandoEnCurso` evita que clicks
+    // repetidos del usuario disparen multiples modales o redirects encadenados.
+    var entCancelandoEnCurso = false;
     window.entCancelar = function () {
-        if (entLineas.length > 0) {
-            var msg = '¿Cancelar la entrada? Se perderán ' + entLineas.length
-                    + ' producto' + (entLineas.length === 1 ? '' : 's') + ' capturado'
-                    + (entLineas.length === 1 ? '' : 's') + '.';
-            if (!window.confirm(msg)) return;
+        if (entCancelandoEnCurso) return;
+
+        // Caso A: tabla vacia — salida directa, sin modal.
+        if (entLineas.length === 0) {
+            entCancelandoEnCurso = true;
+            if (window.showPreloader) window.showPreloader();
+            window.location = ROUTE_BACK;
+            return;
         }
-        window.location = ROUTE_BACK;
+
+        // Caso B: hay capturas — pedir confirmacion.
+        var n = entLineas.length;
+        var prodWord = (n === 1 ? 'producto capturado' : 'productos capturados');
+        var mensaje  = 'Se perderán <strong>' + n + ' ' + prodWord + '</strong> '
+                     + 'que cargaste en la tabla. Esta acción no se puede deshacer.';
+
+        var hacerRedirect = function () {
+            entCancelandoEnCurso = true;
+            // Deshabilitar el boton para feedback visual + evitar doble-trigger.
+            var btnCancel = document.querySelector('.ent-sb-btn-secondary');
+            if (btnCancel) { btnCancel.disabled = true; btnCancel.style.opacity = '0.6'; btnCancel.style.cursor = 'not-allowed'; }
+            if (window.showPreloader) window.showPreloader();
+            // 150ms = tiempo de la animacion de cierre del modal (subjetivamente
+            // suave; sin esto, el usuario veia el modal cortarse en seco al hacer
+            // click en "Sí, cancelar").
+            setTimeout(function () { window.location = ROUTE_BACK; }, 150);
+        };
+
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type:        'warning',
+                title:       'Cancelar operación',
+                message:     mensaje,
+                confirmText: 'Sí, cancelar',
+                cancelText:  'Continuar capturando',
+                onConfirm:   hacerRedirect,
+            });
+        } else {
+            // Fallback defensivo si el helper global no estuviera cargado.
+            if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) hacerRedirect();
+        }
     };
 
     // ── Init ─────────────────────────────────────────────────────────────
