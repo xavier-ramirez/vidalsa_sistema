@@ -3126,7 +3126,23 @@ input:-webkit-autofill:active {
     body:has(.ent-layout) .ent-card,
     body:has(.ent-layout) .ent-sidebar { padding: 8px !important; }
     /* Titulo de seccion centrado en mobile (pedido del cliente). */
-    body:has(.ent-layout) .ent-section-title { justify-content: center !important; text-align: center !important; }
+    body:has(.ent-layout) .ent-section-title { justify-content: center !important; text-align: center !important; margin-bottom: 6px !important; }
+    /* Margen entre el page-title-card y la primera card: el global pone 20px,
+       en este modulo es excesivo (no hay titulo visible, solo la pill almacen). */
+    body:has(.ent-layout) .page-title-card { margin-bottom: 10px !important; }
+    /* Gaps mas compactos en mobile (cliente: "comprime bien las cosas"):
+       layout 14→10, sidebar 14→10, separador entre Datos y Captura 14→10. */
+    body:has(.ent-layout) .ent-layout { gap: 10px !important; }
+    body:has(.ent-layout) .ent-sidebar { gap: 10px !important; }
+    body:has(.ent-layout) .ent-list-wrap { margin-top: 10px !important; }
+    /* Captura: WRAP a 768 (no 480) — entre 481-600 el buscador quedaba
+       comprimido a ~200px porque UM (120) + Cantidad (100) + gaps (20) le
+       robaban 240px del ancho. Wrap en todo el rango mobile evita ese estado
+       apretado donde "se descuadra todo". */
+    body:has(.ent-layout) .ent-capt-row { flex-wrap: wrap !important; }
+    body:has(.ent-layout) .ent-capt-row > .ent-search-field { flex: 1 1 100% !important; max-width: none !important; }
+    body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { flex: 1 1 0 !important; width: auto !important; }
+    body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { flex: 1 1 0 !important; width: auto !important; }
 
     /* page-title-card: titulo OCULTO, separador OCULTO, layout apilado para
        que el bloque del Almacen ocupe todo el ancho. */
@@ -3236,14 +3252,8 @@ input:-webkit-autofill:active {
 
 @media (max-width: 480px) {
     /* Pantallas muy chicas: Nota y Proveedor full-width (1 fila c/u),
-       Fecha + Bandeja de Recepcion comparten la ultima fila 50/50. */
-    body:has(.ent-layout) .ent-head-row { grid-template-columns: 1fr 1fr; }
+       Fecha + Bandeja de Recepcion comparten la ultima fila 50/50.
+       (El wrap de .ent-capt-row ya se hace en ≤768, no hace falta repetirlo aqui.) */
     body:has(.ent-layout) .ent-head-row > :nth-child(1),
     body:has(.ent-layout) .ent-head-row > :nth-child(2) { grid-column: 1 / -1; }
-    /* Captura: buscador full-width arriba, UM + Cantidad comparten la
-       segunda fila 50/50 — sino los 3 controles no entran. */
-    body:has(.ent-layout) .ent-capt-row { flex-wrap: wrap; }
-    body:has(.ent-layout) .ent-capt-row > .ent-search-field { flex: 1 1 100%; }
-    body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { flex: 1 1 0; width: auto; }
-    body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { flex: 1 1 0; width: auto; }
 }

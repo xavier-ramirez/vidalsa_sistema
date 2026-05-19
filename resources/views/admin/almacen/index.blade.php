@@ -175,6 +175,17 @@
     .alm-modal select.alm-nota-input { width:100%; height:38px; border:1px solid #cbd5e0; border-radius:7px; padding:0 10px; font-size:13.5px; background:#fff; outline:none; color:#0f172a; box-sizing:border-box; }
     .alm-modal input.alm-nota-input:focus,
     .alm-modal select.alm-nota-input:focus { border-color: var(--maquinaria-blue, #0067b1); }
+    /* Modal "Nota de Entrega": los dropdowns de Proyecto/Contrato muestran el
+       valor seleccionado como PLACEHOLDER del input (selectOption del componente
+       limpia el .value y mete el label en placeholder para que el filtrado
+       arranque desde vacio al teclear). Algunos navegadores renderizan
+       placeholders en italic/opacidad baja — el valor seleccionado se veia "en
+       cursiva como inclinado". Normalizamos el placeholder de estos inputs como
+       texto normal (sin italic, color slate-900, opacidad 1) para que se lea
+       identico a un value tipico. */
+    #almSalidaModal .dropdown-trigger input::placeholder,
+    #almSalidaModal .dropdown-trigger input::-webkit-input-placeholder { font-style: normal; color: #0f172a; opacity: 1; }
+    #almSalidaModal .dropdown-trigger input::-moz-placeholder { font-style: normal; color: #0f172a; opacity: 1; }
     .alm-x { cursor: pointer; color: #94a3b8; }
     .alm-x:hover { color: #475569; }
 
