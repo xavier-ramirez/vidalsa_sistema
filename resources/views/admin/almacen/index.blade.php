@@ -182,10 +182,11 @@
        placeholders en italic/opacidad baja — el valor seleccionado se veia "en
        cursiva como inclinado". Normalizamos el placeholder de estos inputs como
        texto normal (sin italic, color slate-900, opacidad 1) para que se lea
-       identico a un value tipico. */
-    #almSalidaModal .dropdown-trigger input::placeholder,
-    #almSalidaModal .dropdown-trigger input::-webkit-input-placeholder { font-style: normal; color: #0f172a; opacity: 1; }
-    #almSalidaModal .dropdown-trigger input::-moz-placeholder { font-style: normal; color: #0f172a; opacity: 1; }
+       identico a un value tipico. NOTA: usamos solo `::placeholder` (estandar
+       desde 2017, soportado por todos los navegadores actuales). Mezclar el
+       prefix `::-webkit-input-placeholder` en un selector agrupado por coma
+       invalida toda la regla en browsers que no conocen el prefix. */
+    #almSalidaModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
     .alm-x { cursor: pointer; color: #94a3b8; }
     .alm-x:hover { color: #475569; }
 

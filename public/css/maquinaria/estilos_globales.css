@@ -3131,10 +3131,11 @@ input:-webkit-autofill:active {
        en este modulo es excesivo (no hay titulo visible, solo la pill almacen). */
     body:has(.ent-layout) .page-title-card { margin-bottom: 10px !important; }
     /* Gaps mas compactos en mobile (cliente: "comprime bien las cosas"):
-       layout 14→10, sidebar 14→10, separador entre Datos y Captura 14→10. */
+       layout 14→10, sidebar 14→10, separador entre Datos y Captura 14→10.
+       (.ent-list-wrap margin-top vive consolidado abajo junto con su override
+       de border/radius para mobile cards.) */
     body:has(.ent-layout) .ent-layout { gap: 10px !important; }
     body:has(.ent-layout) .ent-sidebar { gap: 10px !important; }
-    body:has(.ent-layout) .ent-list-wrap { margin-top: 10px !important; }
     /* Captura: WRAP a 768 (no 480) — entre 481-600 el buscador quedaba
        comprimido a ~200px porque UM (120) + Cantidad (100) + gaps (20) le
        robaban 240px del ancho. Wrap en todo el rango mobile evita ese estado
@@ -3169,7 +3170,10 @@ input:-webkit-autofill:active {
            │ CANTIDAD 5.000 UND     [🗑] │
            └──────────────────────────────┘
        Calcado de .alm-row en /admin/almacen. */
-    body:has(.ent-layout) .ent-list-wrap { border: none !important; border-radius: 0 !important; overflow: visible !important; }
+    body:has(.ent-layout) .ent-list-wrap {
+        margin-top: 10px !important;
+        border: none !important; border-radius: 0 !important; overflow: visible !important;
+    }
     body:has(.ent-layout) .ent-list-table { display: block !important; }
     body:has(.ent-layout) .ent-list-table thead { display: none !important; }
     body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 12px !important; }
