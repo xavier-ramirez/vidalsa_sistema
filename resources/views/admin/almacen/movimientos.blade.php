@@ -222,6 +222,7 @@
             row-gap: 4px !important;
             background: #fff !important;
             border: 1px solid #cbd5e1 !important;
+            border-left: 4px solid #94a3b8 !important; /* color de cintilla — sobrescrito por data-tipo abajo */
             border-radius: 12px !important;
             box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.08) !important;
             margin: 0 !important;
@@ -230,16 +231,43 @@
             transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease !important;
             cursor: pointer !important;
         }
+        /* Cintilla lateral + tinte de fondo suave segun TIPO del movimiento — pedido del
+           cliente para que las tarjetas no se vean todas blancas. Cada tipo lleva su color
+           coherente con la pill (que vive oculta en mobile). El tinte de fondo es muy
+           tenue (~5% alpha) para no saturar la lectura. */
+        .alm-mov-table tr.alm-mov-row[data-tipo="ENTRADA"] {
+            border-left-color: #16a34a !important;
+            background: linear-gradient(90deg, #f0fdf4 0%, #ffffff 35%) !important;
+        }
+        .alm-mov-table tr.alm-mov-row[data-tipo="SALIDA"] {
+            border-left-color: #dc2626 !important;
+            background: linear-gradient(90deg, #fef2f2 0%, #ffffff 35%) !important;
+        }
+        .alm-mov-table tr.alm-mov-row[data-tipo="AJUSTE"] {
+            border-left-color: #d97706 !important;
+            background: linear-gradient(90deg, #fff7ed 0%, #ffffff 35%) !important;
+        }
+        .alm-mov-table tr.alm-mov-row[data-tipo="TRASPASO_ENTRADA"] {
+            border-left-color: #0284c7 !important;
+            background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 35%) !important;
+        }
+        .alm-mov-table tr.alm-mov-row[data-tipo="TRASPASO_SALIDA"] {
+            border-left-color: #7c3aed !important;
+            background: linear-gradient(90deg, #faf5ff 0%, #ffffff 35%) !important;
+        }
         .alm-mov-table tr.alm-mov-row:active {
             box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
             transform: translateY(-1px) !important;
         }
         /* Tarjeta SELECCIONADA — mismo patron de UX de /admin/equipos: borde
            azul, fondo azul tenue, shadow tintada. Al seleccionar, revelamos
-           el chip NE-AAAA-NNNN que estaba oculto por defecto. */
+           el chip NE-AAAA-NNNN que estaba oculto por defecto.
+           IMPORTANTE: usamos `background:` (shorthand) en vez de `background-color`
+           para que el linear-gradient del data-tipo se borre al seleccionar
+           (sino quedaria el tinte verde/rojo/etc encima del fondo azul de seleccion). */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
             border: 2px solid var(--maquinaria-blue, #0067b1) !important;
-            background-color: #f0f9ff !important;
+            background: #f0f9ff !important;
             box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
         }
 

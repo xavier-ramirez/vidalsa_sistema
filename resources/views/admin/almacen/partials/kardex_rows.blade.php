@@ -27,7 +27,10 @@
                 ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
                 : 'Usuario no registrado';
         @endphp
-        <tr class="alm-mov-row">
+        {{-- data-tipo: usado SOLO en mobile (movimientos.blade.php) para tintar la tarjeta
+             segun el tipo del movimiento (ENTRADA verde, SALIDA roja, AJUSTE ambar, etc.)
+             para que no se vean todas blancas. En desktop no afecta — la pill ya distingue. --}}
+        <tr class="alm-mov-row" data-tipo="{{ $m->TIPO }}">
             <td class="mv-td-fecha" data-label="Fecha" style="white-space:nowrap;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
             <td class="mv-td-tipo" data-label="Tipo" style="white-space:nowrap;">
                 {{-- La pill mantiene su color de fondo y texto propios (visualmente distingue ENTRADA / SALIDA / etc.). --}}

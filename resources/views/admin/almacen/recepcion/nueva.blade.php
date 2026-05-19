@@ -194,6 +194,17 @@
         /* Almacen pill: ocupa lo que sobre del mini-label "Almacén" */
         .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; }
         .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Boton "Registrar entrada" en mobile: full-width + altura touch-friendly (48px)
+           para que sea facil tocarlo con el dedo. Antes quedaba a la derecha con ancho
+           segun contenido — incomodo en pantallas chicas. */
+        .ent-footer-bar { justify-content: stretch !important; }
+        .ent-footer-bar #entSubmit {
+            width: 100% !important;
+            height: 48px !important;
+            font-size: 14.5px !important;
+            justify-content: center !important;
+        }
     }
 </style>
 
