@@ -54,6 +54,30 @@ class TraspasoController extends Controller
     {
         $user      = $request->user();
 
+        // Una sola consulta: la usamos para (a) limitar el WHERE de la query, (b) llenar el
+        // dropdown del header, (c) validar el default-por-frente y (d) el guard anti-loop
+        // de mas abajo (movido ARRIBA del redirect a nuevaEntrada — sino GLOBAL sin
+        // almacenes caia en loop infinito entre `recepcion.index` y `recepcion.nueva`).
+        $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        $almacenesVisibles = $almacenes->pluck('ID_ALMACEN');
+
+        // Guard: usuario sin almacenes visibles → menu con notificacion. Cubre 2 casos:
+        //   - LOCAL (NIVEL 2) cuyo frente no tiene almacen asociado.
+        //   - GLOBAL (NIVEL 1) en BD recien migrada / sin almacenes registrados todavia.
+        // Sin este guard, el GLOBAL hacia loop: `index()` lo redirige a `nuevaEntrada`,
+        // `nuevaEntrada` no encuentra almacenDestino y redirige de vuelta a `index()`,
+        // y asi sin parar (ERR_TOO_MANY_REDIRECTS / "error de conexion" en produccion).
+        if (!$request->wantsJson() && $almacenes->isEmpty()) {
+            $nivel = (int) ($user?->NIVEL_ACCESO ?? 0);
+            $msg   = $nivel === 2
+                ? 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.'
+                : 'No hay almacenes registrados todavía. Crea uno desde el módulo de Almacén antes de usar Recepción.';
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => $msg,
+            ]);
+        }
+
         // Enrutamiento por NIVEL_ACCESO: los GLOBAL (1) compran directo al proveedor
         // por Orden de Compra — su "Recepcion de Materiales" es el formulario de
         // entrada directa (almacen.recepcion.nueva), no la bandeja. Los LOCAL (2)
@@ -64,7 +88,8 @@ class TraspasoController extends Controller
         // Solo redirigimos cuando NO es AJAX (los filtros/paginacion piden JSON a la
         // misma URL y deben quedarse aqui) y solo en la primera carga sin parametros
         // explicitos — si el GLOBAL navego a la bandeja a proposito (con filtros o
-        // ?force=1) no interceptamos.
+        // ?force=1) no interceptamos. El guard de arriba garantiza que llegamos aqui
+        // con almacenes visibles, asi que nuevaEntrada no rebotara hacia atras.
         if (
             $user !== null
             && ! $request->wantsJson()
@@ -73,22 +98,6 @@ class TraspasoController extends Controller
             && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta'])
         ) {
             return redirect()->route('almacen.recepcion.nueva');
-        }
-
-        // Una sola consulta: la usamos para (a) limitar el WHERE de la query, (b) llenar el
-        // dropdown del header y (c) validar el default-por-frente.
-        $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
-        $almacenesVisibles = $almacenes->pluck('ID_ALMACEN');
-
-        // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
-        // (Igual que AlmacenController::index/movimientos: un LOCAL sin almacen no puede
-        // recibir traspasos — mejor avisarle que falta configurar su frente que abrir una
-        // bandeja vacia sin acciones disponibles.)
-        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($user?->NIVEL_ACCESO ?? 0) === 2) {
-            return redirect()->route('menu')->with('flash_toast', [
-                'type'    => 'error',
-                'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
-            ]);
         }
 
         // Default suave del filtro "Almacén destino" — TODOS los usuarios (LOCAL y GLOBAL)
@@ -237,15 +246,21 @@ class TraspasoController extends Controller
 
         // 1) Almacén-por-frente del usuario (helper canónico del módulo).
         // 2) Fallback: primer almacén visible si el helper devolvió null pero hay almacenes.
-        // 3) Si no hay ninguno → bloqueamos el flujo (no tiene sentido cargar la pantalla).
+        // 3) Si no hay ninguno → redirigir al MENU (no a recepcion.index): el index()
+        //    de la bandeja redirige a GLOBAL devuelta hacia nuevaEntrada, lo que
+        //    formaba un loop infinito (`recepcion.index` ↔ `recepcion.nueva`) cuando
+        //    la BD esta vacia o el usuario no ve ningun almacen. El menu rompe el
+        //    ciclo y muestra el toast con la causa real.
         $idDest = $user?->almacenPorDefecto();
         $almacenDestino = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
         if (!$almacenDestino) {
             $almacenDestino = $almacenes->first();
         }
         if (!$almacenDestino) {
-            return redirect()->route('almacen.recepcion.index')
-                ->with('error', 'No tienes un almacén destino asignado para registrar entradas.');
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => 'No tienes un almacén destino asignado para registrar entradas. Avisa al administrador.',
+            ]);
         }
 
         // Productos activos con CODIGO/NOMBRE/UM: alimentan el autocomplete del
