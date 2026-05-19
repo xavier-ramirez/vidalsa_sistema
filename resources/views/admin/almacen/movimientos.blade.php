@@ -178,34 +178,39 @@
         #almMovFechasPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
 
         /* ══════════════════════════════════════════════
-           MOBILE LIST LAYOUT — Movimientos
-           Inspirado en stitch_elegant_mobile_card_redesign — patron de LISTA
-           densa con divisores en vez de tarjetas separadas con sombra. Cada
-           fila tiene 2 lineas visuales:
+           MOBILE CARD LAYOUT — Movimientos
+           Cada <tr> es una TARJETA INDEPENDIENTE (como /admin/equipos):
+           rounded, con sombra propia, separadas por gap. NO es una lista densa
+           con divisores — el cliente lo pidio explicitamente como cards.
              ┌────────────────────────────────────────────────────────┐
-             │ PRODUCT NAME (truncate)                       -10      │
+             │ Nombre completo del producto (wrap, no truncate)       │
+             │                                            +5 UND      │
              │ 📅 18/05/26   [NE-2026-0010]      📍 ASIGNACION UPATA  │
              └────────────────────────────────────────────────────────┘
-                                  ↓ divider 1px #f1f5f9
+             gap 10px
+             ┌────────────────────────────────────────────────────────┐
+             │ Otro producto ...                                      │
              ...
 
            Stock + Tipo OCULTOS en mobile (cantidad lleva color/signo que ya
-           comunica entrada/salida; stock resultante se ve en desktop). El
-           contenedor envuelve TODAS las filas con un solo borde redondeado +
-           sombra suave, en vez de cada tarjeta con la suya — patron Material
-           denser-list.
+           comunica entrada/salida; stock resultante se ve en desktop).
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
         .alm-mov-table {
             display: block !important;
             width: 100% !important;
-            background: #fff !important;
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 12px rgba(15,23,42,0.05) !important;
-            overflow: hidden !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
         }
-        .alm-mov-table tbody { display: block !important; width: 100% !important; }
+        .alm-mov-table tbody {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+            width: 100% !important;
+        }
 
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
@@ -215,19 +220,20 @@
                 "producto producto cantidad"
                 "fecha    ref      destino" !important;
             column-gap: 10px !important;
-            row-gap: 6px !important;
+            row-gap: 8px !important;
             background: #fff !important;
-            border: none !important;
-            border-bottom: 1px solid #f1f5f9 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.08) !important;
             margin: 0 !important;
             padding: 12px 14px !important;
             position: relative !important;
-            transition: background 0.15s ease !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
         }
-        .alm-mov-table tr.alm-mov-row:last-child { border-bottom: none !important; }
-        .alm-mov-table tr.alm-mov-row:active { background: #f8fafc !important; }
+        .alm-mov-table tr.alm-mov-row:active {
+            box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
+            transform: translateY(-1px) !important;
+        }
 
         /* Cada td: reset desktop, queda como grid cell */
         .alm-mov-table tr.alm-mov-row td {
@@ -249,41 +255,46 @@
         /* Tooltip del usuario tampoco aporta en mobile (no hay hover). */
         .alm-mov-table tr.alm-mov-row td .tooltip-bubble { display: none !important; }
 
-        /* Producto: titulo principal — bold, truncate single line.
-           El CODIGO inline (span con monospace) baja a 10.5px gris para que
-           quede como prefijo discreto y el nombre domine la linea. */
+        /* Producto: titulo principal — bold, MULTILINE (wrap, no truncate)
+           para que se vea el nombre COMPLETO. El cliente lo pidio explicito:
+           "la descripcion del producto debe salir completa". El CODIGO inline
+           (span con monospace) baja a 10px gris para no robar protagonismo. */
         .alm-mov-table tr.alm-mov-row td.mv-td-producto {
             grid-area: producto !important;
-            font-size: 14px !important;
+            font-size: 12.5px !important;
             font-weight: 600 !important;
             color: #0b1c30 !important;
-            line-height: 1.3 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
+            line-height: 1.35 !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
             display: block !important;
+            align-self: flex-start !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-producto span[style*="monospace"] {
-            font-size: 10.5px !important;
+            font-size: 10px !important;
             color: #64748b !important;
             font-weight: 700 !important;
             margin-right: 2px !important;
         }
 
-        /* Cantidad: numero grande a la derecha, color heredado del inline
-           (verde entrada / rojo salida). UM va pegada al numero. */
+        /* Cantidad: numero a la derecha, color heredado del inline
+           (verde entrada / rojo salida). UM va pegada al numero. Tamano
+           moderado (no acapara la tarjeta). */
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad {
             grid-area: cantidad !important;
-            font-size: 18px !important;
+            font-size: 14px !important;
             font-weight: 800 !important;
-            line-height: 1 !important;
+            line-height: 1.2 !important;
             justify-content: flex-end !important;
             justify-self: end !important;
+            align-self: flex-start !important;
             text-align: right !important;
             gap: 3px !important;
+            white-space: nowrap !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad span {
-            font-size: 11px !important;
+            font-size: 10.5px !important;
             font-weight: 600 !important;
         }
 
