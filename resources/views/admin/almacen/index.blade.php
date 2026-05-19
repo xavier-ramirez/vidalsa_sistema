@@ -1376,6 +1376,13 @@
         var n = parseInt(v, 10);
         return isFinite(n) && n > 0 ? n : null;
     })();
+    // Auto-seleccion en el primer render: si llegamos por URL con ?id_producto=NNN,
+    // marcamos la fila como si el usuario la hubiera clickeado (resaltado azul +
+    // entrada en almSeleccion). Asi el usuario llega listo para escribir cantidad
+    // y abrir la Nota de Entrega — sin el paso extra de "clic en la fila".
+    // Solo dispara UNA VEZ: tras el primer almSelApplyToVisible se pone en false
+    // para que clicks de deseleccion posteriores no se "deshagan" al recargar el tbody.
+    var _almPendingAutoSelect = (almBuscarPickedId != null);
 
     // Resuelve el valor "real" de un filtro con patron placeholder-background:
     //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active
@@ -1986,6 +1993,27 @@
     };
     // Re-pinta el resaltado azul + estado del input cantidad tras cada recarga AJAX del tbody.
     function almSelApplyToVisible() {
+        // Auto-seleccion desde URL (?id_producto=NNN): si es el primer render y la
+        // fila del producto pickeado esta en el tbody, la promovemos a almSeleccion
+        // antes de marcar las filas. Tras esto, _almPendingAutoSelect se apaga para
+        // que clicks de deseleccion posteriores no se reviertan en cada recarga.
+        if (_almPendingAutoSelect && almBuscarPickedId) {
+            var trPick = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almBuscarPickedId + '"]');
+            if (trPick && !almSeleccion[almBuscarPickedId]) {
+                almSeleccion[almBuscarPickedId] = {
+                    codigo: trPick.getAttribute('data-codigo') || '',
+                    nombre: trPick.getAttribute('data-nombre') || '',
+                    um:     trPick.getAttribute('data-um') || '',
+                    saldo:  parseFloat(trPick.getAttribute('data-saldo') || '0') || 0,
+                    cantidad: '',
+                };
+                almSelRefreshBar();
+            }
+            // Apagar el flag aunque la fila no haya aparecido (ej. backend filtro vacio)
+            // — sin esto, el siguiente almCargar() volveria a auto-seleccionar y se
+            // perderia la intencion del usuario.
+            _almPendingAutoSelect = false;
+        }
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
         });
