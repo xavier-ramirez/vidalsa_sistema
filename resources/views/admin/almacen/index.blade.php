@@ -240,15 +240,21 @@
            ocultan en pantallas chicas — catalogo.css:22 (≤768px) y
            estilos_globales.css:2924 (`.page-layout-grid .counter-sidebar`
            en ≤900px, mas especifica). Para ganarles la cascada usamos el
-           mismo selector compuesto. Va debajo del boton Acciones. */
+           mismo selector compuesto. Va debajo del boton Acciones.
+           margin-bottom evita que la tabla/tarjetas queden pegadas a la
+           caja del Consolidado (cliente reporto que se veian "super pegados"). */
         .page-layout-grid .counter-sidebar {
             display: flex !important;
             flex-direction: column !important;
             width: 100% !important;
             position: static !important;
             gap: 10px !important;
-            margin-top: 10px;
+            margin-top: 10px !important;
+            margin-bottom: 16px !important;
         }
+        /* Espacio entre la ultima tarjeta de la tabla y el wrapper "En otros
+           almacenes" que se mueve debajo en mobile — sin esto quedaban pegados. */
+        #almDistWrapper { margin-top: 16px !important; }
         /* Mismo redimensionamiento que /admin/equipos para el sidebar:
            tipografias mas chicas en pantallas de telefono. */
         .counter-sidebar [style*="font-size: 13px"] { font-size: 11px !important; }
