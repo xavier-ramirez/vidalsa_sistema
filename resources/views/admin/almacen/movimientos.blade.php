@@ -229,11 +229,20 @@
             margin: 0 !important;
             padding: 12px 14px !important;
             position: relative !important;
-            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease !important;
+            cursor: pointer !important;
         }
         .alm-mov-table tr.alm-mov-row:active {
             box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
             transform: translateY(-1px) !important;
+        }
+        /* Tarjeta SELECCIONADA — mismo patron de UX de /admin/equipos: borde
+           azul, fondo azul tenue, shadow tintada. Al seleccionar, revelamos
+           el chip NE-AAAA-NNNN que estaba oculto por defecto. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected {
+            border: 2px solid var(--maquinaria-blue, #0067b1) !important;
+            background-color: #f0f9ff !important;
+            box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
         }
 
         /* Cada td: reset desktop, queda como grid cell */
@@ -327,6 +336,10 @@
             font-weight: normal;
         }
 
+        /* Ref (chip NE-AAAA-NNNN + REFERENCIA): OCULTO POR DEFAULT en mobile.
+           Solo se muestra cuando la tarjeta esta seleccionada (.mv-row-selected).
+           Cliente pidio el mismo patron de UX que /admin/equipos: la info "extra"
+           del registro aparece solo al tocar la tarjeta. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
             grid-area: ref !important;
             justify-content: flex-start !important;
@@ -337,6 +350,10 @@
             flex-direction: row !important;
             flex-wrap: wrap !important;
             gap: 4px !important;
+            display: none !important;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
+            display: flex !important;
         }
         /* NUMERO_NOTA: chip con fondo suave, monospace, dato resaltado. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
@@ -768,6 +785,22 @@
         var a = e.target.closest('#almMovPagination a.page-link') || e.target.closest('#almMovPagination a');
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.loadMovimientos(a.href); }
     }, true);
+
+    // ── Seleccion de tarjeta en mobile (toggle azul + revela chip NE-AAAA-NNNN) ──
+    // Mismo patron de UX que /admin/equipos: tocar la tarjeta la resalta en azul y
+    // expone la info "extra" (en este caso el numero de Nota de Entrega). Single-
+    // select: tocar otra tarjeta des-resalta la anterior. El click sobre el <a>
+    // del NE lo dejamos pasar (early return) para que el PDF preview se abra
+    // sin togglear la seleccion.
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('a')) return;
+        var tr = e.target.closest('#almMovTableBody tr.alm-mov-row');
+        if (!tr) return;
+        document.querySelectorAll('#almMovTableBody tr.alm-mov-row.mv-row-selected').forEach(function (other) {
+            if (other !== tr) other.classList.remove('mv-row-selected');
+        });
+        tr.classList.toggle('mv-row-selected');
+    });
 
     // Panel de fechas
     window.almMovToggleFechas = function (ev) {
