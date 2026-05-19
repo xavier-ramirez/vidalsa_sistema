@@ -85,8 +85,11 @@
     #trFilters .tr-search-num  { flex:0 0 240px; max-width:240px; min-width:180px; position:relative; }
     /* Filtro "Buscar producto" por CODIGO/NOMBRE — busca en las LINEAS de los traspasos
        pendientes (no en el stock). Aparece la nota completa si CUALQUIERA de sus lineas
-       matchea, asi el usuario destino puede ubicar la entrada sin recordar el TR-####. */
-    #trFilters .tr-search-prod { flex:1 1 280px; max-width:320px; min-width:200px; position:relative; }
+       matchea, asi el usuario destino puede ubicar la entrada sin recordar el TR-####.
+       Ancho extra (vs los otros 2 filtros) porque su placeholder es largo
+       ("Buscar producto por código o descripción…") y el cliente lo pidio mas ancho
+       para escribir terminos completos sin que se vea apretado. */
+    #trFilters .tr-search-prod { flex:1 1 380px; max-width:520px; min-width:240px; position:relative; }
     /* Filtro "Almacén origen" — vive al lado del N° de nota (no en el panel avanzado).
        Ancho un poco mayor porque los nombres de almacenes pueden ser largos. */
     #trFilters .tr-origen      { flex:0 0 260px; max-width:260px; min-width:200px; }
