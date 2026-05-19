@@ -257,8 +257,7 @@
 
         /* Producto: titulo principal — bold, MULTILINE (wrap, no truncate)
            para que se vea el nombre COMPLETO. El cliente lo pidio explicito:
-           "la descripcion del producto debe salir completa". El CODIGO inline
-           (span con monospace) baja a 10px gris para no robar protagonismo. */
+           "la descripcion del producto debe salir completa". */
         .alm-mov-table tr.alm-mov-row td.mv-td-producto {
             grid-area: producto !important;
             font-size: 12.5px !important;
@@ -271,10 +270,16 @@
             display: block !important;
             align-self: flex-start !important;
         }
+        /* CODIGO + NOMBRE como UN SOLO TEXTO uniforme (mismo patron que
+           /admin/almacen mobile). El span del codigo tiene inline
+           font-family:monospace + color:#0f172a + font-weight:800; lo
+           forzamos a HEREDAR del td padre para que codigo y nombre se
+           vean identicos: misma fuente, mismo color, mismo peso. */
         .alm-mov-table tr.alm-mov-row td.mv-td-producto span[style*="monospace"] {
-            font-size: 10px !important;
-            color: #64748b !important;
-            font-weight: 700 !important;
+            font-family: inherit !important;
+            font-size: inherit !important;
+            color: inherit !important;
+            font-weight: inherit !important;
             margin-right: 2px !important;
         }
 
@@ -283,7 +288,7 @@
            moderado (no acapara la tarjeta). */
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad {
             grid-area: cantidad !important;
-            font-size: 14px !important;
+            font-size: 12.5px !important;
             font-weight: 800 !important;
             line-height: 1.2 !important;
             justify-content: flex-end !important;
@@ -294,7 +299,7 @@
             white-space: nowrap !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad span {
-            font-size: 10.5px !important;
+            font-size: 10px !important;
             font-weight: 600 !important;
         }
 
