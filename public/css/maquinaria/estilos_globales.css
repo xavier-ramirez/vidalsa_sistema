@@ -3086,3 +3086,164 @@ input:-webkit-autofill:active {
 .bulk-preview-table tbody tr:hover {
     background: #f7fafc;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   /admin/almacen/recepcion/nueva — Mobile responsive rules
+   ───────────────────────────────────────────────────────────────────────────
+   Movidas desde el <style> inline de nueva.blade.php porque el SPA
+   (navegacion.js) reemplaza solo .main-viewport.innerHTML — las reglas
+   @media dentro del <style> inline NO se aplican consistentemente al
+   hacer hard reload. El cliente reporto que "todo se ponia mas grande"
+   al recargar. Aqui, cargadas desde <head>, SOBREVIVEN tanto SPA nav
+   como F5.
+
+   Scopeadas con body:has(.ent-layout) — clase unica de esta vista para
+   no afectar otras paginas.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+    /* Bajo 1024px el layout 2-col se apila — la tabla ya consume todo el ancho
+       y comprimir el sidebar mas dejaria los botones pequenos. El sidebar
+       pierde su sticky (queda en flujo normal). */
+    body:has(.ent-layout) .ent-layout { grid-template-columns: 1fr; gap: 14px; }
+    body:has(.ent-layout) .ent-sidebar { position: static; top: auto; }
+}
+
+@media (max-width: 900px) {
+    /* Fila Datos: 4 cols → 2 cols (Nota+Proveedor arriba, Fecha+Bandeja abajo). */
+    body:has(.ent-layout) .ent-head-row { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+    /* Viewport global: padding lateral 8px (igual que /admin/almacen). */
+    body:has(.ent-layout) .main-viewport {
+        padding-left: 8px !important; padding-right: 8px !important;
+        width: 100% !important; max-width: 100vw !important;
+        box-sizing: border-box !important; padding-top: 12px !important;
+    }
+    /* Cards y sidebar comparten padding chico en mobile — los anchos internos
+       coinciden y la textarea/botones del sidebar alinean con la card de arriba. */
+    body:has(.ent-layout) .ent-card,
+    body:has(.ent-layout) .ent-sidebar { padding: 8px !important; }
+    /* Titulo de seccion centrado en mobile (pedido del cliente). */
+    body:has(.ent-layout) .ent-section-title { justify-content: center !important; text-align: center !important; }
+
+    /* page-title-card: titulo OCULTO, separador OCULTO, layout apilado para
+       que el bloque del Almacen ocupe todo el ancho. */
+    body:has(.ent-layout) .page-title-card .page-title { display: none !important; }
+    body:has(.ent-layout) .page-title-card .ent-header-sep { display: none !important; }
+    body:has(.ent-layout) .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+    /* ent-header-block: label "ALMACÉN" + pill blanca. Centramos el grupo
+       horizontalmente (justify-content:center) — antes quedaba flush-left por
+       el default flex-start, y como la pill no siempre se estira al 100% del
+       ancho disponible (depende de la longitud del nombre del almacen), el
+       conjunto se veia descentrado en el page-title-card de mobile. */
+    body:has(.ent-layout) .page-title-card .ent-header-block {
+        width: 100% !important; flex: 1 1 100% !important;
+        justify-content: center !important;
+    }
+    body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; }
+    body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── MOBILE CARD LAYOUT — Lineas de la recepcion ──
+       Cada <tr> se transforma en una tarjeta 2x2:
+           ┌──────────────────────────────┐
+           │ 01 · PRD-0042 NOMBRE         │  banner gris
+           ├──────────────────────────────┤
+           │ CANTIDAD 5.000 UND     [🗑] │
+           └──────────────────────────────┘
+       Calcado de .alm-row en /admin/almacen. */
+    body:has(.ent-layout) .ent-list-wrap { border: none !important; border-radius: 0 !important; overflow: visible !important; }
+    body:has(.ent-layout) .ent-list-table { display: block !important; }
+    body:has(.ent-layout) .ent-list-table thead { display: none !important; }
+    body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 12px !important; }
+    body:has(.ent-layout) .ent-list-table tbody tr {
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        grid-template-areas: "desc desc" "cant del" !important;
+        gap: 0 !important;
+        background: #fff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.08) !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr:hover td { background: transparent !important; }
+    body:has(.ent-layout) .ent-list-table tbody tr td {
+        display: flex !important;
+        align-items: center !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-num,
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-codigo { display: none !important; }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-desc {
+        grid-area: desc !important;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 9px 14px !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        line-height: 1.3 !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-desc::before {
+        content: attr(data-num) " · " attr(data-codigo) "  ";
+        white-space: pre;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-desc .ent-list-nom {
+        font-size: inherit !important;
+        font-weight: inherit !important;
+        color: inherit !important;
+        display: inline !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-cant {
+        grid-area: cant !important;
+        padding: 10px 8px 10px 14px !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+        justify-content: flex-start !important;
+        gap: 6px !important;
+        font-family: inherit !important;
+        text-align: left !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-cant::before {
+        content: "Cantidad";
+        font-size: 10px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-cant .ent-list-meta {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #475569 !important;
+        text-transform: uppercase !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-del {
+        grid-area: del !important;
+        padding: 8px 14px 8px 4px !important;
+        justify-content: flex-end !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Pantallas muy chicas: Nota y Proveedor full-width (1 fila c/u),
+       Fecha + Bandeja de Recepcion comparten la ultima fila 50/50. */
+    body:has(.ent-layout) .ent-head-row { grid-template-columns: 1fr 1fr; }
+    body:has(.ent-layout) .ent-head-row > :nth-child(1),
+    body:has(.ent-layout) .ent-head-row > :nth-child(2) { grid-column: 1 / -1; }
+    /* Captura: buscador full-width arriba, UM + Cantidad comparten la
+       segunda fila 50/50 — sino los 3 controles no entran. */
+    body:has(.ent-layout) .ent-capt-row { flex-wrap: wrap; }
+    body:has(.ent-layout) .ent-capt-row > .ent-search-field { flex: 1 1 100%; }
+    body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { flex: 1 1 0; width: auto; }
+    body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { flex: 1 1 0; width: auto; }
+}

@@ -50,26 +50,18 @@
     .ent-section-title i { font-size:16px; color:#0284c7; }
 
     /* Cabecera de "Datos de la entrada": Nota de entrega + Proveedor + Fecha +
-       boton "En transito". La pill del Almacen se muestra en el page-title-card
-       (al lado del titulo) — patron de /admin/almacen. La Observacion se removio
-       a pedido del cliente (2026-05-20). Los 4 items comparten 40px de alto. */
+       boton "Bandeja de Recepción". La pill del Almacen se muestra en el
+       page-title-card (al lado del titulo) — patron de /admin/almacen. La
+       Observacion se removio a pedido del cliente (2026-05-20). Los 4 items
+       comparten 40px de alto. */
     .ent-head-row { display:grid; grid-template-columns:1fr 1fr 160px auto; gap:10px; align-items:center; }
-    @media (max-width: 900px) { .ent-head-row { grid-template-columns:1fr 1fr; } }
-    @media (max-width: 480px) {
-        /* Mobile (≤480px): Nota y Proveedor toman ancho completo (1 fila c/u);
-           Fecha + En transito comparten la ultima fila lado a lado (50% c/u).
-           Pedido del cliente — antes los 4 items quedaban apilados en 1fr cada uno. */
-        .ent-head-row { grid-template-columns:1fr 1fr; }
-        .ent-head-row > :nth-child(1),                /* Nota de entrega */
-        .ent-head-row > :nth-child(2) {                /* Proveedor      */
-            grid-column: 1 / -1;
-        }
-        /* :nth-child(3) [Fecha] y :nth-child(4) [En transito] caen automaticamente
-           cada uno en una columna de la ultima fila. */
-    }
-    /* Boton "Envios en transito" dentro de la fila de datos — calibrado a la altura
-       de los .ent-input (40px) para alinearse. En mobile comparte fila con Fecha
-       (cada uno ocupa 50% via el grid de 2 columnas en el media query de 480px). */
+    /* Mobile responsive (≤900px y ≤480px) movido a estilos_globales.css —
+       scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
+       el SPA puede no aplicar consistentemente <style> inline en hard reload. */
+    /* Boton "Bandeja de Recepción" dentro de la fila de datos — calibrado a la
+       altura de los .ent-input (40px) para alinearse. En mobile comparte fila
+       con Fecha (cada uno ocupa 50% via el grid de 2 columnas en el media
+       query de 480px). */
     .ent-envios-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:40px; padding:0 16px; border-radius:10px; text-decoration:none; background:var(--maquinaria-blue,#0067b1); color:#fff; font-weight:700; font-size:13.5px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,103,177,0.18); transition:background .15s; }
     .ent-envios-btn:hover { background:#005391; }
     .ent-envios-btn i { font-size:20px; }
@@ -115,15 +107,7 @@
     /* Ancho fijo explícito: flex:0 0 100px impide que el search input
        (que tiene width:100% + padding) lo aplaste. */
     .ent-capt-row > .ent-cant-stepper { flex:0 0 100px; width:100px; }
-    /* En pantallas muy chicas (≤480px) buscador full-width arriba y UM + cantidad
-       comparten una segunda fila al 50% c/u — sino los 3 controles no entran y se
-       aplastan demasiado. */
-    @media (max-width: 480px) {
-        .ent-capt-row { flex-wrap: wrap; }
-        .ent-capt-row > .ent-search-field { flex: 1 1 100%; }
-        .ent-capt-row > .ent-um-wrap { flex: 1 1 0; width: auto; }
-        .ent-capt-row > .ent-cant-stepper { flex: 1 1 0; width: auto; }
-    }
+    /* Mobile responsive (≤480px) movido a estilos_globales.css. */
     /* Campo de UM — text input con autocomplete (mismo patron que el modal "Nuevo
        producto" de /admin/almacen). NO es un select con lista cerrada — el usuario
        puede escribir cualquier UM nueva (KG, ROLLO, M, M2, BARRIL, etc.) y queda
@@ -131,7 +115,7 @@
        en el catalogo (window.entUnidadesMedida) para favorecer reutilizacion. */
     .ent-um-wrap { position:relative; }
     .ent-um-input {
-        width:100%; height:42px; border:1px solid #cbd5e0; border-radius:10px;
+        width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px;
         padding:0 10px; font-size:13.5px; font-weight:700; color:#0f172a;
         background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
@@ -151,13 +135,13 @@
     .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
     .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
 
-    /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
-       position:relative para anclar tanto el badge de seleccion como las
-       sugerencias en absolute. */
-    .ent-search-field { position:relative; height:42px; }
+    /* Wrapper del buscador: altura fija 40px (= altura de .ent-input, UM y
+       stepper) y position:relative para anclar tanto el badge de seleccion
+       como las sugerencias en absolute. */
+    .ent-search-field { position:relative; height:40px; }
     /* box-sizing:border-box: los 50px de padding (38px izq + 12px der) quedan DENTRO
        del width:100%, sin desbordar el contenedor flex ni empujar al stepper. */
-    .ent-search-input { width:100%; box-sizing:border-box; height:42px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
+    .ent-search-input { width:100%; box-sizing:border-box; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
     .ent-search-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
     /* Badge de producto seleccionado: SE SUPERPONE al input via position:absolute
@@ -196,10 +180,10 @@
 
     /* Stepper de cantidad — clon del .alm-cant-stepper de /admin/almacen (variante
        "is-active"). En el modulo origen tiene height:30px porque vive dentro de una
-       celda de tabla apretada; aqui sube a 42px para igualar la altura del input
-       de busqueda — quedan visualmente alineados. Border-radius 10px para coincidir
-       con los otros campos. */
-    .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:42px; }
+       celda de tabla apretada; aqui sube a 40px para igualar la altura de .ent-input,
+       el campo UM y el buscador — quedan visualmente alineados. Border-radius 10px
+       para coincidir con los otros campos. */
+    .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:40px; }
     .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
     /* El input ocupa el espacio disponible dentro del stepper (100px - 24px botones - 2px borde = ~74px) */
     .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
@@ -231,28 +215,12 @@
     .ent-row-del-btn { background:none; border:none; cursor:pointer; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
     .ent-row-del-btn:hover { background:#fee2e2; }
 
-    /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
-       Titulo OCULTO, separadores OCULTOS, bloque del Almacen full-width.
-       Viewport con padding lateral chico (calcado del override que el global
-       hace para .page-layout-grid en estilos_globales.css:2962). */
-    @media (max-width: 768px) {
-        /* Viewport global: padding lateral 8px (igual que /admin/almacen) */
-        .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100vw !important; box-sizing: border-box !important; padding-top: 12px !important; }
-        /* Cards internas: padding reducido en mobile para ganar ancho de contenido */
-        .ent-card { padding: 8px !important; }
-        /* Titulo de seccion centrado en mobile (pedido del cliente). En desktop
-           queda alineado a la izquierda como en el resto de los modulos. */
-        .ent-section-title { justify-content: center !important; text-align: center !important; }
-
-        .page-title-card .page-title { display: none !important; }
-        .page-title-card .ent-header-sep { display: none !important; }
-        .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
-        .page-title-card .ent-header-block { width: 100% !important; flex: 1 1 100% !important; }
-        /* Almacen pill: ocupa lo que sobre del mini-label "Almacén" */
-        .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; }
-        .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    }
+    /* Responsive mobile (≤768px) — movido a estilos_globales.css scopeado con
+       body:has(.ent-layout). Incluye: viewport padding, card/sidebar padding,
+       page-title-card column layout, mobile CARD layout para .ent-list-table
+       (cada <tr> se convierte en tarjeta 2x2). NO poner @media aqui — el SPA
+       descarta los <style> inline al hacer hard reload (ver comentario en
+       estilos_globales.css:2298). */
 
     /* ── Layout 2-columnas: card principal (izq) + sidebar "Resumen de Recepción" (der) ──
        Inspirado en stitch design — la columna derecha aprovecha el espacio horizontal sobrante
@@ -265,57 +233,48 @@
         gap:18px;
         align-items: flex-start;
     }
-    @media (max-width: 1024px) {
-        /* Bajo 1024px se apila — la tabla ya consume todo el ancho disponible y
-           comprimir mas el sidebar solo dejaria los botones pequeños. */
-        .ent-layout { grid-template-columns: 1fr; gap:14px; }
-    }
-
     .ent-sidebar {
         background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px;
         box-shadow:0 4px 12px rgba(15,23,42,0.04);
         position:sticky; top:90px;
         display:flex; flex-direction:column; gap:14px;
     }
-    @media (max-width: 1024px) {
-        .ent-sidebar { position:static; top:auto; }
-    }
+    /* Mobile responsive (≤1024px): .ent-layout se apila a 1fr y .ent-sidebar
+       pierde el sticky — movido a estilos_globales.css. */
     .ent-sb-title {
         margin:0; padding-bottom:10px;
         font-size:16px; font-weight:700; color:#0f172a;
         border-bottom:1px solid #e2e8f0;
     }
-    .ent-sb-stats { display:flex; flex-direction:column; gap:10px; }
-    .ent-sb-row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; font-size:13.5px; }
-    .ent-sb-row .label { color:#64748b; flex:0 0 auto; }
-    /* `value` puede contener una sola cifra ("03") o el desglose por UM
-       ("30 UND · 5 KG"). text-align:right + flex:1 dejan que la cadena se
-       envuelva si fuera muy larga sin desbordar el sidebar. */
-    .ent-sb-row .value {
-        color:#0f172a; font-weight:800; font-size:14px;
-        font-variant-numeric:tabular-nums;
-        text-align:right; flex:1 1 auto; min-width:0;
-        line-height:1.35; word-break:break-word;
-    }
-    /* Caja "Observaciones" — fondo gris para diferenciarla del resto, textarea blanca dentro */
-    .ent-sb-obs-wrap { background:#f1f5f9; padding:10px 12px; border-radius:10px; }
-    .ent-sb-obs-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+    /* Bloque "Observaciones" — label sobre la textarea, ambos a 100% del ancho
+       del sidebar para alinear exactamente con los botones (Registrar / Cancelar).
+       Sin caja gris envolvente: la propia textarea blanca con borde define el
+       bloque visual. */
+    .ent-sb-obs-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
     .ent-sb-obs-input {
         width:100%; box-sizing:border-box;
-        border:1px solid #cbd5e0; border-radius:8px;
-        padding:8px 10px; font-size:13px;
-        background:#fff; outline:none; resize:vertical; min-height:60px;
-        font-family:inherit; color:#0f172a;
+        border:1px solid #cbd5e0; border-radius:10px;
+        padding:8px 12px; font-size:13px;
+        background:#fff; outline:none; resize:vertical; min-height:40px;
+        font-family:inherit; color:#0f172a; line-height:1.4;
     }
     .ent-sb-obs-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
 
     .ent-sb-actions { display:flex; flex-direction:column; gap:8px; }
+    /* Ambos botones del sidebar comparten dimensiones (height + font-size +
+       radius) para que se vean equilibrados verticalmente. La jerarquia
+       Primary/Secondary se transmite por color, peso y sombra — no por
+       tamano. */
+    .ent-sb-btn-primary,
+    .ent-sb-btn-secondary {
+        height:44px; width:100%;
+        border-radius:10px;
+        font-size:14px; font-weight:700; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; gap:6px;
+    }
     .ent-sb-btn-primary {
         background:var(--maquinaria-blue,#0067b1); color:#fff;
-        height:48px; width:100%;
-        border:none; border-radius:12px;
-        font-size:14.5px; font-weight:700; cursor:pointer;
-        display:flex; align-items:center; justify-content:center; gap:6px;
+        border:none;
         transition:background .15s, transform .1s;
         box-shadow:0 4px 8px -2px rgba(0,103,177,0.3);
     }
@@ -324,10 +283,7 @@
     .ent-sb-btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
     .ent-sb-btn-secondary {
         background:#fff; color:#475569;
-        height:42px; width:100%;
-        border:1px solid #cbd5e0; border-radius:10px;
-        font-size:13.5px; font-weight:700; cursor:pointer;
-        display:flex; align-items:center; justify-content:center; gap:6px;
+        border:1px solid #cbd5e0;
         transition:background .15s, color .15s, border-color .15s;
     }
     .ent-sb-btn-secondary:hover { background:#fee2e2; color:#dc2626; border-color:#fca5a5; }
@@ -358,13 +314,14 @@
              title="Fecha (default hoy)">
             <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
         </div>
-        {{-- Atajo a la BANDEJA de envios en transito. ?force=1 esquiva el redirect
-             del controller que manda al GLOBAL a /recepcion/nueva por default. --}}
+        {{-- Atajo a la BANDEJA DE RECEPCION (envios pendientes de confirmacion).
+             ?force=1 esquiva el redirect del controller que manda al GLOBAL a
+             /recepcion/nueva por default. --}}
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
            class="ent-envios-btn"
-           title="Ver los envíos en tránsito hacia otros almacenes pendientes de confirmación">
+           title="Ver la bandeja de recepción — envíos pendientes de confirmación">
             <i class="material-icons">local_shipping</i>
-            <span>En tránsito</span>
+            <span>Bandeja de Recepción</span>
         </a>
     </div>
 
@@ -445,8 +402,6 @@
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
 
-    {{-- Sin contador "N productos" debajo de la tabla — el sidebar derecho ya
-         muestra "Total Productos", duplicarlo aqui era ruido visual. --}}
 </div>
 
 {{-- ── Sidebar "Resumen de Recepción" ────────────────────────────────────
@@ -458,19 +413,16 @@
 <aside class="ent-sidebar">
     <h2 class="ent-sb-title">Resumen de Recepción</h2>
 
-    <div class="ent-sb-stats">
-        <div class="ent-sb-row">
-            <span class="label">Total Productos</span>
-            <span class="value" id="entSbTotalProd">0</span>
-        </div>
-    </div>
-
     {{-- Observaciones: texto libre que se anexa al payload (campo `notas`) junto a
          la "Nota de entrega" externa. Quedan en MovimientoInventario.NOTAS para
-         consulta posterior desde el kardex. --}}
-    <div class="ent-sb-obs-wrap">
-        <span class="ent-sb-obs-label">Observaciones</span>
-        <textarea id="entObservaciones" class="ent-sb-obs-input" rows="3"
+         consulta posterior desde el kardex. El wrap (.ent-sb-obs) es solo un
+         agrupamiento lógico sin estilos — junta label+textarea para que el flex
+         gap del sidebar (14px) las trate como una unidad y NO meta 14px entre
+         label y textarea. Sin background ni padding lateral: la textarea queda
+         al 100% del sidebar y alinea con los botones de abajo. --}}
+    <div class="ent-sb-obs">
+        <label for="entObservaciones" class="ent-sb-obs-label">Observaciones</label>
+        <textarea id="entObservaciones" class="ent-sb-obs-input" rows="2"
                   maxlength="500" placeholder="Añadir comentarios internos..."></textarea>
     </div>
 
@@ -876,15 +828,6 @@
     }
     function entRender() {
         var tb = el('entLineasTbody');
-        // Sidebar "Resumen de Recepción" — solo "Total Productos" (numero de lineas
-        // distintas, padded "0N" si n<10). El contador "Unidades Totales" fue
-        // removido (pedido del cliente 2026-05-19): sumar cantidades de UMs distintas
-        // no tiene sentido y desglosar el detalle ocupaba demasiado espacio del sidebar.
-        // Se ejecuta ANTES del posible early return del tbody vacio para que refleje 0
-        // cuando se borran todas las lineas.
-        var n = entLineas.length;
-        var sbProd = el('entSbTotalProd');
-        if (sbProd) sbProd.textContent = (n < 10 ? '0' : '') + n;
         if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
         // contexto suficiente y el usuario sabe que tiene que capturar arriba.
@@ -893,10 +836,15 @@
         // su propia columna (en negro, monospace); la columna "Descripcion" muestra
         // unicamente el nombre del producto para que se lea limpio sin el codigo encima.
         tb.innerHTML = entLineas.map(function (l, idx) {
+            var num = (idx + 1);
+            var numPad = (num < 10 ? '0' : '') + num;
+            // data-num + data-codigo en el td de descripcion: el CSS mobile los
+            // inyecta como prefijo via ::before para unificar "01 · PRD-0042 NOMBRE"
+            // en un solo banner gris (mismo patron que .alm-td-nombre en /admin/almacen).
             return '<tr data-idx="' + idx + '">'
-                +   '<td class="col-num">' + (idx + 1) + '</td>'
+                +   '<td class="col-num">' + num + '</td>'
                 +   '<td class="col-codigo">' + escHtml(l.codigo) + '</td>'
-                +   '<td><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
+                +   '<td class="col-desc" data-num="' + numPad + '" data-codigo="' + escHtml(l.codigo) + '"><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
                 +   '<td class="col-cant">' + escHtml(fmtCant(l.cantidad)) + ' <span class="ent-list-meta">' + escHtml(l.um) + '</span></td>'
                 +   '<td class="col-del"><button type="button" class="ent-row-del-btn" onclick="window.entRemoverLinea(' + idx + ')" title="Quitar"><i class="material-icons" style="font-size:20px;">delete</i></button></td>'
                 + '</tr>';
