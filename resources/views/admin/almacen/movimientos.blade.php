@@ -210,6 +210,12 @@
             width: 100% !important;
         }
 
+        /* Tarjeta UNIFORME — un solo tinte sutil para todas, look "modern card":
+           fondo blanco roto (#fbfcfe) con un gradient muy leve hacia blanco puro,
+           borde general suave (1px slate-200) y border-left de 3px en azul-slate
+           tenue (#cbd5e1) como acento minimalista. El color por tipo lo aporta
+           la pill (cuando se ve en desktop) y el signo +/- coloreado en la cantidad
+           (ENTRADA verde / SALIDA rojo) — la tarjeta NO necesita gritar. */
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
             grid-template-columns: 1fr auto !important;
@@ -220,40 +226,16 @@
                 "destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 4px !important;
-            background: #fff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-left: 4px solid #94a3b8 !important; /* color de cintilla — sobrescrito por data-tipo abajo */
+            background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%) !important;
+            border: 1px solid #e2e8f0 !important;
+            border-left: 3px solid #cbd5e1 !important;
             border-radius: 12px !important;
-            box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.08) !important;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06) !important;
             margin: 0 !important;
             padding: 12px 14px !important;
             position: relative !important;
             transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease !important;
             cursor: pointer !important;
-        }
-        /* Cintilla lateral + tinte de fondo suave segun TIPO del movimiento — pedido del
-           cliente para que las tarjetas no se vean todas blancas. Cada tipo lleva su color
-           coherente con la pill (que vive oculta en mobile). El tinte de fondo es muy
-           tenue (~5% alpha) para no saturar la lectura. */
-        .alm-mov-table tr.alm-mov-row[data-tipo="ENTRADA"] {
-            border-left-color: #16a34a !important;
-            background: linear-gradient(90deg, #f0fdf4 0%, #ffffff 35%) !important;
-        }
-        .alm-mov-table tr.alm-mov-row[data-tipo="SALIDA"] {
-            border-left-color: #dc2626 !important;
-            background: linear-gradient(90deg, #fef2f2 0%, #ffffff 35%) !important;
-        }
-        .alm-mov-table tr.alm-mov-row[data-tipo="AJUSTE"] {
-            border-left-color: #d97706 !important;
-            background: linear-gradient(90deg, #fff7ed 0%, #ffffff 35%) !important;
-        }
-        .alm-mov-table tr.alm-mov-row[data-tipo="TRASPASO_ENTRADA"] {
-            border-left-color: #0284c7 !important;
-            background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 35%) !important;
-        }
-        .alm-mov-table tr.alm-mov-row[data-tipo="TRASPASO_SALIDA"] {
-            border-left-color: #7c3aed !important;
-            background: linear-gradient(90deg, #faf5ff 0%, #ffffff 35%) !important;
         }
         .alm-mov-table tr.alm-mov-row:active {
             box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
