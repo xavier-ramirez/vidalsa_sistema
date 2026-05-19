@@ -90,11 +90,16 @@
        es .ent-search-field, que SÍ la tiene. Agregar position:relative
        al row creaba un stacking-context que acotaba el z-index del dropdown. */
     .ent-capt-row { display:flex; gap:10px; align-items:flex-start; flex-wrap:nowrap; }
-    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; }
+    /* Buscador de descripcion: absorbe el espacio sobrante pero con max-width para
+       que no domine cuando los campos UM y Cantidad necesitan respirar (pedido del
+       cliente 2026-05-19 — antes el buscador era flex:1 sin tope y se veia
+       desproporcionado al lado de un UM angosto). */
+    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; max-width: 520px; }
     /* Selector de UM entre el buscador y la cantidad. Se autocompleta al elegir un
        producto existente (queda disabled — no se cambia la UM de un producto del
-       catalogo) y se desbloquea cuando el usuario tipea un producto nuevo. */
-    .ent-capt-row > .ent-um-wrap { flex:0 0 90px; width:90px; }
+       catalogo) y se desbloquea cuando el usuario tipea un producto nuevo.
+       Ancho 120px: caben UMs largas como "BARRIL" o "C/U" sin truncar. */
+    .ent-capt-row > .ent-um-wrap { flex:0 0 120px; width:120px; }
     /* Ancho fijo explícito: flex:0 0 100px impide que el search input
        (que tiene width:100% + padding) lo aplaste. */
     .ent-capt-row > .ent-cant-stepper { flex:0 0 100px; width:100px; }
@@ -287,13 +292,6 @@
     .ent-sb-row { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; }
     .ent-sb-row .label { color:#64748b; }
     .ent-sb-row .value { color:#0f172a; font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; }
-    .ent-sb-status-pill {
-        display:inline-flex; align-items:center; gap:4px;
-        padding:3px 10px; border-radius:999px;
-        background:#d5e0f8; color:#3c475a;
-        font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
-    }
-    .ent-sb-status-pill i { font-size:14px; }
     /* Caja "Observaciones" — fondo gris para diferenciarla del resto, textarea blanca dentro */
     .ent-sb-obs-wrap { background:#f1f5f9; padding:10px 12px; border-radius:10px; }
     .ent-sb-obs-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
@@ -468,12 +466,6 @@
         <div class="ent-sb-row">
             <span class="label">Unidades Totales</span>
             <span class="value" id="entSbUnidades">0</span>
-        </div>
-        <div class="ent-sb-row">
-            <span class="label">Status</span>
-            <span class="ent-sb-status-pill" title="Mientras se captura, la entrada es un BORRADOR. Al confirmar pasa al kardex como ENTRADA registrada.">
-                <i class="material-icons">edit_note</i> Borrador
-            </span>
         </div>
     </div>
 
