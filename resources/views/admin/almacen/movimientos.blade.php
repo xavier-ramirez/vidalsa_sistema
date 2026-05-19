@@ -178,119 +178,187 @@
         #almMovFechasPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
 
         /* ══════════════════════════════════════════════
-           MOBILE CARD LAYOUT — Movimientos
-           Cada <tr> se convierte en una tarjeta GRID compacta:
-             ┌────────────────────────────────────────────┐
-             │ CODIGO: NOMBRE PRODUCTO                    │  ← producto (full row)
-             ├────────────────────────────────────────────┤
-             │ 18/05/2026                  [+ Entrada]    │  ← fecha | tipo
-             │ +5 UND      12 stock     NE-2026-0001      │  ← cantidad | stock | ref
-             ├────────────────────────────────────────────┤
-             │ DESTINO                                    │  ← destino (full row)
-             │ FRENTE NORTE                               │
-             └────────────────────────────────────────────┘
-           Cliente prefirio REF en la misma fila que cantidad/stock (es un dato
-           "duro" como ellos — numero + indicador, sin texto narrativo) y dejar
-           DESTINO solo en una fila completa (string mas largo, soporta nombre
-           del frente sin truncar). Solo destino lleva data-label visible:
-           cantidad/stock/ref/fecha/tipo son auto-explicativos.
+           MOBILE LIST LAYOUT — Movimientos
+           Inspirado en stitch_elegant_mobile_card_redesign — patron de LISTA
+           densa con divisores en vez de tarjetas separadas con sombra. Cada
+           fila tiene 2 lineas visuales:
+             ┌────────────────────────────────────────────────────────┐
+             │ PRODUCT NAME (truncate)                       -10      │
+             │ 📅 18/05/26   [NE-2026-0010]      📍 ASIGNACION UPATA  │
+             └────────────────────────────────────────────────────────┘
+                                  ↓ divider 1px #f1f5f9
+             ...
+
+           Stock + Tipo OCULTOS en mobile (cantidad lleva color/signo que ya
+           comunica entrada/salida; stock resultante se ve en desktop). El
+           contenedor envuelve TODAS las filas con un solo borde redondeado +
+           sombra suave, en vez de cada tarjeta con la suya — patron Material
+           denser-list.
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
-        .alm-mov-table, .alm-mov-table tbody { display: block !important; width: 100% !important; }
+        .alm-mov-table {
+            display: block !important;
+            width: 100% !important;
+            background: #fff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.05) !important;
+            overflow: hidden !important;
+        }
+        .alm-mov-table tbody { display: block !important; width: 100% !important; }
+
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
-            /* 3 columnas equitativas (1fr×3): cantidad / stock / ref siempre
-               reciben el mismo ancho. Si usaramos `auto` en la 3a columna un
-               REFERENCIA largo (raro pero posible: "Compra OC-XXXX Materiales
-               Frente N…") podia inflarla y comerse las otras dos celdas. Los
-               textos largos hacen wrap dentro de la columna en vez de romper. */
-            grid-template-columns: 1fr 1fr 1fr !important;
+            grid-template-columns: auto 1fr auto !important;
+            grid-template-rows: auto auto !important;
             grid-template-areas:
-                "producto producto producto"
-                "fecha    fecha    tipo"
-                "cantidad stock    ref"
-                "destino  destino  destino" !important;
-            gap: 4px 10px !important;
+                "producto producto cantidad"
+                "fecha    ref      destino" !important;
+            column-gap: 10px !important;
+            row-gap: 6px !important;
             background: #fff !important;
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 12px !important;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
-            margin-bottom: 10px !important;
-            padding: 8px 12px !important;
+            border: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 12px 14px !important;
             position: relative !important;
-            overflow: hidden;
+            transition: background 0.15s ease !important;
         }
-        /* Cada td: limpia border y padding desktop, queda como grid cell */
+        .alm-mov-table tr.alm-mov-row:last-child { border-bottom: none !important; }
+        .alm-mov-table tr.alm-mov-row:active { background: #f8fafc !important; }
+
+        /* Cada td: reset desktop, queda como grid cell */
         .alm-mov-table tr.alm-mov-row td {
             display: flex !important;
             align-items: center !important;
             border: none !important;
-            padding: 3px 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
             white-space: normal !important;
             box-sizing: border-box;
             min-width: 0;
         }
-        /* Asignacion de grid-area por celda */
-        .alm-mov-table tr.alm-mov-row td.mv-td-producto { grid-area: producto; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-fecha    { grid-area: fecha; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-tipo     { grid-area: tipo; justify-content: flex-end; text-align: right; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad { grid-area: cantidad; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-stock    { grid-area: stock; justify-content: center; text-align: center; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref      { grid-area: ref; justify-content: flex-end; text-align: right; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-destino  { grid-area: destino; }
 
-        /* Producto: titulo destacado — fondo claro, padding mayor, separador inferior */
-        .alm-mov-table tr.alm-mov-row td.mv-td-producto {
-            background: #f8fafc !important;
-            margin: -8px -12px 4px -12px !important;
-            padding: 8px 12px !important;
-            border-bottom: 1px solid #e2e8f0 !important;
-            font-size: 13.5px !important;
-            display: block !important;
-        }
-        /* La burbuja-tooltip del usuario no aporta en mobile (hover no existe). */
+        /* OCULTOS en mobile — tipo (cantidad ya lleva color/signo) + stock. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-tipo,
+        .alm-mov-table tr.alm-mov-row td.mv-td-stock { display: none !important; }
+
+        /* Tooltip del usuario tampoco aporta en mobile (no hay hover). */
         .alm-mov-table tr.alm-mov-row td .tooltip-bubble { display: none !important; }
 
-        /* Stock: sufijo "stock" suave para que el numero solo no sea ambiguo */
-        .alm-mov-table tr.alm-mov-row td.mv-td-stock::after {
-            content: " stock";
-            margin-left: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
+        /* Producto: titulo principal — bold, truncate single line.
+           El CODIGO inline (span con monospace) baja a 10.5px gris para que
+           quede como prefijo discreto y el nombre domine la linea. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-producto {
+            grid-area: producto !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            color: #0b1c30 !important;
+            line-height: 1.3 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            display: block !important;
         }
-        /* Ref: comparte fila con cantidad/stock. Stack vertical (NE-xxxx arriba y
-           REFERENCIA debajo) cuando vienen los dos, alineado a la derecha. Sin
-           label propio: "NE-AAAA-NNNN" es auto-explicativo. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-producto span[style*="monospace"] {
+            font-size: 10.5px !important;
+            color: #64748b !important;
+            font-weight: 700 !important;
+            margin-right: 2px !important;
+        }
+
+        /* Cantidad: numero grande a la derecha, color heredado del inline
+           (verde entrada / rojo salida). UM va pegada al numero. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad {
+            grid-area: cantidad !important;
+            font-size: 18px !important;
+            font-weight: 800 !important;
+            line-height: 1 !important;
+            justify-content: flex-end !important;
+            justify-self: end !important;
+            text-align: right !important;
+            gap: 3px !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad span {
+            font-size: 11px !important;
+            font-weight: 600 !important;
+        }
+
+        /* Meta-row (fila 2): fecha con icono | ref como chip | destino con icono.
+           Tipografia chica para no competir con producto + cantidad arriba. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha {
+            grid-area: fecha !important;
+            font-size: 11.5px !important;
+            color: #76777d !important;
+            font-weight: 500 !important;
+            white-space: nowrap !important;
+            gap: 4px !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha::before {
+            content: "calendar_today";
+            font-family: 'Material Icons';
+            font-size: 13px;
+            color: #c6c6cd;
+            font-weight: normal;
+        }
+
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            flex-direction: column !important;
-            align-items: flex-end !important;
-            gap: 1px !important;
+            grid-area: ref !important;
+            justify-content: flex-start !important;
+            font-size: 10.5px !important;
+            color: #64748b !important;
             min-width: 0;
             overflow: hidden;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
         }
-        /* Destino: fila completa al final de la tarjeta, label arriba + valor
-           abajo. Es el unico que conserva data-label (los demas son numericos
-           o pills auto-explicativas). */
+        /* NUMERO_NOTA: chip con fondo suave, monospace, dato resaltado. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
+            background: #eff4ff !important;
+            color: #0b1c30 !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+            font-family: monospace !important;
+            font-size: 10.5px !important;
+            font-weight: 700 !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+        }
+        /* REFERENCIA secundaria (si viene): texto chico gris al lado del chip. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
+            font-size: 10px !important;
+            color: #94a3b8 !important;
+            margin: 0 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100% !important;
+        }
+
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            border-top: 1px solid #f1f5f9 !important;
-            padding-top: 5px !important;
-            gap: 1px !important;
-            min-width: 0;
-            overflow: hidden;
-            text-align: left !important;
+            grid-area: destino !important;
+            justify-content: flex-end !important;
+            justify-self: end !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            color: #45464d !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 130px !important;
+            gap: 3px !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
-            content: attr(data-label);
-            font-size: 8.5px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: #94a3b8;
+            content: "location_on";
+            font-family: 'Material Icons';
+            font-size: 13px;
+            color: #c6c6cd;
+            font-weight: normal;
+            flex-shrink: 0;
         }
 
         /* Empty state: el <tr><td colspan="7"> del partial — sin tarjeta */
