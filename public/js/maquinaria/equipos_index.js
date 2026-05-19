@@ -934,15 +934,20 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             tableBody.style.opacity = '1';
         })
         .finally(() => {
-            // BUG reportado solo en la PWA instalada (chromium standalone, Windows):
-            // el preloader se quitaba ANTES de que la fila aparezca → blank → fila.
-            // Causa: .finally corre como microtask justo despues de .then; el renderNextChunk
-            // sincronicamente inserta el primer chunk en el DOM, pero el navegador todavia
-            // no ha commiteado un paint con esa insertion. En modo navegador el timing del
-            // paint y del fade-out (transicion 500ms con corte a display:none a 100ms del
-            // hidePreloader) coincidian por casualidad. En la PWA el fade-out arranca con
-            // el primer paint del preloader-en-fade sin haber pintado aun el row.
+            // BUG #1 (race-condition por aborto): si una peticion mas nueva ABORTO esta
+            // (loadEquipos llamada de nuevo antes de que terminara la primera), .finally
+            // de la peticion abortada corria igual y ocultaba el spinner — pero el fetch
+            // nuevo seguia en vuelo y aun no habia traido el equipo. Sintoma del usuario:
+            // "el spinner desaparece tan rapido que el equipo buscado todavia no esta".
+            // Fix: si esta peticion fue abortada, dejar el spinner — el .finally del
+            // fetch ganador lo va a ocultar cuando corresponda.
+            if (abortController.signal.aborted) return;
             //
+            // BUG #2 (PWA — solo en chromium standalone, Windows): el preloader se quitaba
+            // ANTES de que la fila aparezca → blank → fila. Causa: .finally corre como
+            // microtask justo despues de .then; renderNextChunk sincronicamente inserta el
+            // primer chunk en el DOM, pero el navegador todavia no ha commiteado un paint
+            // con esa insertion.
             // Fix: doble rAF. El primer rAF agenda la callback para el frame siguiente
             // (corre antes del layout/paint de ese frame); el segundo rAF la agenda para
             // el frame DESPUES del paint que ya tiene la fila — recien ahi arranca el
