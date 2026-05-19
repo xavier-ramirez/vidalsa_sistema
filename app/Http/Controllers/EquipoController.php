@@ -840,7 +840,10 @@ class EquipoController extends Controller
         $rowNum  = 6;
         $counter = 1;
 
-        $printEquipoRow = function($equipo, $isAnclado = false) use (&$sheet, &$rowNum, &$counter, &$printedIds, &$ancladoRows, $showFrenteCol, $colMap, $lastCol, &$printEquipoRow) {
+        // $colMap / $lastCol NO se capturan en el use del closure: antes los usaba el
+        // styling per-cell que vivia adentro; ahora ese styling vive en el bloque batch
+        // post-foreach (que SI los usa en el scope externo).
+        $printEquipoRow = function($equipo, $isAnclado = false) use (&$sheet, &$rowNum, &$counter, &$printedIds, &$ancladoRows, $showFrenteCol, &$printEquipoRow) {
             if (isset($printedIds[$equipo->ID_EQUIPO])) {
                 return;
             }
