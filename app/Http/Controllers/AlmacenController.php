@@ -647,17 +647,21 @@ class AlmacenController extends Controller
             ]);
         }
 
-        // Default suave del filtro de almacén:
-        //   - Si el cliente NO mandó un `id_almacen` con valor (primera vez que abre / link sin params /
-        //     ?id_almacen=) y el usuario tiene un almacén ligado a su frente → lo aplicamos.
-        //   - `id_almacen=all` o un valor explícito → se respetan.
-        // Usamos `filled` (no `has`) para que también aplique cuando el param viene en la URL pero vacío
-        // (caso edge si una navegación interna arma `?id_almacen=&search=X`).
-        // Validamos además que el default sea VISIBLE para el usuario — si por alguna razón el
-        // almacén ligado al frente quedó fuera de los visibles, no lo aplicamos (evita un filtro
-        // fantasma que oculta los movimientos del usuario).
-        if (!$request->filled('id_almacen') && ($idDef = $request->user()?->almacenPorDefecto())) {
-            if ($visiblesIds->contains((int) $idDef)) {
+        // Default suave del filtro de almacén — TODOS los usuarios abren con UN almacén
+        // preseleccionado, nunca con "Todos". El usuario que quiere ver todos elige el
+        // valor explicito (X o "Todos" en el dropdown).
+        //   1) Si el cliente mando id_almacen (filled), respetamos.
+        //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
+        //   3) Fallback: el PRIMER almacen visible — cubre usuarios GLOBAL sin frente
+        //      (super.admin) que sino abrian con "Todos" (no es lo que quiere el cliente).
+        // Validamos que el default sea VISIBLE para evitar un filtro fantasma que oculte
+        // los movimientos del usuario.
+        if (!$request->filled('id_almacen')) {
+            $idDef = $request->user()?->almacenPorDefecto();
+            if (!$idDef && $visiblesIds->isNotEmpty()) {
+                $idDef = (int) $visiblesIds->first();
+            }
+            if ($idDef && $visiblesIds->contains((int) $idDef)) {
                 $request->merge(['id_almacen' => $idDef]);
             }
         }
@@ -742,9 +746,14 @@ class AlmacenController extends Controller
         $almacenes   = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         $visiblesIds = $almacenes->pluck('ID_ALMACEN');
 
-        // Default-merge por almacén ligado al frente (mismo patrón que movimientos()).
-        if (!$request->filled('id_almacen') && ($idDef = $request->user()?->almacenPorDefecto())) {
-            if ($visiblesIds->contains((int) $idDef)) {
+        // Default-merge por almacén — TODOS los usuarios abren con UN almacén
+        // (mismo patron que movimientos()). 1) helper (frente), 2) fallback al primer visible.
+        if (!$request->filled('id_almacen')) {
+            $idDef = $request->user()?->almacenPorDefecto();
+            if (!$idDef && $visiblesIds->isNotEmpty()) {
+                $idDef = (int) $visiblesIds->first();
+            }
+            if ($idDef && $visiblesIds->contains((int) $idDef)) {
                 $request->merge(['id_almacen' => $idDef]);
             }
         }

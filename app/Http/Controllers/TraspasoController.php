@@ -91,21 +91,18 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Default suave del filtro "Almacén destino": si el cliente NO mandó valor (param ausente o
-        // vacío), preseleccionamos el almacén ligado al frente del usuario (ver Usuario::almacenPorDefecto).
-        // `id_almacen_destino=all` o un valor explícito → se respeta. `filled` (vs `has`) cubre el caso
-        // `?id_almacen_destino=` para que el default igual aplique.
-        // Solo aplicamos el default si el almacén está dentro de los visibles del usuario.
-        //
-        // Fallback adicional para usuarios LOCAL: si el helper devuelve null (caso raro:
-        // usuario LOCAL cuyo frente no tiene almacenes asociados en la tabla pivote, pero
-        // SI tiene almacenes visibles por otra ruta), preseleccionamos el primer visible.
-        // Esto garantiza que un LOCAL nunca abra la bandeja con "Todos" — siempre con SU
-        // almacén. Los GLOBAL sin frente siguen viendo "Todos" (es lo correcto: ellos NO
-        // tienen un "su almacen" — operan a nivel sistema).
+        // Default suave del filtro "Almacén destino" — TODOS los usuarios (LOCAL y GLOBAL)
+        // abren con UN almacén preseleccionado. Nunca con "Todos" por default. El usuario
+        // que quiere ver todos los almacenes destino lo elige explicito (X o "Todos" en el
+        // dropdown del header).
+        //   1) Si el cliente mando id_almacen_destino (filled), respetamos.
+        //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
+        //   3) Fallback: el PRIMER almacen visible — cubre GLOBAL sin frente (super.admin)
+        //      para que tambien arranque con UNO solo, no con "Todos".
+        // Validamos visibilidad para evitar un filtro fantasma.
         if (!$request->filled('id_almacen_destino')) {
             $idDef = $user?->almacenPorDefecto();
-            if (!$idDef && (int) ($user?->NIVEL_ACCESO ?? 0) === 2 && $almacenesVisibles->isNotEmpty()) {
+            if (!$idDef && $almacenesVisibles->isNotEmpty()) {
                 $idDef = (int) $almacenesVisibles->first();
             }
             if ($idDef && $almacenesVisibles->contains((int) $idDef)) {
