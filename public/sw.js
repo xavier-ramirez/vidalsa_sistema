@@ -13,7 +13,6 @@ const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 
 const PRECACHE_URLS = [
-    '/manifest.json',
     '/icons/icon-192.png',
     '/icons/icon-512.png'
 ];
@@ -44,7 +43,9 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
-    // Nunca cachear rutas dinámicas
+    // Nunca cachear rutas dinámicas NI el manifest (el manifest debe leerse fresco
+    // siempre: si cachea uno viejo, el navegador no detecta cambios en display_override
+    // / tab_strip y nunca activa el modo pestañas aunque reinstales el PWA).
     if (
         url.pathname.startsWith('/admin/') ||
         url.pathname.startsWith('/api/') ||
@@ -53,7 +54,8 @@ self.addEventListener('fetch', (event) => {
         url.pathname.includes('/export') ||
         url.pathname.includes('/acta-traslado') ||
         url.pathname === '/login' ||
-        url.pathname === '/logout'
+        url.pathname === '/logout' ||
+        url.pathname === '/manifest.json'
     ) {
         return;
     }
@@ -65,7 +67,6 @@ self.addEventListener('fetch', (event) => {
         url.pathname.startsWith('/fonts/') ||
         url.pathname.startsWith('/images/') ||
         url.pathname.startsWith('/img/') ||
-        url.pathname === '/manifest.json' ||
         url.pathname === '/favicon.png' ||
         url.pathname === '/favicon.ico';
 
