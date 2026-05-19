@@ -172,10 +172,14 @@
     .ent-suggest.open { display:block; }
     /* Sugerencias del dropdown: CODIGO + NOMBRE LADO A LADO (no apilados verticalmente).
        El codigo va fijo a la izquierda (no se encoge) y el nombre absorbe el resto
-       truncando con ellipsis si es largo — patron de autocompletes profesionales. */
+       truncando con ellipsis si es largo — patron de autocompletes profesionales.
+       AMBOS van en el MISMO color (#0f172a / slate-900) — pedido del cliente para
+       que la lista no se vea "bicolor" (codigo azul + descripcion gris). El codigo
+       sigue diferenciandose visualmente por la FUENTE monospace + peso/tamano,
+       sin necesidad de un tono distinto. */
     .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
-    .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0067b1; letter-spacing:.3px; flex:0 0 auto; white-space:nowrap; }
+    .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0f172a; letter-spacing:.3px; flex:0 0 auto; white-space:nowrap; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
 
