@@ -131,6 +131,31 @@ class TraspasoController extends Controller
         if ($request->filled('search')) {
             $q->where('NUMERO', 'like', '%' . trim((string) $request->input('search')) . '%');
         }
+        // Filtro por descripcion/codigo de producto: busca traspasos cuyas LINEAS contengan
+        // un producto que matchee. Util para que el usuario destino encuentre una nota
+        // pendiente buscando "DEXTRAN", "CABLE 4AWG" o un codigo PRD-####, sin tener que
+        // acordarse del numero TR-YYYY-NNNN. Tokenizado AND igual que /admin/almacen para
+        // que "CABLE 4" matchee "CABLE 4AWG" sin importar el orden.
+        if ($request->filled('search_producto')) {
+            $term = trim((string) $request->input('search_producto'));
+            $tokens = array_values(array_filter(preg_split('/\s+/', $term)));
+            if (!empty($tokens)) {
+                $q->whereHas('lineas.producto', function ($pq) use ($tokens) {
+                    foreach ($tokens as $tok) {
+                        $variantes = [$tok];
+                        if (mb_strlen($tok) > 3 && mb_strtoupper(mb_substr($tok, -1)) === 'S') {
+                            $variantes[] = mb_substr($tok, 0, -1);
+                        }
+                        $pq->where(function ($s) use ($variantes) {
+                            foreach ($variantes as $v) {
+                                $s->orWhere('productos_inventario.CODIGO', 'like', "%{$v}%")
+                                  ->orWhere('productos_inventario.NOMBRE', 'like', "%{$v}%");
+                            }
+                        });
+                    }
+                });
+            }
+        }
 
         if ($request->filled('desde')) {
             $q->whereDate('FECHA_ENVIO', '>=', $request->input('desde'))
@@ -174,13 +199,19 @@ class TraspasoController extends Controller
         $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
             ? (int) $request->input('id_almacen_destino')
             : null;
-        // NOTA: $productosLista YA NO se pasa a esta vista — el modal que lo usaba se
-        // movio a /admin/almacen/recepcion/nueva (ver nuevaEntrada() mas abajo).
+        // Catalogo de productos para alimentar el autocomplete del filtro
+        // "Buscar producto" (busca en las lineas de los traspasos pendientes).
+        // Solo CODIGO/NOMBRE — no necesitamos UM ni CATEGORIA en el dropdown.
+        $productosLista = ProductoInventario::activos()
+            ->orderBy('NOMBRE')
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE']);
+
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
             'almacenes'              => $almacenes,
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'numerosNotas'           => $numerosNotas,
+            'productosLista'         => $productosLista,
         ]);
     }
 

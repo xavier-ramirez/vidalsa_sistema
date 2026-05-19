@@ -20,8 +20,9 @@ use Illuminate\Support\Facades\DB;
  *     invariante para todo producto nuevo (loopea por todos los almacenes
  *     activos y llama a asegurarStock)
  *
- * UNIQUE constraint en almacen_stock(ID_ALMACEN, ID_PRODUCTO) NO existe a nivel BD,
- * pero el WHERE NOT EXISTS garantiza que NO insertamos duplicados.
+ * El UNIQUE constraint `uq_stock_alm_prod` sobre (ID_ALMACEN, ID_PRODUCTO) ya existe
+ * en almacen_stock — el WHERE NOT EXISTS es defensa adicional para que el INSERT
+ * nunca explote en violacion de unique aunque el unique se pierda en algun esquema.
  */
 return new class extends Migration {
     public function up(): void

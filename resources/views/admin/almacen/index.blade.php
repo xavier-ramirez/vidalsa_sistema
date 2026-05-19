@@ -1649,51 +1649,51 @@
         }
         function enEsteAlmacen(p) { return idsSet === null || !!idsSet[p.ID_PRODUCTO]; }
 
-        // Recorremos la lista una vez y clasificamos: matches en este almacén vs solo catálogo.
-        var matches = [];        // coinciden con el término Y estan en este almacén → se muestran
-        var soloCatalogo = 0;    // coinciden con el término PERO no estan en este almacén → contador
+        // Recorremos la lista una vez y recogemos TODOS los matches del catalogo (esten o no
+        // en este almacen). Razon (pedido del cliente 2026-05-19): si un producto existe en el
+        // sistema, debe SIEMPRE aparecer en la sugerencia — sino la gente cree que no esta
+        // registrado y crea duplicados. Los que no tienen fila en almacen_stock del almacen
+        // actual se marcan con un badge "sin stock aquí" pero IGUAL se pueden clickear.
+        // Con la invariante de storeProducto (asegurarStock para todos los almacenes activos)
+        // este caso debería ser raro, pero es defensa en profundidad por si un almacén nuevo
+        // se crea después de un producto o por importaciones legacy.
+        var matches = [];
         if (matcher.isEmpty) {
             for (var i = 0; i < lista.length && matches.length < 12; i++) {
-                if (enEsteAlmacen(lista[i])) matches.push(lista[i]);
+                matches.push(lista[i]);
             }
         } else {
-            for (var j = 0; j < lista.length; j++) {
+            for (var j = 0; j < lista.length && matches.length < 12; j++) {
                 var p = lista[j];
                 // Cada token (con su variante singular si aplica) debe aparecer en CODIGO o NOMBRE
                 // — concatenamos para que un token pueda matchear en cualquiera de los dos campos.
-                if (!matcher.hasMatch((p.CODIGO || '') + ' ' + (p.NOMBRE || ''))) continue;
-                if (enEsteAlmacen(p)) {
-                    if (matches.length < 12) matches.push(p);
-                } else {
-                    soloCatalogo++;
+                if (matcher.hasMatch((p.CODIGO || '') + ' ' + (p.NOMBRE || ''))) {
+                    matches.push(p);
                 }
             }
         }
 
         if (!matches.length) {
-            // Distinguimos los dos casos para que el usuario entienda por qué la tabla queda vacía:
-            //  • "Sin coincidencias"           → el término no matchea ningún producto del sistema.
-            //  • "Existen pero sin saldo aquí" → el catálogo tiene matches pero no en este almacén.
-            box.innerHTML = verTodoLink + (soloCatalogo > 0
-                ? '<div class="alm-suggest-empty">Existe en el catálogo, pero <strong>no tiene movimientos en este almacén</strong>.<br><span style="font-size:11.5px;color:#94a3b8;">Registra una entrada (Recepción) o un traspaso para que aparezca aquí.</span></div>'
-                : '<div class="alm-suggest-empty">Sin coincidencias.</div>');
+            box.innerHTML = verTodoLink + '<div class="alm-suggest-empty">Sin coincidencias.</div>';
         } else {
             // Mostrar SOLO el NOMBRE; data-pick guarda el NOMBRE para que escribir encima del
             // texto pegado siga produciendo coincidencias via LIKE %term% del backend.
+            // Badge "sin stock aquí" cuando el producto existe en el catalogo pero no en
+            // almacen_stock del almacen actual — el usuario sabe que existe y puede clickear
+            // igual (la tabla mostrara la fila si el backfill esta aplicado, o quedara vacia
+            // con un mensaje claro si todavía no se aplicó).
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
+                var sinStock = !enEsteAlmacen(p);
+                var badge = sinStock
+                    ? '<span style="font-size:10.5px;color:#94a3b8;margin-left:8px;font-weight:500;">• sin stock aquí</span>'
+                    : '';
                 // data-pid (ID_PRODUCTO) = match EXACTO al hacer clic; data-pick = nombre que
                 // se pega en el input para que se vea lo elegido y siga siendo editable.
                 return '<div class="alm-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-pick="' + nom + '" title="' + cod + '">'
-                     + '<span class="nom">' + nom + '</span></div>';
+                     + '<span class="nom">' + nom + '</span>' + badge + '</div>';
             }).join('');
-            // Pie informativo: si hay matches del catálogo no listados (porque no estan en este
-            // almacén), avisamos para que el usuario sepa que existen más opciones globalmente.
-            if (soloCatalogo > 0) {
-                html += '<div class="alm-suggest-empty" style="border-top:1px solid #f1f5f9;margin-top:4px;padding-top:8px;">'
-                      + '<span style="font-size:11.5px;color:#94a3b8;">+ ' + soloCatalogo + ' producto(s) coinciden pero no están en este almacén.</span></div>';
-            }
             box.innerHTML = html;
         }
         box.classList.add('open');

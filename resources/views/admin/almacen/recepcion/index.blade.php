@@ -11,6 +11,7 @@
     // el merge del controller no siempre llega al helper global al renderizar el Blade.
     $reqDestino    = $idAlmacenDestinoActivo ?? null;
     $reqSearch     = request('search');           // por NUMERO de nota de entrega
+    $reqSearchProd = request('search_producto');  // por CODIGO/NOMBRE de producto en las lineas
 
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
@@ -82,6 +83,10 @@
     /* Filtro de N° de nota: ancho fijo y compacto (es un código corto tipo TR-2026-0001,
        no necesita una caja larga). Tiene su propia lista de sugerencias debajo. */
     #trFilters .tr-search-num  { flex:0 0 240px; max-width:240px; min-width:180px; position:relative; }
+    /* Filtro "Buscar producto" por CODIGO/NOMBRE — busca en las LINEAS de los traspasos
+       pendientes (no en el stock). Aparece la nota completa si CUALQUIERA de sus lineas
+       matchea, asi el usuario destino puede ubicar la entrada sin recordar el TR-####. */
+    #trFilters .tr-search-prod { flex:1 1 280px; max-width:320px; min-width:200px; position:relative; }
     /* Filtro "Almacén origen" — vive al lado del N° de nota (no en el panel avanzado).
        Ancho un poco mayor porque los nombres de almacenes pueden ser largos. */
     #trFilters .tr-origen      { flex:0 0 260px; max-width:260px; min-width:200px; }
@@ -106,6 +111,10 @@
     }
     .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
+    /* Variante "producto": no monospace (el texto es la descripcion del producto, mas
+       largo y con espacios). El codigo va como label chico a la derecha. */
+    .tr-suggest-item.tr-suggest-prod { font-family:inherit; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .tr-suggest-item.tr-suggest-prod .tr-prod-cod { font-family:monospace; font-size:11px; font-weight:700; color:#64748b; flex:0 0 auto; }
     /* Tabla con el mismo estilo que /admin/equipos y /admin/almacen (.table-row-header style) */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .tr-table thead tr { background:#1e293b; }
@@ -126,8 +135,10 @@
            width:98% (estilos_globales.css:92). En /admin/almacen el global lo
            reduce a 8px porque tiene .page-layout-grid; aqui NO tenemos esa
            clase asi que replicamos el override para que el contenedor blanco
-           ocupe casi todo el ancho del telefono. */
-        .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100vw !important; box-sizing: border-box !important; padding-top: 12px !important; }
+           ocupe casi todo el ancho del telefono.
+           max-width:100% (no 100vw) — 100vw incluye el ancho de la scrollbar
+           vertical y deja el padding-right tapado, generando margen izq > der. */
+        .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding-top: 12px !important; }
         /* Contenedor blanco (.admin-card): padding interno chico y full-width */
         .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important; }
         /* Titulo + separador ocultos en mobile */
@@ -142,10 +153,12 @@
         #trFilters { gap: 8px !important; }
         /* Buscar N° de nota */
         #trFilters > .tr-search-num { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+        /* Buscar producto (por CODIGO/NOMBRE en las lineas de los traspasos pendientes) */
+        #trFilters > .tr-search-prod { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         /* Almacén origen (in-line al lado de N° de nota en desktop, full-width en mobile) */
         #trFilters > .tr-origen { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         /* Wrapper del boton Filtros Avanzados (div con position:relative;flex:0 0 auto inline) */
-        #trFilters > div:not(.tr-search-num):not(.tr-origen) { flex: 1 1 100% !important; width: 100% !important; }
+        #trFilters > div:not(.tr-search-num):not(.tr-search-prod):not(.tr-origen) { flex: 1 1 100% !important; width: 100% !important; }
         /* Boton dentro del wrapper: pasa de icono 45x45 a fila completa con icono centrado */
         #trFilters > div:not(.tr-search-num) > button { width: 100% !important; height: 45px !important; }
         /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
@@ -176,6 +189,22 @@
             <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
 
+        {{-- Filtro "Buscar producto" (por CODIGO o NOMBRE).
+             A diferencia del buscador de /admin/almacen (que busca en el STOCK del
+             almacen actual), ESTE busca en las LINEAS de los traspasos PENDIENTES
+             por confirmar. Util cuando el usuario destino sabe qué material está
+             esperando pero no recuerda el N° de la nota (TR-YYYY-NNNN). El backend
+             hace whereHas('lineas.producto', ...) con LIKE tokenizado. --}}
+        <div class="tr-item tr-search-prod">
+            <div class="tr-search-box {{ $reqSearchProd ? 'active' : '' }}">
+                <i class="material-icons lupa">inventory_2</i>
+                <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar producto por código o descripción…" value="{{ $reqSearchProd }}"
+                       oninput="window.trSearchProdInput()"
+                       onblur="setTimeout(function(){ var s=document.getElementById('trSearchProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
+            </div>
+            <div id="trSearchProdSuggest" class="tr-suggest"></div>
+        </div>
+
         {{-- Filtro "Almacén origen": antes vivia dentro del panel "Filtros Avanzados"; el
              cliente lo movio AL LADO del filtro de Nota de Entrega porque es un filtro
              que se usa MUY seguido.
@@ -194,7 +223,7 @@
             <div class="custom-dropdown" id="trOrigenDropdown" data-filter-type="id_almacen_origen" data-default-label="Todos los almacenes origen">
                 <input type="hidden" name="id_almacen_origen" data-filter-value value="{{ $origenSel ? $origenSel->ID_ALMACEN : '' }}">
                 <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $origenSel ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $origenSel ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">factory</i></span>
+                    <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">search</i></span>
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                            placeholder="{{ $origenSel ? $origenSel->NOMBRE : 'Todos los almacenes origen' }}"
                            style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
@@ -322,6 +351,12 @@
     // autocomplete sin pedir un endpoint extra.
     var TR_NUMEROS = @json($numerosNotas ?? []);
 
+    // Catalogo de productos para alimentar el autocomplete del filtro "Buscar
+    // producto". El usuario clickea una sugerencia y la tabla muestra SOLO las
+    // notas pendientes cuyas lineas incluyen ese producto. Tambien soporta tipear
+    // texto libre y presionar Enter — busca por CODIGO/NOMBRE en las lineas.
+    var TR_PRODUCTOS = @json($productosLista ?? []);
+
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
     // Lectura de los hidden inputs de los custom-dropdown (por atributo data-filter-value).
@@ -376,11 +411,82 @@
         window.trLoad();
     };
 
+    // ── Autocomplete del filtro "Buscar producto" ─────────────────────────
+    // Mismo patron de tokenizado AND + variante singular que /admin/almacen,
+    // matcheando contra CODIGO y NOMBRE concatenados — asi "CABLE 4" matchea
+    // "CABLE 4AWG" sin importar el orden. Hasta 10 sugerencias; clic elige el
+    // texto y dispara trLoad (el backend busca por CODIGO/NOMBRE en las lineas
+    // de las notas pendientes). Debounce de 400ms para typing libre.
+    window.trSearchProdInput = function () {
+        var input = el('trSearchProd');
+        var box   = el('trSearchProdSuggest');
+        if (!input || !box) return;
+        var q = String(input.value || '').trim().toUpperCase();
+
+        if (q === '') {
+            box.classList.remove('open');
+            clearTimeout(window._trSTP);
+            window._trSTP = setTimeout(window.trLoad, 400);
+            return;
+        }
+
+        // Tokenizado AND con variante singular (>3 letras, termina en S).
+        var tokens = q.split(/\s+/).filter(Boolean);
+        function expandirToken(t) {
+            var arr = [t];
+            if (t.length > 3 && t.charAt(t.length - 1) === 'S') arr.push(t.slice(0, -1));
+            return arr;
+        }
+        function matchProd(p) {
+            var hay = ((p.CODIGO || '') + ' ' + (p.NOMBRE || '')).toUpperCase();
+            for (var i = 0; i < tokens.length; i++) {
+                var variantes = expandirToken(tokens[i]);
+                var algunaMatch = false;
+                for (var j = 0; j < variantes.length; j++) {
+                    if (hay.indexOf(variantes[j]) !== -1) { algunaMatch = true; break; }
+                }
+                if (!algunaMatch) return false;
+            }
+            return true;
+        }
+
+        var matches = [];
+        for (var k = 0; k < TR_PRODUCTOS.length && matches.length < 10; k++) {
+            if (matchProd(TR_PRODUCTOS[k])) matches.push(TR_PRODUCTOS[k]);
+        }
+
+        if (matches.length === 0) {
+            box.innerHTML = '<div class="tr-suggest-empty">Sin coincidencias en el catálogo.</div>';
+        } else {
+            box.innerHTML = matches.map(function (p) {
+                var nom = String(p.NOMBRE || '').replace(/[<>&"']/g, '');
+                var cod = String(p.CODIGO || '').replace(/[<>&"']/g, '');
+                return '<div class="tr-suggest-item tr-suggest-prod" onclick="window.trSearchProdPick(\'' + nom.replace(/'/g, "\\'") + '\')">'
+                     +   '<span>' + nom + '</span>'
+                     +   '<span class="tr-prod-cod">' + cod + '</span>'
+                     + '</div>';
+            }).join('');
+        }
+        box.classList.add('open');
+
+        clearTimeout(window._trSTP);
+        window._trSTP = setTimeout(window.trLoad, 400);
+    };
+
+    window.trSearchProdPick = function (texto) {
+        var input = el('trSearchProd'); if (!input) return;
+        input.value = texto;
+        var box = el('trSearchProdSuggest'); if (box) box.classList.remove('open');
+        clearTimeout(window._trSTP);
+        window.trLoad();
+    };
+
     function params(pageUrl) {
         // El backend filtra siempre a "por recibir" (ENVIADO en almacenes visibles).
         // Aquí solo mandamos los filtros del UI (search/estado/origen/destino/fechas).
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
+        if (v('trSearchProd'))                             p.set('search_producto', v('trSearchProd'));
 
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
         // trOrigen ahora es un custom-dropdown (no <select>) — el valor vive en el
