@@ -175,7 +175,6 @@
     .alm-modal select.alm-nota-input { width:100%; height:38px; border:1px solid #cbd5e0; border-radius:7px; padding:0 10px; font-size:13.5px; background:#fff; outline:none; color:#0f172a; box-sizing:border-box; }
     .alm-modal input.alm-nota-input:focus,
     .alm-modal select.alm-nota-input:focus { border-color: var(--maquinaria-blue, #0067b1); }
-    .alm-pill { display: inline-block; background: #f1f5f9; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; color: #334155; }
     .alm-x { cursor: pointer; color: #94a3b8; }
     .alm-x:hover { color: #475569; }
 
@@ -796,10 +795,15 @@
             <i class="material-icons alm-x" onclick="almCerrar('almKardexProductoModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
-            {{-- Cabecera con info del producto + saldo en el almacén actual --}}
+            {{-- Cabecera con info del producto + saldo en el almacén actual.
+                 Codigo + nombre se renderizan como UN solo texto (cliente lo pidio):
+                 mismo color, mismo peso, mismo font — sin pill separador. El JS
+                 (almAbrirKardexProducto) setea almKpCodigo SOLO con el numero
+                 (sin "Cód: " prefix) para que se lea natural junto al nombre. --}}
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span class="alm-pill" id="almKpCodigo">—</span>
-                <strong id="almKpNombre" style="font-size:11.5px;color:#1e293b;flex:1;min-width:140px;"></strong>
+                <strong style="font-size:11.5px;color:#1e293b;flex:1;min-width:140px;font-weight:700;line-height:1.3;">
+                    <span id="almKpCodigo">—</span> <span id="almKpNombre"></span>
+                </strong>
                 <span style="font-size:10.5px;color:#64748b;">Stock actual: <strong id="almKpSaldo" style="color:#0f172a;font-size:11.5px;">0</strong> <span id="almKpUm" style="font-size:10px;color:#64748b;"></span></span>
             </div>
 
@@ -2338,7 +2342,7 @@
 
     window.almAbrirKardexProducto = function (idProducto, codigo, nombre, um, saldo) {
         window.__almKp = { idProducto: idProducto, tipo: '', desde: '', hasta: '' };
-        el('almKpCodigo').textContent = codigo ? ('Cód: ' + codigo) : 'Sin código';
+        el('almKpCodigo').textContent = codigo || '—';
         el('almKpNombre').textContent = nombre || '';
         el('almKpSaldo').textContent  = formatNum(saldo);
         el('almKpUm').textContent     = um || '';
