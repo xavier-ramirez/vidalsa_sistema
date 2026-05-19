@@ -335,17 +335,13 @@
            CADA celda lleva grid-area explicito — no auto-placement.
            ═══════════════════════════════════════════════════════════ */
 
-        .alm-table-wrap { overflow-x: visible !important; border: none !important; border-radius: 0 !important; }
+        .alm-table-wrap { overflow-x: visible !important; border: none !important; border-radius: 0 !important; background: transparent !important; }
         .alm-table { min-width: 0 !important; display: block !important; }
         .alm-table thead { display: none !important; }
-        .alm-table tbody { display: flex !important; flex-direction: column !important; gap: 10px !important; }
+        .alm-table tbody { display: flex !important; flex-direction: column !important; gap: 12px !important; }
 
         .alm-table tr.alm-row {
             display: grid !important;
-            /* col 1+2 = 1fr cada una (stepper a la izq, stock spans 1+2), col 3 = auto
-               (um pegado al stock, ancho minimo). En la fila stock, justify-content
-               flex-end alinea "5.000" al borde derecho de su celda de 2-cols, dejando
-               UND inmediatamente al lado. */
             grid-template-columns: 1fr 1fr auto !important;
             grid-template-areas:
                 "nombre nombre nombre"
@@ -353,13 +349,25 @@
                 "cant   cant   det" !important;
             gap: 0 !important;
             background: #fff !important;
-            border: 1px solid #e2e8f0 !important;
+            /* Sombra multi-capa moderna (mismo lenguaje visual de /admin/equipos):
+               una capa fina para la elevacion base + una capa difusa para profundidad. */
+            border: 1px solid #cbd5e1 !important;
             border-radius: 14px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.07) !important;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.08) !important;
             padding: 0 !important;
             overflow: hidden !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
         }
-        .alm-table tr.alm-row.alm-row-bajo { border-left: 4px solid #f59e0b !important; background: #fffbeb !important; }
+        /* Feedback tactil al presionar (mobile no tiene hover) — eleva la tarjeta */
+        .alm-table tr.alm-row:active {
+            box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
+            transform: translateY(-1px) !important;
+        }
+        .alm-table tr.alm-row.alm-row-bajo {
+            border-left: 4px solid #f59e0b !important;
+            background: #fffbeb !important;
+            box-shadow: 0 1px 3px rgba(245,158,11,0.10), 0 4px 12px rgba(245,158,11,0.12) !important;
+        }
 
         .alm-table tr.alm-row td {
             display: flex !important;
@@ -381,9 +389,9 @@
            El "00042 · " sale del atributo data-codigo del propio <td>. */
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
-            background: #f1f5f9 !important;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
             border-bottom: 1px solid #e2e8f0 !important;
-            padding: 8px 12px !important;
+            padding: 10px 14px !important;
             font-size: 13.5px !important;
             font-weight: 700 !important;
             color: #1e293b !important;
@@ -404,21 +412,30 @@
            accesible al filtrar o desde el modal de detalles). */
         .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
 
-        /* Fila 2: stock spans cols 1-2 (right-aligned) | um col 3.
-           Visual: "5.000 UND" como par pegado al borde derecho. */
+        /* Fila 2: stock spans cols 1-2 (label "STOCK" izq + valor der) | um col 3.
+           Visual: "STOCK     5.000 UND" — el label balancea el peso visual y la
+           tarjeta no se ve floja con la izquierda vacia. */
         .alm-table tr.alm-row td.alm-td-stock {
             grid-area: stock !important;
-            padding: 6px 4px 6px 12px !important;
+            padding: 10px 4px 10px 14px !important;
             font-size: 17px !important;
             font-weight: 800 !important;
             color: #0f172a !important;
-            justify-content: flex-end !important;
+            justify-content: space-between !important;
             gap: 4px !important;
             text-align: right !important;
         }
+        .alm-table tr.alm-row td.alm-td-stock::before {
+            content: "Stock";
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
         .alm-table tr.alm-row td.alm-td-um {
             grid-area: um !important;
-            padding: 6px 12px 6px 0 !important;
+            padding: 10px 14px 10px 0 !important;
             font-size: 12px !important;
             font-weight: 700 !important;
             color: #475569 !important;
@@ -431,13 +448,13 @@
            no se renderiza y det queda solo a la derecha (sin huecos raros). */
         .alm-table tr.alm-row td.alm-td-cant {
             grid-area: cant !important;
-            padding: 6px 12px 8px !important;
+            padding: 8px 14px 10px !important;
             border-top: 1px solid #f1f5f9 !important;
             justify-content: flex-start !important;
         }
         .alm-table tr.alm-row td.alm-td-det {
             grid-area: det !important;
-            padding: 6px 12px 8px !important;
+            padding: 8px 14px 10px !important;
             border-top: 1px solid #f1f5f9 !important;
             justify-content: flex-end !important;
         }
