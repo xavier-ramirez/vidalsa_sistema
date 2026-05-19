@@ -89,11 +89,41 @@
        IMPORTANTE: NO tiene position:relative — el anclaje del dropdown
        es .ent-search-field, que SÍ la tiene. Agregar position:relative
        al row creaba un stacking-context que acotaba el z-index del dropdown. */
-    .ent-capt-row { display:flex; gap:10px; align-items:flex-start; }
+    .ent-capt-row { display:flex; gap:10px; align-items:flex-start; flex-wrap:nowrap; }
     .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; }
+    /* Selector de UM entre el buscador y la cantidad. Se autocompleta al elegir un
+       producto existente (queda disabled — no se cambia la UM de un producto del
+       catalogo) y se desbloquea cuando el usuario tipea un producto nuevo. */
+    .ent-capt-row > .ent-um-wrap { flex:0 0 90px; width:90px; }
     /* Ancho fijo explícito: flex:0 0 100px impide que el search input
        (que tiene width:100% + padding) lo aplaste. */
     .ent-capt-row > .ent-cant-stepper { flex:0 0 100px; width:100px; }
+    /* En pantallas muy chicas (≤480px) buscador full-width arriba y UM + cantidad
+       comparten una segunda fila al 50% c/u — sino los 3 controles no entran y se
+       aplastan demasiado. */
+    @media (max-width: 480px) {
+        .ent-capt-row { flex-wrap: wrap; }
+        .ent-capt-row > .ent-search-field { flex: 1 1 100%; }
+        .ent-capt-row > .ent-um-wrap { flex: 1 1 0; width: auto; }
+        .ent-capt-row > .ent-cant-stepper { flex: 1 1 0; width: auto; }
+    }
+    /* Select de UM — same look que .ent-input pero estilo dropdown con caret custom. */
+    .ent-um-select {
+        width:100%; height:42px; border:1px solid #cbd5e0; border-radius:10px;
+        padding:0 24px 0 10px; font-size:13.5px; font-weight:700; color:#0f172a;
+        background:#fff; cursor:pointer; outline:none; box-sizing:border-box;
+        appearance:none; -webkit-appearance:none; -moz-appearance:none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 24 24'><path d='M7 10l5 5 5-5z'/></svg>");
+        background-repeat:no-repeat; background-position:right 6px center; background-size:14px;
+    }
+    .ent-um-select:focus { border-color:var(--maquinaria-blue,#0067b1); }
+    .ent-um-select:disabled { background-color:#f1f5f9; cursor:not-allowed; color:#475569; }
+
+    /* Contador "N productos" al lado del boton Registrar entrada. En desktop queda a la
+       izquierda del boton (justify-content space-between). En mobile el boton es full-width,
+       el contador queda arriba centrado. */
+    .ent-lineas-count { font-size:13px; color:#64748b; font-weight:700; padding:0 4px; }
+    .ent-lineas-count strong { color:#0f172a; font-weight:800; }
 
     /* Wrapper del buscador: altura fija 42px (= altura del stepper) y
        position:relative para anclar tanto el badge de seleccion como las
@@ -171,8 +201,8 @@
     .ent-row-del-btn { background:none; border:none; cursor:pointer; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
     .ent-row-del-btn:hover { background:#fee2e2; }
 
-    /* Botones del footer */
-    .ent-footer-bar { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; padding-top:14px; border-top:1px solid #e2e8f0; }
+    /* Botones del footer: counter "N productos" a la izquierda + boton a la derecha. */
+    .ent-footer-bar { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px; padding-top:14px; border-top:1px solid #e2e8f0; }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
        Titulo OCULTO, separadores OCULTOS, bloque del Almacen full-width.
@@ -195,16 +225,21 @@
         .page-title-card .ent-header-block .ent-dest-pill { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; }
         .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        /* Boton "Registrar entrada" en mobile: full-width + altura touch-friendly (48px)
-           para que sea facil tocarlo con el dedo. Antes quedaba a la derecha con ancho
-           segun contenido — incomodo en pantallas chicas. */
-        .ent-footer-bar { justify-content: stretch !important; }
+        /* Footer mobile: counter arriba CENTRADO, boton "Registrar entrada" abajo
+           full-width + altura touch-friendly (48px). Antes el boton quedaba a la
+           derecha con ancho segun contenido — incomodo en pantallas chicas. */
+        .ent-footer-bar {
+            flex-direction: column-reverse !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+        }
         .ent-footer-bar #entSubmit {
             width: 100% !important;
             height: 48px !important;
             font-size: 14.5px !important;
             justify-content: center !important;
         }
+        .ent-footer-bar .ent-lineas-count { text-align: center; }
     }
 </style>
 
@@ -269,7 +304,28 @@
             <div id="entSuggest" class="ent-suggest"></div>
         </div>
 
-        {{-- ── Columna 2: stepper de cantidad (RECONSTRUIDO) ── --}}
+        {{-- ── Columna 2: Unidad de Medida (UM) ──
+             Cuando el usuario elige un producto del catalogo, el select se completa con
+             su UM y queda DISABLED (la UM del producto no se cambia desde aqui).
+             Cuando el usuario tipea un producto NUEVO (no esta en el catalogo), el select
+             queda habilitado para que elija la UM antes de presionar Enter.
+             Esto reemplaza al mini-modal anterior que pedia la UM al crear producto. --}}
+        <div class="ent-um-wrap" title="Unidad de medida">
+            <select id="entUm" class="ent-um-select" aria-label="Unidad de medida">
+                <option value="UND">UND</option>
+                <option value="KG">KG</option>
+                <option value="L">L</option>
+                <option value="M">M</option>
+                <option value="M2">M²</option>
+                <option value="M3">M³</option>
+                <option value="CAJA">CAJA</option>
+                <option value="PAR">PAR</option>
+                <option value="ROLLO">ROLLO</option>
+                <option value="GAL">GAL</option>
+            </select>
+        </div>
+
+        {{-- ── Columna 3: stepper de cantidad (RECONSTRUIDO) ── --}}
         {{-- flex:0 0 auto + min-width:114px garantizan que nunca baje a una segunda
              fila ni se encoja. Se ancla al top del buscador (align-items:flex-start). --}}
         <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
@@ -304,6 +360,9 @@
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
 
     <div class="ent-footer-bar">
+        {{-- Counter del total de productos agregados a la tabla. Se actualiza desde
+             entRender() cada vez que cambia entLineas (push / merge / remove). --}}
+        <span class="ent-lineas-count" id="entLineasCount"><strong>0</strong> productos</span>
         <button type="button" class="btn-primary-maquinaria" id="entSubmit" onclick="window.entGuardar()" style="height:42px;padding:0 22px;display:inline-flex;align-items:center;gap:6px;">
             <i class="material-icons" style="font-size:18px;">save</i> Registrar entrada
         </button>
@@ -403,6 +462,9 @@
     function entSuggestHide() { var b = el('entSuggest'); if (b) b.classList.remove('open'); }
 
     // Elegir sugerencia: pinta el badge, oculta el dropdown, salta a Cantidad.
+    // Tambien sincroniza el select de UM con la UM del producto y lo bloquea
+    // (la UM de un producto del catalogo no se modifica desde esta pantalla —
+    // ya viene definida en /admin/almacen).
     function entPick(item) {
         entSelected = {
             id_producto: parseInt(item.getAttribute('data-id'), 10),
@@ -419,6 +481,26 @@
         inp.style.display = 'none';
         badge.classList.add('show');
         entSuggestHide();
+
+        // Sincronizar el select de UM con la UM del producto. Si la UM no esta en
+        // las opciones predefinidas (UND, KG, L, ...), la agregamos al vuelo para
+        // que el control la muestre correctamente. Luego lo dejamos disabled.
+        var umSel = el('entUm');
+        if (umSel && entSelected.um) {
+            var found = false;
+            for (var i = 0; i < umSel.options.length; i++) {
+                if (umSel.options[i].value === entSelected.um) { found = true; break; }
+            }
+            if (!found) {
+                var opt = document.createElement('option');
+                opt.value = entSelected.um;
+                opt.textContent = entSelected.um;
+                umSel.appendChild(opt);
+            }
+            umSel.value = entSelected.um;
+            umSel.disabled = true;
+        }
+
         // Saltar a cantidad para captura rapida: codigo → enter → cantidad → enter.
         setTimeout(function () { var c = el('entCant'); if (c) c.focus(); }, 30);
     }
@@ -430,6 +512,13 @@
         entSelected = null;
         el('entSelectedBadge').classList.remove('show');
         var inp = el('entSearch'); inp.style.display = ''; inp.value = '';
+        // Re-habilitar y resetear el select de UM para la siguiente captura
+        // (queda en UND como default — el usuario lo cambia si registra producto nuevo).
+        var umSel = el('entUm');
+        if (umSel) {
+            umSel.disabled = false;
+            umSel.value = 'UND';
+        }
         if (clearAfterAdd) entSkipNextSuggest = true;
         inp.focus();
     };
@@ -505,46 +594,10 @@
         el('entCant').value = '';
     }
 
-    // Antes de crear un producto al vuelo, abrimos un mini-modal (window.showModal)
-    // para que el usuario elija la UNIDAD DE MEDIDA. Antes se creaba siempre con
-    // UM='UND' silenciosamente; el cliente pidio (2026-05-20) elegirla explicitamente
-    // al registrar producto desde Recepcion ODC.
-    function entCrearProductoYAgregar(nombre, cant) {
-        if (entCreandoProducto) return;
-        // UMs mas comunes en inventario — orden por frecuencia de uso esperada.
-        var UM_OPTIONS = ['UND','KG','L','M','M2','M3','CAJA','PAR','ROLLO','GAL'];
-        var selectHtml = '<select id="entNewUmPicker" style="width:100%;padding:8px 10px;border:1px solid #cbd5e0;border-radius:8px;font-size:14px;background:#fff;outline:none;color:#0f172a;font-weight:600;">'
-            + UM_OPTIONS.map(function (u) { return '<option value="' + u + '">' + u + '</option>'; }).join('')
-            + '</select>';
-        var msg = '<div style="text-align:left;font-size:13.5px;line-height:1.45;">'
-            +    '<div style="margin-bottom:10px;">El producto <strong>"' + escHtml(nombre) + '"</strong> no esta en el catalogo.</div>'
-            +    '<div style="font-size:11.5px;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.5px;margin-bottom:4px;">Unidad de medida</div>'
-            +    selectHtml
-            +  '</div>';
-        if (typeof window.showModal !== 'function') {
-            // Fallback si por alguna razon showModal no esta cargado — UM=UND.
-            entDoCreateProducto(nombre, cant, 'UND');
-            return;
-        }
-        window.showModal({
-            type:        'info',
-            title:       'Producto nuevo',
-            message:     msg,
-            confirmText: 'Crear y agregar',
-            cancelText:  'Cancelar',
-            onConfirm: function () {
-                var sel = document.getElementById('entNewUmPicker');
-                var um = sel ? String(sel.value || '').trim() : 'UND';
-                if (!um) um = 'UND';
-                entDoCreateProducto(nombre, cant, um);
-            },
-            onCancel: function () {
-                var i = el('entSearch'); if (i) i.focus();
-            }
-        });
-    }
-
     // POST al endpoint almacen.productos.store con el UM elegido por el usuario.
+    // La UM ya viene del select #entUm en la fila de captura (entAgregar la lee y
+    // la pasa). Antes esto se hacia via un mini-modal aparte — removido por
+    // redundancia ahora que UM esta in-line en la fila de captura.
     // Al volver con el id real del backend, lo insertamos a entLineas como una
     // linea mas y al catalogo en memoria (PRODUCTOS) para que aparezca en
     // busquedas posteriores sin recargar la pagina.
@@ -609,10 +662,15 @@
             return;
         }
         // Caso 2: el usuario tipeo algo que no esta en el catalogo → registrar
-        // producto nuevo al vuelo (codigo auto, UM=UND) y agregar la linea.
+        // producto nuevo al vuelo. La UM se toma del select #entUm (el usuario la eligio
+        // antes de presionar Enter). Reemplaza al mini-modal que antes pedia la UM en
+        // un dialogo aparte — ahora la UM esta in-line en la fila de captura.
         var textoBuscador = String(el('entSearch').value || '').trim();
         if (textoBuscador.length >= 2) {
-            entCrearProductoYAgregar(textoBuscador, cant);
+            var umSel = el('entUm');
+            var um = umSel ? String(umSel.value || 'UND').trim() : 'UND';
+            if (!um) um = 'UND';
+            entDoCreateProducto(textoBuscador, cant, um);
             return;
         }
         // Caso 3: ni hay seleccion ni texto util → pedir descripcion.
@@ -630,7 +688,15 @@
         return String(parseFloat(Number(n).toFixed(3)));
     }
     function entRender() {
-        var tb = el('entLineasTbody'); if (!tb) return;
+        var tb = el('entLineasTbody');
+        // Counter del footer "N productos". Se actualiza ANTES del posible early return
+        // del tbody vacio para que el contador refleje 0 cuando se borran todas las lineas.
+        var counter = el('entLineasCount');
+        if (counter) {
+            var n = entLineas.length;
+            counter.innerHTML = '<strong>' + n + '</strong> ' + (n === 1 ? 'producto' : 'productos');
+        }
+        if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
         // contexto suficiente y el usuario sabe que tiene que capturar arriba.
         if (entLineas.length === 0) { tb.innerHTML = ''; return; }
