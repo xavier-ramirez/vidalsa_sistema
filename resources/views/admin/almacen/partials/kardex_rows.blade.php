@@ -58,12 +58,19 @@
                  queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
             <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="font-weight:700;white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
             <td class="mv-td-destino" data-label="Destino">
-                {{-- Mostrar el FRENTE primero (es lo que el operario eligió como destino real);
-                     si no hay frente (traspasos legacy o movimientos sin frente), caer al almacén contraparte. --}}
+                {{-- Cadena de fallback para el Destino del movimiento:
+                     1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con frente).
+                     2) Almacén CONTRAPARTE (caso traspasos legacy o sin frente).
+                     3) Almacén DEL MOVIMIENTO (caso STOCK INICIAL u otra ENTRADA en un almacén
+                        sin frentes asignados — antes salía "—" sin info útil; ahora vemos al
+                        menos en qué almacén cayó el stock).
+                     4) "—" si por alguna razón nada de lo anterior está. --}}
                 @if($m->frente)
                     {{ $m->frente->NOMBRE_FRENTE }}
                 @elseif($m->ID_ALMACEN_CONTRAPARTE)
                     {{ $m->almacenContraparte?->NOMBRE ?? '—' }}
+                @elseif($m->almacen)
+                    {{ $m->almacen->NOMBRE }}
                 @else
                     —
                 @endif
