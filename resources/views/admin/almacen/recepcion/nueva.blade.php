@@ -673,10 +673,23 @@
     function entDoCreateProducto(nombre, cant, um) {
         entCreandoProducto = true;
         if (window.showPreloader) window.showPreloader();
+        // IMPORTANTE: mandamos id_almacen aunque NO haya cantidad inicial — el backend
+        // (AlmacenController::storeProducto) llama a asegurarStock() que crea la fila
+        // almacen_stock con CANTIDAD=0 si no existia. Sin esto, el producto creado al
+        // vuelo quedaba en el catalogo pero INVISIBLE en /admin/almacen (autocomplete
+        // filtra por productosEnAlmacen) y en la tabla del inventario (INNER JOIN con
+        // almacen_stock). cantidad_inicial=0 explicito para que el backend no dispare
+        // el check de permiso almacen.movimiento (que solo aplica cuando cant > 0).
+        var idAlmacenForm = v('entAlmacen');
+        var body = { NOMBRE: nombre, UM: um };
+        if (idAlmacenForm) {
+            body.id_almacen      = parseInt(idAlmacenForm, 10);
+            body.cantidad_inicial = 0;
+        }
         fetch(ROUTE_PROD, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ NOMBRE: nombre, UM: um }),
+            body: JSON.stringify(body),
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {

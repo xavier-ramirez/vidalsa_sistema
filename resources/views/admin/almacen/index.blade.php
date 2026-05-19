@@ -2782,6 +2782,22 @@
                     } else {
                         // CREACION: agregar al final
                         window.almProductosLista.push(entry);
+
+                        // Ademas, si la creacion paso id_almacen al backend, ya hay fila en
+                        // almacen_stock con CANTIDAD=0 — espejamos eso en el cache en memoria
+                        // (window.almProductosEnAlmacen) para que el filtro enEsteAlmacen()
+                        // del autocomplete reconozca el producto INMEDIATAMENTE (sin esperar
+                        // a un F5). Sin este push, el producto aparecia como "Existe en el
+                        // catalogo pero no tiene movimientos en este almacen" hasta recargar.
+                        if (idAlmacen && window.almProductosEnAlmacen && typeof window.almProductosEnAlmacen === 'object') {
+                            var keyAlm = String(idAlmacen);
+                            if (!Array.isArray(window.almProductosEnAlmacen[keyAlm])) {
+                                window.almProductosEnAlmacen[keyAlm] = [];
+                            }
+                            if (window.almProductosEnAlmacen[keyAlm].indexOf(p.ID_PRODUCTO) === -1) {
+                                window.almProductosEnAlmacen[keyAlm].push(p.ID_PRODUCTO);
+                            }
+                        }
                     }
                 }
 
