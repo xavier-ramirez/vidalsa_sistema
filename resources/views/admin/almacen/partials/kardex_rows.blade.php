@@ -41,7 +41,11 @@
                  acaparen visualmente la fila — son la única columna con texto extenso. --}}
             <td class="col-producto mv-td-producto" data-label="Producto" style="font-weight:600;font-size:12.5px;">
                 @if($m->producto?->CODIGO)
-                    <span style="font-family:monospace;font-weight:800;color:#0f172a;">{{ $m->producto->CODIGO }}:</span>
+                    {{-- Sin ":" al final: queremos "00042 NOMBRE" como un texto continuo
+                         (mismo patron unificado que /admin/almacen mobile). El monospace
+                         del codigo se mantiene SOLO en desktop — en mobile la regla CSS
+                         lo fuerza a heredar el font del padre. --}}
+                    <span style="font-family:monospace;font-weight:800;color:#0f172a;">{{ $m->producto->CODIGO }}</span>
                 @endif
                 {{ $m->producto?->NOMBRE ?? '—' }}
                 <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
