@@ -933,9 +933,18 @@
     };
 
     // Cerrar nuestros paneles personalizados si se abre un .custom-dropdown estándar
+    // FUERA del panel. Antes este handler cerraba el panel SIEMPRE que se clickee
+    // un .dropdown-trigger — bug: el filtro "Tipo" vive DENTRO del panel y su
+    // trigger es un .dropdown-trigger tambien, asi que al tocarlo el panel se
+    // cerraba antes de que su lista pudiera abrirse. Ahora solo cerramos si el
+    // trigger esta FUERA del contenedor correspondiente.
     document.addEventListener('click', function (e) {
-        if (e.target.closest('.dropdown-trigger')) {
+        var t = e.target.closest('.dropdown-trigger');
+        if (!t) return;
+        if (!t.closest('#almMovFechasPanel')) {
             var p = el('almMovFechasPanel'); if (p) p.style.display = 'none';
+        }
+        if (!t.closest('#splitDropdownMenuMovInv')) {
             var m = el('splitDropdownMenuMovInv'); if (m) m.style.display = 'none';
         }
     }, true);
