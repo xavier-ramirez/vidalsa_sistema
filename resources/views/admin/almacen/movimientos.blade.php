@@ -212,10 +212,15 @@
 
         /* Tarjeta UNIFORME — un solo tinte sutil para todas, look "modern card":
            fondo blanco roto (#fbfcfe) con un gradient muy leve hacia blanco puro,
-           borde general suave (1px slate-200) y border-left de 3px en azul-slate
-           tenue (#cbd5e1) como acento minimalista. El color por tipo lo aporta
-           la pill (cuando se ve en desktop) y el signo +/- coloreado en la cantidad
-           (ENTRADA verde / SALIDA rojo) — la tarjeta NO necesita gritar. */
+           borde general suave SIMETRICO (1px slate-200 en los 4 lados) + acento
+           visual izquierdo via `box-shadow: inset 3px 0 0` que NO afecta el layout
+           — antes usabamos `border-left: 3px` que generaba 2px de desbalance
+           horizontal vs el border-right de 1px y la tarjeta se veia ligeramente
+           desplazada al lado derecho en mobile.
+
+           overflow:hidden importante: la banda gris del destino (mv-td-destino)
+           usa margins negativos para extenderse hasta los bordes internos; sin
+           overflow:hidden esos margins se "salian" del card. */
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
             grid-template-columns: 1fr auto !important;
@@ -228,17 +233,23 @@
             row-gap: 4px !important;
             background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%) !important;
             border: 1px solid #e2e8f0 !important;
-            border-left: 3px solid #cbd5e1 !important;
             border-radius: 12px !important;
-            box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06) !important;
+            box-shadow:
+                inset 3px 0 0 #cbd5e1,
+                0 1px 3px rgba(15,23,42,0.04),
+                0 4px 12px rgba(15,23,42,0.06) !important;
             margin: 0 !important;
             padding: 12px 14px !important;
+            overflow: hidden !important;
             position: relative !important;
             transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease !important;
             cursor: pointer !important;
         }
         .alm-mov-table tr.alm-mov-row:active {
-            box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
+            box-shadow:
+                inset 3px 0 0 #cbd5e1,
+                0 2px 6px rgba(15,23,42,0.06),
+                0 8px 20px rgba(15,23,42,0.12) !important;
             transform: translateY(-1px) !important;
         }
         /* Tarjeta SELECCIONADA — mismo patron de UX de /admin/equipos: borde
@@ -248,9 +259,11 @@
            para que el linear-gradient del data-tipo se borre al seleccionar
            (sino quedaria el tinte verde/rojo/etc encima del fondo azul de seleccion). */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
-            border: 2px solid var(--maquinaria-blue, #0067b1) !important;
+            border: 1px solid var(--maquinaria-blue, #0067b1) !important;
             background: #f0f9ff !important;
-            box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
+            box-shadow:
+                inset 3px 0 0 var(--maquinaria-blue, #0067b1),
+                0 4px 12px rgba(0,103,177,0.15) !important;
         }
 
         /* Cada td: reset desktop, queda como grid cell */

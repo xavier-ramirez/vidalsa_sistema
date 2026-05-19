@@ -159,14 +159,135 @@
         #trFilters > .tr-origen { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         /* Wrapper del boton Filtros Avanzados (div con position:relative;flex:0 0 auto inline) */
         #trFilters > div:not(.tr-search-num):not(.tr-search-prod):not(.tr-origen) { flex: 1 1 100% !important; width: 100% !important; }
-        /* Boton dentro del wrapper: pasa de icono 45x45 a fila completa con icono centrado */
-        #trFilters > div:not(.tr-search-num) > button { width: 100% !important; height: 45px !important; }
+        /* Boton dentro del wrapper (solo el de Filtros Avanzados, que es el unico div
+           contenedor sin clase .tr-*): pasa de icono 45x45 a fila completa centrado. */
+        #trFilters > div:not(.tr-search-num):not(.tr-search-prod):not(.tr-origen) > button { width: 100% !important; height: 45px !important; }
         /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
            Si el usuario no tiene `almacen.movimiento` el directive Blade oculta
            la `<a>` y no pasa nada. */
         #trFilters > a { flex: 1 1 100% !important; width: 100% !important; margin-left: 0 !important; justify-content: center !important; }
         /* Panel Filtros Avanzados desplegado: ancho del viewport (10px de margen lateral) */
         #trAdvPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
+
+        /* ══════════════════════════════════════════════
+           MOBILE CARD LAYOUT — Recepción (bandeja)
+           Cada <tr data-id="..."> pasa a ser una tarjeta con grid de 3 filas:
+             ┌───────────────────────────────────┐
+             │ TR-2026-0042         [ENVIADO]    │ ← Nº + Estado
+             │ Almacén Origen                    │
+             │   ↓                               │
+             │ Almacén Destino                   │
+             │ 📦 5 · 📅 18-May · 👤 Juan        │ ← Meta
+             └───────────────────────────────────┘
+           El acento izquierdo se hace con box-shadow:inset (no border-left:3px)
+           para mantener simetria horizontal — mismo fix aplicado en /movimientos.
+           "Recibido" oculto: en esta bandeja ESTADO=ENVIADO y esa columna siempre
+           queda vacia. ══════════════════════════════════════════════ */
+        .tr-table { display: block !important; min-width: 0 !important; background: transparent !important; border: none !important; }
+        .tr-table thead { display: none !important; }
+        .tr-table tbody { display: flex !important; flex-direction: column !important; gap: 10px !important; width: 100% !important; }
+
+        /* Wrapper con overflow-x:auto deja de hacer falta en mobile — las cards son
+           block y no requieren scroll horizontal. Anulamos su border/radius para que
+           las cards no queden encerradas en un marco extra. */
+        .admin-card > div[style*="overflow-x:auto"] {
+            overflow: visible !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+
+        .tr-table tbody tr[data-id] {
+            display: grid !important;
+            grid-template-columns: 1fr auto !important;
+            grid-template-areas:
+                "numero  estado"
+                "ruta    ruta"
+                "meta    meta" !important;
+            row-gap: 8px !important;
+            column-gap: 10px !important;
+            background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%) !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            box-shadow:
+                inset 3px 0 0 #cbd5e1,
+                0 1px 3px rgba(15,23,42,0.04),
+                0 4px 12px rgba(15,23,42,0.06) !important;
+            padding: 12px 14px !important;
+            overflow: hidden !important;
+            cursor: pointer !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+        }
+        .tr-table tbody tr[data-id]:active {
+            transform: translateY(-1px) !important;
+            box-shadow:
+                inset 3px 0 0 #cbd5e1,
+                0 2px 6px rgba(15,23,42,0.06),
+                0 8px 20px rgba(15,23,42,0.12) !important;
+        }
+        /* Anulamos el hover de tabla (e0f2fe) en mobile — las cards usan :active. */
+        .tr-table tbody tr[data-id]:hover td { background: transparent !important; }
+
+        .tr-table tbody tr[data-id] td {
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            font-size: 12.5px !important;
+        }
+
+        /* td:1 = Nº TR-... (esquina sup-izq, monospace destacado) */
+        .tr-table tbody tr[data-id] td:nth-child(1) {
+            grid-area: numero !important;
+            font-family: monospace !important; font-weight: 800 !important;
+            font-size: 14px !important; color: #0f172a !important; white-space: nowrap !important;
+            align-self: center !important;
+        }
+        /* td:2 = "Origen → Destino" (ya tiene su sub-layout con div+flecha interno) */
+        .tr-table tbody tr[data-id] td:nth-child(2) {
+            grid-area: ruta !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+        }
+        /* td:3 = Estado pill */
+        .tr-table tbody tr[data-id] td:nth-child(3) {
+            grid-area: estado !important;
+            text-align: right !important; align-self: center !important;
+        }
+        /* td:4 (Líneas), td:5 (Fecha envío), td:7 (Creado por) — comparten la fila "meta"
+           usando justify-self para distribuirse: left / center / right. */
+        .tr-table tbody tr[data-id] td:nth-child(4),
+        .tr-table tbody tr[data-id] td:nth-child(5),
+        .tr-table tbody tr[data-id] td:nth-child(7) {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            font-size: 11.5px !important;
+            color: #475569 !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+            grid-area: meta !important;
+        }
+        .tr-table tbody tr[data-id] td:nth-child(5) { justify-self: center !important; }
+        .tr-table tbody tr[data-id] td:nth-child(7) {
+            justify-self: end !important; color: #64748b !important;
+            max-width: 100% !important; overflow: hidden !important; text-overflow: ellipsis !important;
+        }
+        /* td:6 = Fecha recibido — oculta en mobile (siempre vacia en bandeja ENVIADO). */
+        .tr-table tbody tr[data-id] td:nth-child(6) { display: none !important; }
+
+        /* Iconitos sutiles antes de cada meta. */
+        .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'inventory_2'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+        .tr-table tbody tr[data-id] td:nth-child(5)::before { content: 'event';       font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+        .tr-table tbody tr[data-id] td:nth-child(7)::before { content: 'person';      font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+
+        /* Empty state: el <tr> SIN data-id (forelse @empty) queda como bloque centrado sin tarjeta. */
+        .tr-table tbody tr:not([data-id]) {
+            display: block !important; background: transparent !important;
+            border: none !important; box-shadow: none !important; padding: 0 !important;
+        }
+        .tr-table tbody tr:not([data-id]) td {
+            display: block !important; text-align: center !important;
+            padding: 36px 16px !important; border: none !important;
+        }
     }
 </style>
 
