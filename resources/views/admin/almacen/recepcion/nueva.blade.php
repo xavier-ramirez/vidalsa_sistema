@@ -54,10 +54,21 @@
        a pedido del cliente (2026-05-20). Los 4 items comparten 40px de alto. */
     .ent-head-row { display:grid; grid-template-columns:1fr 1fr 160px auto; gap:10px; align-items:center; }
     @media (max-width: 900px) { .ent-head-row { grid-template-columns:1fr 1fr; } }
-    @media (max-width: 480px) { .ent-head-row { grid-template-columns:1fr; } }
+    @media (max-width: 480px) {
+        /* Mobile (≤480px): Nota y Proveedor toman ancho completo (1 fila c/u);
+           Fecha + En transito comparten la ultima fila lado a lado (50% c/u).
+           Pedido del cliente — antes los 4 items quedaban apilados en 1fr cada uno. */
+        .ent-head-row { grid-template-columns:1fr 1fr; }
+        .ent-head-row > :nth-child(1),                /* Nota de entrega */
+        .ent-head-row > :nth-child(2) {                /* Proveedor      */
+            grid-column: 1 / -1;
+        }
+        /* :nth-child(3) [Fecha] y :nth-child(4) [En transito] caen automaticamente
+           cada uno en una columna de la ultima fila. */
+    }
     /* Boton "Envios en transito" dentro de la fila de datos — calibrado a la altura
-       de los .ent-input (40px) para alinearse. En mobile (cuando el grid colapsa
-       a 1fr) ocupa todo el ancho como cualquier otro item. */
+       de los .ent-input (40px) para alinearse. En mobile comparte fila con Fecha
+       (cada uno ocupa 50% via el grid de 2 columnas en el media query de 480px). */
     .ent-envios-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:40px; padding:0 16px; border-radius:10px; text-decoration:none; background:var(--maquinaria-blue,#0067b1); color:#fff; font-weight:700; font-size:13.5px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,103,177,0.18); transition:background .15s; }
     .ent-envios-btn:hover { background:#005391; }
     .ent-envios-btn i { font-size:20px; }
