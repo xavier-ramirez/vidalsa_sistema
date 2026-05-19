@@ -927,10 +927,13 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             renderNextChunk();
         })
         .catch((error) => {
-            // AbortError es normal (nueva búsqueda canceló la anterior) — no loguear como error
-            if (error.name !== 'AbortError') {
-                console.error('Error loading equipos:', error);
-            }
+            // Si esta peticion fue ABORTADA por una mas nueva, no tocar el DOM —
+            // la nueva ya hizo su propio tableBody.style.opacity = '0.5' al arrancar
+            // y va a setearlo en 1 cuando termine. Si pisamos opacity=1 aca, se ve
+            // un flicker visual (0.5 → 1 → 0.5 → 1) durante busquedas encadenadas.
+            // Tambien evitamos loguear: AbortError es normal en este flujo.
+            if (abortController.signal.aborted) return;
+            console.error('Error loading equipos:', error);
             tableBody.style.opacity = '1';
         })
         .finally(() => {
