@@ -51,8 +51,13 @@ class AlmacenController extends Controller
         $this->middleware('can:super.admin')->only([
             'storeAlmacen', 'updateAlmacen', 'destroyAlmacen',
         ]);
+        // storeProducto NO entra en este middleware estricto — el flujo "Recepcion
+        // ODC" (/admin/almacen/recepcion/nueva) crea productos al vuelo cuando llega
+        // material nuevo, y el usuario tipico tiene SOLO almacen.movimiento (no
+        // almacen.productos). El chequeo se hace dentro del metodo aceptando cualquiera
+        // de los dos permisos. updateProducto y destroyProducto si requieren productos.
         $this->middleware('can:almacen.productos')->only([
-            'storeProducto', 'updateProducto', 'destroyProducto',
+            'updateProducto', 'destroyProducto',
         ]);
         $this->middleware('can:almacen.movimiento')->only([
             'registrarMovimientoLote', 'actualizarMinimo', 'previewSalidaPdf',
@@ -481,6 +486,18 @@ class AlmacenController extends Controller
 
     public function storeProducto(Request $request)
     {
+        // Permiso: aceptamos `almacen.productos` (admin del catalogo) O `almacen.movimiento`
+        // (creacion al vuelo desde Recepcion ODC). Antes el middleware exigia estrictamente
+        // almacen.productos y bloqueaba a los almacenistas que solo tienen almacen.movimiento,
+        // rompiendo el flujo de /admin/almacen/recepcion/nueva cuando llega material nuevo
+        // (pedido del cliente 2026-05-19).
+        $user = $request->user();
+        if (!$user || (!$user->can('almacen.productos') && !$user->can('almacen.movimiento'))) {
+            return response()->json([
+                'message' => 'No tienes permiso para crear productos.',
+            ], 403);
+        }
+
         $data = $this->validarProducto($request);
 
         // Stock inicial opcional: si el cliente pasa `id_almacen`, el producto queda

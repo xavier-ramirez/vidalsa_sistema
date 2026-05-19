@@ -274,9 +274,17 @@
         border-bottom:1px solid #e2e8f0;
     }
     .ent-sb-stats { display:flex; flex-direction:column; gap:10px; }
-    .ent-sb-row { display:flex; justify-content:space-between; align-items:center; font-size:13.5px; }
-    .ent-sb-row .label { color:#64748b; }
-    .ent-sb-row .value { color:#0f172a; font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; }
+    .ent-sb-row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; font-size:13.5px; }
+    .ent-sb-row .label { color:#64748b; flex:0 0 auto; }
+    /* `value` puede contener una sola cifra ("03") o el desglose por UM
+       ("30 UND · 5 KG"). text-align:right + flex:1 dejan que la cadena se
+       envuelva si fuera muy larga sin desbordar el sidebar. */
+    .ent-sb-row .value {
+        color:#0f172a; font-weight:800; font-size:14px;
+        font-variant-numeric:tabular-nums;
+        text-align:right; flex:1 1 auto; min-width:0;
+        line-height:1.35; word-break:break-word;
+    }
     /* Caja "Observaciones" — fondo gris para diferenciarla del resto, textarea blanca dentro */
     .ent-sb-obs-wrap { background:#f1f5f9; padding:10px 12px; border-radius:10px; }
     .ent-sb-obs-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
@@ -861,19 +869,30 @@
     }
     function entRender() {
         var tb = el('entLineasTbody');
-        // Contadores del sidebar "Resumen de Recepción": Total Productos = numero de
-        // lineas (productos distintos), Unidades Totales = suma de cantidades. Se
-        // calculan ANTES del posible early return del tbody vacio para que reflejen
-        // 0 cuando se borran todas las lineas. Padding con cero a la izquierda
-        // (n<10 → "0N") siguiendo el diseño de referencia.
+        // Contadores del sidebar "Resumen de Recepción". Se calculan ANTES del
+        // posible early return del tbody vacio para que reflejen 0 cuando se
+        // borran todas las lineas.
+        //   Total Productos: numero de lineas distintas, padded "0N" si n<10.
+        //   Unidades Totales: agrupado POR UM ("30 UND · 5 KG · 2 ROLLO"), porque
+        //     sumar cantidades de UMs distintas no tiene sentido (10 UND + 5 KG
+        //     no son 15 de nada). Pedido del cliente 2026-05-19.
         var n = entLineas.length;
         var sbProd = el('entSbTotalProd');
         if (sbProd) sbProd.textContent = (n < 10 ? '0' : '') + n;
         var sbUnid = el('entSbUnidades');
         if (sbUnid) {
-            var total = 0;
-            for (var i = 0; i < entLineas.length; i++) total += parseFloat(entLineas[i].cantidad) || 0;
-            sbUnid.textContent = fmtCant(total);
+            // Map por UM preservando el orden de aparicion (Map mantiene insertion order).
+            // Asi el sidebar muestra las UMs en el mismo orden en que el usuario las cargo
+            // — el primer producto define la primera UM mostrada, etc.
+            var porUm = new Map();
+            for (var i = 0; i < entLineas.length; i++) {
+                var l = entLineas[i];
+                var um = String(l.um || 'UND').toUpperCase();
+                porUm.set(um, (porUm.get(um) || 0) + (parseFloat(l.cantidad) || 0));
+            }
+            var partes = [];
+            porUm.forEach(function (cant, um) { partes.push(fmtCant(cant) + ' ' + um); });
+            sbUnid.textContent = partes.length ? partes.join(' · ') : '0';
         }
         if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
