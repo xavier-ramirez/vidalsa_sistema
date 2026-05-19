@@ -277,6 +277,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             clearTimeout(timeoutId);
+            handledCleanup = true;
+            if (window.hidePreloader) window.hidePreloader();
+
+            // Sin conexion (navigator.onLine === false) o TypeError ("Failed to fetch"
+            // tipico cuando la red esta caida o el servidor no responde): NO hacer
+            // window.location.href porque tambien fallaria — solo mostrar toast y
+            // dejar al usuario en la pagina actual para que reintente cuando vuelva.
+            if (!navigator.onLine || error instanceof TypeError) {
+                if (typeof window.netStatus?.showOffline === 'function' && !navigator.onLine) {
+                    window.netStatus.showOffline();
+                }
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Sin conexión. Verificá tu internet e intentá de nuevo.', 'error');
+                }
+                console.warn('SPA: navegacion abortada — sin conexion o servidor inalcanzable.', error);
+                return;
+            }
 
             if (error.name === 'AbortError') {
                 console.warn('SPA: tiempo de espera agotado (12s), recargando normalmente.');
@@ -284,9 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('SPA: Error cargando página:', error);
             }
 
-            // En cualquier caso, intentar carga normal del navegador
-            handledCleanup = true;
-            if (window.hidePreloader) window.hidePreloader();
+            // Otros errores: intentar carga normal del navegador (puede recuperarse)
             window.location.href = url;
 
         } finally {

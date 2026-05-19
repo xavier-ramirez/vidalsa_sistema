@@ -479,7 +479,21 @@
         </div>
     </div>
 
-
+    {{-- Banner global de estado de red. Se muestra cuando window.addEventListener('offline')
+         dispara o cuando navigator.onLine === false al cargar la app. Persiste hasta que vuelva
+         la conexion (no se auto-oculta). Cuando vuelve la red, muestra brevemente "Conexion
+         restaurada" en verde y luego desaparece. La logica esta en el bloque <script> de abajo. --}}
+    <div id="netStatusBanner" role="status" aria-live="polite"
+         style="position:fixed;top:0;left:0;right:0;z-index:1000001;display:none;
+                align-items:center;justify-content:center;gap:8px;
+                padding:8px 16px;font-size:13px;font-weight:600;
+                background:#dc2626;color:#fff;
+                box-shadow:0 2px 6px rgba(0,0,0,0.15);
+                transform:translateY(-100%);transition:transform 0.3s ease;
+                font-family:'Inter','Segoe UI',sans-serif;">
+        <i class="material-icons" id="netStatusIcon" style="font-size:18px;">wifi_off</i>
+        <span id="netStatusText">Sin conexión a internet</span>
+    </div>
 
     <!-- Permanent Header (Never reloads) -->
     <header class="dashboard-header">
@@ -1066,6 +1080,55 @@
                     window.hidePreloader();
                 }
             });
+
+            // ── BANNER DE ESTADO DE RED ──────────────────────────────────────
+            // Se engancha a los eventos online/offline del browser para mostrar/ocultar
+            // el #netStatusBanner. Tambien chequea estado inicial al cargar la pagina,
+            // por si la app se abrio ya sin conexion. Expuesto en window.netStatus para
+            // que navegacion.js pueda forzar el aviso cuando un fetch falla aunque
+            // navigator.onLine diga lo contrario (red marca pero servidor caido).
+            (function () {
+                const banner = document.getElementById('netStatusBanner');
+                if (!banner) return;
+                const icon = document.getElementById('netStatusIcon');
+                const text = document.getElementById('netStatusText');
+                let hideTimer = null;
+
+                function showBanner(message, iconName, bgColor, autoHideMs) {
+                    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+                    banner.style.background = bgColor;
+                    icon.textContent = iconName;
+                    text.textContent = message;
+                    banner.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        banner.style.transform = 'translateY(0)';
+                    });
+                    if (autoHideMs && autoHideMs > 0) {
+                        hideTimer = setTimeout(hideBanner, autoHideMs);
+                    }
+                }
+                function hideBanner() {
+                    banner.style.transform = 'translateY(-100%)';
+                    setTimeout(() => { banner.style.display = 'none'; }, 300);
+                }
+
+                window.addEventListener('offline', function () {
+                    showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
+                });
+                window.addEventListener('online', function () {
+                    showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
+                });
+
+                // Estado inicial al cargar
+                if (!navigator.onLine) {
+                    showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
+                }
+
+                window.netStatus = {
+                    showOffline: () => showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0),
+                    hide: hideBanner
+                };
+            })();
 
             // Utilidad Global para Mostrar/Ocultar Contraseñas
             window.togglePw = function (inputId, icon) {
