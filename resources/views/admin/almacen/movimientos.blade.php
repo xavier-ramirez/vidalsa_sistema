@@ -194,6 +194,16 @@
            comunica entrada/salida; stock resultante se ve en desktop).
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
+        /* Wrapper de la tabla: en desktop tiene border+radius para encerrar el
+           thead oscuro; en mobile las filas son tarjetas independientes con su
+           propio borde, asi que el wrapper queda invisible (sin borde, sin
+           radius, sin overflow:auto) para no dibujar una "caja gris" alrededor. */
+        .alm-mov-table-wrap {
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+            background: transparent !important;
+        }
         .alm-mov-table {
             display: block !important;
             width: 100% !important;
@@ -210,13 +220,10 @@
             width: 100% !important;
         }
 
-        /* Tarjeta UNIFORME — un solo tinte sutil para todas, look "modern card":
-           fondo blanco roto (#fbfcfe) con un gradient muy leve hacia blanco puro,
-           borde general suave SIMETRICO (1px slate-200 en los 4 lados) + acento
-           visual izquierdo via `box-shadow: inset 3px 0 0` que NO afecta el layout
-           — antes usabamos `border-left: 3px` que generaba 2px de desbalance
-           horizontal vs el border-right de 1px y la tarjeta se veia ligeramente
-           desplazada al lado derecho en mobile.
+        /* Tarjeta UNIFORME — fondo blanco roto (#fbfcfe) con gradient leve hacia
+           blanco puro, borde simetrico 1px slate-200 en los 4 lados y sombra
+           ambiental difusa. SIN acento izquierdo (cliente pidio quitar la barra
+           gris inset 3px que llevaba antes).
 
            overflow:hidden importante: la banda gris del destino (mv-td-destino)
            usa margins negativos para extenderse hasta los bordes internos; sin
@@ -235,7 +242,6 @@
             border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
             box-shadow:
-                inset 3px 0 0 #cbd5e1,
                 0 1px 3px rgba(15,23,42,0.04),
                 0 4px 12px rgba(15,23,42,0.06) !important;
             margin: 0 !important;
@@ -247,7 +253,6 @@
         }
         .alm-mov-table tr.alm-mov-row:active {
             box-shadow:
-                inset 3px 0 0 #cbd5e1,
                 0 2px 6px rgba(15,23,42,0.06),
                 0 8px 20px rgba(15,23,42,0.12) !important;
             transform: translateY(-1px) !important;
@@ -261,9 +266,7 @@
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
             border: 1px solid var(--maquinaria-blue, #0067b1) !important;
             background: #f0f9ff !important;
-            box-shadow:
-                inset 3px 0 0 var(--maquinaria-blue, #0067b1),
-                0 4px 12px rgba(0,103,177,0.15) !important;
+            box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
         }
 
         /* Cada td: reset desktop, queda como grid cell */
@@ -658,7 +661,10 @@
     </div>
 
     {{-- ── Tabla ── --}}
-    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
+    {{-- En mobile el wrapper pierde border + border-radius (la regla en
+         @media ≤768px) — sino se veia una "caja gris" envolviendo todas las
+         tarjetas que ya tienen su propio borde redondeado. --}}
+    <div class="alm-mov-table-wrap" style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
         <table class="alm-mov-table">
             <thead>
                 {{-- Anchos rebalanceados: la columna "Descripción del producto" es la única flexible
