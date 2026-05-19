@@ -1248,10 +1248,11 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almSalidaModal')">Cancelar</button>
-            {{-- "Vista previa" en vez de "Registrar salida": el flujo de salida ahora pasa
+            {{-- "Previsualizar" en vez de "Registrar salida": el flujo de salida ahora pasa
                  por el modal #almPreviewModal donde el usuario revisa el PDF y aprieta
-                 "Registrar" para que sea oficial. --}}
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaVistaPrevia()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">visibility</i>Vista previa</button>
+                 "Registrar" para que sea oficial. Sin icono — pedido del cliente para
+                 que el boton se vea mas formal. --}}
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almSalidaVistaPrevia()">Previsualizar</button>
         </div>
     </div>
 </div>
