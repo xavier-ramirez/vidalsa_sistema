@@ -219,7 +219,7 @@
             grid-template-areas:
                 "producto cantidad"
                 "producto fecha"
-                "ref      destino" !important;
+                "destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 4px !important;
             background: #fff !important;
@@ -336,60 +336,91 @@
             font-weight: normal;
         }
 
-        /* Ref (chip NE-AAAA-NNNN + REFERENCIA): OCULTO POR DEFAULT en mobile.
-           Solo se muestra cuando la tarjeta esta seleccionada (.mv-row-selected).
-           Cliente pidio el mismo patron de UX que /admin/equipos: la info "extra"
-           del registro aparece solo al tocar la tarjeta. */
+        /* Ref (NE-AAAA-NNNN + REFERENCIA): se renderiza como BURBUJA FLOTANTE
+           al estilo del tooltip-bubble de /admin/equipos. Oculta por default;
+           al seleccionar la tarjeta (mv-row-selected) aparece arriba del centro
+           de la tarjeta con un trianguito apuntando hacia abajo. NO ocupa grid
+           area (position:absolute la saca del flujo del grid). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            grid-area: ref !important;
-            justify-content: flex-start !important;
-            font-size: 10.5px !important;
-            color: #64748b !important;
-            min-width: 0;
-            overflow: hidden;
-            flex-direction: row !important;
-            flex-wrap: wrap !important;
-            gap: 4px !important;
             display: none !important;
+            position: absolute !important;
+            bottom: calc(100% + 8px) !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            background: #1e293b !important;
+            color: #fff !important;
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            white-space: normal !important;
+            max-width: 240px !important;
+            min-width: 120px !important;
+            box-shadow: 0 4px 12px -1px rgba(0,0,0,0.18) !important;
+            z-index: 50 !important;
+            line-height: 1.35 !important;
+            text-align: center !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 4px !important;
+            grid-area: unset !important;
+            pointer-events: auto !important;
+        }
+        /* Trianguito hacia abajo (apunta a la tarjeta) */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
         }
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
             display: flex !important;
         }
-        /* NUMERO_NOTA: chip con fondo suave, monospace, dato resaltado. */
+        /* NUMERO_NOTA dentro de la burbuja: monospace, blanco, sin chip bg
+           (la burbuja entera ya es el contenedor visual). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
-            background: #eff4ff !important;
-            color: #0b1c30 !important;
-            padding: 2px 6px !important;
-            border-radius: 4px !important;
+            background: transparent !important;
+            color: #fff !important;
+            padding: 0 !important;
             font-family: monospace !important;
-            font-size: 10.5px !important;
+            font-size: 12px !important;
             font-weight: 700 !important;
-            text-decoration: none !important;
+            text-decoration: underline !important;
+            text-decoration-color: rgba(255,255,255,0.4) !important;
             white-space: nowrap !important;
         }
-        /* REFERENCIA secundaria (si viene): texto chico gris al lado del chip. */
+        /* REFERENCIA secundaria (si viene): texto chico debajo del numero */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
             font-size: 10px !important;
-            color: #94a3b8 !important;
+            color: rgba(255,255,255,0.75) !important;
             margin: 0 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            max-width: 100% !important;
+            white-space: normal !important;
+            font-style: italic !important;
         }
 
+        /* Destino: ahora spans las 2 columnas (fila 3 sola). Lo centramos en
+           la tarjeta porque visualmente queda mejor cuando es el unico dato
+           de la fila — antes estaba a la derecha pero compartia fila con el
+           chip ref que ahora se movio a burbuja flotante. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
-            justify-content: flex-end !important;
-            justify-self: end !important;
+            justify-content: center !important;
+            justify-self: stretch !important;
             font-size: 11px !important;
             font-weight: 600 !important;
             color: #45464d !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            max-width: 130px !important;
-            gap: 3px !important;
+            max-width: 100% !important;
+            gap: 4px !important;
+            border-top: 1px solid #f1f5f9 !important;
+            padding-top: 6px !important;
+            margin-top: 2px !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
             content: "location_on";
@@ -786,14 +817,16 @@
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.loadMovimientos(a.href); }
     }, true);
 
-    // ── Seleccion de tarjeta en mobile (toggle azul + revela chip NE-AAAA-NNNN) ──
+    // ── Seleccion de tarjeta en mobile (toggle azul + revela burbuja NE-AAAA-NNNN) ──
     // Mismo patron de UX que /admin/equipos: tocar la tarjeta la resalta en azul y
-    // expone la info "extra" (en este caso el numero de Nota de Entrega). Single-
-    // select: tocar otra tarjeta des-resalta la anterior. El click sobre el <a>
-    // del NE lo dejamos pasar (early return) para que el PDF preview se abra
-    // sin togglear la seleccion.
+    // muestra una burbuja flotante con la info de Nota de Entrega (NE-AAAA-NNNN +
+    // REFERENCIA opcional) por encima del centro de la tarjeta.
+    //
+    // Early returns para que clicks en la burbuja NO togglee la seleccion:
+    //   - Click dentro de .mv-td-ref (burbuja entera, incluido el <a> del PDF):
+    //     deja que el onclick del enlace se ejecute (abre PDF preview); no togglear.
     document.addEventListener('click', function (e) {
-        if (e.target.closest('a')) return;
+        if (e.target.closest('#almMovTableBody .mv-td-ref')) return;
         var tr = e.target.closest('#almMovTableBody tr.alm-mov-row');
         if (!tr) return;
         document.querySelectorAll('#almMovTableBody tr.alm-mov-row.mv-row-selected').forEach(function (other) {
