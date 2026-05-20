@@ -1949,15 +1949,15 @@ class NotaEntregaPDF extends \TCPDF
         //   bottom = y + height = 30 mm           ← coincide con SetMargins top=30
         //                                          para que la tabla del body
         //                                          arranque PEGADA al cabezote.
-        // Celda del logo (22% de 190 = 41.8 mm):
-        //   left   = 10     right = 10 + 41.8 = 51.8      center x = 30.9
-        //   top    =  6     bottom = 30                    center y = 18
+        // Celda del logo (20% de 190 = 38 mm — igual que col PROYECTO: del body):
+        //   left   = 10     right = 10 + 38 = 48      center x = 29
+        //   top    =  6     bottom = 30                center y = 18
         $headerHeight = 68;          // pt (= ~24 mm)
         $cabX = 10;
         $cabY = 6;
         $cabW = 190;                 // mm = 210 - 10 (izq) - 10 (der)
         $cabH = 24;                  // mm (≈ 68 pt)
-        $logoCellW = $cabW * 0.22;   // 41.8 mm
+        $logoCellW = $cabW * 0.20;   // 38 mm — alinea con col PROYECTO: (20%) del body
 
         $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
@@ -2013,8 +2013,8 @@ class NotaEntregaPDF extends \TCPDF
 
         $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
               . '<tr>'
-              .   '<td width="22%" rowspan="5" height="' . $headerHeight . '">&nbsp;</td>'
-              .   '<td width="50%" rowspan="5" height="' . $headerHeight . '" align="center" valign="middle">' . $tituloDiv . '</td>'
+              .   '<td width="20%" rowspan="5" height="' . $headerHeight . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="5" height="' . $headerHeight . '" align="center" valign="middle">' . $tituloDiv . '</td>'
               .   '<td width="28%" align="center" valign="middle"><font face="helvetica" size="8"><b>N° de Nota:</b> ' . htmlspecialchars($numNota, ENT_QUOTES, 'UTF-8') . '</font></td>'
               . '</tr>'
               . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7"><b>CODIGO:</b> VID-FO-GEN-019</font></td></tr>'
