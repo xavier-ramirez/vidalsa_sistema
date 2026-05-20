@@ -72,13 +72,13 @@
     /* UM ocupa la columna de Fecha (col 3) */
     .ent-capt-row > .ent-um-wrap { grid-column: 3; }
     /* Stepper ocupa la columna del boton (col 4) */
-    .ent-capt-row > .ent-cant-stepper { grid-column: 4; width: 100%; flex: none; }
+    .ent-capt-row > .ent-cant-stepper { grid-column: 4; width: 100%; }
     /* Mobile responsive (≤900px y ≤480px) movido a estilos_globales.css —
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
     /* ── Boton "Bandeja de Entrada" ──
-       Ocupa la columna de 145px. Icono pequeño + texto compacto. */
+       Ocupa la columna de 162px. Icono pequeño + texto compacto. */
     .ent-envios-btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
         width: 100%; height: 40px; padding: 0 10px;
