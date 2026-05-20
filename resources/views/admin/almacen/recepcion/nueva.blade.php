@@ -51,11 +51,11 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 162px]
+       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 175px]
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: 160px 1fr 130px 162px;
+        grid-template-columns: 160px 1fr 130px 175px;
         gap: 10px;
         align-items: center;
     }
@@ -78,7 +78,7 @@
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
     /* ── Boton "Bandeja de Entrada" ──
-       Ocupa la columna de 162px. Icono pequeño + texto compacto. */
+       Ocupa la columna de 175px. Icono pequeño + texto compacto. */
     .ent-envios-btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
         width: 100%; height: 40px; padding: 0 10px;
