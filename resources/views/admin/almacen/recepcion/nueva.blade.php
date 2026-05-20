@@ -51,13 +51,11 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 160px]
-       La nota de entrega (serial) es más pequeña. El botón de recepción tiene
-       ancho comprimido (160px) para no desbordarse en pantallas de escritorio.
+       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 145px]
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: 160px 1fr 130px 160px;
+        grid-template-columns: 160px 1fr 130px 145px;
         gap: 10px;
         align-items: center;
     }
@@ -79,21 +77,21 @@
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
-    /* ── Boton "Bandeja de Recepción" ──
-       Ocupa la columna de 200px. Vuelve a mostrar su texto original. */
+    /* ── Boton "Bandeja de Entrada" ──
+       Ocupa la columna de 145px. Icono pequeño + texto compacto. */
     .ent-envios-btn {
-        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-        width: 100%; height: 40px; padding: 0 16px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        width: 100%; height: 40px; padding: 0 10px;
         border-radius: 10px;
         text-decoration: none;
         background: var(--maquinaria-blue,#0067b1); color: #fff;
-        font-weight: 700; font-size: 13.5px; white-space: nowrap;
+        font-weight: 700; font-size: 13px; white-space: nowrap;
         box-shadow: 0 4px 6px -1px rgba(0,103,177,0.18);
         transition: background .15s, transform .1s;
     }
     .ent-envios-btn:hover { background: #005391; transform: scale(1.02); }
     .ent-envios-btn:active { transform: scale(0.98); }
-    .ent-envios-btn i { font-size: 20px; }
+    .ent-envios-btn i { font-size: 17px; }
     /* Pill del almacen destino (read-only): vive en el page-title-card al lado
        del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
        dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
@@ -330,12 +328,12 @@
                  title="Fecha (default hoy)">
                 <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
             </div>
-            {{-- Boton Bandeja de Recepción: recuperó su texto. --}}
+            {{-- Boton Bandeja de Entrada --}}
             <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
                class="ent-envios-btn"
-               aria-label="Ver bandeja de recepción — envíos pendientes">
+               aria-label="Ver bandeja de entrada — envíos pendientes">
                 <i class="material-icons">local_shipping</i>
-                <span>Bandeja de Recepción</span>
+                <span>Bandeja de Entrada</span>
             </a>
         </div>
 
