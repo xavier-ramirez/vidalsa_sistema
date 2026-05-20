@@ -94,7 +94,6 @@
     }
     .ent-envios-btn:hover { background: #005391; transform: scale(1.02); }
     .ent-envios-btn:active { transform: scale(0.98); }
-    .ent-envios-btn i { font-size: 14px; }
     /* Pill del almacen destino (read-only): vive en el page-title-card al lado
        del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
        dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
@@ -335,7 +334,6 @@
             <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
                class="ent-envios-btn"
                aria-label="Ver bandeja de entrada — envíos pendientes">
-                <i class="material-icons">local_shipping</i>
                 <span>Bandeja de Entrada</span>
             </a>
         </div>
