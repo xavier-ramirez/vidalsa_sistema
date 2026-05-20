@@ -3147,8 +3147,9 @@ input:-webkit-autofill:active {
     /* UM y Stepper: 50% c/u (ocupan col 1 y 2 respectivamente) */
     body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { width: auto !important; }
     body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { width: auto !important; }
-    /* Boton bandeja: llenando su celda */
+    /* Boton bandeja: llenando su celda. Icono oculto en mobile — solo texto. */
     body:has(.ent-layout) .ent-envios-btn { width: 100% !important; border-radius: 10px !important; }
+    body:has(.ent-layout) .ent-envios-btn i { display: none !important; }
 
     /* page-title-card: titulo OCULTO, separador OCULTO, layout apilado para
        que el bloque del Almacen ocupe todo el ancho. */
