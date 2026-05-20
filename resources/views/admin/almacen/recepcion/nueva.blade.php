@@ -51,13 +51,13 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 155px]
+       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 140px]
        Nota y Proveedor son ambos minmax(0,1fr): mismo ancho, pueden comprimir hasta 0
-       sin desbordar el card blanco. El boton tiene 155px fijos.
+       sin desbordar el card blanco. El boton tiene 140px fijos.
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 155px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 140px;
         gap: 10px;
         align-items: center;
         min-width: 0;
@@ -81,20 +81,20 @@
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
     /* ── Boton "Bandeja de Entrada" ──
-       Ocupa la columna fija de 155px. Font pequeño y padding compacto. */
+       Ocupa la columna fija de 140px. Fuente y padding muy compactos. */
     .ent-envios-btn {
-        display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-        width: 100%; height: 40px; padding: 0 6px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+        width: 100%; height: 40px; padding: 0 5px;
         border-radius: 10px;
         text-decoration: none;
         background: var(--maquinaria-blue,#0067b1); color: #fff;
-        font-weight: 700; font-size: 12px; white-space: nowrap;
+        font-weight: 700; font-size: 11px; white-space: nowrap;
         box-shadow: 0 4px 6px -1px rgba(0,103,177,0.18);
         transition: background .15s, transform .1s;
     }
     .ent-envios-btn:hover { background: #005391; transform: scale(1.02); }
     .ent-envios-btn:active { transform: scale(0.98); }
-    .ent-envios-btn i { font-size: 15px; }
+    .ent-envios-btn i { font-size: 14px; }
     /* Pill del almacen destino (read-only): vive en el page-title-card al lado
        del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
        dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
