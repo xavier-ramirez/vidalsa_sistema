@@ -2203,8 +2203,12 @@
                                         if (statusText) statusText.innerText = 'Subiendo documento';
                                     };
 
-                                    // Load new PDF with force-refresh since file changed
-                                    iframe.src = data.link + '?upd=' + new Date().getTime() + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+                                    // Load new PDF with force-refresh since file changed.
+                                    // data.link YA trae ?v=<timestamp> del backend (uploadDoc) — concatenar
+                                    // "?upd=" producia una URL con DOS '?' (invalida) y el iframe NO cargaba
+                                    // el PDF nuevo ("no se ve que cargue"). Usamos '&' si ya hay query string.
+                                    var _sep = data.link.indexOf('?') > -1 ? '&' : '?';
+                                    iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
                                 }
 
                                 // Update Download Button
