@@ -82,17 +82,17 @@
              tabla tenga el mismo tamaño de letra — mismo criterio del Excel,
              que usa Arial 8 para items y headers.
 
-             Anchos: 6% / 10% / 10% / 56% / 18% (= 100%). La columna "N° COLADA
+             Anchos: 6% / 10% / 10% / 62% / 12% (= 100%). La columna "N° COLADA
              / SERIAL" es ESTRECHA a proposito — el header "N° COLADA /  SERIAL"
              se parte en 2 lineas (intencional, igual que el Excel original) y
-             asi DESCRIPCIÓN queda con 56% de ancho (~104 mm) para nombres
+             asi DESCRIPCIÓN queda con 62% de ancho para nombres
              largos de producto. --}}
         <tr bgcolor="#D9D9D9">
             <td width="6%"  align="center"><font face="helvetica" size="8"><b>ITEM</b></font></td>
             <td width="10%" align="center"><font face="helvetica" size="8"><b>CANTIDAD</b></font></td>
             <td width="10%" align="center"><font face="helvetica" size="8"><b>UNIDAD</b></font></td>
-            <td width="56%" align="center"><font face="helvetica" size="8"><b>DESCRIPCIÓN</b></font></td>
-            <td width="18%" align="center"><font face="helvetica" size="8"><b>N° COLADA /<br/>SERIAL</b></font></td>
+            <td width="62%" align="center"><font face="helvetica" size="8"><b>DESCRIPCIÓN</b></font></td>
+            <td width="12%" align="center"><font face="helvetica" size="8"><b>N° COLADA /<br/>SERIAL</b></font></td>
         </tr>
     </thead>
     <tbody>
@@ -101,8 +101,8 @@
                 <td width="6%"  align="center"><font face="helvetica" size="8">{{ $i + 1 }}</font></td>
                 <td width="10%" align="center"><font face="helvetica" size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
                 <td width="10%" align="center"><font face="helvetica" size="8">{{ $m->producto?->UM ?? '' }}</font></td>
-                <td width="56%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
-                <td width="18%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
+                <td width="62%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
+                <td width="12%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
             </tr>
         @endforeach
         @for($j = $movs->count(); $j < $minFilas; $j++)
@@ -110,8 +110,8 @@
                 <td width="6%"  align="center"><font face="helvetica" size="8">{{ $j + 1 }}</font></td>
                 <td width="10%"><font face="helvetica" size="8">&nbsp;</font></td>
                 <td width="10%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="56%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="18%"><font face="helvetica" size="8">&nbsp;</font></td>
+                <td width="62%"><font face="helvetica" size="8">&nbsp;</font></td>
+                <td width="12%"><font face="helvetica" size="8">&nbsp;</font></td>
             </tr>
         @endfor
     </tbody>
