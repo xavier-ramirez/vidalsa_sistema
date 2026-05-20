@@ -51,13 +51,13 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 195px]
+       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 175px]
        Nota y Proveedor son ambos minmax(0,1fr): mismo ancho, pueden comprimir hasta 0
        sin desbordar el card blanco. El boton tiene 195px fijos.
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 195px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 175px;
         gap: 10px;
         align-items: center;
         min-width: 0;
@@ -81,7 +81,7 @@
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
     /* ── Boton "Bandeja de Entrada" ──
-       Ocupa la columna fija de 195px. */
+       Ocupa la columna fija de 175px. */
     .ent-envios-btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
         width: 100%; height: 40px; padding: 0 10px;
