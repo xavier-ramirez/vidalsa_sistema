@@ -1928,7 +1928,7 @@ class NotaEntregaPDF extends \TCPDF
     public function Header()
     {
         // ── Cabezote oficial VID-FO-GEN-019 — UNA tabla HTML con bordes ────────
-        //    [LOGO 22%]  |  NOTA DE ENTREGA DE MATERIALES (50%)  |  [SELLO 28%]
+        //    [LOGO 20%]  |  NOTA DE ENTREGA DE MATERIALES (52%)  |  [SELLO 28%]
         //    Se hace en una sola writeHTMLCell para que el grosor de las líneas
         //    sea consistente entre cabezote y cuerpo (TCPDF renderiza todas las
         //    tablas HTML con el mismo borderWidth basado en SetLineWidth).
@@ -1961,7 +1961,7 @@ class NotaEntregaPDF extends \TCPDF
 
         $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
-            // Logo centrado HORIZONTAL + VERTICALMENTE dentro de la celda 22% × 24 mm.
+            // Logo centrado HORIZONTAL + VERTICALMENTE dentro de la celda 20% × 24 mm.
             // Usamos $fitbox = 'CM' (Center-Middle) — TCPDF escala la imagen para que
             // entre dentro del bbox preservando aspect ratio y la centra en ambos ejes.
             // Padding interno de 1 mm para que el logo no toque el borde de la celda.
