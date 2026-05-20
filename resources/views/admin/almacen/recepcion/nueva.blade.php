@@ -51,13 +51,13 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 200px]
-       La nota de entrega (serial) es más pequeña. El botón de recepción recupera
-       su texto y la cantidad (stepper) se vuelve mucho más ancha para comodidad.
+       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 160px]
+       La nota de entrega (serial) es más pequeña. El botón de recepción tiene
+       ancho comprimido (160px) para no desbordarse en pantallas de escritorio.
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: 160px 1fr 130px 200px;
+        grid-template-columns: 160px 1fr 130px 160px;
         gap: 10px;
         align-items: center;
     }
