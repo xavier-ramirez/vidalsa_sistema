@@ -49,22 +49,86 @@
     .ent-section-title { margin:0 0 8px 0; font-size:13px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; gap:8px; }
     .ent-section-title i { font-size:16px; color:#0284c7; }
 
-    /* Cabecera de "Datos de la entrada": Nota de entrega + Proveedor + Fecha +
-       boton "Bandeja de Recepción". La pill del Almacen se muestra en el
-       page-title-card (al lado del titulo) — patron de /admin/almacen. La
-       Observacion se removio a pedido del cliente (2026-05-20). Los 4 items
-       comparten 40px de alto. */
-    .ent-head-row { display:grid; grid-template-columns:1fr 1fr 160px auto; gap:10px; align-items:center; }
+    /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
+       comparten las mismas 4 columnas para que los campos queden alineados
+       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 110px]
+       El botón se alinea a la derecha dentro de su columna de 110px.
+       Mobile responsive movido a estilos_globales.css. */
+    .ent-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 130px 110px;
+        gap: 10px;
+        align-items: center;
+    }
+    /* Fila 1 de la cabecera: Nota de entrega ocupa col 1, Proveedor col 2,
+       Fecha col 3, Boton col 4. */
+    .ent-head-row { display: contents; }
+    /* Fila 2 de captura: Buscador ocupa col 1-2 (span 2), UM col 3, Stepper col 4.
+       IMPORTANTE: .ent-capt-row tiene display:contents para participar en el grid
+       del padre pero SIN crear un nuevo contexto de apilamiento — los dropdowns
+       position:absolute siguen anclados a .ent-search-field y .ent-um-wrap. */
+    .ent-capt-row { display: contents; }
+    /* Buscador abarca columnas 1 y 2 (Nota + Proveedor) */
+    .ent-capt-row > .ent-search-field { grid-column: 1 / 3; min-width: 0; max-width: none; position: relative; height: 40px; }
+    /* UM ocupa la columna de Fecha (col 3) */
+    .ent-capt-row > .ent-um-wrap { grid-column: 3; }
+    /* Stepper ocupa la columna del boton (col 4) */
+    .ent-capt-row > .ent-cant-stepper { grid-column: 4; width: 100%; flex: none; }
     /* Mobile responsive (≤900px y ≤480px) movido a estilos_globales.css —
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
-    /* Boton "Bandeja de Recepción" dentro de la fila de datos — calibrado a la
-       altura de los .ent-input (40px) para alinearse. En mobile comparte fila
-       con Fecha (cada uno ocupa 50% via el grid de 2 columnas en el media
-       query de 480px). */
-    .ent-envios-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; height:40px; padding:0 16px; border-radius:10px; text-decoration:none; background:var(--maquinaria-blue,#0067b1); color:#fff; font-weight:700; font-size:13.5px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,103,177,0.18); transition:background .15s; }
-    .ent-envios-btn:hover { background:#005391; }
-    .ent-envios-btn i { font-size:20px; }
+
+    /* ── Boton "Bandeja de Recepción" — version icono compacto con tooltip ──
+       Ocupa 48px cuadrados pero vive en una columna de 110px (para darle espacio al stepper),
+       así que lo alineamos a la derecha con justify-self: end. */
+    .ent-envios-btn {
+        justify-self: end;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 48px; height: 40px;
+        border-radius: 10px;
+        text-decoration: none;
+        background: var(--maquinaria-blue,#0067b1); color: #fff;
+        box-shadow: 0 4px 6px -1px rgba(0,103,177,0.22);
+        transition: background .15s, transform .1s;
+        position: relative;
+        flex-shrink: 0;
+    }
+    .ent-envios-btn:hover { background: #005391; transform: scale(1.04); }
+    .ent-envios-btn:active { transform: scale(0.97); }
+    .ent-envios-btn i { font-size: 22px; pointer-events: none; }
+    /* Tooltip flotante — aparece debajo del boton en hover */
+    .ent-envios-btn::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: calc(100% + 8px);
+        right: 0;
+        background: #1e293b;
+        color: #f1f5f9;
+        font-size: 11.5px;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 5px 10px;
+        border-radius: 7px;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity .18s, transform .18s;
+        box-shadow: 0 4px 12px rgba(15,23,42,0.22);
+        z-index: 200;
+    }
+    .ent-envios-btn::before {
+        content: '';
+        position: absolute;
+        bottom: calc(100% + 3px);
+        right: 14px;
+        border: 5px solid transparent;
+        border-top-color: #1e293b;
+        opacity: 0;
+        transition: opacity .18s;
+        z-index: 200;
+    }
+    .ent-envios-btn:hover::after,
+    .ent-envios-btn:hover::before { opacity: 1; transform: translateY(0); }
     /* Pill del almacen destino (read-only): vive en el page-title-card al lado
        del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
        dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
@@ -93,20 +157,8 @@
        IMPORTANTE: NO tiene position:relative — el anclaje del dropdown
        es .ent-search-field, que SÍ la tiene. Agregar position:relative
        al row creaba un stacking-context que acotaba el z-index del dropdown. */
-    .ent-capt-row { display:flex; gap:10px; align-items:flex-start; flex-wrap:nowrap; }
-    /* Buscador de descripcion: absorbe el espacio sobrante pero con max-width para
-       que no domine cuando los campos UM y Cantidad necesitan respirar (pedido del
-       cliente 2026-05-19 — antes el buscador era flex:1 sin tope y se veia
-       desproporcionado al lado de un UM angosto). */
-    .ent-capt-row > .ent-search-field { flex:1 1 0; min-width:0; max-width: 520px; }
-    /* Selector de UM entre el buscador y la cantidad. Se autocompleta al elegir un
-       producto existente (queda disabled — no se cambia la UM de un producto del
-       catalogo) y se desbloquea cuando el usuario tipea un producto nuevo.
-       Ancho 120px: caben UMs largas como "BARRIL" o "C/U" sin truncar. */
-    .ent-capt-row > .ent-um-wrap { flex:0 0 120px; width:120px; }
-    /* Ancho fijo explícito: flex:0 0 100px impide que el search input
-       (que tiene width:100% + padding) lo aplaste. */
-    .ent-capt-row > .ent-cant-stepper { flex:0 0 100px; width:100px; }
+    /* ent-capt-row ya es display:contents — sus hijos participan directamente en
+       .ent-form-grid. Los estilos de posicionamiento de cada hijo estan arriba. */
     /* Mobile responsive (≤480px) movido a estilos_globales.css. */
     /* Campo de UM — text input con autocomplete (mismo patron que el modal "Nuevo
        producto" de /admin/almacen). NO es un select con lista cerrada — el usuario
@@ -299,89 +351,77 @@
     <h3 class="ent-section-title"><i class="material-icons">tune</i>Datos de la entrada</h3>
     {{-- Almacén destino: derivado del frente del usuario (TraspasoController@nuevaEntrada);
          se muestra como pill en el page-title-card (arriba), aqui solo guardamos el id
-         en un <input hidden> para que el submit lo envie al backend. Los campos
-         de abajo llevan su titulo DENTRO del placeholder — sin <label> arriba — para
-         comprimir vertical. --}}
+         en un <input hidden> para que el submit lo envie al backend. --}}
     <input type="hidden" id="entAlmacen" value="{{ $almacenDestino->ID_ALMACEN }}">
-    <div class="ent-head-row">
-        <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Nota de entrega (opcional)">
-        <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Proveedor (opcional)">
-        {{-- Wrapper de fecha: clic en CUALQUIER parte abre el picker via showPicker()
-             (antes solo respondia el iconito nativo al extremo derecho). Mismo patron
-             que /admin/almacen/movimientos y /admin/almacen/recepcion (Filtros Avanzados). --}}
-        <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
-             onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }"
-             title="Fecha (default hoy)">
-            <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
-        </div>
-        {{-- Atajo a la BANDEJA DE RECEPCION (envios pendientes de confirmacion).
-             ?force=1 esquiva el redirect del controller que manda al GLOBAL a
-             /recepcion/nueva por default. --}}
-        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
-           class="ent-envios-btn"
-           title="Ver la bandeja de recepción — envíos pendientes de confirmación">
-            <i class="material-icons">local_shipping</i>
-            <span>Bandeja de Recepción</span>
-        </a>
-    </div>
 
-    {{-- Separador fino entre "Datos de la entrada" y el bloque de captura/tabla.
-         Margin horizontal 0 (no negativos) para que no se salga del card en mobile,
-         donde el padding de .ent-card pasa a 8px (ver media query mas abajo). --}}
-    <div style="border-top:1px solid #e2e8f0;margin:16px 0 14px;"></div>
+    {{-- Grid unificado de 2 filas: ambas comparten el mismo grid-template-columns
+         para que los campos queden alineados verticalmente entre fila 1 y fila 2.
+         Fila 1: Nota | Proveedor | Fecha | [Boton-bandeja]
+         Fila 2: [Buscador ──────────] | UM   | [Stepper]
+         Los separadores visuales (bordes, gap) hacen evidente la estructura. --}}
+    <div class="ent-form-grid">
 
-    {{-- Fila de captura: [Buscar serial/desc] [Cantidad] siempre lado a lado.
-         Flujo: tipea codigo o descripcion → elige sugerencia (queda como
-         badge azul) → escribe cantidad → Enter → la linea cae a la tabla y el
-         foco vuelve al buscador. Si el producto NO existe en el catalogo, al
-         apretar Enter se crea automaticamente (codigo auto, UM=UND) y la linea
-         igual se agrega — sin friccion. --}}
-    <div class="ent-capt-row">
-
-        {{-- ── Columna 1: buscador de producto ── --}}
-        <div class="ent-search-field">
-            <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
-                   placeholder="Buscar por código (serial) o descripción…"
-                   oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
-            {{-- Badge del producto seleccionado: tapa el input con position:absolute --}}
-            <div id="entSelectedBadge" class="ent-selected-badge">
-                <span class="cod" id="entSelectedCod"></span>
-                <span id="entSelectedNom"></span>
-                <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>
+        {{-- ── FILA 1: cabecera de datos del lote ── --}}
+        <div class="ent-head-row">
+            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Nota de entrega (opcional)">
+            <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Proveedor (opcional)">
+            {{-- Wrapper de fecha: clic en CUALQUIER parte abre el picker. --}}
+            <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
+                 onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }"
+                 title="Fecha (default hoy)">
+                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
             </div>
-            {{-- Dropdown de sugerencias: z-index:9000, NO se superpone al stepper --}}
-            <div id="entSuggest" class="ent-suggest"></div>
+            {{-- Boton Bandeja de Recepción: icono compacto 48x40 con tooltip CSS. --}}
+            <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+               class="ent-envios-btn"
+               data-tooltip="Bandeja de Recepción"
+               aria-label="Ver bandeja de recepción — envíos pendientes">
+                <i class="material-icons">local_shipping</i>
+            </a>
         </div>
 
-        {{-- ── Columna 2: Unidad de Medida (UM) ──
-             Text input con autocomplete — MISMO patron que el modal "Nuevo producto"
-             de /admin/almacen. Sugiere las UMs YA registradas en el catalogo, pero
-             permite tipear una UM nueva libremente (queda guardada al crear el producto).
-             Cuando el usuario elige un producto del catalogo, este input se completa
-             con su UM y queda READONLY (la UM de un producto del catalogo no se cambia
-             desde aqui). Cuando tipea un producto NUEVO, el input queda editable. --}}
-        <div class="ent-um-wrap" title="Unidad de medida (UND, KG, L, M, etc.)">
-            <input type="text" id="entUm" class="ent-um-input" value="UND"
-                   maxlength="20" autocomplete="off" aria-label="Unidad de medida"
-                   placeholder="UND"
-                   oninput="window.entUmSuggest()" onfocus="window.entUmSuggest(true)" onkeydown="window.entUmKey(event)">
-            <div id="entUmSuggest" class="ent-um-suggest"></div>
-        </div>
+        {{-- ── FILA 2: captura de producto ── --}}
+        {{-- display:contents permite que los hijos participen en .ent-form-grid
+             sin crear un bloque intermedio que rompa el alineado de columnas. --}}
+        <div class="ent-capt-row">
 
-        {{-- ── Columna 3: stepper de cantidad (RECONSTRUIDO) ── --}}
-        {{-- flex:0 0 auto + min-width:114px garantizan que nunca baje a una segunda
-             fila ni se encoja. Se ancla al top del buscador (align-items:flex-start). --}}
-        <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
-            <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
-                   placeholder="" autocomplete="off"
-                   onkeydown="window.entCantKey(event)">
-            <div class="ent-cant-btns">
-                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>
-                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(-1)" tabindex="-1" title="−1">▼</button>
+            {{-- Buscador: abarca las 2 primeras columnas (1fr + 180px) --}}
+            <div class="ent-search-field">
+                <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
+                       placeholder="Buscar por código (serial) o descripción…"
+                       oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
+                {{-- Badge del producto seleccionado: tapa el input con position:absolute --}}
+                <div id="entSelectedBadge" class="ent-selected-badge">
+                    <span class="cod" id="entSelectedCod"></span>
+                    <span id="entSelectedNom"></span>
+                    <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>
+                </div>
+                {{-- Dropdown de sugerencias: z-index:9000 --}}
+                <div id="entSuggest" class="ent-suggest"></div>
             </div>
-        </div>
 
-    </div>
+            {{-- UM: se alinea bajo la columna de Fecha (col 3) --}}
+            <div class="ent-um-wrap" title="Unidad de medida (UND, KG, L, M, etc.)">
+                <input type="text" id="entUm" class="ent-um-input" value="UND"
+                       maxlength="20" autocomplete="off" aria-label="Unidad de medida"
+                       placeholder="UND"
+                       oninput="window.entUmSuggest()" onfocus="window.entUmSuggest(true)" onkeydown="window.entUmKey(event)">
+                <div id="entUmSuggest" class="ent-um-suggest"></div>
+            </div>
+
+            {{-- Stepper: se alinea bajo el boton (col 4, 48px) --}}
+            <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
+                <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
+                       placeholder="" autocomplete="off"
+                       onkeydown="window.entCantKey(event)">
+                <div class="ent-cant-btns">
+                    <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>
+                    <button type="button" class="ent-cant-btn" onclick="window.entCantStep(-1)" tabindex="-1" title="−1">▼</button>
+                </div>
+            </div>
+
+        </div>
+    </div>{{-- /ent-form-grid --}}
 
     {{-- Tabla de productos ya agregados — estilo clon de .alm-table del modulo
          /admin/almacen para que el usuario reconozca el lenguaje visual. --}}
