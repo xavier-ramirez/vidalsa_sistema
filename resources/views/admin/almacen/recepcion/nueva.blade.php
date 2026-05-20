@@ -51,11 +51,11 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 145px]
+       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 162px]
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: 160px 1fr 130px 145px;
+        grid-template-columns: 160px 1fr 130px 162px;
         gap: 10px;
         align-items: center;
     }
