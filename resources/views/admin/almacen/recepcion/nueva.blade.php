@@ -52,15 +52,16 @@
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
        verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 185px]
-       Nota y Proveedor son ambos 1fr: mismo ancho, comparten el espacio flexible
-       al 50/50. El boton tiene 185px fijos para que "Bandeja de Entrada" entre
-       completo con el icono + holgura.
+       Nota y Proveedor son ambos minmax(0,1fr): mismo ancho, pueden comprimir hasta 0
+       sin desbordar el card blanco. El boton tiene 185px fijos para que
+       "Bandeja de Entrada" entre completo con el icono + holgura.
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr 130px 185px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 185px;
         gap: 10px;
         align-items: center;
+        min-width: 0;
     }
     /* Fila 1 de la cabecera: Nota de entrega ocupa col 1, Proveedor col 2,
        Fecha col 3, Boton col 4. */
@@ -111,7 +112,7 @@
     .ent-dest-pill .ic { padding:0 10px; display:flex; align-items:center; color:#0067b1; }
     .ent-dest-pill .ic .material-icons { font-size:18px; transform:none !important; }
     .ent-dest-pill .name { padding:0 12px 0 4px; font-size:13.5px; color:#0f172a; font-weight:700; overflow:hidden; text-overflow:ellipsis; }
-    .ent-input    { width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px; font-size:13.5px; background:#fbfcfd; outline:none; box-sizing:border-box; color:#0f172a; }
+    .ent-input    { width:100%; min-width:0; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px; font-size:13.5px; background:#fbfcfd; outline:none; box-sizing:border-box; color:#0f172a; }
     .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
     .ent-input::placeholder { color:#64748b; opacity:1; }
     select.ent-input { cursor:pointer; }
