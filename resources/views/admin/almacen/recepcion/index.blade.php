@@ -144,6 +144,12 @@
         .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding-top: 12px !important; }
         /* Contenedor blanco (.admin-card): padding interno chico y full-width */
         .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+        /* page-title-card: el global mobile le pone width:100% y menu.css le mete
+           padding:8px 12px — SIN box-sizing:border-box el ancho real es 100%+24px
+           y se desborda 24px a la derecha (clippeado), dejando el contenido
+           corrido hacia la derecha. Forzamos border-box + padding lateral 4px
+           para que su contenido alinee EXACTO con el de .admin-card (padding 4px). */
+        .page-title-card { box-sizing: border-box !important; padding-left: 4px !important; padding-right: 4px !important; }
         /* Titulo + separador ocultos en mobile */
         .page-title-card .page-title { display: none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
@@ -256,7 +262,10 @@
             text-align: right !important; align-self: center !important;
         }
         /* td:4 (Líneas), td:5 (Fecha envío), td:7 (Creado por) — comparten la fila "meta"
-           usando justify-self para distribuirse: left / center / right. */
+           usando justify-self para distribuirse: left / center / right.
+           font-weight:400 normaliza el peso: la celda Líneas trae font-weight:700
+           inline (estilo de la tabla desktop) y en la tarjeta mobile se veia en
+           negrita mientras fecha/creado-por iban en peso normal — inconsistente. */
         .tr-table tbody tr[data-id] td:nth-child(4),
         .tr-table tbody tr[data-id] td:nth-child(5),
         .tr-table tbody tr[data-id] td:nth-child(7) {
@@ -264,6 +273,7 @@
             align-items: center !important;
             gap: 4px !important;
             font-size: 11.5px !important;
+            font-weight: 400 !important;
             color: #475569 !important;
             padding-top: 8px !important;
             border-top: 1px dashed #e2e8f0 !important;
