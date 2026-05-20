@@ -1633,7 +1633,7 @@ class AlmacenController extends Controller
         // EXACTOS. Sin gap entre el borde inferior del cabezote y el borde superior de la
         // tabla "PROYECTO/CONTRATO/..." -> las dos lineas se ven como una sola continua.
         // Si subes/bajas $headerHeight en NotaEntregaPDF::Header(), recalcular este top.
-        $pdf->SetMargins(12, 30, 12);
+        $pdf->SetMargins(10, 30, 10);
         $pdf->SetHeaderMargin(6);
         $pdf->SetFooterMargin(10);
         $pdf->SetAutoPageBreak(true, 14);
@@ -1944,20 +1944,20 @@ class NotaEntregaPDF extends \TCPDF
 
         // Cabezote oficial VID-FO-GEN-019.
         // Geometria del cabezote:
-        //   x = 12 mm  (margen izquierdo)         width = 186 mm  (210 - 12*2)
+        //   x = 10 mm  (margen izquierdo)         width = 190 mm  (210 - 10*2)
         //   y = 6 mm   (top del cabezote)         height = 68 pt = 24 mm
         //   bottom = y + height = 30 mm           ← coincide con SetMargins top=30
         //                                          para que la tabla del body
         //                                          arranque PEGADA al cabezote.
-        // Celda del logo (22% de 186 = 40.92 mm):
-        //   left   = 12     right = 12 + 40.92 = 52.92      center x = 32.46
-        //   top    =  6     bottom = 30                      center y = 18
+        // Celda del logo (22% de 190 = 41.8 mm):
+        //   left   = 10     right = 10 + 41.8 = 51.8      center x = 30.9
+        //   top    =  6     bottom = 30                    center y = 18
         $headerHeight = 68;          // pt (= ~24 mm)
-        $cabX = 12;
+        $cabX = 10;
         $cabY = 6;
-        $cabW = 186;
+        $cabW = 190;                 // mm = 210 - 10 (izq) - 10 (der)
         $cabH = 24;                  // mm (≈ 68 pt)
-        $logoCellW = $cabW * 0.22;   // 40.92 mm
+        $logoCellW = $cabW * 0.22;   // 41.8 mm
 
         $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
@@ -1966,7 +1966,7 @@ class NotaEntregaPDF extends \TCPDF
             // entre dentro del bbox preservando aspect ratio y la centra en ambos ejes.
             // Padding interno de 1 mm para que el logo no toque el borde de la celda.
             $padding = 1;
-            $bx = $cabX + $padding;                 // 13
+            $bx = $cabX + $padding;                 // 11
             $by = $cabY + $padding;                 // 7
             $bw = $logoCellW - ($padding * 2);      // 38.92
             $bh = $cabH - ($padding * 2);           // 22
