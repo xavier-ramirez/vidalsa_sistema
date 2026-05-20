@@ -115,15 +115,9 @@
     .ent-input::placeholder { color:#64748b; opacity:1; }
     select.ent-input { cursor:pointer; }
 
-    /* ── Fila de captura: [Buscar] [Cantidad] SIEMPRE lado a lado ───────────
-       Flex en vez de grid: mas predecible en mobile. El buscador absorbe
-       el espacio sobrante (flex:1 1 0; min-width:0) y el stepper nunca
-       se va a otra fila (flex:0 0 auto; min-width:114px).
-       IMPORTANTE: NO tiene position:relative — el anclaje del dropdown
-       es .ent-search-field, que SÍ la tiene. Agregar position:relative
-       al row creaba un stacking-context que acotaba el z-index del dropdown. */
-    /* ent-capt-row ya es display:contents — sus hijos participan directamente en
-       .ent-form-grid. Los estilos de posicionamiento de cada hijo estan arriba. */
+    /* ent-capt-row usa display:contents — sus hijos participan directamente en
+       .ent-form-grid. Los dropdowns (position:absolute) siguen anclados a
+       .ent-search-field y .ent-um-wrap, que SÍ tienen position:relative. */
     /* Mobile responsive (≤480px) movido a estilos_globales.css. */
     /* Campo de UM — text input con autocomplete (mismo patron que el modal "Nuevo
        producto" de /admin/almacen). NO es un select con lista cerrada — el usuario
