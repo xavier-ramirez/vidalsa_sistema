@@ -3111,8 +3111,11 @@ input:-webkit-autofill:active {
 
 @media (max-width: 900px) {
     /* Fila Datos + Captura: 4 cols → 2 cols.
-       .ent-head-row y .ent-capt-row son display:contents — el grid está en .ent-form-grid. */
-    body:has(.ent-layout) .ent-form-grid { grid-template-columns: 1fr 1fr; }
+       .ent-head-row y .ent-capt-row son display:contents — el grid está en .ent-form-grid.
+       minmax(0,1fr) (no 1fr plano) — coherente con el fix anti-desborde del grid
+       desktop: el `auto` implícito de `1fr` deja que un hijo ancho expanda la
+       columna y desborde el card blanco. Con base 0 las columnas siempre caben. */
+    body:has(.ent-layout) .ent-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     /* Buscador vuelve a ocupar solo 2 columnas (span 2 de 2) */
     body:has(.ent-layout) .ent-capt-row > .ent-search-field { grid-column: 1 / 3; }
     /* UM col 1, Stepper col 2 */
