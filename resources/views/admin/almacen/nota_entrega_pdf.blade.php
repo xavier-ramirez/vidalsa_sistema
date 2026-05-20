@@ -30,7 +30,7 @@
 
 {{-- ── Bloque de datos del proyecto: tabla con 4 filas, grid de 6 columnas ──
      Anchos: 20% | 20% | 10% | 15% | 13% | 22%  (suma 100%)
-     fila 1: PROYECTO  (itálica, como el formato oficial)
+     fila 1: PROYECTO
      fila 2: CONTRATO Nº
      fila 3: FECHA DE ENTREGA · RQ N° · SOLICITANTE
      fila 4: DEPARTAMENTO
@@ -43,8 +43,8 @@
      coincidan visualmente. --}}
 <table border="1" cellpadding="2" cellspacing="0" width="100%">
     <tr>
-        <td width="20%"><font face="helvetica" size="9"><b><i>PROYECTO:</i></b></font></td>
-        <td width="80%" colspan="5"><font face="helvetica" size="9"><b><i>{{ $datos['proyecto'] ?: '' }}</i></b></font></td>
+        <td width="20%"><font face="helvetica" size="9"><b>PROYECTO:</b></font></td>
+        <td width="80%" colspan="5"><font face="helvetica" size="9"><b>{{ $datos['proyecto'] ?: '' }}</b></font></td>
     </tr>
     <tr>
         <td width="20%"><font face="helvetica" size="9"><b>CONTRATO Nº:</b></font></td>
