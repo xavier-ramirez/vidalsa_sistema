@@ -51,12 +51,13 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 110px]
-       El botón se alinea a la derecha dentro de su columna de 110px.
+       verticalmente. Columnas: [Nota 160px] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 200px]
+       La nota de entrega (serial) es más pequeña. El botón de recepción recupera
+       su texto y la cantidad (stepper) se vuelve mucho más ancha para comodidad.
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr 130px 110px;
+        grid-template-columns: 160px 1fr 130px 200px;
         gap: 10px;
         align-items: center;
     }
@@ -78,57 +79,21 @@
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
-    /* ── Boton "Bandeja de Recepción" — version icono compacto con tooltip ──
-       Ocupa 48px cuadrados pero vive en una columna de 110px (para darle espacio al stepper),
-       así que lo alineamos a la derecha con justify-self: end. */
+    /* ── Boton "Bandeja de Recepción" ──
+       Ocupa la columna de 200px. Vuelve a mostrar su texto original. */
     .ent-envios-btn {
-        justify-self: end;
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 48px; height: 40px;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; height: 40px; padding: 0 16px;
         border-radius: 10px;
         text-decoration: none;
         background: var(--maquinaria-blue,#0067b1); color: #fff;
-        box-shadow: 0 4px 6px -1px rgba(0,103,177,0.22);
+        font-weight: 700; font-size: 13.5px; white-space: nowrap;
+        box-shadow: 0 4px 6px -1px rgba(0,103,177,0.18);
         transition: background .15s, transform .1s;
-        position: relative;
-        flex-shrink: 0;
     }
-    .ent-envios-btn:hover { background: #005391; transform: scale(1.04); }
-    .ent-envios-btn:active { transform: scale(0.97); }
-    .ent-envios-btn i { font-size: 22px; pointer-events: none; }
-    /* Tooltip flotante — aparece debajo del boton en hover */
-    .ent-envios-btn::after {
-        content: attr(data-tooltip);
-        position: absolute;
-        bottom: calc(100% + 8px);
-        right: 0;
-        background: #1e293b;
-        color: #f1f5f9;
-        font-size: 11.5px;
-        font-weight: 600;
-        white-space: nowrap;
-        padding: 5px 10px;
-        border-radius: 7px;
-        pointer-events: none;
-        opacity: 0;
-        transform: translateY(4px);
-        transition: opacity .18s, transform .18s;
-        box-shadow: 0 4px 12px rgba(15,23,42,0.22);
-        z-index: 200;
-    }
-    .ent-envios-btn::before {
-        content: '';
-        position: absolute;
-        bottom: calc(100% + 3px);
-        right: 14px;
-        border: 5px solid transparent;
-        border-top-color: #1e293b;
-        opacity: 0;
-        transition: opacity .18s;
-        z-index: 200;
-    }
-    .ent-envios-btn:hover::after,
-    .ent-envios-btn:hover::before { opacity: 1; transform: translateY(0); }
+    .ent-envios-btn:hover { background: #005391; transform: scale(1.02); }
+    .ent-envios-btn:active { transform: scale(0.98); }
+    .ent-envios-btn i { font-size: 20px; }
     /* Pill del almacen destino (read-only): vive en el page-title-card al lado
        del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
        dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
@@ -371,12 +336,12 @@
                  title="Fecha (default hoy)">
                 <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
             </div>
-            {{-- Boton Bandeja de Recepción: icono compacto 48x40 con tooltip CSS. --}}
+            {{-- Boton Bandeja de Recepción: recuperó su texto. --}}
             <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
                class="ent-envios-btn"
-               data-tooltip="Bandeja de Recepción"
                aria-label="Ver bandeja de recepción — envíos pendientes">
                 <i class="material-icons">local_shipping</i>
+                <span>Bandeja de Recepción</span>
             </a>
         </div>
 
