@@ -967,6 +967,13 @@
                 </div>
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Varios proyectos pueden compartir un mismo almacén.</div>
             </div>
+            {{-- Nota para almacén GLOBAL: sustituye al selector de frentes (que se
+                 oculta). Un almacén global sirve a TODOS los frentes — no se asocian
+                 frentes específicos. Antes la sección solo se ocultaba y el usuario
+                 no entendía por qué no veía los frentes. --}}
+            <div id="almNvGlobalNote" style="display:none;margin-top:4px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12.5px;color:#1e40af;line-height:1.45;">
+                <strong>Almacén global.</strong> Queda disponible para <strong>todos los frentes</strong> — no se asocian frentes específicos. Para limitarlo a ciertos frentes, cambiá el Tipo a "Proyecto".
+            </div>
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -2643,8 +2650,13 @@
     };
 
     window.almToggleFrentes = function () {
-        var wrap = el('almNvFrentesWrap'); if (!wrap) return;
-        wrap.style.display = (val('almNvTipo') === 'PROYECTO') ? '' : 'none';
+        var wrap = el('almNvFrentesWrap');
+        var note = el('almNvGlobalNote');
+        var esProyecto = (val('almNvTipo') === 'PROYECTO');
+        // PROYECTO -> selector de frentes; GLOBAL -> nota explicativa (un almacén
+        // global sirve a TODOS los frentes, no se selecciona ninguno).
+        if (wrap) wrap.style.display = esProyecto ? '' : 'none';
+        if (note) note.style.display = esProyecto ? 'none' : '';
     };
     // Checkboxes del multiselect de frentes del modal de almacén.
     function almNvFrenteChecks() { return Array.prototype.slice.call(document.querySelectorAll('#almNvFrentesSelect input[type="checkbox"]')); }
