@@ -2779,7 +2779,30 @@
             pre();
             fetch(ROUTE_ALM_ITEM(id), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
-            .then(function (res) { unpre(); if (res.ok) { toast(res.b.message || 'Almacén eliminado.'); setTimeout(function () { window.location = ROUTE_INDEX; }, 500); } else { toast((res.b && res.b.message) || 'No se pudo eliminar.', 'error'); } })
+            .then(function (res) {
+                unpre();
+                if (!res.ok) { toast((res.b && res.b.message) || 'No se pudo eliminar.', 'error'); return; }
+                toast(res.b.message || 'Almacén eliminado.');
+                // Actualización EN SITIO — sin window.location. Antes se redirigía a
+                // ROUTE_INDEX: eso disparaba el spinner de recarga total de la página
+                // y, durante el delay de 500ms, se seguía viendo el almacén ya borrado.
+                // 1) Quitar la fila del modal "Gestionar almacenes".
+                var fila = document.querySelector('#almAdminAlmacenesModal .alm-admin-row[data-id="' + id + '"]');
+                if (fila) fila.remove();
+                var lista = document.querySelector('#almAdminAlmacenesModal .alm-admin-list');
+                if (lista && !lista.querySelector('.alm-admin-row')) {
+                    lista.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">No hay almacenes. Usa "Nuevo almacén" para crear el primero.</p>';
+                }
+                // 2) Quitar la opción del dropdown "Almacén" del header.
+                var opt = document.querySelector('#almSelAlmacenDropdown .dropdown-item[data-value="' + id + '"]');
+                if (opt) opt.remove();
+                // 3) Si el almacén borrado era el filtro activo, limpiarlo para no
+                //    pedirle al backend un id que ya no existe.
+                var sel = el('almSelAlmacen');
+                if (sel && String(sel.value) === String(id)) sel.value = '';
+                // 4) Refrescar la tabla de inventario con el filtro vigente (AJAX).
+                if (window.almCargar) window.almCargar();
+            })
             .catch(function () { unpre(); toast('Error de red.', 'error'); });
         });
     };
