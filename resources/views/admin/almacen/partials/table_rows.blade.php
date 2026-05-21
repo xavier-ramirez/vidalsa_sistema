@@ -7,9 +7,9 @@
 @endphp
 
 @if(!$almacen)
-    {{-- Empty-state: solo lo ven los GLOBAL (super.admin) cuando el sistema no
-         tiene almacenes creados todavía. Los LOCAL nunca llegan aquí porque
-         el controller los redirige al menú con flash_toast (ver AlmacenController::index). --}}
+    {{-- Empty-state: solo lo ven los usuarios GLOBAL (NIVEL_ACCESO=1) cuando el
+         sistema no tiene almacenes creados todavía. Los LOCAL nunca llegan aquí
+         porque el controller los redirige al menú con flash_toast (ver AlmacenController::index). --}}
     <tr>
         <td colspan="{{ $cols }}" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">warehouse</i>
