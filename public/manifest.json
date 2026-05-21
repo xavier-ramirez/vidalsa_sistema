@@ -21,7 +21,7 @@
   },
   "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#00004d",
   "categories": ["business", "productivity"],
   "icons": [
     { "src": "/icons/icon-72.png",  "sizes": "72x72",  "type": "image/png", "purpose": "any maskable" },
