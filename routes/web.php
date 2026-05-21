@@ -237,11 +237,11 @@ Route::middleware(['auth'])->group(function () {
             // Reemplaza al viejo modal #entModal — misma funcionalidad pero como pantalla propia
             // con autocomplete de producto por codigo o descripcion. POSTea al endpoint existente
             // almacen.movimientos.lote (tipo=ENTRADA), no requiere backend nuevo.
-            // Recepcion ODC (Registrar entrada directa): el permiso 'almacen.movimiento'
-            // (EL MISMO que exige el submit almacen.movimientos-lote) se valida DENTRO de
-            // TraspasoController@nuevaEntrada. Si falta la clave, el usuario recibe un toast
-            // claro ("no tienes la clave...") y vuelve al menu, en lugar del 403 crudo que
-            // tiraba el route middleware `can:`. Pagina y submit siguen pidiendo lo mismo.
+            // Recepcion ODC (Registrar entrada directa): la PANTALLA es accesible sin
+            // permiso especial — abrir el formulario no expulsa a nadie. El gate
+            // 'almacen.movimiento' se aplica al EJECUTAR la operacion (submit POST
+            // almacen.movimientos-lote, ver AlmacenController@registrarMovimientoLote),
+            // que responde con un toast claro nombrando la clave si el usuario no la tiene.
             Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->name('almacen.recepcion.nueva');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
             Route::patch ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.recepcion.update');

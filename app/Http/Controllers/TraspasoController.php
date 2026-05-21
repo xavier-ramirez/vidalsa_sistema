@@ -255,20 +255,11 @@ class TraspasoController extends Controller
      */
     public function nuevaEntrada(Request $request)
     {
-        $user = $request->user();
-
-        // Permiso: registrar entradas directas exige la clave 'almacen.movimiento'
-        // (la MISMA que valida el submit POST almacen.movimientos-lote). Si el usuario
-        // no la tiene, lo notificamos con un toast claro y lo devolvemos al menu — antes
-        // un route middleware `can:almacen.movimiento` tiraba un 403 crudo sin explicar
-        // que le falta la clave. Mismo patron que la rama "sin almacen destino" de abajo.
-        if (! $user?->can('almacen.movimiento')) {
-            return redirect()->route('menu')->with('flash_toast', [
-                'type'    => 'error',
-                'message' => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar entradas. Solicítala a un administrador.',
-            ]);
-        }
-
+        // La pantalla es accesible sin permiso especial — abrir el formulario no
+        // expulsa a nadie. El gate 'almacen.movimiento' se aplica al EJECUTAR la
+        // operacion: el submit POST (registrarMovimientoLote) responde con un toast
+        // claro que nombra la clave si el usuario no la tiene.
+        $user      = $request->user();
         $almacenes = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
 
         // 1) Almacén-por-frente del usuario (helper canónico del módulo).
