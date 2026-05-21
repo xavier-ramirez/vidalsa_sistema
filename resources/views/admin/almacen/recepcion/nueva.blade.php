@@ -786,6 +786,11 @@
     }
 
     window.entAgregar = function () {
+        // Guard anti doble-POST: si hay una creacion de producto al vuelo en curso
+        // (entDoCreateProducto), ignoramos el trigger — sin esto, pulsar Enter dos
+        // veces seguidas disparaba dos POST a almacen.productos.store. La bandera
+        // entCreandoProducto se prende/apaga dentro de entDoCreateProducto.
+        if (entCreandoProducto) return;
         showErr('');
         // Input ahora es type=text (stepper estilo /admin/almacen) — normaliza coma → punto.
         var raw = String(el('entCant').value || '').replace(',', '.').trim();
