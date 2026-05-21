@@ -70,8 +70,9 @@
        del padre pero SIN crear un nuevo contexto de apilamiento — los dropdowns
        position:absolute siguen anclados a .ent-search-field y .ent-um-wrap. */
     .ent-capt-row { display: contents; }
-    /* Buscador abarca columnas 1 y 2 (Nota + Proveedor) */
-    .ent-capt-row > .ent-search-field { grid-column: 1 / 3; min-width: 0; max-width: none; position: relative; height: 40px; }
+    /* Buscador abarca columnas 1 y 2 (Nota + Proveedor). position:relative y
+       height:40px viven en la regla base .ent-search-field — aqui solo el span. */
+    .ent-capt-row > .ent-search-field { grid-column: 1 / 3; min-width: 0; max-width: none; }
     /* UM ocupa la columna de Fecha (col 3) */
     .ent-capt-row > .ent-um-wrap { grid-column: 3; }
     /* Stepper ocupa la columna del boton (col 4) */
@@ -133,7 +134,10 @@
         background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
     .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
-    .ent-um-input:disabled { background-color:#f1f5f9; cursor:not-allowed; color:#475569; }
+    /* Estado bloqueado: cuando se elige un producto del catalogo, la UM ya viene
+       definida y el campo se pone readOnly + clase .is-locked (ver entPick). El
+       input nunca usa el atributo `disabled`, asi que el estilo va por clase. */
+    .ent-um-input.is-locked { background-color:#f1f5f9; cursor:not-allowed; color:#475569; }
     /* Dropdown de sugerencias del campo UM — mismo estilo que .ent-suggest pero mas
        compacto (solo lista UMs cortas). */
     .ent-um-suggest {
@@ -198,7 +202,7 @@
        para coincidir con los otros campos. */
     .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:40px; }
     .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
-    /* El input ocupa el espacio disponible dentro del stepper (100px - 24px botones - 2px borde = ~74px) */
+    /* El input ocupa el espacio sobrante dentro del stepper (ancho de columna − 24px de botones − bordes) */
     .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
     .ent-cant-btns { display:flex; flex-direction:column; border-left:1px solid #cbd5e0; width:24px; }
     .ent-cant-btn  { flex:1; border:none; background:#fff; color:#0067b1; font-weight:800; font-size:12px; line-height:1; cursor:pointer; padding:0; }
@@ -345,7 +349,7 @@
              sin crear un bloque intermedio que rompa el alineado de columnas. --}}
         <div class="ent-capt-row">
 
-            {{-- Buscador: abarca las 2 primeras columnas (1fr + 180px) --}}
+            {{-- Buscador: abarca las 2 primeras columnas (Nota + Proveedor, ambas 1fr) --}}
             <div class="ent-search-field">
                 <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
                        placeholder="Buscar por código (serial) o descripción…"
@@ -369,7 +373,7 @@
                 <div id="entUmSuggest" class="ent-um-suggest"></div>
             </div>
 
-            {{-- Stepper: se alinea bajo el boton (col 4, 48px) --}}
+            {{-- Stepper: se alinea bajo el boton (col 4, 140px) --}}
             <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
                 <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
                        placeholder="" autocomplete="off"
@@ -444,7 +448,11 @@
 
     var ROUTE_ENTRADA = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
-    var ROUTE_BACK    = @json(route('almacen.recepcion.index'));
+    // ?force=1 -> la bandeja NO rebota a los usuarios GLOBAL (NIVEL_ACCESO 1) de
+    // vuelta a esta misma pantalla. Sin el force, "Cancelar" y el redirect de
+    // exito caian en el redirect de TraspasoController@index (GLOBAL sin params
+    // -> recepcion.nueva) y el usuario veia "se recarga la pagina".
+    var ROUTE_BACK    = @json(route('almacen.recepcion.index', ['force' => 1]));
     // PRODUCTOS no es `const` porque se agrega al vuelo cuando el usuario crea
     // un producto que no estaba en el catalogo — asi la proxima busqueda lo
     // encuentra como una sugerencia normal sin recargar la pagina.
@@ -671,10 +679,7 @@
     window.entCantKey = function (ev) {
         // Bloquear letras/signos: solo digitos, punto, coma, backspace, navegacion.
         var allowed = ['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'];
-        if (allowed.indexOf(ev.key) !== -1) {
-            if (ev.key === 'Enter') { ev.preventDefault(); window.entAgregar(); }
-            return;
-        }
+        if (allowed.indexOf(ev.key) !== -1) return;
         if (ev.key === 'Enter') { ev.preventDefault(); window.entAgregar(); return; }
         // ArrowUp/Down = stepper ±1
         if (ev.key === 'ArrowUp')   { ev.preventDefault(); window.entCantStep(1);  return; }
@@ -686,7 +691,7 @@
         if (!ev.ctrlKey && !ev.metaKey) ev.preventDefault();
     };
     // Botones ▲▼ del stepper: suman/restan 1 al valor. Si el campo esta vacio o
-    // no es numerico, arrancan en 1. No bajan de 0.001 (igual minimo que antes).
+    // no es numerico, arrancan en 1. El minimo es 0 (el campo queda en blanco).
     window.entCantStep = function (dir) {
         var inp = el('entCant'); if (!inp) return;
         var raw = String(inp.value || '').replace(',', '.').trim();
