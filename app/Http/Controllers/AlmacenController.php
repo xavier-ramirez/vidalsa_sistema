@@ -268,14 +268,31 @@ class AlmacenController extends Controller
         } elseif ($request->filled('search')) {
             $term = trim((string) $request->input('search'));
             // (cae aquí solo si NO vino id_producto — typed-and-Enter, no clic en sugerencia)
-            // Búsqueda flexible: tokeniza por espacios, AND entre tokens, y para cada token
-            // intenta también el SINGULAR (sin 'S' final si tiene >3 letras) — así "BOTAS"
-            // encuentra "BOTA DE SEGURIDAD" sin que el usuario tenga que escribir el singular.
-            $tokens = array_values(array_filter(preg_split('/\s+/', $term)));
+            // Búsqueda flexible: tokeniza por espacios, DESCARTA stopwords (de/la/y…)
+            // y números sueltos de 1-2 dígitos — sin esto cada palabra vacía ("de")
+            // o cifra suelta ("5") se volvía un requisito del AND y volvía la
+            // búsqueda frágil (había que escribir el nombre casi textual). AND entre
+            // tokens significativos; por cada token >3 letras terminado en 'S' se
+            // prueba el SINGULAR ("BOTAS" encuentra "BOTA DE SEGURIDAD").
+            // El fuzzy + ranking real vive en el autocomplete del frontend
+            // (almBuscarSuggest); este LIKE es el fallback de "tipear + Enter".
+            $stop = ['de','del','la','el','los','las','un','una','unos','unas',
+                     'y','e','o','u','a','en','con','para','por'];
+            $tokens = array_values(array_filter(
+                preg_split('/\s+/', mb_strtolower($term)),
+                function ($t) use ($stop) {
+                    return $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t);
+                }
+            ));
+            // Si el término era SOLO stopwords/números, caemos al término completo
+            // para no terminar con un WHERE vacío que devolvería todo el catálogo.
+            if (empty($tokens)) {
+                $tokens = [mb_strtolower($term)];
+            }
             $q->where(function ($s) use ($tokens) {
                 foreach ($tokens as $tok) {
                     $variantes = [$tok];
-                    if (mb_strlen($tok) > 3 && mb_strtoupper(mb_substr($tok, -1)) === 'S') {
+                    if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
                         $variantes[] = mb_substr($tok, 0, -1);
                     }
                     $s->where(function ($t) use ($variantes) {
@@ -2038,6 +2055,6 @@ class NotaEntregaPDF extends \TCPDF
         // writeHTMLCell en vez de Cell(): Cell() con helvetica no procesa UTF-8
         // y rompe los acentos (la 'ó' de "Gestión" se mostraba como "Ã³").
         // writeHTMLCell respeta el encoding del documento (configurado como UTF-8).
-        $this->writeHTMLCell(0, 6, '', $this->GetY(), '<div style="text-align:right;font-family:helvetica;font-style:italic;font-size:7pt;">Sistema de Gesti&oacute;n VIDALSA</div>', 0, 0, 0, true, 'R', true);
+        $this->writeHTMLCell(0, 6, '', $this->GetY(), '<div style="text-align:center;font-family:helvetica;font-weight:bold;font-size:7pt;">EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>', 0, 0, 0, true, 'C', true);
     }
 }
