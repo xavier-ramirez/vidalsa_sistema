@@ -88,7 +88,7 @@
         border-radius: 10px;
         text-decoration: none;
         background: var(--maquinaria-blue,#0067b1); color: #fff;
-        font-weight: 700; font-size: 11px; white-space: nowrap;
+        font-weight: 700; font-size: 12px; white-space: nowrap;
         box-shadow: 0 4px 6px -1px rgba(0,103,177,0.18);
         transition: background .15s, transform .1s;
     }

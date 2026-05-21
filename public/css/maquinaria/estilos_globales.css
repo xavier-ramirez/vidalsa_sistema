@@ -3102,11 +3102,10 @@ input:-webkit-autofill:active {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Boton "Bandeja de Entrada" — font-size definido AQUI (no solo en el <style>
-   inline del blade) para que SIEMPRE aplique. El cliente reporto la letra
-   "muy grande": el font-size:11px del <style> inline no llegaba a aplicarse
-   en navegacion SPA, asi el texto heredaba el tamano del body (~16px) y se
-   desbordaba la columna de 140px. Aqui, cargado desde <head>, no falla. */
-body:has(.ent-layout) .ent-envios-btn { font-size: 11px; font-weight: 700; }
+   inline del blade) para que SIEMPRE aplique, incluso si el SPA no procesa
+   el <style> inline en una navegacion (ahi el texto heredaba ~16px del body
+   y se desbordaba la columna). 12px = compacto pero legible. */
+body:has(.ent-layout) .ent-envios-btn { font-size: 12px; font-weight: 700; }
 body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
 
 @media (max-width: 1024px) {
