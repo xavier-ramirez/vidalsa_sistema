@@ -1,4 +1,4 @@
-{{-- Filas de la tabla de traspasos. $traspasos = paginator de Traspaso con almacenes y usuarioCreo cargados, withCount('lineas'). --}}
+{{-- Filas de la tabla de traspasos. $traspasos = paginator de Traspaso con almacenes cargados, withCount('lineas'). --}}
 
 @forelse($traspasos as $t)
     @php
@@ -24,11 +24,10 @@
         <td style="font-size:12.5px;color:#475569;white-space:nowrap;">
             {{ $t->FECHA_RECEPCION ? $t->FECHA_RECEPCION->format('d-M-Y H:i') : '—' }}
         </td>
-        <td style="font-size:12.5px;color:#64748b;">{{ optional($t->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}</td>
     </tr>
 @empty
     <tr>
-        <td colspan="7" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:14px;">
+        <td colspan="6" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">inbox</i>
             No hay traspasos que coincidan con tu vista actual.
         </td>

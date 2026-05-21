@@ -122,7 +122,7 @@ class TraspasoController extends Controller
         // SIEMPRE: estado ENVIADO en almacenes destino visibles para el usuario.
         // (la columna ID_ALMACEN_DESTINO ya cubre la visibilidad de quien debe recibir).
         $q = Traspaso::query()
-            ->with(['almacenOrigen:ID_ALMACEN,NOMBRE,TIPO', 'almacenDestino:ID_ALMACEN,NOMBRE,TIPO', 'usuarioCreo:ID_USUARIO,NOMBRE_COMPLETO'])
+            ->with(['almacenOrigen:ID_ALMACEN,NOMBRE,TIPO', 'almacenDestino:ID_ALMACEN,NOMBRE,TIPO'])
             ->withCount('lineas')
             ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
             ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);

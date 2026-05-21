@@ -261,14 +261,13 @@
             grid-area: estado !important;
             text-align: right !important; align-self: center !important;
         }
-        /* td:4 (Líneas), td:5 (Fecha envío), td:7 (Creado por) — comparten la fila "meta"
-           usando justify-self para distribuirse: left / center / right.
+        /* td:4 (Líneas) y td:5 (Fecha envío) — comparten la fila "meta":
+           Líneas a la izquierda, Fecha a la derecha (justify-self).
            font-weight:400 normaliza el peso: la celda Líneas trae font-weight:700
            inline (estilo de la tabla desktop) y en la tarjeta mobile se veia en
-           negrita mientras fecha/creado-por iban en peso normal — inconsistente. */
+           negrita mientras la fecha iba en peso normal — inconsistente. */
         .tr-table tbody tr[data-id] td:nth-child(4),
-        .tr-table tbody tr[data-id] td:nth-child(5),
-        .tr-table tbody tr[data-id] td:nth-child(7) {
+        .tr-table tbody tr[data-id] td:nth-child(5) {
             display: inline-flex !important;
             align-items: center !important;
             gap: 4px !important;
@@ -279,18 +278,13 @@
             border-top: 1px dashed #e2e8f0 !important;
             grid-area: meta !important;
         }
-        .tr-table tbody tr[data-id] td:nth-child(5) { justify-self: center !important; }
-        .tr-table tbody tr[data-id] td:nth-child(7) {
-            justify-self: end !important; color: #64748b !important;
-            max-width: 100% !important; overflow: hidden !important; text-overflow: ellipsis !important;
-        }
+        .tr-table tbody tr[data-id] td:nth-child(5) { justify-self: end !important; }
         /* td:6 = Fecha recibido — oculta en mobile (siempre vacia en bandeja ENVIADO). */
         .tr-table tbody tr[data-id] td:nth-child(6) { display: none !important; }
 
         /* Iconitos sutiles antes de cada meta. */
         .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'inventory_2'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
         .tr-table tbody tr[data-id] td:nth-child(5)::before { content: 'event';       font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
-        .tr-table tbody tr[data-id] td:nth-child(7)::before { content: 'person';      font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
 
         /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
         .tr-table tbody tr:not([data-id]) {
@@ -466,7 +460,6 @@
                     <th style="text-align:right;" title="Cantidad de productos distintos en el traspaso (no la suma de cantidades — eso lo ves al abrir el detalle).">Líneas</th>
                     <th title="Fecha y hora en que el origen despachó el traspaso. “—” si todavía es borrador.">Enviado</th>
                     <th title="Fecha y hora en que el destino confirmó la recepción. “—” si todavía no llegó o no se confirmó.">Recibido</th>
-                    <th title="Usuario que armó el borrador del traspaso (no necesariamente quien lo envió).">Creado por</th>
                 </tr>
             </thead>
             <tbody id="trTableBody">
