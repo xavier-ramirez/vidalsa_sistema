@@ -1101,13 +1101,13 @@
 <div id="eliminarNotaOverlay"
      style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
      onclick="if(event.target===this) window.closeEliminarNotaModal()">
-    <div style="background:#fff;width:100%;max-width:420px;border-radius:14px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);position:relative;">
+    <div style="background:#fff;width:100%;max-width:360px;border-radius:14px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);position:relative;">
         <button type="button" onclick="window.closeEliminarNotaModal()" aria-label="Cerrar"
             style="background:transparent;border:none;color:#94a3b8;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:10px;z-index:2;">
             <i class="material-icons" style="font-size:20px;">close</i>
         </button>
-        <div style="padding:24px 22px 18px;display:flex;flex-direction:column;gap:14px;text-align:center;">
-            <i class="material-icons" style="font-size:42px;color:#dc2626;margin:0 auto;">error</i>
+        <div style="padding:18px 20px 14px;display:flex;flex-direction:column;gap:10px;text-align:center;">
+            <i class="material-icons" style="font-size:34px;color:#dc2626;margin:0 auto;">error</i>
             <div>
                 <h2 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#0f172a;">Eliminar Nota de Entrega</h2>
                 <p style="margin:0;font-size:12.5px;color:#475569;line-height:1.45;">
@@ -1117,7 +1117,7 @@
             <div style="text-align:left;">
                 <label for="eliminarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">N° de Nota a eliminar</label>
                 <div id="eliminarNotaBox"
-                     style="display:flex;align-items:center;border:1px solid #cbd5e0;border-radius:8px;background:#fbfcfd;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;height:38px;">
+                     style="display:flex;align-items:center;border:1px solid #cbd5e0;border-radius:8px;background:#fbfcfd;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;height:34px;">
                     <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
                     <input type="text" id="eliminarNotaInput" placeholder="Ej: NE-{{ date('Y') }}-0001" autocomplete="off"
                         style="flex:1;border:none;outline:none;padding:0 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;height:100%;"
