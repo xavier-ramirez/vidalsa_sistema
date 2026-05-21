@@ -1213,10 +1213,11 @@ class AlmacenController extends Controller
             }
             if ($totalCol) {
                 $sheet->setCellValue($totalCol . $rowNum, $total);
-                $sheet->getStyle($totalCol . $rowNum)->getFont()->setBold(true);
             }
 
-            // Resaltar fila bajo mínimo (si hay mínimo y stock total ≤ mínimo).
+            // Resaltar fila bajo mínimo (si hay mínimo y stock total ≤ mínimo) o
+            // franja alterna. La alineación y la negrita del TOTAL NO van aquí —
+            // se aplican por columna completa después del loop (mucho más rápido).
             if ($minimo !== null && $total <= $minimo) {
                 $sheet->getStyle('A' . $rowNum . ':' . $lastCol . $rowNum)->getFill()
                     ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
@@ -1227,24 +1228,31 @@ class AlmacenController extends Controller
                     ->getStartColor()->setARGB('FFF8FAFC'); // gris muy claro alternado
             }
 
-            $sheet->getStyle('A' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('B' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('D' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle('F' . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-            foreach ($stockCols as $col) {
-                $sheet->getStyle($col . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-            }
-            if ($totalCol) {
-                $sheet->getStyle($totalCol . $rowNum)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
-            }
-
             $rowNum++;
             $n++;
         }
 
-        // Bordes a toda la zona de datos.
         if ($rowNum > 6) {
-            $sheet->getStyle('A5:' . $lastCol . ($rowNum - 1))->getBorders()->getAllBorders()
+            $ultimaFila = $rowNum - 1;
+
+            // ── Estilos por COLUMNA — UNA pasada, no celda-por-celda ───────────
+            // getStyle() es costoso en PhpSpreadsheet; aplicarlo por rango de
+            // columna completo (en vez de ~7 llamadas por fila dentro del loop)
+            // acelera mucho la exportación cuando hay cientos de productos.
+            foreach (['A', 'B', 'D'] as $c) {
+                $sheet->getStyle($c . '6:' . $c . $ultimaFila)->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
+            foreach (array_merge(['F'], $stockCols, $totalCol ? [$totalCol] : []) as $c) {
+                $sheet->getStyle($c . '6:' . $c . $ultimaFila)->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            }
+            if ($totalCol) {
+                $sheet->getStyle($totalCol . '6:' . $totalCol . $ultimaFila)->getFont()->setBold(true);
+            }
+
+            // Bordes a toda la zona de datos.
+            $sheet->getStyle('A5:' . $lastCol . $ultimaFila)->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setARGB('FFCBD5E0');
         } else {
@@ -1258,6 +1266,9 @@ class AlmacenController extends Controller
 
         // Salida.
         $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        // No hay fórmulas en la hoja (TOTAL se calcula en PHP) — saltar el pase de
+        // pre-cálculo de fórmulas ahorra tiempo de escritura.
+        $writer->setPreCalculateFormulas(false);
         $tempFile = tempnam(sys_get_temp_dir(), 'inv_');
         $writer->save($tempFile);
 
