@@ -1275,7 +1275,12 @@
                     fb('eliminarNotaFeedback', 'error', data.message || ('Error del servidor (' + r.status + ').'));
                     return;
                 }
-                fb('eliminarNotaFeedback', 'success', data.message || 'Nota eliminada y stock revertido.');
+                var okMsg = data.message || 'Nota eliminada y stock revertido.';
+                fb('eliminarNotaFeedback', 'success', okMsg);
+                // Toast global: la notificación persiste DESPUÉS de que el modal se
+                // cierre. Sin esto el único aviso era el recuadro dentro del modal,
+                // que desaparecía con él (800ms) y era fácil de no ver.
+                if (window.showToast) window.showToast(okMsg, 'success');
                 // Recargar la tabla de movimientos para que aparezcan las ENTRADAS reversa.
                 if (window.loadMovimientos) window.loadMovimientos();
                 setTimeout(function(){ window.closeEliminarNotaModal(); }, 800);
