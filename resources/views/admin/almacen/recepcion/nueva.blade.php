@@ -220,7 +220,7 @@
     .ent-list-table thead th.col-del    { width:60px; text-align:center; }
     .ent-list-table tbody .col-num      { text-align:center; font-weight:700; color:#64748b; font-size:13px; }
     /* Codigo del producto en la tabla: negro (no azul). Se mantiene monospace +
-       letter-spacing para que los codigos auto-generados (PRD-0042) se lean alineados. */
+       letter-spacing para que los codigos auto-generados (numericos, 000042) se lean alineados. */
     .ent-list-table tbody .col-codigo   { font-family:monospace; font-size:12.5px; font-weight:800; color:#0f172a; letter-spacing:.3px; white-space:nowrap; }
     .ent-list-table tbody td { padding:11px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .ent-list-table tbody td:last-child { border-right:none; }
@@ -845,7 +845,7 @@
             var num = (idx + 1);
             var numPad = (num < 10 ? '0' : '') + num;
             // data-num + data-codigo en el td de descripcion: el CSS mobile los
-            // inyecta como prefijo via ::before para unificar "01 · PRD-0042 NOMBRE"
+            // inyecta como prefijo via ::before para unificar "01 · 000042 NOMBRE"
             // en un solo banner gris (mismo patron que .alm-td-nombre en /admin/almacen).
             return '<tr data-idx="' + idx + '">'
                 +   '<td class="col-num">' + num + '</td>'

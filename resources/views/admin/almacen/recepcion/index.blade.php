@@ -532,7 +532,7 @@
             return;
         }
 
-        // Filtrar: prefijo primero, luego substring; máximo 8.
+        // Filtrar: substring case-insensitive (indexOf); máximo 8.
         var matches = TR_NUMEROS.filter(function (n) {
             return String(n).toUpperCase().indexOf(q) !== -1;
         }).slice(0, 8);
