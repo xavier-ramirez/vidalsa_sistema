@@ -899,11 +899,23 @@
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
-            if (window.hidePreloader) window.hidePreloader();
             if (res.ok) {
-                toast(res.b.message || 'Entrada registrada.', 'success');
-                setTimeout(function () { window.location = ROUTE_BACK; }, 600);
+                // Exito: NO ocultamos el preloader — lo dejamos encendido y
+                // redirigimos de inmediato, asi la transicion a la bandeja es
+                // continua. Antes se llamaba hidePreloader() y se redirigia
+                // 600ms despues -> el usuario veia "el spinner se quita y luego
+                // la pestaña se recarga sola". El toast de exito se muestra en
+                // la pagina destino via sessionStorage (hook de estructura_base).
+                try {
+                    sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
+                        message: (res.b && res.b.message) || 'Entrada registrada correctamente.',
+                        type: 'success',
+                    }));
+                } catch (e) { /* sessionStorage no disponible — sin toast, no critico */ }
+                window.location = ROUTE_BACK;
             } else {
+                // Error: aqui SI ocultamos el preloader porque nos quedamos en la pagina.
+                if (window.hidePreloader) window.hidePreloader();
                 if (btn) btn.disabled = false;
                 var msg = (res.b && res.b.message) || 'No se pudo registrar la entrada.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
