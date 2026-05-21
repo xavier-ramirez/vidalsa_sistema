@@ -2534,6 +2534,11 @@
     };
 
     window.almGuardarAjuste = function () {
+        // Guard de permiso — mismo patrón que el resto de acciones del módulo y que
+        // almAbrirAjuste: la auditoría registra un AJUSTE de inventario y/o cambia el
+        // stock mínimo, ambas operaciones exigen la clave almacen.movimiento. Sin este
+        // guard el botón "Guardar" actuaba aunque el usuario no tuviera el permiso.
+        if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         var idAlm = val('almSelAlmacen'); if (!idAlm) { showErr('almAjError', 'No hay almacén seleccionado.'); return; }
         var nuevoSaldoRaw = val('almAjNuevoSaldo');
