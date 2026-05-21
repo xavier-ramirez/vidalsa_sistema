@@ -1614,32 +1614,79 @@
         box.innerHTML = html || (emptyHtml || '<div class="alm-suggest-empty">Sin coincidencias.</div>');
         box.classList.add('open');
     }
-    // Construye los "tokens de búsqueda" para igualar la lógica del backend:
-    // tokeniza por espacios, normaliza (lower + sin acentos) y para cada token >3
-    // letras que termine en 'S' añade su variante singular. Devuelve { tokens, hasMatch(text) }.
-    function almBuildSearchMatcher(rawTerm) {
-        var tokens = (rawTerm || '').split(/\s+/).filter(Boolean).map(function (t) {
-            var n = almNorm(t);
-            var variantes = [n];
-            if (n.length > 3 && n.charAt(n.length - 1) === 's') variantes.push(n.slice(0, -1));
-            return variantes;
-        });
-        return {
-            isEmpty: tokens.length === 0,
-            // hasMatch retorna true si CADA token (en alguna de sus variantes) aparece
-            // como substring del texto normalizado pasado — AND entre tokens, OR entre variantes.
-            hasMatch: function (text) {
-                var n = almNorm(text || '');
-                for (var i = 0; i < tokens.length; i++) {
-                    var found = false;
-                    for (var j = 0; j < tokens[i].length; j++) {
-                        if (n.indexOf(tokens[i][j]) > -1) { found = true; break; }
-                    }
-                    if (!found) return false;
-                }
-                return true;
+    // ── Buscador "estilo Google" — fuzzy + ranking por relevancia ─────────────
+    //   El autocomplete ya no exige el match EXACTO de todos los tokens. Tokeniza,
+    //   descarta stopwords ("de","la","y"...) y numeros sueltos cortos, tolera
+    //   errores de tipeo (distancia de edicion) y RANKEA los resultados por un
+    //   score — los mas relevantes primero. Mismo criterio reflejado en el
+    //   backend (AlmacenController::index) para el fallback de "tipear + Enter".
+    var ALM_STOPWORDS = { de:1, del:1, la:1, el:1, los:1, las:1, un:1, una:1,
+                          unos:1, unas:1, y:1, e:1, o:1, u:1, a:1, en:1, con:1,
+                          para:1, por:1 };
+
+    // Distancia de Levenshtein con tope: si la edicion minima supera `max`,
+    // corta temprano y devuelve max+1 (evita calcular distancias irrelevantes).
+    function almLeven(a, b, max) {
+        var la = a.length, lb = b.length;
+        if (la === 0) return lb;
+        if (lb === 0) return la;
+        if (Math.abs(la - lb) > max) return max + 1;
+        var prev = [], cur = [], i, j;
+        for (j = 0; j <= lb; j++) prev[j] = j;
+        for (i = 1; i <= la; i++) {
+            cur[0] = i;
+            var best = i;
+            for (j = 1; j <= lb; j++) {
+                var cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+                if (cur[j] < best) best = cur[j];
             }
-        };
+            if (best > max) return max + 1;          // fila entera supera el tope
+            for (j = 0; j <= lb; j++) prev[j] = cur[j];
+        }
+        return prev[lb];
+    }
+
+    // Tokeniza el termino: normaliza (lower + sin acentos), separa por espacios,
+    // descarta stopwords y numeros sueltos de 1-2 digitos (solo meten ruido).
+    // Si TODO era stopword/numero, devuelve los tokens crudos (no deja vacio).
+    function almTokenizar(raw) {
+        var crudos = almNorm(raw || '').split(/\s+/).filter(Boolean);
+        var sig = crudos.filter(function (t) {
+            return !ALM_STOPWORDS[t] && !/^\d{1,2}$/.test(t);
+        });
+        return sig.length ? sig : crudos;
+    }
+
+    // Puntua UN token contra un producto. `palabras` = palabras del texto
+    // (CODIGO+NOMBRE) normalizado; `hayFull` = ese texto completo.
+    // Retorna {score, hit}. Substring directo pesa mas que un match fuzzy.
+    function almScoreToken(palabras, hayFull, token) {
+        var idx = hayFull.indexOf(token);
+        if (idx > -1) {
+            var s = 12;
+            if (idx === 0) s += 12;                          // arranca el texto
+            else if (hayFull.charAt(idx - 1) === ' ') s += 7; // inicio de palabra
+            return { score: s, hit: true };
+        }
+        // Fuzzy: tolera 1 typo en tokens cortos, 2 en largos. Compara contra
+        // cada palabra completa Y contra su prefijo del largo del token (captura
+        // typos mientras todavia se esta escribiendo la palabra).
+        var tol = token.length <= 4 ? 1 : 2;
+        var mejor = tol + 1;
+        for (var i = 0; i < palabras.length; i++) {
+            var w = palabras[i];
+            if (!w) continue;
+            var d = almLeven(token, w, tol);
+            if (d < mejor) mejor = d;
+            if (w.length > token.length) {
+                var dp = almLeven(token, w.substr(0, token.length), tol);
+                if (dp < mejor) mejor = dp;
+            }
+            if (mejor === 0) break;
+        }
+        if (mejor <= tol) return { score: 7 - mejor * 2, hit: true }; // 1 typo→5, 2→3
+        return { score: 0, hit: false };
     }
 
     window.almBuscarSuggest = function () {
@@ -1647,7 +1694,7 @@
         var inp = el('almFiltroBuscar'), box = el('almFiltroBuscarSuggest');
         if (!inp || !box) return;
         var rawTerm = inp.value.trim();
-        var matcher = almBuildSearchMatcher(rawTerm);
+        var tokens = almTokenizar(rawTerm);
         var lista = window.almProductosLista || [];
 
         // Acceso directo "VER TODO EL STOCK" — siempre presente al inicio de la lista, sin
@@ -1678,19 +1725,42 @@
         // este caso debería ser raro, pero es defensa en profundidad por si un almacén nuevo
         // se crea después de un producto o por importaciones legacy.
         var matches = [];
-        if (matcher.isEmpty) {
+        if (tokens.length === 0) {
+            // Sin termino → primeros 12 del catalogo (orden del backend).
             for (var i = 0; i < lista.length && matches.length < 12; i++) {
                 matches.push(lista[i]);
             }
         } else {
-            for (var j = 0; j < lista.length && matches.length < 12; j++) {
+            // Scoring estilo Google: por cada producto sumamos el score de cada
+            // token (substring fuerte / fuzzy debil). Un producto entra como
+            // candidato si matchea al menos la MITAD de los tokens — asi un typo
+            // o una palabra de mas no descarta el resultado correcto. Luego
+            // bonus por: todos los tokens, frase completa contenida, nombre
+            // corto (match mas especifico). Se ordena por score desc.
+            var rawNorm = almNorm(rawTerm).replace(/\s+/g, ' ');
+            var minTokens = Math.ceil(tokens.length / 2);
+            var scored = [];
+            for (var j = 0; j < lista.length; j++) {
                 var p = lista[j];
-                // Cada token (con su variante singular si aplica) debe aparecer en CODIGO o NOMBRE
-                // — concatenamos para que un token pueda matchear en cualquiera de los dos campos.
-                if (matcher.hasMatch((p.CODIGO || '') + ' ' + (p.NOMBRE || ''))) {
-                    matches.push(p);
+                var nom = almNorm(p.NOMBRE || '');
+                var hayFull = almNorm((p.CODIGO || '') + ' ' + (p.NOMBRE || ''));
+                var palabras = hayFull.split(/\s+/).filter(Boolean);
+                var total = 0, matched = 0;
+                for (var k = 0; k < tokens.length; k++) {
+                    var r = almScoreToken(palabras, hayFull, tokens[k]);
+                    if (r.hit) { matched++; total += r.score; }
                 }
+                if (matched < minTokens) continue;
+                if (matched === tokens.length) total += 25;          // todos los tokens
+                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 30; // frase exacta
+                total += Math.max(0, 20 - nom.length * 0.15);          // nombre corto
+                scored.push({ p: p, score: total });
             }
+            scored.sort(function (a, b) {
+                if (b.score !== a.score) return b.score - a.score;
+                return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
+            });
+            for (var s = 0; s < scored.length && s < 12; s++) matches.push(scored[s].p);
         }
 
         if (!matches.length) {
