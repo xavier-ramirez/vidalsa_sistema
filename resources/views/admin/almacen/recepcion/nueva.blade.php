@@ -448,12 +448,6 @@
 
     var ROUTE_ENTRADA = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
-    // Destino tras registrar la entrada con EXITO (lo usa entGuardar; "Cancelar"
-    // ya NO navega — solo vacia la tabla). ?force=1 -> la bandeja NO rebota a los
-    // usuarios GLOBAL (NIVEL_ACCESO 1) de vuelta a esta pantalla; sin el force
-    // caia en el redirect de TraspasoController@index (GLOBAL sin params ->
-    // recepcion.nueva) y se veia "se recarga la pagina".
-    var ROUTE_BACK    = @json(route('almacen.recepcion.index', ['force' => 1]));
     // PRODUCTOS no es `const` porque se agrega al vuelo cuando el usuario crea
     // un producto que no estaba en el catalogo — asi la proxima busqueda lo
     // encuentra como una sugerencia normal sin recargar la pagina.
@@ -587,8 +581,9 @@
     }
     // El parametro (true) suprime el siguiente entSuggest para que el dropdown NO
     // se abra solo al refocar el buscador. Lo usan entInsertarLinea (tras agregar
-    // una linea) y entLimpiarTodo (tras vaciar la tabla al cancelar): en ambos el
-    // refoco del buscador es automatico, no una intencion de "ver sugerencias".
+    // una linea) y entLimpiarTodo (al vaciar el borrador en cancelar o tras un
+    // registro exitoso): el refoco del buscador es automatico, no una intencion
+    // de "ver sugerencias".
     window.entClearSelected = function (suppressSuggest) {
         entSelected = null;
         el('entSelectedBadge').classList.remove('show');
@@ -905,30 +900,46 @@
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify(payload),
         })
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, status: r.status, b: b }; }); })
         .then(function (res) {
+            // El boton NUNCA navega ni recarga la pagina: ocultamos el preloader,
+            // reactivamos el boton y mostramos SOLO una notificacion.
+            if (window.hidePreloader) window.hidePreloader();
+            if (btn) btn.disabled = false;
+
             if (res.ok) {
-                // Exito: NO ocultamos el preloader — lo dejamos encendido y
-                // redirigimos de inmediato, asi la transicion a la bandeja es
-                // continua. Antes se llamaba hidePreloader() y se redirigia
-                // 600ms despues -> el usuario veia "el spinner se quita y luego
-                // la pestaña se recarga sola". El toast de exito se muestra en
-                // la pagina destino via sessionStorage (hook de estructura_base).
-                try {
-                    sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
-                        message: (res.b && res.b.message) || 'Entrada registrada correctamente.',
-                        type: 'success',
-                    }));
-                } catch (e) { /* sessionStorage no disponible — sin toast, no critico */ }
-                window.location = ROUTE_BACK;
-            } else {
-                // Error: aqui SI ocultamos el preloader porque nos quedamos en la pagina.
-                if (window.hidePreloader) window.hidePreloader();
-                if (btn) btn.disabled = false;
-                var msg = (res.b && res.b.message) || 'No se pudo registrar la entrada.';
-                if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
-                showErr(msg); toast(msg, 'error');
+                // Exito: vaciamos el borrador y nos quedamos en el modulo, listos
+                // para la siguiente entrada (flujo tipo POS). Antes redirigia a la
+                // bandeja; el cliente pidio que el boton solo notifique, sin navegar.
+                entLimpiarTodo();
+                toast((res.b && res.b.message) || 'Entrada registrada correctamente.', 'success');
+                return;
             }
+
+            // Error: nos quedamos en la pagina con la captura intacta.
+            var msg = (res.b && res.b.message) || 'No se pudo registrar la entrada.';
+            if (res.b && res.b.errors) {
+                msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+            }
+            // 403 = falta la clave 'almacen.movimiento'. Notificacion moderna tipo
+            // modal (mas visible que un toast); el usuario se queda en el modulo
+            // con lo que capturo intacto.
+            if (res.status === 403 || (res.b && res.b.forbidden)) {
+                showErr('');
+                if (typeof window.showModal === 'function') {
+                    window.showModal({
+                        type:        'error',
+                        title:       'Permiso requerido',
+                        message:     msg,
+                        confirmText: 'Entendido',
+                        hideCancel:  true,
+                    });
+                } else {
+                    toast(msg, 'error');
+                }
+                return;
+            }
+            showErr(msg); toast(msg, 'error');
         })
         .catch(function () {
             if (window.hidePreloader) window.hidePreloader();
@@ -938,13 +949,13 @@
         });
     };
 
-    // ── Cancelar operacion: vacia el borrador SIN salir del modulo ──
+    // ── Limpiar el borrador completo (sin navegar ni notificar) ──
     //
-    // "Cancelar" descarta lo capturado y deja el formulario en blanco para
-    // empezar de nuevo — NO navega ni recarga la pagina. Antes redirigia a la
-    // bandeja, lo que sacaba al usuario del modulo; el cliente pidio que solo
-    // vacie la tabla y se quede aqui. Limpia: tabla de lineas, fila de captura
-    // (buscador/UM/cantidad), cabecera (nota/proveedor/fecha) y observaciones.
+    // Vacia la tabla de lineas, la fila de captura (buscador/UM/cantidad), la
+    // cabecera (nota/proveedor/fecha) y las observaciones. Lo reusan "Cancelar
+    // operacion" y el EXITO de "Registrar entrada": en ambos casos el modulo NO
+    // navega ni recarga, solo deja el formulario en blanco para la siguiente
+    // captura. No muestra notificacion — cada quien muestra la suya.
     function entLimpiarTodo() {
         entLineas = [];
         entRender();
@@ -958,11 +969,16 @@
         });
         var fch = el('entFecha'); if (fch) fch.value = new Date().toISOString().slice(0, 10);
         showErr('');
-        toast('Operación cancelada. La tabla quedó vacía.', 'success');
     }
+
+    // ── Cancelar operacion: vacia el borrador SIN salir del modulo ──
     window.entCancelar = function () {
-        // Sin lineas → no hay captura que confirmar; limpiamos los campos directo.
-        if (entLineas.length === 0) { entLimpiarTodo(); return; }
+        var hacer = function () {
+            entLimpiarTodo();
+            toast('Operación cancelada. La tabla quedó vacía.', 'success');
+        };
+        // Sin lineas → no hay captura que confirmar; limpiamos directo.
+        if (entLineas.length === 0) { hacer(); return; }
 
         // Hay lineas capturadas → confirmar antes de vaciar (se pierde lo cargado).
         // Modal del sistema (window.showModal), con confirm() nativo de fallback
@@ -979,10 +995,10 @@
                 message:     mensaje,
                 confirmText: 'Sí, vaciar la tabla',
                 cancelText:  'Continuar capturando',
-                onConfirm:   entLimpiarTodo,
+                onConfirm:   hacer,
             });
         } else {
-            if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) entLimpiarTodo();
+            if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) hacer();
         }
     };
 
