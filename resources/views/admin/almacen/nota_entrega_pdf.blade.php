@@ -151,13 +151,13 @@
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>NOMBRE:</b></font></td>
-        <td width="43%" align="center"><font face="helvetica" size="9"><b>NOMBRE:</b> {{ $datos['entregado_por'] ?: '' }}</font></td>
-        <td width="43%"><font face="helvetica" size="9"><b>NOMBRE:</b></font></td>
+        <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['entregado_por'] ?: '' }}</font></td>
+        <td width="43%">&nbsp;</td>
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>CARGO:</b></font></td>
-        <td width="43%" align="center"><font face="helvetica" size="9"><b>CARGO:</b> {{ $datos['cargo_entrega'] ?? '' }}</font></td>
-        <td width="43%"><font face="helvetica" size="9"><b>CARGO:</b></font></td>
+        <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['cargo_entrega'] ?? '' }}</font></td>
+        <td width="43%">&nbsp;</td>
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>FIRMA:</b></font></td>
