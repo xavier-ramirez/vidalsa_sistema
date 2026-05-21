@@ -150,23 +150,23 @@
         <td width="43%" align="center"><font face="helvetica" size="9"><b>RECIBIDO POR:</b></font></td>
     </tr>
     <tr>
-        <td width="14%"><font face="helvetica" size="9"><b>Nombre:</b></font></td>
+        <td width="14%"><font face="helvetica" size="9"><b>NOMBRE:</b></font></td>
         <td width="43%" align="center"><font face="helvetica" size="9"><b>NOMBRE:</b> {{ $datos['entregado_por'] ?: '' }}</font></td>
         <td width="43%"><font face="helvetica" size="9"><b>NOMBRE:</b></font></td>
     </tr>
     <tr>
-        <td width="14%"><font face="helvetica" size="9"><b>Cargo:</b></font></td>
+        <td width="14%"><font face="helvetica" size="9"><b>CARGO:</b></font></td>
         <td width="43%" align="center"><font face="helvetica" size="9"><b>CARGO:</b> {{ $datos['cargo_entrega'] ?? '' }}</font></td>
         <td width="43%"><font face="helvetica" size="9"><b>CARGO:</b></font></td>
     </tr>
     <tr>
-        <td width="14%"><font face="helvetica" size="9"><b>Firma:</b></font></td>
+        <td width="14%"><font face="helvetica" size="9"><b>FIRMA:</b></font></td>
         <td width="43%" height="24">&nbsp;</td>
         <td width="43%" height="24">&nbsp;</td>
     </tr>
     <tr>
-        <td width="14%"><font face="helvetica" size="9"><b>Fecha:</b></font></td>
-        <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['fecha'] }}</font></td>
+        <td width="14%"><font face="helvetica" size="9"><b>FECHA:</b></font></td>
+        <td width="43%" align="center"><font face="helvetica" size="9">{{ strtoupper($datos['fecha']) }}</font></td>
         <td width="43%">&nbsp;</td>
     </tr>
 </table>
