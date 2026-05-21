@@ -203,7 +203,7 @@
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="8"><b>EMPRESA:</b></font></td>
-        <td width="36%"><font face="helvetica" size="8">Constructora Vidalsa 27, C.A.</font></td>
+        <td width="36%"><font face="helvetica" size="8">CONSTRUCTORA VIDALSA 27, C.A.</font></td>
         <td width="14%"><font face="helvetica" size="8"><b>FIRMA:</b></font></td>
         <td width="36%">&nbsp;</td>
     </tr>
