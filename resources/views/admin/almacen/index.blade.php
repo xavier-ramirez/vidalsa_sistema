@@ -551,9 +551,11 @@
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:80vh;min-width:0;width:100%;padding:14px;">
 
-    {{-- ── Banner: envíos por recibir (módulo Recepción) ── --}}
+    {{-- ── Banner: envíos por recibir (módulo Recepción) ──
+         ?force=1 lleva a la BANDEJA de traspasos pendientes (el sentido del banner);
+         sin el force, TraspasoController@index lo redirige a recepcion/nueva. --}}
     @if(($traspasosPorRecibir ?? 0) > 0)
-        <a href="{{ route('almacen.recepcion.index') }}"
+        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
            style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:12px;text-decoration:none;color:#92400e;">
             <span style="display:flex;align-items:center;gap:10px;">
                 <i class="material-icons" style="font-size:22px;color:#b45309;">notifications_active</i>

@@ -556,9 +556,10 @@
                         class="nav-dropdown-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                         <i class="material-icons">inventory_2</i> Inventario
                     </a>
-                    {{-- "Recepcion de Materiales": el enrutamiento por rol (GLOBAL→/nueva,
-                         LOCAL→/index bandeja) se decide en TraspasoController::index, no
-                         aqui. El layout queda estatico para no afectar TODOS los modulos. --}}
+                    {{-- "Recepcion de Materiales": al abrirla, TraspasoController::index
+                         redirige a recepcion/nueva (formulario de entrada directa) para
+                         TODOS los usuarios. La bandeja de traspasos se llega con el boton
+                         "Bandeja de Entrada" de esa pantalla. El layout queda estatico. --}}
                     <a href="{{ route('almacen.recepcion.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                         style="display:flex;align-items:center;gap:8px;justify-content:space-between;">

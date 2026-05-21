@@ -18,7 +18,9 @@
             </h1>
             <span style="background:{{ $e[1] }};color:{{ $e[2] }};padding:5px 14px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">{{ $e[0] }}</span>
         </div>
-        <a href="{{ route('almacen.recepcion.index') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
+        {{-- ?force=1: "Volver" debe ir a la BANDEJA (de donde se vino), no rebotar
+             a recepcion/nueva por el redirect de TraspasoController@index. --}}
+        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
             <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Volver</span>
         </a>
     </div>
@@ -259,7 +261,8 @@
 
     window.trCancelar = function (numero) {
         if (!confirm('¿Cancelar ' + numero + '? Si ya estaba enviado, se revertirá el stock al origen.')) return;
-        post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.recepcion.index')); }, 700); });
+        // ?force=1: tras cancelar volvemos a la BANDEJA (no a recepcion/nueva).
+        post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.recepcion.index', ['force' => 1])); }, 700); });
     };
 })();
 </script>
