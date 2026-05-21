@@ -1968,7 +1968,7 @@ class NotaEntregaPDF extends \TCPDF
             $padding = 1;
             $bx = $cabX + $padding;                 // 11
             $by = $cabY + $padding;                 // 7
-            $bw = $logoCellW - ($padding * 2);      // 38.92
+            $bw = $logoCellW - ($padding * 2);      // 36  (= 38 - 2)
             $bh = $cabH - ($padding * 2);           // 22
             // Image(file, x, y, w, h, type, link, align, resize, dpi, palign, ismask, imgmask, border, fitbox, hidden, fitonpage, alt, altimgs)
             $this->Image($img, $bx, $by, $bw, $bh, 'JPG', '', '', false, 300, '', false, false, 0, 'CM', false, false);
