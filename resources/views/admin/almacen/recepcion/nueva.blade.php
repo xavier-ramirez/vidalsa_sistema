@@ -81,14 +81,16 @@
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
     /* ── Boton "Bandeja de Entrada" ──
-       Ocupa la columna fija de 140px. Fuente y padding muy compactos. */
+       Ocupa la columna fija de 140px. font-size y font-weight viven SOLO en
+       estilos_globales.css (body:has(.ent-layout) .ent-envios-btn) — fuente
+       unica de verdad y a prueba de SPA; no se duplican aqui. */
     .ent-envios-btn {
         display: inline-flex; align-items: center; justify-content: center; gap: 3px;
         width: 100%; height: 40px; padding: 0 5px;
         border-radius: 10px;
         text-decoration: none;
         background: var(--maquinaria-blue,#0067b1); color: #fff;
-        font-weight: 700; font-size: 12px; white-space: nowrap;
+        white-space: nowrap;
         box-shadow: 0 4px 6px -1px rgba(0,103,177,0.18);
         transition: background .15s, transform .1s;
     }

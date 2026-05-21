@@ -142,8 +142,9 @@
            max-width:100% (no 100vw) — 100vw incluye el ancho de la scrollbar
            vertical y deja el padding-right tapado, generando margen izq > der. */
         .main-viewport { padding-left: 8px !important; padding-right: 8px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding-top: 12px !important; }
-        /* Contenedor blanco (.admin-card): padding interno chico y full-width */
-        .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important; }
+        /* Contenedor blanco (.admin-card): padding interno chico y full-width.
+           box-sizing:border-box ya viene de la clase global .admin-card. */
+        .admin-card { padding: 4px !important; margin: 0 !important; width: 100% !important; }
         /* page-title-card: el global mobile le pone width:100% y menu.css le mete
            padding:8px 12px — SIN box-sizing:border-box el ancho real es 100%+24px
            y se desborda 24px a la derecha (clippeado), dejando el contenido
