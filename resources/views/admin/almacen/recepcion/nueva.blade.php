@@ -448,10 +448,11 @@
 
     var ROUTE_ENTRADA = @json(route('almacen.movimientos.lote'));
     var ROUTE_PROD    = @json(route('almacen.productos.store'));
-    // ?force=1 -> la bandeja NO rebota a los usuarios GLOBAL (NIVEL_ACCESO 1) de
-    // vuelta a esta misma pantalla. Sin el force, "Cancelar" y el redirect de
-    // exito caian en el redirect de TraspasoController@index (GLOBAL sin params
-    // -> recepcion.nueva) y el usuario veia "se recarga la pagina".
+    // Destino tras registrar la entrada con EXITO (lo usa entGuardar; "Cancelar"
+    // ya NO navega — solo vacia la tabla). ?force=1 -> la bandeja NO rebota a los
+    // usuarios GLOBAL (NIVEL_ACCESO 1) de vuelta a esta pantalla; sin el force
+    // caia en el redirect de TraspasoController@index (GLOBAL sin params ->
+    // recepcion.nueva) y se veia "se recarga la pagina".
     var ROUTE_BACK    = @json(route('almacen.recepcion.index', ['force' => 1]));
     // PRODUCTOS no es `const` porque se agrega al vuelo cuando el usuario crea
     // un producto que no estaba en el catalogo — asi la proxima busqueda lo
@@ -584,11 +585,11 @@
         // Saltar a cantidad para captura rapida: codigo → enter → cantidad → enter.
         setTimeout(function () { var c = el('entCant'); if (c) c.focus(); }, 30);
     }
-    // clearAfterAdd=true cuando se llama desde entInsertarLinea (post agregar una
-    // linea): suprimimos el siguiente entSuggest para que el dropdown NO se abra
-    // automaticamente al refocar el buscador. El usuario apreto Enter para AGREGAR,
-    // no para volver a buscar — si quiere otra busqueda hace click o tipea.
-    window.entClearSelected = function (clearAfterAdd) {
+    // El parametro (true) suprime el siguiente entSuggest para que el dropdown NO
+    // se abra solo al refocar el buscador. Lo usan entInsertarLinea (tras agregar
+    // una linea) y entLimpiarTodo (tras vaciar la tabla al cancelar): en ambos el
+    // refoco del buscador es automatico, no una intencion de "ver sugerencias".
+    window.entClearSelected = function (suppressSuggest) {
         entSelected = null;
         el('entSelectedBadge').classList.remove('show');
         var inp = el('entSearch'); inp.style.display = ''; inp.value = '';
@@ -600,7 +601,7 @@
             umInp.classList.remove('is-locked');
             umInp.value = 'UND';
         }
-        if (clearAfterAdd) entSkipNextSuggest = true;
+        if (suppressSuggest) entSkipNextSuggest = true;
         inp.focus();
     };
 
@@ -937,63 +938,51 @@
         });
     };
 
-    // ── Cancelar operacion: descarta el borrador y vuelve a la bandeja ──
+    // ── Cancelar operacion: vacia el borrador SIN salir del modulo ──
     //
-    // Flujo profesional:
-    //  · Sin lineas capturadas → redirect inmediato (no hay nada que perder).
-    //  · Con lineas capturadas → modal del sistema (window.showModal) tipo
-    //    warning, NO el confirm() nativo del navegador. Cuando el usuario
-    //    confirma, se muestra el preloader global y se redirige con un pequeño
-    //    delay para que el modal cierre con animacion antes del cambio de pagina
-    //    (sino se veia un flash brusco de "modal abierto → pagina vacia").
-    //  · Fallback: si por alguna razon showModal no estuviera disponible
-    //    (carga parcial / SPA bug), caemos al confirm() nativo para no dejar
-    //    al usuario sin via de salida.
-    //
-    // Doble click guard: la flag `entCancelandoEnCurso` evita que clicks
-    // repetidos del usuario disparen multiples modales o redirects encadenados.
-    var entCancelandoEnCurso = false;
+    // "Cancelar" descarta lo capturado y deja el formulario en blanco para
+    // empezar de nuevo — NO navega ni recarga la pagina. Antes redirigia a la
+    // bandeja, lo que sacaba al usuario del modulo; el cliente pidio que solo
+    // vacie la tabla y se quede aqui. Limpia: tabla de lineas, fila de captura
+    // (buscador/UM/cantidad), cabecera (nota/proveedor/fecha) y observaciones.
+    function entLimpiarTodo() {
+        entLineas = [];
+        entRender();
+        // Reset de la fila de captura (buscador + badge + UM). El `true` suprime
+        // la auto-apertura del dropdown de sugerencias al refocar el buscador.
+        window.entClearSelected(true);
+        var c = el('entCant'); if (c) c.value = '';
+        // Reset de la cabecera del lote + observaciones.
+        ['entNotaEntrega', 'entProveedor', 'entObservaciones'].forEach(function (id) {
+            var e = el(id); if (e) e.value = '';
+        });
+        var fch = el('entFecha'); if (fch) fch.value = new Date().toISOString().slice(0, 10);
+        showErr('');
+        toast('Operación cancelada. La tabla quedó vacía.', 'success');
+    }
     window.entCancelar = function () {
-        if (entCancelandoEnCurso) return;
+        // Sin lineas → no hay captura que confirmar; limpiamos los campos directo.
+        if (entLineas.length === 0) { entLimpiarTodo(); return; }
 
-        // Caso A: tabla vacia — salida directa, sin modal.
-        if (entLineas.length === 0) {
-            entCancelandoEnCurso = true;
-            if (window.showPreloader) window.showPreloader();
-            window.location = ROUTE_BACK;
-            return;
-        }
-
-        // Caso B: hay capturas — pedir confirmacion.
+        // Hay lineas capturadas → confirmar antes de vaciar (se pierde lo cargado).
+        // Modal del sistema (window.showModal), con confirm() nativo de fallback
+        // por si el helper global no estuviera cargado (carga parcial / SPA bug).
         var n = entLineas.length;
         var prodWord = (n === 1 ? 'producto capturado' : 'productos capturados');
-        var mensaje  = 'Se perderán <strong>' + n + ' ' + prodWord + '</strong> '
-                     + 'que cargaste en la tabla. Esta acción no se puede deshacer.';
-
-        var hacerRedirect = function () {
-            entCancelandoEnCurso = true;
-            // Deshabilitar el boton para feedback visual + evitar doble-trigger.
-            var btnCancel = document.querySelector('.ent-sb-btn-secondary');
-            if (btnCancel) { btnCancel.disabled = true; btnCancel.style.opacity = '0.6'; btnCancel.style.cursor = 'not-allowed'; }
-            if (window.showPreloader) window.showPreloader();
-            // 150ms = tiempo de la animacion de cierre del modal (subjetivamente
-            // suave; sin esto, el usuario veia el modal cortarse en seco al hacer
-            // click en "Sí, cancelar").
-            setTimeout(function () { window.location = ROUTE_BACK; }, 150);
-        };
+        var mensaje  = 'Se vaciará la tabla y se perderán <strong>' + n + ' ' + prodWord + '</strong>. '
+                     + 'Esta acción no se puede deshacer.';
 
         if (typeof window.showModal === 'function') {
             window.showModal({
                 type:        'warning',
                 title:       'Cancelar operación',
                 message:     mensaje,
-                confirmText: 'Sí, cancelar',
+                confirmText: 'Sí, vaciar la tabla',
                 cancelText:  'Continuar capturando',
-                onConfirm:   hacerRedirect,
+                onConfirm:   entLimpiarTodo,
             });
         } else {
-            // Fallback defensivo si el helper global no estuviera cargado.
-            if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) hacerRedirect();
+            if (window.confirm(mensaje.replace(/<[^>]+>/g, ''))) entLimpiarTodo();
         }
     };
 
