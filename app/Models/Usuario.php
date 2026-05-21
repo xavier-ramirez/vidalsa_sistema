@@ -213,8 +213,8 @@ class Usuario extends Authenticatable
      */
     public function can($abilities, $arguments = []): bool
     {
-        // manage.users SIEMPRE delega al Gate (requiere clave + rol en Gate::before)
-        // Si se resuelve aquí con el shortcut de super.admin, el check de rol se pasa por alto.
+        // manage.users se delega SIEMPRE al Gate; Gate::before lo resuelve
+        // ÚNICAMENTE con la clave 'super.admin' en PERMISOS — sin rol.
         if (is_string($abilities) && $abilities === 'manage.users') {
             return parent::can($abilities, $arguments);
         }
