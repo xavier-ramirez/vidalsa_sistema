@@ -250,7 +250,8 @@ class TraspasoController extends Controller
      * la cabecera (Nº OC, proveedor, fecha) + las líneas (producto + cantidad con
      * autocomplete por código o descripción) y al submit el front POSTea a
      * almacen.movimientos.lote con tipo=ENTRADA — no hay backend nuevo aquí, solo
-     * la pantalla del formulario. Gateada por can:almacen.movimiento en la ruta.
+     * la pantalla del formulario. La pantalla es accesible sin permiso especial; el
+     * gate almacen.movimiento se aplica al EJECUTAR el submit (registrarMovimientoLote).
      *
      * El "almacén destino" YA NO se elige: se deriva del frente asignado al usuario
      * via Usuario::almacenPorDefecto() — convención del módulo (mismo helper que usa
