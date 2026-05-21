@@ -916,8 +916,8 @@
                     </div>
                     <div class="dropdown-content" style="padding:5px;">
                         <div class="dropdown-item" data-value="GENERAL"
-                             onclick="almNvTipoSelect('GENERAL','Global (Todos los frentes)')">
-                            Global (Todos los frentes)
+                             onclick="almNvTipoSelect('GENERAL','General (almacén central)')">
+                            General (almacén central)
                         </div>
                         <div class="dropdown-item selected" data-value="PROYECTO"
                              onclick="almNvTipoSelect('PROYECTO','Proyecto (Limitado a frentes específicos)')">
@@ -965,14 +965,7 @@
                         <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
                 </div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Varios proyectos pueden compartir un mismo almacén.</div>
-            </div>
-            {{-- Nota para almacén GLOBAL: sustituye al selector de frentes (que se
-                 oculta). Un almacén global sirve a TODOS los frentes — no se asocian
-                 frentes específicos. Antes la sección solo se ocultaba y el usuario
-                 no entendía por qué no veía los frentes. --}}
-            <div id="almNvGlobalNote" style="display:none;margin-top:4px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12.5px;color:#1e40af;line-height:1.45;">
-                <strong>Almacén global.</strong> Queda disponible para <strong>todos los frentes</strong> — no se asocian frentes específicos. Para limitarlo a ciertos frentes, cambiá el Tipo a "Proyecto".
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Varios proyectos pueden compartir un mismo almacén. Los frentes definen qué usuarios lo ven.</div>
             </div>
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
@@ -2650,13 +2643,11 @@
     };
 
     window.almToggleFrentes = function () {
+        // El selector de frentes aplica a AMBOS tipos de almacén: la visibilidad
+        // para los usuarios LOCAL se define por los frentes asociados, sea GENERAL
+        // o PROYECTO (ver Almacen::visiblesPara). Antes se ocultaba para GENERAL.
         var wrap = el('almNvFrentesWrap');
-        var note = el('almNvGlobalNote');
-        var esProyecto = (val('almNvTipo') === 'PROYECTO');
-        // PROYECTO -> selector de frentes; GLOBAL -> nota explicativa (un almacén
-        // global sirve a TODOS los frentes, no se selecciona ninguno).
-        if (wrap) wrap.style.display = esProyecto ? '' : 'none';
-        if (note) note.style.display = esProyecto ? 'none' : '';
+        if (wrap) wrap.style.display = '';
     };
     // Checkboxes del multiselect de frentes del modal de almacén.
     function almNvFrenteChecks() { return Array.prototype.slice.call(document.querySelectorAll('#almNvFrentesSelect input[type="checkbox"]')); }
@@ -2724,7 +2715,7 @@
         if (el('almNvAlmacenista'))      el('almNvAlmacenista').value      = d.ALMACENISTA || '';
         if (el('almNvCargoAlmacenista')) el('almNvCargoAlmacenista').value = d.CARGO_ALMACENISTA || '';
         var tipo = d.TIPO || 'PROYECTO';
-        almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'Global (Todos los frentes)' : 'Proyecto (Limitado a frentes específicos)');
+        almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'General (almacén central)' : 'Proyecto (Limitado a frentes específicos)');
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almCerrar('almAdminAlmacenesModal');
@@ -2749,11 +2740,11 @@
         if (!tipo)        { _fail('El tipo es obligatorio.',                  'almNvTipoDisplay');     return; }
         if (!almacenista) { _fail('El almacenista es obligatorio.',           'almNvAlmacenista');     return; }
         if (!cargo)       { _fail('El cargo del almacenista es obligatorio.', 'almNvCargoAlmacenista');return; }
+        // Frentes para AMBOS tipos: la asociación define qué usuarios LOCAL ven el
+        // almacén (ver Almacen::visiblesPara). Mínimo 1, sea GENERAL o PROYECTO.
         var frentes = [];
-        if (tipo === 'PROYECTO') {
-            almNvFrenteChecks().forEach(function (c) { if (c.checked) frentes.push(parseInt(c.value, 10)); });
-            if (frentes.length === 0) { _fail('Selecciona al menos un frente.', 'almNvFrentesInput'); return; }
-        }
+        almNvFrenteChecks().forEach(function (c) { if (c.checked) frentes.push(parseInt(c.value, 10)); });
+        if (frentes.length === 0) { _fail('Selecciona al menos un frente.', 'almNvFrentesInput'); return; }
         var url = id ? ROUTE_ALM_ITEM(id) : ROUTE_ALM;
         pre();
         fetch(url, {

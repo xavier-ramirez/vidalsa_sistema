@@ -15,15 +15,17 @@ use Throwable;
 /**
  * Módulo de Almacén / Inventario.
  *
- *  - Almacenes principales (TIPO=GENERAL) y secundarios de proyecto (TIPO=PROYECTO,
- *    ligados a frentes vía pivote `almacen_frentes`).
+ *  - Almacenes principales (TIPO=GENERAL) y de proyecto (TIPO=PROYECTO). AMBOS se
+ *    ligan a frentes vía el pivote `almacen_frentes` — la asociación a frentes define
+ *    QUÉ usuarios LOCAL ven el almacén, sin importar el TIPO.
  *  - Catálogo global de productos (CODIGO, PRODUCTO/NOMBRE, UM, CATEGORIA).
  *  - Stock por almacén + movimientos (entradas/salidas/ajustes/traspasos) vía InventarioService.
  *
- * Visibilidad (depende ÚNICAMENTE de `usuarios.NIVEL_ACCESO`, ver Almacen::visiblesPara):
+ * Visibilidad (depende de `usuarios.NIVEL_ACCESO` + los frentes, ver Almacen::visiblesPara):
  *  - GLOBAL (NIVEL_ACCESO=1) → ve todos los almacenes. La UI abre preseleccionada en el
  *    almacén ligado a su frente (Usuario::almacenPorDefecto) pero puede filtrar a otros.
- *  - LOCAL  (NIVEL_ACCESO=2) → SOLO los almacenes PROYECTO de sus frentes; NUNCA los GENERAL.
+ *  - LOCAL  (NIVEL_ACCESO=2) → los almacenes (GENERAL o PROYECTO) asociados a alguno de
+ *    sus frentes — los que comparten frente con el usuario.
  *  - NO depende del rol ni de permisos (super.admin / almacen.view.all no influyen aquí).
  *
  * Permisos (claves en la columna PERMISOS):
@@ -1879,10 +1881,10 @@ class AlmacenController extends Controller
             'CARGO_ALMACENISTA' => 'required|string|max:200',
             'ESTATUS'           => 'nullable|in:ACTIVO,INACTIVO',
             'NOTAS'             => 'nullable|string',
-            // frentes: array de IDs. Requerido solo si TIPO=PROYECTO (un almacen GLOBAL
-            // no se asocia a frentes especificos — sirve a todos). En PROYECTO debe
-            // tener al menos 1 frente para que alguien pueda usarlo.
-            'frentes'           => ['nullable', 'array', Rule::requiredIf(fn () => ($request->input('TIPO') === Almacen::TIPO_PROYECTO))],
+            // frentes: array de IDs. Obligatorio para AMBOS tipos (GENERAL y PROYECTO) —
+            // la asociacion a frentes es la que define que usuarios LOCAL ven el almacen
+            // (ver Almacen::visiblesPara). Sin al menos 1 frente, ningun LOCAL lo veria.
+            'frentes'           => ['required', 'array', 'min:1'],
             'frentes.*'         => 'integer|exists:frentes_trabajo,ID_FRENTE',
         ]);
 
@@ -1954,11 +1956,8 @@ class AlmacenController extends Controller
     private function syncFrentes(Almacen $almacen, array $frenteIds): void
     {
         $ids = collect($frenteIds)->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
-        // Solo tiene sentido asociar frentes a almacenes de PROYECTO.
-        if ($almacen->TIPO !== Almacen::TIPO_PROYECTO) {
-            $almacen->frentes()->sync([]);
-            return;
-        }
+        // Se asocian frentes a CUALQUIER tipo de almacen (GENERAL o PROYECTO): los
+        // frentes definen que usuarios LOCAL ven el almacen (ver Almacen::visiblesPara).
         $almacen->frentes()->sync($ids);
     }
 

@@ -142,12 +142,12 @@ class Almacen extends Model
      *      frente (ver Usuario::almacenPorDefecto + AlmacenController) — pero
      *      puede cambiar el filtro y ver los demás.
      *  - LOCAL (NIVEL_ACCESO=2):
-     *      ve ÚNICAMENTE los almacenes PROYECTO ligados a sus frentes asignados.
-     *      NUNCA ve los almacenes GENERAL.
+     *      ve los almacenes (GENERAL o PROYECTO) ligados a alguno de sus frentes
+     *      asignados — los que comparten frente con el usuario.
      *  - Sin usuario o sin frentes asignados (siendo LOCAL) → no ve ningún almacén.
      *
      * NOTA: la visibilidad NO depende de roles ni permisos (super.admin /
-     * almacen.view.all). Es función pura de `usuarios.NIVEL_ACCESO`.
+     * almacen.view.all). Depende de `usuarios.NIVEL_ACCESO` + los frentes asignados.
      *
      * @param  \App\Models\Usuario|null  $user
      */
@@ -164,8 +164,10 @@ class Almacen extends Model
             return $q->whereRaw('1 = 0'); // sin acceso: builder vacío
         }
 
-        return $q->where('TIPO', self::TIPO_PROYECTO)
-            ->whereHas('frentes', fn (Builder $f) => $f->whereIn('frentes_trabajo.ID_FRENTE', $frenteIds));
+        // Cualquier almacén (GENERAL o PROYECTO) asociado a alguno de los frentes del
+        // usuario. Antes se exigía TIPO=PROYECTO — incoherente con almacenPorDefecto,
+        // que ya consideraba un frente con almacén GENERAL asociado.
+        return $q->whereHas('frentes', fn (Builder $f) => $f->whereIn('frentes_trabajo.ID_FRENTE', $frenteIds));
     }
 
     /** True si $user puede ver/operar sobre este almacén concreto. */
@@ -174,7 +176,8 @@ class Almacen extends Model
         if (self::usuarioEsGlobal($user)) {
             return $this->ESTATUS === 'ACTIVO';
         }
-        if ($this->TIPO !== self::TIPO_PROYECTO || $this->ESTATUS !== 'ACTIVO') {
+        // El TIPO ya no restringe: GENERAL o PROYECTO, basta compartir un frente.
+        if ($this->ESTATUS !== 'ACTIVO') {
             return false;
         }
         $frenteIds = self::frenteIdsDe($user);
