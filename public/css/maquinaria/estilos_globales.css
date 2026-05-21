@@ -3101,6 +3101,14 @@ input:-webkit-autofill:active {
    no afectar otras paginas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Boton "Bandeja de Entrada" — font-size definido AQUI (no solo en el <style>
+   inline del blade) para que SIEMPRE aplique. El cliente reporto la letra
+   "muy grande": el font-size:11px del <style> inline no llegaba a aplicarse
+   en navegacion SPA, asi el texto heredaba el tamano del body (~16px) y se
+   desbordaba la columna de 140px. Aqui, cargado desde <head>, no falla. */
+body:has(.ent-layout) .ent-envios-btn { font-size: 11px; font-weight: 700; }
+body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
+
 @media (max-width: 1024px) {
     /* Bajo 1024px el layout 2-col se apila — la tabla ya consume todo el ancho
        y comprimir el sidebar mas dejaria los botones pequenos. El sidebar
