@@ -78,22 +78,19 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Enrutamiento por NIVEL_ACCESO: los GLOBAL (1) compran directo al proveedor
-        // por Orden de Compra — su "Recepcion de Materiales" es el formulario de
-        // entrada directa (almacen.recepcion.nueva), no la bandeja. Los LOCAL (2)
-        // reciben traspasos del almacen GENERAL — su flujo es la bandeja. Si un
-        // LOCAL quiere registrar una OC directa tiene el boton "Recepcion ODC" en
-        // la misma bandeja.
+        // "Recepción" abre el formulario de entrada directa (almacen.recepcion.nueva)
+        // para TODOS los usuarios — GLOBAL y LOCAL — es la pantalla de recepción por
+        // defecto. La bandeja de traspasos pendientes se llega aparte: con el botón
+        // "Bandeja de Entrada" (recepcion?force=1) o aplicando filtros.
         //
-        // Solo redirigimos cuando NO es AJAX (los filtros/paginacion piden JSON a la
-        // misma URL y deben quedarse aqui) y solo en la primera carga sin parametros
-        // explicitos — si el GLOBAL navego a la bandeja a proposito (con filtros o
-        // ?force=1) no interceptamos. El guard de arriba garantiza que llegamos aqui
-        // con almacenes visibles, asi que nuevaEntrada no rebotara hacia atras.
+        // Solo redirigimos cuando NO es AJAX (los filtros/paginación piden JSON a la
+        // misma URL y deben quedarse aquí) y solo en la primera carga sin parámetros
+        // explícitos — si el usuario navegó a la bandeja a propósito (con filtros o
+        // ?force=1) no interceptamos. El guard de arriba garantiza que llegamos aquí
+        // con almacenes visibles, así que nuevaEntrada no rebotará hacia atrás.
         if (
             $user !== null
             && ! $request->wantsJson()
-            && (int) ($user->NIVEL_ACCESO ?? 0) === 1
             && ! $request->boolean('force')
             && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta'])
         ) {
