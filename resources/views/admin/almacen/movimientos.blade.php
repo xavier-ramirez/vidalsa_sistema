@@ -776,22 +776,103 @@
     window.almMovProductosLista = @json(($productosLista ?? collect())->map(fn($p) => ['ID_PRODUCTO' => $p->ID_PRODUCTO, 'CODIGO' => $p->CODIGO, 'NOMBRE' => $p->NOMBRE]));
 
     function almMovNorm(s) { return s ? String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : ''; }
+    // \u2500\u2500 Buscador "estilo Google" \u2014 fuzzy + ranking por relevancia \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    //   Mismo criterio que el filtro Descripcion de /admin/almacen: tokeniza,
+    //   descarta stopwords y numeros sueltos cortos, tolera errores de tipeo
+    //   (distancia de edicion) y RANKEA por score en vez de exigir el match
+    //   exacto de todos los tokens.
+    var ALM_MOV_STOP = { de:1, del:1, la:1, el:1, los:1, las:1, un:1, una:1,
+                         unos:1, unas:1, y:1, e:1, o:1, u:1, a:1, en:1, con:1,
+                         para:1, por:1 };
+    function almMovLeven(a, b, max) {
+        var la = a.length, lb = b.length;
+        if (la === 0) return lb;
+        if (lb === 0) return la;
+        if (Math.abs(la - lb) > max) return max + 1;
+        var prev = [], cur = [], i, j;
+        for (j = 0; j <= lb; j++) prev[j] = j;
+        for (i = 1; i <= la; i++) {
+            cur[0] = i;
+            var best = i;
+            for (j = 1; j <= lb; j++) {
+                var cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+                if (cur[j] < best) best = cur[j];
+            }
+            if (best > max) return max + 1;
+            for (j = 0; j <= lb; j++) prev[j] = cur[j];
+        }
+        return prev[lb];
+    }
+    function almMovTokenizar(raw) {
+        var crudos = almMovNorm(raw || '').split(/\s+/).filter(Boolean);
+        var sig = crudos.filter(function (t) {
+            return !ALM_MOV_STOP[t] && !/^\d{1,2}$/.test(t);
+        });
+        return sig.length ? sig : crudos;
+    }
+    function almMovScoreToken(palabras, hayFull, token) {
+        var idx = hayFull.indexOf(token);
+        if (idx > -1) {
+            var s = 12;
+            if (idx === 0) s += 12;
+            else if (hayFull.charAt(idx - 1) === ' ') s += 7;
+            return { score: s, hit: true };
+        }
+        var tol = token.length <= 4 ? 1 : 2;
+        var mejor = tol + 1;
+        for (var i = 0; i < palabras.length; i++) {
+            var w = palabras[i];
+            if (!w) continue;
+            var d = almMovLeven(token, w, tol);
+            if (d < mejor) mejor = d;
+            if (w.length > token.length) {
+                var dp = almMovLeven(token, w.substr(0, token.length), tol);
+                if (dp < mejor) mejor = dp;
+            }
+            if (mejor === 0) break;
+        }
+        if (mejor <= tol) return { score: 7 - mejor * 2, hit: true };
+        return { score: 0, hit: false };
+    }
     window.almMovSuggestHide = function () { var b = document.getElementById('almMovSuggest'); if (b) b.classList.remove('open'); };
     window.almMovSuggestFn = function () {
         var inp = document.getElementById('almMovSearch'), box = document.getElementById('almMovSuggest');
         if (!inp || !box) return;
-        var term = almMovNorm(inp.value.trim());
+        var rawTerm = inp.value.trim();
+        var tokens = almMovTokenizar(rawTerm);
         var lista = window.almMovProductosLista || [];
         var matches = [];
-        if (term === '') {
+        if (tokens.length === 0) {
             for (var i = 0; i < lista.length && matches.length < 12; i++) matches.push(lista[i]);
         } else {
+            // Scoring: por cada producto sumamos el score de cada token (substring
+            // fuerte / fuzzy debil). Candidato si matchea >= la mitad de los tokens.
+            // Bonus por todos los tokens, frase completa y nombre corto.
+            var rawNorm = almMovNorm(rawTerm).replace(/\s+/g, ' ');
+            var minTokens = Math.ceil(tokens.length / 2);
+            var scored = [];
             for (var j = 0; j < lista.length; j++) {
                 var p = lista[j];
-                if (almMovNorm(p.CODIGO).indexOf(term) > -1 || almMovNorm(p.NOMBRE).indexOf(term) > -1) {
-                    if (matches.length < 12) matches.push(p);
+                var nom = almMovNorm(p.NOMBRE || '');
+                var hayFull = almMovNorm((p.CODIGO || '') + ' ' + (p.NOMBRE || ''));
+                var palabras = hayFull.split(/\s+/).filter(Boolean);
+                var total = 0, matched = 0;
+                for (var k = 0; k < tokens.length; k++) {
+                    var r = almMovScoreToken(palabras, hayFull, tokens[k]);
+                    if (r.hit) { matched++; total += r.score; }
                 }
+                if (matched < minTokens) continue;
+                if (matched === tokens.length) total += 25;
+                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 30;
+                total += Math.max(0, 20 - nom.length * 0.15);
+                scored.push({ p: p, score: total });
             }
+            scored.sort(function (a, b) {
+                if (b.score !== a.score) return b.score - a.score;
+                return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
+            });
+            for (var sx = 0; sx < scored.length && sx < 12; sx++) matches.push(scored[sx].p);
         }
         var html = '';
         if (!matches.length) {

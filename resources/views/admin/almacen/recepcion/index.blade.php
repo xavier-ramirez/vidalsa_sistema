@@ -545,48 +545,114 @@
         window.trLoad();
     };
 
-    // ── Autocomplete del filtro "Buscar producto" ─────────────────────────
-    // Mismo patron de tokenizado AND + variante singular que /admin/almacen,
-    // matcheando contra CODIGO y NOMBRE concatenados — asi "CABLE 4" matchea
-    // "CABLE 4AWG" sin importar el orden. Hasta 10 sugerencias; clic elige el
-    // texto y dispara trLoad (el backend busca por CODIGO/NOMBRE en las lineas
-    // de las notas pendientes). Debounce de 400ms para typing libre.
+    // ── Autocomplete del filtro "Buscar producto" — buscador "estilo Google" ──
+    //   Mismo criterio que el filtro Descripcion de /admin/almacen: normaliza
+    //   (lower + sin acentos), tokeniza, descarta stopwords y numeros sueltos
+    //   cortos, tolera errores de tipeo (distancia de edicion) y RANKEA los
+    //   resultados por relevancia en vez de exigir match exacto de todos los
+    //   tokens. Hasta 10 sugerencias; clic elige el texto y dispara trLoad.
+    function trNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
+    var TR_STOPWORDS = { de:1, del:1, la:1, el:1, los:1, las:1, un:1, una:1,
+                         unos:1, unas:1, y:1, e:1, o:1, u:1, a:1, en:1, con:1,
+                         para:1, por:1 };
+    function trLeven(a, b, max) {
+        var la = a.length, lb = b.length;
+        if (la === 0) return lb;
+        if (lb === 0) return la;
+        if (Math.abs(la - lb) > max) return max + 1;
+        var prev = [], cur = [], i, j;
+        for (j = 0; j <= lb; j++) prev[j] = j;
+        for (i = 1; i <= la; i++) {
+            cur[0] = i;
+            var best = i;
+            for (j = 1; j <= lb; j++) {
+                var cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+                if (cur[j] < best) best = cur[j];
+            }
+            if (best > max) return max + 1;
+            for (j = 0; j <= lb; j++) prev[j] = cur[j];
+        }
+        return prev[lb];
+    }
+    function trTokenizar(raw) {
+        var crudos = trNorm(raw || '').split(/\s+/).filter(Boolean);
+        var sig = crudos.filter(function (t) {
+            return !TR_STOPWORDS[t] && !/^\d{1,2}$/.test(t);
+        });
+        return sig.length ? sig : crudos;
+    }
+    function trScoreToken(palabras, hayFull, token) {
+        var idx = hayFull.indexOf(token);
+        if (idx > -1) {
+            var s = 12;
+            if (idx === 0) s += 12;
+            else if (hayFull.charAt(idx - 1) === ' ') s += 7;
+            return { score: s, hit: true };
+        }
+        var tol = token.length <= 4 ? 1 : 2;
+        var mejor = tol + 1;
+        for (var i = 0; i < palabras.length; i++) {
+            var w = palabras[i];
+            if (!w) continue;
+            var d = trLeven(token, w, tol);
+            if (d < mejor) mejor = d;
+            if (w.length > token.length) {
+                var dp = trLeven(token, w.substr(0, token.length), tol);
+                if (dp < mejor) mejor = dp;
+            }
+            if (mejor === 0) break;
+        }
+        if (mejor <= tol) return { score: 7 - mejor * 2, hit: true };
+        return { score: 0, hit: false };
+    }
     window.trSearchProdInput = function () {
         var input = el('trSearchProd');
         var box   = el('trSearchProdSuggest');
         if (!input || !box) return;
-        var q = String(input.value || '').trim().toUpperCase();
+        var rawTerm = String(input.value || '').trim();
 
-        if (q === '') {
+        if (rawTerm === '') {
             box.classList.remove('open');
             clearTimeout(window._trSTP);
             window._trSTP = setTimeout(window.trLoad, 400);
             return;
         }
 
-        // Tokenizado AND con variante singular (>3 letras, termina en S).
-        var tokens = q.split(/\s+/).filter(Boolean);
-        function expandirToken(t) {
-            var arr = [t];
-            if (t.length > 3 && t.charAt(t.length - 1) === 'S') arr.push(t.slice(0, -1));
-            return arr;
-        }
-        function matchProd(p) {
-            var hay = ((p.CODIGO || '') + ' ' + (p.NOMBRE || '')).toUpperCase();
-            for (var i = 0; i < tokens.length; i++) {
-                var variantes = expandirToken(tokens[i]);
-                var algunaMatch = false;
-                for (var j = 0; j < variantes.length; j++) {
-                    if (hay.indexOf(variantes[j]) !== -1) { algunaMatch = true; break; }
-                }
-                if (!algunaMatch) return false;
-            }
-            return true;
-        }
-
+        var tokens = trTokenizar(rawTerm);
         var matches = [];
-        for (var k = 0; k < TR_PRODUCTOS.length && matches.length < 10; k++) {
-            if (matchProd(TR_PRODUCTOS[k])) matches.push(TR_PRODUCTOS[k]);
+        if (tokens.length === 0) {
+            for (var i = 0; i < TR_PRODUCTOS.length && matches.length < 10; i++) {
+                matches.push(TR_PRODUCTOS[i]);
+            }
+        } else {
+            // Scoring: cada producto suma el score de cada token (substring
+            // fuerte / fuzzy debil). Candidato si matchea >= la mitad de los
+            // tokens. Bonus por todos los tokens, frase completa, nombre corto.
+            var rawNorm = trNorm(rawTerm).replace(/\s+/g, ' ');
+            var minTokens = Math.ceil(tokens.length / 2);
+            var scored = [];
+            for (var j = 0; j < TR_PRODUCTOS.length; j++) {
+                var p = TR_PRODUCTOS[j];
+                var nom = trNorm(p.NOMBRE || '');
+                var hayFull = trNorm((p.CODIGO || '') + ' ' + (p.NOMBRE || ''));
+                var palabras = hayFull.split(/\s+/).filter(Boolean);
+                var total = 0, matched = 0;
+                for (var k = 0; k < tokens.length; k++) {
+                    var r = trScoreToken(palabras, hayFull, tokens[k]);
+                    if (r.hit) { matched++; total += r.score; }
+                }
+                if (matched < minTokens) continue;
+                if (matched === tokens.length) total += 25;
+                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 30;
+                total += Math.max(0, 20 - nom.length * 0.15);
+                scored.push({ p: p, score: total });
+            }
+            scored.sort(function (a, b) {
+                if (b.score !== a.score) return b.score - a.score;
+                return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
+            });
+            for (var s = 0; s < scored.length && s < 10; s++) matches.push(scored[s].p);
         }
 
         if (matches.length === 0) {

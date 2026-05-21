@@ -729,8 +729,34 @@ class AlmacenController extends Controller
         }
         if ($request->filled('search')) {
             $term = trim((string) $request->input('search'));
-            $q->whereHas('producto', function ($p) use ($term) {
-                $p->where('CODIGO', 'like', "%{$term}%")->orWhere('NOMBRE', 'like', "%{$term}%");
+            // Tokeniza, descarta stopwords (de/la/y…) y números sueltos de 1-2
+            // dígitos, AND entre tokens significativos y singular por token >3
+            // letras terminado en 'S' — consistente con el filtro Descripción de
+            // /admin/almacen. El fuzzy + ranking real vive en el autocomplete JS.
+            $stop = ['de','del','la','el','los','las','un','una','unos','unas',
+                     'y','e','o','u','a','en','con','para','por'];
+            $tokens = array_values(array_filter(
+                preg_split('/\s+/', mb_strtolower($term)),
+                function ($t) use ($stop) {
+                    return $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t);
+                }
+            ));
+            if (empty($tokens)) {
+                $tokens = [mb_strtolower($term)];
+            }
+            $q->whereHas('producto', function ($p) use ($tokens) {
+                foreach ($tokens as $tok) {
+                    $variantes = [$tok];
+                    if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
+                        $variantes[] = mb_substr($tok, 0, -1);
+                    }
+                    $p->where(function ($s) use ($variantes) {
+                        foreach ($variantes as $v) {
+                            $s->orWhere('CODIGO', 'like', "%{$v}%")
+                              ->orWhere('NOMBRE', 'like', "%{$v}%");
+                        }
+                    });
+                }
             });
         }
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
