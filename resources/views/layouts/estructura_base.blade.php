@@ -15,17 +15,14 @@
     {{-- ===== PWA ===== --}}
     <link rel="manifest" href="{{ asset('manifest.json') }}?v={{ @filemtime(public_path('manifest.json')) }}">
     {{-- Barra de estado (status bar) BLANCA en la PWA, para que cuadre con el fondo de la app. --}}
-    {{-- theme-color = color del header móvil de la app (#00004d, el azul oscuro
-         del gradiente de .mobile-user-header). Así la barra de notificaciones del
-         teléfono queda del MISMO color que el tope de la app — sin la línea/costura
-         que se veía con el blanco anterior. --}}
-    <meta name="theme-color" content="#00004d">
+    {{-- theme-color blanco: la barra de notificaciones del teléfono se muestra
+         en blanco (pedido del cliente). --}}
+    <meta name="theme-color" content="#ffffff">
     <meta name="application-name" content="Sistema Vidalsa">
     <meta name="mobile-web-app-capable" content="yes">
     {{-- iOS: homescreen / standalone. 'default' = barra de estado blanca con texto/iconos oscuros. --}}
     <meta name="apple-mobile-web-app-capable" content="yes">
-    {{-- iOS standalone: barra de estado oscura (combina con el header #00004d). --}}
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Sistema Vidalsa">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180.png') }}">
     <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('icons/icon-152.png') }}">
