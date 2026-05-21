@@ -440,10 +440,14 @@
         {{-- "Recepción ODC" abre la pagina dedicada de Registrar entrada directa
              (antes era un modal #entModal en esta misma vista — ahora es pantalla
              propia con autocomplete de producto por codigo o descripcion). --}}
+        {{-- font-size:13px explicito: .btn-primary-maquinaria no define font-size,
+             asi el texto heredaba ~16px del body y se veia mas grande que los
+             filtros vecinos (13-14px). Va en el style inline del <a> para que
+             aplique siempre (atributo del elemento, a prueba de SPA). --}}
         <a href="{{ route('almacen.recepcion.nueva') }}" class="btn-primary-maquinaria"
-           style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;border-radius:12px;box-shadow:none;margin-left:auto;text-decoration:none;"
+           style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;border-radius:12px;box-shadow:none;margin-left:auto;text-decoration:none;font-size:13px;"
            title="Ingresar productos directamente mediante una Orden de Compra">
-            <i class="material-icons" style="font-size:18px;">local_shipping</i><span style="font-weight:700;">Recepción ODC</span>
+            <i class="material-icons" style="font-size:16px;">local_shipping</i><span style="font-weight:700;">Recepción ODC</span>
         </a>
         @endcan
     </div>
