@@ -73,7 +73,7 @@
      • Filas vacías: <font face="helvetica" size="8">&nbsp;</font> explícito en cada celda — sin esto
        el &nbsp; hereda el font del documento (9.5pt) y la fila vacía queda más alta
        que las llenas (8pt). Con el font explícito, todas las filas tienen mismo alto. --}}
-<table border="1" cellpadding="2" cellspacing="0" width="100%">
+<table border="1" cellpadding="2" cellspacing="0" width="90%">
     <thead>
         {{-- Header: gris claro #D9D9D9 (visualmente identico al gris del Excel
              "Nueva Nota de entrega de materiales 2025" — indexed 22 con el
@@ -82,16 +82,16 @@
              tabla tenga el mismo tamaño de letra — mismo criterio del Excel,
              que usa Arial 8 para items y headers.
 
-             Anchos: 6% / 10% / 10% / 55% / 19% (= 100%). La columna "N° COLADA
-             / SERIAL" es ESTRECHA a proposito — el header "N° COLADA /  SERIAL"
-             se parte en 2 lineas (intencional, igual que el Excel original) y
-             asi DESCRIPCIÓN queda con 55% de ancho para nombres de producto. --}}
+             Anchos tabla 90%: 6% / 10% / 10% / 62% / 12% (= 100% del 90%).
+             La tabla ocupa el 90% del área de contenido (171mm en A4) — así
+             DESCRIPCIóN es físicamente más angosta que al 100% sin darle
+             el espacio a ninguna otra columna. --}}
         <tr bgcolor="#D9D9D9">
             <td width="6%"  align="center"><font face="helvetica" size="8"><b>ITEM</b></font></td>
             <td width="10%" align="center"><font face="helvetica" size="8"><b>CANTIDAD</b></font></td>
             <td width="10%" align="center"><font face="helvetica" size="8"><b>UNIDAD</b></font></td>
-            <td width="55%" align="center"><font face="helvetica" size="8"><b>DESCRIPCIÓN</b></font></td>
-            <td width="19%" align="center"><font face="helvetica" size="8"><b>N° COLADA /<br/>SERIAL</b></font></td>
+            <td width="62%" align="center"><font face="helvetica" size="8"><b>DESCRIPCIÓN</b></font></td>
+            <td width="12%" align="center"><font face="helvetica" size="8"><b>N° COLADA /<br/>SERIAL</b></font></td>
         </tr>
     </thead>
     <tbody>
@@ -100,8 +100,8 @@
                 <td width="6%"  align="center"><font face="helvetica" size="8">{{ $i + 1 }}</font></td>
                 <td width="10%" align="center"><font face="helvetica" size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
                 <td width="10%" align="center"><font face="helvetica" size="8">{{ $m->producto?->UM ?? '' }}</font></td>
-                <td width="55%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
-                <td width="19%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
+                <td width="62%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}</font></td>
+                <td width="12%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
             </tr>
         @endforeach
         @for($j = $movs->count(); $j < $minFilas; $j++)
@@ -109,8 +109,8 @@
                 <td width="6%"  align="center"><font face="helvetica" size="8">{{ $j + 1 }}</font></td>
                 <td width="10%"><font face="helvetica" size="8">&nbsp;</font></td>
                 <td width="10%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="55%"><font face="helvetica" size="8">&nbsp;</font></td>
-                <td width="19%"><font face="helvetica" size="8">&nbsp;</font></td>
+                <td width="62%"><font face="helvetica" size="8">&nbsp;</font></td>
+                <td width="12%"><font face="helvetica" size="8">&nbsp;</font></td>
             </tr>
         @endfor
     </tbody>
