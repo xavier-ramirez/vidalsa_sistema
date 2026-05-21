@@ -292,7 +292,7 @@
         .tr-table tbody tr[data-id] td:nth-child(5)::before { content: 'event';       font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
         .tr-table tbody tr[data-id] td:nth-child(7)::before { content: 'person';      font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
 
-        /* Empty state: el <tr> SIN data-id (forelse @empty) queda como bloque centrado sin tarjeta. */
+        /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
         .tr-table tbody tr:not([data-id]) {
             display: block !important; background: transparent !important;
             border: none !important; box-shadow: none !important; padding: 0 !important;
