@@ -1,9 +1,11 @@
 {{-- Filas de la tabla de inventario. $productos = Collection|null (lote del scroll infinito) ; $almacen = Almacen|null ; $inicial = bool (la tabla abre vacía hasta que se filtre) --}}
 @php
-    $puedeMover  = auth()->user()?->can('almacen.movimiento') ?? false;
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
-    $cols    = $puedeMover ? 7 : 6;
+    // 7 columnas SIEMPRE: la columna "Cantidad" se muestra a TODOS. El permiso
+    // almacen.movimiento NO oculta la captura de cantidad — solo bloquea ABRIR
+    // el modal de salida y ejecutarla (ver almSelAccion y el backend).
+    $cols    = 7;
 @endphp
 
 @if(!$almacen)
@@ -48,7 +50,7 @@
             $ubiJs   = addslashes($p->UBICACION ?? '');
             $minArg  = $minimo !== null ? $minimo : 'null';
         @endphp
-        <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} {{ $puedeMover ? 'alm-row-clickable' : '' }}"
+        <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}">
             <td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ $p->CODIGO }}</td>
@@ -79,7 +81,6 @@
                 {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
-            @if($puedeMover)
             {{-- Cantidad de salida por fila: stepper con input a la izquierda y dos botones
                  verticales (+ arriba, − abajo) pegados a la derecha — patrón "spinner clásico".
                  Los tres elementos se habilitan SOLO cuando la fila está seleccionada (clic
@@ -108,7 +109,6 @@
                     </div>
                 </div>
             </td>
-            @endif
             <td class="alm-td-det" style="text-align:center;white-space:nowrap;width:60px;" data-no-toggle>
                 <button type="button" class="btn-details-mini" title="Ver detalles del producto"
                         onclick="window.almAbrirDetalle({{ $p->ID_PRODUCTO }},'{{ $codJs }}','{{ $nomJs }}','{{ $umJs }}','{{ $catJs }}',{{ $saldo }},{{ $minArg }},'{{ $ubiJs }}')">

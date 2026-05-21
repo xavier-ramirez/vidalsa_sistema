@@ -735,8 +735,10 @@
 
 </div>{{-- /page-layout-grid --}}
 
-@if($puedeMover)
-{{-- ── Barra flotante de selección (igual que /admin/equipos: clic en la fila → se resalta y aparece esta barra) ── --}}
+{{-- ── Barra flotante de selección (clic en la fila → se resalta y aparece esta
+     barra). Visible para TODOS; el botón "Salida" valida el permiso al pulsarse
+     (almSelAccion → ensurePerm). Capturar la cantidad NO exige permiso — solo
+     ABRIR el modal de salida y ejecutarla. --}}
 <div id="almBulkBar" class="selection-floating-bar">
     <div id="almBulkCounter" class="selection-counter alm-bulk-counter"
          onclick="window.almToggleSoloSel(event)"
@@ -756,7 +758,6 @@
         </button>
     </div>
 </div>
-@endif
 
 {{-- ════════════════════════ MODALES ════════════════════════ --}}
 
