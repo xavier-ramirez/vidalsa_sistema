@@ -15,7 +15,7 @@
           - Si el producto EXISTE: aparece como sugerencia → Enter elige el primero →
             escribir cantidad → Enter agrega a la tabla.
           - Si el producto NO existe: igual escribis la cantidad → Enter → el sistema
-            crea el producto al vuelo (codigo auto PRD-####, UM=UND) y lo agrega a la
+            crea el producto al vuelo (codigo auto numerico de 6 digitos, UM=UND) y lo agrega a la
             tabla. Se puede editar despues desde /admin/almacen.
        3) Submit: POST de TODAS las lineas como un lote ENTRADA.
      ──────────────────────────────────────────────────────────────── --}}

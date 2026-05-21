@@ -59,8 +59,11 @@ class AlmacenController extends Controller
         $this->middleware('can:almacen.productos')->only([
             'updateProducto', 'destroyProducto',
         ]);
+        // registrarMovimientoLote NO entra en este middleware: valida 'almacen.movimiento'
+        // con un guard al inicio del metodo para poder devolver un mensaje que NOMBRA la
+        // clave faltante (el middleware `can:` solo da el generico "no tienes permiso").
         $this->middleware('can:almacen.movimiento')->only([
-            'registrarMovimientoLote', 'actualizarMinimo', 'previewSalidaPdf',
+            'actualizarMinimo', 'previewSalidaPdf',
         ]);
     }
 
@@ -535,8 +538,9 @@ class AlmacenController extends Controller
             ], 403);
         }
 
-        // Código opcional: si no se escribió, se genera automáticamente (PRD-####).
-        // Si se escribió, se respeta tal cual (sirve para importar los códigos que la gente ya tiene en su Excel).
+        // Código opcional: si no se escribió, se genera automáticamente (numérico de
+        // 6 dígitos, ver generarCodigoProducto). Si se escribió, se respeta tal cual
+        // (sirve para importar los códigos que la gente ya tiene en su Excel).
         if (empty($data['CODIGO'])) {
             $data['CODIGO'] = $this->generarCodigoProducto();
         }
@@ -606,25 +610,30 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Genera el siguiente código automático para un producto: "PRD-####", tomando
-     * el mayor número usado en códigos de ese formato + 1. Incluye soft-deleted en
-     * la verificación porque el índice UNIQUE de CODIGO también los ocupa.
+     * Genera el siguiente código automático para un producto: cadena de SOLO
+     * dígitos con padding a 6 cifras (formato del catálogo: 000001..000992).
+     * Toma el mayor número usado en códigos puramente numéricos + 1. Incluye
+     * soft-deleted en la verificación porque el índice UNIQUE de CODIGO también
+     * los ocupa. El código autogenerado cumple la MISMA validación que un código
+     * tecleado a mano (regex ^\d+$ en validarProducto) — antes generaba "PRD-####"
+     * (con letras), lo que rompía esa coherencia y la convención del catálogo.
      */
     private function generarCodigoProducto(): string
     {
         $maxNum = 0;
         ProductoInventario::withTrashed()
-            ->where('CODIGO', 'like', 'PRD-%')
+            ->whereNotNull('CODIGO')
             ->pluck('CODIGO')
             ->each(function ($cod) use (&$maxNum) {
-                if (preg_match('/^PRD-(\d+)$/i', (string) $cod, $m)) {
-                    $maxNum = max($maxNum, (int) $m[1]);
+                $cod = (string) $cod;
+                if ($cod !== '' && ctype_digit($cod)) {
+                    $maxNum = max($maxNum, (int) $cod);
                 }
             });
 
         $n = $maxNum + 1;
         do {
-            $codigo = 'PRD-' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
+            $codigo = str_pad((string) $n, 6, '0', STR_PAD_LEFT);
             $n++;
         } while (ProductoInventario::withTrashed()->where('CODIGO', $codigo)->exists());
 
@@ -1281,6 +1290,20 @@ class AlmacenController extends Controller
      */
     public function registrarMovimientoLote(Request $request)
     {
+        // Permiso: todo movimiento de inventario (ENTRADA/SALIDA/AJUSTE y la rama
+        // TRASPASO) exige la clave 'almacen.movimiento'. Se valida aqui — y no por
+        // middleware `can:` — para notificar al usuario CUAL clave le falta. El flujo
+        // "Registrar entrada" de recepcion/nueva consume este endpoint via fetch y
+        // muestra res.b.message como toast; misma forma de respuesta que el handler
+        // global de AuthorizationException (success/forbidden/message).
+        if (! $request->user()?->can('almacen.movimiento')) {
+            return response()->json([
+                'success'   => false,
+                'forbidden' => true,
+                'message'   => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar movimientos de inventario. Solicítala a un administrador.',
+            ], 403);
+        }
+
         $tipos = ['ENTRADA', 'SALIDA', 'AJUSTE'];
 
         $data = $request->validate([
@@ -1886,9 +1909,9 @@ class AlmacenController extends Controller
     private function validarProducto(Request $request, ?int $ignoreId = null): array
     {
         $data = $request->validate([
-            // CODIGO es VARCHAR(50). Al crearlo manualmente desde la UI sólo se permiten
-            // dígitos (el frontend lo fuerza y aquí validamos con regex). El auto-generado
-            // (PRD-XXXX) nunca pasa por esta validación porque llega null.
+            // CODIGO es VARCHAR(50). Solo se permiten dígitos, tanto el tecleado a
+            // mano (el frontend lo fuerza y aquí lo validamos con regex) como el
+            // autogenerado por generarCodigoProducto (numérico de 6 cifras).
             'CODIGO'    => ['nullable', 'string', 'max:20', 'regex:/^\d+$/', Rule::unique('productos_inventario', 'CODIGO')->ignore($ignoreId, 'ID_PRODUCTO')],
             'NOMBRE'    => 'required|string|max:200',
             'UM'        => 'required|string|max:20',

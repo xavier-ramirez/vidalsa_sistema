@@ -142,8 +142,8 @@ class TraspasoController extends Controller
         }
         // Filtro por descripcion/codigo de producto: busca traspasos cuyas LINEAS contengan
         // un producto que matchee. Util para que el usuario destino encuentre una nota
-        // pendiente buscando "DEXTRAN", "CABLE 4AWG" o un codigo PRD-####, sin tener que
-        // acordarse del numero TR-YYYY-NNNN. Tokenizado AND igual que /admin/almacen para
+        // pendiente buscando "DEXTRAN", "CABLE 4AWG" o un codigo de producto, sin tener
+        // que acordarse del numero TR-YYYY-NNNN. Tokenizado AND igual que /admin/almacen para
         // que "CABLE 4" matchee "CABLE 4AWG" sin importar el orden.
         if ($request->filled('search_producto')) {
             $term = trim((string) $request->input('search_producto'));
@@ -255,7 +255,20 @@ class TraspasoController extends Controller
      */
     public function nuevaEntrada(Request $request)
     {
-        $user      = $request->user();
+        $user = $request->user();
+
+        // Permiso: registrar entradas directas exige la clave 'almacen.movimiento'
+        // (la MISMA que valida el submit POST almacen.movimientos-lote). Si el usuario
+        // no la tiene, lo notificamos con un toast claro y lo devolvemos al menu — antes
+        // un route middleware `can:almacen.movimiento` tiraba un 403 crudo sin explicar
+        // que le falta la clave. Mismo patron que la rama "sin almacen destino" de abajo.
+        if (! $user?->can('almacen.movimiento')) {
+            return redirect()->route('menu')->with('flash_toast', [
+                'type'    => 'error',
+                'message' => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar entradas. Solicítala a un administrador.',
+            ]);
+        }
+
         $almacenes = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
 
         // 1) Almacén-por-frente del usuario (helper canónico del módulo).
