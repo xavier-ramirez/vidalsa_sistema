@@ -22,15 +22,19 @@ class Usuario extends Authenticatable
      * de las exclusiones; Usuario::can() y AppServiceProvider::Gate::before
      * la consultan para mantenerse coherentes.
      *
-     * Por que solo `almacen.productos`: editar el catalogo (CODIGO/NOMBRE/UM/
-     * categoria/ubicacion) impacta a TODO el sistema y al historial — un
-     * cambio mal hecho rompe reportes, kardex y NEs. Por eso requiere
-     * asignacion explicita. La operacion diaria (entradas/salidas/ajustes/
-     * traspasos via almacen.movimiento) la heredan los super.admin: vivir
-     * sin esa permission obligaba a re-asignar a todos los admin existentes.
+     * Las DOS claves del modulo Almacen son EXCLUSIVAS (decision del cliente):
+     * el acceso al almacen NO se hereda por ser super.admin ni depende del ROL
+     * — se concede SOLO con la clave literal en PERMISOS.
+     *  - almacen.productos : editar el catalogo (CODIGO/NOMBRE/UM/categoria/
+     *    ubicacion) impacta historial, kardex y reportes.
+     *  - almacen.movimiento: registrar entradas/salidas/ajustes/traspasos y
+     *    confirmar recepciones mueve el stock real.
+     * Consecuencia: un super.admin que deba operar el almacen necesita la
+     * clave literal correspondiente agregada en su columna PERMISOS.
      */
     public const PERMISOS_EXPLICITOS = [
-        'almacen.productos' => true,
+        'almacen.productos'  => true,
+        'almacen.movimiento' => true,
     ];
 
     /**
