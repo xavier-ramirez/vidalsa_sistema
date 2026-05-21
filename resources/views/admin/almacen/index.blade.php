@@ -765,7 +765,12 @@
      Para correcciones puntuales del saldo de un producto se usa el modal
      "Auditoría de Inventario" que sigue abajo. --}}
 
-{{-- Auditoría de Inventario (ajuste del saldo + stock mínimo) --}}
+{{-- Auditoría de Inventario (ajuste del saldo + stock mínimo).
+     Gateado server-side por $puedeMover (almacen.movimiento) — mismo patrón que
+     #almSalidaModal y #almAdminAlmacenesModal. Sin la clave el modal ni siquiera
+     se renderiza en el DOM; almAbrirAjuste/almGuardarAjuste validan además en
+     cliente con ensurePerm(HAS_MOVER). --}}
+@if($puedeMover)
 <div id="almAjusteModal" class="alm-modal-overlay">
     <div class="alm-modal">
         <div class="alm-modal-head">
@@ -799,6 +804,7 @@
         </div>
     </div>
 </div>
+@endif
 
 {{-- ═════════════════════════════════════════════════════════════════
      Modal: KARDEX por producto (Movimientos del producto)
