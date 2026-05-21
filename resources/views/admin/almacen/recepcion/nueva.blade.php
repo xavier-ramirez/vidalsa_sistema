@@ -216,7 +216,7 @@
     .ent-list-table thead th:last-child { border-right:none; }
     .ent-list-table thead th.col-num    { width:48px; text-align:center; }
     .ent-list-table thead th.col-codigo { width:140px; }
-    .ent-list-table thead th.col-cant   { text-align:right; width:170px; }
+    .ent-list-table thead th.col-cant   { text-align:center; width:170px; }
     .ent-list-table thead th.col-del    { width:60px; text-align:center; }
     .ent-list-table tbody .col-num      { text-align:center; font-weight:700; color:#64748b; font-size:13px; }
     /* Codigo del producto en la tabla: negro (no azul). Se mantiene monospace +
@@ -225,7 +225,7 @@
     .ent-list-table tbody td { padding:11px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .ent-list-table tbody td:last-child { border-right:none; }
     .ent-list-table tbody tr:hover td { background:#e0f2fe; }
-    .ent-list-table tbody .col-cant { text-align:right; font-weight:700; font-family:monospace; font-size:13.5px; }
+    .ent-list-table tbody .col-cant { text-align:center; font-weight:700; font-family:monospace; font-size:13.5px; }
     .ent-list-table tbody .col-del  { text-align:center; }
     .ent-list-nom { font-size:13.5px; font-weight:600; color:#0f172a; display:block; }
     .ent-list-meta { font-size:11px; color:#94a3b8; }
@@ -926,22 +926,13 @@
             if (res.b && res.b.errors) {
                 msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
             }
-            // 403 = falta la clave 'almacen.movimiento'. Notificacion moderna tipo
-            // modal (mas visible que un toast); el usuario se queda en el modulo
-            // con lo que capturo intacto.
+            // 403 = falta la clave 'almacen.movimiento'. Se notifica con un toast
+            // (la notificacion pequeña), NO un modal — el usuario se queda en el
+            // modulo con su captura intacta. Sin caja de error inline porque no es
+            // un error de un campo del formulario.
             if (res.status === 403 || (res.b && res.b.forbidden)) {
                 showErr('');
-                if (typeof window.showModal === 'function') {
-                    window.showModal({
-                        type:        'error',
-                        title:       'Permiso requerido',
-                        message:     msg,
-                        confirmText: 'Entendido',
-                        hideCancel:  true,
-                    });
-                } else {
-                    toast(msg, 'error');
-                }
+                toast(msg, 'error');
                 return;
             }
             showErr(msg); toast(msg, 'error');
