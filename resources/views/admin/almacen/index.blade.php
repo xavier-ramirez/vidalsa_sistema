@@ -2191,7 +2191,9 @@
     // a otro almacén) según el frente destino elegido en el formulario.
     window.almSelAccion = function () {
         if (!almSelCount()) { toast('Selecciona al menos un producto (clic en su fila).', 'error'); return; }
-        if (typeof window.almAbrirSalidaModal !== 'function') { toast('No tienes permiso para registrar movimientos.', 'error'); return; }
+        // Guard de permiso: registrar una salida exige la clave 'almacen.movimiento'
+        // (mismo patrón que el modal de Auditoría). Sin la clave no se abre el modal.
+        if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('No hay un almacén seleccionado.', 'error'); return; }
         // Bloquear apertura del modal si alguna fila seleccionada (a) excede el stock o
@@ -3311,8 +3313,6 @@
             toast(netMsg, 'error');
         });
     };
-    @else
-    window.almAbrirSalidaModal = function () { toast('No tienes permiso para registrar movimientos.', 'error'); };
     @endif
 
     // La tabla abre VACÍA. Si la URL trae un filtro de contenido (search / categoria /
