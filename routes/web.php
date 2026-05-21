@@ -237,9 +237,13 @@ Route::middleware(['auth'])->group(function () {
             // Reemplaza al viejo modal #entModal — misma funcionalidad pero como pantalla propia
             // con autocomplete de producto por codigo o descripcion. POSTea al endpoint existente
             // almacen.movimientos.lote (tipo=ENTRADA), no requiere backend nuevo.
-            // Recepcion ODC: acceso por usuario autenticado con almacen visible
-            // (Almacen::visiblesPara → NIVEL_ACCESO + frente). Sin permiso.
-            Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->name('almacen.recepcion.nueva');
+            // Recepcion ODC (Registrar entrada directa): gateada por
+            // can:almacen.movimiento — EL MISMO permiso que exige el submit
+            // almacen.movimientos-lote. Sin este middleware un usuario sin el
+            // permiso podia ABRIR la pantalla, cargar productos y recien al
+            // pulsar "Registrar entrada" recibir un 403 "sin permiso" —
+            // incoherente. Ahora pagina y submit piden lo mismo.
+            Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->middleware('can:almacen.movimiento')->name('almacen.recepcion.nueva');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
             Route::patch ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'update'])  ->whereNumber('id')->name('almacen.recepcion.update');
             Route::delete('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'destroy']) ->whereNumber('id')->name('almacen.recepcion.destroy');
