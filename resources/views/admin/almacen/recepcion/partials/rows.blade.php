@@ -1,4 +1,5 @@
-{{-- Filas de la tabla de traspasos. $traspasos = paginator de Traspaso con almacenes cargados, withCount('lineas'). --}}
+{{-- Filas de la tabla de traspasos. $traspasos = paginator de Traspaso con
+     almacenes y lineas.producto (CODIGO/NOMBRE) cargados via eager loading. --}}
 
 @forelse($traspasos as $t)
     @php
@@ -17,7 +18,19 @@
         <td style="text-align:center;">
             <span class="estado-pill" style="background:{{ $e[1] }};color:{{ $e[2] }};">{{ $e[0] }}</span>
         </td>
-        <td style="text-align:right;font-weight:700;color:#334155;">{{ $t->lineas_count ?? '—' }}</td>
+        {{-- Líneas: lista CODIGO + descripción de cada producto del traspaso. --}}
+        <td class="tr-lineas-cell">
+            <div class="tr-lineas-box">
+                @forelse($t->lineas as $linea)
+                    <div class="tr-linea-item">
+                        <span class="tr-linea-cod">{{ optional($linea->producto)->CODIGO ?: '—' }}</span>
+                        <span class="tr-linea-desc">{{ optional($linea->producto)->NOMBRE ?: 'Producto no disponible' }}</span>
+                    </div>
+                @empty
+                    <span style="color:#94a3b8;">—</span>
+                @endforelse
+            </div>
+        </td>
         <td style="font-size:12.5px;color:#475569;white-space:nowrap;">
             {{ $t->FECHA_ENVIO ? $t->FECHA_ENVIO->format('d-M-Y H:i') : '—' }}
         </td>

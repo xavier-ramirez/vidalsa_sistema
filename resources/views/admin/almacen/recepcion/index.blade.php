@@ -128,6 +128,17 @@
     .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
     .estado-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
 
+    /* ── Columna "Líneas": lista CODIGO + descripción de cada producto del traspaso ──
+       El <div> interno lleva width fija + scroll: una descripción larga no ensancha
+       la columna y un traspaso con muchas líneas no alarga la fila desmesuradamente
+       (el <td> por sí solo no respeta max-height/overflow). */
+    .tr-lineas-cell { vertical-align:top; }
+    .tr-lineas-box  { width:300px; max-height:150px; overflow-y:auto; font-size:12.5px; }
+    .tr-linea-item  { display:flex; gap:6px; align-items:baseline; }
+    .tr-linea-item + .tr-linea-item { margin-top:4px; padding-top:4px; border-top:1px dashed #eef2f6; }
+    .tr-linea-cod   { font-family:monospace; font-weight:800; color:#0f172a; white-space:nowrap; flex:0 0 auto; }
+    .tr-linea-desc  { color:#475569; font-weight:600; min-width:0; }
+
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
        Cada hijo de #trFilters toma su propia fila full-width (mismo flujo que
        el modulo Inventario). Titulo oculto, selector de almacen destino full-
@@ -217,6 +228,7 @@
             grid-template-areas:
                 "numero  estado"
                 "ruta    ruta"
+                "lineas  lineas"
                 "meta    meta" !important;
             row-gap: 8px !important;
             column-gap: 10px !important;
@@ -262,12 +274,18 @@
             grid-area: estado !important;
             text-align: right !important; align-self: center !important;
         }
-        /* td:4 (Líneas) y td:5 (Fecha envío) — comparten la fila "meta":
-           Líneas a la izquierda, Fecha a la derecha (justify-self).
-           font-weight:400 normaliza el peso: la celda Líneas trae font-weight:700
-           inline (estilo de la tabla desktop) y en la tarjeta mobile se veia en
-           negrita mientras la fecha iba en peso normal — inconsistente. */
-        .tr-table tbody tr[data-id] td:nth-child(4),
+        /* td:4 = Líneas (lista CODIGO + descripción de productos) — fila propia,
+           full-width dentro de la tarjeta. */
+        .tr-table tbody tr[data-id] td:nth-child(4) {
+            display: block !important;
+            grid-area: lineas !important;
+            padding-top: 8px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+        }
+        .tr-table tbody tr[data-id] td:nth-child(4) .tr-lineas-box {
+            width: 100% !important;
+        }
+        /* td:5 = Fecha envío — fila "meta" propia. */
         .tr-table tbody tr[data-id] td:nth-child(5) {
             display: inline-flex !important;
             align-items: center !important;
@@ -279,13 +297,12 @@
             border-top: 1px dashed #e2e8f0 !important;
             grid-area: meta !important;
         }
-        .tr-table tbody tr[data-id] td:nth-child(5) { justify-self: end !important; }
         /* td:6 = Fecha recibido — oculta en mobile (siempre vacia en bandeja ENVIADO). */
         .tr-table tbody tr[data-id] td:nth-child(6) { display: none !important; }
 
-        /* Iconitos sutiles antes de cada meta. */
-        .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'inventory_2'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
-        .tr-table tbody tr[data-id] td:nth-child(5)::before { content: 'event';       font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+        /* Iconito sutil antes de la fecha de envío. La celda Líneas ya no es un
+           valor simple sino una lista de productos, por eso no lleva icono. */
+        .tr-table tbody tr[data-id] td:nth-child(5)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
 
         /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
         .tr-table tbody tr:not([data-id]) {
@@ -458,7 +475,7 @@
                     <th title="Número correlativo del traspaso (TR-YYYY-NNNN) — único por año. Es la “factura interna” del envío entre almacenes.">Nº</th>
                     <th title="Arriba (negrita) el almacén que ENVÍA; abajo con flecha ↓ el almacén que RECIBE.">Origen → Destino</th>
                     <th style="text-align:center;" title="Borrador · Enviado (esperando confirmación) · Recibido · Parcial (incompleto) · Cancelado.">Estado</th>
-                    <th style="text-align:right;" title="Cantidad de productos distintos en el traspaso (no la suma de cantidades — eso lo ves al abrir el detalle).">Líneas</th>
+                    <th title="Productos del traspaso: código y descripción de cada línea.">Líneas</th>
                     <th title="Fecha y hora en que el origen despachó el traspaso. “—” si todavía es borrador.">Enviado</th>
                     <th title="Fecha y hora en que el destino confirmó la recepción. “—” si todavía no llegó o no se confirmó.">Recibido</th>
                 </tr>
