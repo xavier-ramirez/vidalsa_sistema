@@ -201,15 +201,13 @@ Route::middleware(['auth'])->group(function () {
             // Si aprieta "Confirmar" se llama el endpoint regular movimientos-lote.
             Route::post  ('almacen/salida/preview-pdf',           [App\Http\Controllers\AlmacenController::class, 'previewSalidaPdf'])->name('almacen.salida.preview');
             // Nota de Entrega (PDF, VID-FO-GEN-019).
-            //   ?numero=NE-2026-0001  → recupera el lote por NUMERO_NOTA (usado por el modal
-            //                           "Generar Nota por código" del dropdown Acciones).
+            //   ?numero=NE-2026-0001  → recupera el lote por NUMERO_NOTA.
             //   ?ids=10,11,12         → recupera por IDs (lo que devuelve registrarMovimientoLote
             //                           inmediatamente tras crear la nota).
             Route::get   ('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'notaEntregaPdf'])    ->name('almacen.nota-entrega');
-            Route::get   ('almacen/nota-entrega/buscar',          [App\Http\Controllers\AlmacenController::class, 'buscarNotaPorNumero'])->name('almacen.nota-entrega.buscar');
             // DELETE: borra la Nota completa por código y revierte el stock vía ENTRADA inversa.
-            // Solo super.admin: una nota cancelada no se puede recuperar, el stock se mueve.
-            Route::delete('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'eliminarNota'])      ->middleware('can:super.admin')->name('almacen.nota-entrega.destroy');
+            // Requiere la clave almacen.nota.eliminar: una nota borrada no se recupera y el stock se mueve.
+            Route::delete('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'eliminarNota'])      ->middleware('can:almacen.nota.eliminar')->name('almacen.nota-entrega.destroy');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 
             // Productos (catálogo global)

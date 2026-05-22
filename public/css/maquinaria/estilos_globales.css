@@ -2331,7 +2331,11 @@ input:-webkit-autofill:active {
 
 @media (max-width: 1024px) {
     .page-layout-grid {
-        grid-template-columns: 1fr !important;
+        /* minmax(0, 1fr) (no 1fr plano): el `auto` implicito de `1fr` deja que un
+           hijo no-encogible (la tabla con min-width, contenido nowrap, etc.)
+           expanda la columna mas alla del viewport — la tarjeta blanca se
+           desborda a la derecha, se recorta, y el margen izq queda > der. */
+        grid-template-columns: minmax(0, 1fr) !important;
         gap: 20px;
         width: 100%;
     }
@@ -2981,10 +2985,35 @@ input:-webkit-autofill:active {
         overflow-x: hidden;
     }
 
-    /* Tarjeta principal — sin margen y border-radius reducido en móvil */
-    .page-layout-grid > .admin-card {
+    /* ── Centrado del layout en mobile (patron tomado de /admin/equipos) ──
+       El grid y la tarjeta blanca se fuerzan a width/max-width:100% +
+       margin:0 + box-sizing:border-box. Sin esto el bloque blanco hereda
+       anchos calculados del wrapper del titulo y se ve "recostado" hacia un
+       lado (margen izq != der) en viewports angostos. */
+    .page-layout-grid {
+        width: 100% !important;
+        max-width: 100% !important;
         margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+    }
+    /* Tarjeta principal — full-width, sin margen, border-radius reducido. */
+    .page-layout-grid > .admin-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
         border-radius: 12px !important;
+    }
+    /* Wrapper del titulo cuando es un <div> directo del main-viewport
+       (modulo equipos). Los modulos de almacen usan <section.page-title-card>,
+       cubierto por su propia regla mas arriba en este mismo @media. */
+    .main-viewport > div:has(> .page-title) {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
 
     /* Historial: la columna principal (primer hijo del grid) sin margen,
@@ -3117,7 +3146,9 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     /* Bajo 1024px el layout 2-col se apila — la tabla ya consume todo el ancho
        y comprimir el sidebar mas dejaria los botones pequenos. El sidebar
        pierde su sticky (queda en flujo normal). */
-    body:has(.ent-layout) .ent-layout { grid-template-columns: 1fr; gap: 14px; }
+    /* minmax(0, 1fr) (no 1fr plano): evita que un hijo ancho expanda la columna
+       y desborde la tarjeta blanca hacia la derecha (margen izq > der). */
+    body:has(.ent-layout) .ent-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
     body:has(.ent-layout) .ent-sidebar { position: static; top: auto; }
 }
 
@@ -3133,38 +3164,56 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     /* UM col 1, Stepper col 2 */
     body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { grid-column: 1; }
     body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { grid-column: 2; width: 100%; }
+    /* Boton bandeja: ancho ceñido al texto (no full-width). Desde 900px el grid
+       es de 2 columnas — un boton width:100% ocuparia media fila y se veria
+       enorme; fit-content lo deja del tamaño del texto, alineado a la derecha. */
+    body:has(.ent-layout) .ent-envios-btn {
+        width: fit-content !important;
+        justify-self: end !important;
+        border-radius: 10px !important;
+    }
 }
 
 @media (max-width: 768px) {
     /* Viewport global: padding lateral 8px (igual que /admin/almacen). */
     body:has(.ent-layout) .main-viewport {
         padding-left: 8px !important; padding-right: 8px !important;
-        width: 100% !important; max-width: 100vw !important;
+        /* max-width:100% (no 100vw): 100vw incluye el ancho de la scrollbar y deja
+           el contenedor corrido — mismo criterio que la regla de .page-layout-grid. */
+        width: 100% !important; max-width: 100% !important;
         box-sizing: border-box !important; padding-top: 12px !important;
     }
-    /* Cards y sidebar comparten padding chico en mobile — los anchos internos
-       coinciden y la textarea/botones del sidebar alinean con la card de arriba. */
+    /* Centrado del layout en mobile — mismo patron que .page-layout-grid:
+       el grid a width/max-width:100% + margin:0 + border-box para que el
+       bloque quede centrado; gap compacto 10px (cliente: "comprime bien"). */
+    body:has(.ent-layout) .ent-layout {
+        width: 100% !important; max-width: 100% !important;
+        margin: 0 !important; padding: 0 !important;
+        box-sizing: border-box !important;
+        gap: 10px !important;
+    }
+    /* Card y sidebar: full-width, padding chico, border-box — los anchos
+       internos coinciden y la textarea/botones del sidebar alinean con la
+       card de arriba. */
     body:has(.ent-layout) .ent-card,
-    body:has(.ent-layout) .ent-sidebar { padding: 8px !important; }
+    body:has(.ent-layout) .ent-sidebar {
+        width: 100% !important; max-width: 100% !important;
+        margin: 0 !important; box-sizing: border-box !important;
+        padding: 8px !important;
+    }
     /* Titulo de seccion centrado en mobile (pedido del cliente). */
     body:has(.ent-layout) .ent-section-title { justify-content: center !important; text-align: center !important; margin-bottom: 6px !important; }
     /* Margen entre el page-title-card y la primera card: el global pone 20px,
        en este modulo es excesivo (no hay titulo visible, solo la pill almacen). */
     body:has(.ent-layout) .page-title-card { margin-bottom: 10px !important; }
-    /* Gaps mas compactos en mobile (cliente: "comprime bien las cosas"):
-       layout 14→10, sidebar 14→10, separador entre Datos y Captura 14→10.
-       (.ent-list-wrap margin-top vive consolidado abajo junto con su override
-       de border/radius para mobile cards.) */
-    body:has(.ent-layout) .ent-layout { gap: 10px !important; }
+    /* Sidebar: gap mas compacto 14→10 en mobile (cliente: "comprime bien las
+       cosas") — el gap del .ent-layout se consolido en su regla de arriba. */
     body:has(.ent-layout) .ent-sidebar { gap: 10px !important; }
     /* Captura: display:contents ya no es flex. Mantenemos el grid de 2 columnas
        (heredado de 900px) pero ajustamos anchos. */
     /* UM y Stepper: 50% c/u (ocupan col 1 y 2 respectivamente) */
     body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { width: auto !important; }
     body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { width: auto !important; }
-    /* Boton bandeja: llenando su celda — solo texto, sin icono. */
-    body:has(.ent-layout) .ent-envios-btn { width: 100% !important; border-radius: 10px !important; }
-
     /* page-title-card: titulo OCULTO, separador OCULTO, layout apilado para
        que el bloque del Almacen ocupe todo el ancho. */
     body:has(.ent-layout) .page-title-card .page-title { display: none !important; }

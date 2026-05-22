@@ -22,19 +22,22 @@ class Usuario extends Authenticatable
      * de las exclusiones; Usuario::can() y AppServiceProvider::Gate::before
      * la consultan para mantenerse coherentes.
      *
-     * Las DOS claves del modulo Almacen son EXCLUSIVAS (decision del cliente):
+     * Las TRES claves del modulo Almacen son EXCLUSIVAS (decision del cliente):
      * el acceso al almacen NO se hereda por ser super.admin ni depende del ROL
      * — se concede SOLO con la clave literal en PERMISOS.
      *  - almacen.productos : editar el catalogo (CODIGO/NOMBRE/UM/categoria/
      *    ubicacion) impacta historial, kardex y reportes.
      *  - almacen.movimiento: registrar entradas/salidas/ajustes/traspasos y
      *    confirmar recepciones mueve el stock real.
+     *  - almacen.nota.eliminar: eliminar Notas de Entrega (reversa el stock) y
+     *    eliminar productos del catalogo — borrados destructivos.
      * Consecuencia: un super.admin que deba operar el almacen necesita la
      * clave literal correspondiente agregada en su columna PERMISOS.
      */
     public const PERMISOS_EXPLICITOS = [
-        'almacen.productos'  => true,
-        'almacen.movimiento' => true,
+        'almacen.productos'     => true,
+        'almacen.movimiento'    => true,
+        'almacen.nota.eliminar' => true,
     ];
 
     /**

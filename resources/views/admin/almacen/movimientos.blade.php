@@ -221,9 +221,9 @@
         }
 
         /* Tarjeta UNIFORME — fondo blanco roto (#fbfcfe) con gradient leve hacia
-           blanco puro, borde simetrico 1px slate-200 en los 4 lados y sombra
-           ambiental difusa. SIN acento izquierdo (cliente pidio quitar la barra
-           gris inset 3px que llevaba antes).
+           blanco puro, borde simetrico 1px en los 4 lados (color en el declare
+           de `border` mas abajo) y sombra ambiental difusa. SIN acento izquierdo
+           (cliente pidio quitar la barra gris inset 3px que llevaba antes).
 
            overflow:hidden importante: la banda gris del destino (mv-td-destino)
            usa margins negativos para extenderse hasta los bordes internos; sin
@@ -239,7 +239,9 @@
             column-gap: 10px !important;
             row-gap: 4px !important;
             background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%) !important;
-            border: 1px solid #e2e8f0 !important;
+            /* Borde mas marcado (#cbd5e1) — mismo tono que las tarjetas de
+               /admin/equipos para que los modulos se vean consistentes. */
+            border: 1px solid #cbd5e1 !important;
             border-radius: 12px !important;
             box-shadow:
                 0 1px 3px rgba(15,23,42,0.04),
@@ -303,6 +305,9 @@
             overflow-wrap: break-word !important;
             display: block !important;
             align-self: flex-start !important;
+            /* El td hereda text-align:center de la tabla desktop — en la
+               tarjeta movil el producto va alineado a la izquierda. */
+            text-align: left !important;
         }
         /* CODIGO + NOMBRE como UN SOLO TEXTO uniforme (mismo patron que
            /admin/almacen mobile). El span del codigo tiene inline
@@ -436,7 +441,8 @@
            de la tarjeta. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
-            justify-content: center !important;
+            /* Frente destino alineado a la izquierda dentro de la banda. */
+            justify-content: flex-start !important;
             justify-self: stretch !important;
             font-size: 11px !important;
             font-weight: 700 !important;
@@ -479,6 +485,16 @@
        full-width — el viewport todavia da para 2 filtros por fila. */
     @media (min-width: 769px) and (max-width: 900px) {
         #almMovFilters .amf-item { flex: 1 1 calc(50% - 6px); max-width: none; }
+    }
+    /* Desktop (>1024px): SOLO en esta bitacora, la tabla gana ancho —
+       sidebar mas angosto (300→270) + gap menor (40→24). Ese espacio
+       extra se vuelca a la columna Destino (ver width del <th>). El
+       scope body:has(.alm-mov-table) limita el override a este modulo. */
+    @media (min-width: 1025px) {
+        body:has(.alm-mov-table) .page-layout-grid {
+            grid-template-columns: minmax(0, 1fr) 270px;
+            gap: 24px;
+        }
     }
 </style>
 
@@ -605,8 +621,7 @@
         {{-- ── Botón Acciones (dropdown estilo /admin/movilizaciones) ────────────
              Reemplaza al viejo botón "Inventario" y consolida las acciones
              rápidas de la bitácora en un único menú:
-               · Generar Nota de Entrega por código (NE-YYYY-NNNN)
-               · Eliminar Nota de Entrega por código  (sólo super.admin)
+               · Eliminar Nota de Entrega por código  (requiere almacen.nota.eliminar)
                · Volver al inventario
          --}}
         <div style="position:relative;flex:0 0 auto;margin-left:auto;">
@@ -631,20 +646,9 @@
                         <span>Bitácora por Nota (PDF)</span>
                     </a>
                 </div>
-                {{-- Generar Nota: cualquier usuario que pueda ver la bitácora puede reimprimir. --}}
-                <div style="padding:6px;">
-                    <button type="button"
-                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openGenerarNotaModal();"
-                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;"
-                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0284c7;">print</i></div>
-                        <span>Generar Nota por código</span>
-                    </button>
-                </div>
-
-                @can('super.admin')
-                {{-- Eliminar Nota: gateado a super.admin porque reversa stock y deja un par
-                     (SALIDA original + ENTRADA reversa) en el kardex de auditoría. --}}
+                @can('almacen.nota.eliminar')
+                {{-- Eliminar Nota: gateado a la clave almacen.nota.eliminar porque reversa
+                     stock y deja un par (SALIDA original + ENTRADA reversa) en el kardex. --}}
                 <div style="padding:6px;border-top:1px solid #cbd5e1;">
                     <button type="button"
                         onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.openEliminarNotaModal();"
@@ -676,7 +680,7 @@
                     <th>Descripción del producto</th>
                     <th style="width:130px;">Cantidad</th>
                     <th style="width:75px;">Stock</th>
-                    <th style="width:170px;">Destino</th>
+                    <th style="width:215px;">Destino</th>
                     <th style="width:115px;">Ref</th>
                 </tr>
             </thead>
@@ -1036,61 +1040,9 @@
 })();
 </script>
 
+@can('almacen.nota.eliminar')
 {{-- ═════════════════════════════════════════════════════════════════
-     MODAL: GENERAR NOTA DE ENTREGA POR CÓDIGO
-     Ingresa NE-YYYY-NNNN y abre el PDF en el visor in-page
-     (#pdfPreviewModal del layout base, vía window.openPdfPreview).
-     Patrón calcado del modal "Reimprimir Acta" de /admin/movilizaciones.
-═════════════════════════════════════════════════════════════════ --}}
-<div id="generarNotaOverlay"
-     style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
-     onclick="if(event.target===this) window.closeGenerarNotaModal()">
-    <div style="background:white;width:100%;max-width:440px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);">
-        <div style="background:#1e293b;padding:10px 16px;color:white;position:relative;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <i class="material-icons" style="font-size:20px;">print</i>
-                    <h2 style="margin:0;font-size:15px;font-weight:800;">Generar Nota de Entrega</h2>
-                </div>
-                <p style="margin:0;font-size:12px;opacity:0.85;">Busca por N° de Nota</p>
-            </div>
-            <button type="button" onclick="window.closeGenerarNotaModal()" aria-label="Cerrar"
-                style="background:rgba(255,255,255,0.15);border:none;color:white;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:12px;">
-                <i class="material-icons" style="font-size:16px;">close</i>
-            </button>
-        </div>
-        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
-            <div>
-                <label for="generarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">
-                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:2px;color:#1e293b;">tag</i>
-                    N° de Nota
-                </label>
-                <div id="generarNotaBox"
-                     style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:8px;background:white;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;">
-                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
-                    <input type="text" id="generarNotaInput" placeholder="Ej: NE-{{ date('Y') }}-0001" autocomplete="off"
-                        style="flex:1;border:none;outline:none;padding:8px 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitGenerarNota();}">
-                </div>
-            </div>
-            <div id="generarNotaFeedback" style="display:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;"></div>
-            <div style="display:flex;gap:10px;justify-content:center;margin-top:2px;">
-                <button type="button" onclick="window.closeGenerarNotaModal()"
-                    style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">
-                    Cancelar
-                </button>
-                <button type="button" id="generarNotaSubmitBtn" onclick="window.submitGenerarNota()"
-                    style="padding:8px 16px;border-radius:8px;border:none;background:#1e293b;color:white;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
-                    <i class="material-icons" style="font-size:16px;">file_download</i> Generar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@can('super.admin')
-{{-- ═════════════════════════════════════════════════════════════════
-     MODAL: ELIMINAR NOTA DE ENTREGA POR CÓDIGO  (super.admin only)
+     MODAL: ELIMINAR NOTA DE ENTREGA POR CÓDIGO  (requiere almacen.nota.eliminar)
      Ingresa NE-YYYY-NNNN → confirma → DELETE → reversa stock.
 ═════════════════════════════════════════════════════════════════ --}}
 {{-- Diseño alineado con el patron de alertas de la app (#standardModal de
@@ -1101,7 +1053,9 @@
 <div id="eliminarNotaOverlay"
      style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
      onclick="if(event.target===this) window.closeEliminarNotaModal()">
-    <div style="background:#fff;width:100%;max-width:360px;border-radius:14px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:hidden;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);position:relative;">
+    {{-- overflow:visible: la lista de sugerencias del buscador de Notas cuelga
+         por debajo del input y debe poder salirse del recuadro de la tarjeta. --}}
+    <div style="background:#fff;width:100%;max-width:360px;border-radius:14px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);overflow:visible;animation:notaIn 0.22s cubic-bezier(0.16,1,0.3,1);position:relative;">
         <button type="button" onclick="window.closeEliminarNotaModal()" aria-label="Cerrar"
             style="background:transparent;border:none;color:#94a3b8;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:absolute;top:10px;right:10px;z-index:2;">
             <i class="material-icons" style="font-size:20px;">close</i>
@@ -1114,15 +1068,17 @@
                     El stock vuelve al almacén y la Nota queda eliminada. Acción <b>irreversible</b>.
                 </p>
             </div>
-            <div style="text-align:left;">
-                <label for="eliminarNotaInput" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">N° de Nota a eliminar</label>
+            <div style="position:relative;">
                 <div id="eliminarNotaBox"
                      style="display:flex;align-items:center;border:1px solid #cbd5e0;border-radius:8px;background:#fbfcfd;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;height:34px;">
                     <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;flex-shrink:0;">search</i>
-                    <input type="text" id="eliminarNotaInput" placeholder="Ej: NE-{{ date('Y') }}-0001" autocomplete="off"
+                    <input type="text" id="eliminarNotaInput" placeholder="N° de Nota a eliminar" autocomplete="off"
                         style="flex:1;border:none;outline:none;padding:0 6px;font-size:13px;background:transparent;letter-spacing:0.5px;text-transform:uppercase;height:100%;"
+                        oninput="window.eliminarNotaSuggest()"
+                        onblur="setTimeout(function(){ var s=document.getElementById('eliminarNotaSuggest'); if(s) s.classList.remove('open'); }, 150);"
                         onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitEliminarNota();}">
                 </div>
+                <div id="eliminarNotaSuggest"></div>
             </div>
             <div id="eliminarNotaFeedback" style="display:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;text-align:left;"></div>
             <div style="display:flex;gap:10px;justify-content:center;margin-top:2px;">
@@ -1142,8 +1098,25 @@
 
 <style>
 @keyframes notaIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-#generarNotaBox:focus-within { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,0.15); }
 #eliminarNotaBox:focus-within { border-color:#b91c1c; box-shadow:0 0 0 3px rgba(185,28,28,0.15); }
+/* El input lleva text-transform:uppercase para los códigos NE-…; el placeholder
+   se deja en su capitalización original (no gritar el texto de ayuda). */
+#eliminarNotaInput::placeholder { text-transform:none; }
+/* Lista de sugerencias del buscador de Notas (modal Eliminar Nota). */
+#eliminarNotaSuggest {
+    position:absolute; top:calc(100% + 4px); left:0; right:0;
+    background:#fff; border:1px solid #e2e8f0; border-radius:8px;
+    box-shadow:0 10px 22px rgba(15,23,42,0.16);
+    max-height:172px; overflow-y:auto; padding:4px; z-index:20; display:none;
+}
+#eliminarNotaSuggest.open { display:block; }
+.eliminar-nota-sug-item {
+    padding:7px 10px; border-radius:6px; cursor:pointer;
+    font-family:monospace; font-size:12.5px; font-weight:700;
+    color:#0f172a; letter-spacing:0.5px;
+}
+.eliminar-nota-sug-item:hover { background:#fee2e2; color:#b91c1c; }
+.eliminar-nota-sug-empty { padding:8px 10px; font-size:12px; color:#94a3b8; font-style:italic; }
 </style>
 
 <script>
@@ -1154,7 +1127,6 @@
     window._almNotaModalsReady = true;
 
     var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    var URL_BUSCAR   = @json(route('almacen.nota-entrega.buscar'));
     var URL_DESTROY  = @json(route('almacen.nota-entrega.destroy'));
 
     function fb(id, type, msg) {
@@ -1169,74 +1141,13 @@
         el.textContent = msg;
     }
 
-    // ── Generar Nota ────────────────────────────────────────────────────
-    window.openGenerarNotaModal = function () {
-        var ov = document.getElementById('generarNotaOverlay'); if (!ov) return;
-        ov.style.display = 'flex';
-        var i = document.getElementById('generarNotaInput');
-        if (i) { i.value = ''; setTimeout(function(){ i.focus(); }, 80); }
-        var elFb = document.getElementById('generarNotaFeedback'); if (elFb) elFb.style.display = 'none';
-        var box = document.getElementById('generarNotaBox'); if (box) box.style.borderColor = '#e2e8f0';
-        document.body.style.overflow = 'hidden';
-    };
-    window.closeGenerarNotaModal = function () {
-        var ov = document.getElementById('generarNotaOverlay'); if (ov) ov.style.display = 'none';
-        document.body.style.overflow = '';
-    };
-    window.submitGenerarNota = async function () {
-        var input = document.getElementById('generarNotaInput');
-        var raw = (input && input.value || '').trim().toUpperCase();
-        if (!raw) {
-            var box = document.getElementById('generarNotaBox'); if (box) box.style.borderColor = '#ef4444';
-            fb('generarNotaFeedback', 'error', 'Ingresa un N° de Nota para continuar.');
-            if (input) input.focus(); return;
-        }
-        // Usamos el visor in-page (window.openPdfPreview → #pdfPreviewModal del layout base);
-        // por eso ya NO pre-abrimos pestaña con about:blank — el PDF se muestra dentro del
-        // navegador en un iframe modal sin riesgo de pop-up blocker.
-
-        var btn = document.getElementById('generarNotaSubmitBtn');
-        var html = btn ? btn.innerHTML : '';
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Buscando...'; }
-        fb('generarNotaFeedback', 'info', 'Buscando la nota ' + raw + '…');
-        try {
-            var r = await fetch(URL_BUSCAR + '?numero=' + encodeURIComponent(raw), {
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            if (r.status === 404) {
-                fb('generarNotaFeedback', 'error', 'No se encontró ninguna Nota con ese N°.');
-                var box2 = document.getElementById('generarNotaBox'); if (box2) box2.style.borderColor = '#ef4444';
-                return;
-            }
-            if (!r.ok) {
-                var err = await r.json().catch(function(){ return {}; });
-                fb('generarNotaFeedback', 'error', err.message || ('Error del servidor (' + r.status + ').'));
-                return;
-            }
-            var data = await r.json();
-            if (!data.success || !data.url) {
-                fb('generarNotaFeedback', 'error', data.message || 'Respuesta inválida del servidor.');
-                return;
-            }
-            fb('generarNotaFeedback', 'success', 'Nota encontrada. Abriendo PDF…');
-            // Cierra el modal de búsqueda y abre el visor de PDF in-page.
-            window.closeGenerarNotaModal();
-            if (typeof window.openPdfPreview === 'function') {
-                window.openPdfPreview(data.url, 'nota_entrega', 'Nota ' + raw, 0, '', true, 'almacen');
-            } else {
-                window.open(data.url, '_blank', 'noopener');
-            }
-        } catch (err) {
-            console.error('[Generar Nota]', err);
-            fb('generarNotaFeedback', 'error', 'No se pudo contactar al servidor.');
-        } finally {
-            if (btn) { btn.disabled = false; btn.innerHTML = html; }
-        }
-    };
-
     // ── Eliminar Nota ───────────────────────────────────────────────────
-    // Sólo se monta si el modal existe (super.admin gateado por blade {{'@'}}can).
+    // Sólo se monta si el modal existe (gateado por blade {{'@'}}can a almacen.nota.eliminar).
     if (document.getElementById('eliminarNotaOverlay')) {
+        // Lista de N° de Nota (SALIDA, almacenes visibles) para el autocomplete.
+        // La provee el controller SOLO si el usuario tiene almacen.nota.eliminar.
+        var NOTAS_LISTA = @json($numerosNotas ?? []);
+
         window.openEliminarNotaModal = function () {
             var ov = document.getElementById('eliminarNotaOverlay'); if (!ov) return;
             ov.style.display = 'flex';
@@ -1248,7 +1159,36 @@
         };
         window.closeEliminarNotaModal = function () {
             var ov = document.getElementById('eliminarNotaOverlay'); if (ov) ov.style.display = 'none';
+            var sug = document.getElementById('eliminarNotaSuggest'); if (sug) sug.classList.remove('open');
             document.body.style.overflow = '';
+        };
+
+        // Autocomplete: la lista se despliega SOLO al escribir y muestra hasta 4
+        // coincidencias por substring — basta escribir parte del número (p. ej.
+        // los últimos 4 dígitos). Con el campo vacío la lista permanece cerrada.
+        window.eliminarNotaSuggest = function () {
+            var input = document.getElementById('eliminarNotaInput');
+            var box   = document.getElementById('eliminarNotaSuggest');
+            if (!input || !box) return;
+            var q = String(input.value || '').trim().toUpperCase();
+            if (q === '') { box.classList.remove('open'); return; }
+            var matches = NOTAS_LISTA
+                .filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; })
+                .slice(0, 4);
+            if (matches.length === 0) {
+                box.innerHTML = '<div class="eliminar-nota-sug-empty">Sin Notas que coincidan</div>';
+            } else {
+                box.innerHTML = matches.map(function (n) {
+                    var safe = String(n).replace(/'/g, "\\'");
+                    return '<div class="eliminar-nota-sug-item" onclick="window.eliminarNotaPick(\'' + safe + '\')">' + n + '</div>';
+                }).join('');
+            }
+            box.classList.add('open');
+        };
+        window.eliminarNotaPick = function (numero) {
+            var input = document.getElementById('eliminarNotaInput'); if (input) input.value = numero;
+            var box = document.getElementById('eliminarNotaSuggest'); if (box) box.classList.remove('open');
+            var bx  = document.getElementById('eliminarNotaBox'); if (bx) bx.style.borderColor = '#e2e8f0';
         };
         window.submitEliminarNota = async function () {
             var input = document.getElementById('eliminarNotaInput');
@@ -1258,8 +1198,9 @@
                 fb('eliminarNotaFeedback', 'error', 'Ingresa un N° de Nota para continuar.');
                 if (input) input.focus(); return;
             }
-            // Confirmación explícita: la acción es destructiva, no se puede deshacer.
-            if (!window.confirm('¿Eliminar la Nota ' + raw + ' y devolver su stock al almacén?\n\nEsta acción no se puede deshacer.')) return;
+            // El propio modal (botón rojo "Eliminar" + aviso "Acción irreversible")
+            // ES la confirmación — sin confirm() nativo del navegador encima.
+            var sug = document.getElementById('eliminarNotaSuggest'); if (sug) sug.classList.remove('open');
 
             var btn = document.getElementById('eliminarNotaSubmitBtn');
             var html = btn ? btn.innerHTML : '';
@@ -1293,12 +1234,10 @@
         };
     }
 
-    // Escape cierra cualquiera de los dos modales abierto.
+    // Escape cierra el modal de Eliminar Nota si está abierto.
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
-        var g = document.getElementById('generarNotaOverlay');
         var x = document.getElementById('eliminarNotaOverlay');
-        if (g && g.style.display === 'flex') window.closeGenerarNotaModal();
         if (x && x.style.display === 'flex' && window.closeEliminarNotaModal) window.closeEliminarNotaModal();
     });
 })();

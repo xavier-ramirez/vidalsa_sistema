@@ -57,9 +57,15 @@ class AlmacenController extends Controller
         // ODC" (/admin/almacen/recepcion/nueva) crea productos al vuelo cuando llega
         // material nuevo, y el usuario tipico tiene SOLO almacen.movimiento (no
         // almacen.productos). El chequeo se hace dentro del metodo aceptando cualquiera
-        // de los dos permisos. updateProducto y destroyProducto si requieren productos.
+        // de los dos permisos. updateProducto requiere almacen.productos.
         $this->middleware('can:almacen.productos')->only([
-            'updateProducto', 'destroyProducto',
+            'updateProducto',
+        ]);
+        // destroyProducto: borrar un producto del catalogo exige almacen.nota.eliminar
+        // (la misma clave que elimina Notas de Entrega) — decision del cliente: una
+        // unica clave gobierna los borrados del modulo Almacen.
+        $this->middleware('can:almacen.nota.eliminar')->only([
+            'destroyProducto',
         ]);
         // registrarMovimientoLote NO entra en este middleware: valida 'almacen.movimiento'
         // con un guard al inicio del metodo para poder devolver un mensaje que NOMBRA la
@@ -802,6 +808,23 @@ class AlmacenController extends Controller
         $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
             ? (int) $request->input('id_almacen')
             : null;
+        // Lista de N° de Nota de Entrega (NE-…) para el autocomplete del modal
+        // "Eliminar Nota": SOLO TIPO=SALIDA (eliminarNota() solo revierte ese tipo) y
+        // SOLO de almacenes visibles para el usuario (asi no se sugiere una Nota que
+        // luego assertPuedeVerAlmacen rechazaria). Se calcula unicamente si el usuario
+        // tiene la clave almacen.nota.eliminar; las 500 mas recientes bastan.
+        $numerosNotas = $request->user()?->can('almacen.nota.eliminar')
+            ? MovimientoInventario::query()
+                ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
+                ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
+                ->whereNotNull('NUMERO_NOTA')
+                ->where('NUMERO_NOTA', '!=', '')
+                ->distinct()
+                ->orderByDesc('NUMERO_NOTA')
+                ->limit(500)
+                ->pluck('NUMERO_NOTA')
+            : collect();
+
         return view('admin.almacen.movimientos', [
             'movimientos'     => $paginator,
             'total'           => $paginator->total(),
@@ -813,6 +836,8 @@ class AlmacenController extends Controller
             // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
             // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
             'consumo'         => $this->consumoRanking($request),
+            // Autocomplete del modal "Eliminar Nota" (ver $numerosNotas arriba).
+            'numerosNotas'    => $numerosNotas,
         ]);
     }
 
@@ -1050,9 +1075,14 @@ class AlmacenController extends Controller
         }
 
         // Catálogo de productos activos + sus stocks indexados por almacén.
-        $productos = ProductoInventario::activos()
-            ->orderBy('NOMBRE')
-            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+        // Si la tabla venía filtrada por categoría, el export respeta ese filtro
+        // (coincidencia parcial LIKE — mismo criterio que index()).
+        $productosQuery = ProductoInventario::activos()->orderBy('NOMBRE');
+        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
+            $cat = trim((string) $request->input('categoria'));
+            $productosQuery->where('CATEGORIA', 'like', "%{$cat}%");
+        }
+        $productos = $productosQuery->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
 
         $stocks = AlmacenStock::query()
             ->whereIn('ID_ALMACEN', $almacenesEnExport->pluck('ID_ALMACEN'))
@@ -1779,38 +1809,15 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Modal "Generar Nota por código" del dropdown Acciones de la bitácora.
-     * Recibe ?numero=NE-2026-0001 y responde JSON {success, url} para que el
-     * frontend dispare la descarga del PDF (mismo patrón que el endpoint
-     * `find-by-codigo` de /admin/movilizaciones).
-     */
-    public function buscarNotaPorNumero(Request $request)
-    {
-        $numero = trim((string) $request->query('numero', ''));
-        if ($numero === '') {
-            return response()->json(['success' => false, 'message' => 'Ingresa un N° de Nota.'], 422);
-        }
-        $existe = MovimientoInventario::where('NUMERO_NOTA', $numero)->exists();
-        if (!$existe) {
-            return response()->json(['success' => false, 'message' => 'No se encontró ninguna Nota con ese código.'], 404);
-        }
-        return response()->json([
-            'success' => true,
-            'numero'  => $numero,
-            'url'     => route('almacen.nota-entrega', ['numero' => $numero]),
-        ]);
-    }
-
-    /**
      * Elimina TODA la Nota de Entrega identificada por ?numero=NE-YYYY-NNNN.
      * En la misma transacción reversa el stock por cada línea (suma de vuelta
-     * lo que la SALIDA había restado), encadenando un AJUSTE inverso a través
+     * lo que la SALIDA había restado), encadenando una ENTRADA inversa a través
      * de InventarioService::registrarEntrada — esto crea una fila de kardex
      * que documenta la reversión (auditable) y NO borra los movimientos SALIDA
      * originales (el kardex sigue siendo append-only y verificable).
      *
-     * Permiso: super.admin (gateado en routes/web.php). Los movimientos del
-     * lote deben pertenecer a un único almacén y el usuario debe poder verlo.
+     * Permiso: almacen.nota.eliminar (gateado en routes/web.php). Los movimientos
+     * del lote deben pertenecer a un único almacén y el usuario debe poder verlo.
      */
     public function eliminarNota(Request $request)
     {

@@ -149,10 +149,14 @@ class UserController extends Controller
             //   almacen.productos  → CRUD del catalogo de productos.
             //   almacen.movimiento → registrar entradas, salidas, ajustes, traspasos
             //                        y confirmar recepcion de traspasos en el destino.
+            //   almacen.nota.eliminar → eliminar Notas de Entrega (revierte el stock)
+            //                        y eliminar productos del catalogo. EXCLUSIVA
+            //                        (PERMISOS_EXPLICITOS): ni super.admin la hereda.
             //
             // Solo el literal en PERMISOS otorga acceso. No hay alias ni atajos.
             'almacen.productos'  => 'Registrar y editar productos del catálogo',
             'almacen.movimiento' => 'Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
+            'almacen.nota.eliminar' => 'Eliminar Notas de Entrega y productos del catálogo',
             'super.admin'         => 'Acceso Total (Super Admin)',
         ];
     }

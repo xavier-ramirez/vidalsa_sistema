@@ -407,7 +407,6 @@
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
-            border-bottom: 1px solid #e2e8f0 !important;
             padding: 9px 14px !important;
             font-size: 12px !important;
             font-weight: 700 !important;
@@ -488,6 +487,7 @@
     //   $puedeAlmManage  → super.admin (CRUD de almacenes / warehouses).
     //   $puedeProductos  → almacen.productos (CRUD del catalogo de productos).
     //   $puedeMover      → almacen.movimiento (entradas/salidas/ajustes/traspasos + confirmar recepciones).
+    //   $puedeEliminar   → almacen.nota.eliminar (borrar un producto del catalogo).
     //   $puedeManage     → flag combinado (almacenes O productos) que controla la
     //                      ENTRADA al bloque JS compartido — los routes individuales
     //                      adentro hacen el check fino segun la accion.
@@ -495,6 +495,7 @@
     $puedeProductos = auth()->user()?->can('almacen.productos')  ?? false;
     $puedeManage    = $puedeAlmManage || $puedeProductos;
     $puedeMover     = auth()->user()?->can('almacen.movimiento') ?? false;
+    $puedeEliminar  = auth()->user()?->can('almacen.nota.eliminar') ?? false;
     $st = $stats ?? ['total' => '—', 'con_saldo' => '—', 'stock_bajo' => '—', 'unidades' => 0];
     // Datos de los almacenes para el modal de edición (solo se usa si $puedeAlmManage).
     $almacenesData = ($almacenes ?? collect())->keyBy('ID_ALMACEN')->map(function ($a) {
@@ -624,9 +625,9 @@
                 </button>
                 <div id="almAccionesMenu" style="display:none;position:absolute;top:100%;right:0;width:280px;background:#e2e8f0;border-radius:8px;box-shadow:0 10px 18px -3px rgba(0,0,0,0.18);border:1px solid #e2e8f0;z-index:60;margin-top:6px;overflow:hidden;animation:slideDown 0.18s ease-out;">
                     {{-- Descargar Excel: disponible para cualquier usuario que pueda ver el
-                         módulo. Construye la URL de export respetando el filtro de almacén
-                         actual. Como ahora todos los items siguen visibles bajo el de export,
-                         el border-bottom se pinta siempre. --}}
+                         módulo. Construye la URL de export respetando los filtros de almacén
+                         y categoría activos. Como ahora todos los items siguen visibles bajo
+                         el de export, el border-bottom se pinta siempre. --}}
                     <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
@@ -663,12 +664,12 @@
                     <th style="text-align:center;">UND</th>
                     <th>Categoría</th>
                     <th style="text-align:center;">Stock</th>
-                    @if($puedeMover ?? false)
-                    {{-- Cant. salida: input habilitado solo cuando la fila está seleccionada.
-                         Al confirmar la Nota de Entrega, se toman las cantidades de cada fila
-                         seleccionada — sin pantalla intermedia "Productos" en el modal. --}}
+                    {{-- Cant. salida: SIEMPRE visible — el cuerpo (partials/table_rows)
+                         renderiza esta columna para todos (7 columnas fijas); el permiso
+                         almacen.movimiento solo bloquea ABRIR la salida, no la captura.
+                         Gatearla aquí desajustaba el thead respecto al tbody. El input se
+                         habilita solo cuando la fila está seleccionada. --}}
                     <th style="text-align:center;width:110px;">Cant. salida</th>
-                    @endif
                     <th style="text-align:center;width:60px;">Detalles</th>
                 </tr>
             </thead>
@@ -1328,6 +1329,7 @@
     var HAS_ALM_MANAGE = @json($puedeAlmManage);
     var HAS_PRODUCTOS  = @json($puedeProductos);
     var HAS_MOVER      = @json($puedeMover);
+    var HAS_NOTA_ELIMINAR = @json($puedeEliminar);
     // Helper: chequea permiso y si falta, emite toast con la razon. Devuelve true
     // si el usuario PASA (puede proceder). Asi las funciones se leen como:
     //   if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para crear almacenes.')) return;
@@ -1706,13 +1708,13 @@
         var tokens = almTokenizar(rawTerm);
         var lista = window.almProductosLista || [];
 
-        // Acceso directo "VER TODO EL STOCK" — siempre presente al inicio de la lista, sin
-        // importar si el usuario está escribiendo o no. Limpia el filtro y carga todo el
-        // inventario del almacén actual (alias a almVerTodo). Usa la MISMA estructura que
-        // el resto de items para mantener consistencia visual.
-        var verTodoLink = '<div class="alm-suggest-item" data-action="ver-todo">'
-                        +     '<span class="nom">VER TODO EL STOCK</span>'
-                        + '</div>';
+        // Acceso directo "VER TODO EL STOCK": SOLO cuando el campo está vacío (es un
+        // atajo para cargar el inventario completo del almacén). Mientras el usuario
+        // escribe NO aparece — no es una "coincidencia" del término y recomendarla
+        // ahí confunde. Al clickearla limpia el filtro y recarga (alias a almVerTodo).
+        var verTodoLink = (tokens.length === 0)
+            ? '<div class="alm-suggest-item" data-action="ver-todo"><span class="nom">VER TODO EL STOCK</span></div>'
+            : '';
 
         // IDs de productos que SI estan en el almacen seleccionado (set para lookup O(1)).
         // Si no hay almacen seleccionado o no tenemos info, se omite el filtro (mostrar todo).
@@ -1895,7 +1897,7 @@
         var item = e.target.closest('#almFiltroBuscarSuggest .alm-suggest-item');
         if (item) {
             e.preventDefault();
-            // Item especial "Ver todo el inventario" → reusa almVerTodo (limpia filtros + recarga).
+            // Item especial "VER TODO EL STOCK" → reusa almVerTodo (limpia filtros + recarga).
             if (item.getAttribute('data-action') === 'ver-todo') {
                 almSuggestHide();
                 if (window.almVerTodo) window.almVerTodo();
@@ -2392,11 +2394,16 @@
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'export':
-                // Construye la URL del export respetando el filtro de almacén activo.
-                // Si no hay almacén seleccionado se descarga el inventario global (una col por almacén visible).
+                // Construye la URL del export respetando los filtros activos de la
+                // tabla: almacén + categoría. La categoría se lee de data-active del
+                // filtro (= el filtro APLICADO, lo que muestra la tabla). Sin
+                // almacén → inventario global (una col por almacén visible).
                 var u = new URL(@json(route('almacen.export')), window.location.origin);
                 var idAlm = el('almSelAlmacen') ? el('almSelAlmacen').value : '';
                 if (idAlm) u.searchParams.set('id_almacen', idAlm);
+                var catEl = el('almFiltroCat');
+                var catActiva = catEl ? String(catEl.dataset.active || '').trim() : '';
+                if (catActiva) u.searchParams.set('categoria', catActiva);
                 almDescargarExcel(u.toString());
                 break;
         }
@@ -3001,7 +3008,7 @@
         .catch(function () { unpre(); showErr('almProdError', 'Error de red.'); });
     };
     window.almEliminarProducto = function (id) {
-        if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para eliminar productos.')) return;
+        if (!ensurePerm(HAS_NOTA_ELIMINAR, 'No tienes permiso para eliminar productos.')) return;
         almConfirm('¿Eliminar este producto?', function () {
             pre();
             fetch(ROUTE_PROD_ITEM(id), { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })

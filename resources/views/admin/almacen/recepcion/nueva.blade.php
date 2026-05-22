@@ -86,8 +86,8 @@
        estilos_globales.css (body:has(.ent-layout) .ent-envios-btn) — fuente
        unica de verdad y a prueba de SPA; no se duplican aqui. */
     .ent-envios-btn {
-        display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-        width: 100%; height: 40px; padding: 0 5px;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 100%; height: 40px; padding: 0 14px;
         border-radius: 10px;
         text-decoration: none;
         background: var(--maquinaria-blue,#0067b1); color: #fff;

@@ -5,7 +5,6 @@
 @section('content')
 @php
     $reqEstado     = request('estado');
-    $reqOrigen     = request('id_almacen_origen');
     // `idAlmacenDestinoActivo` lo provee el controller incluyendo el default-merge por frente
     // del usuario. Es la fuente de verdad — no usamos request('id_almacen_destino') porque
     // el merge del controller no siempre llega al helper global al renderizar el Blade.
@@ -15,9 +14,8 @@
 
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
-    // $hayAdv = ¿hay algún filtro activo del PANEL Avanzado? El "Almacén destino" vive en el
-    // header y el "Almacén origen" vive in-line al lado del N° de nota (no en el panel) —
-    // sus estados se reflejan en sus propios controles, no en el botón embudo.
+    // $hayAdv = ¿hay algún filtro activo del PANEL Avanzado? El "Almacén destino" vive en
+    // el header — su estado se refleja en su propio control, no en el botón embudo.
     $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all');
 
     // Metadata visual de los estados — definida en \App\Models\Traspaso::ESTADOS_META.
@@ -86,13 +84,9 @@
     /* Filtro "Buscar producto" por CODIGO/NOMBRE — busca en las LINEAS de los traspasos
        pendientes (no en el stock). Aparece la nota completa si CUALQUIERA de sus lineas
        matchea, asi el usuario destino puede ubicar la entrada sin recordar el TR-####.
-       Ancho extra (vs los otros 2 filtros) porque su placeholder es largo
-       ("Buscar producto por código o descripción…") y el cliente lo pidio mas ancho
-       para escribir terminos completos sin que se vea apretado. */
+       Ancho extra (vs los otros 2 filtros) — el cliente lo pidio mas ancho para
+       escribir terminos completos sin que se vea apretado. */
     #trFilters .tr-search-prod { flex:1 1 380px; max-width:520px; min-width:240px; position:relative; }
-    /* Filtro "Almacén origen" — vive al lado del N° de nota (no en el panel avanzado).
-       Ancho un poco mayor porque los nombres de almacenes pueden ser largos. */
-    #trFilters .tr-origen      { flex:0 0 260px; max-width:260px; min-width:200px; }
     .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
@@ -170,19 +164,14 @@
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
         .page-title-card > div > div > div[style*="width:320px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
-        /* Filtros: cada hijo full-width en su propia fila — igual que /admin/almacen */
+        /* Filtros en mobile: el N° de nota va en su fila; Buscar producto comparte
+           fila con el boton de Filtros Avanzados; Recepcion ODC abajo. */
         #trFilters { gap: 8px !important; }
-        /* Buscar N° de nota */
+        /* Buscar N° de nota — fila propia full-width */
         #trFilters > .tr-search-num { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        /* Buscar producto (por CODIGO/NOMBRE en las lineas de los traspasos pendientes) */
-        #trFilters > .tr-search-prod { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        /* Almacén origen (in-line al lado de N° de nota en desktop, full-width en mobile) */
-        #trFilters > .tr-origen { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        /* Wrapper del boton Filtros Avanzados (div con position:relative;flex:0 0 auto inline) */
-        #trFilters > div:not(.tr-search-num):not(.tr-search-prod):not(.tr-origen) { flex: 1 1 100% !important; width: 100% !important; }
-        /* Boton dentro del wrapper (solo el de Filtros Avanzados, que es el unico div
-           contenedor sin clase .tr-*): pasa de icono 45x45 a fila completa centrado. */
-        #trFilters > div:not(.tr-search-num):not(.tr-search-prod):not(.tr-origen) > button { width: 100% !important; height: 45px !important; }
+        /* Buscar producto — comparte fila con el boton Filtros Avanzados, que
+           conserva su tamaño natural 45x45 por su flex:0 0 auto inline. */
+        #trFilters > .tr-search-prod { flex: 1 1 0 !important; max-width: none !important; min-width: 0 !important; }
         /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
            Si el usuario no tiene `almacen.movimiento` el directive Blade oculta
            la `<a>` y no pasa nada. */
@@ -217,11 +206,11 @@
             border-radius: 0 !important;
         }
 
-        /* Tarjeta calcada visualmente de .ent-card de /admin/almacen/recepcion/nueva
-           para que ambos modulos del flujo Recepcion tengan el mismo lenguaje visual:
-           fondo blanco puro (no gradient), border 1px slate-200, border-radius 14px,
-           sombra suave 0 4px 12px. Sin el acento `inset 3px` lateral — el cliente
-           prefirio el look mas limpio y minimal de las cards de /recepcion/nueva. */
+        /* Tarjeta de registro — fondo blanco puro (no gradient), borde 1px
+           #cbd5e1, border-radius 14px, sombra suave 0 4px 12px. Mismo tono de
+           borde que las tarjetas moviles de equipos / inventario / movimientos.
+           Sin el acento `inset 3px` lateral — el cliente prefirio el look mas
+           limpio y minimal. */
         .tr-table tbody tr[data-id] {
             display: grid !important;
             grid-template-columns: 1fr auto !important;
@@ -233,17 +222,18 @@
             row-gap: 8px !important;
             column-gap: 10px !important;
             background: #fff !important;
-            border: 1px solid #e2e8f0 !important;
+            /* Borde mas marcado (#cbd5e1) — mismo tono que las tarjetas de
+               /admin/equipos, para consistencia entre modulos. */
+            border: 1px solid #cbd5e1 !important;
             border-radius: 14px !important;
             box-shadow: 0 4px 12px rgba(15,23,42,0.04) !important;
             padding: 14px 16px !important;
             overflow: hidden !important;
             cursor: pointer !important;
-            transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.15s ease !important;
+            transition: box-shadow 0.2s ease, transform 0.15s ease !important;
         }
         .tr-table tbody tr[data-id]:active {
             transform: translateY(-1px) !important;
-            border-color: #cbd5e0 !important;
             box-shadow: 0 8px 20px rgba(15,23,42,0.08) !important;
         }
         /* Anulamos el hover de tabla (e0f2fe) en mobile — las cards usan :active. */
@@ -344,55 +334,12 @@
         <div class="tr-item tr-search-prod">
             <div class="tr-search-box {{ $reqSearchProd ? 'active' : '' }}">
                 <i class="material-icons lupa">inventory_2</i>
-                <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar producto por código o descripción…" value="{{ $reqSearchProd }}"
+                <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar por descripción o código" value="{{ $reqSearchProd }}"
                        oninput="window.trSearchProdInput()"
+                       onkeydown="window.trSearchProdEnter(event)"
                        onblur="setTimeout(function(){ var s=document.getElementById('trSearchProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
             </div>
             <div id="trSearchProdSuggest" class="tr-suggest"></div>
-        </div>
-
-        {{-- Filtro "Almacén origen": antes vivia dentro del panel "Filtros Avanzados"; el
-             cliente lo movio AL LADO del filtro de Nota de Entrega porque es un filtro
-             que se usa MUY seguido.
-
-             Usa el componente .custom-dropdown global (el MISMO que el dropdown de
-             "Almacén destino" en el header, ver linea 47) — asi la lista de sugerencias
-             y la fuente del control coinciden con el resto de la app. Antes usaba un
-             <select> nativo cuyo popup renderiza con el font del SO y se veia
-             inconsistente con el resto. --}}
-        @php
-            $origenSel = ($reqOrigen && $reqOrigen !== 'all')
-                ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqOrigen)
-                : null;
-        @endphp
-        <div class="tr-item tr-origen">
-            <div class="custom-dropdown" id="trOrigenDropdown" data-filter-type="id_almacen_origen" data-default-label="Todos los almacenes origen">
-                <input type="hidden" name="id_almacen_origen" data-filter-value value="{{ $origenSel ? $origenSel->ID_ALMACEN : '' }}">
-                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $origenSel ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $origenSel ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">search</i></span>
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $origenSel ? $origenSel->NOMBRE : 'Todos los almacenes origen' }}"
-                           style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    {{-- X = quitar el filtro de origen (volver a "Todos"). Mandamos 'all' explicito
-                         (NO clearDropdownFilter que pondria '' y disparariamos el evento como si
-                         no se hubiera seleccionado nada — el listener trataria '' = 'all' igual,
-                         pero mantenemos coherencia con el dropdown del header). --}}
-                    <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $origenSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                       onclick="event.stopPropagation(); selectOption('trOrigenDropdown','all','TODOS LOS ALMACENES ORIGEN');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        <div class="dropdown-item {{ !$origenSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trOrigenDropdown','all','TODOS LOS ALMACENES ORIGEN');">TODOS LOS ALMACENES ORIGEN</div>
-                        @foreach(($almacenes ?? collect()) as $a)
-                            <div class="dropdown-item {{ $origenSel && $origenSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                 onclick="selectOption('trOrigenDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div style="position:relative;flex:0 0 auto;">
@@ -421,9 +368,7 @@
                             @endforeach
                         </select>
                     </div>
-                    {{-- "Almacén origen" se movio AFUERA del panel (al lado del filtro de
-                         Nota de Entrega) — el cliente lo usa muy seguido y no debe estar oculto.
-                         "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown). --}}
+                    {{-- "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown). --}}
                     {{-- Desde / Hasta lado a lado — el panel tiene 360px, cada campo
                          queda con ~155px que sobra para el input nativo de fecha. --}}
                     <div style="display:flex;gap:8px;">
@@ -683,9 +628,17 @@
             }).join('');
         }
         box.classList.add('open');
+    };
 
+    // Enter aplica el filtro de producto (recarga la tabla). Mientras se escribe
+    // SOLO se refrescan las sugerencias — mismo criterio que el filtro "Buscar"
+    // de /admin/almacen (no recarga la tabla en cada tecla).
+    window.trSearchProdEnter = function (ev) {
+        if (ev && ev.key !== 'Enter') return;
+        if (ev) ev.preventDefault();
+        var box = el('trSearchProdSuggest'); if (box) box.classList.remove('open');
         clearTimeout(window._trSTP);
-        window._trSTP = setTimeout(window.trLoad, 400);
+        window.trLoad();
     };
 
     window.trSearchProdPick = function (texto) {
@@ -698,16 +651,12 @@
 
     function params(pageUrl) {
         // El backend filtra siempre a "por recibir" (ENVIADO en almacenes visibles).
-        // Aquí solo mandamos los filtros del UI (search/estado/origen/destino/fechas).
+        // Aquí solo mandamos los filtros del UI (search/estado/destino/fechas).
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
         if (v('trSearchProd'))                             p.set('search_producto', v('trSearchProd'));
 
         if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
-        // trOrigen ahora es un custom-dropdown (no <select>) — el valor vive en el
-        // input hidden con name="id_almacen_origen". Mismo patron que id_almacen_destino.
-        var ori = hv('id_almacen_origen');
-        if (ori && ori !== 'all')                          p.set('id_almacen_origen', ori);
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
         // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
         // Pasar `all` explícito para que el controller NO re-aplique el default
@@ -723,9 +672,6 @@
     // Refresca el tinte azul de cada filtro segun si tiene valor activo, y el rojo
     // del boton "Filtros Avanzados" si alguno del panel esta activo. Se llama en
     // trLoad y trClearAdv para mantener UI = estado tras cualquier cambio.
-    // Nota: trOrigen es un custom-dropdown (no <select>) — el componente se renderiza
-    // ya con el estado correcto desde el server (data-value en hidden) y se actualiza
-    // solo via selectOption() del componente global. No necesita paint manual aca.
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
@@ -735,8 +681,7 @@
         paint('trEstado',   hasEst);
         paint('trDesdeBox', hasDes);
         paint('trHastaBox', hasHas);
-        // Boton de embudo: rojo si HAY filtros DEL PANEL aplicados (origen ya no cuenta —
-        // tiene su propio indicador visual al lado del N° de nota).
+        // Boton de embudo: rojo si HAY filtros DEL PANEL aplicados (Estado / Desde / Hasta).
         var btn = document.querySelector('[onclick*="trToggleAdv"]');
         if (btn) {
             var any = hasEst || hasDes || hasHas;
@@ -782,8 +727,6 @@
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
     // Limpia SOLO los filtros del panel avanzado (Estado / Desde / Hasta).
-    // El "Almacén origen" ya NO esta en el panel (vive al lado del N° de nota) y se
-    // limpia eligiendo "Todos los almacenes origen" en su propio <select>.
     // El "Almacén destino" vive en el dropdown del header y se limpia con su propia X
     // (clearDropdownFilter) — no se toca aquí para no sorprender al usuario.
     window.trClearAdv = function () {
@@ -793,11 +736,10 @@
     };
 
     // Los custom-dropdowns disparan 'dropdown-selection' cuando el usuario elige una
-    // opcion. Recargamos la tabla cuando cambia el almacen destino (header) o el
-    // almacen origen (in-line al lado del N° de nota).
+    // opcion. Recargamos la tabla cuando cambia el almacen destino (header).
     window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
-        if (id === 'trDestHeaderDropdown' || id === 'trOrigenDropdown') window.trLoad();
+        if (id === 'trDestHeaderDropdown') window.trLoad();
     });
 
     document.addEventListener('click', function (e) {

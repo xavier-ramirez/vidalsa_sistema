@@ -30,37 +30,10 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-
-        /* Centrar el card blanco del listado en mobile.
-           Sin estos overrides el grid y la card heredaban anchos calculados
-           desde el wrapper del titulo (flex con justify-content:space-between)
-           y se veian visualmente recostados a la derecha en viewports
-           angostos. Forzando width:100%, margin:0 y box-sizing:border-box el
-           card ocupa todo el ancho disponible del main-viewport (que ya tiene
-           padding 8px definido en estilos_globales.css). */
-        .page-layout-grid {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            box-sizing: border-box !important;
-        }
-        .page-layout-grid > .admin-card[data-page="equipos"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            box-sizing: border-box !important;
-        }
-        /* El wrapper del titulo (display:flex con justify-content:space-between)
-           tambien debe respetar el ancho del viewport para no arrastrar al
-           grid de abajo a la derecha. */
-        .main-viewport > div:has(> .page-title) {
-            width: 100% !important;
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-        }
+        /* El centrado del layout en mobile (.page-layout-grid, la tarjeta
+           blanca y el wrapper del titulo .main-viewport > div:has(.page-title))
+           vive ahora en estilos_globales.css (@media max-width:768px) — aplica
+           por igual a equipos y a los modulos de almacen, sin duplicar aqui. */
     }
 
     /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas.
