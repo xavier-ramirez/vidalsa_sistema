@@ -3135,11 +3135,11 @@ input:-webkit-autofill:active {
    no afectar otras paginas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Boton "Bandeja de Entrada" — font-size definido AQUI (no solo en el <style>
-   inline del blade) para que SIEMPRE aplique, incluso si el SPA no procesa
-   el <style> inline en una navegacion (ahi el texto heredaba ~16px del body
-   y se desbordaba la columna). 12px = compacto pero legible. */
-body:has(.ent-layout) .ent-envios-btn { font-size: 12px; font-weight: 700; }
+/* Boton "Bandeja" — font-size definido AQUI (no solo en el <style> inline del
+   blade) para que SIEMPRE aplique, incluso si el SPA no procesa el <style>
+   inline en una navegacion (ahi el texto heredaria ~16px del body). 14px para
+   igualar a los demas botones del modulo (.ent-sb-btn-* del sidebar). */
+body:has(.ent-layout) .ent-envios-btn { font-size: 14px; font-weight: 700; }
 body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
 
 @media (max-width: 1024px) {
@@ -3164,13 +3164,14 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     /* UM col 1, Stepper col 2 */
     body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { grid-column: 1; }
     body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { grid-column: 2; width: 100%; }
-    /* Boton bandeja: ancho ceñido al texto (no full-width). Desde 900px el grid
-       es de 2 columnas — un boton width:100% ocuparia media fila y se veria
-       enorme; fit-content lo deja del tamaño del texto, alineado a la derecha. */
+    /* Boton bandeja: ancho fijo moderado. Desde 900px el grid es de 2 columnas
+       — width:100% ocuparia media fila (enorme en tablet) y fit-content lo
+       dejaba diminuto en telefono. 130px = tamaño parejo y tappable en ambos;
+       max-width:100% lo protege en pantallas muy chicas. Alineado a la derecha. */
     body:has(.ent-layout) .ent-envios-btn {
-        width: fit-content !important;
+        width: 130px !important;
+        max-width: 100% !important;
         justify-self: end !important;
-        border-radius: 10px !important;
     }
 }
 

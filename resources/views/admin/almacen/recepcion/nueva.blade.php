@@ -51,13 +51,13 @@
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 140px]
+       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 100px]
        Nota y Proveedor son ambos minmax(0,1fr): mismo ancho, pueden comprimir hasta 0
-       sin desbordar el card blanco. El boton tiene 140px fijos.
+       sin desbordar el card blanco. El boton/stepper ocupan la col 4 de 100px.
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 140px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 100px;
         gap: 10px;
         align-items: center;
         min-width: 0;
@@ -81,12 +81,14 @@
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
 
-    /* ── Boton "Bandeja de Entrada" ──
-       Ocupa la columna fija de 140px. font-size y font-weight viven SOLO en
+    /* ── Boton "Bandeja" ──
+       Ocupa la columna 4 (100px). box-sizing:border-box para que width:100% +
+       padding NO desborde la columna. font-size y font-weight viven SOLO en
        estilos_globales.css (body:has(.ent-layout) .ent-envios-btn) — fuente
        unica de verdad y a prueba de SPA; no se duplican aqui. */
     .ent-envios-btn {
         display: inline-flex; align-items: center; justify-content: center;
+        box-sizing: border-box;
         width: 100%; height: 40px; padding: 0 14px;
         border-radius: 10px;
         text-decoration: none;
@@ -340,7 +342,7 @@
             <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
                class="ent-envios-btn"
                aria-label="Ver bandeja de entrada — envíos pendientes">
-                <span>Bandeja de Entrada</span>
+                <span>Bandeja</span>
             </a>
         </div>
 
