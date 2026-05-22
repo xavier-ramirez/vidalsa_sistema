@@ -91,8 +91,8 @@ class CaracteristicaModeloController extends Controller
             ->orderBy('count', 'desc')
             ->get();
 
-        // Pagination
-        $catalogos = $query->orderBy('MODELO', 'asc')->paginate(12)->onEachSide(3);
+        // Paginado en bloques de 12 — el cliente los carga por scroll infinito.
+        $catalogos = $query->orderBy('MODELO', 'asc')->paginate(12);
 
         // Tipos por catálogo (ID_ESPEC → [{id, nombre}, ...]).
         // El catálogo no tiene columna TIPO propia: el tipo lo aporta cada Equipo que usa
@@ -124,18 +124,17 @@ class CaracteristicaModeloController extends Controller
             ->orderBy('nombre')
             ->get(['id', 'nombre']);
 
-        // JSON Response for AJAX
+        // JSON Response for AJAX (scroll infinito: el cliente AGREGA las
+        // tarjetas al final del grid; hasMore indica si quedan páginas).
         if ($request->wantsJson() && $request->has('ajax_load')) {
             $tableHtml = view('admin.catalogo.partials.table_rows', compact('catalogos', 'tiposPorEspec'))->render();
-            // Usar el mismo view custom que el SSR inicial (index.blade.php linea 112)
-            // para que la paginacion no cambie de estilo al navegar via AJAX.
-            $paginationHtml = $catalogos->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
             $statsHtml = view('admin.catalogo.partials.stats_sidebar', compact('totalCount', 'modelCounts'))->render();
 
             return response()->json([
-                'html' => $tableHtml,
-                'pagination' => $paginationHtml,
-                'stats' => $statsHtml,
+                'html'    => $tableHtml,
+                'hasMore' => $catalogos->hasMorePages(),
+                'page'    => $catalogos->currentPage(),
+                'stats'   => $statsHtml,
             ]);
         }
 

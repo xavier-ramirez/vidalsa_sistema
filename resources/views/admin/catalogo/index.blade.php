@@ -323,7 +323,7 @@
                     <i class="material-icons" style="font-size:18px;">search</i>
                 </div>
                 <input type="text" id="catTxtModelo" name="filter_search_dropdown_m" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
-                       value="{{ $modeloLabel }}" autocomplete="off"
+                       autocomplete="off"
                        oninput="catFilterList('modelo', this.value)"
                        onfocus="catOpenList('modelo')"
                        onclick="catOpenList('modelo')"
@@ -349,10 +349,10 @@
             <input type="hidden" id="catValTipo" name="id_tipo" value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}" data-filter-value>
             <div class="cat-filter-box">
                 <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                    <i class="material-icons" style="font-size:18px;">category</i>
+                    <i class="material-icons" style="font-size:18px;">search</i>
                 </div>
                 <input type="text" id="catTxtTipo" name="filter_search_dropdown_t" placeholder="{{ $tipoLabel ?: 'Filtrar Tipo...' }}"
-                       value="{{ $tipoLabel }}" autocomplete="off"
+                       autocomplete="off"
                        oninput="catFilterList('tipo', this.value)"
                        onfocus="catOpenList('tipo')"
                        onclick="catOpenList('tipo')"
@@ -378,10 +378,10 @@
             <input type="hidden" id="catValAnio" name="anio" value="{{ $reqAnio && $reqAnio !== 'all' ? $reqAnio : '' }}" data-filter-value>
             <div class="cat-filter-box">
                 <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                    <i class="material-icons" style="font-size:18px;">calendar_today</i>
+                    <i class="material-icons" style="font-size:18px;">search</i>
                 </div>
                 <input type="text" id="catTxtAnio" name="filter_search_dropdown_a" placeholder="{{ $anioLabel ?: 'Filtrar Año...' }}"
-                       value="{{ $anioLabel }}" autocomplete="off"
+                       autocomplete="off"
                        oninput="catFilterList('anio', this.value)"
                        onfocus="catOpenList('anio')"
                        onclick="catOpenList('anio')"
@@ -415,12 +415,23 @@
 
     {{-- Grid de tarjetas. catalogoTableBody mantiene el ID para que
          loadCatalogo() (catalogo_index.js) replace innerHTML normalmente. --}}
-    <div id="catalogoTableBody" class="cat-grid" style="font-size:14px;">
+    <div id="catalogoTableBody" class="cat-grid" style="font-size:14px;"
+         data-page="{{ $catalogos->currentPage() }}"
+         data-has-more="{{ $catalogos->hasMorePages() ? '1' : '0' }}">
         @include('admin.catalogo.partials.table_rows')
     </div>
 
-    <div style="margin-top: 18px;" id="catalogoPagination">
-        {{ $catalogos->links('vendor.pagination.custom-sliding') }}
+    {{-- Scroll infinito: el centinela dispara la carga de la siguiente página
+         al entrar en viewport (IntersectionObserver en catalogo_index.js).
+         Reemplaza al paginado clásico « Anterior / Siguiente ». --}}
+    <div id="catalogoSentinel" style="margin-top:14px; min-height:1px; text-align:center;">
+        <div id="catalogoLoadingSpinner" style="display:none; padding:16px; color:#64748b; font-size:13px; font-weight:600;">
+            <i class="material-icons" style="font-size:18px; vertical-align:middle; animation:spin-mini .8s linear infinite;">refresh</i>
+            Cargando más modelos…
+        </div>
+        <div id="catalogoEndMsg" style="display:none; padding:16px; color:#94a3b8; font-size:12px;">
+            — No hay más modelos —
+        </div>
     </div>
 </div>
 
@@ -466,12 +477,20 @@
             opt.style.display = (!qu || lbl.indexOf(qu) !== -1) ? '' : 'none';
         });
     }
+    // Placeholder por defecto de cada filtro — se restaura al limpiar / elegir "TODOS".
+    var CAT_PH_DEFAULT = { modelo: 'Filtrar Modelo...', tipo: 'Filtrar Tipo...', anio: 'Filtrar Año...' };
     function catSelect(p, value, label) {
         var cap = _catCap(p);
         var hidden = document.getElementById('catVal' + cap);
         var txt    = document.getElementById('catTxt' + cap);
         if (hidden) hidden.value = value || '';
-        if (txt)    txt.value    = value ? label : '';
+        // Igual que /admin/equipos: la opcion elegida queda como PLACEHOLDER
+        // (texto de fondo) y el input se vacia — asi se escribe la siguiente
+        // busqueda sin tener que borrar lo anterior.
+        if (txt) {
+            txt.value = '';
+            txt.placeholder = value ? label : (CAT_PH_DEFAULT[p] || 'Filtrar...');
+        }
         // El formulario de filtros no se re-renderiza en la recarga AJAX
         // (loadCatalogo solo reemplaza la tabla), asi que togglear aqui la
         // "x" de limpiar y el resaltado azul del filtro activo.

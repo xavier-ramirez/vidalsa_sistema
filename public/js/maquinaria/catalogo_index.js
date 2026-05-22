@@ -37,7 +37,7 @@ window.confirmDeleteCatalogo = function (id, modelName) {
                             hideCancel: true
                         });
                     }
-                    window.loadCatalogo(window.location.href);
+                    window.loadCatalogo();
                 } else {
                     throw new Error(data.message || 'Error al eliminar');
                 }
@@ -53,181 +53,169 @@ window.confirmDeleteCatalogo = function (id, modelName) {
     });
 };
 
+// ─────────────────────────────────────────────────────────────────────
+//  CATALOGO — Scroll infinito
+//  Reemplaza al paginado clasico « Anterior / Siguiente ». Un
+//  IntersectionObserver vigila el centinela (#catalogoSentinel); cuando
+//  entra al viewport se pide la siguiente pagina y sus tarjetas se
+//  AGREGAN al final del grid.
+//  Optimizado: no escucha el evento 'scroll' (que dispara decenas de
+//  veces/seg) — usa IntersectionObserver; rootMargin precarga antes de
+//  llegar al fondo; el flag 'loading' evita peticiones duplicadas; un
+//  AbortController cancela una carga en curso si cambia un filtro.
+// ─────────────────────────────────────────────────────────────────────
 
+// Estado del scroll infinito. page = ultima pagina en el grid;
+// hasMore = el server indico que quedan paginas; loading = fetch en curso.
+window.catState = window.catState || { page: 1, hasMore: false, loading: false };
 
-
-// Global AbortController to cancel pending requests
+// AbortController de la peticion en curso — compartido a proposito: un
+// cambio de filtro cancela una carga incremental que estuviera a medias.
 window.currentRequestController = null;
 
+// Arma la URL de la peticion con los filtros activos + la pagina pedida.
+function catBuildUrl(page) {
+    const params = new URLSearchParams();
+    const add = function (key, selector) {
+        const el = document.querySelector(selector);
+        const v = (el && el.value ? el.value : '').trim();
+        if (v) params.append(key, v);
+    };
+    add('modelo',  'input[name="modelo"]');
+    add('anio',    'input[name="anio"]');
+    add('id_tipo', 'input[name="id_tipo"]');
+    params.append('ajax_load', '1');
+    if (page && page > 1) params.append('page', String(page));
+    return '/admin/catalogo?' + params.toString();
+}
 
-// Standardized Load Function (Matches Equipos Logic)
-window.loadCatalogo = async function (url = null, showSpinner = true) {
-    // 1. Cancel previous pending request
-    if (window.currentRequestController) {
-        window.currentRequestController.abort();
+// Sincroniza el centinela con el estado: muestra "no hay mas" y arma o
+// desarma el observer segun queden paginas. Re-observar (disconnect +
+// observe) fuerza al observer a re-evaluar: si el centinela sigue visible
+// tras agregar tarjetas, se encadena otra carga hasta llenar el viewport.
+function catRefreshSentinel() {
+    const tableBody = document.getElementById('catalogoTableBody');
+    const sentinel  = document.getElementById('catalogoSentinel');
+    const endMsg    = document.getElementById('catalogoEndMsg');
+    // "No hay mas" solo si hay tarjetas y no quedan paginas — con 0
+    // resultados ya se muestra el cartel .cat-empty del partial (no duplicar).
+    const hasCards  = !!(tableBody && tableBody.querySelector('.cat-card'));
+    if (endMsg) endMsg.style.display = (!window.catState.hasMore && hasCards) ? '' : 'none';
+    if (!sentinel || !('IntersectionObserver' in window)) return;
+
+    if (!window.catScrollObserver) {
+        window.catScrollObserver = new IntersectionObserver(function (entries) {
+            if (entries[0].isIntersecting) catLoadMore();
+        }, { rootMargin: '400px 0px' });
     }
-    window.currentRequestController = new AbortController();
-    const signal = window.currentRequestController.signal;
+    window.catScrollObserver.disconnect();
+    if (window.catState.hasMore) window.catScrollObserver.observe(sentinel);
+}
 
+// Carga la SIGUIENTE pagina y agrega sus tarjetas al final del grid.
+async function catLoadMore() {
+    const st = window.catState;
+    if (st.loading || !st.hasMore) return;
     const tableBody = document.getElementById('catalogoTableBody');
     if (!tableBody) return;
 
-    let baseUrl = url || '/admin/catalogo';
+    st.loading = true;
+    const spinner = document.getElementById('catalogoLoadingSpinner');
+    if (spinner) spinner.style.display = '';
 
-    // Explicitly gather inputs (Single Source of Truth)
-    const modeloInput = document.querySelector('input[name="modelo"]');
-    const anioInput   = document.querySelector('input[name="anio"]');
-    const tipoInput   = document.querySelector('input[name="id_tipo"]');
+    if (window.currentRequestController) window.currentRequestController.abort();
+    window.currentRequestController = new AbortController();
+    const signal = window.currentRequestController.signal;
 
-    // Unified Filter Object
-    const filters = {
-        modelo:  (modeloInput?.value !== '') ? modeloInput?.value : null,
-        anio:    (anioInput?.value   !== '') ? anioInput?.value   : null,
-        id_tipo: (tipoInput?.value   !== '') ? tipoInput?.value   : null,
-        ajax_load: '1'
-    };
-
-    const params = new URLSearchParams();
-
-    // Cleanly append only valid filter values
-    Object.entries(filters).forEach(([key, value]) => {
-        if (value && typeof value === 'string' && value.trim() !== '') {
-            params.append(key, value.trim());
-        }
-    });
-
-    // Removed the !hasAnyInput check here. The catalog should always query the server
-    // even if filters are empty, because emptying filters means "show all paginated records".
-
-    // Strip existing params from baseUrl if we are rebuilding them (unless it's pagination link)
-    if (!url && baseUrl.includes('?')) {
-        baseUrl = baseUrl.split('?')[0];
-    }
-
-    // If url passed (pagination), use its params + force ajax_load
-    let finalUrl;
-    if (url) {
-        const urlObj = new URL(url, window.location.origin);
-        urlObj.searchParams.set('ajax_load', '1');
-        
-        // Merge current UI filters into the pagination URL
-        // This ensures that if the user clicks a stale pagination link,
-        // it still applies the latest filters they selected.
-        Object.entries(filters).forEach(([key, value]) => {
-            if (key !== 'ajax_load') {
-                if (value && typeof value === 'string' && value.trim() !== '') {
-                    urlObj.searchParams.set(key, value.trim());
-                } else {
-                    urlObj.searchParams.delete(key);
-                }
-            }
+    try {
+        const resp = await fetch(catBuildUrl(st.page + 1), {
+            signal: signal,
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         });
-        
-        finalUrl = urlObj.toString();
-    } else {
-        finalUrl = baseUrl + '?' + params.toString();
-    }
+        if (!resp.ok) throw new Error('Network response was not ok');
+        const data = await resp.json();
 
-    // UI Feedback
-    if (tableBody) tableBody.style.opacity = '0.5';
+        if (data.html) tableBody.insertAdjacentHTML('beforeend', data.html);
+        st.page    = data.page || (st.page + 1);
+        st.hasMore = !!data.hasMore;
+        st.loading = false;
+        if (spinner) spinner.style.display = 'none';
+        if (window.currentRequestController && window.currentRequestController.signal === signal) {
+            window.currentRequestController = null;
+        }
+        catRefreshSentinel();
+    } catch (error) {
+        st.loading = false;
+        if (spinner) spinner.style.display = 'none';
+        // Cambio de filtro: loadCatalogo() aborto esta peticion y ya recarga.
+        if (error.name === 'AbortError') return;
+        // Error real: NO re-armamos el observer (evita bucle de errores) —
+        // reintenta solo cuando el usuario vuelva a scrollear el centinela.
+        console.error('Error en scroll infinito del catalogo:', error);
+    }
+}
+
+// Carga la PRIMERA pagina y REEMPLAZA el grid. La usan el cambio de filtro
+// (catSubmit en index.blade.php) y el borrado de un modelo. Reinicia el
+// scroll infinito a la pagina 1.
+window.loadCatalogo = async function (showSpinner = true) {
+    const tableBody = document.getElementById('catalogoTableBody');
+    if (!tableBody) return;
+
+    if (window.currentRequestController) window.currentRequestController.abort();
+    window.currentRequestController = new AbortController();
+    const signal = window.currentRequestController.signal;
+
+    tableBody.style.opacity = '0.5';
     if (showSpinner && typeof window.showPreloader === 'function') window.showPreloader();
 
     try {
-        const response = await fetch(finalUrl, {
+        const resp = await fetch(catBuildUrl(1), {
             signal: signal,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         });
+        if (!resp.ok) throw new Error('Network response was not ok');
+        const data = await resp.json();
 
-        if (!response.ok) throw new Error('Network response was not ok');
+        tableBody.innerHTML = data.html;
+        tableBody.style.opacity = '1';
 
-        const data = await response.json();
+        // Reinicia el estado del scroll infinito a la pagina recien cargada.
+        window.catState.page    = data.page || 1;
+        window.catState.hasMore = !!data.hasMore;
+        window.catState.loading = false;
+        catRefreshSentinel();
 
-        // Update Table Content
-        if (tableBody) {
-            tableBody.innerHTML = data.html;
-            tableBody.style.opacity = '1';
-        }
-
-        // Re-initalize Lazy Loading
-        initCatalogo();
-
-        // Update Pagination
-        const paginationContainer = document.getElementById('catalogoPagination');
-        if (paginationContainer && data.pagination !== undefined) {
-            paginationContainer.innerHTML = data.pagination;
-        }
-
-        // Update Stats Sidebar
+        // Stats sidebar: solo en el reemplazo (no cambia durante el scroll).
         const statsContainer = document.getElementById('statsSidebarContainer');
-        if (statsContainer && data.stats) {
-            statsContainer.innerHTML = data.stats;
-        }
+        if (statsContainer && data.stats) statsContainer.innerHTML = data.stats;
 
-        // Update Browser URL (for shareable links)
-        const cleanUrl = new URL(finalUrl, window.location.origin);
+        // URL navegable con los filtros aplicados (sin ajax_load).
+        const cleanUrl = new URL(catBuildUrl(1), window.location.origin);
         cleanUrl.searchParams.delete('ajax_load');
         window.history.pushState({}, '', cleanUrl.toString());
-
     } catch (error) {
         if (error.name === 'AbortError') return;
         console.error('Error loading catalogo:', error);
-        if (tableBody) tableBody.style.opacity = '1';
+        tableBody.style.opacity = '1';
     } finally {
-        if (window.currentRequestController === null || (window.currentRequestController && window.currentRequestController.signal === signal)) {
-            if (showSpinner && typeof window.hidePreloader === 'function') window.hidePreloader();
-            if (window.currentRequestController && window.currentRequestController.signal === signal) {
-                window.currentRequestController = null;
-            }
+        if (window.currentRequestController && window.currentRequestController.signal === signal) {
+            window.currentRequestController = null;
         }
+        if (showSpinner && typeof window.hidePreloader === 'function') window.hidePreloader();
     }
 };
 
-// Initialize Catalogo Module
+// Inicializa el modulo: siembra el estado desde los data-attributes que
+// renderiza el SSR en #catalogoTableBody y arma el observer del centinela.
 function initCatalogo() {
-    if (!document.getElementById('catalogoTableBody')) return;
+    const tableBody = document.getElementById('catalogoTableBody');
+    if (!tableBody) return;
 
-    // Lazy Load Images
-    const lazyImages = document.querySelectorAll('img.lazy-catalog-img');
-    if ('IntersectionObserver' in window) {
-        const imageObserver = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const img = entry.target;
-                    img.src = img.dataset.src;
-                    img.onload = () => img.style.opacity = 1;
-                    imageObserver.unobserve(img);
-                }
-            });
-        });
-        lazyImages.forEach(img => imageObserver.observe(img));
-    } else {
-        // Fallback
-        lazyImages.forEach(img => {
-            img.src = img.dataset.src;
-            img.onload = () => img.style.opacity = 1;
-        });
-    }
-
-    // Removed buggy AJAX reload on initial load. 
-    // Laravel SSR handles initial parameters perfectly.
-    window.catalogoInitialLoadDone = true;
-}
-
-// Global Event Delegation for Pagination (Solves intermittent click failures)
-if (!window.catalogoPaginationAttached) {
-    window.catalogoPaginationAttached = true;
-    document.addEventListener('click', function(e) {
-        const paginationLink = e.target.closest('#catalogoPagination a');
-        if (paginationLink) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation(); // Crucial to prevent 'navegacion.js' SPA conflict
-            window.loadCatalogo(paginationLink.href);
-        }
-    }, true); // Use capture phase so this fires BEFORE generic SPA handlers
+    window.catState.page    = parseInt(tableBody.dataset.page || '1', 10) || 1;
+    window.catState.hasMore = tableBody.dataset.hasMore === '1';
+    window.catState.loading = false;
+    catRefreshSentinel();
 }
 
 // Register with Module Manager for SPA compatibility
