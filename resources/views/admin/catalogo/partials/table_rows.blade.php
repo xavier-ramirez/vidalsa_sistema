@@ -29,13 +29,12 @@
              evita el delay del IntersectionObserver. --}}
         <div class="cat-photo">
             @if($driveFileId)
-                {{-- loading=lazy + decoding=async + fade-in onload: las fotos
-                     aparecen progresivamente segun el browser las baja, en
-                     lugar de bloquearse esperando todas. opacity:0 inicial
-                     evita el flash de img rota mientras carga. --}}
+                {{-- Sin loading=lazy a proposito: el scroll infinito ya difiere
+                     las tarjetas fuera de pantalla; lazy encima retrasaba la foto
+                     al scrollear. decoding=async no bloquea el render; opacity:0
+                     + fade-in onload evita el flash de img rota mientras carga. --}}
                 <img src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
                      alt="{{ $catalogo->MODELO }}"
-                     loading="lazy"
                      decoding="async"
                      style="opacity:0; transition:opacity 0.25s ease;"
                      onload="this.style.opacity=1"

@@ -89,6 +89,30 @@ function catBuildUrl(page) {
     return '/admin/catalogo?' + params.toString();
 }
 
+// Peticion AJAX al catalogo. Cancela cualquier peticion anterior (un cambio
+// de filtro invalida una carga incremental en curso). Devuelve el JSON, o
+// null si esta peticion fue abortada por otra mas nueva.
+async function catFetch(url) {
+    if (window.currentRequestController) window.currentRequestController.abort();
+    const controller = new AbortController();
+    window.currentRequestController = controller;
+    let resp;
+    try {
+        resp = await fetch(url, {
+            signal: controller.signal,
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        });
+    } catch (e) {
+        if (e.name === 'AbortError') return null;
+        throw e;
+    }
+    // Solo soltamos el controller si sigue siendo el nuestro (no lo piso una
+    // peticion mas reciente).
+    if (window.currentRequestController === controller) window.currentRequestController = null;
+    if (!resp.ok) throw new Error('Network response was not ok');
+    return await resp.json();
+}
+
 // Sincroniza el centinela con el estado: muestra "no hay mas" y arma o
 // desarma el observer segun queden paginas. Re-observar (disconnect +
 // observe) fuerza al observer a re-evaluar: si el centinela sigue visible
@@ -106,7 +130,7 @@ function catRefreshSentinel() {
     if (!window.catScrollObserver) {
         window.catScrollObserver = new IntersectionObserver(function (entries) {
             if (entries[0].isIntersecting) catLoadMore();
-        }, { rootMargin: '400px 0px' });
+        }, { rootMargin: '800px 0px' });
     }
     window.catScrollObserver.disconnect();
     if (window.catState.hasMore) window.catScrollObserver.observe(sentinel);
@@ -123,32 +147,20 @@ async function catLoadMore() {
     const spinner = document.getElementById('catalogoLoadingSpinner');
     if (spinner) spinner.style.display = '';
 
-    if (window.currentRequestController) window.currentRequestController.abort();
-    window.currentRequestController = new AbortController();
-    const signal = window.currentRequestController.signal;
-
     try {
-        const resp = await fetch(catBuildUrl(st.page + 1), {
-            signal: signal,
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        });
-        if (!resp.ok) throw new Error('Network response was not ok');
-        const data = await resp.json();
+        const data = await catFetch(catBuildUrl(st.page + 1));
+        st.loading = false;
+        if (spinner) spinner.style.display = 'none';
+        // null = abortada por un cambio de filtro; loadCatalogo() ya recarga.
+        if (!data) return;
 
         if (data.html) tableBody.insertAdjacentHTML('beforeend', data.html);
         st.page    = data.page || (st.page + 1);
         st.hasMore = !!data.hasMore;
-        st.loading = false;
-        if (spinner) spinner.style.display = 'none';
-        if (window.currentRequestController && window.currentRequestController.signal === signal) {
-            window.currentRequestController = null;
-        }
         catRefreshSentinel();
     } catch (error) {
         st.loading = false;
         if (spinner) spinner.style.display = 'none';
-        // Cambio de filtro: loadCatalogo() aborto esta peticion y ya recarga.
-        if (error.name === 'AbortError') return;
         // Error real: NO re-armamos el observer (evita bucle de errores) —
         // reintenta solo cuando el usuario vuelva a scrollear el centinela.
         console.error('Error en scroll infinito del catalogo:', error);
@@ -162,20 +174,13 @@ window.loadCatalogo = async function (showSpinner = true) {
     const tableBody = document.getElementById('catalogoTableBody');
     if (!tableBody) return;
 
-    if (window.currentRequestController) window.currentRequestController.abort();
-    window.currentRequestController = new AbortController();
-    const signal = window.currentRequestController.signal;
-
     tableBody.style.opacity = '0.5';
     if (showSpinner && typeof window.showPreloader === 'function') window.showPreloader();
 
     try {
-        const resp = await fetch(catBuildUrl(1), {
-            signal: signal,
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        });
-        if (!resp.ok) throw new Error('Network response was not ok');
-        const data = await resp.json();
+        const data = await catFetch(catBuildUrl(1));
+        // null = abortada por una peticion mas nueva; esa se hace cargo.
+        if (!data) { tableBody.style.opacity = '1'; return; }
 
         tableBody.innerHTML = data.html;
         tableBody.style.opacity = '1';
@@ -195,13 +200,9 @@ window.loadCatalogo = async function (showSpinner = true) {
         cleanUrl.searchParams.delete('ajax_load');
         window.history.pushState({}, '', cleanUrl.toString());
     } catch (error) {
-        if (error.name === 'AbortError') return;
         console.error('Error loading catalogo:', error);
         tableBody.style.opacity = '1';
     } finally {
-        if (window.currentRequestController && window.currentRequestController.signal === signal) {
-            window.currentRequestController = null;
-        }
         if (showSpinner && typeof window.hidePreloader === 'function') window.hidePreloader();
     }
 };

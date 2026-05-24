@@ -2992,7 +2992,101 @@ class EquipoController extends Controller
         return response()->json($equipos);
     }
 
+    /**
+     * Bulk lookup masivo: recibe una lista de terminos y devuelve, por termino,
+     * si fue encontrado y en que frente esta el equipo actualmente.
+     * Busca en placa, serial chasis, serial motor, N° etiqueta y codigo patio.
+     */
+    public function bulkLookup(Request $request)
+    {
+        $request->validate([
+            'terms'   => 'required|array|min:1|max:500',
+            'terms.*' => 'nullable|string|max:100',
+        ]);
 
+        // Trim + uppercase, descartar vacios, eliminar duplicados conservando orden.
+        $terms = collect($request->input('terms', []))
+            ->map(fn($t) => mb_strtoupper(trim((string) $t)))
+            ->filter(fn($t) => $t !== '')
+            ->unique()
+            ->values();
+
+        if ($terms->isEmpty()) {
+            return response()->json(['results' => [], 'total' => 0, 'found' => 0, 'missing' => 0]);
+        }
+
+        $termsArr = $terms->all();
+
+        $rows = DB::table('equipos as e')
+            ->leftJoin('documentacion as d',   'd.ID_EQUIPO', '=', 'e.ID_EQUIPO')
+            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'e.ID_FRENTE_ACTUAL')
+            ->leftJoin('tipo_equipos as t',    't.id',        '=', 'e.id_tipo_equipo')
+            ->whereNull('e.deleted_at')
+            ->where(function ($q) use ($termsArr) {
+                $q->whereIn(DB::raw('UPPER(e.SERIAL_CHASIS)'), $termsArr)
+                  ->orWhereIn(DB::raw('UPPER(e.SERIAL_DE_MOTOR)'), $termsArr)
+                  ->orWhereIn(DB::raw('UPPER(e.NUMERO_ETIQUETA)'), $termsArr)
+                  ->orWhereIn(DB::raw('UPPER(e.CODIGO_PATIO)'), $termsArr)
+                  ->orWhereIn(DB::raw('UPPER(d.PLACA)'), $termsArr);
+            })
+            ->select([
+                'e.CODIGO_PATIO',
+                'e.NUMERO_ETIQUETA',
+                'e.MARCA',
+                'e.SERIAL_CHASIS',
+                'e.SERIAL_DE_MOTOR',
+                'd.PLACA',
+                'f.NOMBRE_FRENTE',
+                't.nombre as TIPO_NOMBRE',
+            ])
+            ->get();
+
+        // Indice por columna (clave en mayusculas) para resolver cada termino en O(1).
+        $indexByField = [
+            'chasis'   => [],
+            'motor'    => [],
+            'etiqueta' => [],
+            'patio'    => [],
+            'placa'    => [],
+        ];
+        foreach ($rows as $r) {
+            if ($r->SERIAL_CHASIS)    { $indexByField['chasis'][mb_strtoupper($r->SERIAL_CHASIS)]    = $r; }
+            if ($r->SERIAL_DE_MOTOR)  { $indexByField['motor'][mb_strtoupper($r->SERIAL_DE_MOTOR)]   = $r; }
+            if ($r->NUMERO_ETIQUETA)  { $indexByField['etiqueta'][mb_strtoupper($r->NUMERO_ETIQUETA)] = $r; }
+            if ($r->CODIGO_PATIO)     { $indexByField['patio'][mb_strtoupper($r->CODIGO_PATIO)]      = $r; }
+            if ($r->PLACA)            { $indexByField['placa'][mb_strtoupper($r->PLACA)]             = $r; }
+        }
+
+        $priority = ['placa', 'chasis', 'motor', 'etiqueta', 'patio'];
+
+        $found = 0;
+        $results = $terms->map(function ($term) use ($indexByField, $priority, &$found) {
+            foreach ($priority as $field) {
+                if (isset($indexByField[$field][$term])) {
+                    $r = $indexByField[$field][$term];
+                    $found++;
+                    return [
+                        'term'          => $term,
+                        'found'         => true,
+                        'tipo_nombre'   => $r->TIPO_NOMBRE,
+                        'marca'         => $r->MARCA,
+                        'frente_nombre' => $r->NOMBRE_FRENTE ?: 'SIN ASIGNAR',
+                    ];
+                }
+            }
+            return [
+                'term'  => $term,
+                'found' => false,
+            ];
+        })->values();
+
+        return response()->json([
+            'total'   => $results->count(),
+            'found'   => $found,
+            'missing' => $results->count() - $found,
+            'results' => $results,
+        ]);
+    }
 
     /**
      * Get anchored equipment pairs for a specific frente (or all if not specified)

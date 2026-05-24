@@ -31,7 +31,7 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén con su mini-label.
+    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén.
          Mismo patrón visual que /admin/almacen para consistencia entre módulos. --}}
     <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
@@ -41,7 +41,6 @@
         <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
         {{-- Filtro de almacén junto al título (mismo patrón visual que /admin/almacen) --}}
         <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
             <div style="width:280px;min-width:200px;max-width:100%;">
                 {{-- NO se aplica .filter-active aunque haya almacén seleccionado: el filtro
                      queda con estilo neutro (sin tinte azul) porque junto al título se ve

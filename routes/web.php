@@ -73,6 +73,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('equipos/bulk-template', [App\Http\Controllers\EquipoController::class, 'bulkTemplate'])->name('equipos.bulkTemplate');
             Route::post('equipos/bulk-preview', [App\Http\Controllers\EquipoController::class, 'bulkPreview'])->name('equipos.bulkPreview');
             Route::post('equipos/bulk-store-batch', [App\Http\Controllers\EquipoController::class, 'bulkStoreBatch'])->name('equipos.bulkStoreBatch');
+            // Bulk lookup: recibe placas/seriales pegados y devuelve frente actual + faltantes.
+            Route::post('equipos/bulk-lookup',        [App\Http\Controllers\EquipoController::class, 'bulkLookup'])->name('equipos.bulkLookup');
             // Papelera de equipos (soft-delete + restore con auditoria de quien borro).
             // Definidos ANTES del resource para que /papelera no choque con {id}.
             Route::get  ('equipos/papelera',          [App\Http\Controllers\EquipoController::class, 'papelera'])->name('equipos.papelera');

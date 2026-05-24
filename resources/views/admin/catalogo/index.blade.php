@@ -425,8 +425,8 @@
          al entrar en viewport (IntersectionObserver en catalogo_index.js).
          Reemplaza al paginado clásico « Anterior / Siguiente ». --}}
     <div id="catalogoSentinel" style="margin-top:14px; min-height:1px; text-align:center;">
-        <div id="catalogoLoadingSpinner" style="display:none; padding:16px; color:#64748b; font-size:13px; font-weight:600;">
-            <i class="material-icons" style="font-size:18px; vertical-align:middle; animation:spin-mini .8s linear infinite;">refresh</i>
+        <div id="catalogoLoadingSpinner" style="display:none; padding:22px; color:#64748b; font-size:15px; font-weight:600;">
+            <i class="material-icons" style="font-size:30px; vertical-align:middle; animation:spin-mini .8s linear infinite;">refresh</i>
             Cargando más modelos…
         </div>
         <div id="catalogoEndMsg" style="display:none; padding:16px; color:#94a3b8; font-size:12px;">

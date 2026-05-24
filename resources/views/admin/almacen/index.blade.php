@@ -511,7 +511,7 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén con su mini-label "ALMACÉN".
+    {{-- Layout: título a la izquierda + separador vertical + filtro de almacén.
          El bloque del filtro tiene un fondo gris suave para diferenciarse del título sin competir con él. --}}
     <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
@@ -520,7 +520,6 @@
         {{-- Separador vertical (oculto en mobile cuando el filtro se va abajo) --}}
         <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
         <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
             <div style="width:280px;min-width:200px;max-width:100%;">
                 <div class="custom-dropdown" id="almSelAlmacenDropdown" data-filter-type="id_almacen" data-default-label="Todos los almacenes">
                     <input type="hidden" name="id_almacen" data-filter-value id="almSelAlmacen" value="{{ $reqAlm ?? '' }}">
@@ -1706,13 +1705,14 @@
         if (!inp || !box) return;
         var rawTerm = inp.value.trim();
         var tokens = almTokenizar(rawTerm);
+        var rawNorm = almNorm(rawTerm).replace(/\s+/g, ' ');
         var lista = window.almProductosLista || [];
 
-        // Acceso directo "VER TODO EL STOCK": SOLO cuando el campo está vacío (es un
-        // atajo para cargar el inventario completo del almacén). Mientras el usuario
-        // escribe NO aparece — no es una "coincidencia" del término y recomendarla
-        // ahí confunde. Al clickearla limpia el filtro y recarga (alias a almVerTodo).
-        var verTodoLink = (tokens.length === 0)
+        // "VER TODO EL STOCK" se comporta como una recomendación más de la
+        // lista, igual que "TODOS LOS FRENTES" en el filtro de /admin/equipos:
+        // sale con el campo vacío y, al escribir, solo si el texto coincide con
+        // ella (substring). Al clickearla limpia el filtro (alias a almVerTodo).
+        var verTodoLink = (tokens.length === 0 || (rawNorm && 'ver todo el stock'.indexOf(rawNorm) !== -1))
             ? '<div class="alm-suggest-item" data-action="ver-todo"><span class="nom">VER TODO EL STOCK</span></div>'
             : '';
 
@@ -1748,7 +1748,6 @@
             // o una palabra de mas no descarta el resultado correcto. Luego
             // bonus por: todos los tokens, frase completa contenida, nombre
             // corto (match mas especifico). Se ordena por score desc.
-            var rawNorm = almNorm(rawTerm).replace(/\s+/g, ' ');
             var minTokens = Math.ceil(tokens.length / 2);
             var scored = [];
             for (var j = 0; j < lista.length; j++) {

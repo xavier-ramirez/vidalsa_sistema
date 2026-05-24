@@ -214,9 +214,19 @@
                 
                 <!-- Dynamic Filter Panel -->
                 <div id="advancedFilterPanel" style="display: none; position: absolute; top: 100%; right: 0; width: 360px; max-width: calc(100vw - 20px); background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 100; margin-top: 10px; padding: 15px;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                         Filtros Avanzados
-                        <span style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
+                        <span style="display: flex; align-items: center; gap: 10px;">
+                            {{-- Bulk lookup: abre modal para pegar varias placas/seriales y ver donde estan. --}}
+                            <button type="button" id="btnBulkLookup"
+                                    title="Búsqueda masiva: pegar varias placas o seriales"
+                                    onclick="openBulkLookupModal(); event.stopPropagation();"
+                                    style="background: white; border: 1px solid #cbd5e1; color: var(--maquinaria-blue); padding: 2px 6px; border-radius: 5px; font-size: 10px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; line-height: 1;">
+                                <i class="material-icons" style="font-size: 12px;">playlist_add_check</i>
+                                Lote
+                            </button>
+                            <span style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
+                        </span>
                     </h4>
 
                     <!-- Modelo + Marca Filter (2 columnas, lado a lado) -->
@@ -1561,6 +1571,414 @@
     // abrirPapeleraEquipos / cargarPapelera / recuperarEquipo: movidos a
     // /admin/historial-documentos donde el usuario los necesita junto con
     // el resto del audit trail. Aqui solo queda bulkDeleteEquiposSeleccionados.
+})();
+</script>
+
+{{-- ═══════════════════════════════════════════════════════════
+     MODAL BULK LOOKUP — tabla estilo Excel: cada fila es una celda
+     editable. Pegar una columna copiada de Excel distribuye cada
+     valor en su propia fila. Backend: POST {{ route('equipos.bulkLookup') }}
+     busca en SERIAL_CHASIS / SERIAL_DE_MOTOR / NUMERO_ETIQUETA /
+     CODIGO_PATIO y documentacion.PLACA.
+     ═══════════════════════════════════════════════════════════ --}}
+<style>
+    #bulkLookupInputTable                { width: 100%; border-collapse: collapse; font-size: 12px; background: white; }
+    #bulkLookupInputTable thead th       { position: sticky; top: 0; background: #f1f5f9; border-bottom: 1px solid #cbd5e0; padding: 5px 10px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; z-index: 1; }
+    #bulkLookupInputTable tbody tr       { border-bottom: 1px solid #f1f5f9; }
+    #bulkLookupInputTable tbody tr:hover { background: #f8fafc; }
+    #bulkLookupInputTable td             { padding: 0; vertical-align: middle; }
+    #bulkLookupInputTable td.bl-num      { width: 40px; padding: 4px 6px; text-align: center; color: #94a3b8; font-size: 11px; font-weight: 700; font-family: 'Courier New', monospace; }
+    #bulkLookupInputTable td.bl-action   { width: 32px; text-align: center; }
+    #bulkLookupInputTable .bl-input      { width: 100%; border: none; outline: none; background: transparent; padding: 5px 8px; font-family: 'Courier New', monospace; font-size: 12px; text-transform: uppercase; box-sizing: border-box; }
+    #bulkLookupInputTable .bl-input:focus{ background: #eff6ff; }
+    #bulkLookupInputTable .bl-delete     { background: transparent; border: none; cursor: pointer; color: #cbd5e0; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+    #bulkLookupInputTable .bl-delete:hover { color: #dc2626; background: #fef2f2; }
+</style>
+<div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
+    <div class="modal-content" style="width: 95%; max-width: 640px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; border-radius: 12px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: white; padding: 10px 18px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="material-icons" style="font-size: 22px; color: var(--maquinaria-blue);">playlist_add_check</i>
+                <div style="font-size: 15px; font-weight: 700; color: var(--maquinaria-blue);">Búsqueda Masiva de Equipos</div>
+            </div>
+            <button type="button" onclick="closeBulkLookupModal()"
+                    title="Cerrar"
+                    style="background:#f1f5f9; border:1px solid #e2e8f0; color:#64748b; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0;"
+                    onmouseover="this.style.background='#fee2e2'; this.style.color='#ef4444'; this.style.borderColor='#fecaca'"
+                    onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'; this.style.borderColor='#e2e8f0'">
+                <i class="material-icons" style="font-size:18px;">close</i>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding: 12px 18px; overflow-y: auto; overflow-x: hidden; flex: 1;">
+
+            <!-- Input phase -->
+            <div id="bulkLookupInputPhase">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="font-size: 12px; font-weight: 600; color: #334155;">Valores a buscar</label>
+                    <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) cargado(s)</span>
+                </div>
+                <div style="border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden;">
+                    <div style="max-height: 40vh; overflow-y: auto;">
+                        <table id="bulkLookupInputTable">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center;">#</th>
+                                    <th>Placa / Serial / Etiqueta / Patio</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkLookupInputTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="margin-top: 6px; font-size: 11px; color: #94a3b8; font-style: italic;">
+                    Tip: pega <kbd style="background:#f1f5f9; border:1px solid #cbd5e0; border-radius:3px; padding:0 4px; font-family:monospace;">Ctrl+V</kbd> sobre una celda para distribuir varios valores.
+                </div>
+            </div>
+
+            <!-- Results phase -->
+            <div id="bulkLookupResultsPhase" style="display: none;">
+                <div id="bulkLookupSummary" style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;"></div>
+
+                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
+                    <div style="max-height: 50vh; overflow-y: auto;">
+                        @php
+                            // Encabezados con anchos explicitos: Buscado 25%, Equipo 30%, Frente Actual 45%.
+                            $thStyle = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #cbd5e0;';
+                        @endphp
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
+                            <thead style="position: sticky; top: 0; background: #f1f5f9; z-index: 1;">
+                                <tr>
+                                    <th style="{{ $thStyle }} width: 25%;">Buscado</th>
+                                    <th style="{{ $thStyle }} width: 30%;">Equipo</th>
+                                    <th style="{{ $thStyle }} width: 45%;">Frente Actual</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkLookupResultsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-top: 8px; font-size: 11px; color: #64748b;">
+                    <i class="material-icons" style="font-size: 13px; vertical-align: middle; color: #ef4444;">error_outline</i>
+                    Las filas en rojo son términos que no se encontraron en la base de datos.
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: space-between; gap: 8px;">
+            <button type="button" id="bulkLookupBackBtn" onclick="bulkLookupBack()" style="display: none; padding: 6px 12px; background: white; color: #475569; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; align-items: center; gap: 5px;">
+                <i class="material-icons" style="font-size: 14px;">arrow_back</i>
+                Modificar lista
+            </button>
+            <div style="flex: 1;"></div>
+            <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 12px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; align-items: center; gap: 5px;">
+                <i class="material-icons" style="font-size: 14px;">content_copy</i>
+                Copiar faltantes
+            </button>
+            <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()" style="padding: 6px 14px; background: var(--maquinaria-blue); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;">
+                <i class="material-icons" style="font-size: 14px;">search</i>
+                Buscar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const URL_BULK_LOOKUP = '{{ route('equipos.bulkLookup') }}';
+    const MAX_TERMS = 500;
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    let lastMissingTerms = [];
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ── INPUT TABLE (estilo Excel) ──────────────────────────────────────────
+    function getTbody()  { return document.getElementById('bulkLookupInputTbody'); }
+    function getInputs() { return getTbody().querySelectorAll('.bl-input'); }
+
+    function renumberRows() {
+        Array.from(getTbody().children).forEach((tr, i) => {
+            tr.querySelector('.bl-num').textContent = (i + 1);
+        });
+    }
+
+    function updateCountHint() {
+        const hint = document.getElementById('bulkLookupCountHint');
+        if (!hint) return;
+        const values = Array.from(getInputs()).map(i => i.value.trim()).filter(v => v !== '');
+        const unique = new Set(values);
+        let txt = unique.size + ' valor(es) único(s)';
+        if (values.length !== unique.size) txt += ' (' + (values.length - unique.size) + ' duplicado(s))';
+        hint.textContent = txt;
+    }
+
+    function addRow() {
+        const tbody = getTbody();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="bl-num">${tbody.children.length + 1}</td>
+            <td><input type="text" class="bl-input" maxlength="100" autocomplete="off" spellcheck="false"></td>
+            <td class="bl-action"><button type="button" class="bl-delete" title="Quitar fila">&times;</button></td>
+        `;
+        tbody.appendChild(tr);
+        return tr;
+    }
+
+    function ensureTrailingEmptyRow() {
+        const tbody = getTbody();
+        const last = tbody.lastElementChild;
+        if (!last || last.querySelector('.bl-input').value.trim() !== '') {
+            addRow();
+        }
+    }
+
+    function clearTable() {
+        getTbody().innerHTML = '';
+        addRow();
+        updateCountHint();
+    }
+
+    function handleTableInput(e) {
+        if (!e.target.classList.contains('bl-input')) return;
+        const pos = e.target.selectionStart;
+        const upper = e.target.value.toUpperCase();
+        if (upper !== e.target.value) {
+            e.target.value = upper;
+            try { e.target.setSelectionRange(pos, pos); } catch (_) {}
+        }
+        ensureTrailingEmptyRow();
+        updateCountHint();
+    }
+
+    function handleTableClick(e) {
+        const btn = e.target.closest('.bl-delete');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        if (!tr) return;
+        tr.remove();
+        if (getTbody().children.length === 0) addRow();
+        renumberRows(); // unico caso real: borrar fila intermedia descuadra los numeros siguientes
+        updateCountHint();
+    }
+
+    // Excel-paste: si el clipboard trae mas de 1 valor (separado por cualquier
+    // whitespace — incluye espacios porque el navegador a veces convierte el
+    // \t de Excel en espacio al pegar en un <input>), distribuye cada valor
+    // en su propia fila a partir de la celda actual. Placas/seriales no
+    // contienen espacios internos, asi que split por \s+ es seguro aqui.
+    function handleTablePaste(e) {
+        if (!e.target.classList.contains('bl-input')) return;
+        const raw = (e.clipboardData || window.clipboardData).getData('text');
+        if (!raw) return;
+        const parts = raw.split(/\s+/).map(s => s.trim().toUpperCase()).filter(s => s !== '');
+        if (parts.length <= 1) return; // valor unico: dejar pegado normal (uppercase via input event)
+        e.preventDefault();
+        const tbody = getTbody();
+        const startIdx = Array.from(tbody.children).indexOf(e.target.closest('tr'));
+        parts.forEach((val, k) => {
+            const tr = tbody.children[startIdx + k] || addRow();
+            tr.querySelector('.bl-input').value = val;
+        });
+        ensureTrailingEmptyRow();
+        updateCountHint();
+    }
+
+    // Enter en una celda salta a la siguiente fila (crea una nueva si hace falta).
+    function handleTableKeydown(e) {
+        if (e.key !== 'Enter' || !e.target.classList.contains('bl-input')) return;
+        e.preventDefault();
+        const tr = e.target.closest('tr');
+        (tr.nextElementSibling || addRow()).querySelector('.bl-input').focus();
+    }
+
+    // ── ABRIR / CERRAR / VOLVER ─────────────────────────────────────────────
+    function showInputPhase() {
+        document.getElementById('bulkLookupInputPhase').style.display = 'block';
+        document.getElementById('bulkLookupResultsPhase').style.display = 'none';
+        document.getElementById('bulkLookupBackBtn').style.display = 'none';
+        document.getElementById('bulkLookupCopyMissingBtn').style.display = 'none';
+        document.getElementById('bulkLookupSearchBtn').style.display = 'flex';
+    }
+
+    window.openBulkLookupModal = function () {
+        // Cierra el panel de filtros avanzados si esta abierto, para no superponer popovers.
+        const adv = document.getElementById('advancedFilterPanel');
+        if (adv) adv.style.display = 'none';
+        const sm = document.getElementById('splitDropdownMenu');
+        if (sm) sm.style.display = 'none';
+
+        showInputPhase();
+        lastMissingTerms = [];
+        clearTable();
+
+        const modal = document.getElementById('bulkLookupModal');
+        modal.classList.add('active');
+        setTimeout(() => {
+            const first = getTbody().querySelector('.bl-input');
+            if (first) first.focus();
+        }, 50);
+    };
+
+    window.closeBulkLookupModal = function () {
+        document.getElementById('bulkLookupModal').classList.remove('active');
+    };
+
+    window.bulkLookupBack = showInputPhase;
+
+    window.bulkLookupCopyMissing = function () {
+        if (!lastMissingTerms.length) return;
+        navigator.clipboard.writeText(lastMissingTerms.join('\n')).then(() => {
+            if (window.showToast) window.showToast(lastMissingTerms.length + ' término(s) faltante(s) copiado(s) al portapapeles.', 'success');
+        }).catch(() => {
+            if (window.showToast) window.showToast('No se pudo copiar al portapapeles.', 'error');
+        });
+    };
+
+    // ── RESULTADOS ──────────────────────────────────────────────────────────
+    function renderResults(payload) {
+        const tbody = document.getElementById('bulkLookupResultsBody');
+        const summary = document.getElementById('bulkLookupSummary');
+        if (!tbody || !summary) return;
+
+        const results = payload.results || [];
+        const found = payload.found || 0;
+        const missing = payload.missing || 0;
+        const total = payload.total || 0;
+
+        summary.innerHTML = `
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
+                Total: ${total}
+            </div>
+            <div style="background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
+                <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">check_circle</i> Encontrados: ${found}
+            </div>
+            <div style="background: ${missing > 0 ? '#fee2e2' : '#f1f5f9'}; border: 1px solid ${missing > 0 ? '#fca5a5' : '#cbd5e0'}; color: ${missing > 0 ? '#991b1b' : '#475569'}; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
+                <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">cancel</i> No encontrados: ${missing}
+            </div>
+        `;
+
+        lastMissingTerms = [];
+        const cellBase = "padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; word-break: break-word;";
+        const cellMissing = "padding: 6px 10px; border-bottom: 1px solid #fee2e2; color: #b91c1c; word-break: break-word;";
+        const rowsHtml = results.map(r => {
+            if (!r.found) {
+                lastMissingTerms.push(r.term);
+                return `
+                    <tr style="background: #fef2f2;">
+                        <td style="${cellMissing} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td colspan="2" style="${cellMissing} font-style: italic;">
+                            <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
+                            No encontrado en la base de datos
+                        </td>
+                    </tr>
+                `;
+            }
+            const equipoInfo = [r.tipo_nombre, r.marca].filter(Boolean).join(' · ') || '—';
+            const frente = r.frente_nombre === 'SIN ASIGNAR'
+                ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
+                : escapeHtml(r.frente_nombre);
+            return `
+                <tr style="background: white;">
+                    <td style="${cellBase} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                    <td style="${cellBase}">${escapeHtml(equipoInfo)}</td>
+                    <td style="${cellBase}">${frente}</td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.innerHTML = rowsHtml || '<tr><td colspan="3" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
+
+        document.getElementById('bulkLookupInputPhase').style.display = 'none';
+        document.getElementById('bulkLookupResultsPhase').style.display = 'block';
+        document.getElementById('bulkLookupBackBtn').style.display = 'flex';
+        document.getElementById('bulkLookupSearchBtn').style.display = 'none';
+        document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';
+    }
+
+    window.runBulkLookup = function () {
+        const terms = Array.from(getInputs())
+            .map(i => i.value.trim().toUpperCase())
+            .filter(v => v !== '');
+
+        if (terms.length === 0) {
+            if (window.showToast) window.showToast('Agrega al menos una placa o serial.', 'warning');
+            else alert('Agrega al menos una placa o serial.');
+            const first = getTbody().querySelector('.bl-input');
+            if (first) first.focus();
+            return;
+        }
+        if (terms.length > MAX_TERMS) {
+            if (window.showToast) window.showToast('Máximo ' + MAX_TERMS + ' términos por búsqueda. Cargados: ' + terms.length, 'error');
+            else alert('Máximo ' + MAX_TERMS + ' términos por búsqueda.');
+            return;
+        }
+
+        if (window.showPreloader) window.showPreloader();
+        fetch(URL_BULK_LOOKUP, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf(),
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ terms: terms })
+        })
+        .then(r => r.json().then(d => ({ ok: r.ok, body: d })))
+        .then(res => {
+            if (window.hidePreloader) window.hidePreloader();
+            if (!res.ok) {
+                const msg = (res.body && res.body.message) || 'Error en la búsqueda.';
+                if (window.showToast) window.showToast(msg, 'error');
+                else alert(msg);
+                return;
+            }
+            renderResults(res.body);
+        })
+        .catch(err => {
+            if (window.hidePreloader) window.hidePreloader();
+            console.error('[bulkLookup]', err);
+            if (window.showToast) window.showToast('Error de red en la búsqueda masiva.', 'error');
+            else alert('Error de red.');
+        });
+    };
+
+    // ── BIND ────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+        const tbody = getTbody();
+        if (tbody) {
+            tbody.addEventListener('input',    handleTableInput);
+            tbody.addEventListener('click',    handleTableClick);
+            tbody.addEventListener('paste',    handleTablePaste);
+            tbody.addEventListener('keydown',  handleTableKeydown);
+        }
+
+        const modal = document.getElementById('bulkLookupModal');
+        if (modal) {
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) closeBulkLookupModal();
+            });
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
+                closeBulkLookupModal();
+            }
+        });
+    });
 })();
 </script>
 
