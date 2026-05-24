@@ -1710,6 +1710,15 @@
     function getTbody()  { return document.getElementById('bulkLookupInputTbody'); }
     function getInputs() { return getTbody().querySelectorAll('.bl-input'); }
 
+    // Recolecta todos los terminos de la tabla, partiendo cualquier celda que
+    // tenga varios valores pegados (whitespace). Usado por el contador y por
+    // el submit del modal — unica fuente de verdad para "que vamos a buscar".
+    function collectTerms() {
+        return Array.from(getInputs())
+            .flatMap(i => i.value.trim().toUpperCase().split(/\s+/))
+            .filter(v => v !== '');
+    }
+
     function renumberRows() {
         Array.from(getTbody().children).forEach((tr, i) => {
             tr.querySelector('.bl-num').textContent = (i + 1);
@@ -1719,7 +1728,7 @@
     function updateCountHint() {
         const hint = document.getElementById('bulkLookupCountHint');
         if (!hint) return;
-        const values = Array.from(getInputs()).map(i => i.value.trim()).filter(v => v !== '');
+        const values = collectTerms();
         const unique = new Set(values);
         let txt = unique.size + ' valor(es) único(s)';
         if (values.length !== unique.size) txt += ' (' + (values.length - unique.size) + ' duplicado(s))';
@@ -1775,20 +1784,19 @@
         updateCountHint();
     }
 
-    // Excel-paste: si el clipboard trae mas de 1 valor (separado por cualquier
-    // whitespace — incluye espacios porque el navegador a veces convierte el
-    // \t de Excel en espacio al pegar en un <input>), distribuye cada valor
-    // en su propia fila a partir de la celda actual. Placas/seriales no
-    // contienen espacios internos, asi que split por \s+ es seguro aqui.
+    // Excel-paste: split agresivo por cualquier whitespace (placas/seriales no
+    // contienen espacios internos). Siempre interceptamos el paste y distribuimos
+    // — incluso para 1 valor — para no depender del comportamiento default del
+    // navegador (que convierte \t/\n en espacio dentro de <input> single-line).
     function handleTablePaste(e) {
         if (!e.target.classList.contains('bl-input')) return;
         const raw = (e.clipboardData || window.clipboardData).getData('text');
         if (!raw) return;
         const parts = raw.split(/\s+/).map(s => s.trim().toUpperCase()).filter(s => s !== '');
-        if (parts.length <= 1) return; // valor unico: dejar pegado normal (uppercase via input event)
+        if (parts.length === 0) return;
         e.preventDefault();
         const tbody = getTbody();
-        const startIdx = Array.from(tbody.children).indexOf(e.target.closest('tr'));
+        const startIdx = Math.max(0, Array.from(tbody.children).indexOf(e.target.closest('tr')));
         parts.forEach((val, k) => {
             const tr = tbody.children[startIdx + k] || addRow();
             tr.querySelector('.bl-input').value = val;
@@ -1910,9 +1918,7 @@
     }
 
     window.runBulkLookup = function () {
-        const terms = Array.from(getInputs())
-            .map(i => i.value.trim().toUpperCase())
-            .filter(v => v !== '');
+        const terms = collectTerms();
 
         if (terms.length === 0) {
             if (window.showToast) window.showToast('Agrega al menos una placa o serial.', 'warning');
