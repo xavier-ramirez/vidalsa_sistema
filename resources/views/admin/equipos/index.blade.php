@@ -1618,7 +1618,7 @@
             <div id="bulkLookupInputPhase">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <label style="font-size: 12px; font-weight: 600; color: #334155;">Valores a buscar</label>
-                    <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) cargado(s)</span>
+                    <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) único(s)</span>
                 </div>
                 <div style="border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden;">
                     <div style="max-height: 40vh; overflow-y: auto;">
