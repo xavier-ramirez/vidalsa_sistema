@@ -1583,7 +1583,8 @@
      ═══════════════════════════════════════════════════════════ --}}
 <style>
     #bulkLookupInputTable                { width: 100%; border-collapse: collapse; font-size: 12px; background: white; }
-    #bulkLookupInputTable thead th       { position: sticky; top: 0; background: #f1f5f9; border-bottom: 1px solid #cbd5e0; padding: 5px 10px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; z-index: 1; }
+    #bulkLookupInputTable thead th       { position: sticky; top: 0; background: #1e293b; border-bottom: 2px solid #0f172a; border-right: 1px solid #334155; padding: 5px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; z-index: 1; }
+    #bulkLookupInputTable thead th:last-child { border-right: none; }
     #bulkLookupInputTable tbody tr       { border-bottom: 1px solid #f1f5f9; }
     #bulkLookupInputTable tbody tr:hover { background: #f8fafc; }
     #bulkLookupInputTable td             { padding: 0; vertical-align: middle; }
@@ -1595,20 +1596,30 @@
     #bulkLookupInputTable .bl-delete:hover { color: #dc2626; background: #fef2f2; }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
-    <div class="modal-content" style="width: 95%; max-width: 640px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; border-radius: 12px; overflow: hidden;">
+    <div class="modal-content" style="width: 95%; max-width: 640px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
         <!-- Header -->
-        <div style="background: white; padding: 10px 18px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
+        <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="material-icons" style="font-size: 22px; color: var(--maquinaria-blue);">playlist_add_check</i>
-                <div style="font-size: 15px; font-weight: 700; color: var(--maquinaria-blue);">Búsqueda Masiva de Equipos</div>
+                <i class="material-icons" style="font-size: 22px; color: white;">playlist_add_check</i>
+                <div style="font-size: 15px; font-weight: 700; color: white;">Búsqueda Masiva de Equipos</div>
             </div>
-            <button type="button" onclick="closeBulkLookupModal()"
-                    title="Cerrar"
-                    style="background:#f1f5f9; border:1px solid #e2e8f0; color:#64748b; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0;"
-                    onmouseover="this.style.background='#fee2e2'; this.style.color='#ef4444'; this.style.borderColor='#fecaca'"
-                    onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'; this.style.borderColor='#e2e8f0'">
-                <i class="material-icons" style="font-size:18px;">close</i>
-            </button>
+            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()"
+                        title="Buscar"
+                        style="background:rgba(255,255,255,0.1); border:none; color:white; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0; padding:0 12px; gap:6px; font-size:13px; font-weight:700;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)';"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)';">
+                    <i class="material-icons" style="font-size:16px;">search</i>
+                    Buscar
+                </button>
+                <button type="button" onclick="closeBulkLookupModal()"
+                        title="Cerrar"
+                        style="background:rgba(255,255,255,0.1); border:none; color:white; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                    <i class="material-icons" style="font-size:18px;">close</i>
+                </button>
+            </div>
         </div>
 
         <!-- Body -->
@@ -1647,14 +1658,15 @@
                     <div style="max-height: 50vh; overflow-y: auto;">
                         @php
                             // Encabezados con anchos explicitos: Buscado 25%, Equipo 30%, Frente Actual 45%.
-                            $thStyle = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #cbd5e0;';
+                            $thStyle = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a; border-right: 1px solid #334155;';
+                            $thStyleLast = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a;';
                         @endphp
                         <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
-                            <thead style="position: sticky; top: 0; background: #f1f5f9; z-index: 1;">
+                            <thead style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
                                 <tr>
                                     <th style="{{ $thStyle }} width: 25%;">Buscado</th>
                                     <th style="{{ $thStyle }} width: 30%;">Equipo</th>
-                                    <th style="{{ $thStyle }} width: 45%;">Frente Actual</th>
+                                    <th style="{{ $thStyleLast }} width: 45%;">Frente Actual</th>
                                 </tr>
                             </thead>
                             <tbody id="bulkLookupResultsBody"></tbody>
@@ -1679,10 +1691,6 @@
             <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 12px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; align-items: center; gap: 5px;">
                 <i class="material-icons" style="font-size: 14px;">content_copy</i>
                 Copiar faltantes
-            </button>
-            <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()" style="padding: 6px 14px; background: var(--maquinaria-blue); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px;">
-                <i class="material-icons" style="font-size: 14px;">search</i>
-                Buscar
             </button>
         </div>
     </div>
@@ -1730,9 +1738,14 @@
         if (!hint) return;
         const values = collectTerms();
         const unique = new Set(values);
-        let txt = unique.size + ' valor(es) único(s)';
-        if (values.length !== unique.size) txt += ' (' + (values.length - unique.size) + ' duplicado(s))';
-        hint.textContent = txt;
+        const dupes = values.length - unique.size;
+        let html = unique.size + ' valor(es) único(s)';
+        // Avisar duplicados en rojo: el backend deduplica antes de buscar, asi
+        // que sin esta alerta el user podria pensar que se "perdieron" valores.
+        if (dupes > 0) {
+            html += ' <span style="color:#dc2626;font-weight:700;">(' + dupes + ' duplicado(s) — se ignoran)</span>';
+        }
+        hint.innerHTML = html;
     }
 
     function addRow() {
