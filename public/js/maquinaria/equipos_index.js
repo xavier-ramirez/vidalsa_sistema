@@ -998,7 +998,7 @@ window.openUbicacionBulkModal = function (event) {
     // (mismo que movilizar). Backend valida can('equipos.assign') igual.
     if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
         if (typeof window.showToast === 'function') {
-            window.showToast('No tienes permisos para actualizar ubicaciones.', 'error');
+            window.showToast('No tienes permisos para actualizar detalles.', 'error');
         }
         return;
     }
@@ -1059,7 +1059,7 @@ window.openUbicacionBulkModal = function (event) {
             <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <i class="material-icons" style="color:#0284c7;font-size:20px;">pin_drop</i>
-                    <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Ubicación</h2>
+                    <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Detalle</h2>
                 </div>
                 <button type="button" id="ub-close" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
                     <i class="material-icons">close</i>
@@ -1086,12 +1086,12 @@ window.openUbicacionBulkModal = function (event) {
                     </div>
                     <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
                         Indica la zona, patio, almacén o fila exacta dentro del frente.
-                        ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar la ubicación actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen ubicaciones distintas.</span>' : '')}
+                        ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>' : '')}
                     </small>
                 </div>
                 <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
                 <button type="button" id="ub-submit" style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.2s;">
-                    <i class="material-icons">check_circle</i> Aplicar Ubicación
+                    <i class="material-icons">check_circle</i> Aplicar Detalle
                 </button>
             </div>
         </div>
@@ -1137,13 +1137,13 @@ window.openUbicacionBulkModal = function (event) {
             if (typeof window.showModal === 'function') {
                 window.showModal({
                     type: 'warning',
-                    title: 'Borrar Ubicación',
-                    message: 'El campo está vacío. ¿Deseas eliminar la ubicación actual ("' + valorPrevioComun + '") de ' + ids.length + ' equipo(s)?',
+                    title: 'Borrar Detalle',
+                    message: 'El campo está vacío. ¿Deseas eliminar el detalle actual ("' + valorPrevioComun + '") de ' + ids.length + ' equipo(s)?',
                     confirmText: 'Sí, borrar',
                     cancelText: 'Cancelar',
                     onConfirm: () => _enviarUbicacion(''),
                 });
-            } else if (confirm('El campo está vacío. ¿Borrar la ubicación actual de ' + ids.length + ' equipo(s)?')) {
+            } else if (confirm('El campo está vacío. ¿Borrar el detalle actual de ' + ids.length + ' equipo(s)?')) {
                 _enviarUbicacion('');
             }
             return;
@@ -1152,7 +1152,7 @@ window.openUbicacionBulkModal = function (event) {
         // Caso 2: campo vacío + sin valor previo → nada que guardar, informar y cerrar
         if (!valor && !valorPrevioComun) {
             if (typeof window.showToast === 'function') {
-                window.showToast('Escribe una ubicación o cierra el modal sin cambios.', 'info');
+                window.showToast('Escribe un detalle o cierra el modal sin cambios.', 'info');
             }
             input.focus();
             return;
@@ -1206,8 +1206,8 @@ window.openUbicacionBulkModal = function (event) {
                 await window.loadEquipos(null, true);
             }
             const toastMsg = valorFinal
-                ? 'Ubicación actualizada en ' + (data.count || selections.length) + ' equipo(s).'
-                : 'Ubicación borrada en ' + (data.count || selections.length) + ' equipo(s).';
+                ? 'Detalle actualizado en ' + (data.count || selections.length) + ' equipo(s).'
+                : 'Detalle borrado en ' + (data.count || selections.length) + ' equipo(s).';
             if (typeof window.showToast === 'function') window.showToast(toastMsg, 'success');
         } catch (err) {
             console.error('[Ubicacion bulk]', err);

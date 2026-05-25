@@ -302,8 +302,8 @@
 
                     <!-- Ubicación Filter — visible solo para frentes TIPO_FRENTE=ESPECIAL -->
                     <div id="ubicacionAdvFilterWrapper" style="margin-bottom: 15px; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Ubicación (Patio/Subdivisión)</span>
-                        <div class="custom-dropdown" id="ubicacionAdvFilter" data-filter-type="detalle_ubicacion" data-default-label="Seleccionar Ubicación..." style="font-size: 12px;">
+                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Detalle (Patio/Subdivisión)</span>
+                        <div class="custom-dropdown" id="ubicacionAdvFilter" data-filter-type="detalle_ubicacion" data-default-label="Seleccionar Detalle..." style="font-size: 12px;">
                             <input type="hidden" name="detalle_ubicacion" data-filter-value value="{{ request('detalle_ubicacion') }}">
 
                             <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('detalle_ubicacion') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
@@ -311,8 +311,8 @@
                                     <i class="material-icons" style="font-size: 16px;">place</i>
                                 </div>
                                 <input type="text" name="filter_search_dropdown" data-filter-search
-                                    placeholder="{{ request('detalle_ubicacion') ?: 'Seleccionar Ubicación...' }}"
-                                    aria-label="Filtrar Ubicación"
+                                    placeholder="{{ request('detalle_ubicacion') ?: 'Seleccionar Detalle...' }}"
+                                    aria-label="Filtrar Detalle"
                                     style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
                                     oninput="window.filterDropdownOptions(this)"
                                     autocomplete="off">
@@ -740,7 +740,7 @@
         </button>
         <button type="button" id="btnUbicacion" onclick="openUbicacionBulkModal(event)" class="btn-bulk-action" style="background: #64748b;">
             <i class="material-icons" style="font-size: 18px;">pin_drop</i>
-            <span class="desktop-text">Ubicación</span>
+            <span class="desktop-text">Detalle</span>
         </button>
         <button type="button" onclick="openBulkModal(event)" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
@@ -1467,11 +1467,11 @@
             });
     };
 
-    // Alias: CAN_CREATE_INFO → CAN_CREATE_EQUIPOS (definido globalmente en estructura_base)
-    // Se mantiene por compatibilidad con equipos_index.js
+    // CAN_CREATE_EQUIPOS, CAN_ASSIGN_EQUIPOS, CAN_CHANGE_STATUS ya estan
+    // definidos globalmente en layouts/estructura_base.blade.php — no se
+    // redefinen aqui para evitar duplicidad.
+    // CAN_CREATE_INFO es un alias historico requerido por equipos_index.js.
     window.CAN_CREATE_INFO = window.CAN_CREATE_EQUIPOS;
-    window.CAN_ASSIGN_EQUIPOS = {{ auth()->user() && (auth()->user()->can('equipos.assign') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
-    window.CAN_CHANGE_STATUS = {{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
     window.CREATE_URL = "{{ route('equipos.create') }}";
 </script>
 
@@ -1496,9 +1496,17 @@
      El boton "Eliminar Seleccionados" del dropdown es siempre visible:
      la validacion del permiso (user.delete) la hace JS al click. La
      ruta tambien valida via middleware can:user.delete (defensa en capas).
+
+     IMPORTANTE — esta accion NO depende del rol del usuario, sino de
+     la clave `user.delete` en la columna PERMISOS. Los `super.admin`
+     pasan automaticamente porque el Gate::before global (ver
+     AppServiceProvider) concede toda ability que NO este en
+     Usuario::PERMISOS_EXPLICITOS, y `user.delete` no esta excluida.
+     Por eso aqui basta con preguntar `can('user.delete')` — no hay
+     que listar `super.admin` aparte.
      ═══════════════════════════════════════════════════════════ --}}
 <script>
-    window.CAN_DELETE_EQUIPOS = {{ auth()->user() && (auth()->user()->can('user.delete') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+    window.CAN_DELETE_EQUIPOS = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};
 </script>
 <script>
 (function () {

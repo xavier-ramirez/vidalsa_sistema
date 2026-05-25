@@ -136,11 +136,11 @@
         <div>
             <label for="numero_etiqueta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
                 N Etiqueta
-                @if(!auth()->user()?->can('equipos.edit') && !auth()->user()?->can('super.admin'))
+                @if(!auth()->user()?->can('equipos.edit'))
                     <i class="material-icons" style="font-size: 13px; color: #94a3b8; vertical-align: middle;" title="Solo editores pueden modificar este campo">lock</i>
                 @endif
             </label>
-            @if(auth()->user()?->can('equipos.edit') || auth()->user()?->can('super.admin'))
+            @if(auth()->user()?->can('equipos.edit'))
                 <input type="text" id="numero_etiqueta" name="NUMERO_ETIQUETA"
                        class="form-input-custom @error('NUMERO_ETIQUETA') is-invalid @enderror"
                        value="{{ old('NUMERO_ETIQUETA', $equipo->NUMERO_ETIQUETA ?? '') }}"
@@ -214,7 +214,7 @@
 
     <!-- Detalle Ubicación -->
     <div>
-        <label for="detalle_ubicacion_actual" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Sección / Ubicación Específica</label>
+        <label for="detalle_ubicacion_actual" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Sección / Detalle Específico</label>
         <input type="text" id="detalle_ubicacion_actual" name="DETALLE_UBICACION_ACTUAL" class="form-input-custom @error('DETALLE_UBICACION_ACTUAL') is-invalid @enderror" value="{{ old('DETALLE_UBICACION_ACTUAL', $equipo->DETALLE_UBICACION_ACTUAL ?? '') }}" placeholder="Ej: Fase 2, Estacionamiento..." autocomplete="off">
         @error('DETALLE_UBICACION_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
