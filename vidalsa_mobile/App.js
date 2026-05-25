@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -1135,15 +1135,46 @@ function PantallaDashboard({ onOpenMenu, equiposCount }) {
   );
 }
 
+// Hook reutilizable: input controlado con debounce y mínimo de caracteres.
+// `input` se actualiza en cada tecleo (lo que ve el usuario en el TextInput).
+// `value` solo cambia tras `delay` ms sin escribir y cuando length >= minChars.
+function useDebouncedSearch(minChars = 4, delay = 1000) {
+  const [input, setInput] = useState("");
+  const [value, setValue] = useState("");
+  const timeoutRef = useRef(null);
+
+  const onChange = useCallback((text) => {
+    setInput(text);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (text.length < minChars) {
+      setValue("");
+      return;
+    }
+    timeoutRef.current = setTimeout(() => setValue(text), delay);
+  }, [minChars, delay]);
+
+  const clear = useCallback(() => {
+    setInput("");
+    setValue("");
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  return { input, value, onChange, clear };
+}
+
 // ─── PANTALLA DE EQUIPOS ──────────────────────────────────────────────────────
 function PantallaEquipos({ user, onOpenMenu }) {
   const [equiposTodos, setEquiposTodos] = useState([]);
   const [loading, setLoading] = useState(true);
-  // busquedaInput: lo que el usuario escribe (no lanza filtro)
-  // busqueda: el valor real que dispara la query (≥4 chars o vacío)
-  const [busquedaInput, setBusquedaInput] = useState("");
-  const [busqueda, setBusqueda] = useState("");
-  const debounceRef = React.useRef(null);
+  // Filtros de texto: usan debounce 1s + mínimo 4 caracteres; el input se preserva.
+  const searchPlaca = useDebouncedSearch();
+  const searchModelo = useDebouncedSearch();
+  const searchMarca = useDebouncedSearch();
+  const searchAnio = useDebouncedSearch();
   const [filtroFrente, setFiltroFrente] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
@@ -1157,9 +1188,6 @@ function PantallaEquipos({ user, onOpenMenu }) {
 
   // ─── FILTROS AVANZADOS ──────────────────────────────
   const [advancedFiltersVisible, setAdvancedFiltersVisible] = useState(false);
-  const [advModelo, setAdvModelo] = useState("");
-  const [advMarca, setAdvMarca] = useState("");
-  const [advAnio, setAdvAnio] = useState("");
   const [advCategoria, setAdvCategoria] = useState("");
   const [advEstadoOp, setAdvEstadoOp] = useState("");
 
@@ -1213,27 +1241,27 @@ function PantallaEquipos({ user, onOpenMenu }) {
   const [busqDropSubTipo, setBusqDropSubTipo] = useState("");
 
   const clearAdvancedFilters = () => {
-    setAdvModelo("");
-    setAdvMarca("");
-    setAdvAnio("");
+    searchModelo.clear();
+    searchMarca.clear();
+    searchAnio.clear();
     setAdvCategoria("");
     setAdvEstadoOp("");
     setChkPropiedad(false);
     setChkPoliza(false);
     setChkRotc(false);
     setChkRacda(false);
-    // Limpiar búsqueda de texto también
-    setBusquedaInput("");
-    setBusqueda("");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    searchPlaca.clear();
     // No llamar cargar() aquí — el useEffect([cargar]) lo hará
     // automáticamente al detectar que los estados cambiaron
   };
 
   const cargar = useCallback(async () => {
     setLoading(true);
+    // Garantiza que el spinner sea visible aunque la query SQLite sea muy rápida.
+    const inicio = Date.now();
+    const SPINNER_MIN_MS = 250;
     try {
-      let data = await leerEquiposLocal(busqueda);
+      let data = await leerEquiposLocal(searchPlaca.value);
 
       // Cargar frentes completos desde SQLite (con IDs para movilizaciones)
       const frentesDB = await leerFrentesLocal();
@@ -1255,20 +1283,20 @@ function PantallaEquipos({ user, onOpenMenu }) {
         );
 
       // Aplicar Filtros Avanzados a la data local si están definidos
-      if (advModelo)
+      if (searchModelo.value)
         data = data.filter((e) =>
           String(e.modelo || "")
             .toLowerCase()
-            .includes(advModelo.toLowerCase()),
+            .includes(searchModelo.value.toLowerCase()),
         );
-      if (advMarca)
+      if (searchMarca.value)
         data = data.filter((e) =>
           String(e.marca || "")
             .toLowerCase()
-            .includes(advMarca.toLowerCase()),
+            .includes(searchMarca.value.toLowerCase()),
         );
-      if (advAnio)
-        data = data.filter((e) => String(e.anio || "") === String(advAnio));
+      if (searchAnio.value)
+        data = data.filter((e) => String(e.anio || "") === String(searchAnio.value));
       if (advCategoria)
         data = data.filter(
           (e) =>
@@ -1298,29 +1326,34 @@ function PantallaEquipos({ user, onOpenMenu }) {
       // Nota: Si rotc/racda no están en la data offline, este filtro podría devolver vacío.
       // Dependerá de tu esquema SQLite.
 
-      // Calcular stats ANTES de filtrar por estado (para que los conteos sean del total)
-      const allData = data;
+      // Stats se calculan sobre la data SIN filtro de estado para que los chips reflejen
+      // el total real (no se "auto-ocultan" al elegir un estado).
       setStats({
-        total: allData.length,
-        inoperativos: allData.filter((e) => e.estado === "INOPERATIVO").length,
-        mantenimiento: allData.filter((e) => e.estado === "EN MANTENIMIENTO").length,
+        total: data.length,
+        inoperativos: data.filter((e) => e.estado === "INOPERATIVO").length,
+        mantenimiento: data.filter((e) => e.estado === "EN MANTENIMIENTO").length,
       });
-
-      // Guardar TODOS los equipos (filtroEstado se aplica en memoria via useMemo)
+      // El filtro de estado se aplica en `equiposVisibles` (useMemo) para no afectar
+      // a otras vistas que dependen del set completo (p. ej. sub-activos).
       setEquiposTodos(data);
     } catch (err) {
       // Error silencioso en modo offline — datos locales pueden no estar disponibles aún
       showModernAlert("Error", "No se pudo leer los datos locales.");
     } finally {
+      const transcurrido = Date.now() - inicio;
+      if (transcurrido < SPINNER_MIN_MS) {
+        await new Promise((r) => setTimeout(r, SPINNER_MIN_MS - transcurrido));
+      }
       setLoading(false);
     }
   }, [
-    busqueda,
+    searchPlaca.value,
     filtroFrente,
     filtroTipo,
-    advModelo,
-    advMarca,
-    advAnio,
+    filtroEstado,
+    searchModelo.value,
+    searchMarca.value,
+    searchAnio.value,
     advCategoria,
     advEstadoOp,
     chkPropiedad,
@@ -1329,8 +1362,9 @@ function PantallaEquipos({ user, onOpenMenu }) {
     chkRacda,
   ]);
 
-  // Aplicar filtro de estado EN MEMORIA (sin re-query SQLite — evita crash)
-  const equiposFiltrados = useMemo(() => {
+  // Filtro de estado aplicado en memoria sobre el set ya cargado.
+  // (Incluido en las deps de `cargar` arriba para que el spinner aparezca al cambiarlo.)
+  const equiposVisibles = useMemo(() => {
     if (!filtroEstado) return equiposTodos;
     return equiposTodos.filter((e) => e.estado === filtroEstado);
   }, [equiposTodos, filtroEstado]);
@@ -1357,14 +1391,6 @@ function PantallaEquipos({ user, onOpenMenu }) {
   useEffect(() => {
     cargar();
   }, [cargar]);
-
-  // Cleanup del debounce al desmontar el componente — evita memory leaks
-  // y actualizaciones de estado en componentes ya desmontados
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
 
   // Status map — matches web icons exactly
   const estadoMap = {
@@ -1678,32 +1704,12 @@ function PantallaEquipos({ user, onOpenMenu }) {
               }}
               placeholder="Buscar Seriales / Placas (mín. 4 letras)"
               placeholderTextColor="#94a3b8"
-              value={busquedaInput}
+              value={searchPlaca.input}
               returnKeyType="search"
-              onChangeText={(text) => {
-                setBusquedaInput(text);
-                if (debounceRef.current) clearTimeout(debounceRef.current);
-                
-                if (text.length === 0) {
-                  // Limpiar inmediatamente si borra todo
-                  setBusqueda("");
-                  return;
-                }
-                
-                if (text.length < 4) {
-                  // Inconsistencia evitada: si borra hasta tener menos de 4 chars (ej: "abc"),
-                  // reseteamos la búsqueda para no dejar resultados ocultos pegados.
-                  setBusqueda("");
-                  return;
-                }
-                
-                debounceRef.current = setTimeout(() => {
-                  setBusqueda(text);
-                }, 2000); // 2 segundos de espera
-              }}
+              onChangeText={searchPlaca.onChange}
             />
-            {busquedaInput ? (
-              <TouchableOpacity onPress={() => { setBusquedaInput(""); setBusqueda(""); if (debounceRef.current) clearTimeout(debounceRef.current); }}>
+            {searchPlaca.input ? (
+              <TouchableOpacity onPress={searchPlaca.clear}>
                 <MaterialIcons name="close" size={18} color="#94a3b8" />
               </TouchableOpacity>
             ) : null}
@@ -1812,10 +1818,10 @@ function PantallaEquipos({ user, onOpenMenu }) {
                         paddingVertical: 0,
                         marginLeft: 4,
                       }}
-                      placeholder="Escribir modelo..."
+                      placeholder="Escribir modelo (mín. 4 letras)..."
                       placeholderTextColor="#94a3b8"
-                      value={advModelo}
-                      onChangeText={setAdvModelo}
+                      value={searchModelo.input}
+                      onChangeText={searchModelo.onChange}
                     />
                   </View>
                 </View>
@@ -1853,10 +1859,10 @@ function PantallaEquipos({ user, onOpenMenu }) {
                         paddingVertical: 0,
                         marginLeft: 4,
                       }}
-                      placeholder="Escribir marca..."
+                      placeholder="Escribir marca (mín. 4 letras)..."
                       placeholderTextColor="#94a3b8"
-                      value={advMarca}
-                      onChangeText={setAdvMarca}
+                      value={searchMarca.input}
+                      onChangeText={searchMarca.onChange}
                     />
                   </View>
                 </View>
@@ -1895,10 +1901,10 @@ function PantallaEquipos({ user, onOpenMenu }) {
                         paddingVertical: 0,
                         marginLeft: 4,
                       }}
-                      placeholder="Escribir año..."
+                      placeholder="Escribir año (4 dígitos)..."
                       placeholderTextColor="#94a3b8"
-                      value={advAnio}
-                      onChangeText={setAdvAnio}
+                      value={searchAnio.input}
+                      onChangeText={searchAnio.onChange}
                     />
                   </View>
                 </View>
@@ -2422,7 +2428,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
       ) : (
         <FlatList
           showsVerticalScrollIndicator={true}
-          data={equiposFiltrados}
+          data={equiposVisibles}
           keyExtractor={(item) => String(item.id_equipo)}
           renderItem={renderItem}
           ListHeaderComponent={<ListaHeader />}
@@ -2435,7 +2441,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
                   { marginTop: 10, textAlign: "center" },
                 ]}
               >
-                {busqueda || filtroFrente || filtroTipo || filtroEstado
+                {searchPlaca.value || filtroFrente || filtroTipo || filtroEstado
                   ? "Sin resultados con estos filtros."
                   : "Seleccione un filtro para ver los equipos."}
               </Text>
@@ -3027,13 +3033,13 @@ function PantallaEquipos({ user, onOpenMenu }) {
             {/* Conteo */}
             <View style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: "#f0fdfa", borderBottomWidth: 1, borderColor: "#ccfbf1" }}>
               <Text style={{ fontSize: 13, fontWeight: "700", color: "#0f766e" }}>
-                {equiposFiltrados.length} equipos {filtroFrente ? `en "${filtroFrente}"` : "totales"}
+                {equiposVisibles.length} equipos {filtroFrente ? `en "${filtroFrente}"` : "totales"}
               </Text>
             </View>
 
             {/* Lista de equipos del frente */}
             <FlatList
-              data={equiposFiltrados}
+              data={equiposVisibles}
               keyExtractor={(item) => String(item.id_equipo)}
               contentContainerStyle={{ padding: 12 }}
               renderItem={({ item }) => {
