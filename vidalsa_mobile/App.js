@@ -2545,45 +2545,67 @@ function PantallaEquipos({ user, onOpenMenu }) {
         />
       )}
 
-      {/* ── BARRA FLOTANTE DE SELECCIÓN ── */}
+      {/* ── BARRA FLOTANTE DE SELECCIÓN ──
+          Espejo de la .selection-floating-bar de /admin/equipos en mobile:
+          [contador] · Limpiar · Detalle · Asignar. "Detalle" muestra el toast
+          "Próximamente" porque la APK aún no tiene el flujo offline de
+          asignar detalle de ubicación a múltiples equipos. */}
       {equiposSelect.length > 0 && (
         <View style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
-          backgroundColor: "#00004d", paddingVertical: 14, paddingHorizontal: 16,
-          paddingBottom: Platform.OS === "android" ? 14 : 28, // safe area en iPhone
-          flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+          backgroundColor: "#1e293b", paddingVertical: 12, paddingHorizontal: 12,
+          paddingBottom: Platform.OS === "android" ? 12 : 24, // safe area en iPhone
+          flexDirection: "row", alignItems: "center", gap: 8,
           borderTopLeftRadius: 16, borderTopRightRadius: 16,
           shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.25, shadowRadius: 12,
           elevation: 30,   // Android: encima de todo
           zIndex: 9999,    // iOS: encima de la nav
         }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <TouchableOpacity
-              onPress={() => setEquiposSelect([])}
-              style={{ backgroundColor: "rgba(255,255,255,0.15)", padding: 6, borderRadius: 8 }}
-            >
-              <MaterialIcons name="close" size={18} color="#fff" />
-            </TouchableOpacity>
-            <View>
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>
-                {equiposSelect.length} seleccionado{equiposSelect.length > 1 ? "s" : ""}
-              </Text>
-              <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}>Mantén pulsado para seleccionar más</Text>
+          {/* Contador (functions icon + n°) — análogo al .selection-counter de la web */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginRight: 4 }}>
+            <View style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 5, borderRadius: 999 }}>
+              <MaterialIcons name="functions" size={16} color="#fff" />
             </View>
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+              {equiposSelect.length}
+            </Text>
           </View>
+
+          {/* Limpiar — paralelo al .btn-bulk-clear de la web */}
+          <TouchableOpacity
+            onPress={() => setEquiposSelect([])}
+            style={{ paddingHorizontal: 8, paddingVertical: 6 }}
+          >
+            <Text style={{ color: "#94a3b8", fontWeight: "700", fontSize: 12 }}>Limpiar</Text>
+          </TouchableOpacity>
+
+          {/* Detalle (pin_drop) — .btn-bulk-action #64748b. Próximamente offline. */}
+          <TouchableOpacity
+            onPress={() => showModernAlert(
+              "Próximamente",
+              "Asignar Detalle a múltiples equipos estará disponible en una próxima versión de la app.",
+              "info",
+            )}
+            style={{
+              backgroundColor: "#64748b", paddingHorizontal: 10, paddingVertical: 8,
+              borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4,
+            }}
+          >
+            <MaterialIcons name="pin-drop" size={16} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Detalle</Text>
+          </TouchableOpacity>
+
+          {/* Asignar (local_shipping) — .btn-bulk-action azul (#0067b1) en la web */}
           <TouchableOpacity
             onPress={() => { setShowDropAsignar(true); setBusqDropAsignar(""); }}
             style={{
-              backgroundColor: "#3b82f6", paddingHorizontal: 16, paddingVertical: 10,
-              borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 6,
-              borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
+              backgroundColor: "#0067b1", paddingHorizontal: 10, paddingVertical: 8,
+              borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4,
+              marginLeft: "auto",
             }}
           >
-            <MaterialIcons name="swap-horiz" size={18} color="#fff" />
-            <View>
-              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>Asignar a Frente</Text>
-              <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 10 }}>{equiposSelect.length} equipo{equiposSelect.length > 1 ? "s" : ""}</Text>
-            </View>
+            <MaterialIcons name="local-shipping" size={16} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Asignar</Text>
           </TouchableOpacity>
         </View>
       )}
