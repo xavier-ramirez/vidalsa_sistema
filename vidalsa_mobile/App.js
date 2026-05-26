@@ -551,7 +551,6 @@ function MenuItem({
 // Items implementados (dashboard/equipos/movs) navegan; el resto muestra
 // "Próximamente" porque la APK trabaja sin internet y esos modulos requieren backend.
 function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
-  const { width } = Dimensions.get("window");
   const [flotaOpen, setFlotaOpen]     = useState(false);
   const [almacenOpen, setAlmacenOpen] = useState(false);
   const [configOpen, setConfigOpen]   = useState(false);
@@ -590,6 +589,10 @@ function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
   const SOON_COLOR = "#94a3b8"; // gris para items no implementados
 
   if (!visible) return null;
+  // Diseño espejo del .mobile-menu de la web (menu.css:306-327):
+  //   - Dropdown CENTRADO bajo el header, no panel deslizante lateral fullscreen.
+  //   - position fixed top, max-width 400, border-radius 16, sombra suave.
+  //   - Backdrop semitransparente que cierra al tap.
   return (
     <Modal
       visible={visible}
@@ -597,38 +600,38 @@ function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, flexDirection: "row" }}>
-        {/* Fondo oscuro al tap cierra */}
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
-          onPress={onClose}
-          activeOpacity={1}
-        />
-
-        {/* Panel deslizante */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.15)" }}
+      >
         <View
           style={{
             position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: width * 0.78,
-            backgroundColor: "#ffffff",
-            paddingTop:
-              Platform.OS === "android" ? StatusBar.currentHeight + 20 : 50,
-            elevation: 20,
+            // top: justo debajo del header (TopHeader ~56 + status bar)
+            top: (Platform.OS === "android" ? StatusBar.currentHeight : 44) + 60,
+            left: "5%",
+            right: "5%",
+            maxWidth: 400,
+            alignSelf: "center",
+            backgroundColor: "#fff",
+            borderRadius: 16,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            maxHeight: "82%",
             shadowColor: "#000",
-            shadowOffset: { width: -4, height: 0 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.18,
+            shadowRadius: 16,
+            elevation: 25,
           }}
         >
-          {/* Logo + usuario */}
+          {/* Encabezado de usuario — paralelo a .mobile-user-header-compact */}
           <View
             style={{
-              paddingHorizontal: 20,
-              paddingBottom: 16,
-              marginBottom: 4,
+              paddingHorizontal: 6,
+              paddingBottom: 14,
+              marginBottom: 6,
               borderBottomWidth: 1,
               borderBottomColor: "#f1f5f9",
             }}
@@ -839,7 +842,7 @@ function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
             </View>
           </ScrollView>
         </View>
-      </View>
+      </TouchableOpacity>
     </Modal>
   );
 }
@@ -1160,69 +1163,120 @@ function PantallaDashboard({ onOpenMenu, equiposCount }) {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <TopHeader onOpenMenu={onOpenMenu} />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        {/* HERO — espejo del .menu-hero de menu.blade.php:
+            fondo #0b1c30, título grande con acento "Equipos Operacionales"
+            y stat "Flota activa" abajo. */}
         <View
-          style={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15 }}
+          style={{
+            backgroundColor: "#0b1c30",
+            marginHorizontal: 12,
+            marginTop: 14,
+            marginBottom: 14,
+            borderRadius: 16,
+            padding: 22,
+            overflow: "hidden",
+            position: "relative",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.18,
+            shadowRadius: 18,
+            elevation: 6,
+          }}
         >
+          {/* Decoración circular sutil arriba a la derecha (paralelo al ::before web) */}
+          <View
+            style={{
+              position: "absolute",
+              right: -50,
+              top: -50,
+              width: 160,
+              height: 160,
+              borderRadius: 80,
+              backgroundColor: "rgba(0, 103, 177, 0.18)",
+            }}
+          />
           <Text
-            style={[
-              styles.dashboardTitle,
-              {
-                fontSize: 22,
-                marginTop: 0,
-                marginBottom: 5,
-                textAlign: "left",
-              },
-            ]}
+            style={{
+              color: "#fff",
+              fontSize: 26,
+              fontWeight: "900",
+              lineHeight: 30,
+              letterSpacing: -0.5,
+              marginBottom: 14,
+            }}
           >
-            Sistema de Gestión de{"\n"}Equipos Operacionales
+            Sistema de Gestión{"\n"}
+            de <Text style={{ color: "#dce1ff" }}>Equipos Operacionales</Text>
           </Text>
+
+          {/* Stat "Flota activa" — paralelo al .menu-hero-stat */}
+          <View
+            style={{
+              backgroundColor: "rgba(255,255,255,0.06)",
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <Text
+              style={{
+                color: "#94a3b8",
+                fontSize: 10,
+                fontWeight: "800",
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+                marginBottom: 4,
+              }}
+            >
+              Flota activa
+            </Text>
+            <Text
+              style={{
+                color: "#fff",
+                fontSize: 38,
+                fontWeight: "900",
+                lineHeight: 42,
+                letterSpacing: -1,
+              }}
+            >
+              {equiposCount || 0}
+            </Text>
+            <Text
+              style={{
+                color: "rgba(255,255,255,0.55)",
+                fontSize: 11,
+                fontWeight: "600",
+                marginTop: 2,
+              }}
+            >
+              Equipos en operación
+            </Text>
+          </View>
         </View>
+
+        {/* Card "Por Confirmar" — paralelo a las cards de stats secundarias */}
         <View style={styles.dashboardWidgetGroup}>
           <View style={styles.widgetPremium}>
-            <View
-              style={[styles.widgetIconBox, { backgroundColor: "#dbeafe" }]}
-            >
+            <View style={[styles.widgetIconBox, { backgroundColor: "#dbeafe" }]}>
               <Text style={{ fontSize: 24, color: "#1e3a8a" }}>🚛</Text>
             </View>
             <View style={{ marginLeft: 15, flex: 1 }}>
-              <Text
-                style={{ color: "#64748b", fontSize: 13, fontWeight: "600" }}
-              >
+              <Text style={{ color: "#64748b", fontSize: 13, fontWeight: "600" }}>
                 Por Confirmar
               </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "baseline",
-                  marginTop: 5,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 32,
-                    fontWeight: "bold",
-                    color: "#0f172a",
-                    lineHeight: 32,
-                  }}
-                >
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: 5 }}>
+                <Text style={{ fontSize: 32, fontWeight: "bold", color: "#0f172a", lineHeight: 32 }}>
                   0
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: "#94a3b8",
-                    marginLeft: 8,
-                    marginBottom: 4,
-                  }}
-                >
+                <Text style={{ fontSize: 13, color: "#94a3b8", marginLeft: 8, marginBottom: 4 }}>
                   | 0 Moviliz. Hoy
                 </Text>
               </View>
             </View>
           </View>
-
-
         </View>
       </ScrollView>
     </SafeAreaView>
