@@ -2647,13 +2647,29 @@
      El boton es siempre visible; el permiso (user.delete) se valida en JS
      y tambien en el middleware can:user.delete de la ruta. --}}
 <script>
-    window.CAN_DELETE_AUX = {{ auth()->user() && (auth()->user()->can('user.delete') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
+    // user.delete es EXCLUSIVA (Usuario::PERMISOS_EXPLICITOS): ni super.admin
+    // la hereda. Por eso aqui se pregunta SOLO la clave literal — el `|| super.admin`
+    // que tenia antes ya no tiene sentido (creaba botones que el server rechazaba).
+    window.CAN_DELETE_AUX = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};
 </script>
 <script>
 window.bulkDeleteAuxiliaresSeleccionados = function () {
+    // Permiso: el boton es siempre visible; sin la clave literal user.delete
+    // (en PERMISOS_EXPLICITOS — ni super.admin la hereda) → modal moderno "Acceso Denegado".
     if (window.CAN_DELETE_AUX === false || window.CAN_DELETE_AUX === 'false') {
-        if (window.showToast) window.showToast('No tienes permiso para eliminar auxiliares.', 'error');
-        else alert('No tienes permiso para eliminar auxiliares.');
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: 'error',
+                title: 'Acceso Denegado',
+                message: 'No tienes permiso para eliminar auxiliares. Solicita al administrador la clave "user.delete".',
+                confirmText: 'Entendido',
+                hideCancel: true,
+            });
+        } else if (window.showToast) {
+            window.showToast('No tienes permiso para eliminar auxiliares.', 'error');
+        } else {
+            alert('No tienes permiso para eliminar auxiliares.');
+        }
         return;
     }
     var ids = Object.keys(window._auxSelectedMap || {}).map(function (x) { return parseInt(x, 10); });
