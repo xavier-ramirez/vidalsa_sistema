@@ -1017,7 +1017,7 @@ window.openUbicacionBulkModal = function (event) {
             window.showModal({
                 type: 'error',
                 title: 'Selección no compatible',
-                message: 'Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección e inténtalo de nuevo.',
+                message: 'Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección.',
                 confirmText: 'Entendido',
                 hideCancel: true,
             });
