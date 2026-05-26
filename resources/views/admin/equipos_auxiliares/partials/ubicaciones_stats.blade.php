@@ -1,10 +1,10 @@
 {{-- Distribucion por DETALLE_UBICACION_ACTUAL — solo se muestra cuando el
      frente filtrado es TIPO_FRENTE=ESPECIAL. Mismo patron que /admin/equipos.
-     Click en una fila => filtra el listado por esa ubicacion (auxAdvSelect
+     Click en una fila => filtra el listado por ese detalle (auxAdvSelect
      sobre el campo detalle_ubicacion del panel avanzado). --}}
 <h4 style="margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
     <i class="material-icons" style="font-size: 18px; color: #f97316;">place</i>
-    Ubicaciones
+    Detalles
     @if($frenteEspecial ?? null)
         <span style="font-size: 10px; color: #94a3b8; font-weight: 500; text-transform: none; margin-left: auto;">
             {{ $frenteEspecial->NOMBRE_FRENTE }}

@@ -337,20 +337,20 @@
                     </h4>
                     <div style="display:flex;flex-direction:column;gap:10px;">
 
-                        {{-- Ubicación específica — solo visible cuando el frente
-                             seleccionado es TIPO_FRENTE='ESPECIAL' (patio, almacen,
-                             taller). Mismo patron que /admin/equipos: el controller
-                             ya devuelve $availableUbicaciones y $frenteEspecial. --}}
+                        {{-- Filtro "Detalle" (DETALLE_UBICACION_ACTUAL) — solo
+                             visible cuando el frente seleccionado es TIPO_FRENTE='ESPECIAL'
+                             (patio, almacen, taller). Mismo patron que /admin/equipos:
+                             el controller ya devuelve $availableUbicaciones y $frenteEspecial. --}}
                         <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">
                                 <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i>
-                                Ubicación{{ isset($frenteEspecial) && $frenteEspecial ? ' (' . mb_strtoupper($frenteEspecial->NOMBRE_FRENTE) . ')' : '' }}
+                                Detalle{{ isset($frenteEspecial) && $frenteEspecial ? ' (' . mb_strtoupper($frenteEspecial->NOMBRE_FRENTE) . ')' : '' }}
                             </span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_detalle_ubicacion" name="detalle_ubicacion" value="{{ request('detalle_ubicacion') }}">
                                 <div style="display:flex;align-items:center;background:{{ request('detalle_ubicacion') ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ request('detalle_ubicacion') ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_detalle_ubicacion">
                                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">search</i>
-                                    <input type="text" id="aux_txt_detalle_ubicacion" placeholder="Seleccionar ubicación..." value="{{ request('detalle_ubicacion') }}" autocomplete="off"
+                                    <input type="text" id="aux_txt_detalle_ubicacion" placeholder="Seleccionar detalle..." value="{{ request('detalle_ubicacion') }}" autocomplete="off"
                                            style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;text-transform:uppercase;"
                                            oninput="auxAdvFilter('detalle_ubicacion',this.value)"
                                            onfocus="auxAdvOpen('detalle_ubicacion')"
@@ -359,7 +359,7 @@
                                        onmousedown="event.preventDefault();auxAdvClear('detalle_ubicacion');cargarAuxiliares();">close</i>
                                 </div>
                                 <div id="aux_list_detalle_ubicacion" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('detalle_ubicacion','','Seleccionar ubicación...');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS UBICACIONES</div>
+                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('detalle_ubicacion','','Seleccionar detalle...');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS DETALLES</div>
                                     @if(isset($availableUbicaciones))
                                         @foreach($availableUbicaciones as $ubi)
                                             @if(trim($ubi) !== '')
@@ -643,7 +643,7 @@
             </div>
         </div>
 
-        {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — visible solo cuando el
+        {{-- Card "Detalles" (DETALLE_UBICACION_ACTUAL) — visible solo cuando el
              frente filtrado es TIPO_FRENTE='ESPECIAL'. Mismo patron que
              /admin/equipos. cargarAuxiliares (AJAX) muestra/oculta segun
              showUbicaciones del response. --}}
@@ -689,7 +689,7 @@
         </button>
         <button type="button" onclick="window.openAuxUbicacionBulkModal()" class="btn-bulk-action" style="background: #64748b;">
             <i class="material-icons" style="font-size: 18px;">pin_drop</i>
-            <span class="desktop-text">Ubicación</span>
+            <span class="desktop-text">Detalle</span>
         </button>
         <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
@@ -1167,20 +1167,20 @@
                 }
             }
 
-            // Toggle del filtro "Ubicación específica": solo se muestra cuando
-            // el frente seleccionado es TIPO_FRENTE='ESPECIAL'. Tambien
-            // refrescamos las opciones del dropdown segun el frente.
+            // Toggle del filtro "Detalle" (DETALLE_UBICACION_ACTUAL): solo se
+            // muestra cuando el frente seleccionado es TIPO_FRENTE='ESPECIAL'.
+            // Tambien refrescamos las opciones del dropdown segun el frente.
             const ubicWrap = document.getElementById('aux_adv_ubic_wrapper');
             if (ubicWrap) {
                 if (data.showUbicaciones) {
                     ubicWrap.style.display = '';
                     var labelSpan = ubicWrap.querySelector('span');
                     if (labelSpan && data.frenteEspecialNombre) {
-                        labelSpan.innerHTML = '<i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i> Ubicación (' + (String(data.frenteEspecialNombre).toUpperCase()) + ')';
+                        labelSpan.innerHTML = '<i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i> Detalle (' + (String(data.frenteEspecialNombre).toUpperCase()) + ')';
                     }
                     var listEl = document.getElementById('aux_list_detalle_ubicacion');
                     if (listEl && Array.isArray(data.availableUbicaciones)) {
-                        var optsHtml = '<div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect(\'detalle_ubicacion\',\'\',\'Seleccionar ubicación...\');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'white\'">TODAS LAS UBICACIONES</div>';
+                        var optsHtml = '<div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect(\'detalle_ubicacion\',\'\',\'Seleccionar detalle...\');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'white\'">TODOS LOS DETALLES</div>';
                         data.availableUbicaciones.forEach(function (u) {
                             if (!u || !String(u).trim()) return;
                             var safe = String(u).replace(/'/g, "\\'");
@@ -1199,7 +1199,7 @@
                 }
             }
 
-            // Card "Ubicaciones" del sidebar — paralelo al filtro de arriba.
+            // Card "Detalles" del sidebar — paralelo al filtro de arriba.
             // Mostrar/ocultar segun showUbicaciones + reemplazar contenido
             // con el HTML pre-renderizado del backend.
             var ubicCard = document.getElementById('auxUbicacionesStatsCard');
@@ -1373,7 +1373,7 @@
         if (event) { event.preventDefault(); event.stopPropagation(); }
 
         if (window.CAN_ASSIGN_AUX === false || window.CAN_ASSIGN_AUX === 'false') {
-            if (window.showToast) window.showToast('No tienes permiso para actualizar ubicaciones.', 'error');
+            if (window.showToast) window.showToast('No tienes permiso para actualizar detalles.', 'error');
             return;
         }
 
@@ -1427,7 +1427,7 @@
                 <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
                     <div style="display:flex;align-items:center;gap:10px;">
                         <i class="material-icons" style="color:#0284c7;font-size:20px;">pin_drop</i>
-                        <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Ubicación</h2>
+                        <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Detalle</h2>
                     </div>
                     <button type="button" id="auxUb-close" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
                         <i class="material-icons">close</i>
@@ -1454,12 +1454,12 @@
                         </div>
                         <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
                             Indica la zona, patio, almacén o fila exacta dentro del frente.
-                            ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar la ubicación actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los auxiliares seleccionados tienen ubicaciones distintas.</span>' : '')}
+                            ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los auxiliares seleccionados tienen detalles distintos.</span>' : '')}
                         </small>
                     </div>
                     <div id="auxUb-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
                     <button type="button" id="auxUb-submit" style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.2s;">
-                        <i class="material-icons">check_circle</i> Aplicar Ubicación
+                        <i class="material-icons">check_circle</i> Aplicar Detalle
                     </button>
                 </div>
             </div>
@@ -1502,13 +1502,13 @@
                 if (typeof window.showModal === 'function') {
                     window.showModal({
                         type: 'warning',
-                        title: 'Borrar Ubicación',
-                        message: 'El campo está vacío. ¿Deseas eliminar la ubicación actual ("' + valorPrevioComun + '") de ' + ids.length + ' auxiliar(es)?',
+                        title: 'Borrar Detalle',
+                        message: 'El campo está vacío. ¿Deseas eliminar el detalle actual ("' + valorPrevioComun + '") de ' + ids.length + ' auxiliar(es)?',
                         confirmText: 'Sí, borrar',
                         cancelText: 'Cancelar',
                         onConfirm: () => _enviarUbicacion(''),
                     });
-                } else if (confirm('El campo está vacío. ¿Borrar la ubicación actual de ' + ids.length + ' auxiliar(es)?')) {
+                } else if (confirm('El campo está vacío. ¿Borrar el detalle actual de ' + ids.length + ' auxiliar(es)?')) {
                     _enviarUbicacion('');
                 }
                 return;
@@ -1517,7 +1517,7 @@
             // Caso 2: campo vacío + sin valor previo → nada que guardar
             if (!valor && !valorPrevioComun) {
                 if (typeof window.showToast === 'function') {
-                    window.showToast('Escribe una ubicación o cierra el modal sin cambios.', 'info');
+                    window.showToast('Escribe un detalle o cierra el modal sin cambios.', 'info');
                 }
                 input.focus();
                 return;
@@ -1564,8 +1564,8 @@
                     await window.cargarAuxiliares();
                 }
                 const toastMsg = valorFinal
-                    ? 'Ubicación actualizada en ' + (data.count || ids.length) + ' auxiliar(es).'
-                    : 'Ubicación borrada en ' + (data.count || ids.length) + ' auxiliar(es).';
+                    ? 'Detalle actualizado en ' + (data.count || ids.length) + ' auxiliar(es).'
+                    : 'Detalle borrado en ' + (data.count || ids.length) + ' auxiliar(es).';
                 if (typeof window.showToast === 'function') window.showToast(toastMsg, 'success');
             } catch (err) {
                 console.error('[Aux Ubicacion bulk]', err);
