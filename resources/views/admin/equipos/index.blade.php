@@ -742,7 +742,7 @@
             <span class="desktop-text">Desanclar</span>
         </button>
         <button type="button" id="btnUbicacion" onclick="openUbicacionBulkModal(event)" class="btn-bulk-action" style="background: #64748b;">
-            <i class="material-icons" style="font-size: 18px;">pin_drop</i>
+            <i class="material-icons" style="font-size: 18px;">description</i>
             <span class="desktop-text">Detalle</span>
         </button>
         <button type="button" onclick="openBulkModal(event)" class="btn-bulk-action">

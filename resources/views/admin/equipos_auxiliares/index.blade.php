@@ -688,7 +688,7 @@
             <span class="desktop-text">Anclar</span>
         </button>
         <button type="button" onclick="window.openAuxUbicacionBulkModal()" class="btn-bulk-action" style="background: #64748b;">
-            <i class="material-icons" style="font-size: 18px;">pin_drop</i>
+            <i class="material-icons" style="font-size: 18px;">description</i>
             <span class="desktop-text">Detalle</span>
         </button>
         <button type="button" onclick="window.openAuxMovilizarModal()" class="btn-bulk-action">
@@ -1426,7 +1426,7 @@
             <div style="background:white;width:100%;max-width:440px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;animation:auxUbBulkIn 0.22s cubic-bezier(0.16,1,0.3,1);">
                 <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <i class="material-icons" style="color:#0284c7;font-size:20px;">pin_drop</i>
+                        <i class="material-icons" style="color:#0284c7;font-size:20px;">description</i>
                         <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Detalle</h2>
                     </div>
                     <button type="button" id="auxUb-close" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">

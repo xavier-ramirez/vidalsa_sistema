@@ -18,7 +18,9 @@ class EquipoController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth')->except(['mobileIndex']);
+        // mobileIndex y mobileChangeStatus se invocan via routes/api.php con
+        // guard sanctum — no pasan por el middleware 'auth' web del constructor.
+        $this->middleware('auth')->except(['mobileIndex', 'mobileChangeStatus']);
         // Registro uno a uno + carga masiva via Excel: requieren 'equipos.create'.
         // Gate::before resuelve super.admin.
         $this->middleware('can:equipos.create')->only(['store', 'bulkTemplate', 'bulkPreview', 'bulkStoreBatch']);
@@ -1860,6 +1862,28 @@ class EquipoController extends Controller
         // registrar() manual aqui generaba eventos duplicados en el historial.
 
         return response()->json(['success' => true, 'message' => 'Estatus actualizado.']);
+    }
+
+    /**
+     * Cambio de estado operativo desde la APK móvil (Sanctum).
+     *
+     * Mismo flujo que changeStatus pero accesible desde routes/api.php sin pasar
+     * por el middleware 'auth' web del constructor (la APK autentica con token
+     * Bearer Sanctum). El permiso 'equipos.edit' lo aplica la ruta misma.
+     *
+     * Disparado por el sincronizador del outbox SQLite cuando el usuario tocó
+     * el chip de estado de un equipo en modo offline.
+     */
+    public function mobileChangeStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
+        ]);
+        $equipo = \App\Models\Equipo::findOrFail($id);
+        $equipo->ESTADO_OPERATIVO = $request->input('status');
+        $equipo->save();
+
+        return response()->json(['success' => true, 'estado' => $equipo->ESTADO_OPERATIVO]);
     }
 
 

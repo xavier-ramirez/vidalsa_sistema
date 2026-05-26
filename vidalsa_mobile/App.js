@@ -443,6 +443,34 @@ async function guardarMovPendiente(datos) {
   );
 }
 
+/**
+ * Cambia el estado operativo de un equipo en modo offline:
+ *  1. Actualiza la fila de `equipos` en SQLite (refleja el cambio en la UI).
+ *  2. Guarda un pendiente en `movilizaciones_pendientes` con tipo_mov="cambio_estado"
+ *     reutilizando el campo `detalle_ubi` para almacenar el nuevo estado.
+ *     Cuando hay conexión, el sincronizador hace POST /api/mobile/equipos/{id}/status.
+ */
+async function cambiarEstadoLocal(id_equipo, nuevoEstado) {
+  const database = await getDb();
+  await database.runAsync(
+    "UPDATE equipos SET estado = ? WHERE id_equipo = ?",
+    [nuevoEstado, id_equipo],
+  );
+  await database.runAsync(
+    `INSERT INTO movilizaciones_pendientes
+      (tipo_mov, id_equipo, id_frente_dest, detalle_ubi, ids_equipos, creado_en)
+     VALUES (?,?,?,?,?,?)`,
+    [
+      "cambio_estado",
+      id_equipo,
+      null,
+      nuevoEstado, // reuso del campo detalle_ubi para guardar el estado nuevo
+      "",
+      new Date().toISOString(),
+    ],
+  );
+}
+
 // Leer pendientes sin sincronizar
 async function leerPendientes() {
   const database = await getDb();
@@ -2544,7 +2572,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
             <Text style={{ color: "#94a3b8", fontWeight: "700", fontSize: 12 }}>Limpiar</Text>
           </TouchableOpacity>
 
-          {/* Detalle (pin_drop) — .btn-bulk-action #64748b. Próximamente offline. */}
+          {/* Detalle (description) — .btn-bulk-action #64748b. Próximamente offline. */}
           <TouchableOpacity
             onPress={() => showModernAlert(
               "Próximamente",
@@ -2556,7 +2584,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
               borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4,
             }}
           >
-            <MaterialIcons name="pin-drop" size={16} color="#fff" />
+            <MaterialIcons name="description" size={16} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Detalle</Text>
           </TouchableOpacity>
 
@@ -2655,8 +2683,9 @@ function PantallaEquipos({ user, onOpenMenu }) {
 
       {/* ── MODAL CAMBIAR ESTADO OPERATIVO ──
           Espejo del dropdown inline #estado-{id} de la web. Al elegir un estado
-          aparece el toast "Próximamente" porque la APK aún no tiene flujo offline
-          de cambio de estatus (requiere endpoint + cola de sincronización). */}
+          se actualiza SQLite local (refleja el cambio en la lista) y se guarda
+          un pendiente que el sincronizador (PantallaMovilizaciones) envía al
+          servidor cuando hay conexión: POST /api/mobile/equipos/{id}/status. */}
       <Modal visible={!!equipoEstadoEdit} transparent animationType="fade" onRequestClose={() => setEquipoEstadoEdit(null)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 16, overflow: "hidden" }}>
@@ -2678,18 +2707,33 @@ function PantallaEquipos({ user, onOpenMenu }) {
                 return (
                   <TouchableOpacity
                     key={key}
-                    onPress={() => {
+                    onPress={async () => {
+                      const eq = equipoEstadoEdit;
                       setEquipoEstadoEdit(null);
-                      if (isActual) return; // no anunciar "Próximamente" si es el mismo
-                      setTimeout(
-                        () =>
-                          showModernAlert(
-                            "Próximamente",
-                            `El cambio de estado a "${val.label}" requiere conexión y estará disponible en una próxima versión.`,
-                            "info",
-                          ),
-                        200,
-                      );
+                      if (!eq || isActual) return;
+                      try {
+                        await cambiarEstadoLocal(eq.id_equipo, key);
+                        await cargar(); // refresca la lista
+                        setTimeout(
+                          () =>
+                            showModernAlert(
+                              "Estado actualizado",
+                              `Cambiado a "${val.label}". Se sincronizará cuando haya conexión.`,
+                              "success",
+                            ),
+                          200,
+                        );
+                      } catch (err) {
+                        setTimeout(
+                          () =>
+                            showModernAlert(
+                              "Error",
+                              "No se pudo guardar el cambio de estado: " + (err.message || ""),
+                              "error",
+                            ),
+                          200,
+                        );
+                      }
                     }}
                     style={{
                       flexDirection: "row",
@@ -3826,7 +3870,12 @@ function PantallaMovilizaciones({ user, onOpenMenu }) {
     try {
       for (const p of pendientes) {
         try {
-          if (p.tipo_mov === "despacho") {
+          if (p.tipo_mov === "cambio_estado") {
+            // detalle_ubi guarda el nuevo estado (ver cambiarEstadoLocal)
+            await api("POST", `/equipos/${p.id_equipo}/status`, {
+              status: p.detalle_ubi,
+            });
+          } else if (p.tipo_mov === "despacho") {
             await api("POST", "/movilizaciones", {
               tipo: "despacho",
               ID_EQUIPO: p.id_equipo,

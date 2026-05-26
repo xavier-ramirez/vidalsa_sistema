@@ -27,4 +27,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get( '/mobile/movilizaciones', [MovilizacionController::class, 'mobileIndex']);
     Route::post('/mobile/movilizaciones', [MovilizacionController::class, 'mobileStore'])
         ->middleware('can:equipos.create');
+    // Cambio de estado operativo desde la APK (sincronizacion de outbox).
+    // Mismo permiso que el dropdown inline del web: equipos.edit.
+    Route::post('/mobile/equipos/{id}/status', [EquipoController::class, 'mobileChangeStatus'])
+        ->middleware('can:equipos.edit');
 });
