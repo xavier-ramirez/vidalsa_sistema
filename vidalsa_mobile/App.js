@@ -2366,36 +2366,51 @@ function PantallaEquipos({ user, onOpenMenu }) {
           )}
         </View>
 
-        {/* CONSOLIDADO DE EQUIPOS — barra azul oscura igual que la web */}
+        {/* CONSOLIDADO DE EQUIPOS — espejo del .equipos-mobile-stats de la web:
+            título arriba en su propia línea, chips (TOTAL/Inoperativos/Mantenimiento)
+            abajo. Antes era todo flex-row con wrap → el título quedaba a la izquierda
+            del primer chip en pantallas anchas. */}
         <View
           style={{
             backgroundColor: "#1e293b",
             borderRadius: 10,
             paddingHorizontal: 12,
             paddingVertical: 9,
-            flexDirection: "row",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 8,
+            flexDirection: "column",
+            gap: 6,
           }}
         >
-          <MaterialIcons
-            name="pie-chart"
-            size={13}
-            color="rgba(255,255,255,0.65)"
-          />
-          <Text
+          {/* Título: icono + "Consolidado de Equipos" en su propia fila */}
+          <View
+            style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
+          >
+            <MaterialIcons
+              name="pie-chart"
+              size={13}
+              color="rgba(255,255,255,0.75)"
+            />
+            <Text
+              style={{
+                fontSize: 10,
+                fontWeight: "800",
+                color: "rgba(255,255,255,0.75)",
+                textTransform: "uppercase",
+                letterSpacing: 1,
+              }}
+            >
+              Consolidado de Equipos
+            </Text>
+          </View>
+
+          {/* Chips de estado en una segunda fila — mismo orden que la web */}
+          <View
             style={{
-              fontSize: 9,
-              fontWeight: "800",
-              color: "rgba(255,255,255,0.65)",
-              textTransform: "uppercase",
-              letterSpacing: 1,
-              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
-            Consolidado de Equipos
-          </Text>
           {/* TOTAL */}
           <TouchableOpacity
             onPress={() => setFiltroEstado("")}
@@ -2491,7 +2506,8 @@ function PantallaEquipos({ user, onOpenMenu }) {
               {stats.mantenimiento}
             </Text>
           </TouchableOpacity>
-        </View>
+          </View>{/* cierra wrapper de chips */}
+        </View>{/* cierra View Consolidado */}
       </View>
     </View>
   );
