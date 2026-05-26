@@ -1277,6 +1277,10 @@ function PantallaEquipos({ user, onOpenMenu }) {
   // Equipo cuyo estado operativo se esta editando desde el chip de la tarjeta;
   // null = modal cerrado. Espejo del dropdown inline de cambio de estatus de la web.
   const [equipoEstadoEdit, setEquipoEstadoEdit] = useState(null);
+  // Acordeón abierto en el modal de detalles: "docs" | "info" | null.
+  // Espejo del <details name="equipment_accordion"> de la web: al abrir uno,
+  // el otro se cierra automáticamente.
+  const [detalleAcordeon, setDetalleAcordeon] = useState("docs");
   const [stats, setStats] = useState({
     total: 0,
     inoperativos: 0,
@@ -1312,6 +1316,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
   // ── VER DETALLES DE EQUIPO ──
   const handleVerDetalles = (item) => {
     setEquipoSel(item);
+    setDetalleAcordeon("docs"); // siempre arrancar con Documentación abierta
     setModalVisible(true);
   };
 
@@ -1518,10 +1523,9 @@ function PantallaEquipos({ user, onOpenMenu }) {
         delayLongPress={250}
         onLongPress={() => toggleSelectEquipo(item)}
         onPress={() => {
+          // Tap normal: solo selecciona/deselecciona si hay seleccion activa.
+          // El modal de detalles SOLO se abre desde el boton "ojo" (handleVerDetalles).
           if (equiposSelect.length > 0) toggleSelectEquipo(item);
-          else {
-            handleVerDetalles(item);
-          }
         }}
         style={[
           styles.equipoCard,
@@ -2250,129 +2254,11 @@ function PantallaEquipos({ user, onOpenMenu }) {
             <MaterialIcons name="expand-more" size={20} color="#fff" />
           </TouchableOpacity>
 
-          {menuAccionesVisible && (
-            <View
-              style={{
-                position: "absolute",
-                top: 52,
-                right: 0,
-                width: 220,
-                backgroundColor: "#fff",
-                borderRadius: 12,
-                padding: 8,
-                zIndex: 200,
-                elevation: 15,
-                shadowColor: "#000",
-                shadowOpacity: 0.15,
-                shadowRadius: 10,
-                shadowOffset: { height: 5, width: 0 },
-                borderWidth: 1,
-                borderColor: "#e2e8f0",
-              }}
-            >
-              <TouchableOpacity
-                onPress={() => {
-                  setMenuAccionesVisible(false);
-                  setModalDashboardVisible(true);
-                }}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  padding: 10,
-                  borderRadius: 8,
-                  marginBottom: 4,
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: "#eff6ff",
-                    padding: 6,
-                    borderRadius: 6,
-                    marginRight: 10,
-                  }}
-                >
-                  <MaterialIcons name="poll" size={18} color="#3b82f6" />
-                </View>
-                <Text
-                  style={{ fontSize: 13, fontWeight: "500", color: "#475569" }}
-                >
-                  Dashboard de Flota
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setMenuAccionesVisible(false);
-                  setModalAnclajesVisible(true);
-                }}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  padding: 10,
-                  borderRadius: 8,
-                  marginBottom: 4,
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: "#f0fdfa",
-                    padding: 6,
-                    borderRadius: 6,
-                    marginRight: 10,
-                  }}
-                >
-                  <MaterialIcons name="link" size={18} color="#0d9488" />
-                </View>
-                <Text
-                  style={{ fontSize: 13, fontWeight: "500", color: "#475569" }}
-                >
-                  Configurar Anclajes
-                </Text>
-              </TouchableOpacity>
-
-              <View
-                style={{
-                  height: 1,
-                  backgroundColor: "#f1f5f9",
-                  marginVertical: 4,
-                }}
-              />
-
-              <TouchableOpacity
-                onPress={() => {
-                  setMenuAccionesVisible(false);
-                  setModalSubActivosVisible(true);
-                }}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  padding: 10,
-                  borderRadius: 8,
-                  marginBottom: 4,
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: "#fffbeb",
-                    padding: 6,
-                    borderRadius: 6,
-                    marginRight: 10,
-                  }}
-                >
-                  <MaterialIcons
-                    name="construction"
-                    size={18}
-                    color="#d97706"
-                  />
-                </View>
-                <Text
-                  style={{ fontSize: 13, fontWeight: "500", color: "#475569" }}
-                >
-                  Sub-activos
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* El dropdown del menú Acciones se renderiza como <Modal> al final
+              de la pantalla — antes era un <View absolute> dentro del header
+              del FlatList y las cards quedaban por encima (cada item del
+              FlatList crea su propio stacking context que ignoraba elevation
+              del header). Ver "MODAL MENU ACCIONES" más abajo. */}
         </View>
 
         {/* CONSOLIDADO DE EQUIPOS — espejo del .equipos-mobile-stats de la web:
@@ -2635,6 +2521,84 @@ function PantallaEquipos({ user, onOpenMenu }) {
         </View>
       )}
 
+      {/* ── MODAL MENU ACCIONES ──
+          Renderizado como <Modal> a nivel raíz para garantizar que aparezca
+          por encima de las cards del FlatList. El backdrop transparente
+          cierra al tap fuera. La posición simula un dropdown anclado al
+          botón "Acciones" del header (top ~ statusBar + header + filtros). */}
+      <Modal
+        visible={menuAccionesVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuAccionesVisible(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setMenuAccionesVisible(false)}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.15)" }}
+        >
+          <View
+            style={{
+              position: "absolute",
+              top: (Platform.OS === "android" ? StatusBar.currentHeight + 56 : 100) + 70,
+              right: 12,
+              width: 220,
+              backgroundColor: "#fff",
+              borderRadius: 12,
+              padding: 8,
+              elevation: 30,
+              shadowColor: "#000",
+              shadowOpacity: 0.18,
+              shadowRadius: 12,
+              shadowOffset: { height: 6, width: 0 },
+              borderWidth: 1,
+              borderColor: "#e2e8f0",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setMenuAccionesVisible(false);
+                setModalDashboardVisible(true);
+              }}
+              style={{ flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, marginBottom: 4 }}
+            >
+              <View style={{ backgroundColor: "#eff6ff", padding: 6, borderRadius: 6, marginRight: 10 }}>
+                <MaterialIcons name="poll" size={18} color="#3b82f6" />
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: "500", color: "#475569" }}>Dashboard de Flota</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setMenuAccionesVisible(false);
+                setModalAnclajesVisible(true);
+              }}
+              style={{ flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, marginBottom: 4 }}
+            >
+              <View style={{ backgroundColor: "#f0fdfa", padding: 6, borderRadius: 6, marginRight: 10 }}>
+                <MaterialIcons name="link" size={18} color="#0d9488" />
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: "500", color: "#475569" }}>Configurar Anclajes</Text>
+            </TouchableOpacity>
+
+            <View style={{ height: 1, backgroundColor: "#f1f5f9", marginVertical: 4 }} />
+
+            <TouchableOpacity
+              onPress={() => {
+                setMenuAccionesVisible(false);
+                setModalSubActivosVisible(true);
+              }}
+              style={{ flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, marginBottom: 4 }}
+            >
+              <View style={{ backgroundColor: "#fffbeb", padding: 6, borderRadius: 6, marginRight: 10 }}>
+                <MaterialIcons name="construction" size={18} color="#d97706" />
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: "500", color: "#475569" }}>Sub-activos</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* ── MODAL CAMBIAR ESTADO OPERATIVO ──
           Espejo del dropdown inline #estado-{id} de la web. Al elegir un estado
           aparece el toast "Próximamente" porque la APK aún no tiene flujo offline
@@ -2864,7 +2828,8 @@ function PantallaEquipos({ user, onOpenMenu }) {
                 >
                   <AccordionSection
                     title="📄 Documentación Legal y Soportes"
-                    initialOpen={true}
+                    open={detalleAcordeon === "docs"}
+                    onToggle={(v) => setDetalleAcordeon(v ? "docs" : null)}
                   >
                     <DetalleRow
                       label="Titular del Registro"
@@ -2970,43 +2935,24 @@ function PantallaEquipos({ user, onOpenMenu }) {
 
                   <AccordionSection
                     title="ℹ️ Información General"
-                    initialOpen={false}
+                    open={detalleAcordeon === "info"}
+                    onToggle={(v) => setDetalleAcordeon(v ? "info" : null)}
                   >
-                    <DetalleRow label="Tipo" valor={equipoSel.tipo} />
-                    <DetalleRow label="Marca" valor={equipoSel.marca} />
-                    <DetalleRow label="Modelo" valor={equipoSel.modelo} />
-                    <DetalleRow label="Año" valor={equipoSel.anio} />
-                    <DetalleRow label="Categoría" valor={equipoSel.categoria} />
-                    <DetalleRow
-                      label="Frente"
-                      valor={equipoSel.frente || "Sin Asignar"}
-                    />
-                    <DetalleRow
-                      label="Detalle Ubic."
-                      valor={equipoSel.detalle_ubi}
-                    />
-                    <DetalleRow
-                      label="Código / ID"
-                      valor={equipoSel.codigo_patio}
-                    />
-                    <DetalleRow
-                      label="Nº Etiqueta"
-                      valor={equipoSel.nro_etiqueta}
-                    />
-                    <DetalleRow
-                      label="Serial Motor"
-                      valor={equipoSel.serial_motor}
-                    />
+                    {/* Espejo de la sección "Información General" de la web
+                        (equipment_details_modal.blade.php). Sólo se muestran
+                        Año y Categoría — Tipo/Marca/Modelo/Serial/Código ya
+                        salen en el header del modal y en la tarjeta del
+                        listado, así que repetirlos era redundante. Combustible
+                        y Consumo (que la web sí muestra) requieren joins que
+                        no están disponibles offline en SQLite. */}
+                    <DetalleRow label="Año de Fabricación" valor={equipoSel.anio} />
+                    <DetalleRow label="Categoría de Flota" valor={equipoSel.categoria} />
                   </AccordionSection>
                 </ScrollView>
               </>
             )}
-            <TouchableOpacity
-              style={[styles.btnPrimary, { margin: 16, marginTop: 4 }]}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.btnPrimaryText}>Cerrar</Text>
-            </TouchableOpacity>
+            {/* Botón "Cerrar" de pie removido por petición del cliente — la X
+                del header del modal ya cumple esa función. */}
           </View>
         </View>
       </Modal>
@@ -3612,8 +3558,21 @@ function PantallaEquipos({ user, onOpenMenu }) {
 }
 
 // ─── COMPONENTE ACORDEÓN ──────────────────────────────────────────────────────
-function AccordionSection({ title, children, initialOpen = false }) {
-  const [open, setOpen] = useState(initialOpen);
+// AccordionSection soporta 2 modos:
+//   - uncontrolled: usa el estado interno (initialOpen). Cada acordeón abre/cierra
+//     independientemente — comportamiento default.
+//   - controlled: si se pasa `open` + `onToggle`, el padre decide. Permite el
+//     patrón "abrir uno cierra el otro" que usa el modal de detalles de equipos
+//     (espejo del <details name="equipment_accordion"> de la web).
+function AccordionSection({ title, children, initialOpen = false, open: openProp, onToggle }) {
+  const [internalOpen, setInternalOpen] = useState(initialOpen);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const handleToggle = () => {
+    const next = !open;
+    if (onToggle) onToggle(next);
+    if (!isControlled) setInternalOpen(next);
+  };
   return (
     <View
       style={{
@@ -3626,7 +3585,7 @@ function AccordionSection({ title, children, initialOpen = false }) {
       }}
     >
       <TouchableOpacity
-        onPress={() => setOpen(!open)}
+        onPress={handleToggle}
         style={{
           flexDirection: "row",
           alignItems: "center",
