@@ -556,16 +556,21 @@
                     <span style="font-size: 14px; font-weight: 500;">Catálogo de Modelos</span>
                 </a>
 
-                {{-- Eliminar Seleccionados — siempre visible. La validacion del
-                     permiso (user.delete) la hace JS al click. La eliminacion
-                     queda registrada en /admin/historial-documentos via
-                     auditoria de soft-delete (deleted_by + deleted_at). --}}
+                {{-- Eliminar Seleccionados — visible SOLO con el permiso literal
+                     `user.delete` (esta en Usuario::PERMISOS_EXPLICITOS, asi que
+                     ni siquiera super.admin lo hereda). El JS al click hace una
+                     segunda validacion contra window.CAN_DELETE_EQUIPOS y la
+                     ruta exige el middleware can:user.delete — defensa en capas.
+                     La eliminacion queda registrada en /admin/historial-documentos
+                     via auditoria de soft-delete (deleted_by + deleted_at). --}}
+                @can('user.delete')
                 <button type="button" onclick="window.bulkDeleteEquiposSeleccionados()" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent; border: none; width: 100%; text-align: left;">
                     <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
                         <i class="material-icons" style="font-size: 18px; color: #dc2626;">delete_outline</i>
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Eliminar Seleccionados</span>
                 </button>
+                @endcan
 
                 <!-- Nuevo -->
                 <a href="javascript:void(0)" onclick="handleCreateCheck(event)" class="dropdown-item-custom" style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s;">
@@ -1497,13 +1502,13 @@
      la validacion del permiso (user.delete) la hace JS al click. La
      ruta tambien valida via middleware can:user.delete (defensa en capas).
 
-     IMPORTANTE — esta accion NO depende del rol del usuario, sino de
-     la clave `user.delete` en la columna PERMISOS. Los `super.admin`
-     pasan automaticamente porque el Gate::before global (ver
-     AppServiceProvider) concede toda ability que NO este en
-     Usuario::PERMISOS_EXPLICITOS, y `user.delete` no esta excluida.
-     Por eso aqui basta con preguntar `can('user.delete')` — no hay
-     que listar `super.admin` aparte.
+     IMPORTANTE — esta accion NO depende del rol del usuario, NI siquiera
+     del super.admin. Exige la clave LITERAL `user.delete` en la columna
+     PERMISOS porque esta listada en `Usuario::PERMISOS_EXPLICITOS` (junto
+     con las claves de almacen). El Gate::before global respeta esa lista
+     y NO concede `user.delete` a super.admin automaticamente — un
+     super.admin que deba eliminar equipos necesita la clave literal
+     en su PERMISOS. Por eso aqui basta con preguntar `can('user.delete')`.
      ═══════════════════════════════════════════════════════════ --}}
 <script>
     window.CAN_DELETE_EQUIPOS = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};

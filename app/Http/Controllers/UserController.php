@@ -135,6 +135,9 @@ class UserController extends Controller
         return [
             'user.create'         => 'Registrar Usuarios',
             'user.edit'           => 'Actualizar Información',
+            // user.delete es EXCLUSIVA (PERMISOS_EXPLICITOS): ni super.admin
+            // la hereda. Borra equipos via soft-delete (bulkDelete) y abre
+            // las papeleras en /admin/historial-documentos.
             'user.delete'         => 'Eliminar Equipos',
             'equipos.create'      => 'Registrar Equipos',
             'equipos.edit'        => 'Actualizar Equipos',

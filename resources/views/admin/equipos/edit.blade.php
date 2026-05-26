@@ -3,7 +3,7 @@
 @section('title', 'Editar Equipo')
 
 @section('content')
-<section class="page-title-card">
+<section class="page-title-card" style="max-width: 95%; margin: 0 auto;">
     <h1 class="page-title">
         <span class="page-title-line2" style="color: #000;">Edición de Equipo</span>
     </h1>
