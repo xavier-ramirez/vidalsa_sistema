@@ -1010,19 +1010,13 @@ window.openUbicacionBulkModal = function (event) {
     }
 
     // Validar mismo frente: la ubicacion especifica solo tiene sentido dentro
-    // de un frente concreto. Si hay mezcla, rechazamos con un mensaje claro.
+    // de un frente concreto. Si hay mezcla → toast moderno (sin modal bloqueante).
     const frentesUnicos = [...new Set(selections.map(s => s.frenteId || ''))];
     if (frentesUnicos.length > 1 || frentesUnicos[0] === '') {
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'error',
-                title: 'Selección no compatible',
-                message: 'Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección.',
-                confirmText: 'Entendido',
-                hideCancel: true,
-            });
-        } else if (typeof window.showToast === 'function') {
-            window.showToast('Todos los equipos deben estar en el mismo frente.', 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección.', 'error');
+        } else {
+            alert('Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección.');
         }
         return;
     }

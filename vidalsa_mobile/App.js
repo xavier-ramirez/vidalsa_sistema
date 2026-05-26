@@ -1274,6 +1274,9 @@ function PantallaEquipos({ user, onOpenMenu }) {
   const [filtroEstado, setFiltroEstado] = useState("");
   const [equipoSel, setEquipoSel] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  // Equipo cuyo estado operativo se esta editando desde el chip de la tarjeta;
+  // null = modal cerrado. Espejo del dropdown inline de cambio de estatus de la web.
+  const [equipoEstadoEdit, setEquipoEstadoEdit] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     inoperativos: 0,
@@ -1648,7 +1651,13 @@ function PantallaEquipos({ user, onOpenMenu }) {
             gap: 10,
           }}
         >
-          <View
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={(e) => {
+              // Evita disparar onPress del card (handleVerDetalles / toggleSelect).
+              if (e && e.stopPropagation) e.stopPropagation();
+              setEquipoEstadoEdit(item);
+            }}
             style={{
               flex: 1,
               flexDirection: "row",
@@ -1674,7 +1683,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
               {est.label}
             </Text>
             <MaterialIcons name="expand-more" size={18} color="#94a3b8" />
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={{
               backgroundColor: "#00004d",
@@ -1735,7 +1744,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
           ]}
         >
           <MaterialIcons
-            name="business"
+            name="search"
             size={18}
             color={filtroFrente ? "#0067b1" : "#94a3b8"}
             style={{ marginRight: 6 }}
@@ -1763,7 +1772,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
           ]}
         >
           <MaterialIcons
-            name="agriculture"
+            name="search"
             size={18}
             color={filtroTipo ? "#0067b1" : "#94a3b8"}
             style={{ marginRight: 6 }}
@@ -2625,6 +2634,70 @@ function PantallaEquipos({ user, onOpenMenu }) {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* ── MODAL CAMBIAR ESTADO OPERATIVO ──
+          Espejo del dropdown inline #estado-{id} de la web. Al elegir un estado
+          aparece el toast "Próximamente" porque la APK aún no tiene flujo offline
+          de cambio de estatus (requiere endpoint + cola de sincronización). */}
+      <Modal visible={!!equipoEstadoEdit} transparent animationType="fade" onRequestClose={() => setEquipoEstadoEdit(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 20 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 16, overflow: "hidden" }}>
+            <View style={{ backgroundColor: "#1e293b", padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <MaterialIcons name="bolt" size={20} color="#fbbf24" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Cambiar Estado</Text>
+                <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }} numberOfLines={1}>
+                  {equipoEstadoEdit?.codigo_patio || equipoEstadoEdit?.placa || `Equipo #${equipoEstadoEdit?.id_equipo ?? ""}`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setEquipoEstadoEdit(null)}>
+                <MaterialIcons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 10, gap: 6 }}>
+              {Object.entries(estadoMap).map(([key, val]) => {
+                const isActual = equipoEstadoEdit?.estado === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    onPress={() => {
+                      setEquipoEstadoEdit(null);
+                      if (isActual) return; // no anunciar "Próximamente" si es el mismo
+                      setTimeout(
+                        () =>
+                          showModernAlert(
+                            "Próximamente",
+                            `El cambio de estado a "${val.label}" requiere conexión y estará disponible en una próxima versión.`,
+                            "info",
+                          ),
+                        200,
+                      );
+                    }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: 12,
+                      borderRadius: 10,
+                      backgroundColor: isActual ? `${val.color}15` : "#f8fafc",
+                      borderWidth: 1,
+                      borderColor: isActual ? val.color : "#e2e8f0",
+                    }}
+                  >
+                    <MaterialIcons name={val.icon} size={20} color={val.color} />
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: "700", color: "#1e293b" }}>
+                      {val.label}
+                    </Text>
+                    {isActual && (
+                      <MaterialIcons name="check" size={18} color={val.color} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── MODAL ASIGNAR A FRENTE ── */}
       <Modal visible={showDropAsignar} transparent animationType="fade" onRequestClose={() => setShowDropAsignar(false)}>
