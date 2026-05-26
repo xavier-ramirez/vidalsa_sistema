@@ -1,36 +1,27 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
+/**
+ * NO-OP intencional — duplicado exacto de
+ * `2026_01_13_184425_make_documentation_fields_nullable.php` (mismas 5 columnas
+ * de `documentacion` puestas como nullable). Se conserva el archivo en disco
+ * para no romper `migrate:status` en BDs ya migradas que tienen este nombre
+ * registrado en la tabla `migrations`. Borrarlo causaría:
+ *   - `migrate:status` reportaría "Migration not found" para entradas viejas.
+ *   - `migrate:rollback` fallaría al intentar resolver la clase.
+ *
+ * Sólo se vacían `up()` / `down()` — efecto neto cero. Idempotente.
+ */
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('documentacion', function (Blueprint $table) {
-            $table->string('NRO_DE_DOCUMENTO', 100)->nullable()->change();
-            $table->string('NOMBRE_DEL_TITULAR', 150)->nullable()->change();
-            $table->unsignedBigInteger('ID_SEGURO')->nullable()->change();
-            $table->string('ESTADO_POLIZA', 50)->nullable()->change();
-            $table->date('FECHA_VENC_POLIZA')->nullable()->change();
-        });
+        // intencionalmente vacío — ver cabecera
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('documentacion', function (Blueprint $table) {
-            $table->string('NRO_DE_DOCUMENTO', 100)->nullable(false)->change();
-            $table->string('NOMBRE_DEL_TITULAR', 150)->nullable(false)->change();
-            $table->unsignedBigInteger('ID_SEGURO')->nullable(false)->change();
-            $table->string('ESTADO_POLIZA', 50)->nullable(false)->change();
-            $table->date('FECHA_VENC_POLIZA')->nullable(false)->change();
-        });
+        // intencionalmente vacío — ver cabecera
     }
 };

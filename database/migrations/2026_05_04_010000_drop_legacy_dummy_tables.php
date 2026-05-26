@@ -7,11 +7,17 @@ return new class extends Migration {
     /**
      * Limpia tablas dummy heredadas de migraciones de prueba antiguas:
      *   - test_table   (creada por 2026_01_07_000000_create_test_table.php)
-     *   - ignored      (creada por 2026_02_16_002517_adjust_frentes_and_movilizaciones_for_simple_subdivisions.php)
+     *   - ignored      (creada por 2026_02_16_002517_adjust_frentes_and_movilizaciones_for_simple_subdivisions.php
+     *                  en su version anterior; ese archivo ya esta convertido a NO-OP,
+     *                  pero en BDs migradas antes la tabla `ignored` sigue existiendo
+     *                  hasta que esta migracion la dropee).
      *
      * Los archivos originales de migracion se conservan en disco para no romper
      * migrate:status / migrate:rollback (Laravel los necesita referenciados desde
      * la tabla `migrations`).
+     *
+     * dropIfExists es seguro: en BDs nuevas (donde 002517 ya es no-op y nunca creo
+     * la tabla `ignored`) no falla ni rompe nada.
      */
     public function up(): void
     {
