@@ -1525,17 +1525,9 @@
         // Permiso: el boton es siempre visible para mostrar la accion en el
         // menu, pero solo se ejecuta si el usuario tiene la clave literal
         // user.delete (en PERMISOS_EXPLICITOS — ni super.admin la hereda).
-        // Sin el permiso → modal moderno "Acceso Denegado".
+        // Sin el permiso → toast moderno (no modal bloqueante).
         if (window.CAN_DELETE_EQUIPOS === false || window.CAN_DELETE_EQUIPOS === 'false') {
-            if (typeof window.showModal === 'function') {
-                window.showModal({
-                    type: 'error',
-                    title: 'Acceso Denegado',
-                    message: 'No tienes permiso para eliminar equipos. Solicita al administrador la clave "user.delete".',
-                    confirmText: 'Entendido',
-                    hideCancel: true,
-                });
-            } else if (window.showToast) {
+            if (typeof window.showToast === 'function') {
                 window.showToast('No tienes permiso para eliminar equipos.', 'error');
             } else {
                 alert('No tienes permiso para eliminar equipos.');

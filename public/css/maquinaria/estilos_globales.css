@@ -1981,7 +1981,10 @@ input:-webkit-autofill:active {
     align-items: center;
     gap: 10px;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
+    /* z-index alto para que SIEMPRE quede arriba del btn-details-mini, los
+       dropdowns (1000) y otros chips de la tabla. Por debajo de modales
+       overlay (2000+) y toasts (1000002) — orden correcto. */
+    z-index: 9999;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     opacity: 0;
     pointer-events: none;
@@ -2044,6 +2047,14 @@ input:-webkit-autofill:active {
         gap: 8px;
         border-radius: 12px;
         justify-content: space-between;
+        /* Respeta el safe-area-inset-bottom de iOS (notch + home indicator) y
+           sube la barra para que no quede tapada por la barra inferior del
+           navegador en Android Chrome. Antes con bottom:30px fijo, los
+           botones de las filas (.btn-details-mini) en pantallas pequeñas
+           podían quedar visualmente por encima por el contexto de stacking
+           del header sticky. Combinado con z-index:9999, ahora siempre
+           queda al frente. */
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
     }
     
     .selection-floating-bar .selection-counter {
