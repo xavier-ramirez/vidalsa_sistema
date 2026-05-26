@@ -546,13 +546,48 @@ function MenuItem({
   );
 }
 
+// Estructura del drawer mobile espejo del mobile-menu de la web:
+//   Inicio · Flota▼ · Historial Mov · Almacén▼ · Configuraciones▼ · Cerrar Sesión
+// Items implementados (dashboard/equipos/movs) navegan; el resto muestra
+// "Próximamente" porque la APK trabaja sin internet y esos modulos requieren backend.
 function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
   const { width } = Dimensions.get("window");
-  const [configOpen, setConfigOpen] = useState(false);
+  const [flotaOpen, setFlotaOpen]     = useState(false);
+  const [almacenOpen, setAlmacenOpen] = useState(false);
+  const [configOpen, setConfigOpen]   = useState(false);
 
   useEffect(() => {
-    if (!visible) setConfigOpen(false);
+    if (!visible) {
+      setFlotaOpen(false);
+      setAlmacenOpen(false);
+      setConfigOpen(false);
+    }
   }, [visible]);
+
+  // Permisos del usuario (CSV en columna PERMISOS) — calculados localmente
+  // para replicar la visibilidad condicional del menú web sin llamar al backend.
+  const permisos = String(user?.PERMISOS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const isSuperAdmin = permisos.includes("super.admin");
+
+  // Handler único para los items aún sin pantalla offline:
+  // cierra el drawer y muestra un alert informativo después del cierre.
+  const proximamente = (label) => {
+    onClose();
+    setTimeout(
+      () =>
+        showModernAlert(
+          "Próximamente",
+          `"${label}" estará disponible en una próxima versión de la app.`,
+          "info",
+        ),
+      200,
+    );
+  };
+
+  const SOON_COLOR = "#94a3b8"; // gris para items no implementados
 
   if (!visible) return null;
   return (
@@ -626,7 +661,7 @@ function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
 
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
-              {/* Inicio — igual que web: "home" */}
+              {/* Inicio */}
               <MenuItem
                 icon="home"
                 label="Inicio"
@@ -636,102 +671,161 @@ function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
                 }}
               />
 
-              {/* Vehículo — igual que web: "agriculture" */}
-              <MenuItem
-                icon="agriculture"
-                label="Vehículo"
-                onPress={() => {
-                  onNavigate("equipos");
-                  onClose();
-                }}
-              />
+              {/* Flota ▼ — grupo colapsable (Vehículos, Equipos Auxiliares, Reporte de Fallas, Consumibles) */}
+              <TouchableOpacity
+                onPress={() => setFlotaOpen(!flotaOpen)}
+                style={[styles.menuItem, { justifyContent: "space-between" }]}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <MaterialIcons name="agriculture" size={22} color="#334155" style={{ width: 32 }} />
+                  <Text style={styles.menuItemText}>Flota</Text>
+                </View>
+                <MaterialIcons name={flotaOpen ? "expand-less" : "expand-more"} size={20} color="#94a3b8" />
+              </TouchableOpacity>
+              {flotaOpen && (
+                <View style={{ marginLeft: 20, borderLeftWidth: 2, borderLeftColor: "#e2e8f0", paddingLeft: 8, marginBottom: 4 }}>
+                  <MenuItem
+                    icon="agriculture"
+                    label="Vehículos"
+                    onPress={() => { onNavigate("equipos"); onClose(); }}
+                    subItem
+                  />
+                  <MenuItem
+                    icon="construction"
+                    label="Equipos Auxiliares"
+                    onPress={() => proximamente("Equipos Auxiliares")}
+                    color={SOON_COLOR}
+                    subItem
+                  />
+                  <MenuItem
+                    icon="report-problem"
+                    label="Reporte de Fallas"
+                    onPress={() => proximamente("Reporte de Fallas")}
+                    color={SOON_COLOR}
+                    subItem
+                  />
+                  <MenuItem
+                    icon="local-gas-station"
+                    label="Consumibles"
+                    onPress={() => proximamente("Consumibles")}
+                    color={SOON_COLOR}
+                    subItem
+                  />
+                </View>
+              )}
 
-              {/* Movilizaciones — igual que web: "local-shipping" */}
+              {/* Historial Mov */}
               <MenuItem
                 icon="local-shipping"
-                label="Historial de Movilizaciones"
+                label="Historial Mov"
                 onPress={() => {
                   onNavigate("movs");
                   onClose();
                 }}
               />
 
-              {/* Divisor */}
-              <View
-                style={{
-                  height: 1,
-                  backgroundColor: "#f1f5f9",
-                  marginVertical: 8,
-                }}
-              />
+              {/* Almacén ▼ — grupo colapsable (Inventario, Recepción, Historial) */}
+              <TouchableOpacity
+                onPress={() => setAlmacenOpen(!almacenOpen)}
+                style={[styles.menuItem, { justifyContent: "space-between" }]}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <MaterialIcons name="warehouse" size={22} color="#334155" style={{ width: 32 }} />
+                  <Text style={styles.menuItemText}>Almacén</Text>
+                </View>
+                <MaterialIcons name={almacenOpen ? "expand-less" : "expand-more"} size={20} color="#94a3b8" />
+              </TouchableOpacity>
+              {almacenOpen && (
+                <View style={{ marginLeft: 20, borderLeftWidth: 2, borderLeftColor: "#e2e8f0", paddingLeft: 8, marginBottom: 4 }}>
+                  <MenuItem
+                    icon="inventory-2"
+                    label="Inventario"
+                    onPress={() => proximamente("Inventario")}
+                    color={SOON_COLOR}
+                    subItem
+                  />
+                  <MenuItem
+                    icon="move-to-inbox"
+                    label="Recepción"
+                    onPress={() => proximamente("Recepción")}
+                    color={SOON_COLOR}
+                    subItem
+                  />
+                  <MenuItem
+                    icon="receipt-long"
+                    label="Historial"
+                    onPress={() => proximamente("Historial de Almacén")}
+                    color={SOON_COLOR}
+                    subItem
+                  />
+                </View>
+              )}
 
-              {/* Configuraciones — igual que web: "settings" */}
+              {/* Configuraciones ▼ — visibilidad condicional igual que web */}
               <TouchableOpacity
                 onPress={() => setConfigOpen(!configOpen)}
                 style={[styles.menuItem, { justifyContent: "space-between" }]}
                 activeOpacity={0.7}
               >
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <MaterialIcons
-                    name="settings"
-                    size={22}
-                    color="#334155"
-                    style={{ width: 32 }}
-                  />
+                  <MaterialIcons name="settings" size={22} color="#334155" style={{ width: 32 }} />
                   <Text style={styles.menuItemText}>Configuraciones</Text>
                 </View>
-                <MaterialIcons
-                  name={configOpen ? "expand-less" : "expand-more"}
-                  size={20}
-                  color="#94a3b8"
-                />
+                <MaterialIcons name={configOpen ? "expand-less" : "expand-more"} size={20} color="#94a3b8" />
               </TouchableOpacity>
-
               {configOpen && (
-                <View
-                  style={{
-                    marginLeft: 20,
-                    borderLeftWidth: 2,
-                    borderLeftColor: "#e2e8f0",
-                    paddingLeft: 8,
-                    marginBottom: 4,
-                  }}
-                >
-                  {/* Frentes — igual que web: "business" */}
+                <View style={{ marginLeft: 20, borderLeftWidth: 2, borderLeftColor: "#e2e8f0", paddingLeft: 8, marginBottom: 4 }}>
+                  {/* Usuarios (super.admin) vs Mi Usuario — replica el @can('manage.users') del web */}
+                  {isSuperAdmin ? (
+                    <MenuItem
+                      icon="people"
+                      label="Usuarios"
+                      onPress={() => proximamente("Usuarios")}
+                      color={SOON_COLOR}
+                      subItem
+                    />
+                  ) : (
+                    <MenuItem
+                      icon="manage-accounts"
+                      label="Mi Usuario"
+                      onPress={() => proximamente("Mi Usuario")}
+                      color={SOON_COLOR}
+                      subItem
+                    />
+                  )}
                   <MenuItem
                     icon="business"
-                    label="Frentes de Trabajo"
-                    onPress={onClose}
+                    label="Frentes de trabajo"
+                    onPress={() => proximamente("Frentes de trabajo")}
+                    color={SOON_COLOR}
                     subItem
                   />
-                  {/* Catálogo — igual que web: "menu-book" */}
                   <MenuItem
                     icon="menu-book"
                     label="Catálogo de Modelos"
-                    onPress={onClose}
+                    onPress={() => proximamente("Catálogo de Modelos")}
+                    color={SOON_COLOR}
                     subItem
                   />
+                  {isSuperAdmin && (
+                    <MenuItem
+                      icon="fact-check"
+                      label="Control de Auditoría"
+                      onPress={() => proximamente("Control de Auditoría")}
+                      color={SOON_COLOR}
+                      subItem
+                    />
+                  )}
                 </View>
               )}
 
-              {/* Consumibles — igual que web: "local-gas-station" */}
-              <MenuItem
-                icon="local-gas-station"
-                label="Consumibles"
-                onPress={onClose}
-              />
+              {/* Separador */}
+              <View style={{ height: 1, backgroundColor: "#f1f5f9", marginVertical: 8 }} />
 
-              <View style={{ height: 40 }} />
-
-              {/* Cerrar Sesión — igual que web: "logout" */}
-              <View
-                style={{
-                  borderTopWidth: 1,
-                  borderTopColor: "#f1f5f9",
-                  paddingTop: 16,
-                  marginBottom: 30,
-                }}
-              >
+              {/* Cerrar Sesión */}
+              <View style={{ paddingTop: 8, marginBottom: 30 }}>
                 <MenuItem
                   icon="logout"
                   label="Cerrar Sesión"
