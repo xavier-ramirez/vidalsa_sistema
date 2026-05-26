@@ -323,7 +323,8 @@ async function getDb() {
         placa         TEXT,
         frente        TEXT,
         detalle_ubi   TEXT,
-        confirmado    INTEGER DEFAULT 0
+        confirmado    INTEGER DEFAULT 0,
+        foto_url      TEXT
       );
 
       CREATE TABLE IF NOT EXISTS frentes (
@@ -349,6 +350,14 @@ async function getDb() {
         valor TEXT
       );
     `);
+
+    // Migración condicional: BDs creadas antes de añadir `foto_url` no la tienen.
+    // ALTER TABLE ... ADD COLUMN falla si ya existe, lo atrapamos en silencio.
+    try {
+      await db.execAsync("ALTER TABLE equipos ADD COLUMN foto_url TEXT");
+    } catch (_) {
+      // columna ya existe — OK
+    }
   }
   return db;
 }
@@ -358,8 +367,14 @@ async function guardarEquiposLocal(equipos) {
   const database = await getDb();
   await database.runAsync("DELETE FROM equipos");
   for (const eq of equipos) {
+    // INSERT con columnas explícitas (más robusto que VALUES posicional —
+    // tolera BDs con `foto_url` añadido por ALTER tras la migración).
     await database.runAsync(
-      `INSERT INTO equipos VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO equipos
+        (id_equipo, codigo_patio, tipo, marca, modelo, anio, categoria,
+         serial_chasis, serial_motor, nro_etiqueta, estado, placa, frente,
+         detalle_ubi, confirmado, foto_url)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         eq.ID_EQUIPO,
         eq.CODIGO_PATIO || "",
@@ -376,6 +391,7 @@ async function guardarEquiposLocal(equipos) {
         eq.FRENTE_ACTUAL || "",
         eq.DETALLE_UBICACION || "",
         eq.CONFIRMADO || 0,
+        eq.FOTO || null,
       ],
     );
   }
@@ -1642,28 +1658,40 @@ function PantallaEquipos({ user, onOpenMenu }) {
           </Text>
         </View>
 
-        {/* BODY: image placeholder (left) + data column (right) */}
+        {/* BODY: foto del equipo (left) + datos (right). La foto es más grande
+            (90x90) y se descarga en background con <Image source={uri}>; RN ya
+            cachea automáticamente. Si no hay URL guardada o falla la descarga,
+            queda el placeholder con el icono "image-not-supported". */}
         <View
-          style={{ flexDirection: "row", gap: 18, alignItems: "flex-start" }}
+          style={{ flexDirection: "row", gap: 14, alignItems: "flex-start" }}
         >
-          {/* placeholder igual al web: mas grande */}
           <View
             style={{
-              width: 65,
-              height: 65,
+              width: 90,
+              height: 90,
               backgroundColor: "#f8fafc",
-              borderRadius: 6,
+              borderRadius: 8,
               borderWidth: 1,
               borderColor: "#e2e8f0",
               alignItems: "center",
               justifyContent: "center",
+              overflow: "hidden",
             }}
           >
-            <MaterialIcons
-              name="image-not-supported"
-              size={28}
-              color="#cbd5e1"
-            />
+            {item.foto_url ? (
+              <Image
+                source={{ uri: item.foto_url }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+                // onError → vuelve al placeholder de fondo (la View ya está abajo)
+              />
+            ) : (
+              <MaterialIcons
+                name="image-not-supported"
+                size={32}
+                color="#cbd5e1"
+              />
+            )}
           </View>
           {/* Datos igual al web: uno debajo del otro alineados */}
           <View style={{ flex: 1 }}>
@@ -1925,25 +1953,39 @@ function PantallaEquipos({ user, onOpenMenu }) {
               />
             </TouchableOpacity>
 
-            {/* Panel flotante de Filtros Avanzados */}
-            {advancedFiltersVisible && (
-              <View
-                style={{
-                  position: "absolute",
-                  top: 52,
-                  right: 0,
-                  width: 300,
-                  backgroundColor: "#e2e8f0",
-                  borderRadius: 12,
-                  padding: 15,
-                  zIndex: 200,
-                  elevation: 10,
-                  shadowColor: "#000",
-                  shadowOpacity: 0.15,
-                  shadowRadius: 10,
-                  shadowOffset: { height: 5, width: 0 },
-                }}
+            {/* Panel flotante de Filtros Avanzados — renderizado como <Modal>
+                a nivel raíz para garantizar que aparezca por encima de las
+                cards del FlatList. Antes era <View absolute> dentro del header
+                del FlatList y las cards quedaban encima por contexto de stacking. */}
+            <Modal
+              visible={advancedFiltersVisible}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setAdvancedFiltersVisible(false)}
+            >
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => setAdvancedFiltersVisible(false)}
+                style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.15)" }}
               >
+                <View
+                  style={{
+                    position: "absolute",
+                    // anclado bajo el botón de filtro: statusBar + topHeader + filas de filtro
+                    top: (Platform.OS === "android" ? StatusBar.currentHeight + 56 : 100) + 70,
+                    right: 12,
+                    width: 300,
+                    backgroundColor: "#e2e8f0",
+                    borderRadius: 12,
+                    padding: 15,
+                    elevation: 30,
+                    shadowColor: "#000",
+                    shadowOpacity: 0.18,
+                    shadowRadius: 12,
+                    shadowOffset: { height: 6, width: 0 },
+                    maxHeight: "80%",
+                  }}
+                >
                 <View
                   style={{
                     flexDirection: "row",
@@ -2310,8 +2352,9 @@ function PantallaEquipos({ user, onOpenMenu }) {
                     Aplicar Filtros
                   </Text>
                 </TouchableOpacity>
-              </View>
-            )}
+                </View>
+              </TouchableOpacity>
+            </Modal>
           </View>
         </View>
 
@@ -2539,40 +2582,41 @@ function PantallaEquipos({ user, onOpenMenu }) {
       )}
 
       {/* ── BARRA FLOTANTE DE SELECCIÓN ──
-          Espejo de la .selection-floating-bar de /admin/equipos en mobile:
-          [contador] · Limpiar · Detalle · Asignar. "Detalle" muestra el toast
-          "Próximamente" porque la APK aún no tiene el flujo offline de
-          asignar detalle de ubicación a múltiples equipos. */}
+          Espejo EXACTO de la .selection-floating-bar en @media(max-width:768px)
+          de la web (estilos_globales.css:2040-2084): padding 8x12, gap 8,
+          border-radius 12, justify-content space-between, iconos de los chips
+          OCULTOS (sólo texto) — sólo el contador "functions" mantiene su icono. */}
       {equiposSelect.length > 0 && (
         <View style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
-          backgroundColor: "#1e293b", paddingVertical: 12, paddingHorizontal: 12,
-          paddingBottom: Platform.OS === "android" ? 12 : 24, // safe area en iPhone
-          flexDirection: "row", alignItems: "center", gap: 8,
-          borderTopLeftRadius: 16, borderTopRightRadius: 16,
+          backgroundColor: "#1e293b", paddingVertical: 8, paddingHorizontal: 12,
+          paddingBottom: Platform.OS === "android" ? 10 : 24, // safe area en iPhone
+          flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8,
+          borderTopLeftRadius: 12, borderTopRightRadius: 12,
           shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.25, shadowRadius: 12,
           elevation: 30,   // Android: encima de todo
           zIndex: 9999,    // iOS: encima de la nav
         }}>
-          {/* Contador (functions icon + n°) — análogo al .selection-counter de la web */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginRight: 4 }}>
-            <View style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 5, borderRadius: 999 }}>
-              <MaterialIcons name="functions" size={16} color="#fff" />
+          {/* Contador (functions icon + n°) — .selection-counter de la web,
+              el ÚNICO icono que la web conserva en mobile. */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ backgroundColor: "rgba(255,255,255,0.1)", padding: 4, borderRadius: 999 }}>
+              <MaterialIcons name="functions" size={14} color="#fff" />
             </View>
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 12 }}>
               {equiposSelect.length}
             </Text>
           </View>
 
-          {/* Limpiar — paralelo al .btn-bulk-clear de la web */}
+          {/* Limpiar — .btn-bulk-clear (texto gris, sin icono en mobile) */}
           <TouchableOpacity
             onPress={() => setEquiposSelect([])}
-            style={{ paddingHorizontal: 8, paddingVertical: 6 }}
+            style={{ paddingHorizontal: 12, paddingVertical: 8 }}
           >
-            <Text style={{ color: "#94a3b8", fontWeight: "700", fontSize: 12 }}>Limpiar</Text>
+            <Text style={{ color: "#94a3b8", fontWeight: "600", fontSize: 11 }}>Limpiar</Text>
           </TouchableOpacity>
 
-          {/* Detalle (description) — .btn-bulk-action #64748b. Próximamente offline. */}
+          {/* Detalle — .btn-bulk-action #64748b (sin icono en mobile) */}
           <TouchableOpacity
             onPress={() => showModernAlert(
               "Próximamente",
@@ -2580,24 +2624,21 @@ function PantallaEquipos({ user, onOpenMenu }) {
               "info",
             )}
             style={{
-              backgroundColor: "#64748b", paddingHorizontal: 10, paddingVertical: 8,
-              borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4,
+              backgroundColor: "#64748b", paddingHorizontal: 12, paddingVertical: 8,
+              borderRadius: 8,
             }}
           >
-            <MaterialIcons name="description" size={16} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Detalle</Text>
           </TouchableOpacity>
 
-          {/* Asignar (local_shipping) — .btn-bulk-action azul (#0067b1) en la web */}
+          {/* Asignar — .btn-bulk-action azul #0067b1 (sin icono en mobile) */}
           <TouchableOpacity
             onPress={() => { setShowDropAsignar(true); setBusqDropAsignar(""); }}
             style={{
-              backgroundColor: "#0067b1", paddingHorizontal: 10, paddingVertical: 8,
-              borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4,
-              marginLeft: "auto",
+              backgroundColor: "#0067b1", paddingHorizontal: 12, paddingVertical: 8,
+              borderRadius: 8,
             }}
           >
-            <MaterialIcons name="local-shipping" size={16} color="#fff" />
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>Asignar</Text>
           </TouchableOpacity>
         </View>

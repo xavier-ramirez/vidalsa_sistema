@@ -3785,7 +3785,7 @@ class EquipoController extends Controller
     {
         $search = $request->input('search');
 
-        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion'])
+        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion', 'especificaciones'])
             ->excludeEspecial();
 
         if ($search) {
@@ -3808,6 +3808,24 @@ class EquipoController extends Controller
         $equipos = $query->orderBy('CODIGO_PATIO')->get();
 
         return response()->json($equipos->map(function ($eq) {
+            // Foto: prioriza FOTO_REFERENCIAL del catalogo (Google Drive ID),
+            // cae a FOTO_EQUIPO (URL directa). Misma logica que el listado web
+            // y la papelera (EquipoController::papelera). Si es un drive ID se
+            // convierte al thumbnail publico para que el <Image> de RN lo
+            // descargue directo sin proxy.
+            $foto = null;
+            $raw = ($eq->especificaciones && $eq->especificaciones->FOTO_REFERENCIAL)
+                ? $eq->especificaciones->FOTO_REFERENCIAL
+                : $eq->FOTO_EQUIPO;
+            if ($raw) {
+                // Extraer drive id si viene como URL completa
+                if (preg_match('#(?:/d/|id=)([\w-]{20,})#', $raw, $m)) {
+                    $foto = 'https://drive.google.com/thumbnail?id=' . $m[1] . '&sz=w400';
+                } else {
+                    $foto = $raw; // URL directa
+                }
+            }
+
             return [
                 'ID_EQUIPO'       => $eq->ID_EQUIPO,
                 'CODIGO_PATIO'    => $eq->CODIGO_PATIO,
@@ -3824,6 +3842,7 @@ class EquipoController extends Controller
                 'FRENTE_ACTUAL'   => $eq->frenteActual->NOMBRE_FRENTE ?? 'Sin Asignar',
                 'DETALLE_UBICACION' => $eq->DETALLE_UBICACION_ACTUAL,
                 'CONFIRMADO'      => $eq->CONFIRMADO_EN_SITIO,
+                'FOTO'            => $foto,
             ];
         }));
     }
