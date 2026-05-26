@@ -895,12 +895,11 @@ function DrawerMenu({ visible, onClose, onNavigate, onLogout, user }) {
 function PantallaLogin({ onLogin }) {
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // toggle del ojo
   const [loading, setLoading] = useState(false);
   const [descargando, setDescargando] = useState(false);
   const [ultimaSync, setUltimaSync] = useState("");
   const [conteoLocal, setConteoLocal] = useState(0);
-  const [serverIp, setServerIp] = useState("");
-  const [mostrarIp, setMostrarIp] = useState(false);
   const [mostrarFormLogin, setMostrarFormLogin] = useState(false);
 
   useEffect(() => {
@@ -912,27 +911,10 @@ function PantallaLogin({ onLogin }) {
       }
       const equipos = await leerEquiposLocal();
       setConteoLocal(equipos.length);
-      const ip = await AsyncStorage.getItem("server_ip");
-      if (ip) setServerIp(ip);
-      else setServerIp(DEFAULT_SERVER);
       // Si NO hay datos locales, mostrar formulario de login directamente
       if (equipos.length === 0) setMostrarFormLogin(true);
     })();
   }, []);
-
-  const guardarIp = async () => {
-    const ipLimpia = serverIp.trim().replace(/\/+$/, "");
-    if (!ipLimpia) {
-      showModernAlert("Error", "Escribe una IP o dirección válida.");
-      return;
-    }
-    await AsyncStorage.setItem("server_ip", ipLimpia);
-    setMostrarIp(false);
-    showModernAlert(
-      "✅ Guardado",
-      `Servidor configurado: ${ipLimpia}\n\nAhora intenta descargar los datos.`,
-    );
-  };
 
   const descargarDatos = async () => {
     setDescargando(true);
@@ -1041,11 +1023,13 @@ function PantallaLogin({ onLogin }) {
             <LogoVidalsa size={70} />
           </View>
 
-          {/* ── Modo Offline: botón principal si hay datos ── */}
+          {/* ── Modo Offline: botón principal si hay datos ──
+              Antes había un botón secundario "Iniciar sesión con servidor"
+              que daba errores; removido por petición del cliente. Para
+              re-autenticar fresh, el usuario puede borrar caché o esperar
+              al primer arranque sin datos locales (mostrarFormLogin auto-on). */}
           {conteoLocal > 0 && !mostrarFormLogin && (
             <View style={{ alignItems: "center" }}>
-
-              {/* BOTÓN PRINCIPAL: Continuar sin conexión */}
               <TouchableOpacity
                 style={{
                   backgroundColor: "#00004d",
@@ -1053,7 +1037,6 @@ function PantallaLogin({ onLogin }) {
                   paddingVertical: 16,
                   width: "100%",
                   alignItems: "center",
-                  marginBottom: 12,
                   elevation: 4,
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 3 },
@@ -1070,35 +1053,6 @@ function PantallaLogin({ onLogin }) {
                     style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}
                   >
                     Continuar sin conexión
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Botón secundario: iniciar sesión con servidor */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "transparent",
-                  borderRadius: 12,
-                  paddingVertical: 12,
-                  width: "100%",
-                  alignItems: "center",
-                  borderWidth: 1,
-                  borderColor: "#cbd5e0",
-                }}
-                onPress={() => setMostrarFormLogin(true)}
-              >
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-                >
-                  <MaterialIcons name="wifi" size={16} color="#64748b" />
-                  <Text
-                    style={{
-                      color: "#64748b",
-                      fontWeight: "600",
-                      fontSize: 14,
-                    }}
-                  >
-                    Iniciar sesión con servidor
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1140,14 +1094,29 @@ function PantallaLogin({ onLogin }) {
 
               <View style={styles.inputContainerPremium}>
                 <Text style={styles.floatingLabel}>Contraseña</Text>
-                <TextInput
-                  style={styles.inputPremium}
-                  placeholder="••••••••"
-                  placeholderTextColor="#94a3b8"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <TextInput
+                    style={[styles.inputPremium, { flex: 1, paddingRight: 8 }]}
+                    placeholder="••••••••"
+                    placeholderTextColor="#94a3b8"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  {/* Toggle ojo — espejo del .password-toggle de inicio_sesion.blade.php */}
+                  <TouchableOpacity
+                    onPress={() => setShowPassword((v) => !v)}
+                    style={{ paddingHorizontal: 14, paddingVertical: 12 }}
+                    accessibilityLabel={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    <MaterialIcons
+                      name={showPassword ? "visibility-off" : "visibility"}
+                      size={22}
+                      color="#64748b"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <TouchableOpacity
@@ -1165,16 +1134,25 @@ function PantallaLogin({ onLogin }) {
           )}
         </View>
 
-        {/* ── Sección Offline / Descarga ── */}
-        <View style={{ marginTop: 40, alignItems: "center" }}>
+        {/* ── Sección Offline / Descarga ──
+            Antes el botón usaba rgba(255,255,255,0.15) translúcido — quedaba
+            invisible sobre el fondo claro #fdfbfb. Ahora usa un fondo sólido
+            azul oscuro coherente con btnPremium del login. */}
+        <View style={{ marginTop: 32, alignItems: "center" }}>
           <TouchableOpacity
             style={[
               styles.btnDownload,
               descargando && { opacity: 0.6 },
               {
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderColor: "rgba(255,255,255,0.4)",
-                borderWidth: 1,
+                backgroundColor: "#00004d",
+                paddingHorizontal: 24,
+                paddingVertical: 14,
+                borderRadius: 12,
+                elevation: 4,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.18,
+                shadowRadius: 6,
               },
             ]}
             onPress={descargarDatos}
@@ -1184,16 +1162,20 @@ function PantallaLogin({ onLogin }) {
               <ActivityIndicator color={C.white} />
             ) : (
               <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
               >
-                <MaterialIcons name="cloud-download" size={16} color="#fff" />
-                <Text style={styles.btnDownloadText}>
+                <MaterialIcons name="cloud-download" size={18} color="#fff" />
+                <Text style={[styles.btnDownloadText, { fontSize: 14 }]}>
                   Descargar / Actualizar datos
                 </Text>
               </View>
             )}
           </TouchableOpacity>
-
+          {ultimaSync ? (
+            <Text style={{ marginTop: 10, fontSize: 11, color: "#64748b" }}>
+              Última actualización: {ultimaSync}
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
