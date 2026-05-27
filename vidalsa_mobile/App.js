@@ -1951,8 +1951,13 @@ function PantallaEquipos({ user, onOpenMenu }) {
     );
   };
 
-  // Header scrollable del FlatList (filtros + consolidado)
-  const ListaHeader = () => (
+  // Header scrollable del FlatList (filtros + consolidado).
+  // IMPORTANTE: es una EXPRESION JSX (no una funcion). Si fuera `() => (...)`,
+  // FlatList lo veria como componente distinto en cada render (la funcion se
+  // recrea) y remontaria el subarbol entero — efecto: al escribir 1 letra en
+  // el TextInput de busqueda, perdia foco y el teclado de Android se cerraba.
+  // Como JSX directo, React reconcilia in-place y solo actualiza el value.
+  const ListaHeader = (
     <View>
       {/* Título */}
       <View
@@ -2698,10 +2703,15 @@ function PantallaEquipos({ user, onOpenMenu }) {
       ) : (
         <FlatList
           showsVerticalScrollIndicator={true}
+          // "handled" deja que los TouchableOpacity de las cards reciban el
+          // tap pero NO desmonta el teclado del input de busqueda — antes,
+          // si tenias el teclado abierto y tocabas algo del FlatList, RN
+          // hacia Keyboard.dismiss() automaticamente.
+          keyboardShouldPersistTaps="handled"
           data={equiposVisibles}
           keyExtractor={(item) => String(item.id_equipo)}
           renderItem={renderItem}
-          ListHeaderComponent={<ListaHeader />}
+          ListHeaderComponent={ListaHeader}
           ListEmptyComponent={
             <View style={[styles.centered, { paddingVertical: 60 }]}>
               <MaterialIcons name="filter-alt" size={48} color="#cbd5e0" />
