@@ -1126,20 +1126,12 @@ window.openUbicacionBulkModal = function (event) {
     async function doSubmit() {
         const valor = (input.value || '').trim();
 
-        // Caso 1: campo vacío + había valor previo → confirmar borrado
+        // Caso 1: campo vacío + había valor previo → borrado directo sin
+        // confirmación (pedido del cliente: el modal extra estorbaba la
+        // operación). Si el usuario manda submit con el input vacío y
+        // el equipo tenía detalle previo, asumimos que QUIERE borrarlo.
         if (!valor && valorPrevioComun) {
-            if (typeof window.showModal === 'function') {
-                window.showModal({
-                    type: 'warning',
-                    title: 'Borrar Detalle',
-                    message: 'El campo está vacío. ¿Deseas eliminar el detalle actual ("' + valorPrevioComun + '") de ' + ids.length + ' equipo(s)?',
-                    confirmText: 'Sí, borrar',
-                    cancelText: 'Cancelar',
-                    onConfirm: () => _enviarUbicacion(''),
-                });
-            } else if (confirm('El campo está vacío. ¿Borrar el detalle actual de ' + ids.length + ' equipo(s)?')) {
-                _enviarUbicacion('');
-            }
+            _enviarUbicacion('');
             return;
         }
 

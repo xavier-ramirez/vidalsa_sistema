@@ -1497,20 +1497,11 @@
         async function doSubmit() {
             const valor = (input.value || '').trim();
 
-            // Caso 1: campo vacío + había valor previo → confirmar borrado
+            // Caso 1: campo vacío + había valor previo → borrado directo sin
+            // confirmación (pedido del cliente: el modal extra estorbaba la
+            // operación). Mismo criterio que el modal de equipos.
             if (!valor && valorPrevioComun) {
-                if (typeof window.showModal === 'function') {
-                    window.showModal({
-                        type: 'warning',
-                        title: 'Borrar Detalle',
-                        message: 'El campo está vacío. ¿Deseas eliminar el detalle actual ("' + valorPrevioComun + '") de ' + ids.length + ' auxiliar(es)?',
-                        confirmText: 'Sí, borrar',
-                        cancelText: 'Cancelar',
-                        onConfirm: () => _enviarUbicacion(''),
-                    });
-                } else if (confirm('El campo está vacío. ¿Borrar el detalle actual de ' + ids.length + ' auxiliar(es)?')) {
-                    _enviarUbicacion('');
-                }
+                _enviarUbicacion('');
                 return;
             }
 
