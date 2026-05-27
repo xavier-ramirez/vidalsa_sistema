@@ -21,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SQLite from "expo-sqlite";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
+import Svg, { Path } from "react-native-svg";
 
 // ─── SISTEMA DE ALERTAS MODERNAS ───
 const AlertEmitter = {
@@ -1075,8 +1076,24 @@ function PantallaLogin({ onLogin }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fdfbfb" }}>
       <StatusBar barStyle="dark-content" backgroundColor="#fdfbfb" />
-      {/* Curva lateral azul — igual que la web */}
-      <View style={styles.blueCurveDashboard} />
+      {/* Fondo blanco + onda azul — el path es EXACTAMENTE el mismo que usa
+          la web en partials/background_svg.blade.php (acento azul inferior).
+          preserveAspectRatio="xMinYMin slice" replica el comportamiento del
+          SVG web: en mobile portrait se ve la porcion izquierda de la onda
+          (que es la parte mas alta), descendiendo hacia la derecha — el
+          look-and-feel queda 1:1 con la PWA. */}
+      <Svg
+        style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0 }}
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMinYMin slice"
+        pointerEvents="none"
+      >
+        <Path
+          d="M0 900 V 400 Q 150 750 600 850 T 1440 900 Z"
+          fill="#00004d"
+          opacity={0.92}
+        />
+      </Svg>
 
       <ScrollView
         contentContainerStyle={{
@@ -1175,16 +1192,19 @@ function PantallaLogin({ onLogin }) {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                   />
-                  {/* Toggle ojo — espejo del .password-toggle de inicio_sesion.blade.php */}
+                  {/* Toggle ojo — espejo del .password-toggle de inicio_sesion.blade.php
+                      Color azul corporativo (#00004d) en lugar del gris #64748b
+                      anterior — el cliente reportaba que no se notaba el boton. */}
                   <TouchableOpacity
                     onPress={() => setShowPassword((v) => !v)}
                     style={{ paddingHorizontal: 14, paddingVertical: 12 }}
                     accessibilityLabel={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <MaterialIcons
                       name={showPassword ? "visibility-off" : "visibility"}
-                      size={22}
-                      color="#64748b"
+                      size={24}
+                      color="#00004d"
                     />
                   </TouchableOpacity>
                 </View>
@@ -4977,25 +4997,8 @@ const styles = StyleSheet.create({
   serialKey: { fontWeight: "700", color: "#4a5568" },
 
   // Premium UI Styles
-  blueCurve: {
-    position: "absolute",
-    bottom: -Dimensions.get("window").height * 0.35,
-    left: -Dimensions.get("window").width * 0.45,
-    width: Dimensions.get("window").height,
-    height: Dimensions.get("window").height,
-    borderRadius: Dimensions.get("window").height / 2,
-    backgroundColor: "#00004d",
-  },
-  blueCurveDashboard: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: -Dimensions.get("window").width * 0.25,
-    width: Dimensions.get("window").width * 0.65,
-    backgroundColor: "#00004d",
-    borderTopRightRadius: Dimensions.get("window").height * 0.4,
-    borderBottomRightRadius: Dimensions.get("window").height * 0.4,
-  },
+  // (los antiguos blueCurve / blueCurveDashboard fueron eliminados al pasar
+  // el fondo del login a un <Svg> con el path EXACTO de la PWA.)
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
