@@ -14,6 +14,7 @@ import {
   Modal,
   Platform,
   Image,
+  ImageBackground,
   Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -262,6 +263,10 @@ function ModernAlertModal() {
 
 // Logo local (no depende del servidor)
 const LOGO_LOCAL = require("./assets/logo.webp");
+// Imagen del hero del dashboard — espejo de maquinaria_login_new.webp usada
+// como fondo de .menu-hero en la web (menu.blade.php:749). Bundled local
+// para que funcione sin internet desde el primer arranque.
+const HERO_IMAGE = require("./assets/maquinaria_login_new.webp");
 
 // ─── CONFIGURACIÓN ────────────────────────────────────────────────────────────
 // URL de producción por defecto. Si el usuario configura una IP local, se usará http://.
@@ -349,6 +354,16 @@ async function getDb() {
         clave TEXT PRIMARY KEY,
         valor TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS catalogos_destacados (
+        id_espec    INTEGER PRIMARY KEY,
+        modelo      TEXT,
+        marca       TEXT,
+        anio        TEXT,
+        motor       TEXT,
+        combustible TEXT,
+        foto_base64 TEXT
+      );
     `);
 
     // Migración condicional: BDs creadas antes de añadir `foto_url` no la tienen.
@@ -430,6 +445,36 @@ async function leerEquiposLocal(busqueda = "") {
       OR UPPER(serial_chasis) LIKE ? OR UPPER(serial_motor) LIKE ? OR UPPER(frente) LIKE ? OR UPPER(placa) LIKE ?
      ORDER BY codigo_patio ASC`,
     [q, q, q, q, q, q, q],
+  );
+}
+
+// Guardar catalogos destacados en SQLite (3 modelos con foto referencial)
+async function guardarCatalogosLocal(catalogos) {
+  const database = await getDb();
+  await database.runAsync("DELETE FROM catalogos_destacados");
+  for (const c of catalogos) {
+    await database.runAsync(
+      `INSERT INTO catalogos_destacados
+        (id_espec, modelo, marca, anio, motor, combustible, foto_base64)
+       VALUES (?,?,?,?,?,?,?)`,
+      [
+        c.id_espec,
+        c.modelo || "",
+        c.marca || "",
+        c.anio || "",
+        c.motor || "",
+        c.combustible || "",
+        c.foto_base64 || null,
+      ],
+    );
+  }
+}
+
+// Leer catalogos destacados desde SQLite
+async function leerCatalogosLocal() {
+  const database = await getDb();
+  return await database.getAllAsync(
+    "SELECT * FROM catalogos_destacados ORDER BY id_espec DESC",
   );
 }
 
@@ -919,12 +964,18 @@ function PantallaLogin({ onLogin }) {
   const descargarDatos = async () => {
     setDescargando(true);
     try {
-      const [equipos, frentes] = await Promise.all([
+      // Los 3 catalogos destacados se piden en paralelo con equipos/frentes;
+      // si el endpoint falla (deploy viejo sin la ruta) no se aborta la
+      // descarga — la APK sigue usable, solo se queda sin tarjetas en el
+      // dashboard hasta el proximo sync.
+      const [equipos, frentes, catalogos] = await Promise.all([
         api("GET", "/equipos"),
         api("GET", "/frentes"),
+        api("GET", "/catalogos-destacados").catch(() => []),
       ]);
       await guardarEquiposLocal(equipos);
       await guardarFrentesLocal(frentes);
+      await guardarCatalogosLocal(catalogos);
       const fecha = new Date();
       setUltimaSync(fecha.toLocaleString("es-VE"));
       setConteoLocal(equipos.length);
@@ -984,12 +1035,14 @@ function PantallaLogin({ onLogin }) {
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
       // Descargar datos automáticamente tras login exitoso
       try {
-        const [equipos, frentes] = await Promise.all([
+        const [equipos, frentes, catalogos] = await Promise.all([
           api("GET", "/equipos"),
           api("GET", "/frentes"),
+          api("GET", "/catalogos-destacados").catch(() => []),
         ]);
         await guardarEquiposLocal(equipos);
         await guardarFrentesLocal(frentes);
+        await guardarCatalogosLocal(catalogos);
       } catch (_) {
         // Si falla la descarga post-login, continúa con datos locales existentes
       }
@@ -1183,26 +1236,31 @@ function PantallaLogin({ onLogin }) {
 }
 
 // ─── PANTALLA DASHBOARD ─────────────────────────────────────────────────────────
-function PantallaDashboard({ onOpenMenu, equiposCount }) {
+// Espejo de menu.blade.php:
+//   - Hero con foto de equipos de fondo + overlay azul oscuro + título blanco
+//     "Sistema de Gestión de Equipos Operacionales" y stat "Flota activa"
+//   - 3 tarjetas de catálogos destacados con foto del modelo (las mismas que
+//     muestra .cat-mini-grid en la web, limitadas a 3 en mobile)
+function PantallaDashboard({ onOpenMenu, equiposCount, catalogos }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <TopHeader onOpenMenu={onOpenMenu} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        {/* HERO — espejo del .menu-hero de menu.blade.php:
-            fondo #0b1c30, título grande con acento "Equipos Operacionales"
-            y stat "Flota activa" abajo. */}
-        <View
+        {/* HERO — espejo del .menu-hero (menu.blade.php:747-766):
+            foto maquinaria_login_new.webp con overlay azul oscuro gradiente
+            (0.92 a la izquierda → 0.35 a la derecha) y título blanco. */}
+        <ImageBackground
+          source={HERO_IMAGE}
+          resizeMode="cover"
+          imageStyle={{ borderRadius: 16 }}
           style={{
-            backgroundColor: "#0b1c30",
             marginHorizontal: 12,
             marginTop: 14,
             marginBottom: 14,
             borderRadius: 16,
-            padding: 22,
             overflow: "hidden",
-            position: "relative",
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 12 },
             shadowOpacity: 0.18,
@@ -1210,78 +1268,79 @@ function PantallaDashboard({ onOpenMenu, equiposCount }) {
             elevation: 6,
           }}
         >
-          {/* Decoración circular sutil arriba a la derecha (paralelo al ::before web) */}
+          {/* Overlay azul oscuro — paralelo a .menu-hero-overlay (gradiente
+              0.92 → 0.35). En RN sin libs externas usamos una capa plana de
+              rgba(0,8,44,0.78) que produce el mismo contraste para el texto. */}
           <View
             style={{
-              position: "absolute",
-              right: -50,
-              top: -50,
-              width: 160,
-              height: 160,
-              borderRadius: 80,
-              backgroundColor: "rgba(0, 103, 177, 0.18)",
-            }}
-          />
-          <Text
-            style={{
-              color: "#fff",
-              fontSize: 26,
-              fontWeight: "900",
-              lineHeight: 30,
-              letterSpacing: -0.5,
-              marginBottom: 14,
+              backgroundColor: "rgba(0, 8, 44, 0.78)",
+              padding: 22,
             }}
           >
-            Sistema de Gestión{"\n"}
-            de <Text style={{ color: "#dce1ff" }}>Equipos Operacionales</Text>
-          </Text>
-
-          {/* Stat "Flota activa" — paralelo al .menu-hero-stat */}
-          <View
-            style={{
-              backgroundColor: "rgba(255,255,255,0.06)",
-              borderRadius: 12,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.1)",
-            }}
-          >
-            <Text
-              style={{
-                color: "#94a3b8",
-                fontSize: 10,
-                fontWeight: "800",
-                textTransform: "uppercase",
-                letterSpacing: 1.2,
-                marginBottom: 4,
-              }}
-            >
-              Flota activa
-            </Text>
             <Text
               style={{
                 color: "#fff",
-                fontSize: 38,
+                fontSize: 26,
                 fontWeight: "900",
-                lineHeight: 42,
-                letterSpacing: -1,
+                lineHeight: 30,
+                letterSpacing: -0.5,
+                marginBottom: 14,
+                textShadowColor: "rgba(0,0,0,0.3)",
+                textShadowOffset: { width: 0, height: 2 },
+                textShadowRadius: 6,
               }}
             >
-              {equiposCount || 0}
+              Sistema de Gestión{"\n"}
+              de <Text style={{ color: "#dce1ff" }}>Equipos Operacionales</Text>
             </Text>
-            <Text
+
+            {/* Stat "Flota activa" — paralelo al .menu-hero-stat */}
+            <View
               style={{
-                color: "rgba(255,255,255,0.55)",
-                fontSize: 11,
-                fontWeight: "600",
-                marginTop: 2,
+                backgroundColor: "rgba(255,255,255,0.08)",
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.12)",
               }}
             >
-              Equipos en operación
-            </Text>
+              <Text
+                style={{
+                  color: "#cbd5e1",
+                  fontSize: 10,
+                  fontWeight: "800",
+                  textTransform: "uppercase",
+                  letterSpacing: 1.2,
+                  marginBottom: 4,
+                }}
+              >
+                Flota activa
+              </Text>
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 38,
+                  fontWeight: "900",
+                  lineHeight: 42,
+                  letterSpacing: -1,
+                }}
+              >
+                {equiposCount || 0}
+              </Text>
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.65)",
+                  fontSize: 11,
+                  fontWeight: "600",
+                  marginTop: 2,
+                }}
+              >
+                Equipos en operación
+              </Text>
+            </View>
           </View>
-        </View>
+        </ImageBackground>
 
         {/* Card "Por Confirmar" — paralelo a las cards de stats secundarias */}
         <View style={styles.dashboardWidgetGroup}>
@@ -1304,6 +1363,45 @@ function PantallaDashboard({ onOpenMenu, equiposCount }) {
             </View>
           </View>
         </View>
+
+        {/* Catálogos destacados — espejo de .cat-mini-grid (menu.blade.php:894-930),
+            limitado a 3 tarjetas (el cliente lo pidió así). Las fotos vienen en
+            base64 desde /api/mobile/catalogos-destacados y están cacheadas en
+            SQLite para que funcionen sin internet. */}
+        {catalogos && catalogos.length > 0 && (
+          <View style={{ marginHorizontal: 12, marginTop: 4, flexDirection: "row", gap: 10 }}>
+            {catalogos.slice(0, 3).map((c) => (
+              <View key={c.id_espec} style={styles.catMiniCard}>
+                <View style={styles.catMiniPhoto}>
+                  {c.foto_base64 ? (
+                    <Image
+                      source={{ uri: c.foto_base64 }}
+                      style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                    />
+                  ) : (
+                    <MaterialIcons name="precision-manufacturing" size={32} color="#cbd5e0" />
+                  )}
+                  <View style={styles.catMiniAnioBadge}>
+                    <MaterialIcons name="event" size={9} color="#fff" />
+                    <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700", marginLeft: 2 }}>
+                      {c.anio || ""}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.catMiniBody}>
+                  <Text style={styles.catMiniModelo} numberOfLines={2}>
+                    {(c.marca || "") + " MODELO " + (c.modelo || "")}
+                  </Text>
+                  {(c.motor || c.combustible) ? (
+                    <Text style={styles.catMiniSpecs} numberOfLines={1}>
+                      {[c.motor, c.combustible].filter(Boolean).join(" · ")}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -1312,6 +1410,9 @@ function PantallaDashboard({ onOpenMenu, equiposCount }) {
 // Hook reutilizable: input controlado con debounce y mínimo de caracteres.
 // `input` se actualiza en cada tecleo (lo que ve el usuario en el TextInput).
 // `value` solo cambia tras `delay` ms sin escribir y cuando length >= minChars.
+// `flush()` fuerza el search inmediato — pensado para onSubmitEditing (tecla
+// Enter del teclado): el usuario quiere buscar YA aunque no haya pasado el
+// debounce y aunque el texto tenga menos de minChars.
 function useDebouncedSearch(minChars = 4, delay = 1000) {
   const [input, setInput] = useState("");
   const [value, setValue] = useState("");
@@ -1333,11 +1434,19 @@ function useDebouncedSearch(minChars = 4, delay = 1000) {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
 
+  // Forzar el search ya — Enter en el teclado lo dispara sin esperar 1s y sin
+  // requerir minChars (la web hace lo mismo: si el usuario manda submit con 2
+  // letras, se respeta su intencion).
+  const flush = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setValue(input);
+  }, [input]);
+
   useEffect(() => () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
 
-  return { input, value, onChange, clear };
+  return { input, value, onChange, clear, flush };
 }
 
 // ─── PANTALLA DE EQUIPOS ──────────────────────────────────────────────────────
@@ -1413,10 +1522,13 @@ function PantallaEquipos({ user, onOpenMenu }) {
   const [frentesCompletos, setFrentesCompletos] = useState([]);
   const [asignando, setAsignando] = useState(false);
 
-  // Sub-activos filtros
+  // Sub-activos filtros — el serial usa el mismo debounce 4 chars/1s del search
+  // principal: antes filtraba en cada tecla, lo que re-renderizaba el FlatList
+  // del modal y hacia que el teclado de Android se "comprimiera" (perdia foco)
+  // al primer caracter. Espejo del comportamiento de la web.
   const [filtroSubFrente, setFiltroSubFrente] = useState("");
   const [filtroSubTipo, setFiltroSubTipo] = useState("");
-  const [busqSubSerial, setBusqSubSerial] = useState("");
+  const searchSubSerial = useDebouncedSearch();
   const [showDropSubFrente, setShowDropSubFrente] = useState(false);
   const [showDropSubTipo, setShowDropSubTipo] = useState(false);
   const [busqDropSubFrente, setBusqDropSubFrente] = useState("");
@@ -1564,10 +1676,11 @@ function PantallaEquipos({ user, onOpenMenu }) {
       if (filtroSubFrente && String(e.frente || "") !== filtroSubFrente) match = false;
       if (filtroSubTipo && String(e.tipo || "") !== filtroSubTipo) match = false;
       const serial = String(e.serial_chasis || "") + " " + String(e.serial_motor || "");
-      if (busqSubSerial && !serial.toLowerCase().includes(busqSubSerial.toLowerCase())) match = false;
+      const q = searchSubSerial.value;
+      if (q && !serial.toLowerCase().includes(q.toLowerCase())) match = false;
       return match;
     });
-  }, [equiposTodos, filtroSubFrente, filtroSubTipo, busqSubSerial]);
+  }, [equiposTodos, filtroSubFrente, filtroSubTipo, searchSubSerial.value]);
 
 
   useEffect(() => {
@@ -1906,6 +2019,7 @@ function PantallaEquipos({ user, onOpenMenu }) {
               value={searchPlaca.input}
               returnKeyType="search"
               onChangeText={searchPlaca.onChange}
+              onSubmitEditing={searchPlaca.flush}
             />
             {searchPlaca.input ? (
               <TouchableOpacity onPress={searchPlaca.clear}>
@@ -2035,6 +2149,8 @@ function PantallaEquipos({ user, onOpenMenu }) {
                       placeholderTextColor="#94a3b8"
                       value={searchModelo.input}
                       onChangeText={searchModelo.onChange}
+                      onSubmitEditing={searchModelo.flush}
+                      returnKeyType="search"
                     />
                   </View>
                 </View>
@@ -2076,6 +2192,8 @@ function PantallaEquipos({ user, onOpenMenu }) {
                       placeholderTextColor="#94a3b8"
                       value={searchMarca.input}
                       onChangeText={searchMarca.onChange}
+                      onSubmitEditing={searchMarca.flush}
+                      returnKeyType="search"
                     />
                   </View>
                 </View>
@@ -2118,6 +2236,8 @@ function PantallaEquipos({ user, onOpenMenu }) {
                       placeholderTextColor="#94a3b8"
                       value={searchAnio.input}
                       onChangeText={searchAnio.onChange}
+                      onSubmitEditing={searchAnio.flush}
+                      returnKeyType="search"
                     />
                   </View>
                 </View>
@@ -3449,11 +3569,18 @@ function PantallaEquipos({ user, onOpenMenu }) {
               <View style={{ flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#cbd5e0", borderRadius: 8, height: 42, paddingHorizontal: 12, backgroundColor: "#fff" }}>
                 <MaterialIcons name="search" size={20} color="#94a3b8" />
                 <TextInput
-                  placeholder="Buscar serial..."
-                  value={busqSubSerial}
-                  onChangeText={setBusqSubSerial}
+                  placeholder="Buscar serial (mín. 4 letras)"
+                  value={searchSubSerial.input}
+                  onChangeText={searchSubSerial.onChange}
+                  onSubmitEditing={searchSubSerial.flush}
+                  returnKeyType="search"
                   style={{ flex: 1, marginLeft: 8, fontSize: 13, color: "#1e293b" }}
                 />
+                {searchSubSerial.input ? (
+                  <TouchableOpacity onPress={searchSubSerial.clear}>
+                    <MaterialIcons name="close" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
             
@@ -4666,6 +4793,7 @@ export default function App() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [equiposCount, setEquiposCount] = useState(0);
+  const [catalogos, setCatalogos] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -4673,8 +4801,12 @@ export default function App() {
       const savedUser = await AsyncStorage.getItem("user");
       const token = await AsyncStorage.getItem("token");
       if (savedUser && token) setUser(JSON.parse(savedUser));
-      const eqs = await leerEquiposLocal();
+      const [eqs, cats] = await Promise.all([
+        leerEquiposLocal(),
+        leerCatalogosLocal(),
+      ]);
       setEquiposCount(eqs.length);
+      setCatalogos(cats);
       setLoading(false);
     })();
   }, [activeTab]);
@@ -4730,6 +4862,7 @@ export default function App() {
           <PantallaDashboard
             onOpenMenu={() => setMenuVisible(true)}
             equiposCount={equiposCount}
+            catalogos={catalogos}
           />
         )}
         {activeTab === "equipos" && (
@@ -4954,6 +5087,57 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  // ── Tarjetas de catálogos destacados del dashboard (espejo de .cat-mini-card
+  //    en menu.blade.php:645-712). Tres tarjetas en fila, foto arriba con badge
+  //    de año, modelo y specs abajo. ──
+  catMiniCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  catMiniPhoto: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+    backgroundColor: "#f8fafc",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  catMiniAnioBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    backgroundColor: "#0067b1",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  catMiniBody: {
+    padding: 8,
+  },
+  catMiniModelo: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1e293b",
+    lineHeight: 14,
+    textTransform: "uppercase",
+  },
+  catMiniSpecs: {
+    fontSize: 10,
+    color: "#64748b",
+    marginTop: 2,
   },
 
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },

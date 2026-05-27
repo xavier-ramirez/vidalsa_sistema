@@ -78,6 +78,73 @@ class DashboardController extends Controller
         return view('menu', $data);
     }
 
+    /**
+     * API mobile: devuelve los 3 catalogos destacados (modelos con FOTO_REFERENCIAL)
+     * con la foto en base64 para que la APK los cachee en SQLite y los muestre
+     * en el dashboard sin necesidad de internet posterior. Espejo del bloque
+     * `@if(isset($catalogosDestacados))` de menu.blade.php pero limitado a 3.
+     */
+    public function mobileCatalogosDestacados()
+    {
+        $destacados = CaracteristicaModelo::with('equipos')
+            ->whereNotNull('FOTO_REFERENCIAL')
+            ->orderBy('ID_ESPEC', 'desc')
+            ->limit(3)
+            ->get();
+
+        $payload = [];
+        foreach ($destacados as $cat) {
+            $marca = $cat->equipos->isNotEmpty()
+                ? $cat->equipos->first()->MARCA
+                : Equipo::where('MODELO', $cat->MODELO)->value('MARCA');
+
+            // Extraer el Drive file ID del FOTO_REFERENCIAL — mismo parsing
+            // que hace menu.blade.php:897-899.
+            $driveFileId = basename(str_replace('/storage/google/', '', explode('?', $cat->FOTO_REFERENCIAL)[0]));
+            $fotoBase64 = $this->fetchDriveThumbBase64($driveFileId, 'w300');
+
+            $payload[] = [
+                'id_espec'    => $cat->ID_ESPEC,
+                'modelo'      => $cat->MODELO,
+                'marca'       => $marca,
+                'anio'        => $cat->ANIO_ESPEC,
+                'motor'       => $cat->MOTOR,
+                'combustible' => $cat->COMBUSTIBLE,
+                'foto_base64' => $fotoBase64, // null si no se pudo bajar
+            ];
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Reusa el cache local de GoogleDriveController::proxy para no re-bajar el
+     * thumbnail. Si no esta cacheado, lo baja desde drive.google.com/thumbnail
+     * (mismo endpoint publico que usa proxy()) y lo guarda. Devuelve null si
+     * falla — el cliente mostrara un placeholder.
+     */
+    private function fetchDriveThumbBase64($driveFileId, $sz = 'w300')
+    {
+        if (!$driveFileId) return null;
+
+        $cachePath = 'google_cache/thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_' . $driveFileId;
+
+        if (\Illuminate\Support\Facades\Storage::disk('local')->exists($cachePath)) {
+            $bytes = \Illuminate\Support\Facades\Storage::disk('local')->get($cachePath);
+        } else {
+            $thumbUrl = 'https://drive.google.com/thumbnail?id=' . urlencode($driveFileId) . '&sz=' . urlencode($sz);
+            $ctx = stream_context_create([
+                'http' => ['timeout' => 8, 'follow_location' => 1],
+                'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+            $bytes = @file_get_contents($thumbUrl, false, $ctx);
+            if ($bytes === false || strlen($bytes) < 100) return null;
+            \Illuminate\Support\Facades\Storage::disk('local')->put($cachePath, $bytes);
+        }
+
+        return 'data:image/jpeg;base64,' . base64_encode($bytes);
+    }
+
     public function resetCache()
     {
         try {
