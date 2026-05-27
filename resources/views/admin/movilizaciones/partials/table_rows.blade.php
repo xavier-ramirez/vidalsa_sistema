@@ -104,26 +104,31 @@
 
         {{-- 4. N° Operación (oculto en mobile)
              Si hay CODIGO_CONTROL existe constancia (acta_traslado), por eso
-             el MV-XXXXX se renderiza como <a> al PDF — mismo endpoint que el
-             modal "Reimprimir Acta" usa (route movilizaciones.actaTraslado).
-             data-no-spa para que la SPA no intercepte la navegacion; el PDF
-             se sirve con Content-Disposition: attachment asi que el browser
-             dispara la descarga sin abrir pestaña vacia. --}}
+             el MV-XXXXX se renderiza como <a> que abre el visor modal global
+             (#pdfPreviewModal vía window.openPdfPreview), igual que las notas
+             del Kardex de Almacén. El controller responde con Content-Disposition:
+             inline, asi el iframe del modal lo renderiza directo. El boton
+             "Descargar" del propio modal sigue disponible para el usuario. --}}
         <td class="mv-col-op mv-mobile-hidden">
             <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
                 @if($mov->CODIGO_CONTROL)
                     {{-- Defensa: stripear posible prefijo "MV-" en valor crudo
                          para evitar render "MV-MV-XXXXX" en registros antiguos
                          de aux que se guardaron con prefijo. --}}
-                    @php $cc = preg_replace('/[^0-9]/', '', (string) $mov->CODIGO_CONTROL); @endphp
+                    @php
+                        $cc = preg_replace('/[^0-9]/', '', (string) $mov->CODIGO_CONTROL);
+                        $mvLabel = 'MV-' . str_pad($cc, 5, '0', STR_PAD_LEFT);
+                    @endphp
                     <a href="{{ route('movilizaciones.actaTraslado', $mov->ID_MOVILIZACION) }}"
+                       onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'acta_traslado', 'Acta de Traslado {{ $mvLabel }}', 0, '', true, 'movilizaciones'); }"
                        data-no-spa="true"
+                       target="_blank" rel="noopener"
                        title="Ver Acta de Traslado (PDF)"
                        style="font-weight: 800; color: #0067b1; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"
                        onmouseover="this.style.textDecoration='underline'"
                        onmouseout="this.style.textDecoration='none'">
                         <i class="material-icons" style="font-size: 14px;">picture_as_pdf</i>
-                        MV-{{ str_pad($cc, 5, '0', STR_PAD_LEFT) }}
+                        {{ $mvLabel }}
                     </a>
                 @else
                     <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">--</span>

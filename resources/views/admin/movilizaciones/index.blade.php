@@ -546,15 +546,19 @@ window._eliminarSeleccionados = function () {
                 showFb('error', data.message || 'Respuesta inválida del servidor.');
                 return;
             }
-            showFb('success', 'Acta encontrada. Descargando PDF…');
-            // Disparar descarga via link oculto (deja la SPA tranquila).
-            const a = document.createElement('a');
-            a.href = '/admin/movilizaciones/' + data.id + '/acta-traslado';
-            a.setAttribute('data-no-spa', 'true');
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => { document.body.removeChild(a); window.closeReimprimirActaModal(); }, 500);
+            showFb('success', 'Acta encontrada. Abriendo visor…');
+            // Abrir en el visor modal global (#pdfPreviewModal) — el endpoint
+            // responde con Content-Disposition: inline; openPdfPreview lo carga
+            // en el iframe. Fallback: si la funcion no esta cargada, navegar
+            // directo a la URL (el browser abrira/descargara segun config).
+            const url = '/admin/movilizaciones/' + data.id + '/acta-traslado';
+            const label = 'Acta de Traslado MV-' + String(raw).replace(/^MV-/i, '').padStart(5, '0');
+            window.closeReimprimirActaModal();
+            if (typeof window.openPdfPreview === 'function') {
+                window.openPdfPreview(url, 'acta_traslado', label, 0, '', true, 'movilizaciones');
+            } else {
+                window.open(url, '_blank');
+            }
         } catch (err) {
             console.error('[Reimprimir Acta]', err);
             showFb('error', 'No se pudo contactar al servidor. Intenta de nuevo.');

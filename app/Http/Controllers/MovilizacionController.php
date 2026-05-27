@@ -661,10 +661,12 @@ class MovilizacionController extends Controller
 
             $pdf->setPrintHeader(true);
             $pdf->setPrintFooter(true);
-            // top=36 coincide con cabY=6 + cabH=28 + gap 2mm del nuevo Header().
+            // Cabezote: cabY=6 + cabH=28 → termina en y=34mm.
+            // top=44 deja 10mm de gap entre el cabezote y el parrafo
+            // introductorio del body (antes 2mm, se veia muy pegado).
             // No tocar left/right (15): la tabla nativa de equipos usa anchos
             // [9,90,36,45] que suman 180mm = 210 - 15 - 15.
-            $pdf->SetMargins(15, 36, 15);
+            $pdf->SetMargins(15, 44, 15);
             $pdf->SetHeaderMargin(6);
             $pdf->SetAutoPageBreak(true, 15);
             $pdf->AddPage();
@@ -700,7 +702,16 @@ class MovilizacionController extends Controller
 
             $filename = 'Acta_Traslado_' . $movilizacion->CODIGO_CONTROL . '.pdf';
 
-            return $pdf->Output($filename, 'D');
+            // 'S' devuelve el binario como string sin escribir headers — armamos
+            // la Response manualmente con Content-Disposition: inline para que
+            // window.openPdfPreview lo renderice en el iframe del modal en vez
+            // de forzar descarga (mismo patron que AlmacenController::notaEntregaPdf).
+            // El boton "Descargar" del visor sigue dando la opcion al usuario.
+            $binary = $pdf->Output($filename, 'S');
+            return response($binary, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            ]);
 
         } catch (\Exception $e) {
             Log::error('Error generando Acta de Traslado: ' . $e->getMessage());
@@ -985,16 +996,17 @@ class ActaTrasladoPDF extends \TCPDF
     {
         // ── Cabezote estilo formato VIDALSA — mismo grid que la Nota de Entrega
         //    del Almacen (VID-FO-GEN-019). UNA tabla HTML con bordes:
-        //    [LOGO 20%]  |  ACTA DE TRASLADO DE EQUIPOS (52%)  |  [SELLO 28% × 6 filas]
+        //    [LOGO 20%]  |  ACTA DE TRASLADO DE EQUIPOS (52%)  |  [SELLO 28% × 5 filas]
         //
         //    El logo es una imagen — TCPDF no la mete bien via HTML, asi que la
-        //    celda 20% va vacia con rowspan=6 y la Image() se superpone con
+        //    celda 20% va vacia con rowspan=5 y la Image() se superpone con
         //    fitbox=CM (Center-Middle) para que quede centrada vertical/horizontal.
         //
-        //    Las 6 filas del sello replican exactamente la captura del usuario:
-        //      Codigo: / Revision: 1 / Seccion: / Proc.de Refe: / Fecha de Emision: / Pag.
-        //    Los campos Codigo, Seccion y Proc.de Refe quedan vacios — se
-        //    rellenaran cuando administracion defina el codigo oficial del formato.
+        //    Las 5 filas del sello (Seccion eliminada por pedido del cliente):
+        //      Codigo (= N° de operacion) / Revision: 1 / Proc.de Refe: /
+        //      Fecha de Emision (hoy) / Pag. X de Y
+        //    Proc.de Refe queda vacio — se rellenara cuando administracion
+        //    defina el codigo oficial del formato.
 
         // Lineas finas (0.10mm). 0.15 — el grosor que usa la Nota de Entrega —
         // se veia muy ancho en el Acta; bajado por feedback del cliente.
@@ -1036,20 +1048,19 @@ class ActaTrasladoPDF extends \TCPDF
 
         $fechaHoy = \Carbon\Carbon::now()->format('d/m/Y');
 
-        // 6 filas a la derecha — cada una con valign=middle. Ancho 28% × cabH
-        // = 50.4mm × 28mm → 6 filas de ~4.67mm cada una (font size 7pt entra).
-        // El Codigo lleva el N° de operacion (CODIGO_CONTROL del movimiento)
-        // — antes vivia en el body como bloque suelto; consolidado aqui para
-        // no duplicar el dato.
+        // 5 filas a la derecha — cada una con valign=middle. Ancho 28% × cabH
+        // = 50.4mm × 28mm → 5 filas de ~5.6mm cada una (font size 7pt entra
+        // con holgura). El Codigo lleva el N° de operacion (CODIGO_CONTROL del
+        // movimiento) — antes vivia en el body como bloque suelto, consolidado
+        // aqui para no duplicar el dato.
         $codigoOp = htmlspecialchars($this->numeroOperacion, ENT_QUOTES, 'UTF-8');
         $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
               . '<tr>'
-              .   '<td width="20%" rowspan="6" height="' . $headerHeightPt . '">&nbsp;</td>'
-              .   '<td width="52%" rowspan="6" height="' . $headerHeightPt . '" align="center" valign="middle">' . $tituloDiv . '</td>'
+              .   '<td width="20%" rowspan="5" height="' . $headerHeightPt . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="5" height="' . $headerHeightPt . '" align="center" valign="middle">' . $tituloDiv . '</td>'
               .   '<td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
               . '</tr>'
               . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
-              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Secci&oacute;n:</b></font></td></tr>'
               . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Proc.de Refe:</b></font></td></tr>'
               . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
               . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">P&aacute;gina ' . $page . '</font></td></tr>'

@@ -2422,10 +2422,15 @@ input:-webkit-autofill:active {
     font-size: 13px;
 }
 
+/* Anchos de columna desktop — pedido del cliente: reducir Equipo (sobraba
+   espacio entre foto/datos y borde derecho) y entregarselo a Estado (el
+   texto "ACTUALIZACIÓN DE UBICACIÓN" antes se partia en 2 lineas). Trayecto,
+   Fechas y N° Operación quedan auto para no romper su layout interno. */
 #movilizacionesTable .mv-td-equipo {
     text-align: left;
     border-left: 1px solid #cbd5e0;
     border-radius: 12px 0 0 12px;
+    width: 28%;
 }
 
 #movilizacionesTable .mv-td-trayecto {
@@ -2445,6 +2450,7 @@ input:-webkit-autofill:active {
     text-align: center;
     border-right: 1px solid #cbd5e0;
     border-radius: 0 12px 12px 0;
+    width: 18%;
 }
 
 .movilizaciones-mobile-stats {
