@@ -478,6 +478,20 @@ async function leerCatalogosLocal() {
   );
 }
 
+// Prefetch en segundo plano de las fotos de los equipos — Image.prefetch
+// fuerza a RN a bajar el binario al cache HTTP de imagenes ANTES de que el
+// usuario abra la pantalla de Equipos. Sin esto las fotos solo se bajaban
+// al renderizar cada card (latencia visible si hay mala conexion). Fire-
+// and-forget por URL: errores se ignoran (algunas URLs son privadas y
+// pueden fallar — el placeholder cubre ese caso en la UI).
+function prefetchFotosEquipos(equipos) {
+  for (const eq of equipos) {
+    const url = eq.FOTO;
+    if (!url) continue;
+    Image.prefetch(url).catch(() => {});
+  }
+}
+
 // Leer frentes desde SQLite
 async function leerFrentesLocal() {
   const database = await getDb();
@@ -976,6 +990,9 @@ function PantallaLogin({ onLogin }) {
       await guardarEquiposLocal(equipos);
       await guardarFrentesLocal(frentes);
       await guardarCatalogosLocal(catalogos);
+      // Disparar prefetch de las fotos en background — no bloquea el alert
+      // de exito ni la UI; las cards de Equipos abriran con foto ya cacheada.
+      prefetchFotosEquipos(equipos);
       const fecha = new Date();
       setUltimaSync(fecha.toLocaleString("es-VE"));
       setConteoLocal(equipos.length);
@@ -1043,6 +1060,7 @@ function PantallaLogin({ onLogin }) {
         await guardarEquiposLocal(equipos);
         await guardarFrentesLocal(frentes);
         await guardarCatalogosLocal(catalogos);
+        prefetchFotosEquipos(equipos);
       } catch (_) {
         // Si falla la descarga post-login, continúa con datos locales existentes
       }
