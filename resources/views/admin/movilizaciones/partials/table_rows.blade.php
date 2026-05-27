@@ -102,7 +102,13 @@
             </div>
         </td>
 
-        {{-- 4. N° Operación (oculto en mobile) --}}
+        {{-- 4. N° Operación (oculto en mobile)
+             Si hay CODIGO_CONTROL existe constancia (acta_traslado), por eso
+             el MV-XXXXX se renderiza como <a> al PDF — mismo endpoint que el
+             modal "Reimprimir Acta" usa (route movilizaciones.actaTraslado).
+             data-no-spa para que la SPA no intercepte la navegacion; el PDF
+             se sirve con Content-Disposition: attachment asi que el browser
+             dispara la descarga sin abrir pestaña vacia. --}}
         <td class="mv-col-op mv-mobile-hidden">
             <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
                 @if($mov->CODIGO_CONTROL)
@@ -110,8 +116,15 @@
                          para evitar render "MV-MV-XXXXX" en registros antiguos
                          de aux que se guardaron con prefijo. --}}
                     @php $cc = preg_replace('/[^0-9]/', '', (string) $mov->CODIGO_CONTROL); @endphp
-                    <span
-                        style="font-weight: 800; color: #1e293b; font-size: 13px;">MV-{{ str_pad($cc, 5, '0', STR_PAD_LEFT) }}</span>
+                    <a href="{{ route('movilizaciones.actaTraslado', $mov->ID_MOVILIZACION) }}"
+                       data-no-spa="true"
+                       title="Ver Acta de Traslado (PDF)"
+                       style="font-weight: 800; color: #0067b1; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"
+                       onmouseover="this.style.textDecoration='underline'"
+                       onmouseout="this.style.textDecoration='none'">
+                        <i class="material-icons" style="font-size: 14px;">picture_as_pdf</i>
+                        MV-{{ str_pad($cc, 5, '0', STR_PAD_LEFT) }}
+                    </a>
                 @else
                     <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">--</span>
                 @endif
@@ -123,21 +136,16 @@
             </div>
         </td>
 
-        {{-- 5. Estado --}}
+        {{-- 5. Estado — sin contenedor azul/indigo (pedido del cliente),
+             solo icono + texto. Color del texto diferencia los 2 tipos. --}}
         <td class="mv-td-estado">
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 11px; font-weight: 800;">
                 @if($mov->TIPO_MOVIMIENTO === 'RECEPCION_DIRECTA' || $mov->TIPO_MOVIMIENTO === 'ACT.')
-                    <div
-                        style="background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 4px 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; font-weight: 800;">
-                        <i class="material-icons" style="font-size: 14px;">input</i>
-                        <span>ACTUALIZACIÓN DE UBICACIÓN</span>
-                    </div>
+                    <i class="material-icons" style="font-size: 16px; color: #3730a3;">input</i>
+                    <span style="color: #3730a3;">ACTUALIZACIÓN DE UBICACIÓN</span>
                 @else
-                    <div
-                        style="background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; padding: 4px 6px; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; font-weight: 800;">
-                        <i class="material-icons" style="font-size: 14px;">swap_horiz</i>
-                        <span>MOVILIZACIÓN</span>
-                    </div>
+                    <i class="material-icons" style="font-size: 16px; color: #1e40af;">swap_horiz</i>
+                    <span style="color: #1e40af;">MOVILIZACIÓN</span>
                 @endif
             </div>
         </td>
