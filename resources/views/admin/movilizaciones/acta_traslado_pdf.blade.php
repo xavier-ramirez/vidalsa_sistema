@@ -7,37 +7,9 @@
 
 <body>
 
-    <!-- ===================== N° OPERACIÓN ===================== -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0">
-        <tr>
-            <td align="right" style="font-size: 9pt;">
-                <b>N° OPERACIÓN: {{ str_pad($movilizacion->CODIGO_CONTROL ?? 0, 6, '0', STR_PAD_LEFT) }}</b>
-            </td>
-        </tr>
-    </table>
-
-    <!-- Separador N° Operación / Título (20px) -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0">
-        <tr>
-            <td height="20">&nbsp;</td>
-        </tr>
-    </table>
-
-    <!-- ===================== TÍTULO ===================== -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0">
-        <tr>
-            <td align="center" style="font-size: 15pt;">
-                <b>ACTA DE TRASLADO</b>
-            </td>
-        </tr>
-    </table>
-
-    <!-- Separador Título / Cuerpo (10px) -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0">
-        <tr>
-            <td height="10">&nbsp;</td>
-        </tr>
-    </table>
+    {{-- Titulo "ACTA DE TRASLADO DE EQUIPOS" y N° de operacion ahora viven en
+         el cabezote (ActaTrasladoPDF::Header → casilleros central y "Codigo:").
+         El body arranca directo con el parrafo introductorio. --}}
     @php
         $tipoOrigen = strtoupper($frenteOrigen->TIPO_FRENTE ?? 'OPERACION');
         $nombreOrigen = strtoupper($frenteOrigen->NOMBRE_FRENTE ?? '');

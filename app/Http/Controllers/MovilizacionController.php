@@ -654,11 +654,18 @@ class MovilizacionController extends Controller
 
             $pdf = new ActaTrasladoPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
-            $pdf->frenteOrigen = $frenteOrigen->NOMBRE_FRENTE ?? 'OFICINA PRINCIPAL';
+            // CODIGO_CONTROL con padding 6 digitos — el Header() lo pinta en
+            // el casillero "Codigo:" del cabezote (antes estaba como bloque
+            // suelto al inicio del body).
+            $pdf->numeroOperacion = str_pad($movilizacion->CODIGO_CONTROL ?? 0, 6, '0', STR_PAD_LEFT);
+
             $pdf->setPrintHeader(true);
             $pdf->setPrintFooter(true);
-            $pdf->SetMargins(15, 42, 15);  // top=42 para dejar espacio al header nativo
-            $pdf->SetHeaderMargin(8);
+            // top=36 coincide con cabY=6 + cabH=28 + gap 2mm del nuevo Header().
+            // No tocar left/right (15): la tabla nativa de equipos usa anchos
+            // [9,90,36,45] que suman 180mm = 210 - 15 - 15.
+            $pdf->SetMargins(15, 36, 15);
+            $pdf->SetHeaderMargin(6);
             $pdf->SetAutoPageBreak(true, 15);
             $pdf->AddPage();
             $pdf->SetFont('helvetica', '', 10);
@@ -667,7 +674,10 @@ class MovilizacionController extends Controller
                 return $mov->equipo;
             });
 
-            $html = view('admin.movilizaciones.acta_traslado_pdf', compact('movilizaciones', 'equipos', 'movilizacion', 'frenteOrigen', 'frenteDestino'))->render();
+            // El blade solo consume equipos + frenteOrigen + frenteDestino;
+            // $movilizacion / $movilizaciones quedaron fuera porque el N° de
+            // operacion ahora vive en el cabezote (ActaTrasladoPDF::Header).
+            $html = view('admin.movilizaciones.acta_traslado_pdf', compact('equipos', 'frenteOrigen', 'frenteDestino'))->render();
 
             $html = str_replace("this.closest('div[style*='position: fixed']').remove();", "", $html);
 
@@ -898,7 +908,9 @@ class MovilizacionController extends Controller
 
 class ActaTrasladoPDF extends \TCPDF
 {
-    public $frenteOrigen = '';
+    /** N° de operacion (CODIGO_CONTROL, 6 digitos) — lo inyecta el controller
+     *  antes de AddPage() para que el Header() lo pinte en el casillero "Codigo:". */
+    public string $numeroOperacion = '';
 
     /**
      * Anchos de columna en mm. Total = 180mm (= 210mm A4 portrait - 15+15 margenes).
@@ -971,31 +983,93 @@ class ActaTrasladoPDF extends \TCPDF
 
     public function Header()
     {
-        $image_file = public_path('img/imagen_uno.jpg');
-        if (file_exists($image_file)) {
-            $this->Image($image_file, 15, 8, 0, 25, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+        // ── Cabezote estilo formato VIDALSA — mismo grid que la Nota de Entrega
+        //    del Almacen (VID-FO-GEN-019). UNA tabla HTML con bordes:
+        //    [LOGO 20%]  |  ACTA DE TRASLADO DE EQUIPOS (52%)  |  [SELLO 28% × 6 filas]
+        //
+        //    El logo es una imagen — TCPDF no la mete bien via HTML, asi que la
+        //    celda 20% va vacia con rowspan=6 y la Image() se superpone con
+        //    fitbox=CM (Center-Middle) para que quede centrada vertical/horizontal.
+        //
+        //    Las 6 filas del sello replican exactamente la captura del usuario:
+        //      Codigo: / Revision: 1 / Seccion: / Proc.de Refe: / Fecha de Emision: / Pag.
+        //    Los campos Codigo, Seccion y Proc.de Refe quedan vacios — se
+        //    rellenaran cuando administracion defina el codigo oficial del formato.
+
+        // Lineas finas (0.10mm). 0.15 — el grosor que usa la Nota de Entrega —
+        // se veia muy ancho en el Acta; bajado por feedback del cliente.
+        $this->SetLineWidth(0.10);
+
+        // Geometria del cabezote:
+        //   x = 15 mm  (coincide con SetMargins left=15)   width = 180 mm
+        //   y = 6 mm                                       height = 28 mm
+        //   bottom = 6 + 28 = 34 mm   ← coincide con SetMargins top=36 (gap 2mm)
+        $cabX = 15;
+        $cabY = 6;
+        $cabW = 180;
+        $cabH = 28;
+        $logoCellW = $cabW * 0.20;  // 36 mm
+
+        $img = public_path('img/imagen_uno.jpg');
+        if (file_exists($img)) {
+            // Logo centrado dentro de la celda 20% × 28mm con padding 1mm.
+            // fitbox='CM' = Center+Middle; preserva aspect ratio.
+            $padding = 1;
+            $bx = $cabX + $padding;                 // 16
+            $by = $cabY + $padding;                 //  7
+            $bw = $logoCellW - ($padding * 2);      // 34
+            $bh = $cabH - ($padding * 2);           // 26
+            $this->Image($img, $bx, $by, $bw, $bh, 'JPG', '', '', false, 300, '', false, false, 0, 'CM', false, false);
         }
 
-        // RIF debajo del logo en letra pequeÃ±a
-        $this->SetFont('helvetica', '', 7);
-        $this->writeHTMLCell(50, 0, 19, 33, '<div style="text-align:left; color:#444444; font-size:7pt;">RIF: J-29387719-3</div>', 0, 0, 0, true, 'L', true);
+        // Pagina N de M — numeros reales en vez de alias {:pnb:}/{:ptp:} porque
+        // los alias rompen el centrado horizontal de TCPDF (mismo truco que
+        // usa NotaEntregaPDF::Header). "de" en minuscula por feedback del cliente.
+        $page = $this->PageNo() . ' de ' . max(1, $this->getNumPages());
 
-        $this->SetFont('helvetica', '', 8.5);
-        $frente = strtoupper($this->frenteOrigen ?: 'OFICINA PRINCIPAL');
-        $html = '<div style="text-align: right; line-height: 1.8;"><strong>FECHA DE EMISI&Oacute;N:</strong> ' . \Carbon\Carbon::now()->format('d/m/Y') . '<br><strong>FRENTE DE ORIGEN:</strong> ' . $frente . '<br>EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>';
-        $this->writeHTMLCell(0, 0, 15, 20, $html, 0, 1, 0, true, 'R', true);
+        // Altura del header en puntos para el line-height del titulo (truco de
+        // centrado vertical en celda con rowspan — TCPDF no respeta valign con
+        // rowspan, pero un line-height igual a la altura del rowspan en pt
+        // deja el texto exactamente en el centro vertical).
+        $headerHeightPt = $cabH * 2.83;  // mm → pt aprox (1mm ≈ 2.83pt)
+        $tituloDiv = '<div style="text-align:center;line-height:' . round($headerHeightPt - 4) . 'pt;font-family:helvetica;font-size:12pt;font-weight:bold;">ACTA DE TRASLADO DE EQUIPOS</div>';
+
+        $fechaHoy = \Carbon\Carbon::now()->format('d/m/Y');
+
+        // 6 filas a la derecha — cada una con valign=middle. Ancho 28% × cabH
+        // = 50.4mm × 28mm → 6 filas de ~4.67mm cada una (font size 7pt entra).
+        // El Codigo lleva el N° de operacion (CODIGO_CONTROL del movimiento)
+        // — antes vivia en el body como bloque suelto; consolidado aqui para
+        // no duplicar el dato.
+        $codigoOp = htmlspecialchars($this->numeroOperacion, ENT_QUOTES, 'UTF-8');
+        $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
+              . '<tr>'
+              .   '<td width="20%" rowspan="6" height="' . $headerHeightPt . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="6" height="' . $headerHeightPt . '" align="center" valign="middle">' . $tituloDiv . '</td>'
+              .   '<td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
+              . '</tr>'
+              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
+              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Secci&oacute;n:</b></font></td></tr>'
+              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Proc.de Refe:</b></font></td></tr>'
+              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">P&aacute;gina ' . $page . '</font></td></tr>'
+              . '</table>';
+
+        $this->SetFont('helvetica', '', 7);
+        $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
     }
 
     public function Footer()
     {
-        $this->SetY(-15);
-        $this->SetFont('helvetica', 'I', 8);
-        // Usar writeHTMLCell en vez de Cell(): Cell() no procesa UTF-8 con
-        // helvetica, causando que 'á' (U+00E1) se muestre como 'Ã¡'.
-        // La entidad HTML &aacute; es resuelta correctamente por TCPDF.
-        $footerHtml = '<div style="text-align:right; font-style:italic; font-size:8pt;">'
-            . 'P&aacute;gina ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages()
-            . '</div>';
-        $this->writeHTMLCell(0, 10, $this->getMargins()['left'], $this->GetY(), $footerHtml, 0, 0, false, true, 'R', true);
+        // El numero de pagina ya esta en la celda derecha del cabezote (igual
+        // que la Nota de Entrega), por eso el footer solo lleva la marca del
+        // sistema centrada — mismo formato que NotaEntregaPDF::Footer.
+        $this->SetY(-10);
+        $this->SetFont('helvetica', 'I', 7);
+        $this->writeHTMLCell(
+            0, 6, '', $this->GetY(),
+            '<div style="text-align:center;font-family:helvetica;font-weight:bold;font-size:7pt;">EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>',
+            0, 0, 0, true, 'C', true
+        );
     }
 }
