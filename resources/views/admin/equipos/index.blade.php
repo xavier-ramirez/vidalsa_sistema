@@ -1598,18 +1598,30 @@
      CODIGO_PATIO y documentacion.PLACA.
      ═══════════════════════════════════════════════════════════ --}}
 <style>
-    #bulkLookupInputTable                { width: 100%; border-collapse: collapse; font-size: 12px; background: white; }
-    #bulkLookupInputTable thead th       { position: sticky; top: 0; background: #1e293b; border-bottom: 2px solid #0f172a; border-right: 1px solid #334155; padding: 5px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; z-index: 1; }
-    #bulkLookupInputTable thead th:last-child { border-right: none; }
-    #bulkLookupInputTable tbody tr       { border-bottom: 1px solid #f1f5f9; }
-    #bulkLookupInputTable tbody tr:hover { background: #f8fafc; }
-    #bulkLookupInputTable td             { padding: 0; vertical-align: middle; }
-    #bulkLookupInputTable td.bl-num      { width: 40px; padding: 4px 6px; text-align: center; color: #94a3b8; font-size: 11px; font-weight: 700; font-family: 'Courier New', monospace; }
-    #bulkLookupInputTable td.bl-action   { width: 32px; text-align: center; }
-    #bulkLookupInputTable .bl-input      { width: 100%; border: none; outline: none; background: transparent; padding: 5px 8px; font-family: 'Courier New', monospace; font-size: 12px; text-transform: uppercase; box-sizing: border-box; }
-    #bulkLookupInputTable .bl-input:focus{ background: #eff6ff; }
-    #bulkLookupInputTable .bl-delete     { background: transparent; border: none; cursor: pointer; color: #cbd5e0; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
-    #bulkLookupInputTable .bl-delete:hover { color: #dc2626; background: #fef2f2; }
+    /* Textarea masiva: el usuario pega/escribe seriales separados por
+       cualquier whitespace (espacio, tab, newline). Antes era una tabla
+       con un <input> por fila — paste con 300+ items fallaba silenciosamente
+       en algunos escenarios. El textarea elimina ese riesgo de raiz. */
+    #bulkLookupTextarea {
+        width: 100%; min-height: 220px; max-height: 50vh;
+        padding: 8px 10px; box-sizing: border-box;
+        border: 1px solid #cbd5e0; border-radius: 8px;
+        font-family: 'Courier New', monospace; font-size: 12px;
+        line-height: 1.4; text-transform: uppercase;
+        resize: vertical; outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #bulkLookupTextarea:focus {
+        border-color: #0067b1;
+        box-shadow: 0 0 0 3px rgba(0,103,177,0.12);
+    }
+    #bulkLookupFrenteSelect {
+        width: 100%; padding: 7px 10px; box-sizing: border-box;
+        border: 1px solid #cbd5e0; border-radius: 8px;
+        font-size: 12px; color: #334155; background: white;
+        outline: none; cursor: pointer;
+    }
+    #bulkLookupFrenteSelect:focus { border-color: #0067b1; }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
     <div class="modal-content" style="width: 95%; max-width: 640px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
@@ -1643,26 +1655,32 @@
 
             <!-- Input phase -->
             <div id="bulkLookupInputPhase">
+                {{-- Dropdown de Frente: cuando se elige uno, los equipos
+                     que pertenezcan a OTRO frente se resaltan en amarillo
+                     (siguen mostrandose, no se ocultan). $frentesDropdown
+                     ya viene filtrado por permisos del usuario en el controller. --}}
+                <div style="margin-bottom: 10px;">
+                    <label for="bulkLookupFrenteSelect" style="display:block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">
+                        Frente de trabajo (opcional)
+                    </label>
+                    <select id="bulkLookupFrenteSelect">
+                        <option value="">Todos los frentes (sin filtro)</option>
+                        @foreach($frentesDropdown as $frente)
+                            <option value="{{ $frente->ID_FRENTE }}">{{ $frente->NOMBRE_FRENTE }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label style="font-size: 12px; font-weight: 600; color: #334155;">Valores a buscar</label>
+                    <label for="bulkLookupTextarea" style="font-size: 12px; font-weight: 600; color: #334155;">Placas / Seriales / Etiquetas / Patio</label>
                     <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) único(s)</span>
                 </div>
-                <div style="border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden;">
-                    <div style="max-height: 40vh; overflow-y: auto;">
-                        <table id="bulkLookupInputTable">
-                            <thead>
-                                <tr>
-                                    <th style="text-align: center;">#</th>
-                                    <th>Placa / Serial / Etiqueta / Patio</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="bulkLookupInputTbody"></tbody>
-                        </table>
-                    </div>
-                </div>
+                <textarea id="bulkLookupTextarea"
+                          placeholder="Pega aquí todos los valores. Pueden ir separados por espacio, tab o salto de línea — el sistema los procesa al hacer Buscar."
+                          spellcheck="false"
+                          autocomplete="off"></textarea>
                 <div style="margin-top: 6px; font-size: 11px; color: #94a3b8; font-style: italic;">
-                    Tip: pega <kbd style="background:#f1f5f9; border:1px solid #cbd5e0; border-radius:3px; padding:0 4px; font-family:monospace;">Ctrl+V</kbd> sobre una celda para distribuir varios valores.
+                    Tip: copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores.
                 </div>
             </div>
 
@@ -1690,9 +1708,15 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 8px; font-size: 11px; color: #64748b;">
-                    <i class="material-icons" style="font-size: 13px; vertical-align: middle; color: #ef4444;">error_outline</i>
-                    Las filas en rojo son términos que no se encontraron en la base de datos.
+                <div style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; flex-direction: column; gap: 3px;">
+                    <div>
+                        <span style="display:inline-block; width: 12px; height: 12px; background:#fef2f2; border:1px solid #fca5a5; vertical-align: middle; border-radius:2px; margin-right: 4px;"></span>
+                        <span style="color:#b91c1c;">Rojo</span>: términos que no se encontraron en la base de datos.
+                    </div>
+                    <div id="bulkLookupYellowLegend" style="display:none;">
+                        <span style="display:inline-block; width: 12px; height: 12px; background:#fef9c3; border:1px solid #fde047; vertical-align: middle; border-radius:2px; margin-right: 4px;"></span>
+                        <span style="color:#854d0e;">Amarillo</span>: equipos que existen pero están en un frente diferente al seleccionado.
+                    </div>
                 </div>
             </div>
         </div>
@@ -1715,7 +1739,7 @@
 <script>
 (function () {
     const URL_BULK_LOOKUP = '{{ route('equipos.bulkLookup') }}';
-    const MAX_TERMS = 500;
+    const MAX_TERMS = 2000;
     const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     let lastMissingTerms = [];
@@ -1730,23 +1754,19 @@
             .replace(/'/g, '&#039;');
     }
 
-    // ── INPUT TABLE (estilo Excel) ──────────────────────────────────────────
-    function getTbody()  { return document.getElementById('bulkLookupInputTbody'); }
-    function getInputs() { return getTbody().querySelectorAll('.bl-input'); }
+    function getTextarea() { return document.getElementById('bulkLookupTextarea'); }
+    function getFrenteSelect() { return document.getElementById('bulkLookupFrenteSelect'); }
 
-    // Recolecta todos los terminos de la tabla, partiendo cualquier celda que
-    // tenga varios valores pegados (whitespace). Usado por el contador y por
-    // el submit del modal — unica fuente de verdad para "que vamos a buscar".
+    // Unica fuente de verdad de "que vamos a buscar". Splittea por CUALQUIER
+    // whitespace (espacio/tab/newline) — sirve para datos pegados desde Excel
+    // (que vienen con \t y \r\n), CSV (con saltos de linea), o tipeado manual
+    // (separado por espacios o cada uno en su linea). El textarea elimina el
+    // bug del paste anterior donde >X filas no se distribuian correctamente.
     function collectTerms() {
-        return Array.from(getInputs())
-            .flatMap(i => i.value.trim().toUpperCase().split(/\s+/))
-            .filter(v => v !== '');
-    }
-
-    function renumberRows() {
-        Array.from(getTbody().children).forEach((tr, i) => {
-            tr.querySelector('.bl-num').textContent = (i + 1);
-        });
+        const raw = (getTextarea().value || '');
+        return raw.split(/\s+/)
+                  .map(s => s.trim().toUpperCase())
+                  .filter(v => v !== '');
     }
 
     function updateCountHint() {
@@ -1756,90 +1776,18 @@
         const unique = new Set(values);
         const dupes = values.length - unique.size;
         let html = unique.size + ' valor(es) único(s)';
-        // Avisar duplicados en rojo: el backend deduplica antes de buscar, asi
-        // que sin esta alerta el user podria pensar que se "perdieron" valores.
+        // Avisar duplicados en rojo: el backend deduplica antes de buscar.
         if (dupes > 0) {
             html += ' <span style="color:#dc2626;font-weight:700;">(' + dupes + ' duplicado(s) — se ignoran)</span>';
         }
         hint.innerHTML = html;
     }
 
-    function addRow() {
-        const tbody = getTbody();
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="bl-num">${tbody.children.length + 1}</td>
-            <td><input type="text" class="bl-input" maxlength="100" autocomplete="off" spellcheck="false"></td>
-            <td class="bl-action"><button type="button" class="bl-delete" title="Quitar fila">&times;</button></td>
-        `;
-        tbody.appendChild(tr);
-        return tr;
-    }
-
-    function ensureTrailingEmptyRow() {
-        const tbody = getTbody();
-        const last = tbody.lastElementChild;
-        if (!last || last.querySelector('.bl-input').value.trim() !== '') {
-            addRow();
-        }
-    }
-
-    function clearTable() {
-        getTbody().innerHTML = '';
-        addRow();
+    function clearInputs() {
+        getTextarea().value = '';
+        const sel = getFrenteSelect();
+        if (sel) sel.value = '';
         updateCountHint();
-    }
-
-    function handleTableInput(e) {
-        if (!e.target.classList.contains('bl-input')) return;
-        const pos = e.target.selectionStart;
-        const upper = e.target.value.toUpperCase();
-        if (upper !== e.target.value) {
-            e.target.value = upper;
-            try { e.target.setSelectionRange(pos, pos); } catch (_) {}
-        }
-        ensureTrailingEmptyRow();
-        updateCountHint();
-    }
-
-    function handleTableClick(e) {
-        const btn = e.target.closest('.bl-delete');
-        if (!btn) return;
-        const tr = btn.closest('tr');
-        if (!tr) return;
-        tr.remove();
-        if (getTbody().children.length === 0) addRow();
-        renumberRows(); // unico caso real: borrar fila intermedia descuadra los numeros siguientes
-        updateCountHint();
-    }
-
-    // Excel-paste: split agresivo por cualquier whitespace (placas/seriales no
-    // contienen espacios internos). Siempre interceptamos el paste y distribuimos
-    // — incluso para 1 valor — para no depender del comportamiento default del
-    // navegador (que convierte \t/\n en espacio dentro de <input> single-line).
-    function handleTablePaste(e) {
-        if (!e.target.classList.contains('bl-input')) return;
-        const raw = (e.clipboardData || window.clipboardData).getData('text');
-        if (!raw) return;
-        const parts = raw.split(/\s+/).map(s => s.trim().toUpperCase()).filter(s => s !== '');
-        if (parts.length === 0) return;
-        e.preventDefault();
-        const tbody = getTbody();
-        const startIdx = Math.max(0, Array.from(tbody.children).indexOf(e.target.closest('tr')));
-        parts.forEach((val, k) => {
-            const tr = tbody.children[startIdx + k] || addRow();
-            tr.querySelector('.bl-input').value = val;
-        });
-        ensureTrailingEmptyRow();
-        updateCountHint();
-    }
-
-    // Enter en una celda salta a la siguiente fila (crea una nueva si hace falta).
-    function handleTableKeydown(e) {
-        if (e.key !== 'Enter' || !e.target.classList.contains('bl-input')) return;
-        e.preventDefault();
-        const tr = e.target.closest('tr');
-        (tr.nextElementSibling || addRow()).querySelector('.bl-input').focus();
     }
 
     // ── ABRIR / CERRAR / VOLVER ─────────────────────────────────────────────
@@ -1852,7 +1800,7 @@
     }
 
     window.openBulkLookupModal = function () {
-        // Cierra el panel de filtros avanzados si esta abierto, para no superponer popovers.
+        // Cierra otros popovers para no superponerlos.
         const adv = document.getElementById('advancedFilterPanel');
         if (adv) adv.style.display = 'none';
         const sm = document.getElementById('splitDropdownMenu');
@@ -1860,14 +1808,11 @@
 
         showInputPhase();
         lastMissingTerms = [];
-        clearTable();
+        clearInputs();
 
         const modal = document.getElementById('bulkLookupModal');
         modal.classList.add('active');
-        setTimeout(() => {
-            const first = getTbody().querySelector('.bl-input');
-            if (first) first.focus();
-        }, 50);
+        setTimeout(() => { getTextarea().focus(); }, 50);
     };
 
     window.closeBulkLookupModal = function () {
@@ -1889,28 +1834,49 @@
     function renderResults(payload) {
         const tbody = document.getElementById('bulkLookupResultsBody');
         const summary = document.getElementById('bulkLookupSummary');
+        const yellowLegend = document.getElementById('bulkLookupYellowLegend');
         if (!tbody || !summary) return;
 
         const results = payload.results || [];
         const found = payload.found || 0;
         const missing = payload.missing || 0;
         const total = payload.total || 0;
+        const inOther = payload.in_other_frente || 0;
 
-        summary.innerHTML = `
+        let summaryHtml = `
             <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
                 Total: ${total}
             </div>
             <div style="background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
                 <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">check_circle</i> Encontrados: ${found}
             </div>
+        `;
+        if (inOther > 0) {
+            summaryHtml += `
+                <div style="background: #fef9c3; border: 1px solid #fde047; color: #854d0e; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
+                    <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">warning</i> En otro frente: ${inOther}
+                </div>
+            `;
+        }
+        summaryHtml += `
             <div style="background: ${missing > 0 ? '#fee2e2' : '#f1f5f9'}; border: 1px solid ${missing > 0 ? '#fca5a5' : '#cbd5e0'}; color: ${missing > 0 ? '#991b1b' : '#475569'}; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
                 <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">cancel</i> No encontrados: ${missing}
             </div>
         `;
+        summary.innerHTML = summaryHtml;
+
+        // La leyenda del amarillo solo aparece si hubo equipos en otro frente.
+        if (yellowLegend) yellowLegend.style.display = inOther > 0 ? 'block' : 'none';
 
         lastMissingTerms = [];
-        const cellBase = "padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; word-break: break-word;";
+        // 3 estilos de fila segun resultado:
+        //   - rojo: no encontrado (NF)
+        //   - amarillo: encontrado pero in_selected_frente === false
+        //   - blanco: encontrado y en el frente (o sin filtro)
+        const cellBase    = "padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; word-break: break-word;";
         const cellMissing = "padding: 6px 10px; border-bottom: 1px solid #fee2e2; color: #b91c1c; word-break: break-word;";
+        const cellOther   = "padding: 6px 10px; border-bottom: 1px solid #fde68a; color: #854d0e; word-break: break-word;";
+
         const rowsHtml = results.map(r => {
             if (!r.found) {
                 lastMissingTerms.push(r.term);
@@ -1928,6 +1894,17 @@
             const frente = r.frente_nombre === 'SIN ASIGNAR'
                 ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
                 : escapeHtml(r.frente_nombre);
+            // r.in_selected_frente === false → otro frente → amarillo.
+            // r.in_selected_frente === true  → mismo frente o sin filtro → blanco.
+            if (r.in_selected_frente === false) {
+                return `
+                    <tr style="background: #fef9c3;">
+                        <td style="${cellOther} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td style="${cellOther}">${escapeHtml(equipoInfo)}</td>
+                        <td style="${cellOther}">${frente}</td>
+                    </tr>
+                `;
+            }
             return `
                 <tr style="background: white;">
                     <td style="${cellBase} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
@@ -1952,8 +1929,7 @@
         if (terms.length === 0) {
             if (window.showToast) window.showToast('Agrega al menos una placa o serial.', 'warning');
             else alert('Agrega al menos una placa o serial.');
-            const first = getTbody().querySelector('.bl-input');
-            if (first) first.focus();
+            getTextarea().focus();
             return;
         }
         if (terms.length > MAX_TERMS) {
@@ -1961,6 +1937,10 @@
             else alert('Máximo ' + MAX_TERMS + ' términos por búsqueda.');
             return;
         }
+
+        const frenteIdRaw = (getFrenteSelect() && getFrenteSelect().value) || '';
+        const body = { terms: terms };
+        if (frenteIdRaw) body.frente_id = parseInt(frenteIdRaw, 10);
 
         if (window.showPreloader) window.showPreloader();
         fetch(URL_BULK_LOOKUP, {
@@ -1971,7 +1951,7 @@
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify({ terms: terms })
+            body: JSON.stringify(body)
         })
         .then(r => r.json().then(d => ({ ok: r.ok, body: d })))
         .then(res => {
@@ -1994,12 +1974,18 @@
 
     // ── BIND ────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
-        const tbody = getTbody();
-        if (tbody) {
-            tbody.addEventListener('input',    handleTableInput);
-            tbody.addEventListener('click',    handleTableClick);
-            tbody.addEventListener('paste',    handleTablePaste);
-            tbody.addEventListener('keydown',  handleTableKeydown);
+        const ta = getTextarea();
+        if (ta) {
+            // Forzar mayusculas al teclear/pegar — backend tambien hace upper.
+            ta.addEventListener('input', function () {
+                const pos = ta.selectionStart;
+                const upper = ta.value.toUpperCase();
+                if (upper !== ta.value) {
+                    ta.value = upper;
+                    try { ta.setSelectionRange(pos, pos); } catch (_) {}
+                }
+                updateCountHint();
+            });
         }
 
         const modal = document.getElementById('bulkLookupModal');

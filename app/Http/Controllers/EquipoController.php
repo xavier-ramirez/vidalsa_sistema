@@ -3020,13 +3020,20 @@ class EquipoController extends Controller
      * Bulk lookup masivo: recibe una lista de terminos y devuelve, por termino,
      * si fue encontrado y en que frente esta el equipo actualmente.
      * Busca en placa, serial chasis, serial motor, N° etiqueta y codigo patio.
+     *
+     * Parametro opcional `frente_id`: si esta presente, cada resultado incluye
+     * un flag `in_selected_frente` para que el frontend resalte en amarillo
+     * los equipos que existen pero estan en un frente DIFERENTE al seleccionado.
      */
     public function bulkLookup(Request $request)
     {
         $request->validate([
-            'terms'   => 'required|array|min:1|max:500',
-            'terms.*' => 'nullable|string|max:100',
+            'terms'     => 'required|array|min:1|max:2000',
+            'terms.*'   => 'nullable|string|max:100',
+            'frente_id' => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
         ]);
+
+        $frenteIdFiltro = $request->input('frente_id'); // null = sin filtro
 
         // Trim + uppercase, descartar vacios, eliminar duplicados conservando orden.
         $terms = collect($request->input('terms', []))
@@ -3059,6 +3066,7 @@ class EquipoController extends Controller
                 'e.MARCA',
                 'e.SERIAL_CHASIS',
                 'e.SERIAL_DE_MOTOR',
+                'e.ID_FRENTE_ACTUAL',
                 'd.PLACA',
                 'f.NOMBRE_FRENTE',
                 't.nombre as TIPO_NOMBRE',
@@ -3084,17 +3092,25 @@ class EquipoController extends Controller
         $priority = ['placa', 'chasis', 'motor', 'etiqueta', 'patio'];
 
         $found = 0;
-        $results = $terms->map(function ($term) use ($indexByField, $priority, &$found) {
+        $inOtherFrente = 0;
+        $results = $terms->map(function ($term) use ($indexByField, $priority, $frenteIdFiltro, &$found, &$inOtherFrente) {
             foreach ($priority as $field) {
                 if (isset($indexByField[$field][$term])) {
                     $r = $indexByField[$field][$term];
                     $found++;
+                    $idFrenteActual = $r->ID_FRENTE_ACTUAL ? (int) $r->ID_FRENTE_ACTUAL : null;
+                    // in_selected_frente: true si no hay filtro o si el equipo
+                    // ESTA en el frente seleccionado. false → renderiza amarillo.
+                    $inFrente = ($frenteIdFiltro === null) || ($idFrenteActual === (int) $frenteIdFiltro);
+                    if (!$inFrente) $inOtherFrente++;
                     return [
-                        'term'          => $term,
-                        'found'         => true,
-                        'tipo_nombre'   => $r->TIPO_NOMBRE,
-                        'marca'         => $r->MARCA,
-                        'frente_nombre' => $r->NOMBRE_FRENTE ?: 'SIN ASIGNAR',
+                        'term'                => $term,
+                        'found'               => true,
+                        'tipo_nombre'         => $r->TIPO_NOMBRE,
+                        'marca'               => $r->MARCA,
+                        'frente_nombre'       => $r->NOMBRE_FRENTE ?: 'SIN ASIGNAR',
+                        'id_frente_actual'    => $idFrenteActual,
+                        'in_selected_frente'  => $inFrente,
                     ];
                 }
             }
@@ -3105,10 +3121,11 @@ class EquipoController extends Controller
         })->values();
 
         return response()->json([
-            'total'   => $results->count(),
-            'found'   => $found,
-            'missing' => $results->count() - $found,
-            'results' => $results,
+            'total'           => $results->count(),
+            'found'           => $found,
+            'missing'         => $results->count() - $found,
+            'in_other_frente' => $inOtherFrente,
+            'results'         => $results,
         ]);
     }
 
