@@ -2422,15 +2422,19 @@ input:-webkit-autofill:active {
     font-size: 13px;
 }
 
-/* Anchos de columna desktop — pedido del cliente: reducir Equipo (sobraba
-   espacio entre foto/datos y borde derecho) y entregarselo a Estado (el
-   texto "ACTUALIZACIÓN DE UBICACIÓN" antes se partia en 2 lineas). Trayecto,
-   Fechas y N° Operación quedan auto para no romper su layout interno. */
+/* Anchos de columna desktop — pedido del cliente: reducir Equipo
+   (sobraba espacio entre foto/datos y borde derecho) y entregarselo a
+   Estado (el texto "ACTUALIZACIÓN DE UBICACIÓN" antes se partia en 2
+   lineas). Trayecto, Fechas y N° Op quedan auto para no romper su layout
+   interno.
+   Iteracion 2: el 28%/18% inicial casi no se notaba — el cliente pidio
+   mas contraste. 24%/22% deja a Equipo claramente mas estrecho y a
+   Estado holgado, sin afectar a las 3 columnas intermedias. */
 #movilizacionesTable .mv-td-equipo {
     text-align: left;
     border-left: 1px solid #cbd5e0;
     border-radius: 12px 0 0 12px;
-    width: 28%;
+    width: 24%;
 }
 
 #movilizacionesTable .mv-td-trayecto {
@@ -2450,7 +2454,7 @@ input:-webkit-autofill:active {
     text-align: center;
     border-right: 1px solid #cbd5e0;
     border-radius: 0 12px 12px 0;
-    width: 18%;
+    width: 22%;
 }
 
 .movilizaciones-mobile-stats {
