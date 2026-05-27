@@ -1008,14 +1008,19 @@ class ActaTrasladoPDF extends \TCPDF
         //    Proc.de Refe queda vacio — se rellenara cuando administracion
         //    defina el codigo oficial del formato.
 
-        // Lineas finas (0.10mm). 0.15 — el grosor que usa la Nota de Entrega —
-        // se veia muy ancho en el Acta; bajado por feedback del cliente.
-        $this->SetLineWidth(0.10);
+        // Mismo grosor que usa renderEquiposTable (0.2mm) para que cabezote y
+        // tabla de equipos queden visualmente uniformes. Antes el Header
+        // tenia 0.10mm pero las celdas HTML del cabezote re-aplicaban borde
+        // en cada interseccion → se veian DOBLES (visualmente mas anchas que
+        // la tabla nativa de Cell()). La fix es border-collapse:collapse en
+        // la tabla HTML (abajo) + mismo SetLineWidth que el body.
+        $this->SetLineWidth(0.2);
 
         // Geometria del cabezote:
         //   x = 15 mm  (coincide con SetMargins left=15)   width = 180 mm
         //   y = 6 mm                                       height = 28 mm
-        //   bottom = 6 + 28 = 34 mm   ← coincide con SetMargins top=36 (gap 2mm)
+        //   bottom = 6 + 28 = 34 mm   ← SetMargins top=44 deja 10mm de gap
+        //                                hasta el inicio del parrafo del body
         $cabX = 15;
         $cabY = 6;
         $cabW = 180;
@@ -1039,34 +1044,42 @@ class ActaTrasladoPDF extends \TCPDF
         // usa NotaEntregaPDF::Header). "de" en minuscula por feedback del cliente.
         $page = $this->PageNo() . ' de ' . max(1, $this->getNumPages());
 
-        // Altura del header en puntos para el line-height del titulo (truco de
-        // centrado vertical en celda con rowspan — TCPDF no respeta valign con
-        // rowspan, pero un line-height igual a la altura del rowspan en pt
-        // deja el texto exactamente en el centro vertical).
-        $headerHeightPt = $cabH * 2.83;  // mm → pt aprox (1mm ≈ 2.83pt)
-        $tituloDiv = '<div style="text-align:center;line-height:' . round($headerHeightPt - 4) . 'pt;font-family:helvetica;font-size:12pt;font-weight:bold;">ACTA DE TRASLADO DE EQUIPOS</div>';
+        // Geometria vertical en puntos:
+        //   - cada fila derecha: rowH ≈ 16pt (28mm * 2.83 / 5 redondeado)
+        //   - rowspan total (logo + titulo): rowspanH = rowH * 5 = 80pt
+        //     Igualar la altura exacta de ambos lados elimina el "minigap"
+        //     de ~1pt que aparecia antes (79.24 calculado vs 80 sumado).
+        // Font size 8 (antes 7) en las celdas — entra holgado en 16pt.
+        $rowH     = round($cabH * 2.83 / 5);     // 16pt
+        $rowspanH = $rowH * 5;                   // 80pt
+
+        // Line-height del titulo = altura del rowspan menos un padding visual.
+        // Truco de centrado vertical en celda con rowspan — TCPDF no respeta
+        // valign con rowspan, pero un line-height ≈ alto del rowspan deja el
+        // texto exactamente en el centro.
+        $tituloDiv = '<div style="text-align:center;line-height:' . ($rowspanH - 4) . 'pt;font-family:helvetica;font-size:12pt;font-weight:bold;">ACTA DE TRASLADO DE EQUIPOS</div>';
 
         $fechaHoy = \Carbon\Carbon::now()->format('d/m/Y');
-
-        // 5 filas a la derecha — cada una con valign=middle. Ancho 28% × cabH
-        // = 50.4mm × 28mm → 5 filas de ~5.6mm cada una (font size 7pt entra
-        // con holgura). El Codigo lleva el N° de operacion (CODIGO_CONTROL del
-        // movimiento) — antes vivia en el body como bloque suelto, consolidado
-        // aqui para no duplicar el dato.
         $codigoOp = htmlspecialchars($this->numeroOperacion, ENT_QUOTES, 'UTF-8');
-        $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'
+        // border-collapse:collapse evita que los bordes entre celdas
+        // adyacentes se sumen visualmente (efecto "doble linea" que el
+        // cliente percibia como demasiado grueso).
+        $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%" style="border-collapse:collapse;">'
               . '<tr>'
-              .   '<td width="20%" rowspan="5" height="' . $headerHeightPt . '">&nbsp;</td>'
-              .   '<td width="52%" rowspan="5" height="' . $headerHeightPt . '" align="center" valign="middle">' . $tituloDiv . '</td>'
-              .   '<td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
+              .   '<td width="20%" rowspan="5" height="' . $rowspanH . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="5" height="' . $rowspanH . '" align="center" valign="middle">' . $tituloDiv . '</td>'
+              .   '<td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
               . '</tr>'
-              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
-              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Proc.de Refe:</b></font></td></tr>'
-              . '<tr><td width="28%" align="left" valign="middle"><font face="helvetica" size="7"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
-              . '<tr><td width="28%" align="center" valign="middle"><font face="helvetica" size="7">P&aacute;gina ' . $page . '</font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>Proc.de Refe:</b></font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle"><font face="helvetica" size="8">P&aacute;gina ' . $page . '</font></td></tr>'
               . '</table>';
 
-        $this->SetFont('helvetica', '', 7);
+        // SetFont base = mismo tamano que las celdas HTML (size=8). TCPDF lo
+        // toma como fallback si algun <font> se cayera y tambien lo usa para
+        // medir el ancho/alto del contenido en HTML mode.
+        $this->SetFont('helvetica', '', 8);
         $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
     }
 
