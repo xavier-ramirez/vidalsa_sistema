@@ -67,6 +67,13 @@
         .counter-sidebar li span { font-size: 9.5px !important; }
         .counter-sidebar { gap: 10px !important; }
     }
+
+    /* Glow ámbar del contador de selección cuando "ver solo seleccionados"
+       está activo (mismo indicador visual que el contador del módulo Almacén). */
+    #bulkFloatingBar .selection-counter.is-filtering {
+        box-shadow: 0 0 0 2px #fbbf24, 0 0 12px rgba(251, 191, 36, 0.45);
+        border-radius: 999px;
+    }
 </style>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h1 class="page-title">
@@ -608,13 +615,13 @@
                 <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
                 <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['total'] : '--' }}</span>
             </div>
+            <div onclick="filterByStatus('OPERATIVO')" class="eq-mobile-stat-block eq-block-oper" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> OPER.</span>
+                <span id="mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['activos'] : '--' }}</span>
+            </div>
             <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
                 <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
                 <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</span>
-            </div>
-            <div onclick="filterByStatus('EN MANTENIMIENTO')" class="eq-mobile-stat-block eq-block-mant" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3);">
-                <span style="font-size:10px; font-weight:700; color:#fcd34d; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">engineering</i> MANT.</span>
-                <span id="mobile_stats_mantenimiento" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</span>
             </div>
         </div>
     </div>
@@ -677,15 +684,15 @@
 
                 <!-- Detailed Stats Row -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
+                    <div onclick="filterByStatus('OPERATIVO')" title="Filtrar: Operativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
+                        <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
+                        <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['activos'] : '--' }}</strong>
+                        <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Operativo</span>
+                    </div>
                     <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                         <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
                         <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativo</span>
-                    </div>
-                    <div onclick="filterByStatus('EN MANTENIMIENTO')" title="Filtrar: En Mantenimiento" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(245, 158, 11, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.25); transition: background 0.2s;">
-                        <i class="material-icons" style="font-size: 18px; color: #f59e0b; margin-bottom: 2px;">engineering</i>
-                        <strong id="stats_mantenimiento" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['mantenimiento'] : '--' }}</strong>
-                        <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Mantenimiento</span>
                     </div>
                 </div>
             </div>
@@ -722,7 +729,7 @@
 
 <!-- Floating Action Bar -->
 <div id="bulkFloatingBar" class="selection-floating-bar">
-    <div class="selection-counter">
+    <div class="selection-counter" onclick="window.toggleEquiposSoloSel(event)" title="Ver solo los seleccionados (toca de nuevo para ver todos)" style="cursor: pointer;">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
             <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
         </div>

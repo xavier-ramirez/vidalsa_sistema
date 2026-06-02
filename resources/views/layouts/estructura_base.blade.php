@@ -2557,12 +2557,12 @@
                     // Reset Dashboard Stats to 0/Empty
                     const stTotal = document.getElementById('stats_total');
                     const stInact = document.getElementById('stats_inactivos');
-                    const stMant = document.getElementById('stats_mantenimiento');
+                    const stActivos = document.getElementById('stats_activos');
                     const stDist = document.getElementById('distributionStatsContainer');
 
                     if (stTotal) stTotal.textContent = '0';
                     if (stInact) stInact.textContent = '0';
-                    if (stMant) stMant.textContent = '0';
+                    if (stActivos) stActivos.textContent = '0';
                     if (stDist) stDist.innerHTML = '';
                 }
 

@@ -196,8 +196,10 @@ class AlmacenController extends Controller
 
         // Mapa { ID_ALMACEN: [ID_PRODUCTO, ...] } con los productos que TIENEN fila en
         // `almacen_stock` para cada almacén visible. Lo usa el autocompletado del filtro
-        // "Buscar" en /admin/almacen para no sugerir productos que no estan en el almacen
-        // actual (la tabla los filtraria via INNER JOIN y quedaria vacia, lo que confundia).
+        // "Buscar" en /admin/almacen para MARCAR con un badge "sin stock aquí" los productos
+        // que aún no tienen stock en el almacén actual. Igual se pueden seleccionar: al
+        // hacerlo, la tabla los muestra con saldo 0 (ver inventarioBaseQuery, que hace LEFT
+        // JOIN con excepción para id_producto), así nunca queda vacía tras un clic.
         $productosEnAlmacen = AlmacenStock::query()
             ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
             ->get(['ID_ALMACEN', 'ID_PRODUCTO'])
@@ -225,21 +227,25 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Query base del inventario: productos_inventario activos + INNER JOIN del
-     * stock del almacén dado + filtros del listado. SIN columnas explícitas:
-     * el llamador añade el select que necesita (filas / count / agregado).
+     * Query base del inventario: productos_inventario activos + stock del almacén
+     * dado (LEFT JOIN) + filtros del listado. SIN columnas explícitas: el llamador
+     * añade el select que necesita (filas / count / agregado).
      *
-     * INNER JOIN (no LEFT): un producto sólo aparece en un almacén si tiene fila
-     * en `almacen_stock` para ese almacén — es decir, si alguien YA registró un
-     * movimiento (entrada / traspaso entrada / ajuste) o le fijó un stock mínimo
-     * ahí. Un almacén recién creado abre vacío hasta que llegue el primer envío,
-     * en vez de mostrar el catálogo global con saldo=0 (que confundía).
+     * COMPORTAMIENTO HÍBRIDO (resuelve dos confusiones opuestas):
+     *  - Navegación normal: se exige fila en `almacen_stock` (whereNotNull abajo),
+     *    así un almacén muestra SOLO sus productos y no se inunda con el catálogo
+     *    global a saldo 0.
+     *  - Selección puntual (id_producto desde la sugerencia, o id_producto_in del
+     *    "ver solo seleccionados"): NO se exige la fila → el LEFT JOIN deja ver ese
+     *    producto aunque aún no tenga stock aquí (saldo 0). Así, tras hacer clic en
+     *    una sugerencia la tabla NUNCA queda vacía (que hacía creer "no registrado"
+     *    y disparaba que la persona lo registrara de nuevo).
      */
     private function inventarioBaseQuery(?int $idAlmacen, Request $request)
     {
         $q = ProductoInventario::query()->activos();
 
-        $q->join('almacen_stock', function ($j) use ($idAlmacen) {
+        $q->leftJoin('almacen_stock', function ($j) use ($idAlmacen) {
             $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO');
             if ($idAlmacen !== null) {
                 $j->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
@@ -247,6 +253,16 @@ class AlmacenController extends Controller
                 $j->whereRaw('1 = 0'); // sin almacén → no devolver nada
             }
         });
+
+        // Navegación normal → solo productos con fila de stock en este almacén
+        // (replica el INNER JOIN clásico). Se EXCEPTÚA cuando el usuario pidió ver
+        // un producto puntual (clic en sugerencia = id_producto, o "ver solo
+        // seleccionados" = id_producto_in): ahí dejamos pasar el saldo 0 para que
+        // el producto seleccionado siempre se muestre.
+        $verProductoPuntual = $request->filled('id_producto') || $request->filled('id_producto_in');
+        if (!$verProductoPuntual) {
+            $q->whereNotNull('almacen_stock.ID_PRODUCTO');
+        }
 
         // ─── Modo "Ver solo seleccionados" del bulk counter ────────────────────────
         // El frontend manda los IDs ya seleccionados como CSV en `id_producto_in`.

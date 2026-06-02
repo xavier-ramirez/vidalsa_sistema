@@ -1443,7 +1443,7 @@
                     <div>
                         <label for="auxUb-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
                             <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                            Sitio específico dentro del frente
+                            Ubicación o aspecto a resaltar
                         </label>
                         <div id="auxUb-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                             <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
@@ -1453,7 +1453,7 @@
                                 style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                         </div>
                         <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
-                            Indica la zona, patio, almacén o fila exacta dentro del frente.
+                            Indica la zona, patio o fila dentro del frente, u otro aspecto a resaltar del auxiliar.
                             ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los auxiliares seleccionados tienen detalles distintos.</span>' : '')}
                         </small>
                     </div>

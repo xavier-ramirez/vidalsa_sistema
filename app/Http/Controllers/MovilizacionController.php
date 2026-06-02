@@ -683,21 +683,82 @@ class MovilizacionController extends Controller
 
             $html = str_replace("this.closest('div[style*='position: fixed']').remove();", "", $html);
 
-            // Split del HTML en el placeholder de la tabla de equipos. La tabla
-            // se renderiza nativamente con Cell() para evitar el bug de TCPDF
-            // donde el thead se desalinea con el tbody al cambiar de pagina.
-            $parts = explode('<!--EQUIPOS_TABLE_PLACEHOLDER-->', $html, 2);
+            // Split del HTML en el placeholder de la tabla de equipos:
+            //   $introHtml → parrafo introductorio + separador (va arriba de la tabla)
+            //   $sigHtml   → bloque completo de firmas (va debajo de la tabla)
+            // La tabla de equipos va en medio y se renderiza nativamente con Cell()
+            // (evita el bug de TCPDF que desalinea el thead repetido al cambiar de pagina).
+            $parts     = explode('<!--EQUIPOS_TABLE_PLACEHOLDER-->', $html, 2);
+            $introHtml = $parts[0];
+            $sigHtml   = $parts[1] ?? '';
 
-            $pdf->writeHTML($parts[0], true, false, true, false, '');
+            // ── PAGINACION POR "ACTA-COPIA" COMPLETA ────────────────────────────
+            // Pedido del cliente: cada hoja debe ser un acta AUTOCONTENIDA — su
+            // cabezote (con codigo de operacion) + su parrafo + su tabla de equipos
+            // + su bloque de firmas. Asi, cuando los equipos no caben en una sola
+            // hoja, se generan varias hojas-copia identicas en formato y cada una
+            // es firmable por separado (no se "pierde" el bloque de firmas en una
+            // pagina suelta como pasaba con el salto de pagina automatico).
+            //
+            // Para saber cuantas filas de equipos caben por hoja medimos en seco
+            // (startTransaction/rollbackTransaction) la altura real del parrafo y
+            // del bloque de firmas, y restamos al alto util de la pagina.
+            $measureH = function ($contentHtml) use (&$pdf) {
+                if ($contentHtml === '') return 0.0;
+                $y0 = $pdf->GetY();
+                $pdf->startTransaction();
+                $pdf->writeHTML($contentHtml, true, false, true, false, '');
+                $h  = $pdf->GetY() - $y0;
+                $pdf = $pdf->rollbackTransaction(true);
+                // Si el contenido provoco un salto de pagina durante la medicion
+                // (no deberia: arrancamos en el tope de una pagina vacia), GetY
+                // queda por encima de $y0 → tratamos como "casi toda la pagina".
+                return $h > 0 ? $h : ($pdf->getPageHeight() - $pdf->getBreakMargin() - 44);
+            };
 
-            // Compensa el espacio vertical extra que TCPDF deja despues de cerrar
-            // los bloques HTML del cuerpo del acta. Sin esto la tabla queda visiblemente
-            // mas abajo de lo que necesita.
-            $pdf->SetY($pdf->GetY() - 3);
+            $introH = $measureH($introHtml);
+            $sigH   = $measureH($sigHtml);
 
-            $pdf->renderEquiposTable($equipos);
-            if (isset($parts[1])) {
-                $pdf->writeHTML($parts[1], true, false, true, false, '');
+            $bottomLimit  = $pdf->getPageHeight() - $pdf->getBreakMargin(); // ~282mm en A4
+            $topY         = 44;  // = SetMargins top
+            $tableHeaderH = 8;   // alto de la fila de cabecera de la tabla de equipos
+            $rowH         = 7;   // alto de cada fila de equipo
+            $safetyGap    = 10;  // margen de seguridad (compensaciones SetY + holguras)
+
+            $availForRows = $bottomLimit - $topY - $introH - $tableHeaderH - $sigH - $safetyGap;
+            $rowsPerSheet = max(1, (int) floor($availForRows / $rowH));
+
+            // chunk() preserva las claves originales 0..n, asi que el N° de la
+            // primera columna ($i+1 dentro de renderEquiposTable) sigue siendo
+            // correlativo y continuo a lo largo de todas las hojas.
+            $chunks = $equipos->chunk($rowsPerSheet);
+            if ($chunks->isEmpty()) {
+                // Acta sin equipos (caso extremo): igual generamos una hoja.
+                $chunks = collect([collect()]);
+            }
+            $pdf->totalSheets = $chunks->count();
+
+            // La pagina inicial se creo SOLO para poder medir alturas en seco;
+            // su cabezote ya se pinto con totalSheets=0 ("Pagina 1 de 1"). La
+            // descartamos y reconstruimos TODAS las hojas dentro del loop, ya
+            // con totalSheets correcto, para que el "Pagina X de Y" sea exacto.
+            // (TCPDF dibuja el Header() en el momento del AddPage, no al cerrar.)
+            $pdf->deletePage(1);
+
+            foreach ($chunks as $chunk) {
+                $pdf->AddPage();
+
+                $pdf->writeHTML($introHtml, true, false, true, false, '');
+
+                // Compensa el espacio vertical extra que TCPDF deja despues de
+                // cerrar los bloques HTML; sin esto la tabla queda mas abajo.
+                $pdf->SetY($pdf->GetY() - 3);
+
+                $pdf->renderEquiposTable($chunk);
+
+                if ($sigHtml !== '') {
+                    $pdf->writeHTML($sigHtml, true, false, true, false, '');
+                }
             }
 
             $filename = 'Acta_Traslado_' . $movilizacion->CODIGO_CONTROL . '.pdf';
@@ -923,6 +984,12 @@ class ActaTrasladoPDF extends \TCPDF
      *  antes de AddPage() para que el Header() lo pinte en el casillero "Codigo:". */
     public string $numeroOperacion = '';
 
+    /** Total de hojas del acta (= nº de "actas-copia" completas que se generan
+     *  al paginar los equipos). Lo inyecta el controller ANTES de AddPage() para
+     *  que el Header() pinte un "Pagina X de Y" exacto. Si queda en 0, el Header
+     *  cae al getNumPages() de TCPDF. */
+    public int $totalSheets = 0;
+
     /**
      * Anchos de columna en mm. Total = 180mm (= 210mm A4 portrait - 15+15 margenes).
      * El orden corresponde a: N°, Descripcion, Marca, Serial.
@@ -946,11 +1013,17 @@ class ActaTrasladoPDF extends \TCPDF
         $this->SetFillColor(255, 255, 255);
         $this->SetTextColor(0, 0, 0);
         $this->SetDrawColor(0, 0, 0);
-        $this->SetLineWidth(0.2);
+        $this->SetLineWidth(0.1);
 
         foreach ($equipos as $i => $item) {
-            // Page-break manual: si la fila no cabe en la pagina actual,
-            // creamos pagina nueva y redibujamos el header.
+            // Salvaguarda de salto de pagina. NOTA: con el modelo actual el
+            // controller ya parte los equipos en hojas dimensionadas para que
+            // sus filas + el bloque de firmas quepan completas, por lo que en
+            // uso normal esto NO se dispara (cada $equipos que llega aqui es un
+            // chunk que cabe). Se conserva como red de seguridad: si alguna fila
+            // no cupiera, abrimos pagina y RE-dibujamos el header — sin esto el
+            // auto-break de TCPDF partiria la tabla nativa dejando filas huerfanas
+            // sin cabecera (el bug que motivo renderizar la tabla con Cell()).
             $bottomLimit = $this->getPageHeight() - $this->getBreakMargin();
             if ($this->GetY() + $this->equiposRowH > $bottomLimit) {
                 $this->AddPage();
@@ -983,7 +1056,7 @@ class ActaTrasladoPDF extends \TCPDF
         $this->SetFillColor(230, 242, 255); // #e6f2ff
         $this->SetTextColor(0, 0, 0);
         $this->SetDrawColor(0, 0, 0);
-        $this->SetLineWidth(0.2);
+        $this->SetLineWidth(0.1);
 
         $count = count($this->equiposHeaders);
         foreach ($this->equiposHeaders as $i => $text) {
@@ -1008,13 +1081,11 @@ class ActaTrasladoPDF extends \TCPDF
         //    Proc.de Refe queda vacio — se rellenara cuando administracion
         //    defina el codigo oficial del formato.
 
-        // Mismo grosor que usa renderEquiposTable (0.2mm) para que cabezote y
-        // tabla de equipos queden visualmente uniformes. Antes el Header
-        // tenia 0.10mm pero las celdas HTML del cabezote re-aplicaban borde
-        // en cada interseccion → se veian DOBLES (visualmente mas anchas que
-        // la tabla nativa de Cell()). La fix es border-collapse:collapse en
-        // la tabla HTML (abajo) + mismo SetLineWidth que el body.
-        $this->SetLineWidth(0.2);
+        // Grosor de linea por defecto para cualquier trazo nativo del Header.
+        // NOTA: el borde del cabezote (tabla HTML) NO depende de esto — TCPDF
+        // ignora SetLineWidth para los bordes HTML; su grosor se fija por CSS
+        // (border:0.1mm) mas abajo, para igualar a la tabla nativa de equipos.
+        $this->SetLineWidth(0.1);
 
         // Geometria del cabezote:
         //   x = 15 mm  (coincide con SetMargins left=15)   width = 180 mm
@@ -1042,7 +1113,9 @@ class ActaTrasladoPDF extends \TCPDF
         // Pagina N de M — numeros reales en vez de alias {:pnb:}/{:ptp:} porque
         // los alias rompen el centrado horizontal de TCPDF (mismo truco que
         // usa NotaEntregaPDF::Header). "de" en minuscula por feedback del cliente.
-        $page = $this->PageNo() . ' de ' . max(1, $this->getNumPages());
+        // M = totalSheets (lo fija el controller antes de generar las hojas);
+        // si por algun motivo viniera en 0, caemos al getNumPages() de TCPDF.
+        $page = $this->PageNo() . ' de ' . max(1, $this->totalSheets ?: $this->getNumPages());
 
         // Geometria vertical en puntos:
         //   - cada fila derecha: rowH ≈ 16pt (28mm * 2.83 / 5 redondeado)
@@ -1061,19 +1134,22 @@ class ActaTrasladoPDF extends \TCPDF
 
         $fechaHoy = \Carbon\Carbon::now()->format('d/m/Y');
         $codigoOp = htmlspecialchars($this->numeroOperacion, ENT_QUOTES, 'UTF-8');
-        // border-collapse:collapse evita que los bordes entre celdas
-        // adyacentes se sumen visualmente (efecto "doble linea" que el
-        // cliente percibia como demasiado grueso).
-        $html = '<table border="1" cellpadding="2" cellspacing="0" width="100%" style="border-collapse:collapse;">'
+        // Grosor del borde del cabezote por CSS a 0.1mm = MISMO grosor que la tabla
+        // nativa de equipos (SetLineWidth 0.1). OJO: el atributo HTML border="1" de
+        // TCPDF NO respeta SetLineWidth — dibuja 1px (~0.35mm), por eso el cabezote
+        // se veia ~3.5x mas grueso que la tabla de equipos. Definimos el borde por
+        // CSS en cada celda; border-collapse:collapse evita el efecto "doble linea".
+        $bs = 'border:0.1mm solid #000;';
+        $html = '<table cellpadding="2" cellspacing="0" width="100%" style="border-collapse:collapse;">'
               . '<tr>'
-              .   '<td width="20%" rowspan="5" height="' . $rowspanH . '">&nbsp;</td>'
-              .   '<td width="52%" rowspan="5" height="' . $rowspanH . '" align="center" valign="middle">' . $tituloDiv . '</td>'
-              .   '<td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
+              .   '<td width="20%" rowspan="5" height="' . $rowspanH . '" style="' . $bs . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="5" height="' . $rowspanH . '" align="center" valign="middle" style="' . $bs . '">' . $tituloDiv . '</td>'
+              .   '<td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
               . '</tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>Proc.de Refe:</b></font></td></tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="left" valign="middle"><font face="helvetica" size="8"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle"><font face="helvetica" size="8">P&aacute;gina ' . $page . '</font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Proc.de Refe:</b></font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
+              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8">P&aacute;gina ' . $page . '</font></td></tr>'
               . '</table>';
 
         // SetFont base = mismo tamano que las celdas HTML (size=8). TCPDF lo
@@ -1085,15 +1161,9 @@ class ActaTrasladoPDF extends \TCPDF
 
     public function Footer()
     {
-        // El numero de pagina ya esta en la celda derecha del cabezote (igual
-        // que la Nota de Entrega), por eso el footer solo lleva la marca del
-        // sistema centrada — mismo formato que NotaEntregaPDF::Footer.
-        $this->SetY(-10);
-        $this->SetFont('helvetica', 'I', 7);
-        $this->writeHTMLCell(
-            0, 6, '', $this->GetY(),
-            '<div style="text-align:center;font-family:helvetica;font-weight:bold;font-size:7pt;">EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>',
-            0, 0, 0, true, 'C', true
-        );
+        // Pie de pagina vacio por pedido del cliente: se elimino la marca
+        // "EMITIDO POR SISTEMA DE GESTION DE FLOTA". El numero de pagina ya
+        // vive en la celda derecha del cabezote (Pagina X de Y), asi que el
+        // footer no necesita pintar nada.
     }
 }

@@ -296,9 +296,41 @@ function updateSelectionUI() {
             if (anchorBtn)   anchorBtn.style.display   = 'none';
             if (unanchorBtn) unanchorBtn.style.display = 'none';
             bar.classList.remove("active");
+
+            // Si estaba "ver solo seleccionados" y ya no queda nada seleccionado,
+            // apagamos el modo y recargamos para volver a mostrar todos los equipos.
+            if (window._equiposSoloSel) {
+                window._equiposSoloSel = false;
+                const counter = bar.querySelector('.selection-counter');
+                if (counter) counter.classList.remove('is-filtering');
+                if (typeof window.loadEquipos === 'function') window.loadEquipos();
+            }
         }
     }
 }
+
+// "Ver solo seleccionados": al tocar el contador de la barra, recarga la tabla
+// mostrando ÚNICAMENTE los equipos seleccionados (whitelist server-side vía
+// ids_in, ignorando los demás filtros). Volver a tocar lo apaga. Mismo patrón
+// que el contador del módulo Almacén (almToggleSoloSel).
+window.toggleEquiposSoloSel = function (e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    const ids = Object.keys(window.selectedEquipos || {});
+    if (!ids.length) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('No hay equipos seleccionados todavía.', 'error');
+        }
+        return;
+    }
+    window._equiposSoloSel = !window._equiposSoloSel;
+    const counter = document.querySelector('#bulkFloatingBar .selection-counter');
+    if (counter) counter.classList.toggle('is-filtering', window._equiposSoloSel);
+    window.loadEquipos(null, false, { offset: 0 });
+    if (window._equiposSoloSel) {
+        const tbody = document.getElementById('equiposTableBody');
+        if (tbody) tbody.scrollIntoView({ block: 'start' });
+    }
+};
 
 // Re-apply blue highlight to all rows that are in selectedEquipos
 // Called after every table render to keep visual state in sync
@@ -736,11 +768,25 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     const finalUrl = paramStr
         ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + paramStr
         : baseUrl;
+
+    // "Ver solo seleccionados": ids_in es estado EFÍMERO del contador. Va en la
+    // PETICIÓN (para que el backend filtre por whitelist) pero NO en finalUrl, que
+    // es lo que se empuja a la URL con pushState — así un refresh no deja pegado un
+    // filtro de IDs que ya no están seleccionados (la selección es solo de cliente).
+    let fetchUrl = finalUrl;
+    if (window._equiposSoloSel) {
+        const selIds = Object.keys(window.selectedEquipos || {});
+        if (selIds.length) {
+            fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'ids_in=' + encodeURIComponent(selIds.join(','));
+        } else {
+            window._equiposSoloSel = false; // sin selección → modo apagado
+        }
+    }
     tableBody.style.opacity = "0.5";
 
     if (!silent && window.showPreloader) window.showPreloader();
 
-    return fetch(finalUrl, {
+    return fetch(fetchUrl, {
         signal: abortController.signal,
         headers: {
             "X-Requested-With": "XMLHttpRequest",
@@ -784,12 +830,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const hasActiveFilters = !!paramStr;
                 const displayStat = (val) => hasActiveFilters ? val : '--';
                 const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-                setEl('stats_total',               displayStat(data.stats.total));
-                setEl('stats_inactivos',           displayStat(data.stats.inactivos));
-                setEl('stats_mantenimiento',       displayStat(data.stats.mantenimiento));
-                setEl('mobile_stats_total',        displayStat(data.stats.total));
-                setEl('mobile_stats_inactivos',    displayStat(data.stats.inactivos));
-                setEl('mobile_stats_mantenimiento',displayStat(data.stats.mantenimiento));
+                setEl('stats_total',            displayStat(data.stats.total));
+                setEl('stats_activos',          displayStat(data.stats.activos));
+                setEl('stats_inactivos',        displayStat(data.stats.inactivos));
+                setEl('mobile_stats_total',     displayStat(data.stats.total));
+                setEl('mobile_stats_activos',   displayStat(data.stats.activos));
+                setEl('mobile_stats_inactivos', displayStat(data.stats.inactivos));
 
                 const distroContainer = document.getElementById('distributionStatsContainer');
                 if (distroContainer) distroContainer.innerHTML = data.distribution;
@@ -1069,7 +1115,7 @@ window.openUbicacionBulkModal = function (event) {
                 <div>
                     <label for="ub-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
                         <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                        Sitio específico dentro del frente
+                        Ubicación o aspecto a resaltar
                     </label>
                     <div id="ub-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                         <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
@@ -1079,7 +1125,7 @@ window.openUbicacionBulkModal = function (event) {
                             style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
                     <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
-                        Indica la zona, patio, almacén o fila exacta dentro del frente.
+                        Indica la zona, patio o fila dentro del frente, u otro aspecto a resaltar del equipo.
                         ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>' : '')}
                     </small>
                 </div>
@@ -1984,9 +2030,13 @@ window.openAnchorModal = async function (event) {
 };
 
 window.updateLocalStats = function (oldStatus, newStatus) {
+    // El Consolidado muestra: Total · Operativo · Inoperativo (Mantenimiento ya
+    // no se lista). Ajustamos en caliente Operativo/Inoperativo tanto en la vista
+    // de escritorio (stats_*) como en las pills móviles (mobile_stats_*). El Total
+    // no cambia con un simple cambio de estatus (mantenimiento sigue contando en
+    // total); solo se recalcula al refrescar desde el servidor.
     const elOper = document.getElementById("stats_activos");
     const elInop = document.getElementById("stats_inactivos");
-    const elMant = document.getElementById("stats_mantenimiento");
 
     const adjust = (el, amount) => {
         if (el) {
@@ -1995,30 +2045,15 @@ window.updateLocalStats = function (oldStatus, newStatus) {
             el.textContent = val < 0 ? 0 : val;
         }
     };
+    const adjustMirror = (mobileId, amount) => adjust(document.getElementById(mobileId), amount);
 
-    // Espejo: actualizar también las pills móviles
-    const adjustMirror = (mobileId, amount) => {
-        const el = document.getElementById(mobileId);
-        if (el) {
-            let val = parseInt(el.textContent.replace(/\D/g, "")) || 0;
-            val += amount;
-            el.textContent = val < 0 ? 0 : val;
-        }
-    };
+    // Restar del estatus anterior
+    if (oldStatus === "OPERATIVO") { adjust(elOper, -1); adjustMirror("mobile_stats_activos", -1); }
+    if (oldStatus === "INOPERATIVO" || oldStatus === "DESINCORPORADO") { adjust(elInop, -1); adjustMirror("mobile_stats_inactivos", -1); }
 
-    if (oldStatus === "OPERATIVO") adjust(elOper, -1);
-    if (oldStatus === "INOPERATIVO" || oldStatus === "DESINCORPORADO")
-        adjust(elInop, -1);
-    if (oldStatus === "EN MANTENIMIENTO") adjust(elMant, -1);
-
-    // Espejo móvil
-    if (oldStatus === "INOPERATIVO" || oldStatus === "DESINCORPORADO") adjustMirror("mobile_stats_inactivos", -1);
-    if (oldStatus === "EN MANTENIMIENTO") adjustMirror("mobile_stats_mantenimiento", -1);
-
-    if (newStatus === "OPERATIVO") adjust(elOper, 1);
-    if (newStatus === "INOPERATIVO" || newStatus === "DESINCORPORADO")
-        adjust(elInop, 1);
-    if (newStatus === "EN MANTENIMIENTO") adjust(elMant, 1);
+    // Sumar al nuevo estatus
+    if (newStatus === "OPERATIVO") { adjust(elOper, 1); adjustMirror("mobile_stats_activos", 1); }
+    if (newStatus === "INOPERATIVO" || newStatus === "DESINCORPORADO") { adjust(elInop, 1); adjustMirror("mobile_stats_inactivos", 1); }
 };
 
 window.exportEquipos = function () {

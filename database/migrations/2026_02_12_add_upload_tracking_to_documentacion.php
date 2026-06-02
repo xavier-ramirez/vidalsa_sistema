@@ -60,12 +60,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('documentacion', function (Blueprint $table) {
-            $table->dropForeign(['POLIZA_SUBIDO_POR']);
-            $table->dropForeign(['ROTC_SUBIDO_POR']);
-            $table->dropForeign(['RACDA_SUBIDO_POR']);
-            $table->dropForeign(['PROPIEDAD_SUBIDO_POR']);
-            $table->dropForeign(['ADICIONAL_SUBIDO_POR']);
-            
+            // NOTA: up() crea estas columnas como unsignedBigInteger nullable
+            // SIN foreign key. Antes este down() llamaba dropForeign() sobre
+            // ellas y el rollback fallaba con "foreign key constraint does not
+            // exist" (no habia FK que dropear). Se eliminaron esos drops; solo
+            // se dropean las columnas.
             $table->dropColumn([
                 'POLIZA_SUBIDO_POR',
                 'POLIZA_FECHA_SUBIDA',

@@ -124,9 +124,13 @@
     .alm-det-ic { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
 
     /* Modales */
+    /* z-index 10000: por ENCIMA de la barra flotante de seleccion
+       (.selection-floating-bar = 9999) para que "Limpiar / Salida" no se
+       transparente sobre el modal (ej: Vista previa de la Nota de Entrega).
+       Sigue por debajo de los toasts globales (1000002). */
     .alm-modal-overlay {
         display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
-        z-index: 9000; align-items: center; justify-content: center; padding: 16px;
+        z-index: 10000; align-items: center; justify-content: center; padding: 16px;
     }
     .alm-modal-overlay.open { display: flex; }
     .alm-modal {
@@ -1780,8 +1784,8 @@
             // texto pegado siga produciendo coincidencias via LIKE %term% del backend.
             // Badge "sin stock aquí" cuando el producto existe en el catalogo pero no en
             // almacen_stock del almacen actual — el usuario sabe que existe y puede clickear
-            // igual (la tabla mostrara la fila si el backfill esta aplicado, o quedara vacia
-            // con un mensaje claro si todavía no se aplicó).
+            // igual: al seleccionarlo, la tabla SIEMPRE lo muestra con saldo 0 (el LEFT JOIN
+            // de inventarioBaseQuery con excepcion para id_producto), nunca queda vacia.
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');

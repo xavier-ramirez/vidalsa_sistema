@@ -1988,8 +1988,10 @@ input:-webkit-autofill:active {
     gap: 10px;
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
     /* z-index alto para que SIEMPRE quede arriba del btn-details-mini, los
-       dropdowns (1000) y otros chips de la tabla. Por debajo de modales
-       overlay (2000+) y toasts (1000002) — orden correcto. */
+       dropdowns (1000) y otros chips de la tabla. DEBE quedar por debajo de
+       los modales overlay (deben usar 10000+, ej: .alm-modal-overlay y los
+       modales de movilizaciones) y de los toasts (1000002) — si un modal usa
+       un z-index <9999 la barra se transparentara sobre el. */
     z-index: 9999;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     opacity: 0;
@@ -2370,8 +2372,12 @@ input:-webkit-autofill:active {
 /* ── Layout principal desktop ── */
 .movilizaciones-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    gap: 40px;
+    /* Sidebar 260px + gap 30px (antes 300/40): se le devuelve ~50px de ancho
+       a la columna principal (tarjeta blanca + tabla) en escritorio, lo que
+       da mas aire a la columna "Estado". Solo aplica en PC: el media query
+       <=1024px colapsa este grid a 1 sola columna. */
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 30px;
     align-items: start;
     width: 100%;
 }
@@ -2389,27 +2395,33 @@ input:-webkit-autofill:active {
     table-layout: fixed;
 }
 
+/* Anchos de columna en PORCENTAJE (suman 100%). Con table-layout:fixed el
+   navegador toma los anchos de la PRIMERA fila (este thead), asi que estos %
+   son la unica fuente de verdad del layout de columnas en escritorio. Los
+   mismos % se replican en los .mv-td-* (abajo) para que thead y tbody queden
+   coherentes (antes el thead usaba px y el tbody %, lo que se contradecia).
+       Equipo 22 | Trayecto 37 | Fechas 10 | N° Op 16 | Estado 15 = 100 */
 #movilizacionesTable th.table-header-custom:nth-child(1) {
-    width: 230px;
+    width: 22%;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(2) {
-    width: 320px;
+    width: 37%;
     text-align: center;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(3) {
-    width: 90px;
+    width: 10%;
     text-align: center;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(4) {
-    width: 140px;
+    width: 16%;
     text-align: center;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(5) {
-    width: 70px;
+    width: 15%;
     text-align: center;
 }
 
@@ -2425,16 +2437,16 @@ input:-webkit-autofill:active {
 /* Anchos de columna desktop — pedido del cliente: reducir Equipo
    (sobraba espacio entre foto/datos y borde derecho) y entregarselo a
    Estado (el texto "ACTUALIZACIÓN DE UBICACIÓN" antes se partia en 2
-   lineas). Trayecto, Fechas y N° Op quedan auto para no romper su layout
-   interno.
-   Iteracion 2: el 28%/18% inicial casi no se notaba — el cliente pidio
-   mas contraste. 24%/22% deja a Equipo claramente mas estrecho y a
-   Estado holgado, sin afectar a las 3 columnas intermedias. */
+   lineas). Trayecto, Fechas y N° Op las define el thead (en %).
+   Iteracion 6: el recorte sale de Estado (20%→15%) en vez de Equipo, que
+   vuelve a 22%; esos 5% liberados van a Trayecto (34%→37%). Estos % coinciden
+   EXACTAMENTE con los del thead de arriba (table-layout:fixed manda el thead,
+   pero los igualamos para que no haya contradiccion cabecera/cuerpo). */
 #movilizacionesTable .mv-td-equipo {
     text-align: left;
     border-left: 1px solid #cbd5e0;
     border-radius: 12px 0 0 12px;
-    width: 24%;
+    width: 22%;
 }
 
 #movilizacionesTable .mv-td-trayecto {
@@ -2454,7 +2466,7 @@ input:-webkit-autofill:active {
     text-align: center;
     border-right: 1px solid #cbd5e0;
     border-radius: 0 12px 12px 0;
-    width: 22%;
+    width: 15%;
 }
 
 .movilizaciones-mobile-stats {
@@ -2632,6 +2644,10 @@ input:-webkit-autofill:active {
     .movilizaciones-table-wrap table {
         display: block !important;
         width: 100% !important;
+        /* Anula el min-width:700px de escritorio: sin esto las tarjetas se
+           fuerzan a 700px y el contenedor (overflow-x:hidden) las recorta en
+           el telefono. Con 0 cada tarjeta ocupa el ancho real de la pantalla. */
+        min-width: 0 !important;
         border: none !important;
     }
 
@@ -2654,6 +2670,25 @@ input:-webkit-autofill:active {
         margin-bottom: 15px !important;
         overflow: hidden !important;
         position: relative !important;
+    }
+
+    /* ── Selección en móvil: resaltar la TARJETA COMPLETA, no por celda ──
+       Los estilos de selección de escritorio aplican un border-left de 4px al
+       primer TD; en la tarjeta apilada eso se ve como un "borde azul raro" en
+       la parte superior. Estos overrides (mas especificos por la clase
+       .mv-row-card) ganan a los del blade y dejan un resaltado limpio: borde
+       azul + anillo + fondo celeste en TODA la tarjeta blanca. */
+    #movilizacionesTable tr.mv-row-card.selected-row-maquinaria {
+        border-color: #0067b1 !important;
+        background: #e1effa !important;
+        box-shadow: 0 0 0 1px #0067b1, 0 4px 10px rgba(0, 103, 177, 0.18) !important;
+    }
+    #movilizacionesTable tr.mv-row-card.selected-row-maquinaria td {
+        background-color: #e1effa !important;
+        border: none !important;
+    }
+    #movilizacionesTable tr.mv-row-card.selected-row-maquinaria td:first-child {
+        border-left: none !important;
     }
 
     /* Reset global de celdas */

@@ -89,12 +89,39 @@ class EquipoController extends Controller
         $frentesPermitidos = $user ? $user->getFrentesIds() : [];
         $search = $request->input('search_query');
 
-        if (empty($search)) {
+        // Barrera de acceso por jurisdicción (usuario local → solo sus frentes).
+        // Closure reutilizable para no duplicarla entre el modo "solo
+        // seleccionados" y el filtrado normal.
+        $aplicarAccesoLocal = function ($q) use ($isLocalUser, $frentesPermitidos) {
             if ($isLocalUser && count($frentesPermitidos) > 0) {
-                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+                $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
             } elseif ($isLocalUser) {
-                $query->whereRaw('1 = 0');
+                $q->whereRaw('1 = 0');
             }
+        };
+
+        // ── "Solo seleccionados" (whitelist por IDs) ────────────────────────────
+        // Cuando llega ids_in (lo manda el contador de la barra de selección al
+        // togglear "ver solo seleccionados"), mostramos EXACTAMENTE esos equipos
+        // ignorando los demás filtros de contenido y la búsqueda — mismo patrón
+        // que el "solo seleccionados" del módulo Almacén. Se MANTIENE la barrera
+        // de acceso por frente para usuarios locales. Se hace short-circuit:
+        // la whitelist es la única condición de contenido.
+        $idsIn = $request->input('ids_in');
+        if (!in_array('ids_in', $exclude) && is_string($idsIn) && trim($idsIn) !== '') {
+            $ids = collect(explode(',', $idsIn))
+                ->map(fn ($v) => (int) trim($v))
+                ->filter()
+                ->take(2000)
+                ->values()
+                ->all();
+            $aplicarAccesoLocal($query);
+            $query->whereIn('equipos.ID_EQUIPO', $ids ?: [0]);
+            return;
+        }
+
+        if (empty($search)) {
+            $aplicarAccesoLocal($query);
         }
 
         if (!in_array('id_frente', $exclude)) {
@@ -190,7 +217,9 @@ class EquipoController extends Controller
         // Filtros principales (todos los ejes activos)
         $this->applyEquipoFilters($equipos, $request);
 
-        if ($search) {
+        // En modo "solo seleccionados" (ids_in) la whitelist es la única condición:
+        // applyEquipoFilters ya hizo short-circuit, así que ignoramos la búsqueda.
+        if ($search && !$request->filled('ids_in')) {
             $searchUpper = strtoupper(trim($search));
 
             // Smart Search by prefix
