@@ -1137,10 +1137,7 @@ window.openUbicacionBulkModal = function (event) {
                             placeholder="${hayValoresMixtos ? 'Múltiples valores — escribe para sobreescribir todos' : 'Ej: PATIO 2, TALLER, ESTACIONAMIENTO A'}"
                             style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
-                    <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
-                        Aspecto a resaltar
-                        ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>' : '')}
-                    </small>
+                    ${(valorPrevioComun || hayValoresMixtos) ? ('<small style="display:block;margin-top:6px;font-size:11px;line-height:1.4;">' + (valorPrevioComun ? '<span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : '<span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>') + '</small>') : ''}
                 </div>
                 <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
                 <button type="button" id="ub-submit" style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.2s;">
