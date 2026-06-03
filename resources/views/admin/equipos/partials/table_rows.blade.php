@@ -59,7 +59,7 @@
              texto normal (sin contenedor de color), no debajo. --}}
         <td class="table-cell-custom" style="font-size: 14.5px; color: #000; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">
-                {{ $equipo->tipo->nombre ?? '—' }}@if($equipo->NUMERO_ETIQUETA)<span style="font-weight: 600; color: #475569; margin-left: 6px; white-space: nowrap;"><i class="material-icons" style="font-size: 13px; vertical-align: -2px;">tag</i>{{ $equipo->NUMERO_ETIQUETA }}</span>@endif
+                {{ $equipo->tipo->nombre ?? '—' }}@if($equipo->NUMERO_ETIQUETA)<span style="font-weight: 700; color: var(--maquinaria-blue); margin-left: 6px; white-space: nowrap;"><i class="material-icons" style="font-size: 13px; vertical-align: -2px;">tag</i>{{ $equipo->NUMERO_ETIQUETA }}</span>@endif
             </div>
             @if($equipo->CATEGORIA_FLOTA)
                 <div class="eq-hide-mobile" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 5px; letter-spacing: 0.3px;">
