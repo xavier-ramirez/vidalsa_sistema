@@ -1650,13 +1650,14 @@
             max-height: 100dvh !important;
             border-radius: 0 !important;
         }
-        #bulkLookupFooter { flex-wrap: wrap; }
+        /* Footer en grid de 2 columnas: todos los botones del MISMO tamaño
+           (1fr cada uno), sin importar el largo del texto ni cuántos haya. */
+        #bulkLookupFooter { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; }
         #bulkLookupFooter button {
-            flex: 1 1 auto;
             justify-content: center;
             white-space: nowrap;
-            padding-left: 10px;
-            padding-right: 10px;
+            padding-left: 6px;
+            padding-right: 6px;
         }
         #bulkLookupFooter button i.material-icons { display: none; }
 
