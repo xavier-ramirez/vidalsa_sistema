@@ -1800,10 +1800,10 @@
 
                 <div id="bulkLookupLegend" style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; flex-direction: column; gap: 3px;">
                     <div>
-                        <span style="color:#b91c1c;">términos que no se encontraron</span>
+                        <span style="color:#b91c1c;">Términos que no se encontraron</span>
                     </div>
                     <div id="bulkLookupYellowLegend" style="display:none;">
-                        <span style="color:#854d0e;">equipos en un frente diferente al seleccionado</span>
+                        <span style="color:#854d0e;">Equipos en un frente diferente al seleccionado</span>
                     </div>
                 </div>
             </div>
