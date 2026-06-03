@@ -55,20 +55,12 @@
             @endif
         </td>
 
-        {{-- 2. TIPO ─ bold uppercase + chip de # etiqueta debajo (mismo patron
-             que CAPACIDAD en aux). Reemplaza el inline blue "#NN" para una
-             jerarquia visual mas clara: tipo arriba, etiqueta abajo. --}}
+        {{-- 2. TIPO ─ bold uppercase; el N° de etiqueta va AL LADO del tipo, como
+             texto normal (sin contenedor de color), no debajo. --}}
         <td class="table-cell-custom" style="font-size: 14.5px; color: #000; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">
-                {{ $equipo->tipo->nombre ?? '—' }}
+                {{ $equipo->tipo->nombre ?? '—' }}@if($equipo->NUMERO_ETIQUETA)<span style="font-weight: 600; color: #475569; margin-left: 6px; white-space: nowrap;"><i class="material-icons" style="font-size: 13px; vertical-align: -2px;">tag</i>{{ $equipo->NUMERO_ETIQUETA }}</span>@endif
             </div>
-            @if($equipo->NUMERO_ETIQUETA)
-                <div style="margin-top: 5px;">
-                    <span style="display:inline-flex; align-items:center; gap:3px; font-size:12px; font-weight:700; color:var(--maquinaria-blue); background:#e0f2fe; border:1px solid #bae6fd; padding:2px 7px; border-radius:6px; letter-spacing:0.3px;">
-                        <i class="material-icons" style="font-size:13px;">tag</i>{{ $equipo->NUMERO_ETIQUETA }}
-                    </span>
-                </div>
-            @endif
             @if($equipo->CATEGORIA_FLOTA)
                 <div class="eq-hide-mobile" style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 5px; letter-spacing: 0.3px;">
                     {{ $equipo->CATEGORIA_FLOTA }}
