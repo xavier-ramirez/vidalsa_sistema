@@ -1112,7 +1112,7 @@ window.openUbicacionBulkModal = function (event) {
             <div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <i class="material-icons" style="color:#0284c7;font-size:20px;">description</i>
-                    <h2 style="margin:0;font-size:16px;font-weight:700;">Asignar Detalle</h2>
+                    <h2 style="margin:0;font-size:16px;font-weight:700;">Detalle a resaltar</h2>
                 </div>
                 <button type="button" id="ub-close" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
                     <i class="material-icons">close</i>

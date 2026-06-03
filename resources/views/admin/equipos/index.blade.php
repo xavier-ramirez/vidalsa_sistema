@@ -1712,8 +1712,6 @@
                             </div>
                         </div>
                     </div>
-                        {{-- Contador de valores únicos: entre el filtro de frente y el botón Buscar. --}}
-                        <span id="bulkLookupCountHint" style="flex-shrink:0; font-size: 11px; color: #64748b; white-space: nowrap;">0 valor(es) único(s)</span>
                         <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()" title="Buscar"
                                 style="flex-shrink:0; height:38px; padding:0 16px; background:#0067b1; color:white; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; font-size:13px; font-weight:700; transition:filter .2s;"
                                 onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">
@@ -1723,10 +1721,15 @@
                     </div>
                 </div>
 
-                <textarea id="bulkLookupTextarea"
-                          placeholder="Tip: copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores."
-                          spellcheck="false"
-                          autocomplete="off"></textarea>
+                <div style="position: relative;">
+                    <textarea id="bulkLookupTextarea"
+                              placeholder="Copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores."
+                              spellcheck="false"
+                              autocomplete="off"></textarea>
+                    {{-- Contador dentro del cuadro de texto (esquina inferior derecha).
+                         pointer-events:none para no bloquear el handle de resize ni la selección. --}}
+                    <span id="bulkLookupCountHint" style="position: absolute; right: 12px; bottom: 8px; font-size: 11px; color: #94a3b8; background: rgba(255,255,255,0.85); padding: 0 4px; border-radius: 4px; pointer-events: none;">0 valor(es) único(s)</span>
+                </div>
             </div>
 
             <!-- Results phase -->
