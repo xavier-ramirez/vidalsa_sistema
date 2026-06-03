@@ -229,6 +229,57 @@ class FrenteTrabajoController extends Controller
         ]);
     }
 
+    /**
+     * Lista los frentes ACTIVOS que no tienen NINGÚN equipo ni auxiliar asignado
+     * (candidatos a eliminar o desactivar). Mismo criterio que la guarda de
+     * destroy()/update(), así "Eliminar" desde el modal nunca es rechazado.
+     */
+    public function sinEquipos(Request $request)
+    {
+        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+            ->whereDoesntHave('equipos')
+            ->whereDoesntHave('equiposAuxiliares')
+            ->orderBy('NOMBRE_FRENTE')
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE']);
+
+        return response()->json([
+            'success' => true,
+            'count'   => $frentes->count(),
+            'frentes' => $frentes->map(fn($f) => [
+                'id'        => $f->ID_FRENTE,
+                'nombre'    => $f->NOMBRE_FRENTE,
+                'ubicacion' => $f->UBICACION,
+                'tipo'      => $f->TIPO_FRENTE,
+            ]),
+        ]);
+    }
+
+    /**
+     * Desactiva un frente (lo marca FINALIZADO). Solo si no tiene equipos ni
+     * auxiliares asignados (mismo criterio que update()). Usado desde el modal
+     * "Frentes sin equipos".
+     */
+    public function finalizar(Request $request, string $id)
+    {
+        $frente = FrenteTrabajo::findOrFail($id);
+
+        $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
+        $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
+        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede desactivar: el frente tiene equipos o auxiliares asignados.',
+            ], 422);
+        }
+
+        $frente->update(['ESTATUS_FRENTE' => 'FINALIZADO']);
+        return response()->json([
+            'success' => true,
+            'message' => "Frente \"{$frente->NOMBRE_FRENTE}\" desactivado (FINALIZADO).",
+            'frente'  => ['id' => $frente->ID_FRENTE, 'nombre' => $frente->NOMBRE_FRENTE],
+        ]);
+    }
+
     // ─── MOBILE API ────────────────────────────────────────────────────────────
     public function mobileIndex()
     {

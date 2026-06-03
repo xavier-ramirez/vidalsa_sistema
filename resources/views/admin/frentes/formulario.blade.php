@@ -43,7 +43,7 @@
     <div class="admin-card" style="max-width: 800px; margin: 0 auto;">
 
         <!-- Top Search Bar (Standardized Smart Dropdown) -->
-        <div style="margin-bottom: 30px; display: flex; justify-content: center;">
+        <div style="margin-bottom: 30px; display: flex; justify-content: center; gap: 10px; align-items: center; flex-wrap: wrap;">
             <div style="width: 100%; max-width: 500px; position: relative;">
 
                 <div class="custom-dropdown" id="frenteSearchDropdown" style="width: 100%;">
@@ -84,6 +84,14 @@
                 </div>
 
             </div>
+            {{-- Botón "Sin equipos": abre modal con frentes ACTIVOS sin equipos ni
+                 auxiliares asignados, para borrarlos o desactivarlos. --}}
+            <button type="button" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
+                class="btn-primary-maquinaria btn-secondary"
+                style="padding: 0 14px; height: 45px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <i class="material-icons" style="font-size: 18px;">domain_disabled</i>
+                <span>Sin equipos</span>
+            </button>
         </div>
         <form
             action="{{ (isset($frente) && $frente->exists) ? route('frentes.update', $frente->ID_FRENTE) : route('frentes.store') }}"
@@ -663,6 +671,111 @@
             function escapeAttr(s) {
                 return String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             }
+
+            // ═══════════════════════════════════════════════════════════
+            // MODAL FRENTES SIN EQUIPOS (candidatos a desactivar / eliminar)
+            // ═══════════════════════════════════════════════════════════
+            window.abrirModalSinEquipos = function () {
+                var existing = document.getElementById('sinEquiposOverlay');
+                if (existing) existing.remove();
+
+                var overlay = document.createElement('div');
+                overlay.id = 'sinEquiposOverlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
+                overlay.innerHTML = '<div style="background:white;border-radius:16px;width:90%;max-width:540px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
+                    '<div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
+                        '<div style="display:flex;align-items:center;gap:10px;">' +
+                            '<i class="material-icons" style="color:#0284c7;font-size:20px;">domain_disabled</i>' +
+                            '<h2 style="margin:0;font-size:16px;font-weight:700;">Frentes sin equipos</h2>' +
+                        '</div>' +
+                        '<button type="button" id="btnCloseSinEquipos" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">' +
+                            '<i class="material-icons">close</i>' +
+                        '</button>' +
+                    '</div>' +
+                    '<div style="padding:18px;">' +
+                        '<p style="margin:0 0 12px 0;font-size:12px;color:#64748b;text-align:center;">Frentes ACTIVOS sin equipos ni auxiliares asignados. Puedes desactivarlos (FINALIZADO) o eliminarlos.</p>' +
+                        '<div id="sinEquiposList" style="max-height:380px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;">' +
+                            '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:24px;">sync</i></div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+                document.body.appendChild(overlay);
+                overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+                document.getElementById('btnCloseSinEquipos').onclick = function () { overlay.remove(); };
+
+                window.cargarFrentesSinEquipos();
+            };
+
+            window.cargarFrentesSinEquipos = function () {
+                var list = document.getElementById('sinEquiposList');
+                if (!list) return;
+                fetch('{{ route("frentes.sinEquipos") }}', {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.frentes || data.frentes.length === 0) {
+                        list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="font-size:32px;display:block;margin:0 auto 10px;">check_circle</i>Todos los frentes activos tienen equipos</div>';
+                        return;
+                    }
+                    list.innerHTML = data.frentes.map(function (f) {
+                        var ubic = f.ubicacion ? '<div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">place</i>' + escapeHtml(f.ubicacion) + '</div>' : '';
+                        return '<div style="padding:10px;border-radius:8px;background:white;border:1px solid #e2e8f0;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                            '<div style="width:36px;height:36px;background:#e0f2fe;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="material-icons" style="color:#0284c7;font-size:18px;">domain_disabled</i></div>' +
+                            '<div style="flex:1;min-width:120px;">' +
+                                '<div style="font-weight:700;color:#1e293b;font-size:13px;">' + escapeHtml(f.nombre) + '</div>' +
+                                ubic +
+                            '</div>' +
+                            '<button type="button" onclick="window._sinEquiposDesactivar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;background:#f59e0b;border-color:#f59e0b;display:inline-flex;align-items:center;gap:4px;">' +
+                                '<i class="material-icons" style="font-size:14px;">block</i>Desactivar' +
+                            '</button>' +
+                            '<button type="button" onclick="window._sinEquiposEliminar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;background:#ef4444;border-color:#ef4444;display:inline-flex;align-items:center;gap:4px;">' +
+                                '<i class="material-icons" style="font-size:14px;">delete_outline</i>Eliminar' +
+                            '</button>' +
+                        '</div>';
+                    }).join('');
+                })
+                .catch(function () {
+                    list.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:13px;">Error al cargar los frentes.</div>';
+                });
+            };
+
+            function _sinEquiposAction(method, url, okMsg, errFallback, nombre) {
+                if (window.showPreloader) window.showPreloader();
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                           document.querySelector('input[name="_token"]')?.value || '';
+                fetch(url, { method: method, headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
+                .then(function (res) {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (res.ok && res.body.success) {
+                        if (window.showToast) window.showToast(res.body.message || okMsg, 'success');
+                        window.cargarFrentesSinEquipos();
+                        if (typeof window.removeFromSearchList === 'function') window.removeFromSearchList(nombre);
+                    } else {
+                        if (window.showToast) window.showToast((res.body && res.body.message) || errFallback, 'error');
+                        else alert((res.body && res.body.message) || errFallback);
+                    }
+                })
+                .catch(function () {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (window.showToast) window.showToast('Error de red.', 'error');
+                });
+            }
+
+            window._sinEquiposDesactivar = function (id, nombre) {
+                var run = function () { _sinEquiposAction('PATCH', '{{ url("admin/frentes") }}/' + id + '/finalizar', 'Frente desactivado.', 'No se pudo desactivar.', nombre); };
+                if (typeof window.showModal === 'function') {
+                    window.showModal({ type: 'warning', title: 'Desactivar Frente', message: '¿Desactivar (marcar FINALIZADO) el frente "' + nombre + '"?\n\nDejará de aparecer en los dropdowns; puedes recuperarlo desde "Finalizados".', confirmText: 'Sí, desactivar', cancelText: 'Cancelar', onConfirm: run });
+                } else if (confirm('¿Desactivar el frente "' + nombre + '"?')) { run(); }
+            };
+
+            window._sinEquiposEliminar = function (id, nombre) {
+                var run = function () { _sinEquiposAction('DELETE', '{{ url("admin/frentes") }}/' + id, 'Frente eliminado.', 'No se pudo eliminar.', nombre); };
+                if (typeof window.showModal === 'function') {
+                    window.showModal({ type: 'warning', title: 'Eliminar Frente', message: '¿Eliminar el frente "' + nombre + '"?\n\nEsta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', onConfirm: run });
+                } else if (confirm('¿Eliminar el frente "' + nombre + '"?')) { run(); }
+            };
 
             // ── Chips de "Contratos asociados" ──────────────────────────────────
             // El hidden #CONTRATOS_HIDDEN guarda los valores como CSV

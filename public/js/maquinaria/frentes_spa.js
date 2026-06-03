@@ -350,6 +350,21 @@ window.addToSearchList = function (frente) {
     if (noMsg) noMsg.style.display = "none";
 };
 
+// Quita un frente del dropdown de búsqueda por NOMBRE (al desactivarlo o
+// eliminarlo desde el modal "Frentes sin equipos"), para no dejarlo listado.
+window.removeFromSearchList = function (nombre) {
+    const list = document.getElementById("frenteItemsList");
+    if (!list || nombre == null) return;
+    const target = String(nombre).trim();
+    const items = list.getElementsByClassName("search-result-item");
+    for (let item of items) {
+        if (((item.dataset.name || item.textContent) || "").trim() === target) {
+            item.remove();
+            break;
+        }
+    }
+};
+
 // Bind Confirm Button
 
 function showNotification(type, message) {
