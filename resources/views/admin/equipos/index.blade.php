@@ -1714,15 +1714,15 @@
                      (siguen mostrandose, no se ocultan). $frentesDropdown
                      ya viene filtrado por permisos del usuario en el controller. --}}
                 <div style="margin-bottom: 10px;">
-                    {{-- Sin label: el propio dropdown ya rotula "Todos los frentes (sin filtro)". --}}
+                    {{-- Sin label: el propio dropdown ya rotula "Selecciona un frente". --}}
                     <div style="display: flex; gap: 8px; align-items: center;">
-                    <div class="custom-dropdown" id="bulkLookupFrenteDropdown" data-default-label="Todos los frentes (sin filtro)" style="font-size: 12px;">
+                    <div class="custom-dropdown" id="bulkLookupFrenteDropdown" data-default-label="Selecciona un frente" style="font-size: 12px;">
                         <input type="hidden" id="bulkLookupFrenteValue" data-filter-value value="">
                         <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px;">
                             <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                 <i class="material-icons" style="font-size: 18px;">search</i>
                             </div>
-                            <input type="text" data-filter-search placeholder="Todos los frentes (sin filtro)"
+                            <input type="text" data-filter-search placeholder="Selecciona un frente"
                                 aria-label="Filtrar frente"
                                 style="width: 100%; min-width: 0; border: none; background: transparent; padding: 8px 2px; font-size: 12px; outline: none;"
                                 oninput="window.filterDropdownOptions(this)" autocomplete="off">

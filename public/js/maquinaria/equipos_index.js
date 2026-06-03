@@ -1126,10 +1126,6 @@ window.openUbicacionBulkModal = function (event) {
                     </div>
                 </div>
                 <div>
-                    <label for="ub-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
-                        <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                        Aspecto a resaltar
-                    </label>
                     <div id="ub-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                         <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
                         <input type="text" id="ub-input" maxlength="150" autocomplete="off"
