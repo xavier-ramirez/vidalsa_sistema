@@ -1690,6 +1690,12 @@
 
         /* Leyendas (Rojo/Amarillo) una al lado de la otra en teléfono. */
         #bulkLookupLegend { flex-direction: row !important; flex-wrap: wrap; gap: 4px 14px !important; }
+
+        /* Modal a pantalla completa: el textarea llena el alto disponible para que
+           no quede un hueco enorme debajo del texto pegado. */
+        #bulkLookupInputPhase { display: flex; flex-direction: column; height: 100%; }
+        #bulkLookupTextareaWrap { flex: 1 1 auto; min-height: 0; }
+        #bulkLookupTextarea { max-height: none !important; height: 100% !important; }
     }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
@@ -1752,7 +1758,7 @@
                     </div>
                 </div>
 
-                <div style="position: relative;">
+                <div id="bulkLookupTextareaWrap" style="position: relative;">
                     <textarea id="bulkLookupTextarea"
                               placeholder="Copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores."
                               spellcheck="false"
@@ -1898,7 +1904,9 @@
 
     // ── ABRIR / CERRAR / VOLVER ─────────────────────────────────────────────
     function showInputPhase() {
-        document.getElementById('bulkLookupInputPhase').style.display = 'block';
+        // display:'' (no inline) → el CSS decide: block en escritorio, flex en
+        // teléfono (media query) para que el textarea llene el alto disponible.
+        document.getElementById('bulkLookupInputPhase').style.display = '';
         document.getElementById('bulkLookupResultsPhase').style.display = 'none';
         document.getElementById('bulkLookupBackBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = 'none';
