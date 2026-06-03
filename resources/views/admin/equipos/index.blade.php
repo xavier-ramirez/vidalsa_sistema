@@ -1659,6 +1659,32 @@
             padding-right: 10px;
         }
         #bulkLookupFooter button i.material-icons { display: none; }
+
+        /* Resultados: la tabla se vuelve TARJETAS compactas (estilo Anclaje). Se
+           ocultan los encabezados y cada fila pasa a tarjeta; cada celda muestra
+           su rótulo (data-label) a la izquierda y el valor a la derecha. */
+        #bulkLookupResultsBox { border: none !important; }
+        #bulkLookupResultsPhase thead { display: none; }
+        #bulkLookupResultsPhase tbody tr {
+            display: block;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 5px 8px;
+            margin-bottom: 6px;
+        }
+        #bulkLookupResultsPhase tbody td {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+            padding: 2px 0 !important; border: none !important;
+            text-align: left !important; font-size: 11px;
+        }
+        #bulkLookupResultsPhase tbody td::before {
+            content: attr(data-label);
+            flex-shrink: 0; font-size: 9px; font-weight: 700;
+            color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        /* Fila "no encontrado" (mensaje colspan): sin rótulo y a lo ancho. */
+        #bulkLookupResultsPhase tbody td[colspan]::before { content: none; }
+        #bulkLookupResultsPhase tbody td[colspan] { justify-content: flex-start; }
     }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
@@ -1740,7 +1766,7 @@
                      (lo llena renderResults). Solo aparece si se eligió un frente. --}}
                 <div id="bulkLookupFrenteCompare" style="display: none; align-items: center; gap: 6px; margin-bottom: 8px; padding: 5px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; font-size: 11.5px; font-weight: 700;"></div>
 
-                <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
+                <div id="bulkLookupResultsBox" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
                     <div style="max-height: 50vh; overflow-y: auto;">
                         @php
                             // Encabezados con anchos explicitos: Buscado 22%, Equipo 28%, Estado 16%, Frente 34%.
@@ -1763,12 +1789,10 @@
 
                 <div style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; flex-direction: column; gap: 3px;">
                     <div>
-                        <span style="display:inline-block; width: 12px; height: 12px; background:#fef2f2; border:1px solid #fca5a5; vertical-align: middle; border-radius:2px; margin-right: 4px;"></span>
-                        <span style="color:#b91c1c;">Rojo</span>: términos que no se encontraron en la base de datos.
+                        <span style="color:#b91c1c; font-weight:700;">Rojo</span>: términos que no se encontraron en la base de datos.
                     </div>
                     <div id="bulkLookupYellowLegend" style="display:none;">
-                        <span style="display:inline-block; width: 12px; height: 12px; background:#fef9c3; border:1px solid #fde047; vertical-align: middle; border-radius:2px; margin-right: 4px;"></span>
-                        <span style="color:#854d0e;">Amarillo</span>: equipos que existen pero están en un frente diferente al seleccionado.
+                        <span style="color:#854d0e; font-weight:700;">Amarillo</span>: equipos que existen pero están en un frente diferente al seleccionado.
                     </div>
                 </div>
             </div>
@@ -2050,7 +2074,7 @@
                 lastMissingTerms.push(r.term);
                 return `
                     <tr style="background: #fef2f2;">
-                        <td style="${cellMissing} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td data-label="Buscado" style="${cellMissing} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
                         <td colspan="3" style="${cellMissing} font-style: italic;">
                             <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
                             No encontrado en la base de datos
@@ -2067,19 +2091,19 @@
             if (r.in_selected_frente === false) {
                 return `
                     <tr style="background: #fef9c3;">
-                        <td style="${cellOther} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
-                        <td style="${cellOther}">${escapeHtml(equipoInfo)}</td>
-                        <td style="${cellOther}">${estadoBadge(r.estado)}</td>
-                        <td style="${cellOther} text-align: center;">${frente}</td>
+                        <td data-label="Buscado" style="${cellOther} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
+                        <td data-label="Estado" style="${cellOther}">${estadoBadge(r.estado)}</td>
+                        <td data-label="Frente" style="${cellOther} text-align: center;">${frente}</td>
                     </tr>
                 `;
             }
             return `
                 <tr style="background: white;">
-                    <td style="${cellBase} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
-                    <td style="${cellBase}">${escapeHtml(equipoInfo)}</td>
-                    <td style="${cellBase}">${estadoBadge(r.estado)}</td>
-                    <td style="${cellBase} text-align: center;">${frente}</td>
+                    <td data-label="Buscado" style="${cellBase} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                    <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
+                    <td data-label="Estado" style="${cellBase}">${estadoBadge(r.estado)}</td>
+                    <td data-label="Frente" style="${cellBase} text-align: center;">${frente}</td>
                 </tr>
             `;
         }).join('');
