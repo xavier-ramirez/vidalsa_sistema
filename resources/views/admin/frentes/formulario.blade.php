@@ -185,13 +185,11 @@
                     {{-- El hidden guarda los contratos como CSV; el backend lo splittea + normaliza. --}}
                     <input type="hidden" id="CONTRATOS_HIDDEN" name="CONTRATOS"
                            value="{{ old('CONTRATOS', is_array($frente->CONTRATOS ?? null) ? implode(',', $frente->CONTRATOS) : '') }}">
-                    <small style="display:block;font-size:11px;color:#94a3b8;margin-top:4px;">Uno o varios contratos. Se sugieren al generar Nota de Entrega.</small>
                 </div>
 
                 <!-- Responsable 1 -->
                 <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 1</span>
-                    <span style="color:#15803d; font-size:11px; font-weight:700; text-transform:uppercase;">SOLICITADO</span>
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">SOLICITADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Liviana</span>
                 </div>
 
@@ -238,8 +236,7 @@
 
                 <!-- Responsable 2 -->
                 <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 2</span>
-                    <span style="color:#15803d; font-size:11px; font-weight:700; text-transform:uppercase;">SOLICITADO Alt.</span>
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">SOLICITADO Alt.</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Pesada</span>
                 </div>
 
@@ -286,8 +283,7 @@
 
                 <!-- Responsable 3 -->
                 <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 3</span>
-                    <span style="color:#854d0e; font-size:11px; font-weight:700; text-transform:uppercase;">ELABORADO</span>
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">ELABORADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Transporte y Log&iacute;stica</span>
                 </div>
 
@@ -334,8 +330,7 @@
 
                 <!-- Responsable 4 -->
                 <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 4</span>
-                    <span style="color:#075985; font-size:11px; font-weight:700; text-transform:uppercase;">REVISADO</span>
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">REVISADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Sub-gerente</span>
                 </div>
 
@@ -381,8 +376,7 @@
                 </div>
 
                 <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">Responsable 5</span>
-                    <span style="color:#6d28d9; font-size:11px; font-weight:700; text-transform:uppercase;">APROBADO</span>
+                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">APROBADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Gerente</span>
                 </div>
 
