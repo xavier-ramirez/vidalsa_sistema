@@ -1696,6 +1696,13 @@
         #bulkLookupInputPhase { display: flex; flex-direction: column; height: 100%; }
         #bulkLookupTextareaWrap { flex: 1 1 auto; min-height: 0; }
         #bulkLookupTextarea { max-height: none !important; height: 100% !important; }
+
+        /* Fase de resultados también llena el alto: la lista de tarjetas crece
+           (más espacio vertical) y la leyenda queda justo arriba del footer,
+           sin el hueco grande que dejaba el tope de 50vh. */
+        #bulkLookupResultsPhase { display: flex; flex-direction: column; height: 100%; }
+        #bulkLookupResultsBox { flex: 1 1 auto; min-height: 0; }
+        #bulkLookupResultsScroll { max-height: none !important; height: 100%; }
     }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
@@ -1778,7 +1785,7 @@
                 <div id="bulkLookupFrenteCompare" style="display: none; align-items: center; gap: 6px; margin-bottom: 8px; padding: 5px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; font-size: 11.5px; font-weight: 700;"></div>
 
                 <div id="bulkLookupResultsBox" style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
-                    <div style="max-height: 50vh; overflow-y: auto;">
+                    <div id="bulkLookupResultsScroll" style="max-height: 50vh; overflow-y: auto;">
                         @php
                             // Encabezados con anchos explicitos: Buscado 22%, Equipo 28%, Estado 16%, Frente 34%.
                             $thStyle = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a; border-right: 1px solid #334155;';
@@ -2125,7 +2132,9 @@
         tbody.innerHTML = rowsHtml || '<tr><td colspan="4" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
 
         document.getElementById('bulkLookupInputPhase').style.display = 'none';
-        document.getElementById('bulkLookupResultsPhase').style.display = 'block';
+        // display:'' (no inline) → el CSS decide: block en escritorio, flex en
+        // teléfono para que la lista de tarjetas llene el alto disponible.
+        document.getElementById('bulkLookupResultsPhase').style.display = '';
         document.getElementById('bulkLookupBackBtn').style.display = 'flex';
         document.getElementById('bulkLookupSearchBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';
