@@ -1667,10 +1667,11 @@
         #bulkLookupResultsPhase thead { display: none; }
         #bulkLookupResultsPhase tbody tr {
             display: block;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #cbd5e0;
             border-radius: 8px;
             padding: 5px 8px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.10);
         }
         #bulkLookupResultsPhase tbody td {
             display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -1685,6 +1686,9 @@
         /* Fila "no encontrado" (mensaje colspan): sin rótulo y a lo ancho. */
         #bulkLookupResultsPhase tbody td[colspan]::before { content: none; }
         #bulkLookupResultsPhase tbody td[colspan] { justify-content: flex-start; }
+
+        /* Leyendas (Rojo/Amarillo) una al lado de la otra en teléfono. */
+        #bulkLookupLegend { flex-direction: row !important; flex-wrap: wrap; gap: 4px 14px !important; }
     }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
@@ -1787,12 +1791,12 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; flex-direction: column; gap: 3px;">
+                <div id="bulkLookupLegend" style="margin-top: 8px; font-size: 11px; color: #64748b; display: flex; flex-direction: column; gap: 3px;">
                     <div>
-                        <span style="color:#b91c1c; font-weight:700;">Rojo</span>: términos que no se encontraron en la base de datos.
+                        <span style="color:#b91c1c;">términos que no se encontraron</span>
                     </div>
                     <div id="bulkLookupYellowLegend" style="display:none;">
-                        <span style="color:#854d0e; font-weight:700;">Amarillo</span>: equipos que existen pero están en un frente diferente al seleccionado.
+                        <span style="color:#854d0e;">equipos en un frente diferente al seleccionado</span>
                     </div>
                 </div>
             </div>
@@ -1810,7 +1814,7 @@
             </button>
             <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 14px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px;">
                 <i class="material-icons" style="font-size: 17px;">content_copy</i>
-                Copiar faltantes
+                Copiar no encontrados
             </button>
             {{-- Asignar Detalle a los encontrados: los pasa a la selección y abre el
                  modal "Asignar Detalle". Mismo gris (#64748b) que el botón "Detalle"
@@ -1994,7 +1998,7 @@
     window.bulkLookupCopyMissing = function () {
         if (!lastMissingTerms.length) return;
         navigator.clipboard.writeText(lastMissingTerms.join('\n')).then(() => {
-            if (window.showToast) window.showToast(lastMissingTerms.length + ' término(s) faltante(s) copiado(s) al portapapeles.', 'success');
+            if (window.showToast) window.showToast(lastMissingTerms.length + ' término(s) no encontrado(s) copiado(s) al portapapeles.', 'success');
         }).catch(() => {
             if (window.showToast) window.showToast('No se pudo copiar al portapapeles.', 'error');
         });
@@ -2058,15 +2062,16 @@
         const cellMissing = "padding: 6px 10px; border-bottom: 1px solid #fee2e2; color: #b91c1c; word-break: break-word;";
         const cellOther   = "padding: 6px 10px; border-bottom: 1px solid #fde68a; color: #854d0e; word-break: break-word;";
 
-        // Badge de estado operativo (mismo lenguaje de color que el resto de la app).
-        const estadoBadge = function (estado) {
+        // Estado operativo: SOLO texto coloreado (sin contenedor/badge), con el
+        // mismo lenguaje de color que el resto de la app.
+        const estadoTexto = function (estado) {
             const e = (estado || 'N/A').toUpperCase();
-            let bg = '#f1f5f9', col = '#475569', bd = '#cbd5e0';
-            if (e === 'OPERATIVO') { bg = '#dcfce7'; col = '#166534'; bd = '#86efac'; }
-            else if (e === 'INOPERATIVO') { bg = '#fee2e2'; col = '#991b1b'; bd = '#fca5a5'; }
-            else if (e === 'EN MANTENIMIENTO') { bg = '#fef9c3'; col = '#854d0e'; bd = '#fde047'; }
-            else if (e === 'DESINCORPORADO') { bg = '#e2e8f0'; col = '#334155'; bd = '#cbd5e0'; }
-            return '<span style="display:inline-block; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; background:' + bg + '; color:' + col + '; border:1px solid ' + bd + '; white-space:nowrap;">' + escapeHtml(e) + '</span>';
+            let col = '#475569';
+            if (e === 'OPERATIVO') col = '#166534';
+            else if (e === 'INOPERATIVO') col = '#991b1b';
+            else if (e === 'EN MANTENIMIENTO') col = '#854d0e';
+            else if (e === 'DESINCORPORADO') col = '#334155';
+            return '<span style="font-size:11px; font-weight:700; color:' + col + '; white-space:nowrap;">' + escapeHtml(e) + '</span>';
         };
 
         const rowsHtml = results.map(r => {
@@ -2074,7 +2079,7 @@
                 lastMissingTerms.push(r.term);
                 return `
                     <tr style="background: #fef2f2;">
-                        <td data-label="Buscado" style="${cellMissing} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td data-label="Buscado" style="${cellMissing} font-weight: 700;">${escapeHtml(r.term)}</td>
                         <td colspan="3" style="${cellMissing} font-style: italic;">
                             <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
                             No encontrado en la base de datos
@@ -2091,18 +2096,18 @@
             if (r.in_selected_frente === false) {
                 return `
                     <tr style="background: #fef9c3;">
-                        <td data-label="Buscado" style="${cellOther} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td data-label="Buscado" style="${cellOther} font-weight: 700;">${escapeHtml(r.term)}</td>
                         <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
-                        <td data-label="Estado" style="${cellOther}">${estadoBadge(r.estado)}</td>
+                        <td data-label="Estado" style="${cellOther}">${estadoTexto(r.estado)}</td>
                         <td data-label="Frente" style="${cellOther} text-align: center;">${frente}</td>
                     </tr>
                 `;
             }
             return `
                 <tr style="background: white;">
-                    <td data-label="Buscado" style="${cellBase} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
+                    <td data-label="Buscado" style="${cellBase} font-weight: 700;">${escapeHtml(r.term)}</td>
                     <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
-                    <td data-label="Estado" style="${cellBase}">${estadoBadge(r.estado)}</td>
+                    <td data-label="Estado" style="${cellBase}">${estadoTexto(r.estado)}</td>
                     <td data-label="Frente" style="${cellBase} text-align: center;">${frente}</td>
                 </tr>
             `;
