@@ -379,6 +379,20 @@ class HistorialDocumentosController extends Controller
             })->values();
         }
 
+        // 4b. "Ver solo seleccionados" (contador de la barra flotante): whitelist de
+        //     eventos por su hash md5 — el MISMO que genera el partial en data-hd-id
+        //     (equipo_id + tipo + timestamp). Replica el ids_in del módulo Equipos para
+        //     esta vista de eventos heterogéneos sin clave primaria única. La seguridad
+        //     (scope por frentes permitidos) ya se aplicó en SQL y se mantiene.
+        if ($request->filled('hd_ids')) {
+            $hdIdsSet = array_flip(array_filter(array_map('trim', explode(',', (string) $request->input('hd_ids')))));
+            if (!empty($hdIdsSet)) {
+                $events = $events->filter(function ($event) use ($hdIdsSet) {
+                    return isset($hdIdsSet[md5($event->equipo_id . $event->tipo . $event->fecha->timestamp)]);
+                })->values();
+            }
+        }
+
         $total = $events->count();
 
         // 5. Paginate manually mapping 20 by 20

@@ -51,35 +51,51 @@ class MojibakeFix implements CastsAttributes
      * request o de arrays construidos en memoria, donde el cast del modelo no
      * aplica. Misma logica que get(): unico punto donde vive el algoritmo.
      *
-     * Detalle del bug que arregla — cuando bytes UTF-8 originales se interpretaron
-     * como Windows-1252 y se re-encodearon como UTF-8, "Ó" (c3 93) se convierte en
-     * "Ã"" (c3 83 e2 80 9c) porque 0x93 en Windows-1252 es la LEFT DOUBLE QUOTE.
-     * La regex captura los DOS patrones posibles:
-     *   1. "Ã" + byte latin extended  → caso simple (acentos a/e/i/o/u con tilde).
-     *   2. "Ã" + comilla tipografica  → caso Windows-1252 punctuation (smart quotes,
-     *      em/en dashes, etc. que viven en 0x80-0x9F en CP1252).
-     * Si matchea, convertimos UTF-8 → Windows-1252 (NO ISO-8859-1: Windows-1252
-     * SI mapea los smart quotes) y reinterpretamos esos bytes como UTF-8.
+     * Arregla DOS clases de corrupcion distintas (ver detalle en el cuerpo):
+     *   CASO 1 — doble-UTF-8 ("Ã…"): bytes UTF-8 leidos como Windows-1252 y
+     *            re-encodeados (ej "Ó" c3 93 → "Ã"" c3 83 e2 80 9c). Firma c3 83.
+     *            Se revierte UTF-8 → Windows-1252.
+     *   CASO 2 — import CP850 ("MATUR═N"): bytes Windows-1252 leidos como CP850
+     *            (OEM) al correr un .sql, convirtiendo acentos en caracteres de
+     *            dibujo de caja (Í→═, Á→┴, Ú→┌, Ñ→╤, É→╔, Ó→Ë). Firma: presencia
+     *            de un char U+2500–U+257F. Se revierte UTF-8 → CP850 → Windows-1252.
+     * En ambos casos, si la conversion no produce UTF-8 valido se devuelve el
+     * original (defensivo), y los strings limpios NUNCA se tocan.
      */
     public static function fix(?string $s): ?string
     {
         if ($s === null || $s === '') return $s;
+
+        // ── Caso 1: doble-UTF-8 ("Ã…") — firma c3 83 ─────────────────────────
         // "Ã" en UTF-8 son los bytes c3 83. Si aparece, casi siempre es mojibake
-        // (el caracter "Ã" solo legitimamente aparece en palabras portuguesas tipo
-        // "São Paulo" — poco frecuente en nuestro contexto). Despues de "Ã" puede
-        // venir cualquier patron: byte simple latin-extended (acentos comunes
-        // tipo Ó/Ñ/Á), smart quote multi-byte (e2 80 9X de Windows-1252 0x91-0x94),
-        // o letra con caron/cedilla multi-byte (c4/c5 + xx de Windows-1252 0x8A/0x9A).
-        // Por eso solo chequeamos "c3 83" como signature y dejamos que la conversion
-        // + el mb_check_encoding hagan de filtro final: si la conversion no produce
-        // UTF-8 valido el cast devuelve el original (defensivo).
-        if (!preg_match('/\xc3\x83/', $s)) {
+        // (bytes UTF-8 leidos como Windows-1252 y re-encodeados). Convertimos de
+        // vuelta UTF-8→Windows-1252; el mb_check_encoding es el filtro final: si
+        // no produce UTF-8 valido devolvemos el original (defensivo).
+        if (preg_match('/\xc3\x83/', $s)) {
+            $decoded = @mb_convert_encoding($s, 'Windows-1252', 'UTF-8');
+            if ($decoded !== false && mb_check_encoding($decoded, 'UTF-8')) {
+                return $decoded;
+            }
             return $s;
         }
-        $decoded = @mb_convert_encoding($s, 'Windows-1252', 'UTF-8');
-        if ($decoded === false || !mb_check_encoding($decoded, 'UTF-8')) {
+
+        // ── Caso 2: import CP850 — acentos convertidos a caracteres de caja ──
+        // (Í→═, Á→┴, Ú→┌, Ñ→╤, É→╔, Ó→Ë …). Pasa cuando bytes Windows-1252 se
+        // leen como CP850 (OEM) al correr un .sql de importacion. Se detecta por
+        // la presencia de un caracter de dibujo de caja (U+2500–U+257F), que NUNCA
+        // aparece en datos legitimos de la app; se revierte UTF-8→CP850→Win-1252.
+        // Los strings limpios (sin caja) NO entran aqui — quedan intactos.
+        if (preg_match('/[\x{2500}-\x{257F}]/u', $s)) {
+            $bytes = @iconv('UTF-8', 'CP850', $s);
+            if ($bytes !== false) {
+                $rev = @iconv('Windows-1252', 'UTF-8', $bytes);
+                if ($rev !== false && mb_check_encoding($rev, 'UTF-8')) {
+                    return $rev;
+                }
+            }
             return $s;
         }
-        return $decoded;
+
+        return $s;
     }
 }

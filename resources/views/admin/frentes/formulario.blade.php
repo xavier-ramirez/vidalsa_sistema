@@ -19,7 +19,11 @@
         /* Inputs y labels más compactos. */
         #frenteForm .form-input-custom { padding: 8px 12px; font-size: 13.5px; }
         #frenteForm .form-label        { margin-bottom: 3px; font-size: 12.5px; }
-        #frenteForm .dropdown-trigger  { padding: 8px 12px; }
+        /* Dropdowns (Tipo/Estatus/buscar) IGUALADOS a los inputs: misma fuente
+           13.5px y mismo alto (~36px). El icono expand_more por defecto mide
+           24px y agrandaba el cuadro — se reduce a 18px para que coincida. */
+        #frenteForm .dropdown-trigger  { padding: 8px 12px; font-size: 13.5px; min-height: 36px; box-sizing: border-box; }
+        #frenteForm .dropdown-trigger .material-icons { font-size: 18px; }
         /* Barra de búsqueda superior: 30px era exagerado. */
         .admin-card > div[style*="margin-bottom: 30px"] { margin-bottom: 14px !important; }
         /* Footer de botones (Cancelar / Guardar / Eliminar): 40px → 18px. */
@@ -129,6 +133,16 @@
                         autocomplete="off">
                 </div>
 
+                {{-- ZONA: nombre corto (zona/ciudad) que se imprime en el renglón
+                     "Lugar, fecha" del Acta de Traslado (ej: "MATURÍN 02/06/2026").
+                     Opcional: si se deja vacío, el acta usa el Nombre del Frente. --}}
+                <div>
+                    <label for="ZONA" class="form-label">Zona / Ciudad <span style="font-weight:400; color:#94a3b8; font-size:12px;">(sale en el Acta de Traslado)</span></label>
+                    <input type="text" id="ZONA" name="ZONA" class="form-input-custom" style="background: white;"
+                        placeholder="Ej: MATURÍN" value="{{ old('ZONA', $frente->ZONA ?? '') }}" maxlength="100"
+                        autocomplete="off">
+                </div>
+
                 <div>
                     <div class="form-label">Estatus del Proyecto <span style="color: red;">*</span></div>
                     <div class="custom-dropdown" id="statusSelect">
@@ -158,11 +172,15 @@
                      normal (misma altura y curvatura que UBICACION, NOMBRE_FRENTE, etc.). -->
                 <div>
                     <label class="form-label" for="contratos_input">N° de Contrato(s) asociados al proyecto</label>
+                    {{-- min-height 36px + padding/borde/radio iguales a .form-input-custom
+                         (8px 12px de alto efectivo) para que el chip-box se vea EXACTAMENTE
+                         como un input normal (mismo alto que Zona/Ubicación) cuando está
+                         vacío, y crezca solo si se agregan chips. --}}
                     <div id="contratos_chip_box"
-                         style="background:white;border:1px solid #cbd5e0;border-radius:12px;padding:4px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;box-sizing:border-box;transition:border-color .2s;">
+                         style="background:white;border:1px solid #cbd5e0;border-radius:12px;padding:4px 12px;min-height:36px;display:flex;flex-wrap:wrap;align-items:center;gap:5px;box-sizing:border-box;transition:border-color .2s;">
                         <input type="text" id="contratos_input" autocomplete="off"
                                placeholder="Escribe y pulsa Enter o coma"
-                               style="flex:1;min-width:110px;border:none;outline:none;background:transparent;font-size:13.5px;padding:4px 2px;text-transform:uppercase;line-height:1.4;">
+                               style="flex:1;min-width:110px;border:none;outline:none;background:transparent;font-size:13.5px;padding:0 2px;text-transform:uppercase;line-height:1.4;">
                     </div>
                     {{-- El hidden guarda los contratos como CSV; el backend lo splittea + normaliza. --}}
                     <input type="hidden" id="CONTRATOS_HIDDEN" name="CONTRATOS"

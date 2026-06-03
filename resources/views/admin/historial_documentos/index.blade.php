@@ -232,7 +232,7 @@
             <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 5px;">
                 <!-- Search Correo -->
                 <div class="filter-item aligned-filter responsive-filter-item">
-                    <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
+                    <form style="width: 100%; position: relative;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
                         <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchCorreo" name="search_correo"
@@ -241,13 +241,15 @@
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
-                                list="hdCorreosList"
+                                oninput="window.hdCorreoSuggest && window.hdCorreoSuggest()"
+                                onfocus="window.hdCorreoSuggest && window.hdCorreoSuggest()"
                                 onkeyup="window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo')">
-                            <datalist id="hdCorreosList">
-                                @foreach(($correosAutores ?? collect()) as $correo)<option value="{{ $correo }}">@endforeach
-                            </datalist>
                             <i id="btn_clear_searchCorreo" class="material-icons clear-icon" style="display: {{ request('search_correo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchCorreo', 'searchCorreo');">close</i>
                         </div>
+                        {{-- Autocompletado de correos: dropdown PROPIO con tope de altura + scroll.
+                             Antes era un <datalist> nativo que el navegador desplegaba a pantalla
+                             completa (no se puede limitar por CSS). --}}
+                        <div id="hdCorreosSuggest" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:50; margin-top:4px; max-height:220px; overflow-y:auto; background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);"></div>
                     </form>
                 </div>
 
@@ -590,7 +592,7 @@
 
 {{-- ─── CONTADOR FLOTANTE DE SELECCIÓN ───────────────────────────────────── --}}
 <div id="hd-selection-chip" class="selection-floating-bar">
-    <div class="selection-counter">
+    <div class="selection-counter" onclick="window.hdToggleSoloSel(event)" style="cursor: pointer;" title="Ver solo los eventos seleccionados">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
             <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
         </div>
@@ -631,6 +633,23 @@
     #historialDocumentosTable tr.selected-row-maquinaria td:last-child {
         border-right-color: #93c5fd !important;
     }
+
+    /* "Ver solo seleccionados" activo: resalta solo el NÚMERO del contador en un
+       círculo ámbar limpio (mismo patrón que el módulo Equipos). */
+    #hd-selection-chip .selection-counter.is-filtering #hd-selection-count {
+        background: #fbbf24;
+        color: #1e293b;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 5px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        line-height: 1;
+        box-sizing: border-box;
+    }
 </style>
 
 
@@ -658,19 +677,29 @@
     var csrfTok = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
     var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
 
+    // Cache de los items cargados por lista (keyed por listElId) para filtrar
+    // en cliente sin volver a pedir al backend. Guarda { items, kind }.
+    var papeleraCache = {};
+
     function buildModal(id, title) {
         var old = document.getElementById(id + 'Overlay');
         if (old) old.remove();
         var overlay = document.createElement('div');
         overlay.id = id + 'Overlay';
         overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;';
-        overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:540px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
+        overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:440px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
             '<div style="background:#1e293b;padding:12px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                     '<i class="material-icons" style="color:#f59e0b;font-size:18px;">history</i>' +
                     '<h2 style="margin:0;font-size:14px;font-weight:700;">' + title + '</h2>' +
                 '</div>' +
                 '<button type="button" onclick="document.getElementById(\'' + id + 'Overlay\').remove();" style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;"><i class="material-icons" style="font-size:18px;">close</i></button>' +
+            '</div>' +
+            '<div style="padding:8px 10px;background:white;border-bottom:1px solid #e2e8f0;flex-shrink:0;">' +
+                '<div style="display:flex;align-items:center;gap:6px;border:1px solid #cbd5e0;border-radius:8px;background:#fbfcfd;padding:0 10px;height:36px;">' +
+                    '<i class="material-icons" style="font-size:18px;color:#94a3b8;">search</i>' +
+                    '<input type="text" id="' + id + 'Search" placeholder="Buscar por placa, serial de chasis o de motor..." autocomplete="off" oninput="window.hdPapeleraFilter(this.value, \'' + id + 'List\')" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;height:100%;color:#1e293b;">' +
+                '</div>' +
             '</div>' +
             '<div id="' + id + 'List" style="overflow-y:auto;background:#f8fafc;padding:10px;flex:1;min-height:160px;">' +
                 '<div style="padding:24px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:22px;">sync</i></div>' +
@@ -704,17 +733,41 @@
         '</div>';
     }
 
+    // Coincide el término contra los identificadores del item: serial de chasis,
+    // serial de motor y placa (vehículos) o serial (auxiliares), + código.
+    function matchItem(it, term) {
+        var hay = [it.serial_chasis, it.serial_motor, it.placa, it.serial, it.codigo]
+            .filter(Boolean).join(' ').toLowerCase();
+        return hay.indexOf(term) !== -1;
+    }
+
+    // Renderiza la lista (filtrada por `term` si lo hay) desde el cache.
+    function renderListItems(listElId, term) {
+        var list = document.getElementById(listElId);
+        var c = papeleraCache[listElId];
+        if (!list || !c) return;
+        var items = term ? c.items.filter(function (it) { return matchItem(it, term); }) : c.items;
+        if (!items.length) {
+            list.innerHTML = term
+                ? '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">search_off</i>Sin coincidencias.</div>'
+                : '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">inbox</i>Papelera vacía</div>';
+            return;
+        }
+        list.innerHTML = items.map(function (it) { return renderRow(it, c.kind); }).join('');
+    }
+
+    // Llamado desde el input del modal (oninput).
+    window.hdPapeleraFilter = function (term, listElId) {
+        renderListItems(listElId, (term || '').trim().toLowerCase());
+    };
+
     function loadList(url, kind, listElId) {
         var list = document.getElementById(listElId);
         fetch(url, { headers: { 'Accept':'application/json', 'X-Requested-With':'XMLHttpRequest' }})
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                var items = data.items || [];
-                if (!items.length) {
-                    list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px;"><i class="material-icons" style="font-size:24px;display:block;margin:0 auto 6px;">inbox</i>Papelera vacía</div>';
-                    return;
-                }
-                list.innerHTML = items.map(function (it) { return renderRow(it, kind); }).join('');
+                papeleraCache[listElId] = { items: data.items || [], kind: kind };
+                renderListItems(listElId, ''); // sin filtro al cargar
             })
             .catch(function () {
                 list.innerHTML = '<div style="padding:24px;text-align:center;color:#ef4444;font-size:12px;">Error al cargar la papelera.</div>';
@@ -774,5 +827,49 @@
 })();
 </script>
 @endcan
+
+{{-- Autocompletado del filtro "Buscar por correo autor": dropdown propio con tope
+     de altura + scroll (reemplaza el <datalist> nativo que se desplegaba a pantalla
+     completa). FUERA del @can: el filtro de correo es para TODOS los usuarios. --}}
+<script>
+(function () {
+    if (window.__hdCorreoAutoInit) return;
+    window.__hdCorreoAutoInit = true;
+    var CORREOS = @json($correosAutores ?? []);
+    var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
+
+    window.hdCorreoSuggest = function () {
+        var inp = document.getElementById('searchCorreo');
+        var box = document.getElementById('hdCorreosSuggest');
+        if (!inp || !box) return;
+        var term = (inp.value || '').trim().toLowerCase();
+        var m = CORREOS.filter(function (c) { return String(c).toLowerCase().indexOf(term) !== -1; }).slice(0, 50);
+        if (!m.length) { box.style.display = 'none'; return; }
+        box.innerHTML = m.map(function (c) {
+            return '<div class="hd-correo-item" data-val="' + esc(c) + '"'
+                 + ' onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'"'
+                 + ' style="padding:9px 14px;font-size:13px;color:#334155;cursor:pointer;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#fff;">'
+                 + esc(c) + '</div>';
+        }).join('');
+        box.style.display = 'block';
+    };
+
+    // Un solo listener: selecciona si se clickea un item, cierra si el clic es fuera.
+    document.addEventListener('mousedown', function (e) {
+        var it = e.target.closest ? e.target.closest('.hd-correo-item') : null;
+        var box = document.getElementById('hdCorreosSuggest');
+        var inp = document.getElementById('searchCorreo');
+        if (it) {
+            e.preventDefault();
+            if (inp) inp.value = it.getAttribute('data-val');
+            if (box) box.style.display = 'none';
+            if (typeof window.checkHistorialClearBtn === 'function') window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo');
+            if (typeof window.loadHistorialDocumentos === 'function') window.loadHistorialDocumentos();
+            return;
+        }
+        if (box && e.target !== inp && !box.contains(e.target)) box.style.display = 'none';
+    });
+})();
+</script>
 
 @endsection

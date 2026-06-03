@@ -1443,7 +1443,7 @@
                     <div>
                         <label for="auxUb-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
                             <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                            Ubicación o aspecto a resaltar
+                            Aspecto a resaltar
                         </label>
                         <div id="auxUb-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                             <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>

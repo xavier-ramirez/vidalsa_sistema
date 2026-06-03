@@ -86,7 +86,15 @@ Route::middleware(['auth'])->group(function () {
             Route::get('movilizaciones/buscar-equipos-recepcion', [App\Http\Controllers\MovilizacionController::class, 'buscarEquiposParaRecepcion'])->name('movilizaciones.buscarEquipos');
             Route::get('movilizaciones/subdivisiones/{id}', [App\Http\Controllers\MovilizacionController::class, 'getSubdivisiones'])->name('movilizaciones.subdivisiones');
             Route::get('movilizaciones/{id}/acta-traslado', [App\Http\Controllers\MovilizacionController::class, 'generarActaTraslado'])->name('movilizaciones.actaTraslado');
+            // Misma acción vía POST: descarga el acta aplicando las ediciones manuales
+            // (override de origen/firmas) hechas en la vista previa. La descarga normal
+            // del historial sigue usando el GET de arriba (sin overrides).
+            Route::post('movilizaciones/{id}/acta-traslado', [App\Http\Controllers\MovilizacionController::class, 'generarActaTraslado'])->name('movilizaciones.actaTrasladoEdit');
             Route::get('movilizaciones/find-by-codigo', [App\Http\Controllers\MovilizacionController::class, 'findByCodigoControl'])->name('movilizaciones.findByCodigo');
+            // Vista previa del acta desde el borrador del modal (sin commitear). El registro
+            // real lo hace equipos/bulk-mobilize al confirmar en la vista previa.
+            Route::post('movilizaciones/preview-acta', [App\Http\Controllers\MovilizacionController::class, 'previewActaLote'])->name('movilizaciones.previewActa');
+            Route::post('movilizaciones/preview-acta-meta', [App\Http\Controllers\MovilizacionController::class, 'previewActaMeta'])->name('movilizaciones.previewActaMeta');
             // Resource route al final para que sus wildcards no capturen las rutas estáticas de arriba
             Route::resource('movilizaciones', App\Http\Controllers\MovilizacionController::class);
 

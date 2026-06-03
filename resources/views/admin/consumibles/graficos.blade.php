@@ -547,31 +547,6 @@
         </div>
     </div>
 
-    {{-- EQUIPOS ASIGNADOS POR FRENTE --}}
-    <div class="g-grid-1">
-        <div class="g-card" id="panelEqAsig">
-            <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
-                <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
-                    <i class="material-icons" style="color:#64748b; flex-shrink: 0;">directions_bus</i>
-                    <span style="word-break: break-word;">Equipos Asignados por Frente <span class="g-subtitle"
-                            style="display:inline-block;">— flota actual en cada frente</span></span>
-                </span>
-                <button onclick="descargarPanelEquipos('equipos_asignados')" title="Descargar imagen"
-                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;"
-                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                </button>
-            </p>
-            <div id="loadingEqAsig" class="loading-overlay">
-                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-            </div>
-            <div id="eqAsigBody" style="display:none;"></div>
-        </div>
-    </div>
-
-
-
-
     {{-- EQUIPOS QUE SURTIERON POR FRENTE (solo con frente seleccionado) --}}
     <div class="g-grid-1" id="secEqFrente" style="display:none;">
         <div class="g-card" id="panelEqFrente">
@@ -813,13 +788,13 @@
             const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
 
             // ── Loading: mostrar spinners de las secciones siempre visibles ──
-            ['loadingTotalFrente', 'loadingEqAsig',
+            ['loadingTotalFrente',
                 'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(show);
 
             // ── Ocultar contenido previo (prev carga) ────────────────────────
             // Removido: secCauchoModelo + chartCauchoModelo + loadingCauchoModelo
             // (panel "Cauchos por Tipo de Equipo y Medida" eliminado a pedido).
-            ['totalFrenteBody', 'eqAsigBody',
+            ['totalFrenteBody',
                 'rankingBody', 'wrapTodosEq', 'inoperativosBody'].forEach(hide);
 
             // ── Secciones de especificación: ocultar antes de cada carga ─────
@@ -847,20 +822,6 @@
                     } else {
                         document.getElementById('totalFrenteWrapper').style.display = 'none';
                     }
-                    // ── Orden de frentes según gráfico de consumo (mayor a menor) ────────
-                    // 'let' porque luego insertamos AMBIENTE en la posición que le corresponde.
-                    let ordenFrente = (data.por_frente || [])
-                        .map(d => d.NOMBRE_FRENTE)
-                        .filter((v, i, a) => a.indexOf(v) === i);  // únicos, en orden consumo
-
-                    // ── AMBIENTE en posición #3, excepto cuando se filtra por CAUCHO o ACEITE ──
-                    const tiposSinAmbiente = ['CAUCHO', 'ACEITE'];
-                    if (data.equipos_asignados && data.equipos_asignados['AMBIENTE']
-                        && !tiposSinAmbiente.includes(tipoFiltro)) {
-                        ordenFrente.splice(2, 0, 'AMBIENTE');
-                    }
-
-                    window.renderEquiposAsignados(data.equipos_asignados || {}, ordenFrente);
                     // Solo mostrar equipos×frente cuando hay un frente específico seleccionado
                     if (frenteSeleccionado) {
                         document.getElementById('secEqFrente').style.display = '';
@@ -895,7 +856,7 @@
                 })
                 .catch(err => {
                     console.error('Error cargando datos de gráficos:', err);
-                    ['loadingTotalFrente', 'loadingEqAsig',
+                    ['loadingTotalFrente',
                         'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(id => {
                             const el = document.getElementById(id);
                             if (el) el.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
@@ -916,57 +877,6 @@
                     requestAnimationFrame(() => requestAnimationFrame(_afterPaint));
                 });
         }
-
-        // ── Equipos asignados por frente — cajitas numeradas en orden de consumo ───
-        window.renderEquiposAsignados = function (eqAsig, ordenFrente) {
-            hide('loadingEqAsig');
-            const body = document.getElementById('eqAsigBody');
-            body.style.display = 'block';
-
-            // Filtrar solo los frentes que tienen equipos asignados, manteniendo el orden de consumo.
-            // AMBIENTE ya viene inserado en la pos correcta por cargarDatos().
-            const lista = (ordenFrente || [])
-                .filter(frente => eqAsig[frente])          // solo frentes con equipos asignados
-                .map(frente => ({
-                    frente,
-                    total: parseInt(eqAsig[frente]?.total_asignados || 0),
-                }));
-
-            if (!lista.length) {
-                body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos de equipos asignados.</p>';
-                return;
-            }
-
-            const GRIS_FIJO = '#475569';
-
-            // i+1 sobre la lista YA FILTRADA → siempre secuencial sin saltos
-            body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:10px;">${lista.map((row, i) => `
-                <div style="
-                    background:${GRIS_FIJO};
-                    color:#fff;
-                    border-radius:12px;
-                    padding:12px 16px;
-                    min-width:200px;
-                    flex:1;
-                    display:flex;
-                    flex-direction:column;
-                    align-items:flex-start;
-                    justify-content:center;
-                    gap:8px;
-                    box-shadow:0 2px 8px rgba(0,0,0,.15);
-                ">
-                    <div style="display:flex; align-items:center; gap:8px; width:100%;">
-                        <span style="font-size:13px;font-weight:700;color:#94a3b8;">#${i + 1}</span>
-                        <span style="font-size:12px;font-weight:700;line-height:1.2;word-break:break-word;" title="${row.frente}">${row.frente}</span>
-                    </div>
-                    <div style="display:flex;align-items:baseline;gap:5px;">
-                        <span style="font-size:26px;font-weight:900;line-height:1;">${row.total}</span>
-                        <span style="font-size:13px;font-weight:600;opacity:.9;">equipo${row.total !== 1 ? 's' : ''}</span>
-                    </div>
-                </div>`
-            ).join('')
-                }</div>`;
-        };
 
         // Exponer cargarDatos globalmente para el ModuleManager SPA
         // window.cargarDatos = window.cargarDatos; (Ya asignado arriba)
@@ -1803,43 +1713,6 @@
                 setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
             }
         }
-
-        // ── Descargar "Equipos Asignados" — captura del DOM real en 1 COLUMNA ──────────
-        function descargarPanelEquipos(nombre) {
-            const body = document.getElementById('eqAsigBody');
-            if (!body || !body.firstElementChild?.children?.length) {
-                alert('No hay datos para descargar.'); return;
-            }
-            const card = body.closest('.g-card') || body.parentElement;
-
-            // Función para forzar que el panel se dibuje como lista de 1 columna solo para la foto
-            const forceOneColumn = (clonedDoc) => {
-                const clonedBody = clonedDoc.getElementById('eqAsigBody');
-                if (clonedBody && clonedBody.firstElementChild) {
-                    const container = clonedBody.firstElementChild;
-                    container.style.flexDirection = 'column';
-                    container.style.flexWrap = 'nowrap';
-                }
-                // Reducimos el ancho de la tarjeta para que la lista no quede alargada a todo el ancho de la pantalla original
-                const clonedCardId = card?.id || '__tmp_panel_equipos';
-                const clonedCard = clonedDoc.getElementById(clonedCardId);
-                if (clonedCard) {
-                    clonedCard.style.width = '350px';
-                    clonedCard.style.margin = '0 auto';
-                }
-            };
-
-            if (card && !card.id) {
-                card.id = '__tmp_panel_equipos';
-                capturaPanelHtml('__tmp_panel_equipos', nombre, forceOneColumn);
-                setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
-            } else if (card) {
-                capturaPanelHtml(card.id, nombre, forceOneColumn);
-            }
-        }
-
-
-
 
         // ── Descargar "Tarjetas Resumen" como PNG ─────────────────
         function descargarPanelResumen(nombre) {

@@ -22,7 +22,29 @@
         $labelDestino = $isResguardoDestino ? 'el centro de resguardo' : 'el frente de trabajo';
 
         $ubicacionDestino = trim($frenteDestino->UBICACION ?? '');
+
+        // Renglon "Lugar, fecha" (estilo "MATURIN 26/03/2026" del formato Word):
+        // usa el campo ZONA del frente de ORIGEN — texto libre que el usuario llena
+        // en el formulario de Frentes (ej: "MATURÍN"). Si el frente aún no tiene
+        // ZONA cargada, cae al NOMBRE del frente para no dejarlo vacío.
+        $lugarOrigen = trim($frenteOrigen->ZONA ?? '');
+        if ($lugarOrigen === '') {
+            $lugarOrigen = trim($frenteOrigen->NOMBRE_FRENTE ?? '');
+        }
     @endphp
+
+    <!-- ===================== LUGAR Y FECHA ===================== -->
+    @if($lugarOrigen !== '')
+    <!-- Separador Encabezado/Lugar (14px) — aire entre el cabezote y el renglon -->
+    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="14">&nbsp;</td></tr></table>
+    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+            <td align="right" style="font-size: 10pt; font-weight: bold;">{{ strtoupper($lugarOrigen) }}, {{ $fechaActa }}</td>
+        </tr>
+    </table>
+    <!-- Separador Lugar/Cuerpo (16px) — aire entre el renglon y el parrafo -->
+    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="16">&nbsp;</td></tr></table>
+    @endif
 
     <!-- ===================== CUERPO DEL TEXTO ===================== -->
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
@@ -70,64 +92,13 @@
        Muestra máximo 2 firmas + Recibido
 -->
     @php
-        // ── Categorías de los equipos en el acta ──────────────────────────────
-        // Equipos Auxiliares (CATEGORIA_FLOTA null o '') → FLOTA LIVIANA.
-        // Operador ?: captura null Y string vacío.
-        $categoriesInActa = $equipos->pluck('CATEGORIA_FLOTA')->map(function($cat) {
-            return $cat ?: 'FLOTA LIVIANA';
-        })->unique()->filter()->values()->toArray();
-
-        if (empty($categoriesInActa)) {
-            $categoriesInActa = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        }
-
-        // ── Leer y filtrar responsables (slots 1–4) ───────────────────────────
-        // Sólo se incluye un slot si:
-        //   a) Tiene nombre real (no placeholder)
-        //   b) Su RESP_N_EQU está vacío (aplica a todos) O coincide con la
-        //      categoría de los equipos del acta.
-        // IMPORTANTE: el array resultante ($firmasList) es plano; las etiquetas
-        // se asignan POR ORDEN DE APARICIÓN tras el filtro, NO por slot BD.
-        // Esto permite que si RESP_1=Liviana y RESP_2=Pesada, el que pasa el
-        // filtro siempre obtenga la etiqueta SOLICITADO correctamente.
-        $labelsByResp = [
-            1 => 'SOLICITADO:',
-            2 => 'SOLICITADO:',
-            3 => 'ELABORADO:',
-            4 => 'REVISADO:',
-            5 => 'APROBADO:'
-        ];
-
-        $firmasFiltradas = [];
-        for ($i = 1; $i <= 5; $i++) {
-            $nom = trim($frenteOrigen->{"RESP_{$i}_NOM"} ?? '');
-            $car = trim($frenteOrigen->{"RESP_{$i}_CAR"} ?? 'RESPONSABLE');
-            $equ = trim($frenteOrigen->{"RESP_{$i}_EQU"} ?? '');
-            $ced = trim($frenteOrigen->{"RESP_{$i}_CED"} ?? '');
-
-            $isPlaceholder = empty($nom)
-                || strtolower($nom) === 'nombre y apellido'
-                || strtolower($nom) === 'por definir'
-                || strtolower($nom) === 'n/a';
-
-            if ($isPlaceholder) continue;
-
-            $pasaFiltro = $equ === '' || in_array($equ, $categoriesInActa);
-            if ($pasaFiltro) {
-                $firmasFiltradas[] = [
-                    'nom' => $nom, 
-                    'car' => $car, 
-                    'ced' => $ced, 
-                    'label' => $labelsByResp[$i]
-                ];
-            }
-        }
-
-        // Ya no asignamos etiquetas secuenciales
-        $firmasList = $firmasFiltradas;
+        // Firmas ya resueltas en el controller (MovilizacionController::extractFirmasActa
+        // o el override manual de la vista previa) — FUENTE ÚNICA DE VERDAD. Aquí sólo
+        // se renderizan; el layout (1 firma / grid 2×2 de Patio / otros) sigue igual.
+        $firmasList = $firmas ?? [];
         $totalFirmas = count($firmasList);
 
-        // ── Detección de Patio Maturín ─────────────────────────────────────────
+        // ── Detección de Patio Maturín (define el layout del bloque de firmas) ──
         $isPatio = $isResguardoOrigen;
     @endphp
 
@@ -149,9 +120,9 @@
                             <td>
                                 <table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
                                     <tr><td height="1">&nbsp;</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
                                 </table>
                             </td>
                         </tr>
@@ -196,8 +167,8 @@
                         <tr><td align="center" style="font-size: 9pt;"><b>RECIBIDO POR (DESTINO):</b></td></tr>
                         <tr><td height="25">&nbsp;</td></tr>
                         <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
+                        <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
                     </table>
                 </td>
             </tr>
@@ -292,8 +263,8 @@
                             <td align="center">
                                 <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
                                 </table>
                             </td>
                         </tr>
@@ -357,8 +328,8 @@
                             <td align="center">
                                 <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
                                     <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ____________________</td></tr>
+                                    <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ____________________</td></tr>
                                 </table>
                             </td>
                         </tr>

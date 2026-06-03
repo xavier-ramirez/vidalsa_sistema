@@ -185,8 +185,14 @@ class TraspasoController extends Controller
         }
 
         if ($request->filled('desde')) {
-            $q->whereDate('FECHA_ENVIO', '>=', $request->input('desde'))
-              ->orWhere(function ($o) use ($request) { $o->whereNull('FECHA_ENVIO')->whereDate('created_at', '>=', $request->input('desde')); });
+            // OJO: el orWhere DEBE ir agrupado en un where(function) — si no, el OR queda
+            // al nivel superior y se escapa de los filtros AND de estado/visibilidad
+            // (mostraría traspasos no-ENVIADO o de almacenes no visibles). Mismo patrón
+            // que el filtro `hasta` de abajo.
+            $q->where(function ($w) use ($request) {
+                $w->whereDate('FECHA_ENVIO', '>=', $request->input('desde'))
+                  ->orWhere(function ($o) use ($request) { $o->whereNull('FECHA_ENVIO')->whereDate('created_at', '>=', $request->input('desde')); });
+            });
         }
         if ($request->filled('hasta')) {
             $q->where(function ($w) use ($request) {

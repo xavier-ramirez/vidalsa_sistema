@@ -7,7 +7,7 @@
 @endphp
 
 @if($rows->count() === 0)
-    <tr><td colspan="7" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;">
+    <tr><td colspan="6" style="text-align:center;padding:36px 16px;color:#94a3b8;font-size:14px;">
         <i class="material-icons" style="font-size:40px;color:#cbd5e0;display:block;margin:0 auto 8px;">receipt_long</i>
         No hay movimientos que coincidan con los filtros.
     </td></tr>
@@ -28,10 +28,12 @@
                 : 'Usuario no registrado';
         @endphp
         <tr class="alm-mov-row">
-            <td class="mv-td-fecha" data-label="Fecha" style="white-space:nowrap;">{{ optional($m->FECHA)->format('d/m/Y') }}</td>
-            <td class="mv-td-tipo" data-label="Tipo" style="white-space:nowrap;">
-                {{-- La pill mantiene su color de fondo y texto propios (visualmente distingue ENTRADA / SALIDA / etc.). --}}
-                <span style="display:inline-flex;align-items:center;gap:4px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;">
+            {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y la pill
+                 de tipo debajo. En mobile la pill se oculta (.mv-tipo-inline) igual que
+                 antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}
+            <td class="mv-td-fecha" data-label="Fecha" style="white-space:nowrap;line-height:1.6;">
+                <div>{{ optional($m->FECHA)->format('d/m/Y') }}</div>
+                <span class="mv-tipo-inline" style="display:inline-flex;align-items:center;gap:4px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;margin-top:3px;">
                     <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>

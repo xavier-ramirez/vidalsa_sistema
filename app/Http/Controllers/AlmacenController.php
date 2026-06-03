@@ -371,18 +371,28 @@ class AlmacenController extends Controller
             return ['total' => 0, 'con_saldo' => 0, 'stock_bajo' => 0, 'unidades' => 0.0];
         }
 
-        $total     = $this->inventarioBaseQuery($idAlmacen, $request)->count('productos_inventario.ID_PRODUCTO');
-        $conSaldo  = $this->inventarioBaseQuery($idAlmacen, $request)->where('almacen_stock.CANTIDAD', '>', 0)->count('productos_inventario.ID_PRODUCTO');
-        $stockBajo = $this->inventarioBaseQuery($idAlmacen, $request)
-            ->whereNotNull('almacen_stock.CANTIDAD_MINIMA')
-            ->whereColumn('almacen_stock.CANTIDAD', '<=', 'almacen_stock.CANTIDAD_MINIMA')
-            ->count('productos_inventario.ID_PRODUCTO');
-        $unidades  = (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)->sum('CANTIDAD');
+        // Un SOLO query con agregación condicional en vez de 3 COUNT separados (cada
+        // inventarioBaseQuery reconstruía el JOIN + filtros). Esto corre en cada cambio
+        // de filtro, así que pasar de 3 queries a 1 ahorra ~2/3 del costo. Criterios
+        // idénticos a la versión anterior:
+        //   con_saldo  → CANTIDAD > 0
+        //   stock_bajo → tiene CANTIDAD_MINIMA y CANTIDAD <= CANTIDAD_MINIMA
+        $row = $this->inventarioBaseQuery($idAlmacen, $request)
+            ->select(
+                DB::raw('COUNT(productos_inventario.ID_PRODUCTO) as total'),
+                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo'),
+                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD_MINIMA IS NOT NULL AND almacen_stock.CANTIDAD <= almacen_stock.CANTIDAD_MINIMA THEN 1 ELSE 0 END) as stock_bajo')
+            )
+            ->first();
+
+        // 'unidades' es el total físico del almacén (NO se acota por los filtros del
+        // inventario), por eso queda como SUM aparte sobre almacen_stock.
+        $unidades = (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)->sum('CANTIDAD');
 
         return [
-            'total'      => (int) $total,
-            'con_saldo'  => (int) $conSaldo,
-            'stock_bajo' => (int) $stockBajo,
+            'total'      => (int) ($row->total ?? 0),
+            'con_saldo'  => (int) ($row->con_saldo ?? 0),
+            'stock_bajo' => (int) ($row->stock_bajo ?? 0),
             'unidades'   => $unidades,
         ];
     }
@@ -810,12 +820,22 @@ class AlmacenController extends Controller
                 ? 'admin.almacen.partials.kardex_rows_mini'
                 : 'admin.almacen.partials.kardex_rows';
 
-            return response()->json([
+            $resp = [
                 'html'       => view($partial, ['movimientos' => $paginator])->render(),
                 'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
-                'consumo'    => view('admin.almacen.partials.consumo_stats', ['consumo' => $this->consumoRanking($request)])->render(),
                 'total'      => $paginator->total(),
-            ]);
+            ];
+
+            // El ranking de consumo (agregado group-by) SOLO depende de los filtros, no
+            // de la página. Al paginar la tabla el frontend manda skip_consumo=1, y el
+            // modal "Movimientos del producto" (mini) no muestra ese sidebar — en ambos
+            // casos evitamos recalcular el agregado en vano. El front conserva el ranking
+            // actual porque omitir la clave deja data.consumo === undefined (no repinta).
+            if (!$request->boolean('skip_consumo') && !$request->boolean('mini')) {
+                $resp['consumo'] = view('admin.almacen.partials.consumo_stats', ['consumo' => $this->consumoRanking($request)])->render();
+            }
+
+            return response()->json($resp);
         }
 
         // `idAlmacenActivo`: el valor REAL del filtro tras el default-merge del controller —

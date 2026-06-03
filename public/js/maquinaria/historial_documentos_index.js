@@ -54,7 +54,19 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
 
         const finalUrl = '/admin/historial-documentos?' + params.toString();
 
-        const response = await fetch(finalUrl, {
+        // "Ver solo seleccionados": cuando el contador está en modo filtro, se pide
+        // SOLO la whitelist de eventos seleccionados (hash md5, mismo que data-hd-id),
+        // ignorando los demás filtros — mismo patrón que ids_in en Equipos. Es estado
+        // EFÍMERO del contador: va al fetch pero NO al pushState de la URL.
+        let fetchUrl = finalUrl;
+        if (window._hdSoloSel && window._hdSelectedIds && window._hdSelectedIds.size) {
+            const ids = Array.from(window._hdSelectedIds);
+            fetchUrl = '/admin/historial-documentos?hd_ids=' + encodeURIComponent(ids.join(','));
+            const pg = params.get('page');
+            if (pg) fetchUrl += '&page=' + pg;
+        }
+
+        const response = await fetch(fetchUrl, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json'
@@ -229,13 +241,47 @@ if (!window._hdRowClickRegistered) {
             window.applyRowStyleHd(tr, true);
         }
         window.updateChipHd();
+
+        // Si se vacía la selección mientras "ver solo seleccionados" está activo,
+        // apagarlo y volver a la vista normal (evita quedar con tabla vacía).
+        if (window._hdSoloSel && window._hdSelectedIds.size === 0) {
+            window._hdSoloSel = false;
+            const counter = document.querySelector('#hd-selection-chip .selection-counter');
+            if (counter) counter.classList.remove('is-filtering');
+            window.loadHistorialDocumentos();
+        }
     });
 }
+
+// ── "Ver solo seleccionados": al tocar el contador filtra la tabla mostrando
+//    ÚNICAMENTE los eventos seleccionados (whitelist server-side vía hd_ids) y
+//    resalta el número en un círculo ámbar. Volver a tocar lo apaga. Mismo patrón
+//    que el contador del módulo Equipos (toggleEquiposSoloSel). ──
+window.hdToggleSoloSel = function (e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (!window._hdSelectedIds || !window._hdSelectedIds.size) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('No hay eventos seleccionados todavía.', 'error');
+        }
+        return;
+    }
+    window._hdSoloSel = !window._hdSoloSel;
+    const counter = document.querySelector('#hd-selection-chip .selection-counter');
+    if (counter) counter.classList.toggle('is-filtering', window._hdSoloSel);
+    window.loadHistorialDocumentos();
+};
 
 // ── Limpiar selección ──
 window.hdClearSelection = function() {
     window._hdSelectedIds.clear();
     document.querySelectorAll('.hd-selectable-row.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
+    // Si estaba "ver solo seleccionados", apagarlo y recargar la vista normal.
+    if (window._hdSoloSel) {
+        window._hdSoloSel = false;
+        const counter = document.querySelector('#hd-selection-chip .selection-counter');
+        if (counter) counter.classList.remove('is-filtering');
+        window.loadHistorialDocumentos();
+    }
     window.updateChipHd();
 };
 
@@ -254,6 +300,10 @@ window.addEventListener('spa:contentLoaded', function() {
     if (window._hdSelectedIds) {
         window._hdSelectedIds.clear();
     }
+    // Resetear "ver solo seleccionados" y quitar el círculo ámbar al cambiar de vista.
+    window._hdSoloSel = false;
+    const counter = document.querySelector('#hd-selection-chip .selection-counter');
+    if (counter) counter.classList.remove('is-filtering');
     setTimeout(window.reapplyStylesHd, 50);
 });
 

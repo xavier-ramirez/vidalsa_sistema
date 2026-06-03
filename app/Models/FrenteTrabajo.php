@@ -35,6 +35,7 @@ class FrenteTrabajo extends Model
         'ID_FRENTE',
         'NOMBRE_FRENTE',
         'UBICACION',
+        'ZONA',
         'CONTRATOS',
         'TIPO_FRENTE',
         'ESTATUS_FRENTE',
@@ -61,6 +62,8 @@ class FrenteTrabajo extends Model
         'CONTRATOS'     => 'array',
         'NOMBRE_FRENTE' => MojibakeFix::class,
         'UBICACION'     => MojibakeFix::class,
+        // ZONA: texto que sale en el renglón "Lugar, fecha" del Acta de Traslado.
+        'ZONA'          => MojibakeFix::class,
     ];
 
     public function usuarios()

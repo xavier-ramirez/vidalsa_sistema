@@ -68,11 +68,22 @@
         .counter-sidebar { gap: 10px !important; }
     }
 
-    /* Glow ámbar del contador de selección cuando "ver solo seleccionados"
-       está activo (mismo indicador visual que el contador del módulo Almacén). */
-    #bulkFloatingBar .selection-counter.is-filtering {
-        box-shadow: 0 0 0 2px #fbbf24, 0 0 12px rgba(251, 191, 36, 0.45);
+    /* "Ver solo seleccionados" activo: en vez del anillo/glow que rodeaba TODO
+       el contador (se veía feo), resaltamos solo el NÚMERO en un círculo ámbar
+       limpio. El contador en sí queda sin borde raro. */
+    #bulkFloatingBar .selection-counter.is-filtering #bulkCountText {
+        background: #fbbf24;
+        color: #1e293b;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 5px;
         border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        line-height: 1;
+        box-sizing: border-box;
     }
 </style>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -228,11 +239,11 @@
                             <button type="button" id="btnBulkLookup"
                                     title="Búsqueda masiva: pegar varias placas o seriales"
                                     onclick="openBulkLookupModal(); event.stopPropagation();"
-                                    style="background: white; border: 1px solid #cbd5e1; color: var(--maquinaria-blue); padding: 2px 6px; border-radius: 5px; font-size: 10px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; line-height: 1;">
-                                <i class="material-icons" style="font-size: 12px;">playlist_add_check</i>
+                                    style="background: white; border: 1px solid #cbd5e1; color: var(--maquinaria-blue); padding: 3px 9px; border-radius: 5px; font-size: 11.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; line-height: 1;">
+                                <i class="material-icons" style="font-size: 14px;">playlist_add_check</i>
                                 Lote
                             </button>
-                            <span style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
+                            <span style="font-size: 12.5px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
                         </span>
                     </h4>
 
@@ -632,9 +643,9 @@
             <thead>
                 <tr class="table-row-header">
                     <th class="table-header-custom" style="width: 150px;"></th> {{-- Foto + Frente --}}
-                    <th class="table-header-custom" style="width: 22%;">TIPO</th>
+                    <th class="table-header-custom" style="width: 24%;">TIPO</th>
                     <th class="table-header-custom" style="width: 15%;">MARCA / MODELO</th>
-                    <th class="table-header-custom" style="width: 25%;">SERIALES / PLACA / ID</th>
+                    <th class="table-header-custom" style="width: 23%;">SERIALES / PLACA / ID</th>
                     <th class="table-header-custom" style="width: 145px;">ESTATUS</th>
                     <th class="table-cell-center" style="width: 72px;"></th> {{-- Acciones --}}
                 </tr>
@@ -754,7 +765,7 @@
         </button>
         <button type="button" onclick="openBulkModal(event)" class="btn-bulk-action">
             <i class="material-icons" style="font-size: 18px;">local_shipping</i>
-            <span class="desktop-text">Asignar</span>
+            <span class="desktop-text">Movilización</span>
         </button>
     </div>
 </div>
@@ -1622,39 +1633,25 @@
         border-color: #0067b1;
         box-shadow: 0 0 0 3px rgba(0,103,177,0.12);
     }
-    #bulkLookupFrenteSelect {
-        width: 100%; padding: 7px 10px; box-sizing: border-box;
-        border: 1px solid #cbd5e0; border-radius: 8px;
-        font-size: 12px; color: #334155; background: white;
-        outline: none; cursor: pointer;
-    }
-    #bulkLookupFrenteSelect:focus { border-color: #0067b1; }
+    /* El frente usa el componente global .custom-dropdown (mismo diseño que el resto
+       de la app); su estilo viene de las reglas globales. Solo acotamos el ancho. */
+    #bulkLookupFrenteDropdown { flex: 1 1 auto; max-width: 280px; }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
-    <div class="modal-content" style="width: 95%; max-width: 640px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+    <div class="modal-content" style="width: 95%; max-width: 720px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
+        <!-- Header: título alineado a la izquierda; el botón Buscar se movió junto al frente. -->
+        <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: flex-start; position: relative;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <i class="material-icons" style="font-size: 22px; color: white;">playlist_add_check</i>
-                <div style="font-size: 15px; font-weight: 700; color: white;">Búsqueda Masiva de Equipos</div>
+                <div style="font-size: 15px; font-weight: 700; color: white;">Búsqueda Masiva</div>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()"
-                        title="Buscar"
-                        style="background:rgba(255,255,255,0.1); border:none; color:white; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0; padding:0 12px; gap:6px; font-size:13px; font-weight:700;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.2)';"
-                        onmouseout="this.style.background='rgba(255,255,255,0.1)';">
-                    <i class="material-icons" style="font-size:16px;">search</i>
-                    Buscar
-                </button>
-                <button type="button" onclick="closeBulkLookupModal()"
-                        title="Cerrar"
-                        style="background:rgba(255,255,255,0.1); border:none; color:white; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; flex-shrink:0;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                    <i class="material-icons" style="font-size:18px;">close</i>
-                </button>
-            </div>
+            <button type="button" onclick="closeBulkLookupModal()"
+                    title="Cerrar"
+                    style="position:absolute; right:14px; background:rgba(255,255,255,0.1); border:none; color:white; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                <i class="material-icons" style="font-size:18px;">close</i>
+            </button>
         </div>
 
         <!-- Body -->
@@ -1667,15 +1664,39 @@
                      (siguen mostrandose, no se ocultan). $frentesDropdown
                      ya viene filtrado por permisos del usuario en el controller. --}}
                 <div style="margin-bottom: 10px;">
-                    <label for="bulkLookupFrenteSelect" style="display:block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">
+                    <label style="display:block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">
                         Frente de trabajo (opcional)
                     </label>
-                    <select id="bulkLookupFrenteSelect">
-                        <option value="">Todos los frentes (sin filtro)</option>
-                        @foreach($frentesDropdown as $frente)
-                            <option value="{{ $frente->ID_FRENTE }}">{{ $frente->NOMBRE_FRENTE }}</option>
-                        @endforeach
-                    </select>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div class="custom-dropdown" id="bulkLookupFrenteDropdown" data-default-label="Todos los frentes (sin filtro)" style="font-size: 12px;">
+                        <input type="hidden" id="bulkLookupFrenteValue" data-filter-value value="">
+                        <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px;">
+                            <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                <i class="material-icons" style="font-size: 18px;">search</i>
+                            </div>
+                            <input type="text" data-filter-search placeholder="Todos los frentes (sin filtro)"
+                                aria-label="Filtrar frente"
+                                style="width: 100%; min-width: 0; border: none; background: transparent; padding: 8px 2px; font-size: 12px; outline: none;"
+                                oninput="window.filterDropdownOptions(this)" autocomplete="off">
+                            <i class="material-icons" data-clear-btn style="padding: 0 6px; color: #94a3b8; font-size: 16px; display: none; cursor: pointer;"
+                               onclick="event.stopPropagation(); clearDropdownFilter('bulkLookupFrenteDropdown');">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                            <div class="dropdown-item-list" style="max-height: 170px; overflow-y: auto;">
+                                <div class="dropdown-item selected" data-value="" onclick="selectOption('bulkLookupFrenteDropdown', '', 'Todos los frentes (sin filtro)');">Todos los frentes (sin filtro)</div>
+                                @foreach($frentesDropdown as $frente)
+                                    <div class="dropdown-item" data-value="{{ $frente->ID_FRENTE }}" onclick="selectOption('bulkLookupFrenteDropdown', '{{ $frente->ID_FRENTE }}', '{{ addslashes($frente->NOMBRE_FRENTE) }}');">{{ $frente->NOMBRE_FRENTE }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                        <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()" title="Buscar"
+                                style="flex-shrink:0; height:38px; padding:0 16px; background:#0067b1; color:white; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; font-size:13px; font-weight:700; transition:filter .2s;"
+                                onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">
+                            <i class="material-icons" style="font-size:18px;">search</i>
+                            Buscar
+                        </button>
+                    </div>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -1683,7 +1704,7 @@
                     <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) único(s)</span>
                 </div>
                 <textarea id="bulkLookupTextarea"
-                          placeholder="Pega aquí todos los valores. Pueden ir separados por espacio, tab o salto de línea — el sistema los procesa al hacer Buscar."
+                          placeholder="Pegue desde Excel placa, serial de chasis o motor para buscarlos."
                           spellcheck="false"
                           autocomplete="off"></textarea>
                 <div style="margin-top: 6px; font-size: 11px; color: #94a3b8; font-style: italic;">
@@ -1693,21 +1714,22 @@
 
             <!-- Results phase -->
             <div id="bulkLookupResultsPhase" style="display: none;">
-                <div id="bulkLookupSummary" style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;"></div>
+                <div id="bulkLookupSummary" style="display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; justify-content: flex-start;"></div>
 
                 <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
                     <div style="max-height: 50vh; overflow-y: auto;">
                         @php
-                            // Encabezados con anchos explicitos: Buscado 25%, Equipo 30%, Frente Actual 45%.
+                            // Encabezados con anchos explicitos: Buscado 22%, Equipo 28%, Estado 16%, Frente 34%.
                             $thStyle = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a; border-right: 1px solid #334155;';
                             $thStyleLast = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a;';
                         @endphp
                         <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
                             <thead style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
                                 <tr>
-                                    <th style="{{ $thStyle }} width: 25%;">Buscado</th>
-                                    <th style="{{ $thStyle }} width: 30%;">Equipo</th>
-                                    <th style="{{ $thStyleLast }} width: 45%;">Frente Actual</th>
+                                    <th style="{{ $thStyle }} width: 22%;">Buscado</th>
+                                    <th style="{{ $thStyle }} width: 28%;">Equipo</th>
+                                    <th style="{{ $thStyle }} width: 16%;">Estado</th>
+                                    <th style="{{ $thStyleLast }} width: 34%; text-align: center;">Frente Actual</th>
                                 </tr>
                             </thead>
                             <tbody id="bulkLookupResultsBody"></tbody>
@@ -1728,16 +1750,26 @@
             </div>
         </div>
 
-        <!-- Footer -->
-        <div style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: space-between; gap: 8px;">
-            <button type="button" id="bulkLookupBackBtn" onclick="bulkLookupBack()" style="display: none; padding: 6px 12px; background: white; color: #475569; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; align-items: center; gap: 5px;">
-                <i class="material-icons" style="font-size: 14px;">arrow_back</i>
+        <!-- Footer: botones alineados a la izquierda -->
+        <div style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: flex-start; gap: 8px;">
+            {{-- Botones uniformados con la barra flotante (.btn-bulk-action):
+                 forma de píldora (radius 20px), font-size 12.5px / weight 700.
+                 Mantienen su color semántico, igual que la barra (Anclar=verde,
+                 Detalle=gris, Movilización=azul). --}}
+            <button type="button" id="bulkLookupBackBtn" onclick="bulkLookupBack()" style="display: none; padding: 6px 14px; background: white; color: #475569; border: 1px solid #cbd5e0; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px;">
+                <i class="material-icons" style="font-size: 17px;">arrow_back</i>
                 Modificar lista
             </button>
-            <div style="flex: 1;"></div>
-            <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 12px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; align-items: center; gap: 5px;">
-                <i class="material-icons" style="font-size: 14px;">content_copy</i>
+            <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 14px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px;">
+                <i class="material-icons" style="font-size: 17px;">content_copy</i>
                 Copiar faltantes
+            </button>
+            {{-- Movilizar TODOS los equipos encontrados de una vez: los pasa a la
+                 selección y abre el modal de Movilización. Mismo azul (#0067b1) que
+                 el botón "Movilización" de la barra flotante. --}}
+            <button type="button" id="bulkLookupMovilizarBtn" onclick="window.movilizarEncontrados()" style="display: none; padding: 6px 14px; background: #0067b1; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px; transition: 0.2s;" onmouseover="this.style.background='#005a9c'" onmouseout="this.style.background='#0067b1'">
+                <i class="material-icons" style="font-size: 17px;">local_shipping</i>
+                Movilizar <span id="bulkLookupMovilizarCount"></span>
             </button>
         </div>
     </div>
@@ -1762,7 +1794,8 @@
     }
 
     function getTextarea() { return document.getElementById('bulkLookupTextarea'); }
-    function getFrenteSelect() { return document.getElementById('bulkLookupFrenteSelect'); }
+    // Devuelve el input oculto del custom-dropdown de frente (tiene .value con el ID).
+    function getFrenteSelect() { return document.getElementById('bulkLookupFrenteValue'); }
 
     // Unica fuente de verdad de "que vamos a buscar". Splittea por CUALQUIER
     // whitespace (espacio/tab/newline) — sirve para datos pegados desde Excel
@@ -1792,8 +1825,14 @@
 
     function clearInputs() {
         getTextarea().value = '';
-        const sel = getFrenteSelect();
-        if (sel) sel.value = '';
+        // Resetear el custom-dropdown de frente (valor + etiqueta + estilo) vía la
+        // función global, no solo el hidden input, para dejar la UI consistente.
+        if (typeof window.clearDropdownFilter === 'function') {
+            window.clearDropdownFilter('bulkLookupFrenteDropdown');
+        } else {
+            const sel = getFrenteSelect();
+            if (sel) sel.value = '';
+        }
         updateCountHint();
     }
 
@@ -1803,8 +1842,41 @@
         document.getElementById('bulkLookupResultsPhase').style.display = 'none';
         document.getElementById('bulkLookupBackBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = 'none';
+        var movBtn = document.getElementById('bulkLookupMovilizarBtn');
+        if (movBtn) movBtn.style.display = 'none';
         document.getElementById('bulkLookupSearchBtn').style.display = 'flex';
     }
+
+    // Movilizar TODOS los equipos encontrados de una vez: los pasa a la selección
+    // global y abre el modal de Movilización (openBulkModal) con ellos.
+    window.movilizarEncontrados = function () {
+        var found = window._bulkLookupFound || [];
+        if (!found.length) {
+            if (window.showToast) window.showToast('No hay equipos encontrados para movilizar.', 'error');
+            return;
+        }
+        if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para movilizar equipos.', 'error');
+            return;
+        }
+        // Reemplazamos la selección por los encontrados (la acción es "movilizar éstos").
+        window.selectedEquipos = {};
+        found.forEach(function (r) {
+            window.selectedEquipos[r.id] = {
+                id: r.id,
+                code: r.codigo || '',
+                placa: r.placa || '',
+                chasis: r.chasis || '',
+                tipo: r.tipo_nombre || '',
+                frenteId: r.id_frente_actual || '',
+                rolAnclaje: r.rol_anclaje || '',
+                anchorId: r.anchor_id || null
+            };
+        });
+        if (typeof window.updateSelectionUI === 'function') window.updateSelectionUI();
+        if (typeof window.closeBulkLookupModal === 'function') window.closeBulkLookupModal();
+        if (typeof window.openBulkModal === 'function') window.openBulkModal();
+    };
 
     window.openBulkLookupModal = function () {
         // Cierra otros popovers para no superponerlos.
@@ -1850,25 +1922,24 @@
         const total = payload.total || 0;
         const inOther = payload.in_other_frente || 0;
 
+        // Resumen sin contenedores de color: solo texto con el icono coloreado.
         let summaryHtml = `
-            <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
-                Total: ${total}
-            </div>
-            <div style="background: #dcfce7; border: 1px solid #86efac; color: #166534; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
-                <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">check_circle</i> Encontrados: ${found}
-            </div>
+            <span style="font-size: 12px; font-weight: 700; color: #334155;">Total: ${total}</span>
+            <span style="font-size: 12px; font-weight: 700; color: #166534;">
+                <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: #16a34a;">check_circle</i> Encontrados: ${found}
+            </span>
         `;
         if (inOther > 0) {
             summaryHtml += `
-                <div style="background: #fef9c3; border: 1px solid #fde047; color: #854d0e; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
-                    <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">warning</i> En otro frente: ${inOther}
-                </div>
+                <span style="font-size: 12px; font-weight: 700; color: #854d0e;">
+                    <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: #ca8a04;">warning</i> En otro frente: ${inOther}
+                </span>
             `;
         }
         summaryHtml += `
-            <div style="background: ${missing > 0 ? '#fee2e2' : '#f1f5f9'}; border: 1px solid ${missing > 0 ? '#fca5a5' : '#cbd5e0'}; color: ${missing > 0 ? '#991b1b' : '#475569'}; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">
-                <i class="material-icons" style="font-size: 12px; vertical-align: -2px;">cancel</i> No encontrados: ${missing}
-            </div>
+            <span style="font-size: 12px; font-weight: 700; color: ${missing > 0 ? '#991b1b' : '#475569'};">
+                <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: ${missing > 0 ? '#dc2626' : '#94a3b8'};">cancel</i> No encontrados: ${missing}
+            </span>
         `;
         summary.innerHTML = summaryHtml;
 
@@ -1884,13 +1955,24 @@
         const cellMissing = "padding: 6px 10px; border-bottom: 1px solid #fee2e2; color: #b91c1c; word-break: break-word;";
         const cellOther   = "padding: 6px 10px; border-bottom: 1px solid #fde68a; color: #854d0e; word-break: break-word;";
 
+        // Badge de estado operativo (mismo lenguaje de color que el resto de la app).
+        const estadoBadge = function (estado) {
+            const e = (estado || 'N/A').toUpperCase();
+            let bg = '#f1f5f9', col = '#475569', bd = '#cbd5e0';
+            if (e === 'OPERATIVO') { bg = '#dcfce7'; col = '#166534'; bd = '#86efac'; }
+            else if (e === 'INOPERATIVO') { bg = '#fee2e2'; col = '#991b1b'; bd = '#fca5a5'; }
+            else if (e === 'EN MANTENIMIENTO') { bg = '#fef9c3'; col = '#854d0e'; bd = '#fde047'; }
+            else if (e === 'DESINCORPORADO') { bg = '#e2e8f0'; col = '#334155'; bd = '#cbd5e0'; }
+            return '<span style="display:inline-block; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; background:' + bg + '; color:' + col + '; border:1px solid ' + bd + '; white-space:nowrap;">' + escapeHtml(e) + '</span>';
+        };
+
         const rowsHtml = results.map(r => {
             if (!r.found) {
                 lastMissingTerms.push(r.term);
                 return `
                     <tr style="background: #fef2f2;">
                         <td style="${cellMissing} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
-                        <td colspan="2" style="${cellMissing} font-style: italic;">
+                        <td colspan="3" style="${cellMissing} font-style: italic;">
                             <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
                             No encontrado en la base de datos
                         </td>
@@ -1908,7 +1990,8 @@
                     <tr style="background: #fef9c3;">
                         <td style="${cellOther} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
                         <td style="${cellOther}">${escapeHtml(equipoInfo)}</td>
-                        <td style="${cellOther}">${frente}</td>
+                        <td style="${cellOther}">${estadoBadge(r.estado)}</td>
+                        <td style="${cellOther} text-align: center;">${frente}</td>
                     </tr>
                 `;
             }
@@ -1916,18 +1999,32 @@
                 <tr style="background: white;">
                     <td style="${cellBase} font-family: 'Courier New', monospace; font-weight: 700;">${escapeHtml(r.term)}</td>
                     <td style="${cellBase}">${escapeHtml(equipoInfo)}</td>
-                    <td style="${cellBase}">${frente}</td>
+                    <td style="${cellBase}">${estadoBadge(r.estado)}</td>
+                    <td style="${cellBase} text-align: center;">${frente}</td>
                 </tr>
             `;
         }).join('');
 
-        tbody.innerHTML = rowsHtml || '<tr><td colspan="3" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
+        tbody.innerHTML = rowsHtml || '<tr><td colspan="4" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
 
         document.getElementById('bulkLookupInputPhase').style.display = 'none';
         document.getElementById('bulkLookupResultsPhase').style.display = 'block';
         document.getElementById('bulkLookupBackBtn').style.display = 'flex';
         document.getElementById('bulkLookupSearchBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';
+
+        // Equipos ENCONTRADOS (con id) → para movilizarlos en bloque con el botón.
+        window._bulkLookupFound = results.filter(function (r) { return r.found && r.id; });
+        var movBtn = document.getElementById('bulkLookupMovilizarBtn');
+        var movCnt = document.getElementById('bulkLookupMovilizarCount');
+        if (movBtn) {
+            if (window._bulkLookupFound.length > 0) {
+                if (movCnt) movCnt.textContent = '(' + window._bulkLookupFound.length + ')';
+                movBtn.style.display = 'flex';
+            } else {
+                movBtn.style.display = 'none';
+            }
+        }
     }
 
     window.runBulkLookup = function () {

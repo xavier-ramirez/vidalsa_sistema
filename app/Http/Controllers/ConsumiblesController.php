@@ -600,38 +600,6 @@ class ConsumiblesController extends Controller
                 $especEquipo = collect();
             }
 
-            // ── Equipos asignados por frente (desde tabla equipos, no consumibles) ──
-            $equiposAsignados = DB::table('equipos')
-                ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
-                ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
-                ->select(
-                    'frentes_trabajo.NOMBRE_FRENTE',
-                    DB::raw('COUNT(equipos.ID_EQUIPO) as total_asignados')
-                )
-                ->groupBy('frentes_trabajo.NOMBRE_FRENTE')
-                ->get()
-                ->keyBy('NOMBRE_FRENTE');  // indexado por nombre para fácil lookup en JS
-
-            // ── Frente virtual "AMBIENTE" = suma de DRAGADO + COMOR + TRASEGADO ──
-            // Se detectan por coincidencia parcial (LIKE) para tolerar nombres como
-            // "FRENTE DRAGADO", "DRAGADO 1", etc.
-            $frentesAmbiente = ['DRAGADO', 'COMOR', 'TRASEGADO'];
-            $totalAmbiente = 0;
-            foreach ($equiposAsignados as $nombre => $row) {
-                foreach ($frentesAmbiente as $kw) {
-                    if (stripos($nombre, $kw) !== false) {
-                        $totalAmbiente += (int) $row->total_asignados;
-                        break; // no sumar el mismo frente dos veces aunque tenga dos keywords
-                    }
-                }
-            }
-            if ($totalAmbiente > 0) {
-                $equiposAsignados->put('AMBIENTE', (object) [
-                    'NOMBRE_FRENTE' => 'AMBIENTE',
-                    'total_asignados' => $totalAmbiente,
-                ]);
-            }
-
             // ── 8. Equipos Inoperativos en el frente seleccionado ────────────
             // (Bloque "Cauchos por Tipo de Equipo y Medida" removido a pedido —
             // el panel se elimino del modulo de graficos.)
@@ -688,7 +656,6 @@ class ConsumiblesController extends Controller
                 'tipo_activo' => $tipoEspec,
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,
-                'equipos_asignados' => $equiposAsignados,
                 'inoperativos' => $inoperativos,
             ];
         }); // fin Cache::remember

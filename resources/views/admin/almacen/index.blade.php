@@ -622,7 +622,7 @@
         <div style="display:flex;gap:8px;margin-left:auto;flex:0 0 auto;align-items:center;">
             <div style="position:relative;">
                 <button type="button" id="almBtnAcciones" class="btn-primary-maquinaria"
-                        style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
+                        style="height:45px;padding:0 20px;min-width:200px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
                         onclick="window.almToggleAcciones(event)">
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
@@ -2245,7 +2245,7 @@
             var det = exceden.map(function (e) {
                 return e.nombre + ' (' + e.cant + ' > ' + e.saldo + (e.um ? ' ' + e.um : '') + ')';
             }).join(', ');
-            toast('La cantidad de salida supera el stock disponible en: ' + det + '. Corrige antes de registrar la salida.', 'error');
+            toast('Stock insuficiente: ' + det + '.', 'error');
             return;
         }
         if (faltan.length) {

@@ -1088,10 +1088,21 @@ window.openUbicacionBulkModal = function (event) {
     overlay.id = 'ubicacionBulkOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px;';
 
-    const chipsHtml = selections.slice(0, 12).map(s => {
-        const label = s.placa || s.chasis || s.code || ('ID:' + s.id);
-        return `<span style="background:#e1effa;color:#0c4a6e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">${label}</span>`;
-    }).join('') + (selections.length > 12 ? `<span style="color:#64748b;font-size:12px;">+${selections.length - 12} más</span>` : '');
+    // Agrupar por tipo y contar (mismo resumen limpio que el modal de Movilización):
+    // muestra el total por tipo en vez de la placa/serial individual de cada equipo.
+    const ubTipoCount = {};
+    selections.forEach(s => {
+        const tipoNombre = (s.tipo && s.tipo.trim() !== '') ? s.tipo.trim().toUpperCase() : 'SIN TIPO';
+        ubTipoCount[tipoNombre] = (ubTipoCount[tipoNombre] || 0) + 1;
+    });
+    const chipsHtml = Object.entries(ubTipoCount)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tipoNombre, cant]) => {
+            return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;">
+                <div style="min-width:22px;height:22px;background:#1e293b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">${cant}</div>
+                <span style="font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.3px;">${tipoNombre}</span>
+            </div>`;
+        }).join('');
 
     overlay.innerHTML = `
         <div style="background:white;width:100%;max-width:440px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);overflow:hidden;animation:ubBulkIn 0.22s cubic-bezier(0.16,1,0.3,1);">
@@ -1115,7 +1126,7 @@ window.openUbicacionBulkModal = function (event) {
                 <div>
                     <label for="ub-input" style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;">
                         <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#0284c7;">place</i>
-                        Ubicación o aspecto a resaltar
+                        Aspecto a resaltar
                     </label>
                     <div id="ub-inputbox" style="display:flex;align-items:center;border:1.5px solid ${valorPrevioComun ? '#0284c7' : '#e2e8f0'};border-radius:10px;background:white;overflow:hidden;transition:border-color 0.2s;">
                         <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
@@ -1302,7 +1313,10 @@ window.openBulkModal = function (event) {
     // 5. Create Overlay
     const overlay = document.createElement("div");
     overlay.className = "dynamic-bulk-modal";
-    overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.55);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(3px);";
+    // z-index 10001 (no 2500): por encima de la barra flotante de selección
+    // (.selection-floating-bar = 9999), para que ésta quede ATRÁS y atenuada por
+    // el backdrop — mismo comportamiento que el modal "Asignar Detalle".
+    overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.55);z-index:10001;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(3px);";
 
     // 6. Create Content Box
     const content = document.createElement("div");
@@ -1339,16 +1353,18 @@ window.openBulkModal = function (event) {
     const tipoChipsHtml = Object.entries(tipoCount)
         .sort((a, b) => b[1] - a[1])
         .map(([tipoNombre, cant]) => {
-            return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;">
-                <div style="min-width:22px;height:22px;background:#1e293b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">${cant}</div>
-                <span style="font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.3px;">${tipoNombre}</span>
+            // Sin contenedor gris: solo el círculo (cantidad) + el nombre. El grid
+            // exterior alinea ambas columnas (círculo y nombre) entre todas las filas.
+            return `<div style="display:flex;align-items:center;gap:7px;">
+                <div style="width:20px;height:20px;background:#1e293b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">${cant}</div>
+                <span style="font-size:10px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.1px;">${tipoNombre}</span>
             </div>`;
         }).join("");
 
     body.innerHTML = `
         <div>
             <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos a movilizar — ${count} equipo${count !== 1 ? 's' : ''}</p>
-            <div style="display:flex;flex-direction:column;gap:4px;padding:8px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px 14px;">
                 ${tipoChipsHtml}
             </div>
         </div>
@@ -1393,7 +1409,7 @@ window.openBulkModal = function (event) {
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <input type="checkbox" id="bm-generar-pdf" style="width: 16px; height: 16px; cursor: pointer; accent-color: #1e293b;">
                 <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; margin: 0;">
-                    Generar Informe (Acta de Traslado)
+                    Acta de Traslado en formato PDF
                 </label>
             </div>
         </div>
@@ -1420,7 +1436,9 @@ window.openBulkModal = function (event) {
     // ── Dropdown portal: renderizado en document.body para escapar del overflow modal ──
     const listBox = document.createElement('div');
     listBox.id = 'bm-frente-list-portal';
-    listBox.style.cssText = 'display:none;position:fixed;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:9999;max-height:240px;overflow-y:auto;';
+    // z-index por encima del overlay del modal de Movilización (10001) para que la
+    // lista de sugerencias de frente NO quede oculta detrás del formulario.
+    listBox.style.cssText = 'display:none;position:fixed;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100020;max-height:240px;overflow-y:auto;';
     document.body.appendChild(listBox);
 
     // Reposiciona el portal justo debajo del input
@@ -1562,11 +1580,29 @@ window.openBulkModal = function (event) {
         }
 
         const btn = this;
+        const ids = Object.keys(window.selectedEquipos);
+
+        // Estado EDITABLE del acta. Arranca con lo del modal; la vista previa puede
+        // mutarlo (quitar equipos → ids; re-rutear destino; override cosmético de
+        // origen/zona/firmas para el PDF). ejecutarCommit y la vista previa leen de aquí.
+        //   - ids / destination / destination_ubicacion → afectan el REGISTRO real.
+        //   - origin / origin_zona / firmas → SOLO el documento impreso (override).
+        const actaState = {
+            ids: ids.slice(),
+            destination: dest,
+            destination_ubicacion: destUbicacion,
+            origin: '',
+            origin_zona: '',
+            firmas: null // null = firmas por defecto del frente de origen
+        };
+
+        // Registro real (bulk-mobilize) + post-proceso (cerrar modal, refrescar
+        // tabla, descargar acta final). Se llama directo si NO se genera acta, o
+        // desde el botón "Confirmar" de la VISTA PREVIA cuando sí se genera.
+        const ejecutarCommit = async function () {
         btn.innerHTML = '<i class="material-icons" style="font-size:18px;animation:spin 1s linear infinite;">sync</i> Procesando...';
         btn.disabled = true;
         btn.style.opacity = "0.7";
-
-        const ids = Object.keys(window.selectedEquipos);
         if (window.showPreloader) window.showPreloader();
 
         try {
@@ -1581,9 +1617,9 @@ window.openBulkModal = function (event) {
                     Accept: "application/json",
                 },
                 body: JSON.stringify({
-                    ids: ids,
-                    destination: dest,
-                    destination_ubicacion: destUbicacion, // requerido si el frente es nuevo O si existe pero sin UBICACION
+                    ids: actaState.ids,
+                    destination: actaState.destination,
+                    destination_ubicacion: actaState.destination_ubicacion, // requerido si el frente es nuevo O si existe pero sin UBICACION
                     generar_pdf: generarPdf
                 }),
             });
@@ -1630,19 +1666,20 @@ window.openBulkModal = function (event) {
             // ── Actualizar el frente en memoria (frentesData) si se guardó una
             // ubicación nueva para él. Sin esto, al reabrir el modal en la misma
             // sesión el campo de ubicación volvería a aparecer aunque ya fue guardado.
-            if (destUbicacion) {
-                const idx = frentesData.findIndex(f => (f.nombre || '').toUpperCase() === destUpper);
+            if (actaState.destination_ubicacion) {
+                const destUpperNow = (actaState.destination || '').toUpperCase();
+                const idx = frentesData.findIndex(f => (f.nombre || '').toUpperCase() === destUpperNow);
                 if (idx !== -1) {
-                    frentesData[idx].ubicacion = destUbicacion.toUpperCase();
+                    frentesData[idx].ubicacion = actaState.destination_ubicacion.toUpperCase();
                 }
                 // También actualizar el datalist del DOM para que futuras
                 // instancias del modal lean el valor correcto desde el HTML.
                 const dl = document.querySelector('#dynamicFrentesList');
                 if (dl) {
                     const opt = Array.from(dl.querySelectorAll('option')).find(o =>
-                        (o.getAttribute('value') || '').toUpperCase() === destUpper
+                        (o.getAttribute('value') || '').toUpperCase() === destUpperNow
                     );
-                    if (opt) opt.setAttribute('data-ubicacion', destUbicacion.toUpperCase());
+                    if (opt) opt.setAttribute('data-ubicacion', actaState.destination_ubicacion.toUpperCase());
                 }
             }
 
@@ -1664,10 +1701,27 @@ window.openBulkModal = function (event) {
 
                 if (firstId) {
                     if (typeof window.showPreloader === 'function') window.showPreloader();
-                    fetch(`/admin/movilizaciones/${firstId}/acta-traslado`, {
-                        headers: { 'Accept': 'application/pdf' },
-                        credentials: 'same-origin'
-                    })
+                    // Si el usuario editó origen/firmas en la vista previa → POST con esos
+                    // overrides (cosméticos) para que el acta FINAL salga igual a la previa.
+                    // Sin ediciones → GET normal (acta directo del frente).
+                    const tieneOverride = (actaState.origin && actaState.origin.trim() !== '') || actaState.firmas !== null;
+                    const actaReq = tieneOverride
+                        ? {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/pdf',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({
+                                override_origin: actaState.origin || '',
+                                override_origin_zona: actaState.origin_zona || '',
+                                override_firmas: actaState.firmas // null o array
+                            })
+                        }
+                        : { headers: { 'Accept': 'application/pdf' }, credentials: 'same-origin' };
+                    fetch(`/admin/movilizaciones/${firstId}/acta-traslado`, actaReq)
                         .then(r => {
                             if (!r.ok) throw new Error('HTTP ' + r.status);
                             return r.blob();
@@ -1737,7 +1791,314 @@ window.openBulkModal = function (event) {
                 alert('Error: ' + (err.message || 'Error al procesar la movilización.'));
             }
         }
+        }; // ── fin ejecutarCommit ──
+
+        // Si se genera el Acta → VISTA PREVIA primero; el registro real
+        // (ejecutarCommit) se dispara recién al "Confirmar" en la vista previa.
+        // Si NO se genera acta (solo actualización de ubicación), se ejecuta directo.
+        if (generarPdf) {
+            window._mostrarVistaPreviaActa(actaState, ejecutarCommit);
+            return;
+        }
+        ejecutarCommit();
     };
+};
+
+// Vista previa del Acta de Traslado ANTES de oficializar: pide el PDF al backend
+// (POST /admin/movilizaciones/preview-acta, sin commitear ni consumir N°) y lo
+// muestra en un modal. "Editar" abre un formulario para ajustar (SOLO para este
+// acta) frente de origen/destino y firmas (nombre/cargo/cédula); "Aceptar" re-genera
+// el PDF con esos cambios; "Confirmar y registrar" ejecuta el commit real
+// (onConfirm = ejecutarCommit) usando el estado editado (actaState).
+window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
+    var csrf = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
+    var escA = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
+
+    // N° de firmas efectivas del último PDF (header X-Acta-Firmas). 0 = el frente de
+    // origen no tiene responsables → pediremos esos datos en el formulario.
+    var ultimaFirmasCount = null;
+    var sinResponsablesOrigen = false;
+
+    // Pide el PDF al backend con los overrides actuales del estado → blob URL.
+    async function pedirPreview() {
+        var res = await fetch('/admin/movilizaciones/preview-acta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/pdf' },
+            body: JSON.stringify({
+                ids: actaState.ids,
+                destination: actaState.destination,
+                destination_ubicacion: actaState.destination_ubicacion,
+                origin: actaState.origin || '',
+                origin_zona: actaState.origin_zona || '',
+                firmas: actaState.firmas
+            })
+        });
+        if (!res.ok) {
+            var msg = 'No se pudo generar la vista previa.';
+            try { var j = await res.json(); msg = j.message || msg; } catch (_) {}
+            throw new Error(msg);
+        }
+        var hf = res.headers.get('X-Acta-Firmas');
+        ultimaFirmasCount = (hf === null || hf === '') ? null : parseInt(hf, 10);
+        return URL.createObjectURL(await res.blob());
+    }
+
+    if (window.showPreloader) window.showPreloader();
+    var pdfUrl = null;
+    try { pdfUrl = await pedirPreview(); }
+    catch (e) {
+        if (window.hidePreloader) window.hidePreloader();
+        if (window.showToast) window.showToast(e.message || 'No se pudo generar la vista previa.', 'error');
+        return;
+    }
+    if (window.hidePreloader) window.hidePreloader();
+
+    var ov = document.createElement('div');
+    ov.id = 'movPreviewOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:100050;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML =
+        '<div id="mov-prev-card" style="background:white;width:100%;max-width:1100px;max-height:96vh;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);transition:max-width 0.2s ease;">' +
+            '<div style="background:#f1f5f9;padding:10px 16px;color:#1e293b;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid #e2e8f0;">' +
+                '<div style="display:flex;align-items:center;gap:8px;"><i class="material-icons" style="font-size:20px;color:#0284c7;">visibility</i><h2 style="margin:0;font-size:15px;font-weight:800;">Vista previa del Acta de Traslado</h2></div>' +
+                '<button type="button" id="mov-prev-x" title="Cerrar" style="position:absolute;right:12px;background:#e2e8f0;border:none;color:#475569;width:28px;height:28px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="material-icons" style="font-size:16px;">close</i></button>' +
+            '</div>' +
+            '<div id="mov-prev-body" style="flex:1;min-height:0;overflow:auto;background:#475569;"></div>' +
+            '<div id="mov-prev-foot" style="padding:10px 16px;display:flex;gap:10px;justify-content:center;border-top:1px solid #e2e8f0;background:white;"></div>' +
+        '</div>';
+    document.body.appendChild(ov);
+
+    var cardEl = ov.querySelector('#mov-prev-card');
+    var bodyEl = ov.querySelector('#mov-prev-body');
+    var footEl = ov.querySelector('#mov-prev-foot');
+
+    function revoke() { try { URL.revokeObjectURL(pdfUrl); } catch (_) {} }
+    function cerrar() { revoke(); ov.remove(); }
+
+    ov.querySelector('#mov-prev-x').onclick = cerrar;
+    ov.onclick = function (e) { if (e.target === ov) cerrar(); };
+
+    // ── Vista de PREVIEW: iframe + [Editar | Confirmar] ──
+    function renderPreview() {
+        if (cardEl) cardEl.style.maxWidth = '1100px'; // PDF: ancho para leerlo cómodo
+        bodyEl.style.background = '#475569';
+        bodyEl.innerHTML = '<iframe src="' + pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width:100%;height:72vh;min-height:520px;border:none;background:#fff;" title="Vista previa Acta de Traslado"></iframe>';
+        footEl.innerHTML =
+            '<button type="button" id="mov-prev-edit" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">edit</i>Editar</button>' +
+            '<button type="button" id="mov-prev-ok" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check_circle</i>Confirmar y registrar</button>';
+        footEl.querySelector('#mov-prev-edit').onclick = abrirEditor;
+        footEl.querySelector('#mov-prev-ok').onclick = function () {
+            // No se puede registrar sin firmantes válidos cuando el frente no tiene
+            // responsables: reabrimos el editor para que complete los datos.
+            if (!firmasCompletas()) {
+                if (window.showToast) window.showToast('Indica quién revisa y quién aprueba (cargo, nombre y cédula) antes de registrar.', 'error');
+                abrirEditor();
+                return;
+            }
+            cerrar();
+            if (typeof onConfirm === 'function') onConfirm();
+        };
+    }
+
+    // input con icono para el editor
+    function grpInput(id, label, value, icon, placeholder) {
+        return '<div>' +
+            '<label for="' + id + '" style="display:block;font-size:10.5px;font-weight:700;color:#64748b;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</label>' +
+            '<div style="display:flex;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fbfcfd;overflow:hidden;">' +
+                '<i class="material-icons" style="padding:0 6px;color:#94a3b8;font-size:16px;">' + icon + '</i>' +
+                '<input id="' + id + '" value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:5px 6px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
+            '</div>' +
+        '</div>';
+    }
+
+    function firmasRowsHtml() {
+        var fs = actaState.firmas || [];
+        if (!fs.length) {
+            return '<p style="margin:0;font-size:12px;color:#94a3b8;font-style:italic;">Sin firmantes. Usa "Agregar firma" para añadir uno.</p>';
+        }
+        return fs.map(function (f, i) {
+            return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:1fr 1fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
+                '<input class="ed-f-label" value="' + escA(f.label) + '" placeholder="Rol" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
+                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
+                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
+                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
+                '<button type="button" class="ed-firma-del" title="Quitar firma" style="background:#fee2e2;border:none;color:#b91c1c;width:26px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="material-icons" style="font-size:15px;">close</i></button>' +
+            '</div>';
+        }).join('');
+    }
+
+    // Lee los inputs de firmas del DOM hacia actaState (no perder lo tecleado al
+    // re-renderizar tras agregar/quitar una fila).
+    function syncFirmasFromDOM() {
+        var arr = [];
+        bodyEl.querySelectorAll('.ed-firma-row').forEach(function (row) {
+            arr.push({
+                label: row.querySelector('.ed-f-label').value.trim(),
+                car: row.querySelector('.ed-f-car').value.trim(),
+                nom: row.querySelector('.ed-f-nom').value.trim(),
+                ced: row.querySelector('.ed-f-ced').value.trim()
+            });
+        });
+        actaState.firmas = arr;
+    }
+
+    // ¿Las firmas están completas? Obligatorio SOLO cuando el frente de origen no
+    // tiene responsables: en ese caso cada firma debe tener cargo, nombre y cédula
+    // (si el frente sí tiene responsables, se respeta su data tal cual, sin exigir).
+    function firmasCompletas() {
+        if (!sinResponsablesOrigen) return true;
+        var fs = actaState.firmas || [];
+        return fs.length > 0 && fs.every(function (f) {
+            return (f.car || '').trim() && (f.nom || '').trim() && (f.ced || '').trim();
+        });
+    }
+
+    var metaCargada = false;
+
+    // ── Vista de EDICIÓN: formulario + [Cancelar | Aceptar] ──
+    async function abrirEditor() {
+        // Primera apertura: precargar origen/zona/firmas por defecto desde el backend.
+        if (!metaCargada) {
+            metaCargada = true;
+            try {
+                if (window.showPreloader) window.showPreloader();
+                var r = await fetch('/admin/movilizaciones/preview-acta-meta', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' },
+                    body: JSON.stringify({ ids: actaState.ids })
+                });
+                if (r.ok) {
+                    var m = await r.json();
+                    if (!actaState.origin) actaState.origin = m.origin || '';
+                    if (!actaState.origin_zona) actaState.origin_zona = m.origin_zona || '';
+                    if (actaState.firmas === null) {
+                        actaState.firmas = Array.isArray(m.firmas) ? m.firmas.map(function (f) {
+                            return { label: f.label || '', car: f.car || '', nom: f.nom || '', ced: f.ced || '' };
+                        }) : [];
+                    }
+                }
+            } catch (_) { }
+            finally { if (window.hidePreloader) window.hidePreloader(); }
+        }
+        if (actaState.firmas === null) actaState.firmas = [];
+
+        // Frente de origen SIN responsables → sembramos las filas que el acta necesita
+        // para firmar (REVISADO / APROBADO) con los campos vacíos, para que el usuario
+        // solo complete nombre · cargo · cédula.
+        if (sinResponsablesOrigen && actaState.firmas.length === 0) {
+            actaState.firmas = [
+                { label: 'REVISADO:', car: '', nom: '', ced: '' },
+                { label: 'APROBADO:', car: '', nom: '', ced: '' }
+            ];
+        }
+
+        // Aviso en ROJO cuando el frente no tiene responsables.
+        var avisoSinResp = sinResponsablesOrigen
+            ? '<div style="display:flex;gap:7px;align-items:flex-start;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:600;line-height:1.35;">' +
+                '<i class="material-icons" style="font-size:16px;flex-shrink:0;">error_outline</i>' +
+                '<span>Este frente de origen no tiene responsables registrados. Indica quién <b>revisa</b> y quién <b>aprueba</b> (nombre, cargo y cédula) para que el acta tenga espacio de firma.</span>' +
+              '</div>'
+            : '';
+
+        if (cardEl) cardEl.style.maxWidth = '720px'; // formulario: modal más angosto/compacto
+        bodyEl.style.background = '#fff';
+        bodyEl.innerHTML =
+            '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
+                avisoSinResp +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
+                    grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place') +
+                    grpInput('ed-zona', 'Lugar / zona (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
+                    grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
+                    grpInput('ed-destubic', 'Ubicación del destino', actaState.destination_ubicacion, 'location_on', 'Ej: CALLE / SECTOR') +
+                '</div>' +
+                '<div>' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                        '<label style="font-size:11.5px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.4px;">Firmas (nombre · cargo · cédula)</label>' +
+                        '<button type="button" id="ed-firma-add" style="background:#0284c7;border:none;color:white;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:14px;">add</i>Agregar firma</button>' +
+                    '</div>' +
+                    '<div id="ed-firmas">' + firmasRowsHtml() + '</div>' +
+                '</div>' +
+            '</div>';
+
+        footEl.innerHTML =
+            '<button type="button" id="mov-ed-cancel" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
+            '<button type="button" id="mov-ed-apply" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check</i>Aceptar</button>';
+
+        footEl.querySelector('#mov-ed-cancel').onclick = renderPreview;
+        footEl.querySelector('#mov-ed-apply').onclick = aplicarEdicion;
+
+        // Agregar / quitar firma (delegación sobre #ed-firmas, que persiste).
+        bodyEl.querySelector('#ed-firma-add').onclick = function () {
+            syncFirmasFromDOM();
+            actaState.firmas.push({ label: '', car: '', nom: '', ced: '' });
+            bodyEl.querySelector('#ed-firmas').innerHTML = firmasRowsHtml();
+        };
+        bodyEl.querySelector('#ed-firmas').addEventListener('click', function (ev) {
+            var del = ev.target.closest('.ed-firma-del');
+            if (!del) return;
+            var idx = parseInt(del.closest('.ed-firma-row').getAttribute('data-i'), 10);
+            syncFirmasFromDOM();
+            actaState.firmas.splice(idx, 1);
+            bodyEl.querySelector('#ed-firmas').innerHTML = firmasRowsHtml();
+        });
+    }
+
+    async function aplicarEdicion() {
+        actaState.origin = bodyEl.querySelector('#ed-origin').value.trim();
+        actaState.origin_zona = bodyEl.querySelector('#ed-zona').value.trim();
+        actaState.destination = bodyEl.querySelector('#ed-dest').value.trim();
+        actaState.destination_ubicacion = bodyEl.querySelector('#ed-destubic').value.trim();
+        syncFirmasFromDOM();
+
+        if (!actaState.destination) { if (window.showToast) window.showToast('El frente de destino no puede quedar vacío.', 'error'); return; }
+        if (!actaState.ids.length) { if (window.showToast) window.showToast('Debe quedar al menos un equipo.', 'error'); return; }
+
+        // Firmas OBLIGATORIAS cuando el frente no tiene responsables: cada firma debe
+        // llevar cargo, nombre y cédula. Se resalta en rojo el primer campo vacío.
+        if (sinResponsablesOrigen) {
+            var filas = bodyEl.querySelectorAll('.ed-firma-row');
+            if (filas.length === 0) {
+                if (window.showToast) window.showToast('Agrega al menos un firmante (quién revisa y quién aprueba).', 'error');
+                return;
+            }
+            var primerVacio = null;
+            filas.forEach(function (row) {
+                ['.ed-f-car', '.ed-f-nom', '.ed-f-ced'].forEach(function (sel) {
+                    var inp = row.querySelector(sel);
+                    if (!inp) return;
+                    var vacio = inp.value.trim() === '';
+                    inp.style.borderColor = vacio ? '#ef4444' : '#e2e8f0';
+                    if (vacio && !primerVacio) primerVacio = inp;
+                });
+            });
+            if (primerVacio) {
+                if (window.showToast) window.showToast('Completa cargo, nombre y cédula de cada firma.', 'error');
+                primerVacio.focus();
+                return;
+            }
+        }
+
+        if (window.showPreloader) window.showPreloader();
+        try {
+            revoke();
+            pdfUrl = await pedirPreview();
+            renderPreview();
+        } catch (e) {
+            if (window.showToast) window.showToast(e.message || 'No se pudo actualizar la vista previa.', 'error');
+        } finally {
+            if (window.hidePreloader) window.hidePreloader();
+        }
+    }
+
+    renderPreview();
+
+    // Si el frente de ORIGEN no tiene responsables (0 firmas efectivas) y el usuario
+    // aún no las editó, abrimos el editor automáticamente con las filas REVISADO /
+    // APROBADO para que complete los datos que faltan — de forma proactiva, sin que
+    // tenga que descubrir que el acta saldría sin bloque de firma.
+    if (ultimaFirmasCount === 0 && actaState.firmas === null) {
+        sinResponsablesOrigen = true;
+        abrirEditor();
+    }
 };
 
 window.openAnchorModal = async function (event) {

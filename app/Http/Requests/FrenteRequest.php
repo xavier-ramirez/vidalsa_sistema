@@ -42,6 +42,7 @@ class FrenteRequest extends FormRequest
         $this->merge([
             'NOMBRE_FRENTE' => mb_strtoupper($this->input('NOMBRE_FRENTE')),
             'UBICACION'     => mb_strtoupper($this->input('UBICACION')),
+            'ZONA'          => $this->filled('ZONA') ? mb_strtoupper($this->input('ZONA')) : null,
             'CONTRATOS'     => $contratos,
             'SUBDIVISIONES' => $this->filled('SUBDIVISIONES') ? mb_strtoupper($this->input('SUBDIVISIONES')) : null,
             'RESP_1_NOM'    => mb_strtoupper($this->input('RESP_1_NOM')),
@@ -78,6 +79,7 @@ class FrenteRequest extends FormRequest
         return [
             'NOMBRE_FRENTE' => 'required|string|max:150|unique:frentes_trabajo,NOMBRE_FRENTE,' . $id . ',ID_FRENTE',
             'UBICACION'     => 'required|string|max:100',
+            'ZONA'          => 'nullable|string|max:100',
             'CONTRATOS'     => 'nullable|array',
             'CONTRATOS.*'   => 'string|max:60',
             'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO,ESPECIAL',

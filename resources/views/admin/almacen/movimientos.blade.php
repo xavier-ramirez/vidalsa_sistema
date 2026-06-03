@@ -283,8 +283,9 @@
             min-width: 0;
         }
 
-        /* OCULTOS en mobile — tipo (cantidad ya lleva color/signo) + stock. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-tipo,
+        /* OCULTOS en mobile — la pill de tipo (cantidad ya lleva color/signo) + stock.
+           Tipo ahora vive DENTRO de la celda de fecha como .mv-tipo-inline. */
+        .alm-mov-table tr.alm-mov-row .mv-tipo-inline,
         .alm-mov-table tr.alm-mov-row td.mv-td-stock { display: none !important; }
 
         /* Tooltip del usuario tampoco aporta en mobile (no hay hover). */
@@ -485,14 +486,15 @@
     @media (min-width: 769px) and (max-width: 900px) {
         #almMovFilters .amf-item { flex: 1 1 calc(50% - 6px); max-width: none; }
     }
-    /* Desktop (>1024px): SOLO en esta bitacora, la tabla gana ancho —
-       sidebar mas angosto (300→270) + gap menor (40→24). Ese espacio
-       extra se vuelca a la columna Destino (ver width del <th>). El
-       scope body:has(.alm-mov-table) limita el override a este modulo. */
+    /* Desktop (>1024px): SOLO en esta bitacora. Al combinar Fecha+Tipo en una
+       sola columna la tabla necesita menos ancho, así que el sidebar (Total
+       movimientos / Consumo de Inventario) se ensancha (270→320) para que los
+       nombres largos de producto del ranking quepan mejor. El scope
+       body:has(.alm-mov-table) limita el override a este modulo. */
     @media (min-width: 1025px) {
         body:has(.alm-mov-table) .page-layout-grid {
-            grid-template-columns: minmax(0, 1fr) 270px;
-            gap: 24px;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 28px;
         }
     }
 </style>
@@ -674,8 +676,9 @@
                      (sin width) para que absorba el espacio restante y se vea proporcional. Las demás
                      llevan ancho fijo acorde al contenido típico. --}}
                 <tr>
-                    <th style="width:100px;">Fecha</th>
-                    <th style="width:140px;">Tipo</th>
+                    {{-- Fecha + Tipo combinados en una sola columna (la pill de tipo va
+                         debajo de la fecha en cada fila). Se eliminó la columna Tipo. --}}
+                    <th style="width:120px;">Fecha</th>
                     <th>Descripción del producto</th>
                     <th style="width:130px;">Cantidad</th>
                     <th style="width:75px;">Stock</th>
@@ -747,7 +750,12 @@
         // conservar id_producto si vino en la URL (al entrar desde el detalle de un producto)
         var urlProd = new URLSearchParams(window.location.search).get('id_producto');
         if (urlProd) p.set('id_producto', urlProd);
-        if (pageUrl) { try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {} }
+        // pageUrl presente = paginación: el ranking de consumo no cambia entre páginas,
+        // así que pedimos al backend que lo omita (skip_consumo) y no recalcule el agregado.
+        if (pageUrl) {
+            try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {}
+            p.set('skip_consumo', '1');
+        }
         return p;
     }
 

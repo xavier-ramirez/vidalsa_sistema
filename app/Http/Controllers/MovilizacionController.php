@@ -555,7 +555,7 @@ class MovilizacionController extends Controller
     /**
      * Generar PDF del Acta de Traslado (Agrupado por CODIGO_CONTROL)
      */
-    public function generarActaTraslado($id)
+    public function generarActaTraslado(Request $request, $id)
     {
         // PDFs grandes (muchos equipos) pueden tardar mÃ¡s del default de 30s
         @set_time_limit(300);
@@ -652,123 +652,32 @@ class MovilizacionController extends Controller
                 return back()->withErrors(['error' => 'No se encontrÃ³ el frente de destino']);
             }
 
-            $pdf = new ActaTrasladoPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-
-            // CODIGO_CONTROL con padding 6 digitos — el Header() lo pinta en
-            // el casillero "Codigo:" del cabezote (antes estaba como bloque
-            // suelto al inicio del body).
-            $pdf->numeroOperacion = str_pad($movilizacion->CODIGO_CONTROL ?? 0, 6, '0', STR_PAD_LEFT);
-
-            $pdf->setPrintHeader(true);
-            $pdf->setPrintFooter(true);
-            // Cabezote: cabY=6 + cabH=28 → termina en y=34mm.
-            // top=44 deja 10mm de gap entre el cabezote y el parrafo
-            // introductorio del body (antes 2mm, se veia muy pegado).
-            // No tocar left/right (15): la tabla nativa de equipos usa anchos
-            // [9,90,36,45] que suman 180mm = 210 - 15 - 15.
-            $pdf->SetMargins(15, 44, 15);
-            $pdf->SetHeaderMargin(6);
-            $pdf->SetAutoPageBreak(true, 15);
-            $pdf->AddPage();
-            $pdf->SetFont('helvetica', '', 10);
-
+            // N° de operacion (6 digitos) y fecha del renglon "lugar, fecha".
+            $numeroOperacion = str_pad($movilizacion->CODIGO_CONTROL ?? 0, 6, '0', STR_PAD_LEFT);
             $equipos = $movilizaciones->map(function ($mov) {
                 return $mov->equipo;
             });
+            $fechaActa = optional($movilizacion->FECHA_DESPACHO)->format('d/m/Y')
+                ?? \Carbon\Carbon::now()->format('d/m/Y');
 
-            // El blade solo consume equipos + frenteOrigen + frenteDestino;
-            // $movilizacion / $movilizaciones quedaron fuera porque el N° de
-            // operacion ahora vive en el cabezote (ActaTrasladoPDF::Header).
-            $html = view('admin.movilizaciones.acta_traslado_pdf', compact('equipos', 'frenteOrigen', 'frenteDestino'))->render();
-
-            $html = str_replace("this.closest('div[style*='position: fixed']').remove();", "", $html);
-
-            // Split del HTML en el placeholder de la tabla de equipos:
-            //   $introHtml → parrafo introductorio + separador (va arriba de la tabla)
-            //   $sigHtml   → bloque completo de firmas (va debajo de la tabla)
-            // La tabla de equipos va en medio y se renderiza nativamente con Cell()
-            // (evita el bug de TCPDF que desalinea el thead repetido al cambiar de pagina).
-            $parts     = explode('<!--EQUIPOS_TABLE_PLACEHOLDER-->', $html, 2);
-            $introHtml = $parts[0];
-            $sigHtml   = $parts[1] ?? '';
-
-            // ── PAGINACION POR "ACTA-COPIA" COMPLETA ────────────────────────────
-            // Pedido del cliente: cada hoja debe ser un acta AUTOCONTENIDA — su
-            // cabezote (con codigo de operacion) + su parrafo + su tabla de equipos
-            // + su bloque de firmas. Asi, cuando los equipos no caben en una sola
-            // hoja, se generan varias hojas-copia identicas en formato y cada una
-            // es firmable por separado (no se "pierde" el bloque de firmas en una
-            // pagina suelta como pasaba con el salto de pagina automatico).
-            //
-            // Para saber cuantas filas de equipos caben por hoja medimos en seco
-            // (startTransaction/rollbackTransaction) la altura real del parrafo y
-            // del bloque de firmas, y restamos al alto util de la pagina.
-            $measureH = function ($contentHtml) use (&$pdf) {
-                if ($contentHtml === '') return 0.0;
-                $y0 = $pdf->GetY();
-                $pdf->startTransaction();
-                $pdf->writeHTML($contentHtml, true, false, true, false, '');
-                $h  = $pdf->GetY() - $y0;
-                $pdf = $pdf->rollbackTransaction(true);
-                // Si el contenido provoco un salto de pagina durante la medicion
-                // (no deberia: arrancamos en el tope de una pagina vacia), GetY
-                // queda por encima de $y0 → tratamos como "casi toda la pagina".
-                return $h > 0 ? $h : ($pdf->getPageHeight() - $pdf->getBreakMargin() - 44);
-            };
-
-            $introH = $measureH($introHtml);
-            $sigH   = $measureH($sigHtml);
-
-            $bottomLimit  = $pdf->getPageHeight() - $pdf->getBreakMargin(); // ~282mm en A4
-            $topY         = 44;  // = SetMargins top
-            $tableHeaderH = 8;   // alto de la fila de cabecera de la tabla de equipos
-            $rowH         = 7;   // alto de cada fila de equipo
-            $safetyGap    = 10;  // margen de seguridad (compensaciones SetY + holguras)
-
-            $availForRows = $bottomLimit - $topY - $introH - $tableHeaderH - $sigH - $safetyGap;
-            $rowsPerSheet = max(1, (int) floor($availForRows / $rowH));
-
-            // chunk() preserva las claves originales 0..n, asi que el N° de la
-            // primera columna ($i+1 dentro de renderEquiposTable) sigue siendo
-            // correlativo y continuo a lo largo de todas las hojas.
-            $chunks = $equipos->chunk($rowsPerSheet);
-            if ($chunks->isEmpty()) {
-                // Acta sin equipos (caso extremo): igual generamos una hoja.
-                $chunks = collect([collect()]);
+            // Ediciones manuales del acta (vista previa → "Editar"): SOLO ajustan lo que
+            // se IMPRIME (frente de origen mostrado + firmas), no la BD ni el frente. El
+            // destino real y los equipos ya reflejan la edición porque la movilización se
+            // registró con ellos (destino re-ruteado / equipos quitados). Las firmas y el
+            // origen son cosméticos del documento, por eso van como override aquí.
+            $overrideOrigin = trim((string) $request->input('override_origin', ''));
+            if ($overrideOrigin !== '') {
+                $frenteOrigen = $this->stubFrenteOrigen($overrideOrigin, (string) $request->input('override_origin_zona', ''));
             }
-            $pdf->totalSheets = $chunks->count();
+            $firmasOverride = $this->normalizeFirmasOverride($request->input('override_firmas'));
 
-            // La pagina inicial se creo SOLO para poder medir alturas en seco;
-            // su cabezote ya se pinto con totalSheets=0 ("Pagina 1 de 1"). La
-            // descartamos y reconstruimos TODAS las hojas dentro del loop, ya
-            // con totalSheets correcto, para que el "Pagina X de Y" sea exacto.
-            // (TCPDF dibuja el Header() en el momento del AddPage, no al cerrar.)
-            $pdf->deletePage(1);
-
-            foreach ($chunks as $chunk) {
-                $pdf->AddPage();
-
-                $pdf->writeHTML($introHtml, true, false, true, false, '');
-
-                // Compensa el espacio vertical extra que TCPDF deja despues de
-                // cerrar los bloques HTML; sin esto la tabla queda mas abajo.
-                $pdf->SetY($pdf->GetY() - 3);
-
-                $pdf->renderEquiposTable($chunk);
-
-                if ($sigHtml !== '') {
-                    $pdf->writeHTML($sigHtml, true, false, true, false, '');
-                }
-            }
+            // Armado del PDF centralizado en buildActaPdfBinary() — lo comparten la
+            // descarga real (aqui) y la vista previa desde borrador (previewActaLote).
+            $binary = $this->buildActaPdfBinary($equipos, $frenteOrigen, $frenteDestino, $numeroOperacion, $fechaActa, $firmasOverride);
 
             $filename = 'Acta_Traslado_' . $movilizacion->CODIGO_CONTROL . '.pdf';
-
-            // 'S' devuelve el binario como string sin escribir headers — armamos
-            // la Response manualmente con Content-Disposition: inline para que
-            // window.openPdfPreview lo renderice en el iframe del modal en vez
-            // de forzar descarga (mismo patron que AlmacenController::notaEntregaPdf).
-            // El boton "Descargar" del visor sigue dando la opcion al usuario.
-            $binary = $pdf->Output($filename, 'S');
+            // 'S' => binario inline (Content-Disposition: inline) para que el visor
+            // modal lo renderice en iframe; el boton "Descargar" sigue disponible.
             return response($binary, 200, [
                 'Content-Type'        => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $filename . '"',
@@ -778,6 +687,293 @@ class MovilizacionController extends Controller
             Log::error('Error generando Acta de Traslado: ' . $e->getMessage());
             return back()->withErrors(['error' => 'No se pudo generar el acta. Intenta de nuevo.']);
         }
+    }
+
+    /**
+     * Construye el PDF del Acta de Traslado (binario) a partir de datos ya resueltos.
+     * Centralizado: lo usan generarActaTraslado() (descarga real con CODIGO_CONTROL)
+     * y previewActaLote() (vista previa desde borrador, numero "PENDIENTE"). Asi NO
+     * se duplica el armado/paginacion. Margenes 18/38/18 atados a equiposColWidths
+     * (=174mm) y cabX/cabW (18/174) del Header.
+     */
+    /**
+     * Resuelve la lista de firmantes del acta a partir de los responsables (RESP_1..5)
+     * del frente de ORIGEN, filtrando por la categoria de flota de los equipos del acta.
+     * FUENTE UNICA DE VERDAD: antes esta logica vivia inline en el blade; se centralizo
+     * aqui para reutilizarla en el armado del PDF y en la metadata de edicion manual
+     * (previewActaMeta) sin duplicarla. Devuelve un array plano de
+     * ['label','car','nom','ced'] en el orden de aparicion tras el filtro.
+     */
+    private function extractFirmasActa($frenteOrigen, $equipos): array
+    {
+        if (!$frenteOrigen) return [];
+
+        // Categorias de flota presentes en el acta (auxiliares sin categoria → LIVIANA).
+        $categoriesInActa = collect($equipos)->pluck('CATEGORIA_FLOTA')
+            ->map(fn ($cat) => $cat ?: 'FLOTA LIVIANA')
+            ->unique()->filter()->values()->toArray();
+        if (empty($categoriesInActa)) {
+            $categoriesInActa = ['FLOTA LIVIANA', 'FLOTA PESADA'];
+        }
+
+        $labelsByResp = [
+            1 => 'SOLICITADO:',
+            2 => 'SOLICITADO:',
+            3 => 'ELABORADO:',
+            4 => 'REVISADO:',
+            5 => 'APROBADO:',
+        ];
+
+        $firmas = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $nom = trim($frenteOrigen->{"RESP_{$i}_NOM"} ?? '');
+            $car = trim($frenteOrigen->{"RESP_{$i}_CAR"} ?? 'RESPONSABLE');
+            $equ = trim($frenteOrigen->{"RESP_{$i}_EQU"} ?? '');
+            $ced = trim($frenteOrigen->{"RESP_{$i}_CED"} ?? '');
+
+            $isPlaceholder = empty($nom)
+                || strtolower($nom) === 'nombre y apellido'
+                || strtolower($nom) === 'por definir'
+                || strtolower($nom) === 'n/a';
+            if ($isPlaceholder) continue;
+
+            if ($equ === '' || in_array($equ, $categoriesInActa)) {
+                $firmas[] = ['nom' => $nom, 'car' => $car, 'ced' => $ced, 'label' => $labelsByResp[$i]];
+            }
+        }
+        return $firmas;
+    }
+
+    /**
+     * Stub (no persistido) de FrenteTrabajo para el ORIGEN editado a mano en la vista
+     * previa (texto libre). Sólo lleva los campos que consume el blade del acta.
+     */
+    private function stubFrenteOrigen(string $nombre, string $zona = ''): FrenteTrabajo
+    {
+        $f = new FrenteTrabajo();
+        $f->NOMBRE_FRENTE = trim($nombre);
+        $f->ZONA          = trim($zona);
+        $f->TIPO_FRENTE   = 'OPERACION';
+        return $f;
+    }
+
+    /**
+     * Normaliza el override manual de firmas que llega del cliente. Devuelve null si
+     * no se editaron firmas (→ se usan las del frente). Si se enviaron, descarta las
+     * filas sin nombre y deja cada una como ['label','car','nom','ced'].
+     */
+    private function normalizeFirmasOverride(?array $firmas): ?array
+    {
+        if ($firmas === null) return null;
+        $out = [];
+        foreach ($firmas as $f) {
+            $nom = trim($f['nom'] ?? '');
+            if ($nom === '') continue; // sin nombre no es una firma válida
+            $car = trim($f['car'] ?? '');
+            $out[] = [
+                'label' => trim($f['label'] ?? '') ?: 'SOLICITADO:',
+                'car'   => $car !== '' ? $car : 'RESPONSABLE',
+                'nom'   => $nom,
+                'ced'   => trim($f['ced'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
+    private function buildActaPdfBinary($equipos, $frenteOrigen, $frenteDestino, string $numeroOperacion, string $fechaActa, ?array $firmasOverride = null): string
+    {
+        $pdf = new ActaTrasladoPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+        $pdf->numeroOperacion = $numeroOperacion;
+        $pdf->setPrintHeader(true);
+        $pdf->setPrintFooter(true);
+        $pdf->SetMargins(18, 38, 18);
+        $pdf->SetHeaderMargin(6);
+        $pdf->SetAutoPageBreak(true, 15);
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 10);
+
+        // Firmas: las edita el usuario en la vista previa ($firmasOverride) o, por
+        // defecto, salen de los responsables del frente de origen. Se calculan aqui
+        // (no en el blade) para tener una sola fuente de verdad.
+        $firmas = $firmasOverride ?? $this->extractFirmasActa($frenteOrigen, $equipos);
+
+        // El blade consume equipos + frenteOrigen + frenteDestino + fechaActa + firmas;
+        // el N° de operacion vive en el cabezote (ActaTrasladoPDF::Header).
+        $html = view('admin.movilizaciones.acta_traslado_pdf', compact('equipos', 'frenteOrigen', 'frenteDestino', 'fechaActa', 'firmas'))->render();
+        $html = str_replace("this.closest('div[style*='position: fixed']').remove();", "", $html);
+
+        // intro (parrafo) arriba de la tabla, firmas debajo; la tabla nativa va en medio.
+        $parts     = explode('<!--EQUIPOS_TABLE_PLACEHOLDER-->', $html, 2);
+        $introHtml = $parts[0];
+        $sigHtml   = $parts[1] ?? '';
+
+        // Medimos en seco (startTransaction/rollback) la altura del parrafo y de las
+        // firmas para paginar por "acta-copia" completa: cada hoja lleva su parrafo +
+        // tabla + firmas, asi cada hoja es autocontenida y firmable.
+        $measureH = function ($contentHtml) use (&$pdf) {
+            if ($contentHtml === '') return 0.0;
+            $y0 = $pdf->GetY();
+            $pdf->startTransaction();
+            $pdf->writeHTML($contentHtml, true, false, true, false, '');
+            $h  = $pdf->GetY() - $y0;
+            $pdf = $pdf->rollbackTransaction(true);
+            return $h > 0 ? $h : ($pdf->getPageHeight() - $pdf->getBreakMargin() - 44);
+        };
+
+        $introH = $measureH($introHtml);
+        $sigH   = $measureH($sigHtml);
+
+        $bottomLimit  = $pdf->getPageHeight() - $pdf->getBreakMargin();
+        $topY         = 38;  // = SetMargins top
+        $tableHeaderH = 8;
+        $rowH         = 7;
+        $safetyGap    = 10;
+        $availForRows = $bottomLimit - $topY - $introH - $tableHeaderH - $sigH - $safetyGap;
+        $rowsPerSheet = max(1, (int) floor($availForRows / $rowH));
+
+        // chunk() preserva claves 0..n → el N° de la 1ra columna queda correlativo.
+        $chunks = $equipos->chunk($rowsPerSheet);
+        if ($chunks->isEmpty()) {
+            $chunks = collect([collect()]);
+        }
+        $pdf->totalSheets = $chunks->count();
+
+        // La pagina inicial fue solo para medir (su cabezote salio con totalSheets=0);
+        // la descartamos y reconstruimos todas con el total correcto ("Pagina X de Y").
+        $pdf->deletePage(1);
+
+        foreach ($chunks as $chunk) {
+            $pdf->AddPage();
+            $pdf->writeHTML($introHtml, true, false, true, false, '');
+            $pdf->SetY($pdf->GetY() - 3); // compensa el espacio extra que deja el HTML
+            $pdf->renderEquiposTable($chunk);
+            if ($sigHtml !== '') {
+                $pdf->writeHTML($sigHtml, true, false, true, false, '');
+            }
+        }
+
+        return $pdf->Output('Acta_Traslado.pdf', 'S');
+    }
+
+    /**
+     * Vista previa del Acta de Traslado desde el BORRADOR del modal de movilizacion
+     * (IDs de equipos + frente destino) SIN crear nada ni consumir CODIGO_CONTROL.
+     * El N° de operacion sale "PENDIENTE" — el real se asigna al confirmar
+     * (bulk-mobilize). Devuelve el PDF inline para el visor modal.
+     */
+    public function previewActaLote(Request $request)
+    {
+        @set_time_limit(120);
+        @ini_set('memory_limit', '512M');
+
+        $data = $request->validate([
+            'ids'                   => 'required|array|min:1',
+            'ids.*'                 => 'integer',
+            'destination'           => 'required|string|max:150',
+            'destination_ubicacion' => 'nullable|string|max:150',
+            // Ediciones manuales OPCIONALES desde el botón "Editar" de la vista previa
+            // (solo afectan ESTE acta, no tocan el frente). Texto libre.
+            'origin'                => 'nullable|string|max:150',
+            'origin_zona'           => 'nullable|string|max:150',
+            'firmas'                => 'nullable|array|max:10',
+            'firmas.*.label'        => 'nullable|string|max:40',
+            'firmas.*.car'          => 'nullable|string|max:80',
+            'firmas.*.nom'          => 'nullable|string|max:80',
+            'firmas.*.ced'          => 'nullable|string|max:30',
+        ]);
+
+        try {
+            $equipos = \App\Models\Equipo::with(['tipo', 'documentacion', 'especificaciones'])
+                ->whereIn('ID_EQUIPO', $data['ids'])
+                ->get();
+
+            if ($equipos->isEmpty()) {
+                return response()->json(['message' => 'No se encontraron equipos para previsualizar.'], 422);
+            }
+
+            // Origen del acta: si el usuario lo editó a mano (texto libre) usamos un stub
+            // con ese nombre/zona; si no, frente con MAS equipos en la seleccion (misma
+            // regla por mayoria que usa el acta real).
+            if (!empty(trim($data['origin'] ?? ''))) {
+                $frenteOrigen = $this->stubFrenteOrigen($data['origin'], $data['origin_zona'] ?? '');
+            } else {
+                $idOrigen = $equipos->groupBy('ID_FRENTE_ACTUAL')
+                    ->map(fn ($g) => $g->count())
+                    ->sortDesc()
+                    ->keys()
+                    ->first();
+                $frenteOrigen = FrenteTrabajo::find($idOrigen);
+            }
+
+            // Destino: frente existente por nombre, o un stub (frente nuevo aun no
+            // creado) con lo tecleado en el modal. El blade del acta solo usa
+            // NOMBRE_FRENTE / UBICACION / TIPO_FRENTE del destino (las firmas salen
+            // del frente de ORIGEN).
+            $destNom = trim($data['destination']);
+            $frenteDestino = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [mb_strtoupper($destNom)])->first();
+            if (!$frenteDestino) {
+                $frenteDestino = new FrenteTrabajo();
+                $frenteDestino->NOMBRE_FRENTE = $destNom;
+                $frenteDestino->UBICACION     = trim($data['destination_ubicacion'] ?? '');
+                $frenteDestino->TIPO_FRENTE   = 'OPERACION';
+            }
+
+            // Firmas EFECTIVAS del acta: el override manual si lo hay, si no las del
+            // frente de origen. Si quedan vacías → el frente no tiene responsables
+            // (nadie que elabore/apruebe). Lo informamos al front por header para que
+            // pida esos datos en el formulario, sin un round-trip extra.
+            $firmasEfectivas = $this->normalizeFirmasOverride($data['firmas'] ?? null)
+                ?? $this->extractFirmasActa($frenteOrigen, $equipos);
+
+            $binary = $this->buildActaPdfBinary(
+                $equipos,
+                $frenteOrigen,
+                $frenteDestino,
+                'PENDIENTE',
+                \Carbon\Carbon::now()->format('d/m/Y'),
+                $firmasEfectivas
+            );
+
+            return response($binary, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="Vista_Previa_Acta.pdf"',
+                'X-Acta-Firmas'       => (string) count($firmasEfectivas),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error generando vista previa de acta: ' . $e->getMessage());
+            return response()->json(['message' => 'No se pudo generar la vista previa.'], 500);
+        }
+    }
+
+    /**
+     * Metadata para PRECARGAR el formulario "Editar" de la vista previa: nombre/zona del
+     * frente de origen detectado y la lista de firmas que saldrían por defecto. NO crea
+     * nada. Reusa extractFirmasActa() (misma fuente de verdad que el PDF).
+     */
+    public function previewActaMeta(Request $request)
+    {
+        $data = $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ]);
+
+        $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'])->get();
+        if ($equipos->isEmpty()) {
+            return response()->json(['message' => 'No se encontraron equipos.'], 422);
+        }
+
+        $idOrigen = $equipos->groupBy('ID_FRENTE_ACTUAL')
+            ->map(fn ($g) => $g->count())
+            ->sortDesc()
+            ->keys()
+            ->first();
+        $frenteOrigen = FrenteTrabajo::find($idOrigen);
+
+        return response()->json([
+            'origin'      => $frenteOrigen->NOMBRE_FRENTE ?? '',
+            'origin_zona' => $frenteOrigen ? trim($frenteOrigen->ZONA ?? '') : '',
+            'firmas'      => $this->extractFirmasActa($frenteOrigen, $equipos),
+        ]);
     }
 
     // â”€â”€â”€ MOBILE API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -991,10 +1187,10 @@ class ActaTrasladoPDF extends \TCPDF
     public int $totalSheets = 0;
 
     /**
-     * Anchos de columna en mm. Total = 180mm (= 210mm A4 portrait - 15+15 margenes).
+     * Anchos de columna en mm. Total = 174mm (= 210mm A4 portrait - 18+18 margenes).
      * El orden corresponde a: N°, Descripcion, Marca, Serial.
      */
-    private $equiposColWidths = [9, 90, 36, 45];
+    private $equiposColWidths = [9, 84, 36, 45];
     private $equiposHeaders   = ['N°', 'DESCRIPCIÓN / EQUIPO', 'MARCA', 'SERIAL / PLACA'];
     private $equiposHeaderH   = 8;  // mm
     private $equiposRowH      = 7;  // mm
@@ -1087,14 +1283,14 @@ class ActaTrasladoPDF extends \TCPDF
         // (border:0.1mm) mas abajo, para igualar a la tabla nativa de equipos.
         $this->SetLineWidth(0.1);
 
-        // Geometria del cabezote:
-        //   x = 15 mm  (coincide con SetMargins left=15)   width = 180 mm
+        // Geometria del cabezote (atada a SetMargins del controller):
+        //   x = 18 mm  (coincide con SetMargins left=18)   width = 174 mm
         //   y = 6 mm                                       height = 28 mm
-        //   bottom = 6 + 28 = 34 mm   ← SetMargins top=44 deja 10mm de gap
+        //   bottom = 6 + 28 = 34 mm   ← SetMargins top=38 deja 4mm de gap
         //                                hasta el inicio del parrafo del body
-        $cabX = 15;
+        $cabX = 18;
         $cabY = 6;
-        $cabW = 180;
+        $cabW = 174;
         $cabH = 28;
         $logoCellW = $cabW * 0.20;  // 36 mm
 

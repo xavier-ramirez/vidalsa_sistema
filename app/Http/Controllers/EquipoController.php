@@ -1831,6 +1831,7 @@ class EquipoController extends Controller
                 'codigo'         => $e->CODIGO_PATIO,
                 'placa'          => optional($e->documentacion)->PLACA,
                 'serial_chasis'  => $e->SERIAL_CHASIS,
+                'serial_motor'   => $e->SERIAL_DE_MOTOR, // para el buscador de la papelera
                 'marca'          => $e->MARCA,
                 'modelo'         => $e->MODELO,
                 'frente'         => optional($e->frenteActual)->NOMBRE_FRENTE,
@@ -3090,15 +3091,19 @@ class EquipoController extends Controller
                   ->orWhereIn(DB::raw('UPPER(d.PLACA)'), $termsArr);
             })
             ->select([
+                'e.ID_EQUIPO',
                 'e.CODIGO_PATIO',
                 'e.NUMERO_ETIQUETA',
                 'e.MARCA',
                 'e.SERIAL_CHASIS',
                 'e.SERIAL_DE_MOTOR',
                 'e.ID_FRENTE_ACTUAL',
+                'e.ID_ANCLAJE',
+                'e.ESTADO_OPERATIVO',
                 'd.PLACA',
                 'f.NOMBRE_FRENTE',
                 't.nombre as TIPO_NOMBRE',
+                't.rol_anclaje as ROL_ANCLAJE',
             ])
             ->get();
 
@@ -3135,10 +3140,17 @@ class EquipoController extends Controller
                     return [
                         'term'                => $term,
                         'found'               => true,
+                        'id'                  => (int) $r->ID_EQUIPO,        // para movilizar los encontrados
+                        'codigo'              => $r->CODIGO_PATIO,
+                        'placa'               => $r->PLACA,
+                        'chasis'              => $r->SERIAL_CHASIS,
                         'tipo_nombre'         => $r->TIPO_NOMBRE,
                         'marca'               => $r->MARCA,
                         'frente_nombre'       => $r->NOMBRE_FRENTE ?: 'SIN ASIGNAR',
                         'id_frente_actual'    => $idFrenteActual,
+                        'estado'              => $r->ESTADO_OPERATIVO ?: 'N/A',
+                        'rol_anclaje'         => $r->ROL_ANCLAJE,
+                        'anchor_id'           => $r->ID_ANCLAJE,
                         'in_selected_frente'  => $inFrente,
                     ];
                 }
