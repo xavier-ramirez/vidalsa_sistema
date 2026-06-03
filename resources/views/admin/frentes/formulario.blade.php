@@ -28,6 +28,14 @@
         .admin-card > div[style*="margin-bottom: 30px"] { margin-bottom: 14px !important; }
         /* Footer de botones (Cancelar / Guardar / Eliminar): 40px → 18px. */
         .frentes-btn-row { margin-top: 18px !important; }
+
+        /* Acordeón de responsables: cada bloque se "recoge". Click en el encabezado
+           expande/colapsa sus campos. Arrancan abiertos solo los que traen datos.
+           Pensado para móvil (5 bloques juntos eran demasiado). */
+        #frenteForm .resp-head { cursor: pointer; user-select: none; }
+        #frenteForm .resp-head:hover { background: #f8fafc; }
+        #frenteForm .resp-chevron { margin-left: auto; color: var(--maquinaria-blue); transition: transform .2s; font-size: 20px; }
+        #frenteForm .resp-collapsed { display: none !important; }
     </style>
 
     <section class="page-title-card" style="text-align: center; margin: 0 auto 8px auto;">
@@ -195,14 +203,26 @@
                            value="{{ old('CONTRATOS', is_array($frente->CONTRATOS ?? null) ? implode(',', $frente->CONTRATOS) : '') }}">
                 </div>
 
+                @php
+                    // Un responsable arranca ABIERTO si trae nombre/cargo/cédula
+                    // (datos guardados o reenvíos con error). El resto, recogido.
+                    $respOpen = [];
+                    for ($i = 1; $i <= 5; $i++) {
+                        $respOpen[$i] = !empty(old("RESP_{$i}_NOM", $frente->{"RESP_{$i}_NOM"} ?? ''))
+                                     || !empty(old("RESP_{$i}_CAR", $frente->{"RESP_{$i}_CAR"} ?? ''))
+                                     || !empty(old("RESP_{$i}_CED", $frente->{"RESP_{$i}_CED"} ?? ''));
+                    }
+                @endphp
+
                 <!-- Responsable 1 -->
-                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div id="respHead1" class="resp-head" onclick="window.toggleResp(1)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">SOLICITADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Liviana</span>
+                    <i class="material-icons resp-chevron" style="{{ $respOpen[1] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
                 </div>
 
                 <!-- Responsable 1 Inputs -->
-                <div class="resp-grid" style="grid-column: span 2;">
+                <div class="resp-grid {{ $respOpen[1] ? '' : 'resp-collapsed' }}" id="respBody1" style="grid-column: span 2;">
                     <div>
                         <label for="RESP_1_NOM" class="form-label">Nombre Completo</label>
                         <input type="text" id="RESP_1_NOM" name="RESP_1_NOM" class="form-input-custom"
@@ -243,13 +263,14 @@
                 </div>
 
                 <!-- Responsable 2 -->
-                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div id="respHead2" class="resp-head" onclick="window.toggleResp(2)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">SOLICITADO Alt.</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Pesada</span>
+                    <i class="material-icons resp-chevron" style="{{ $respOpen[2] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
                 </div>
 
                 <!-- Responsable 2 Inputs -->
-                <div class="resp-grid" style="grid-column: span 2;">
+                <div class="resp-grid {{ $respOpen[2] ? '' : 'resp-collapsed' }}" id="respBody2" style="grid-column: span 2;">
                     <div>
                         <label for="RESP_2_NOM" class="form-label">Nombre Completo</label>
                         <input type="text" id="RESP_2_NOM" name="RESP_2_NOM" class="form-input-custom"
@@ -290,13 +311,14 @@
                 </div>
 
                 <!-- Responsable 3 -->
-                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div id="respHead3" class="resp-head" onclick="window.toggleResp(3)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">ELABORADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Transporte y Log&iacute;stica</span>
+                    <i class="material-icons resp-chevron" style="{{ $respOpen[3] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
                 </div>
 
                 <!-- Responsable 3 Inputs -->
-                <div class="resp-grid" style="grid-column: span 2;">
+                <div class="resp-grid {{ $respOpen[3] ? '' : 'resp-collapsed' }}" id="respBody3" style="grid-column: span 2;">
                     <div>
                         <label for="RESP_3_NOM" class="form-label">Nombre Completo</label>
                         <input type="text" id="RESP_3_NOM" name="RESP_3_NOM" class="form-input-custom"
@@ -337,13 +359,14 @@
                 </div>
 
                 <!-- Responsable 4 -->
-                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div id="respHead4" class="resp-head" onclick="window.toggleResp(4)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">REVISADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Sub-gerente</span>
+                    <i class="material-icons resp-chevron" style="{{ $respOpen[4] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
                 </div>
 
                 <!-- Responsable 4 Inputs -->
-                <div class="resp-grid" style="grid-column: span 2;">
+                <div class="resp-grid {{ $respOpen[4] ? '' : 'resp-collapsed' }}" id="respBody4" style="grid-column: span 2;">
                     <div>
                         <label for="RESP_4_NOM" class="form-label">Nombre Completo</label>
                         <input type="text" id="RESP_4_NOM" name="RESP_4_NOM" class="form-input-custom"
@@ -383,13 +406,14 @@
                     </div>
                 </div>
 
-                <div style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div id="respHead5" class="resp-head" onclick="window.toggleResp(5)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">APROBADO</span>
                     <span style="color:#64748b; font-size:11px; font-style:italic;">Gerente</span>
+                    <i class="material-icons resp-chevron" style="{{ $respOpen[5] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
                 </div>
 
                 <!-- Responsable 5 Inputs -->
-                <div class="resp-grid" style="grid-column: span 2;">
+                <div class="resp-grid {{ $respOpen[5] ? '' : 'resp-collapsed' }}" id="respBody5" style="grid-column: span 2;">
                     <div>
                         <label for="RESP_5_NOM" class="form-label">Nombre Completo</label>
                         <input type="text" id="RESP_5_NOM" name="RESP_5_NOM" class="form-input-custom"
@@ -671,6 +695,17 @@
             function escapeAttr(s) {
                 return String(s == null ? '' : s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
             }
+
+            // Acordeón de responsables: expande/colapsa el bloque de campos al
+            // hacer clic en su encabezado y gira el chevron.
+            window.toggleResp = function (n) {
+                var body = document.getElementById('respBody' + n);
+                var head = document.getElementById('respHead' + n);
+                if (!body) return;
+                var collapsed = body.classList.toggle('resp-collapsed');
+                var chev = head ? head.querySelector('.resp-chevron') : null;
+                if (chev) chev.style.transform = collapsed ? 'rotate(-90deg)' : '';
+            };
 
             // ═══════════════════════════════════════════════════════════
             // MODAL FRENTES SIN EQUIPOS (candidatos a desactivar / eliminar)
