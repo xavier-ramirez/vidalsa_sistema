@@ -56,7 +56,7 @@
 
                 <div class="custom-dropdown" id="frenteSearchDropdown" style="width: 100%;">
                     <div class="dropdown-trigger"
-                        style="background: #fff; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+                        style="background: #fff; border: 1px solid #cbd5e0; border-radius: 10px; height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
 
                         <div
                             style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
@@ -64,7 +64,7 @@
                         </div>
 
                         <input type="text" id="filterSearchInput" placeholder="Buscar frente para editar..."
-                            style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
+                            style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 13.5px; outline: none; color: #4a5568;"
                             autocomplete="off" oninput="window.filterFrentesDropdown(this)">
 
                         <div style="display: flex; align-items: center; padding-right: 10px;">
@@ -96,7 +96,7 @@
                  auxiliares asignados, para borrarlos o desactivarlos. --}}
             <button type="button" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
                 class="btn-primary-maquinaria btn-secondary"
-                style="padding: 0 14px; height: 45px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                style="padding: 0 14px; height: 38px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
                 <i class="material-icons" style="font-size: 18px;">domain_disabled</i>
                 <span>Sin equipos</span>
             </button>
