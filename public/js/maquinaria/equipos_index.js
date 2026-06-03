@@ -1134,7 +1134,7 @@ window.openUbicacionBulkModal = function (event) {
                         <i class="material-icons" style="padding:0 10px;color:#94a3b8;font-size:18px;flex-shrink:0;">location_on</i>
                         <input type="text" id="ub-input" maxlength="150" autocomplete="off"
                             value="${valorPrevioComun}"
-                            placeholder="${hayValoresMixtos ? 'Múltiples valores — escribe para sobreescribir todos' : 'Ej: PATIO 2, TALLER, ESTACIONAMIENTO A'}"
+                            placeholder="Aspecto a resaltar"
                             style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
                     ${(valorPrevioComun || hayValoresMixtos) ? ('<small style="display:block;margin-top:6px;font-size:11px;line-height:1.4;">' + (valorPrevioComun ? '<span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : '<span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>') + '</small>') : ''}

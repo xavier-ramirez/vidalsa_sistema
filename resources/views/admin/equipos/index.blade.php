@@ -1637,6 +1637,29 @@
        de la app); su estilo viene de las reglas globales. Ocupa todo el ancho
        disponible junto al botón Buscar (sin tope). */
     #bulkLookupFrenteDropdown { flex: 1 1 auto; }
+
+    /* ── Teléfono ─────────────────────────────────────────────────────────────
+       El modal pasa a pantalla completa y el footer reparte los botones de forma
+       uniforme; en pantallas chicas los botones van SIN icono (solo texto) para
+       que quepan y se vean parejos. !important porque el markup usa estilos inline. */
+    @media (max-width: 600px) {
+        #bulkLookupModal .modal-content {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            border-radius: 0 !important;
+        }
+        #bulkLookupFooter { flex-wrap: wrap; }
+        #bulkLookupFooter button {
+            flex: 1 1 auto;
+            justify-content: center;
+            white-space: nowrap;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        #bulkLookupFooter button i.material-icons { display: none; }
+    }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
     <div class="modal-content" style="width: 95%; max-width: 720px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
@@ -1704,12 +1727,9 @@
                     <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) único(s)</span>
                 </div>
                 <textarea id="bulkLookupTextarea"
-                          placeholder="Pegue desde Excel placa, serial de chasis o motor para buscarlos."
+                          placeholder="Tip: copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores."
                           spellcheck="false"
                           autocomplete="off"></textarea>
-                <div style="margin-top: 6px; font-size: 11px; color: #94a3b8; font-style: italic;">
-                    Tip: copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores.
-                </div>
             </div>
 
             <!-- Results phase -->
@@ -1755,7 +1775,7 @@
         </div>
 
         <!-- Footer: botones alineados a la izquierda -->
-        <div style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: flex-start; gap: 8px;">
+        <div id="bulkLookupFooter" style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: flex-start; gap: 8px;">
             {{-- Botones uniformados con la barra flotante (.btn-bulk-action):
                  forma de píldora (radius 20px), font-size 12.5px / weight 700.
                  Mantienen su color semántico, igual que la barra (Anclar=verde,
