@@ -31,12 +31,21 @@
         if ($lugarOrigen === '') {
             $lugarOrigen = trim($frenteOrigen->NOMBRE_FRENTE ?? '');
         }
+
+        // Formatea una cédula a "C.I.: 12.345.678" (puntos cada 3 dígitos desde la
+        // derecha). Si viene vacía, deja la línea en blanco para rellenar a mano.
+        // Centraliza la lógica que antes se repetía en cada bloque de firma.
+        $fmtCed = function ($ced) {
+            if (empty($ced)) return 'C.I.: _______________';
+            $n = preg_replace('/[^0-9]/', '', $ced);
+            return 'C.I.: ' . strrev(implode('.', str_split(strrev($n), 3)));
+        };
     @endphp
 
     <!-- ===================== LUGAR Y FECHA ===================== -->
     @if($lugarOrigen !== '')
-    <!-- Separador Encabezado/Lugar (14px) — aire entre el cabezote y el renglon -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="14">&nbsp;</td></tr></table>
+    <!-- Separador Encabezado/Lugar (22px) — aire entre el cabezote y el renglon -->
+    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="22">&nbsp;</td></tr></table>
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
             <td align="right" style="font-size: 10pt; font-weight: bold;">{{ strtoupper($lugarOrigen) }}, {{ $fechaActa }}</td>
@@ -144,15 +153,7 @@
                         <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                         <tr>
                             <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                @if(!empty($f['ced']))
-                                    @php
-                                        $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
-                                        $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
-                                    @endphp
-                                    C.I.: {{ $cedFmt }}
-                                @else
-                                    C.I.: _______________
-                                @endif
+                                {{ $fmtCed($f['ced']) }}
                             </td>
                         </tr>
                     </table>
@@ -201,15 +202,7 @@
                                     <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                                     <tr>
                                         <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                            @if(!empty($f['ced']))
-                                                @php
-                                                    $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
-                                                    $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
-                                                @endphp
-                                                C.I.: {{ $cedFmt }}
-                                            @else
-                                                C.I.: _______________
-                                            @endif
+                                            {{ $fmtCed($f['ced']) }}
                                         </td>
                                     </tr>
                                 </table>
@@ -236,15 +229,7 @@
                             <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f5['nom']) }}</td></tr>
                             <tr>
                                 <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                    @if(!empty($f5['ced']))
-                                        @php
-                                            $cedNum5 = preg_replace('/[^0-9]/', '', $f5['ced']);
-                                            $cedFmt5 = strrev(implode('.', str_split(strrev($cedNum5), 3)));
-                                        @endphp
-                                        C.I.: {{ $cedFmt5 }}
-                                    @else
-                                        C.I.: _______________
-                                    @endif
+                                    {{ $fmtCed($f5['ced']) }}
                                 </td>
                             </tr>
                         </table>
@@ -294,15 +279,7 @@
                                 <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($f['nom']) }}</td></tr>
                                 <tr>
                                     <td align="center" style="font-size: 8pt; line-height: 1.5; color: #333;">
-                                        @if(!empty($f['ced']))
-                                            @php
-                                                $cedNum = preg_replace('/[^0-9]/', '', $f['ced']);
-                                                $cedFmt = strrev(implode('.', str_split(strrev($cedNum), 3)));
-                                            @endphp
-                                            C.I.: {{ $cedFmt }}
-                                        @else
-                                            C.I.: _______________
-                                        @endif
+                                        {{ $fmtCed($f['ced']) }}
                                     </td>
                                 </tr>
                             </table>

@@ -1098,9 +1098,11 @@ window.openUbicacionBulkModal = function (event) {
     const chipsHtml = Object.entries(ubTipoCount)
         .sort((a, b) => b[1] - a[1])
         .map(([tipoNombre, cant]) => {
-            return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;">
-                <div style="min-width:22px;height:22px;background:#1e293b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;">${cant}</div>
-                <span style="font-size:11px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.3px;">${tipoNombre}</span>
+            // Mismo chip que el modal de Movilización: círculo (cantidad) + nombre,
+            // sin caja; el grid exterior alinea las columnas entre todas las filas.
+            return `<div style="display:flex;align-items:center;gap:7px;">
+                <div style="width:20px;height:20px;background:#1e293b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;">${cant}</div>
+                <span style="font-size:10px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.1px;">${tipoNombre}</span>
             </div>`;
         }).join('');
 
@@ -1119,7 +1121,7 @@ window.openUbicacionBulkModal = function (event) {
             <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
                 <div>
                     <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">${selections.length} equipo${selections.length !== 1 ? 's' : ''} seleccionado${selections.length !== 1 ? 's' : ''}</p>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;max-height:90px;overflow-y:auto;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px 14px;max-height:110px;overflow-y:auto;">
                         ${chipsHtml}
                     </div>
                 </div>
@@ -1136,7 +1138,7 @@ window.openUbicacionBulkModal = function (event) {
                             style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
                     <small style="display:block;margin-top:6px;font-size:11px;color:#94a3b8;line-height:1.4;">
-                        Indica la zona, patio o fila dentro del frente, u otro aspecto a resaltar del equipo.
+                        Aspecto a resaltar
                         ${valorPrevioComun ? '<br><span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : (hayValoresMixtos ? '<br><span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>' : '')}
                     </small>
                 </div>
@@ -1294,7 +1296,6 @@ window.openBulkModal = function (event) {
 
     // 3. Collect selected equipment codes
     const selectedList = Object.values(window.selectedEquipos);
-    const count = selectedList.length;
 
     // 4. Collect frentes from datalist in DOM. data-ubicacion permite saber
     // si el frente registrado tiene ubicacion en BD: si esta vacia, el modal
@@ -1363,7 +1364,7 @@ window.openBulkModal = function (event) {
 
     body.innerHTML = `
         <div>
-            <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos a movilizar — ${count} equipo${count !== 1 ? 's' : ''}</p>
+            <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos a movilizar</p>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px 14px;">
                 ${tipoChipsHtml}
             </div>
@@ -1808,7 +1809,7 @@ window.openBulkModal = function (event) {
 // (POST /admin/movilizaciones/preview-acta, sin commitear ni consumir N°) y lo
 // muestra en un modal. "Editar" abre un formulario para ajustar (SOLO para este
 // acta) frente de origen/destino y firmas (nombre/cargo/cédula); "Aceptar" re-genera
-// el PDF con esos cambios; "Confirmar y registrar" ejecuta el commit real
+// el PDF con esos cambios; "Confirmar" ejecuta el commit real
 // (onConfirm = ejecutarCommit) usando el estado editado (actaState).
 window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
     var csrf = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
@@ -1853,6 +1854,29 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
     }
     if (window.hidePreloader) window.hidePreloader();
 
+    // Estilos responsive (una sola vez): en teléfono el modal pasa a pantalla
+    // completa, la grid del editor a 1 columna, las filas de firma a 2 columnas
+    // y el footer envuelve sus botones. Usa !important porque el markup lleva
+    // estilos inline que de otro modo ganarían a la media query.
+    if (!document.getElementById('mov-prev-responsive-styles')) {
+        var st = document.createElement('style');
+        st.id = 'mov-prev-responsive-styles';
+        st.textContent =
+            '@media (max-width:640px){' +
+                '#movPreviewOverlay{padding:0 !important;}' +
+                '#mov-prev-card{max-width:100% !important;width:100% !important;height:100dvh !important;max-height:100dvh !important;border-radius:0 !important;}' +
+                '#mov-prev-card .mov-ed-grid{grid-template-columns:1fr !important;}' +
+                '#mov-prev-card .ed-firma-row{grid-template-columns:1fr auto !important;}' +
+                '#mov-prev-card .ed-firma-row .ed-f-label{grid-column:1;grid-row:1;}' +
+                '#mov-prev-card .ed-firma-row .ed-firma-del{grid-column:2;grid-row:1;}' +
+                '#mov-prev-card .ed-firma-row .ed-f-car,#mov-prev-card .ed-firma-row .ed-f-nom,#mov-prev-card .ed-firma-row .ed-f-ced{grid-column:1 / -1;}' +
+                '#mov-prev-foot{flex-wrap:wrap !important;}' +
+                '#mov-prev-foot button{flex:1 1 140px;justify-content:center;}' +
+                '#mov-prev-body iframe{min-height:0 !important;height:100% !important;}' +
+            '}';
+        document.head.appendChild(st);
+    }
+
     var ov = document.createElement('div');
     ov.id = 'movPreviewOverlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:100050;display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -1884,7 +1908,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         bodyEl.innerHTML = '<iframe src="' + pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width:100%;height:72vh;min-height:520px;border:none;background:#fff;" title="Vista previa Acta de Traslado"></iframe>';
         footEl.innerHTML =
             '<button type="button" id="mov-prev-edit" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">edit</i>Editar</button>' +
-            '<button type="button" id="mov-prev-ok" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check_circle</i>Confirmar y registrar</button>';
+            '<button type="button" id="mov-prev-ok" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check_circle</i>Confirmar</button>';
         footEl.querySelector('#mov-prev-edit').onclick = abrirEditor;
         footEl.querySelector('#mov-prev-ok').onclick = function () {
             // No se puede registrar sin firmantes válidos cuando el frente no tiene
@@ -1913,14 +1937,14 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
     function firmasRowsHtml() {
         var fs = actaState.firmas || [];
         if (!fs.length) {
-            return '<p style="margin:0;font-size:12px;color:#94a3b8;font-style:italic;">Sin firmantes. Usa "Agregar firma" para añadir uno.</p>';
+            return '<p style="margin:0;font-size:12px;color:#94a3b8;font-style:italic;">Sin firmantes. Usa el botón "Firma" para añadir uno.</p>';
         }
         return fs.map(function (f, i) {
             return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:1fr 1fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
-                '<input class="ed-f-label" value="' + escA(f.label) + '" placeholder="Rol" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
-                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
-                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
-                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;">' +
+                '<input class="ed-f-label" value="' + escA(f.label) + '" placeholder="Rol" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
                 '<button type="button" class="ed-firma-del" title="Quitar firma" style="background:#fee2e2;border:none;color:#b91c1c;width:26px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="material-icons" style="font-size:15px;">close</i></button>' +
             '</div>';
         }).join('');
@@ -2004,7 +2028,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         bodyEl.innerHTML =
             '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
                 avisoSinResp +
-                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
+                '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
                     grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place') +
                     grpInput('ed-zona', 'Lugar / zona (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
                     grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
@@ -2013,7 +2037,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
                 '<div>' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
                         '<label style="font-size:11.5px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.4px;">Firmas (nombre · cargo · cédula)</label>' +
-                        '<button type="button" id="ed-firma-add" style="background:#0284c7;border:none;color:white;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:14px;">add</i>Agregar firma</button>' +
+                        '<button type="button" id="ed-firma-add" style="background:#0284c7;border:none;color:white;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:14px;">add</i>Firma</button>' +
                     '</div>' +
                     '<div id="ed-firmas">' + firmasRowsHtml() + '</div>' +
                 '</div>' +
@@ -2051,6 +2075,26 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
 
         if (!actaState.destination) { if (window.showToast) window.showToast('El frente de destino no puede quedar vacío.', 'error'); return; }
         if (!actaState.ids.length) { if (window.showToast) window.showToast('Debe quedar al menos un equipo.', 'error'); return; }
+
+        // Lugar/zona de origen y Ubicación del destino son OBLIGATORIOS: el acta los
+        // imprime en el encabezado y junto al frente de destino. Se resalta en rojo el
+        // contenedor del primer campo vacío (el borde vive en el wrapper, no en el input).
+        var reqCampos = [
+            { sel: '#ed-zona',    vacio: !actaState.origin_zona,          msg: 'El lugar / zona (ciudad) es obligatorio.' },
+            { sel: '#ed-destubic', vacio: !actaState.destination_ubicacion, msg: 'La ubicación del destino es obligatoria.' }
+        ];
+        var faltante = null;
+        reqCampos.forEach(function (c) {
+            var inp = bodyEl.querySelector(c.sel);
+            if (inp && inp.parentElement) inp.parentElement.style.borderColor = c.vacio ? '#ef4444' : '#e2e8f0';
+            if (c.vacio && !faltante) faltante = c;
+        });
+        if (faltante) {
+            if (window.showToast) window.showToast(faltante.msg, 'error');
+            var fInp = bodyEl.querySelector(faltante.sel);
+            if (fInp) fInp.focus();
+            return;
+        }
 
         // Firmas OBLIGATORIAS cuando el frente no tiene responsables: cada firma debe
         // llevar cargo, nombre y cédula. Se resalta en rojo el primer campo vacío.

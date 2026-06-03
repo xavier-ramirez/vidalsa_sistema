@@ -1634,13 +1634,14 @@
         box-shadow: 0 0 0 3px rgba(0,103,177,0.12);
     }
     /* El frente usa el componente global .custom-dropdown (mismo diseño que el resto
-       de la app); su estilo viene de las reglas globales. Solo acotamos el ancho. */
-    #bulkLookupFrenteDropdown { flex: 1 1 auto; max-width: 280px; }
+       de la app); su estilo viene de las reglas globales. Ocupa todo el ancho
+       disponible junto al botón Buscar (sin tope). */
+    #bulkLookupFrenteDropdown { flex: 1 1 auto; }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
     <div class="modal-content" style="width: 95%; max-width: 720px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
-        <!-- Header: título alineado a la izquierda; el botón Buscar se movió junto al frente. -->
-        <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: flex-start; position: relative;">
+        <!-- Header: título centrado; el botón Cerrar queda fijo a la derecha (absolute). -->
+        <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: center; position: relative;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <i class="material-icons" style="font-size: 22px; color: white;">playlist_add_check</i>
                 <div style="font-size: 15px; font-weight: 700; color: white;">Búsqueda Masiva</div>
@@ -1664,9 +1665,7 @@
                      (siguen mostrandose, no se ocultan). $frentesDropdown
                      ya viene filtrado por permisos del usuario en el controller. --}}
                 <div style="margin-bottom: 10px;">
-                    <label style="display:block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 4px;">
-                        Frente de trabajo (opcional)
-                    </label>
+                    {{-- Sin label: el propio dropdown ya rotula "Todos los frentes (sin filtro)". --}}
                     <div style="display: flex; gap: 8px; align-items: center;">
                     <div class="custom-dropdown" id="bulkLookupFrenteDropdown" data-default-label="Todos los frentes (sin filtro)" style="font-size: 12px;">
                         <input type="hidden" id="bulkLookupFrenteValue" data-filter-value value="">
@@ -1699,8 +1698,9 @@
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <label for="bulkLookupTextarea" style="font-size: 12px; font-weight: 600; color: #334155;">Placas / Seriales / Etiquetas / Patio</label>
+                {{-- Sin label: el placeholder del textarea ya indica qué pegar. Solo
+                     queda el contador de valores únicos, alineado a la derecha. --}}
+                <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 6px;">
                     <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) único(s)</span>
                 </div>
                 <textarea id="bulkLookupTextarea"
@@ -1715,6 +1715,10 @@
             <!-- Results phase -->
             <div id="bulkLookupResultsPhase" style="display: none;">
                 <div id="bulkLookupSummary" style="display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; justify-content: flex-start;"></div>
+
+                {{-- Rótulo del frente seleccionado contra el que se comparan los equipos
+                     (lo llena renderResults). Solo aparece si se eligió un frente. --}}
+                <div id="bulkLookupFrenteCompare" style="display: none; align-items: center; gap: 6px; margin-bottom: 8px; padding: 5px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; font-size: 11.5px; font-weight: 700;"></div>
 
                 <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white;">
                     <div style="max-height: 50vh; overflow-y: auto;">
@@ -1763,6 +1767,13 @@
             <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 14px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px;">
                 <i class="material-icons" style="font-size: 17px;">content_copy</i>
                 Copiar faltantes
+            </button>
+            {{-- Asignar Detalle a los encontrados: los pasa a la selección y abre el
+                 modal "Asignar Detalle". Mismo gris (#64748b) que el botón "Detalle"
+                 de la barra flotante. --}}
+            <button type="button" id="bulkLookupDetalleBtn" onclick="window.detalleEncontrados()" style="display: none; padding: 6px 14px; background: #64748b; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px; transition: 0.2s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748b'">
+                <i class="material-icons" style="font-size: 17px;">description</i>
+                Detalle
             </button>
             {{-- Movilizar TODOS los equipos encontrados de una vez: los pasa a la
                  selección y abre el modal de Movilización. Mismo azul (#0067b1) que
@@ -1844,22 +1855,15 @@
         document.getElementById('bulkLookupCopyMissingBtn').style.display = 'none';
         var movBtn = document.getElementById('bulkLookupMovilizarBtn');
         if (movBtn) movBtn.style.display = 'none';
+        var detBtn = document.getElementById('bulkLookupDetalleBtn');
+        if (detBtn) detBtn.style.display = 'none';
         document.getElementById('bulkLookupSearchBtn').style.display = 'flex';
     }
 
-    // Movilizar TODOS los equipos encontrados de una vez: los pasa a la selección
-    // global y abre el modal de Movilización (openBulkModal) con ellos.
-    window.movilizarEncontrados = function () {
-        var found = window._bulkLookupFound || [];
-        if (!found.length) {
-            if (window.showToast) window.showToast('No hay equipos encontrados para movilizar.', 'error');
-            return;
-        }
-        if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
-            if (window.showToast) window.showToast('No tienes permiso para movilizar equipos.', 'error');
-            return;
-        }
-        // Reemplazamos la selección por los encontrados (la acción es "movilizar éstos").
+    // Vuelca los equipos ENCONTRADOS en la selección global (reemplazándola: la
+    // acción siempre opera sobre "éstos"). Lo reusan los botones Movilizar y Detalle
+    // de Búsqueda Masiva para no duplicar el armado de la selección.
+    function seleccionarEncontrados(found) {
         window.selectedEquipos = {};
         found.forEach(function (r) {
             window.selectedEquipos[r.id] = {
@@ -1874,8 +1878,41 @@
             };
         });
         if (typeof window.updateSelectionUI === 'function') window.updateSelectionUI();
+    }
+
+    // Movilizar TODOS los equipos encontrados de una vez: los pasa a la selección
+    // global y abre el modal de Movilización (openBulkModal) con ellos.
+    window.movilizarEncontrados = function () {
+        var found = window._bulkLookupFound || [];
+        if (!found.length) {
+            if (window.showToast) window.showToast('No hay equipos encontrados para movilizar.', 'error');
+            return;
+        }
+        if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para movilizar equipos.', 'error');
+            return;
+        }
+        seleccionarEncontrados(found);
         if (typeof window.closeBulkLookupModal === 'function') window.closeBulkLookupModal();
         if (typeof window.openBulkModal === 'function') window.openBulkModal();
+    };
+
+    // Asignar Detalle a los equipos encontrados: los pasa a la selección y abre el
+    // modal "Asignar Detalle" (openUbicacionBulkModal), que valida permiso y "mismo
+    // frente" por su cuenta.
+    window.detalleEncontrados = function () {
+        var found = window._bulkLookupFound || [];
+        if (!found.length) {
+            if (window.showToast) window.showToast('No hay equipos encontrados para asignar detalle.', 'error');
+            return;
+        }
+        if (window.CAN_ASSIGN_EQUIPOS === false || window.CAN_ASSIGN_EQUIPOS === 'false') {
+            if (window.showToast) window.showToast('No tienes permiso para actualizar detalles.', 'error');
+            return;
+        }
+        seleccionarEncontrados(found);
+        if (typeof window.closeBulkLookupModal === 'function') window.closeBulkLookupModal();
+        if (typeof window.openUbicacionBulkModal === 'function') window.openUbicacionBulkModal();
     };
 
     window.openBulkLookupModal = function () {
@@ -1884,6 +1921,11 @@
         if (adv) adv.style.display = 'none';
         const sm = document.getElementById('splitDropdownMenu');
         if (sm) sm.style.display = 'none';
+
+        // Ocultar la barra flotante de selección mientras el modal esté abierto: su
+        // z-index (9999) es mayor que el del modal (2500), así que se vería encima.
+        const fbar = document.getElementById('bulkFloatingBar');
+        if (fbar) fbar.style.display = 'none';
 
         showInputPhase();
         lastMissingTerms = [];
@@ -1896,6 +1938,11 @@
 
     window.closeBulkLookupModal = function () {
         document.getElementById('bulkLookupModal').classList.remove('active');
+        // Restaurar la barra flotante: el CSS (.active) decide si se ve según haya
+        // o no selección. Si se cerró para movilizar/asignar detalle, el siguiente
+        // modal queda por encima igual.
+        const fbar = document.getElementById('bulkFloatingBar');
+        if (fbar) fbar.style.display = '';
     };
 
     window.bulkLookupBack = showInputPhase;
@@ -1910,11 +1957,23 @@
     };
 
     // ── RESULTADOS ──────────────────────────────────────────────────────────
-    function renderResults(payload) {
+    function renderResults(payload, frenteNombre) {
         const tbody = document.getElementById('bulkLookupResultsBody');
         const summary = document.getElementById('bulkLookupSummary');
         const yellowLegend = document.getElementById('bulkLookupYellowLegend');
         if (!tbody || !summary) return;
+
+        // Rótulo "Comparando con: <frente>": indica contra qué frente se evalúa
+        // el amarillo (equipos en otro frente). Solo si se filtró por un frente.
+        const compareEl = document.getElementById('bulkLookupFrenteCompare');
+        if (compareEl) {
+            if (frenteNombre) {
+                compareEl.innerHTML = '<i class="material-icons" style="font-size: 15px;">flag</i> Comparando con: ' + escapeHtml(frenteNombre);
+                compareEl.style.display = 'inline-flex';
+            } else {
+                compareEl.style.display = 'none';
+            }
+        }
 
         const results = payload.results || [];
         const found = payload.found || 0;
@@ -2013,18 +2072,17 @@
         document.getElementById('bulkLookupSearchBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';
 
-        // Equipos ENCONTRADOS (con id) → para movilizarlos en bloque con el botón.
+        // Equipos ENCONTRADOS (con id) → para movilizarlos/asignarles detalle en bloque.
         window._bulkLookupFound = results.filter(function (r) { return r.found && r.id; });
+        var hayEncontrados = window._bulkLookupFound.length > 0;
         var movBtn = document.getElementById('bulkLookupMovilizarBtn');
         var movCnt = document.getElementById('bulkLookupMovilizarCount');
+        var detBtn = document.getElementById('bulkLookupDetalleBtn');
         if (movBtn) {
-            if (window._bulkLookupFound.length > 0) {
-                if (movCnt) movCnt.textContent = '(' + window._bulkLookupFound.length + ')';
-                movBtn.style.display = 'flex';
-            } else {
-                movBtn.style.display = 'none';
-            }
+            if (hayEncontrados && movCnt) movCnt.textContent = '(' + window._bulkLookupFound.length + ')';
+            movBtn.style.display = hayEncontrados ? 'flex' : 'none';
         }
+        if (detBtn) detBtn.style.display = hayEncontrados ? 'flex' : 'none';
     }
 
     window.runBulkLookup = function () {
@@ -2044,7 +2102,14 @@
 
         const frenteIdRaw = (getFrenteSelect() && getFrenteSelect().value) || '';
         const body = { terms: terms };
-        if (frenteIdRaw) body.frente_id = parseInt(frenteIdRaw, 10);
+        // Nombre del frente seleccionado (para el rótulo "Comparando con: ..."):
+        // lo leemos del item elegido en el dropdown. '' si no se filtró por frente.
+        let frenteNombre = '';
+        if (frenteIdRaw) {
+            body.frente_id = parseInt(frenteIdRaw, 10);
+            const selItem = document.querySelector('#bulkLookupFrenteDropdown .dropdown-item[data-value="' + frenteIdRaw + '"]');
+            if (selItem) frenteNombre = selItem.textContent.trim();
+        }
 
         if (window.showPreloader) window.showPreloader();
         fetch(URL_BULK_LOOKUP, {
@@ -2066,7 +2131,7 @@
                 else alert(msg);
                 return;
             }
-            renderResults(res.body);
+            renderResults(res.body, frenteNombre);
         })
         .catch(err => {
             if (window.hidePreloader) window.hidePreloader();
