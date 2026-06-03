@@ -1712,6 +1712,8 @@
                             </div>
                         </div>
                     </div>
+                        {{-- Contador de valores únicos: entre el filtro de frente y el botón Buscar. --}}
+                        <span id="bulkLookupCountHint" style="flex-shrink:0; font-size: 11px; color: #64748b; white-space: nowrap;">0 valor(es) único(s)</span>
                         <button type="button" id="bulkLookupSearchBtn" onclick="runBulkLookup()" title="Buscar"
                                 style="flex-shrink:0; height:38px; padding:0 16px; background:#0067b1; color:white; border:none; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; font-size:13px; font-weight:700; transition:filter .2s;"
                                 onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">
@@ -1721,11 +1723,6 @@
                     </div>
                 </div>
 
-                {{-- Sin label: el placeholder del textarea ya indica qué pegar. Solo
-                     queda el contador de valores únicos, alineado a la derecha. --}}
-                <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 6px;">
-                    <span id="bulkLookupCountHint" style="font-size: 11px; color: #64748b;">0 valor(es) único(s)</span>
-                </div>
                 <textarea id="bulkLookupTextarea"
                           placeholder="Tip: copia una columna de Excel (Ctrl+C) y pega aquí (Ctrl+V). Soporta hasta 2000 valores."
                           spellcheck="false"
