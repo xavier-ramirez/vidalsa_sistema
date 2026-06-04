@@ -19,7 +19,7 @@
     // 1) Registro del Service Worker
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
                 .then(function (reg) {
                     if (reg && reg.addEventListener) {
                         reg.addEventListener('updatefound', function () {
