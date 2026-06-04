@@ -395,7 +395,10 @@
                      mobile: full width compartido 50/50 (regla en .hd-papelera-group).
                      Botones directos (sin .filter-item .aligned-filter) para evitar
                      que el width:100% del .aligned-filter los ensanche y separe. --}}
-                @can('user.delete')
+                {{-- Visible para super.admin (vea o no el permiso user.delete). La
+                     papelera en sí exige user.delete: si no lo tiene, al hacer clic
+                     sale un toast y no abre (ver guard en abrirPapelera*). --}}
+                @can('super.admin')
                 <div class="hd-papelera-group">
                     <button type="button" id="btnVerPapeleraEquipos"
                         onclick="window.abrirPapeleraEquipos && window.abrirPapeleraEquipos()"
@@ -671,7 +674,7 @@
      PAPELERA — modales de vehículos + auxiliares soft-deleted.
      Cargados via AJAX, respetan el permiso user.delete via middleware.
      ═══════════════════════════════════════════════════════════ --}}
-@can('user.delete')
+@can('super.admin')
 <script>
 (function () {
     var csrfTok = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
@@ -774,11 +777,21 @@
             });
     }
 
+    // El botón es visible para super.admin, pero la papelera (operación destructiva)
+    // exige el permiso literal user.delete. Sin él: toast moderno y NO abre.
+    var canDelete = @can('user.delete') true @else false @endcan;
+    function papeleraSinPermiso() {
+        var msg = 'No tienes permiso para gestionar la papelera (requiere "Eliminar Equipos").';
+        if (window.showToast) window.showToast(msg, 'error');
+        else if (window.showModal) window.showModal({ type: 'error', title: 'Acceso denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
+    }
     window.abrirPapeleraEquipos = function () {
+        if (!canDelete) { papeleraSinPermiso(); return; }
         buildModal('papeleraEquipos', 'Papelera de Vehículos');
         loadList('{{ route("equipos.papelera") }}', 'eq', 'papeleraEquiposList');
     };
     window.abrirPapeleraAuxiliares = function () {
+        if (!canDelete) { papeleraSinPermiso(); return; }
         buildModal('papeleraAux', 'Papelera de Auxiliares');
         loadList('{{ route("equipos-auxiliares.papelera") }}', 'aux', 'papeleraAuxList');
     };
