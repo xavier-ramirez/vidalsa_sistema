@@ -373,7 +373,7 @@ class EquipoController extends Controller
                         ->orderBy('total', 'desc')
                         ->get();
                     $ubicacionesStats = $rawUbicaciones->map(fn($r) => (object) [
-                        'detalle' => $r->ubi_key === '__SIN_ASIGNAR__' ? 'Sin Asignar' : $r->ubi_key,
+                        'detalle' => $r->ubi_key === '__SIN_ASIGNAR__' ? 'Sin Especificación' : $r->ubi_key,
                         'total'   => $r->total,
                     ]);
                 }

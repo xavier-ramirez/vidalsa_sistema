@@ -16,7 +16,7 @@
         @foreach($ubicacionesStats as $stat)
             @php
                 $percentage = $totalUbicaciones > 0 ? ($stat->total / $totalUbicaciones) * 100 : 0;
-                $clickValue = $stat->detalle === 'Sin Asignar' ? '' : $stat->detalle;
+                $clickValue = $stat->detalle === 'Sin Especificación' ? '' : $stat->detalle;
             @endphp
             <li onclick="selectOption('ubicacionAdvFilter', '{{ addslashes($clickValue) }}', '{{ addslashes($stat->detalle) }}'); loadEquipos();"
                 style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: {{ $clickValue !== '' ? 'pointer' : 'default' }};"
