@@ -30,3 +30,9 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 scratch_*.php
+scratch_*.csv
+/node-bin
+/import_temp.sql
+/run_import.php
+/muestra_stock_30.sql
+/setup_almacen_22.php
