@@ -66,8 +66,6 @@ window.loadUsuarios = function (url = null) {
 
     // If truly no input at all, clear UI without server request
     if (!hasAnyInput) {
-        console.log('No active filters detected - clearing UI without server request');
-
         // Clear table with friendly message
         tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">SELECCIONE UN FILTRO PARA VISUALIZAR LOS USUARIOS</td></tr>';
         tableBody.style.opacity = '1';
