@@ -14,7 +14,11 @@ class Usuario extends Authenticatable
 
     protected $table = 'usuarios';
     protected $primaryKey = 'ID_USUARIO';
-    public $timestamps = false;
+    // Timestamps ACTIVOS: al crear un usuario se guarda created_at (fecha de
+    // registro) y updated_at automáticamente. La tabla ya tiene ambas columnas
+    // (migración con timestamps()). Eloquent además los castea a Carbon, por lo
+    // que created_at->format(...) funciona en la lista/tooltip.
+    public $timestamps = true;
 
     /**
      * Claves que NO se conceden por la regla maestra super.admin — el usuario
