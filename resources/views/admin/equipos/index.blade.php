@@ -2095,7 +2095,7 @@
                 lastMissingTerms.push(r.term);
                 return `
                     <tr style="background: #fef2f2;">
-                        <td data-label="Buscado" style="${cellMissing} font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td data-label="Buscado" style="${cellMissing}">${escapeHtml(r.term)}</td>
                         <td colspan="3" style="${cellMissing} font-style: italic;">
                             <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
                             No encontrado en la base de datos
@@ -2112,7 +2112,7 @@
             if (r.in_selected_frente === false) {
                 return `
                     <tr style="background: #fef9c3;">
-                        <td data-label="Buscado" style="${cellOther} font-weight: 700;">${escapeHtml(r.term)}</td>
+                        <td data-label="Buscado" style="${cellOther}">${escapeHtml(r.term)}</td>
                         <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
                         <td data-label="Estado" style="${cellOther}">${estadoTexto(r.estado)}</td>
                         <td data-label="Frente" style="${cellOther} text-align: center;">${frente}</td>
@@ -2121,7 +2121,7 @@
             }
             return `
                 <tr style="background: white;">
-                    <td data-label="Buscado" style="${cellBase} font-weight: 700;">${escapeHtml(r.term)}</td>
+                    <td data-label="Buscado" style="${cellBase}">${escapeHtml(r.term)}</td>
                     <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
                     <td data-label="Estado" style="${cellBase}">${estadoTexto(r.estado)}</td>
                     <td data-label="Frente" style="${cellBase} text-align: center;">${frente}</td>
