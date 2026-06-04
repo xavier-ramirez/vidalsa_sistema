@@ -801,7 +801,7 @@
             window._sinEquiposDesactivar = function (id, nombre) {
                 var run = function () { _sinEquiposAction('PATCH', '{{ url("admin/frentes") }}/' + id + '/finalizar', 'Frente desactivado.', 'No se pudo desactivar.', nombre); };
                 if (typeof window.showModal === 'function') {
-                    window.showModal({ type: 'warning', title: 'Desactivar Frente', message: '¿Desactivar (marcar FINALIZADO) el frente "' + nombre + '"?\n\nDejará de aparecer en los dropdowns; puedes recuperarlo desde "Finalizados".', confirmText: 'Sí, desactivar', cancelText: 'Cancelar', onConfirm: run });
+                    window.showModal({ type: 'warning', title: 'Desactivar Frente', message: 'El frente "' + nombre + '" dejará de aparecer en los dropdowns; puedes recuperarlo desde "Finalizados".', confirmText: 'Sí, desactivar', cancelText: 'Cancelar', onConfirm: run });
                 } else if (confirm('¿Desactivar el frente "' + nombre + '"?')) { run(); }
             };
 
