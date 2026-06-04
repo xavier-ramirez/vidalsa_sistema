@@ -12,9 +12,16 @@ sleep 20
 echo "[2/6] Verificando conexión a MySQL..."
 php artisan db:show --counts 2>/dev/null || echo "Advertencia: No se pudo verificar la base de datos"
 
-# Generar key si no existe
+# Generar APP_KEY solo si NO viene ya por entorno (easypanel inyecta las env
+# vars, incluida APP_KEY) y existe un .env físico donde escribirla. Evita el
+# error ruidoso "file_get_contents(.env): No such file" cuando la key ya viene
+# del entorno del contenedor.
 echo "[3/6] Verificando APP_KEY..."
-php artisan key:generate --force --no-interaction 2>/dev/null || true
+if [ -z "$APP_KEY" ] && [ -f .env ]; then
+    php artisan key:generate --force --no-interaction || true
+else
+    echo "APP_KEY provista por el entorno (easypanel) — se omite key:generate."
+fi
 
 # Limpiar caches
 echo "[4/6] Limpiando caches..."
