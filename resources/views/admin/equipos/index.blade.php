@@ -1616,17 +1616,21 @@
      CODIGO_PATIO y documentacion.PLACA.
      ═══════════════════════════════════════════════════════════ --}}
 <style>
-    /* Textarea masiva: el usuario pega/escribe seriales separados por
-       cualquier whitespace (espacio, tab, newline). Antes era una tabla
-       con un <input> por fila — paste con 300+ items fallaba silenciosamente
-       en algunos escenarios. El textarea elimina ese riesgo de raiz. */
+    /* Textarea masiva: el usuario pega/escribe seriales separados por cualquier
+       whitespace. Se mantiene como <textarea> (NO tabla de inputs, que fallaba al
+       pegar 300+), pero con aspecto de CASILLAS DE TABLA: una línea horizontal por
+       renglón (gradiente con background-attachment:local para que las líneas hagan
+       scroll junto con el texto). line-height fijo en px = alto de cada casilla. */
     #bulkLookupTextarea {
-        width: 100%; min-height: 220px; max-height: 50vh;
-        padding: 8px 10px; box-sizing: border-box;
+        width: 100%; min-height: 224px; max-height: 50vh;
+        padding: 0 10px; box-sizing: border-box;
         border: 1px solid #cbd5e0; border-radius: 8px;
-        font-family: 'Courier New', monospace; font-size: 12px;
-        line-height: 1.4; text-transform: uppercase;
+        font-family: 'Courier New', monospace; font-size: 13px;
+        line-height: 28px; text-transform: uppercase;
         resize: vertical; outline: none;
+        background-attachment: local;
+        background-image: linear-gradient(to bottom, transparent 0, transparent 27px, #e2e8f0 27px, #e2e8f0 28px);
+        background-size: 100% 28px;
         transition: border-color 0.15s, box-shadow 0.15s;
     }
     #bulkLookupTextarea:focus {
