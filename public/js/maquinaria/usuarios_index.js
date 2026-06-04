@@ -25,11 +25,13 @@ window.loadUsuarios = function (url = null) {
     let baseUrl = url || window.location.pathname;
     const searchInput = document.getElementById('searchInput');
     const frenteInput = document.querySelector('input[name="id_frente"]');
+    const fechaInput = document.querySelector('input[name="fecha_creacion"]');
 
     // Unified Filter Object (Single Source of Truth)
     const filters = {
         search: searchInput?.value,
-        id_frente: (frenteInput?.value !== '') ? frenteInput?.value : null
+        id_frente: (frenteInput?.value !== '') ? frenteInput?.value : null,
+        fecha_creacion: fechaInput?.value || null
     };
 
     const params = new URLSearchParams();

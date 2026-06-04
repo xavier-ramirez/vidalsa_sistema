@@ -65,7 +65,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         // Start with base query
-        $query = Usuario::select('ID_USUARIO', 'NOMBRE_COMPLETO', 'CORREO_ELECTRONICO', 'ID_ROL', 'ID_FRENTE_ASIGNADO', 'NIVEL_ACCESO', 'ESTATUS')
+        $query = Usuario::select('ID_USUARIO', 'NOMBRE_COMPLETO', 'CORREO_ELECTRONICO', 'ID_ROL', 'ID_FRENTE_ASIGNADO', 'NIVEL_ACCESO', 'ESTATUS', 'created_at')
             ->with([
                 'rol:ID_ROL,NOMBRE_ROL', 
                 'frenteAsignado:ID_FRENTE,NOMBRE_FRENTE'
@@ -83,6 +83,11 @@ class UserController extends Controller
         // FILTER 2: Frente de Trabajo (independent)
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
             $query->where('ID_FRENTE_ASIGNADO', $request->input('id_frente'));
+        }
+
+        // FILTER 3: Fecha de creación del usuario (created_at) — un día exacto.
+        if ($request->filled('fecha_creacion')) {
+            $query->whereDate('created_at', $request->input('fecha_creacion'));
         }
 
         // Execute query with pagination

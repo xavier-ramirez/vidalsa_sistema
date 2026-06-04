@@ -78,6 +78,17 @@
             </div>
         </div>
 
+        <!-- Filtro Fecha de creación: calendario nativo (igual que los otros módulos);
+             se abre al hacer clic (showPicker) y filtra por created_at del usuario. -->
+        <div class="filter-item aligned-filter responsive-filter-item">
+            <input type="date" name="fecha_creacion" class="native-date"
+                value="{{ request('fecha_creacion') }}"
+                onchange="loadUsuarios()"
+                onclick="try{this.showPicker()}catch(e){}"
+                title="Filtrar por fecha de creación del usuario"
+                style="width: 100%; height: 45px; border-radius: 12px; border: 1px solid {{ request('fecha_creacion') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('fecha_creacion') ? '#e1effa' : '#fbfcfd' }}; outline: none; padding: 0 12px; font-size: 14px; color: #4a5568; cursor: pointer;">
+        </div>
+
         <!-- New User Button -->
         <div class="filter-item aligned-filter responsive-btn-item">
             <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario">

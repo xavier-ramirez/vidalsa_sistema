@@ -1,5 +1,5 @@
                 @forelse($users as $user)
-                    <tr>
+                    <tr title="Usuario creado: {{ optional($user->created_at)->format('d/m/Y H:i') ?: 'sin fecha' }}">
                          <td class="table-cell-bordered" style="font-weight: 700; color: var(--maquinaria-dark-blue); padding: 8px 12px; white-space: nowrap;">
                             {{ $user->NOMBRE_COMPLETO }}
                         </td>
