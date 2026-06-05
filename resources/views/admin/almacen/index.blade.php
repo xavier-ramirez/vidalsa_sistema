@@ -527,7 +527,7 @@
     });
 @endphp
 
-<section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
+<section class="page-title-card" style="text-align:left;margin:16px 0 10px 0;">
     {{-- Layout: título a la izquierda + separador vertical + filtro de almacén.
          El bloque del filtro tiene un fondo gris suave para diferenciarse del título sin competir con él. --}}
     <div style="display:flex;justify-content:flex-start;align-items:center;gap:20px;flex-wrap:wrap;">
@@ -1311,9 +1311,11 @@
             <i class="material-icons alm-x" onclick="window.almPreviewCerrar()">close</i>
         </div>
         <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
-            {{-- Iframe ocupa toda el area disponible del modal. min-height fija un piso
-                 razonable para que el PDF no se vea aplastado en pantallas pequeñas. --}}
+            {{-- ESCRITORIO: el visor de PDF nativo del navegador en un iframe (zoom/imprimir). --}}
             <iframe id="almPreviewFrame" src="about:blank" style="width:100%;height:82vh;min-height:560px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
+            {{-- TELÉFONO: los navegadores móviles no renderizan PDF en iframe, así que el PDF
+                 se dibuja aquí con PDF.js (una <canvas> por página, desplazable). --}}
+            <div id="almPreviewCanvas" style="display:none;width:100%;height:82vh;min-height:560px;overflow:auto;background:#475569;padding:10px;box-sizing:border-box;"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
@@ -3153,6 +3155,69 @@
     var almSalidaDraft   = null;
     var almPreviewBlobUrl = null;
 
+    // ── Vista previa del PDF en TELÉFONO con PDF.js ─────────────────────────────
+    // Los navegadores móviles no renderizan PDF embebido en <iframe>. Para que el
+    // usuario VEA el diseño de la Nota en el teléfono, dibujamos el PDF en <canvas>
+    // con PDF.js. La librería (UMD) se carga desde CDN solo la 1ª vez que se usa,
+    // así no penaliza la carga normal del módulo.
+    var _almPdfJsPromise = null;
+    function almEnsurePdfJs() {
+        if (window.pdfjsLib) return Promise.resolve();
+        if (_almPdfJsPromise) return _almPdfJsPromise;
+        _almPdfJsPromise = new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+            s.onload = function () {
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; } catch (e) {}
+                resolve();
+            };
+            s.onerror = function () { _almPdfJsPromise = null; reject(new Error('No se pudo cargar el visor de PDF.')); };
+            document.head.appendChild(s);
+        });
+        return _almPdfJsPromise;
+    }
+    // Teléfono o tablet: ahí el iframe falla, usamos canvas.
+    function almEsMovil() {
+        return window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+    // Dibuja el blob PDF en #almPreviewCanvas (una <canvas> por página, ajustada al ancho).
+    function almRenderPdfCanvas(blob) {
+        var cont = el('almPreviewCanvas');
+        if (!cont) return Promise.resolve();
+        cont.innerHTML = '<div style="color:#cbd5e0;text-align:center;padding:30px;font-size:13px;">Cargando vista previa…</div>';
+        return almEnsurePdfJs()
+            .then(function () { return blob.arrayBuffer(); })
+            .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
+            .then(function (pdf) {
+                cont.innerHTML = '';
+                var dpr = window.devicePixelRatio || 1;
+                var ancho = cont.clientWidth - 20; // descontar el padding del contenedor
+                if (ancho <= 0) ancho = Math.min(window.innerWidth - 40, 900);
+                var seq = Promise.resolve();
+                for (var i = 1; i <= pdf.numPages; i++) {
+                    (function (n) {
+                        seq = seq.then(function () {
+                            return pdf.getPage(n).then(function (page) {
+                                var base = page.getViewport({ scale: 1 });
+                                var vp = page.getViewport({ scale: (ancho / base.width) * dpr });
+                                var canvas = document.createElement('canvas');
+                                canvas.width = vp.width; canvas.height = vp.height;
+                                canvas.style.width = '100%'; canvas.style.height = 'auto';
+                                canvas.style.display = 'block'; canvas.style.margin = '0 auto 10px';
+                                canvas.style.background = '#fff'; canvas.style.boxShadow = '0 1px 6px rgba(0,0,0,0.25)';
+                                cont.appendChild(canvas);
+                                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                            });
+                        });
+                    })(i);
+                }
+                return seq;
+            })
+            .catch(function (e) {
+                cont.innerHTML = '<div style="color:#fecaca;text-align:center;padding:30px;font-size:13px;">No se pudo mostrar la vista previa. ' + (e && e.message ? e.message : '') + '</div>';
+            });
+    }
+
     // Construye el payload desde los campos del modal + almSeleccion. Devuelve
     // null y muestra error si falta el frente destino o no hay lineas validas.
     // Lo usan almSalidaVistaPrevia (POST a preview) y almPreviewConfirmar (POST
@@ -3229,16 +3294,23 @@
             if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} }
             almPreviewBlobUrl = URL.createObjectURL(blob);
             var frame = el('almPreviewFrame');
-            // Fragment hint del PDF viewer integrado de Chrome/Edge/Firefox: oculta
-            // toolbar (barra de imprimir/descargar/menu), navpanes (panel lateral
-            // de paginas) y la scrollbar — el preview se ve "como pdf empotrado",
-            // sin chrome del navegador. Safari ignora estos params (no es soportado
-            // oficialmente) pero no rompe nada.
-            if (frame) frame.src = almPreviewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+            var cont  = el('almPreviewCanvas');
             // Ocultar el modal de salida (sin destruir sus inputs — almCerrar solo
-            // quita .open, los valores quedan listos para "Editar").
+            // quita .open, los valores quedan listos para "Editar") y abrir el preview
+            // ANTES de renderizar, para que el canvas mida bien el ancho disponible.
             almCerrar('almSalidaModal');
             open('almPreviewModal');
+            if (almEsMovil()) {
+                // TELÉFONO: el iframe no muestra PDF → lo dibujamos con PDF.js en canvas.
+                if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+                if (cont)  { cont.style.display = 'block'; }
+                almRenderPdfCanvas(blob);
+            } else {
+                // ESCRITORIO: visor nativo del navegador en el iframe. Los fragment hints
+                // (#toolbar=0&navpanes=0&scrollbar=0&view=FitH) ocultan el chrome del visor.
+                if (cont)  { cont.style.display = 'none'; cont.innerHTML = ''; }
+                if (frame) { frame.style.display = ''; frame.src = almPreviewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH'; }
+            }
         })
         .catch(function (err) {
             unpre();
@@ -3264,6 +3336,7 @@
         almCerrar('almPreviewModal');
         if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} almPreviewBlobUrl = null; }
         var frame = el('almPreviewFrame'); if (frame) frame.src = 'about:blank';
+        var cont = el('almPreviewCanvas'); if (cont) { cont.innerHTML = ''; cont.style.display = 'none'; }
         open('almSalidaModal');
     };
 
