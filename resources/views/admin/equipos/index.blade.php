@@ -164,10 +164,7 @@
         </div>
 
         <!-- Tipo Filter -->
-        {{-- flex: 0 1 300px → Tipo conserva su ancho original (~300px, su max-width) y NO
-             crece; el sobrante se lo lleva el buscador (que mantiene "Filtros Avanzados"
-             al final). Antes, con flex-basis 0, el buscador al crecer lo comprimía. --}}
-        <div class="filter-item aligned-filter" style="flex: 0 1 300px;">
+        <div class="filter-item aligned-filter" style="flex: 1.5;">
             <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="id_tipo" data-default-label="Filtrar Tipo...">
                 <input type="hidden" name="id_tipo" data-filter-value value="{{ request('id_tipo') }}" form="search-form">
                 
@@ -206,10 +203,7 @@
         </div>
 
         <!-- Search Filter / Seriales + Advanced Filter Button -->
-        {{-- flex:1 + max-width:none → en PC el buscador crece y llena el hueco hasta
-             el borde, dejando el botón "Filtros Avanzados" pegado al final de la fila
-             de filtros (junto al último filtro). En móvil .filter-item es width:100%. --}}
-        <div class="filter-item aligned-filter" style="display: flex; gap: 10px; flex: 1 1 auto; max-width: none;">
+        <div class="filter-item aligned-filter" style="display: flex; gap: 10px;">
             <form action="{{ route('equipos.index') }}" method="GET" id="search-form" style="flex: 1; margin: 0;">
                 
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search_query') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search_query') ? '#e1effa' : '#fff' }};">
