@@ -11,6 +11,8 @@ window.clearUsuariosFilter = function (filterName) {
         if (input) input.value = '';
         const clearBtn = document.getElementById('btn_clear_search');
         if (clearBtn) clearBtn.style.display = 'none';
+        // Cerrar la lista de sugerencias si quedó abierta con resultados previos.
+        if (typeof hideSearchSuggest === 'function') hideSearchSuggest();
     }
 
     // Reload usuarios after clearing filter
@@ -150,6 +152,88 @@ document.addEventListener('click', function (e) {
     }
 });
 
+// ── Autocompletado del buscador (nombre / correo) ───────────────────────────
+// La lista completa de usuarios (nombre + correo) viene embebida como JSON en el
+// DOM (#usuariosSugerenciasData). Filtramos en el cliente al escribir y mostramos
+// las coincidencias en #searchSuggest. Al elegir una, se rellena el input y se
+// dispara loadUsuarios() de inmediato.
+function usuariosNorm(s) {
+    return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : '';
+}
+
+function escHtmlUsuarios(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+}
+
+function getUsuariosSugerencias() {
+    const node = document.getElementById('usuariosSugerenciasData');
+    if (!node) return [];
+    try {
+        const list = JSON.parse(node.dataset.list || '[]');
+        return Array.isArray(list) ? list : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function hideSearchSuggest() {
+    const box = document.getElementById('searchSuggest');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
+function renderSearchSuggest(term) {
+    const box = document.getElementById('searchSuggest');
+    if (!box) return;
+    const t = usuariosNorm((term || '').trim());
+    if (t.length < 2) { hideSearchSuggest(); return; }
+
+    const matches = getUsuariosSugerencias().filter(function (u) {
+        return usuariosNorm(u.nombre).indexOf(t) > -1 || usuariosNorm(u.correo).indexOf(t) > -1;
+    }).slice(0, 8);
+
+    if (!matches.length) {
+        box.innerHTML = '<div style="padding:10px 15px; font-size:13px; color:#94a3b8;">Sin coincidencias</div>';
+        box.style.display = 'block';
+        return;
+    }
+
+    box.innerHTML = matches.map(function (u) {
+        return '<div class="usuarios-suggest-item" data-value="' + escHtmlUsuarios(u.nombre) + '" ' +
+            'style="padding:9px 14px; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; gap:2px;" ' +
+            'onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'transparent\'">' +
+            '<span style="font-size:14px; font-weight:600; color:#1e3a5f;">' + escHtmlUsuarios(u.nombre) + '</span>' +
+            '<span style="font-size:12px; color:#64748b;">' + escHtmlUsuarios(u.correo) + '</span>' +
+            '</div>';
+    }).join('');
+    box.style.display = 'block';
+}
+
+// Listeners globales (una sola vez): elegir una sugerencia / cerrar al hacer clic fuera.
+if (!window.__usuariosSuggestBound) {
+    window.__usuariosSuggestBound = true;
+
+    document.addEventListener('click', function (e) {
+        const item = e.target.closest('#searchSuggest .usuarios-suggest-item');
+        if (item) {
+            const input = document.getElementById('searchInput');
+            if (input) {
+                input.value = item.getAttribute('data-value') || '';
+                const clearBtn = document.getElementById('btn_clear_search');
+                if (clearBtn) clearBtn.style.display = input.value.length > 0 ? 'block' : 'none';
+            }
+            hideSearchSuggest();
+            if (window.loadUsuarios) window.loadUsuarios();
+            return;
+        }
+        // Clic fuera del buscador → cerrar sugerencias.
+        if (!e.target.closest('#search-form') && !e.target.closest('#searchSuggest')) {
+            hideSearchSuggest();
+        }
+    });
+}
+
 // Initialize on page load
 function initUsuarios() {
     if (!document.getElementById('usuariosTableBody')) return;
@@ -158,15 +242,31 @@ function initUsuarios() {
     // Guard: only attach listener once per DOM instance
     if (searchInput && !searchInput.dataset.usuariosInitialized) {
         searchInput.dataset.usuariosInitialized = 'true';
-        searchInput.addEventListener('keyup', function () {
+        searchInput.addEventListener('keyup', function (e) {
             const val = this.value;
             const clearBtn = document.getElementById('btn_clear_search');
             if (clearBtn) clearBtn.style.display = (val.length > 0) ? 'block' : 'none';
 
-            clearTimeout(window.searchTimeout);
-            if (val.length >= 4 || val.length === 0) {
-                window.searchTimeout = setTimeout(() => window.loadUsuarios(), 500);
+            // Escape cierra las sugerencias. Enter aplica el filtro vía submit del
+            // form (más abajo) — aquí solo cerramos la lista.
+            if (e && e.key === 'Escape') { hideSearchSuggest(); return; }
+            if (e && e.key === 'Enter')  { hideSearchSuggest(); return; }
+
+            // Al ESCRIBIR solo se muestran sugerencias; la tabla NO se filtra en cada
+            // tecla. El filtro se aplica al ELEGIR una sugerencia (handler de clic en
+            // #searchSuggest .usuarios-suggest-item → loadUsuarios) o al presionar Enter.
+            renderSearchSuggest(val);
+
+            // Excepción: si el campo queda vacío, recargar para limpiar el filtro
+            // (no tendría sentido dejar la tabla filtrada con el buscador en blanco).
+            if (val.length === 0) {
+                clearTimeout(window.searchTimeout);
+                window.searchTimeout = setTimeout(() => window.loadUsuarios(), 300);
             }
+        });
+        // Al enfocar, si ya hay texto, reabrir las sugerencias.
+        searchInput.addEventListener('focus', function () {
+            if (this.value.trim().length >= 2) renderSearchSuggest(this.value);
         });
     }
 
@@ -174,6 +274,8 @@ function initUsuarios() {
     if (form) {
         form.onsubmit = function (e) {
             e.preventDefault();
+            // Enter en el buscador: cerrar sugerencias y filtrar con el texto escrito.
+            if (typeof hideSearchSuggest === 'function') hideSearchSuggest();
             window.loadUsuarios();
             return false;
         };

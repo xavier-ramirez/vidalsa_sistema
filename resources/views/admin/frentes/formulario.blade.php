@@ -36,6 +36,13 @@
         #frenteForm .resp-head:hover { background: #f8fafc; }
         #frenteForm .resp-chevron { margin-left: auto; color: var(--maquinaria-blue); transition: transform .2s; font-size: 20px; }
         #frenteForm .resp-collapsed { display: none !important; }
+
+        /* Teléfono: el botón "Sin equipos" queda al lado del buscador pero SOLO con
+           el icono (sin texto), cuadrado, para no robar ancho a la barra de búsqueda. */
+        @media (max-width: 600px) {
+            #btnSinEquipos span { display: none; }
+            #btnSinEquipos { padding: 0; width: 38px; gap: 0; justify-content: center; }
+        }
     </style>
 
     <section class="page-title-card" style="text-align: center; margin: 0 auto 8px auto;">
@@ -52,7 +59,7 @@
 
         <!-- Top Search Bar (Standardized Smart Dropdown) -->
         <div style="margin-bottom: 30px; display: flex; justify-content: center; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <div style="width: 100%; max-width: 500px; position: relative;">
+            <div style="flex: 1 1 auto; min-width: 0; max-width: 500px; position: relative;">
 
                 <div class="custom-dropdown" id="frenteSearchDropdown" style="width: 100%;">
                     <div class="dropdown-trigger"
@@ -94,7 +101,7 @@
             </div>
             {{-- Botón "Sin equipos": abre modal con frentes ACTIVOS sin equipos ni
                  auxiliares asignados, para borrarlos o desactivarlos. --}}
-            <button type="button" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
+            <button type="button" id="btnSinEquipos" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
                 class="btn-primary-maquinaria btn-secondary"
                 style="padding: 0 14px; height: 38px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
                 <i class="material-icons" style="font-size: 18px;">domain_disabled</i>
@@ -717,8 +724,8 @@
                 var overlay = document.createElement('div');
                 overlay.id = 'sinEquiposOverlay';
                 overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
-                overlay.innerHTML = '<div style="background:white;border-radius:16px;width:90%;max-width:540px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
-                    '<div style="background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
+                overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:460px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
+                    '<div style="background:#1e293b;padding:12px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
                         '<div style="display:flex;align-items:center;gap:10px;">' +
                             '<i class="material-icons" style="color:#0284c7;font-size:20px;">domain_disabled</i>' +
                             '<h2 style="margin:0;font-size:16px;font-weight:700;">Frentes sin equipos</h2>' +
@@ -727,8 +734,8 @@
                             '<i class="material-icons">close</i>' +
                         '</button>' +
                     '</div>' +
-                    '<div style="padding:18px;">' +
-                        '<p style="margin:0 0 12px 0;font-size:12px;color:#64748b;text-align:center;">Frentes ACTIVOS sin equipos ni auxiliares asignados. Puedes desactivarlos (FINALIZADO) o eliminarlos.</p>' +
+                    '<div style="padding:14px 16px;">' +
+                        '<p style="margin:0 0 8px 0;font-size:11px;color:#64748b;text-align:center;line-height:1.35;">Frentes activos sin equipos ni auxiliares. Puedes desactivarlos o eliminarlos.</p>' +
                         '<div id="sinEquiposList" style="max-height:380px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;">' +
                             '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:24px;">sync</i></div>' +
                         '</div>' +

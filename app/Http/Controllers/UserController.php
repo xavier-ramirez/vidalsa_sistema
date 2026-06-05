@@ -90,8 +90,8 @@ class UserController extends Controller
             $query->whereDate('created_at', $request->input('fecha_creacion'));
         }
 
-        // Execute query with pagination
-        $users = $query->paginate(10)->onEachSide(3)->withQueryString();
+        // Execute query with pagination (15 por página).
+        $users = $query->paginate(15)->onEachSide(3)->withQueryString();
         
         // Frentes for dropdown
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->get();
@@ -116,7 +116,18 @@ class UserController extends Controller
             ]);
         }
 
-        return view('admin.usuarios.lista', compact('users', 'frentes', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos'));
+        // Lista para el autocompletado del buscador (nombre / correo). Se inyecta en la
+        // vista como JSON y el filtrado de sugerencias ocurre en el cliente al escribir.
+        $usuariosSugerencias = Usuario::select('NOMBRE_COMPLETO', 'CORREO_ELECTRONICO')
+            ->orderBy('NOMBRE_COMPLETO')
+            ->get()
+            ->map(fn ($u) => [
+                'nombre' => $u->NOMBRE_COMPLETO,
+                'correo' => $u->CORREO_ELECTRONICO,
+            ])
+            ->values();
+
+        return view('admin.usuarios.lista', compact('users', 'frentes', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias'));
     }
 
     /**

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cambio de Contraseña</title>
     <!-- Fonts -->
-    <link href="{{ asset('css/fonts.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
     <style>
         /* --- PRELOADER STYLES --- */
         .preloader {

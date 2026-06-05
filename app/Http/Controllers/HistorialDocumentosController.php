@@ -366,12 +366,31 @@ class HistorialDocumentosController extends Controller
             $search_correo = $normalize($request->search_correo);
             $search_tipo   = $normalize($request->search_tipo);
 
-            $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql) {
+            // doc_key de las subidas legacy (loop docs). El dropdown agrupa las 6
+            // subidas / 6 borrados / 6 ediciones de metadata en UNA opcion por accion
+            // (valores 'cat_*'), reduciendo la lista de ~24 a ~9. Aqui se mapea cada
+            // 'cat_*' al doc_key del evento. Cualquier OTRO valor (acciones del equipo
+            // o deep-links antiguos con el label exacto) cae al match por substring.
+            $catUploadKeys = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
+
+            $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql, $catUploadKeys) {
                 if ($search_correo && strpos($normalize($event->autor), $search_correo) === false) {
                     return false;
                 }
-                if ($search_tipo && $search_tipo !== 'all' && strpos($normalize($event->tipo), $search_tipo) === false) {
-                    return false;
+                if ($search_tipo && $search_tipo !== 'all') {
+                    if ($search_tipo === 'cat_uploads') {
+                        $okTipo = in_array($event->doc_key, $catUploadKeys, true)
+                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'upload_');
+                    } elseif ($search_tipo === 'cat_borrados') {
+                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'delete_');
+                    } elseif ($search_tipo === 'cat_metadatos') {
+                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'metadata_');
+                    } else {
+                        // Acciones del equipo (Registro / Edición de Datos / Detalle
+                        // Masivo / Eliminación) o label exacto legacy → substring.
+                        $okTipo = strpos($normalize($event->tipo), $search_tipo) !== false;
+                    }
+                    if (!$okTipo) return false;
                 }
                 if ($fechaDesdeSql && $event->fecha->lt($fechaDesdeSql)) return false;
                 if ($fechaHastaSql && $event->fecha->gt($fechaHastaSql)) return false;

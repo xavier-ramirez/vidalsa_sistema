@@ -31,10 +31,11 @@
         </h1>
         {{-- Separador vertical (se oculta en mobile). --}}
         <span aria-hidden="true" class="ent-header-sep" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-        {{-- Bloque "Almacén": mini-label + nombre del almacen destino (read-only;
-             se deriva del frente del usuario en TraspasoController@nuevaEntrada). --}}
+        {{-- Bloque "Almacén": solo el pill con el nombre del almacen destino (read-only;
+             se deriva del frente del usuario en TraspasoController@nuevaEntrada). Sin
+             mini-label de texto, para que se vea IGUAL que el selector de almacen de
+             /admin/almacen, /movimientos y /recepcion (que tampoco lo llevan). --}}
         <div class="ent-header-block" style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">Almacén</span>
             <div class="ent-dest-pill" title="Almacén destino del usuario (derivado del frente asignado)">
                 <span class="ic"><i class="material-icons">warehouse</i></span>
                 <span class="name">{{ $almacenDestino->NOMBRE }}{{ $almacenDestino->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}</span>

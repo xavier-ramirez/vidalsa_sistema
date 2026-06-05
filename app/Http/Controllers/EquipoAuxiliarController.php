@@ -334,7 +334,7 @@ class EquipoAuxiliarController extends Controller
 
                 // Stats por ubicacion: conteo de auxiliares en cada sub-zona
                 $ubicacionesStats = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
-                    ->selectRaw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), 'SIN UBICACIÓN') as detalle, COUNT(*) as total")
+                    ->selectRaw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), 'Sin Especificación') as detalle, COUNT(*) as total")
                     ->groupBy('detalle')
                     ->orderByDesc('total')
                     ->get();

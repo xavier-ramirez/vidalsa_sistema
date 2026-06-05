@@ -1388,7 +1388,7 @@ window.openBulkModal = function (event) {
                         </div>
                         <div style="flex:1; min-width:0;">
                             <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;">Frente nuevo detectado</p>
-                            <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa detalle de ubicación (ciudad, zona, municipio y estado) que saldrán en el PDF.</p>
+                            <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa la ubicación que saldrá en el PDF.</p>
                         </div>
                     </div>
                     <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;" id="bm-ubicacion-box">
@@ -1922,7 +1922,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
             '<label for="' + id + '" style="display:block;font-size:10.5px;font-weight:700;color:#64748b;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</label>' +
             '<div style="display:flex;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fbfcfd;overflow:hidden;">' +
                 '<i class="material-icons" style="padding:0 6px;color:#94a3b8;font-size:16px;">' + icon + '</i>' +
-                '<input id="' + id + '" value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:5px 6px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
+                '<input id="' + id + '" value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:9px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
             '</div>' +
         '</div>';
     }
@@ -1934,10 +1934,10 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         }
         return fs.map(function (f, i) {
             return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:1fr 1fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
-                '<input class="ed-f-label" value="' + escA(f.label) + '" placeholder="Rol" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
-                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
-                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
-                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-label" value="' + escA(f.label) + '" placeholder="Rol" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
                 '<button type="button" class="ed-firma-del" title="Quitar firma" style="background:#fee2e2;border:none;color:#b91c1c;width:26px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="material-icons" style="font-size:15px;">close</i></button>' +
             '</div>';
         }).join('');
@@ -2012,7 +2012,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         var avisoSinResp = sinResponsablesOrigen
             ? '<div style="display:flex;gap:7px;align-items:flex-start;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:600;line-height:1.35;">' +
                 '<i class="material-icons" style="font-size:16px;flex-shrink:0;">error_outline</i>' +
-                '<span>Este frente de origen no tiene responsables registrados. Indica quién <b>revisa</b> y quién <b>aprueba</b> (nombre, cargo y cédula) para que el acta tenga espacio de firma.</span>' +
+                '<span>Este frente no tiene responsables. Indica quién <b>revisa</b> y quién <b>aprueba</b> para la firma del acta.</span>' +
               '</div>'
             : '';
 

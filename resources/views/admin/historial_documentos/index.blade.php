@@ -274,6 +274,14 @@
                 @php
                     $reqTipo = request('search_tipo');
                     $tipoActivo = $reqTipo && $reqTipo !== 'all';
+                    // Etiquetas amigables para las categorías agrupadas (valores 'cat_*'),
+                    // así el placeholder no muestra el valor crudo al recargar la página.
+                    $tipoLabels = [
+                        'cat_uploads'   => 'Subida de documento',
+                        'cat_borrados'  => 'Borrado de documento',
+                        'cat_metadatos' => 'Edición de metadatos',
+                    ];
+                    $reqTipoLabel = $tipoLabels[$reqTipo] ?? $reqTipo;
                 @endphp
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <div class="custom-dropdown" id="tipoDocFilterSelect" data-filter-type="tipo_filter" data-default-label="Filtrar Acción..." style="width: 100%;">
@@ -286,7 +294,7 @@
                             </div>
 
                             <input type="text" name="filter_search_dropdown" data-filter-search
-                                placeholder="{{ $tipoActivo ? $reqTipo : 'Filtrar Acción...' }}"
+                                placeholder="{{ $tipoActivo ? $reqTipoLabel : 'Filtrar Acción...' }}"
                                 style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
                                 onkeyup="window.filterDropdownOptions(this)"
                                 onfocus="this.closest('.custom-dropdown').classList.add('active')"
@@ -308,37 +316,18 @@
 
                                 {{-- Acciones sobre el equipo (audit log) --}}
                                 <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SOBRE EL EQUIPO</div>
-                                <div class="dropdown-item" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
-                                <div class="dropdown-item" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
-                                <div class="dropdown-item" data-value="Detalle Masivo" onclick="selectOption('tipoDocFilterSelect', 'Detalle Masivo', 'Detalle Masivo'); window.loadHistorialDocumentos();">Detalle Masivo</div>
-                                <div class="dropdown-item" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Registro de Vehículo' ? 'selected' : '' }}" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Edición de Datos' ? 'selected' : '' }}" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Detalle Masivo' ? 'selected' : '' }}" data-value="Detalle Masivo" onclick="selectOption('tipoDocFilterSelect', 'Detalle Masivo', 'Detalle Masivo'); window.loadHistorialDocumentos();">Detalle Masivo</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Eliminación de Equipo' ? 'selected' : '' }}" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
 
-                                {{-- Subidas de documentos --}}
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">SUBIDAS DE DOCUMENTO</div>
-                                <div class="dropdown-item" data-value="Título de Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Título de Propiedad', 'Título de Propiedad'); window.loadHistorialDocumentos();">Título de Propiedad</div>
-                                <div class="dropdown-item" data-value="Póliza de Seguro" onclick="selectOption('tipoDocFilterSelect', 'Póliza de Seguro', 'Póliza de Seguro'); window.loadHistorialDocumentos();">Póliza de Seguro</div>
-                                <div class="dropdown-item" data-value="ROTC" onclick="selectOption('tipoDocFilterSelect', 'ROTC', 'ROTC'); window.loadHistorialDocumentos();">ROTC</div>
-                                <div class="dropdown-item" data-value="RACDA" onclick="selectOption('tipoDocFilterSelect', 'RACDA', 'RACDA'); window.loadHistorialDocumentos();">RACDA</div>
-                                <div class="dropdown-item" data-value="Certificado Asociado" onclick="selectOption('tipoDocFilterSelect', 'Certificado Asociado', 'Certificado Asociado'); window.loadHistorialDocumentos();">Certificado Asociado</div>
-                                <div class="dropdown-item" data-value="Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Compraventa', 'Compraventa'); window.loadHistorialDocumentos();">Compraventa</div>
-
-                                {{-- Borrados de documentos (audit log, generado por super.admin via boton de borrar en el preview del PDF) --}}
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">BORRADOS DE DOCUMENTO</div>
-                                <div class="dropdown-item" data-value="Borrado Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Borrado Propiedad', 'Borrado Propiedad'); window.loadHistorialDocumentos();">Borrado Propiedad</div>
-                                <div class="dropdown-item" data-value="Borrado Póliza" onclick="selectOption('tipoDocFilterSelect', 'Borrado Póliza', 'Borrado Póliza'); window.loadHistorialDocumentos();">Borrado Póliza</div>
-                                <div class="dropdown-item" data-value="Borrado ROTC" onclick="selectOption('tipoDocFilterSelect', 'Borrado ROTC', 'Borrado ROTC'); window.loadHistorialDocumentos();">Borrado ROTC</div>
-                                <div class="dropdown-item" data-value="Borrado RACDA" onclick="selectOption('tipoDocFilterSelect', 'Borrado RACDA', 'Borrado RACDA'); window.loadHistorialDocumentos();">Borrado RACDA</div>
-                                <div class="dropdown-item" data-value="Borrado Certificado" onclick="selectOption('tipoDocFilterSelect', 'Borrado Certificado', 'Borrado Certificado'); window.loadHistorialDocumentos();">Borrado Certificado</div>
-                                <div class="dropdown-item" data-value="Borrado Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Borrado Compraventa', 'Borrado Compraventa'); window.loadHistorialDocumentos();">Borrado Compraventa</div>
-
-                                {{-- Edicion de metadatos (audit log) --}}
-                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">EDICIÓN DE METADATOS</div>
-                                <div class="dropdown-item" data-value="Edición Metadata Propiedad" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Propiedad', 'Edición Metadata Propiedad'); window.loadHistorialDocumentos();">Edición Metadata Propiedad</div>
-                                <div class="dropdown-item" data-value="Edición Metadata Póliza" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Póliza', 'Edición Metadata Póliza'); window.loadHistorialDocumentos();">Edición Metadata Póliza</div>
-                                <div class="dropdown-item" data-value="Edición Metadata ROTC" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata ROTC', 'Edición Metadata ROTC'); window.loadHistorialDocumentos();">Edición Metadata ROTC</div>
-                                <div class="dropdown-item" data-value="Edición Metadata RACDA" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata RACDA', 'Edición Metadata RACDA'); window.loadHistorialDocumentos();">Edición Metadata RACDA</div>
-                                <div class="dropdown-item" data-value="Edición Metadata Certificado" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Certificado', 'Edición Metadata Certificado'); window.loadHistorialDocumentos();">Edición Metadata Certificado</div>
-                                <div class="dropdown-item" data-value="Edición Metadata Compraventa" onclick="selectOption('tipoDocFilterSelect', 'Edición Metadata Compraventa', 'Edición Metadata Compraventa'); window.loadHistorialDocumentos();">Edición Metadata Compraventa</div>
+                                {{-- Acciones sobre documentos: 1 opción por acción (antes había 6
+                                     por cada tipo de documento). El backend mapea estos valores
+                                     'cat_*' a los doc_key correspondientes (ver HistorialDocumentosController). --}}
+                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">DOCUMENTOS</div>
+                                <div class="dropdown-item {{ $reqTipo === 'cat_uploads' ? 'selected' : '' }}" data-value="cat_uploads" onclick="selectOption('tipoDocFilterSelect', 'cat_uploads', 'Subida de documento'); window.loadHistorialDocumentos();">Subida de documento</div>
+                                <div class="dropdown-item {{ $reqTipo === 'cat_borrados' ? 'selected' : '' }}" data-value="cat_borrados" onclick="selectOption('tipoDocFilterSelect', 'cat_borrados', 'Borrado de documento'); window.loadHistorialDocumentos();">Borrado de documento</div>
+                                <div class="dropdown-item {{ $reqTipo === 'cat_metadatos' ? 'selected' : '' }}" data-value="cat_metadatos" onclick="selectOption('tipoDocFilterSelect', 'cat_metadatos', 'Edición de metadatos'); window.loadHistorialDocumentos();">Edición de metadatos</div>
                             </div>
                         </div>
                     </div>

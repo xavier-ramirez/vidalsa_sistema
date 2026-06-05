@@ -1710,7 +1710,9 @@
     }
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
-    <div class="modal-content" style="width: 95%; max-width: 720px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
+    {{-- max-width arranca angosto (fase de pegado: solo dropdown + textarea). El JS
+         lo ensancha a 720px al pasar a resultados, donde la tabla necesita el ancho. --}}
+    <div class="modal-content" style="width: 95%; max-width: 480px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
         <!-- Header: título centrado; el botón Cerrar queda fijo a la derecha (absolute). -->
         <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: center; position: relative;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -1926,6 +1928,9 @@
         var detBtn = document.getElementById('bulkLookupDetalleBtn');
         if (detBtn) detBtn.style.display = 'none';
         document.getElementById('bulkLookupSearchBtn').style.display = 'flex';
+        // Fase de pegado: el modal no necesita ser ancho (solo dropdown + textarea).
+        var mcIn = document.querySelector('#bulkLookupModal .modal-content');
+        if (mcIn) mcIn.style.maxWidth = '480px';
     }
 
     // Vuelca los equipos ENCONTRADOS en la selección global (reemplazándola: la
@@ -2139,6 +2144,9 @@
         // display:'' (no inline) → el CSS decide: block en escritorio, flex en
         // teléfono para que la lista de tarjetas llene el alto disponible.
         document.getElementById('bulkLookupResultsPhase').style.display = '';
+        // Fase de resultados: ensanchar para que la tabla (4 columnas) respire.
+        var mcRes = document.querySelector('#bulkLookupModal .modal-content');
+        if (mcRes) mcRes.style.maxWidth = '720px';
         document.getElementById('bulkLookupBackBtn').style.display = 'flex';
         document.getElementById('bulkLookupSearchBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';

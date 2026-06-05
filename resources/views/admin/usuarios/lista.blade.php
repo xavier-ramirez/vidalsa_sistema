@@ -19,18 +19,25 @@
 <div class="admin-card" style="width: 95%; max-width: 1600px; margin: 0 auto;">
     <div class="filter-toolbar-container" style="margin-bottom: 5px;">
         <!-- Search Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item">
+        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search') ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
                     <i class="material-icons search-icon">search</i>
-                    <input type="text" id="searchInput" name="search" value="{{ request('search') }}" 
-                        placeholder="Buscar por nombre o correo..." 
+                    <input type="text" id="searchInput" name="search" value="{{ request('search') }}"
+                        placeholder="Buscar por nombre o correo..."
                         class="search-input-field"
                         style="height: 100%;"
                         autocomplete="off">
                     <i id="btn_clear_search" class="material-icons clear-icon" style="display: {{ request('search') ? 'block' : 'none' }};" onclick="clearUsuariosFilter('search');">close</i>
                 </div>
             </form>
+            {{-- Lista de sugerencias del buscador (nombre / correo): se rellena por JS al escribir. --}}
+            <div id="searchSuggest" class="usuarios-suggest" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:1000; margin-top:6px; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,0.08); max-height:280px; overflow-y:auto; padding:5px;"></div>
+            {{-- Datos para el autocompletado. Va en un data-attribute (no en un <script>) para
+                 ser SPA-safe: el loader (navegacion.js) re-ejecuta los <script> inyectados y
+                 duplicaría un <script> en <head>. @json escapa ' < > & dentro de los valores,
+                 por eso es seguro entre comillas simples. --}}
+            <div id="usuariosSugerenciasData" data-list='@json($usuariosSugerencias ?? [])' hidden></div>
         </div>
 
         <!-- Frente Filter -->

@@ -19,7 +19,7 @@
         @foreach($ubicacionesStats as $stat)
             @php
                 $percentage = $totalUbi > 0 ? ($stat->total / $totalUbi) * 100 : 0;
-                $clickValue = $stat->detalle === 'SIN UBICACIÓN' ? '' : $stat->detalle;
+                $clickValue = $stat->detalle === 'Sin Especificación' ? '' : $stat->detalle;
             @endphp
             <li onclick="if (typeof window.auxAdvSelect === 'function') { window.auxAdvSelect('detalle_ubicacion', '{{ addslashes($clickValue) }}', '{{ addslashes($stat->detalle) }}'); cargarAuxiliares(); }"
                 style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: {{ $clickValue !== '' ? 'pointer' : 'default' }};"

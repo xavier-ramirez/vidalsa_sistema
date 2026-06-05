@@ -95,9 +95,16 @@
     }
 
     /* Contador "inventory_2 N" clickable — toggle del filtro "Solo seleccionados". */
-    .alm-bulk-counter { cursor:pointer; user-select:none; transition:transform 0.12s, box-shadow 0.18s; }
+    .alm-bulk-counter { cursor:pointer; user-select:none; transition:transform 0.12s; }
     .alm-bulk-counter:hover { transform:scale(1.04); }
-    .alm-bulk-counter.is-filtering { box-shadow:0 0 0 2px #fbbf24, 0 0 12px rgba(251,191,36,0.45); border-radius:999px; }
+    /* "Solo seleccionados" activo: en vez del anillo/glow que rodeaba TODO el
+       contador (se veia feo), resaltamos solo el NUMERO en un circulo ambar
+       limpio, igual que en /admin/equipos. */
+    .alm-bulk-counter.is-filtering #almBulkCount {
+        background:#fbbf24; color:#1e293b; min-width:22px; height:22px; padding:0 5px;
+        border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
+        font-weight:800; line-height:1; box-sizing:border-box;
+    }
 
     /* Badges "Con stock" / "Stock bajo" en el header del almacen — cuando uno de los dos
        filtros esta aplicado, el badge correspondiente se marca como activo (anillo blanco
@@ -972,7 +979,7 @@
                         <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
                 </div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Varios proyectos pueden compartir un mismo almacén. Los frentes definen qué usuarios lo ven.</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Los frentes definen qué usuarios ven este almacén.</div>
             </div>
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>
@@ -1025,7 +1032,7 @@
                      el producto queda registrado en el almacén actual con stock 0 (asegurarStock).
                      Si > 0, además se registra una ENTRADA en el kardex como "STOCK INICIAL". --}}
                 <div id="almProdCantInicialWrap" style="flex:1;">
-                    <label for="almProdCantInicial">Cantidad inicial</label>
+                    <label for="almProdCantInicial">Cantidad</label>
                     <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
                     <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Vacío o 0 → stock 0 en este almacén.</div>
                 </div>
@@ -1986,7 +1993,7 @@
         if (e) { e.preventDefault(); e.stopPropagation(); }
         if (!almSelCount()) { toast('No hay productos seleccionados todavía.', 'error'); return; }
         almSoloSel = !almSoloSel;
-        // El glow amarillo del contador (.is-filtering) refleja el estado actual.
+        // El circulo ambar en el numero (.is-filtering) refleja el estado actual.
         var btn = el('almBulkCounter');
         if (btn) btn.classList.toggle('is-filtering', almSoloSel);
         // Recargar la tabla via AJAX. Cuando solo_sel esta ON, filtros() manda

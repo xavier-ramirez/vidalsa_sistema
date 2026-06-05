@@ -6,7 +6,7 @@
     <title>Sistema de Gestión de Maquinaria - Inicio de Sesión</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <!-- Fonts (Local) -->
-    <link href="{{ asset('css/fonts.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/maquinaria/inicio_sesion.css') }}?v={{ @filemtime(public_path('css/maquinaria/inicio_sesion.css')) }}">
     <style>
         /* Force hide browser default password reveal button - Inline Critical CSS */

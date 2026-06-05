@@ -52,9 +52,14 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 50px; color: var(--maquinaria-gray-text);">
-                            <i class="material-icons" style="font-size: 48px; display: block; margin-bottom: 10px; color: #cbd5e0;">person_off</i>
-                            No se encontraron usuarios registrados o con los criterios de búsqueda.
+                        <td colspan="7" style="padding: 50px 20px; border: none;">
+                            {{-- Flex centrado: garantiza que el icono + texto queden centrados
+                                 horizontalmente en todo el ancho de la tabla (el text-align
+                                 con el icono en display:block no centraba bien en desktop). --}}
+                            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color: var(--maquinaria-gray-text);">
+                                <i class="material-icons" style="font-size: 48px; color: #cbd5e0;">person_off</i>
+                                <span style="font-size:14px; text-align:center;">No se encontraron usuarios registrados o con los criterios de búsqueda.</span>
+                            </div>
                         </td>
                     </tr>
                 @endforelse
