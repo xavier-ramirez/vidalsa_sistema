@@ -107,10 +107,12 @@
     }
     .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
-    /* Variante "producto": no monospace (el texto es la descripcion del producto, mas
-       largo y con espacios). El codigo va como label chico a la derecha. */
-    .tr-suggest-item.tr-suggest-prod { font-family:inherit; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .tr-suggest-item.tr-suggest-prod .tr-prod-cod { font-family:monospace; font-size:11px; font-weight:700; color:#64748b; flex:0 0 auto; }
+    /* Variante "producto": el CÓDIGO va PRIMERO y la descripción después, ambos con la
+       MISMA letra (sin negrita ni monospace — el código hereda el estilo del item). La
+       descripción ocupa el resto y se envuelve, para ver la mayor parte en pantallas chicas. */
+    .tr-suggest-item.tr-suggest-prod { font-family:inherit; font-size:13px; font-weight:600; display:flex; align-items:flex-start; gap:8px; }
+    .tr-suggest-item.tr-suggest-prod .tr-prod-cod { flex:0 0 auto; white-space:nowrap; }
+    .tr-suggest-item.tr-suggest-prod .tr-prod-nom { flex:1 1 auto; min-width:0; }
     /* Tabla con el mismo estilo que /admin/equipos y /admin/almacen (.table-row-header style) */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .tr-table thead tr { background:#1e293b; }
@@ -621,8 +623,8 @@
                 var nom = String(p.NOMBRE || '').replace(/[<>&"']/g, '');
                 var cod = String(p.CODIGO || '').replace(/[<>&"']/g, '');
                 return '<div class="tr-suggest-item tr-suggest-prod" onclick="window.trSearchProdPick(\'' + nom.replace(/'/g, "\\'") + '\')">'
-                     +   '<span>' + nom + '</span>'
                      +   '<span class="tr-prod-cod">' + cod + '</span>'
+                     +   '<span class="tr-prod-nom">' + nom + '</span>'
                      + '</div>';
             }).join('');
         }

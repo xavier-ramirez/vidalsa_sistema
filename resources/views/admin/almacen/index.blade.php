@@ -212,6 +212,12 @@
     .alm-suggest-item:hover, .alm-suggest-item.active { background:#f0f4f8; }
     .alm-suggest-item.si-sel { background:#ebf4ff; color:var(--maquinaria-blue,#0067b1); }
     .alm-suggest-item .nom { font-size:13.5px; color:#475569; font-weight:600; }
+    /* Fila código + descripción de cada sugerencia del buscador: el CÓDIGO va PRIMERO
+       y la descripción después, ambos con la MISMA letra (sin negrita ni monospace). La
+       descripción ocupa el resto y se envuelve, para ver la mayor parte en pantallas chicas. */
+    .alm-suggest-line { display:flex; align-items:flex-start; gap:8px; }
+    .alm-suggest-line .nom { flex:1 1 auto; min-width:0; }
+    .alm-suggest-cod { font-size:13.5px; font-weight:600; color:#475569; flex:0 0 auto; white-space:nowrap; }
     .alm-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
     /* Variante "en línea" para los modales (no flota: empuja el contenido — así no la recorta el overflow del modal) */
     .alm-suggest-inline { margin-top:6px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 6px 16px rgba(0,0,0,0.06); max-height:200px; overflow-y:auto; padding:5px; display:none; }
@@ -591,7 +597,7 @@
                                                 cambiar otro filtro (asi no se pierde el activo
                                                 mientras el usuario no escribe nada nuevo). --}}
         @php $bActivo = trim((string) ($reqBuscar ?? '')); @endphp
-        <div class="alm-filter {{ $bActivo ? 'active' : '' }}" style="flex:3 1 340px;max-width:560px;">
+        <div class="alm-filter {{ $bActivo ? 'active' : '' }}" style="flex:3 1 380px;max-width:660px;">
             <div class="alm-filter-box">
                 <span class="alm-ic"><i class="material-icons" style="font-size:18px;">search</i></span>
                 <input type="text" id="almFiltroBuscar" autocomplete="off"
@@ -629,7 +635,7 @@
         <div style="display:flex;gap:8px;margin-left:auto;flex:0 0 auto;align-items:center;">
             <div style="position:relative;">
                 <button type="button" id="almBtnAcciones" class="btn-primary-maquinaria"
-                        style="height:45px;padding:0 20px;min-width:200px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
+                        style="height:45px;padding:0 16px;min-width:150px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
                         onclick="window.almToggleAcciones(event)">
                     <i class="material-icons" style="font-size:18px;">settings</i><span class="desktop-text">Acciones</span><i class="material-icons" style="font-size:18px;">expand_more</i>
                 </button>
@@ -1802,8 +1808,10 @@
                     : '';
                 // data-pid (ID_PRODUCTO) = match EXACTO al hacer clic; data-pick = nombre que
                 // se pega en el input para que se vea lo elegido y siga siendo editable.
+                var codBadge = cod ? '<span class="alm-suggest-cod">' + cod + '</span>' : '';
                 return '<div class="alm-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-pick="' + nom + '" title="' + cod + '">'
-                     + '<span class="nom">' + nom + '</span>' + badge + '</div>';
+                     + '<div class="alm-suggest-line">' + codBadge + '<span class="nom">' + nom + '</span></div>'
+                     + badge + '</div>';
             }).join('');
             box.innerHTML = html;
         }

@@ -178,9 +178,7 @@
     margin: 5px 0;
     padding: 0;
     /* Remove padding to handle header better */
-    /* Borde transparente en reposo: cuando el grupo se despliega (.active) solo
-       cambia el COLOR del borde, sin salto de 1px en el layout. */
-    border: 1px solid transparent;
+    border: none;
     overflow: hidden;
     /* For smooth toggle */
     transition: all 0.3s ease;
@@ -200,35 +198,17 @@
 }
 
 .mobile-nav-group-title:hover {
-    background-color: #f0f4f8;
+    background-color: #ffffff;
     color: var(--maquinaria-blue);
 }
 
-/* Grupo DESPLEGADO (telefono): el grupo se vuelve una tarjeta suave y cohesiva,
-   asi el boton padre (ej. "Flota") y sus sub-botones se leen como una sola unidad
-   — limpio y elegante, sin anillos ni barras duras. */
-.mobile-nav-group.active {
-    background: #f7fafd;
-    border: 1px solid #e6eef7;
-    border-radius: 12px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-
-/* El padre es la cabecera de la tarjeta: texto azul de marca + fondo azul muy
-   sutil, con las esquinas superiores redondeadas para fundirse con la tarjeta. */
+/* Grupo DESPLEGADO (telefono): plano y limpio — sin tarjeta, sin bordes, sin
+   líneas ni sombras. Solo el padre en azul y los sub-botones visibles. */
 .mobile-nav-group.active .mobile-nav-group-title {
-    background-color: #eef4fb;
     color: var(--maquinaria-blue);
-    border-radius: 11px 11px 0 0;
 }
-
-/* Sub-botones: ligeramente indentados y unidos al padre con una guia vertical
-   suave (no un borde duro), para sugerir la jerarquia sin recargar. */
 .mobile-nav-group.active .mobile-nav-group-content {
     display: flex;
-    margin: 4px 10px 8px;
-    padding-left: 12px;
-    border-left: 2px solid #dbe7f4;
 }
 
 .mobile-nav-group-title i.chevron {
@@ -334,7 +314,7 @@
     transform: translateX(-50%);
     width: 90%;
     max-width: 400px;
-    background: white;
+    background: #f4f5f7;
     border-radius: 16px;
     border: 1px solid #cbd5e0;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
@@ -367,7 +347,7 @@
 
 .mobile-nav-link:hover,
 .mobile-nav-link.active {
-    background-color: #f0f4f8;
+    background-color: #ffffff;
     color: var(--maquinaria-blue);
 }
 

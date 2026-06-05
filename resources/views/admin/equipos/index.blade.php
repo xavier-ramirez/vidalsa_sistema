@@ -202,9 +202,11 @@
             </div>
         </div>
 
-        <!-- Search Filter / Seriales -->
         <!-- Search Filter / Seriales + Advanced Filter Button -->
-        <div class="filter-item aligned-filter" style="display: flex; gap: 10px;">
+        {{-- flex:1 + max-width:none → en PC el buscador crece y llena el hueco hasta
+             el borde, dejando el botón "Filtros Avanzados" pegado al final de la fila
+             de filtros (junto al último filtro). En móvil .filter-item es width:100%. --}}
+        <div class="filter-item aligned-filter" style="display: flex; gap: 10px; flex: 1 1 auto; max-width: none;">
             <form action="{{ route('equipos.index') }}" method="GET" id="search-form" style="flex: 1; margin: 0;">
                 
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search_query') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search_query') ? '#e1effa' : '#fff' }};">
