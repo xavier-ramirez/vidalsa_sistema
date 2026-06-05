@@ -34,7 +34,7 @@
         {{-- =====================================================================
              FILTRO FRENTE: Restringido a frentes permitidos
              ===================================================================== --}}
-        <div class="mv-filter-item">
+        <div class="mv-filter-item mv-frente-item">
             @php
                 $currentFrenteId = request('id_frente');
                 $currentFrente = $currentFrenteId && $currentFrenteId !== 'all' ? $frentes->firstWhere('ID_FRENTE', $currentFrenteId) : null;

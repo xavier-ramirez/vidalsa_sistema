@@ -164,7 +164,10 @@
         </div>
 
         <!-- Tipo Filter -->
-        <div class="filter-item aligned-filter" style="flex: 1.5;">
+        {{-- flex: 0 1 300px → Tipo conserva su ancho original (~300px, su max-width) y NO
+             crece; el sobrante se lo lleva el buscador (que mantiene "Filtros Avanzados"
+             al final). Antes, con flex-basis 0, el buscador al crecer lo comprimía. --}}
+        <div class="filter-item aligned-filter" style="flex: 0 1 300px;">
             <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="id_tipo" data-default-label="Filtrar Tipo...">
                 <input type="hidden" name="id_tipo" data-filter-value value="{{ request('id_tipo') }}" form="search-form">
                 

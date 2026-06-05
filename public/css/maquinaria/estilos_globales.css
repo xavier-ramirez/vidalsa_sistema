@@ -2477,6 +2477,13 @@ input:-webkit-autofill:active {
     flex: 1.5 1 200px;
 }
 
+/* Filtro "Frente" un poco más ancho que los demás en PC (base 240px). En móvil
+   el media query `.mv-filter-item:not(.mv-search-item)` lo pone full-width con
+   !important, así que esto solo aplica en escritorio. */
+.mv-filter-item.mv-frente-item {
+    flex: 1.4 1 240px;
+}
+
 /* En desktop el botón Recepción Directa tiene ancho automático */
 #btnRecepcionDirecta {
     width: auto;
