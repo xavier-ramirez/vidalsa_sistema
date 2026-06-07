@@ -177,14 +177,16 @@ class HistorialDocumentosController extends Controller
                 $autorId = $doc->{$cfg['autor_col']};
                 if (!$fecha || !$autorId) continue;
 
-                $autor = $doc->{$cfg['user_rel']}
-                    ? $doc->{$cfg['user_rel']}->CORREO_ELECTRONICO
-                    : $autorId;
+                $autorRel = $doc->{$cfg['user_rel']};
+                $autor = $autorRel ? $autorRel->CORREO_ELECTRONICO : $autorId;
+                // Nombre del autor → permite filtrar/ubicar por nombre además del correo.
+                $autorNombre = $autorRel ? ($autorRel->NOMBRE_COMPLETO ?? '') : '';
 
                 $events->push((object)[
                     'doc_key'      => $docKey,
                     'tipo'         => $cfg['label'],
                     'autor'        => $autor,
+                    'autor_nombre' => $autorNombre,
                     'fecha'        => $fecha,
                     'link'         => $doc->{$cfg['link_col']},
                     'equipo_nombre'=> $eName,
@@ -198,7 +200,7 @@ class HistorialDocumentosController extends Controller
         // restringido a las columnas necesarias + pre-filtros en SQL + LIMIT.
         $equiposQuery = \App\Models\Equipo::with([
                 'tipo:id,nombre',
-                'creador:ID_USUARIO,CORREO_ELECTRONICO',
+                'creador:ID_USUARIO,CORREO_ELECTRONICO,NOMBRE_COMPLETO',
                 'documentacion:ID_EQUIPO,PLACA',
             ])
             ->whereNotNull('CREADO_POR');
@@ -235,6 +237,7 @@ class HistorialDocumentosController extends Controller
                 'doc_key'      => 'creacion',
                 'tipo'         => 'Registro de Vehículo',
                 'autor'        => $equipo->creador ? $equipo->creador->CORREO_ELECTRONICO : 'Usuario Desconocido',
+                'autor_nombre' => $equipo->creador ? ($equipo->creador->NOMBRE_COMPLETO ?? '') : '',
                 'fecha'        => $equipo->created_at, // Eloquent castea created_at a Carbon automaticamente
                 'link'         => null,
                 'equipo_nombre'=> ($equipo->tipo->nombre ?? 'Equipo') . ' ' . $equipo->MARCA . ' ' . $equipo->MODELO,
@@ -301,6 +304,7 @@ class HistorialDocumentosController extends Controller
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,
                     'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
                     'fecha'         => $log->created_at, // EquipoAuditLog castea created_at a Carbon
                     'link'          => null,
                     'equipo_nombre' => $eName,
@@ -350,8 +354,9 @@ class HistorialDocumentosController extends Controller
 
         // 4. Filtros finales en memoria sobre los eventos ya construidos.
         //    - search_correo y search_tipo: NO se pueden hacer en SQL porque
-        //      'autor' es un correo derivado de 6 relaciones distintas + el label
-        //      'tipo' es un string construido en PHP (no existe en DB).
+        //      'autor'/'autor_nombre' son correo/nombre derivados de 6 relaciones
+        //      distintas + el label 'tipo' es un string construido en PHP (no en DB).
+        //      search_correo ubica por nombre O correo (ver más abajo).
         //    - fecha_desde/hasta: se aplico en SQL para REDUCIR el dataset, pero
         //      hay que repetir aqui porque un Documentacion tiene 6 fechas y solo
         //      necesitamos que UNA caiga en rango para traerlo; los eventos de las
@@ -374,7 +379,11 @@ class HistorialDocumentosController extends Controller
             $catUploadKeys = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
 
             $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql, $catUploadKeys) {
-                if ($search_correo && strpos($normalize($event->autor), $search_correo) === false) {
+                // Ubicar por NOMBRE o CORREO del autor: el término casa si está en
+                // cualquiera de los dos (autor = correo, autor_nombre = nombre completo).
+                if ($search_correo
+                    && strpos($normalize($event->autor), $search_correo) === false
+                    && strpos($normalize($event->autor_nombre ?? ''), $search_correo) === false) {
                     return false;
                 }
                 if ($search_tipo && $search_tipo !== 'all') {
@@ -491,19 +500,24 @@ class HistorialDocumentosController extends Controller
             ]);
         }
 
-        // Correos de usuarios → para el autocompletado (datalist) del filtro "Buscar por correo autor".
-        $correosAutores = \App\Models\Usuario::whereNotNull('CORREO_ELECTRONICO')
+        // Autores (nombre + correo) → autocompletado del filtro "Buscar por nombre o
+        // correo del autor". Se sugieren ambos para que el usuario ubique por cualquiera.
+        $autoresSugeridos = \App\Models\Usuario::whereNotNull('CORREO_ELECTRONICO')
             ->where('CORREO_ELECTRONICO', '!=', '')
-            ->orderBy('CORREO_ELECTRONICO')
-            ->distinct()
-            ->pluck('CORREO_ELECTRONICO');
+            ->orderBy('NOMBRE_COMPLETO')
+            ->get(['NOMBRE_COMPLETO', 'CORREO_ELECTRONICO'])
+            ->map(fn ($u) => [
+                'nombre' => (string) ($u->NOMBRE_COMPLETO ?? ''),
+                'correo' => (string) $u->CORREO_ELECTRONICO,
+            ])
+            ->values();
 
         return view('admin.historial_documentos.index', [
-            'events'         => $paginatedEvents,
-            'total'          => $total,
-            'blockedIps'     => $blockedIps,
-            'activeUsers'    => $activeUsers,
-            'correosAutores' => $correosAutores,
+            'events'           => $paginatedEvents,
+            'total'            => $total,
+            'blockedIps'       => $blockedIps,
+            'activeUsers'      => $activeUsers,
+            'autoresSugeridos' => $autoresSugeridos,
         ]);
     }
 

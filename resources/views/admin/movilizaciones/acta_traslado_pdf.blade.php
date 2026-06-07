@@ -44,15 +44,15 @@
 
     <!-- ===================== LUGAR Y FECHA ===================== -->
     @if($lugarOrigen !== '')
-    <!-- Separador Encabezado/Lugar (22px) — aire entre el cabezote y el renglon -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="22">&nbsp;</td></tr></table>
+    <!-- Separador Encabezado/Lugar (38px) — aire entre el cabezote y el renglon -->
+    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="38">&nbsp;</td></tr></table>
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
             <td align="right" style="font-size: 10pt; font-weight: bold;">{{ strtoupper($lugarOrigen) }}, {{ $fechaActa }}</td>
         </tr>
     </table>
-    <!-- Separador Lugar/Cuerpo (16px) — aire entre el renglon y el parrafo -->
-    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="16">&nbsp;</td></tr></table>
+    <!-- Separador Lugar/Cuerpo (30px) — aire entre el renglon y el parrafo -->
+    <table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="30">&nbsp;</td></tr></table>
     @endif
 
     <!-- ===================== CUERPO DEL TEXTO ===================== -->

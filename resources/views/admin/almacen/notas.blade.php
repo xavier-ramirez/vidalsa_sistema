@@ -51,8 +51,6 @@
                                placeholder="{{ $almSel ? $almSel->NOMBRE : 'Todos los almacenes' }}"
                                style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.filterDropdownOptions(this)">
-                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="event.stopPropagation(); selectOption('almNotFiltroAlmacen','all','TODOS LOS ALMACENES');">close</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                         <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">

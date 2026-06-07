@@ -167,12 +167,25 @@ function escHtmlUsuarios(s) {
     });
 }
 
+// Cache: parseamos el JSON y PRE-NORMALIZAMOS nombre+correo UNA sola vez. Antes se
+// re-parseaba y re-normalizaba la lista COMPLETA de usuarios en CADA tecla → esa era
+// la lentitud. Se reconstruye solo si el nodo de datos cambia (recarga que lo reemplace).
+let _usuariosSugCache = null;
+let _usuariosSugNode = null;
 function getUsuariosSugerencias() {
     const node = document.getElementById('usuariosSugerenciasData');
     if (!node) return [];
+    if (_usuariosSugCache && _usuariosSugNode === node) return _usuariosSugCache;
     try {
         const list = JSON.parse(node.dataset.list || '[]');
-        return Array.isArray(list) ? list : [];
+        const arr = Array.isArray(list) ? list : [];
+        // _n = nombre+correo ya normalizados → el filtro por tecla es solo un indexOf
+        // (sin volver a llamar normalize() por cada usuario en cada pulsación).
+        _usuariosSugCache = arr.map(function (u) {
+            return { nombre: u.nombre, correo: u.correo, _n: usuariosNorm(u.nombre) + ' ' + usuariosNorm(u.correo) };
+        });
+        _usuariosSugNode = node;
+        return _usuariosSugCache;
     } catch (e) {
         return [];
     }
@@ -190,7 +203,7 @@ function renderSearchSuggest(term) {
     if (t.length < 2) { hideSearchSuggest(); return; }
 
     const matches = getUsuariosSugerencias().filter(function (u) {
-        return usuariosNorm(u.nombre).indexOf(t) > -1 || usuariosNorm(u.correo).indexOf(t) > -1;
+        return u._n.indexOf(t) > -1; // _n = nombre+correo ya normalizados (sin normalize() por tecla)
     }).slice(0, 8);
 
     if (!matches.length) {

@@ -1812,6 +1812,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
     // origen no tiene responsables → pediremos esos datos en el formulario.
     var ultimaFirmasCount = null;
     var sinResponsablesOrigen = false;
+    // Blob del último PDF generado: en teléfono el PDF se dibuja con PDF.js sobre
+    // <canvas> a partir de su arrayBuffer (el iframe no renderiza PDF en móvil).
+    var pdfBlob = null;
 
     // Pide el PDF al backend con los overrides actuales del estado → blob URL.
     async function pedirPreview() {
@@ -1834,7 +1837,8 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         }
         var hf = res.headers.get('X-Acta-Firmas');
         ultimaFirmasCount = (hf === null || hf === '') ? null : parseInt(hf, 10);
-        return URL.createObjectURL(await res.blob());
+        pdfBlob = await res.blob();
+        return URL.createObjectURL(pdfBlob);
     }
 
     if (window.showPreloader) window.showPreloader();
@@ -1865,7 +1869,6 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
                 '#mov-prev-card .ed-firma-row .ed-f-car,#mov-prev-card .ed-firma-row .ed-f-nom,#mov-prev-card .ed-firma-row .ed-f-ced{grid-column:1 / -1;}' +
                 '#mov-prev-foot{flex-wrap:wrap !important;}' +
                 '#mov-prev-foot button{flex:1 1 140px;justify-content:center;}' +
-                '#mov-prev-body iframe{min-height:0 !important;height:100% !important;}' +
             '}';
         document.head.appendChild(st);
     }
@@ -1894,11 +1897,78 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
     ov.querySelector('#mov-prev-x').onclick = cerrar;
     ov.onclick = function (e) { if (e.target === ov) cerrar(); };
 
-    // ── Vista de PREVIEW: iframe + [Editar | Confirmar] ──
+    // ── Render del PDF en TELÉFONO con PDF.js ───────────────────────────────────
+    // Los navegadores móviles no renderizan PDF embebido en <iframe>, así que en
+    // teléfono/tablet dibujamos el PDF en <canvas> con PDF.js (mismo enfoque que la
+    // vista previa del módulo de inventario). PDF.js se carga del CDN solo la 1ª vez
+    // y queda cacheado en window para no recargarlo en aperturas posteriores.
+    function esMovilPdf() {
+        return window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+    function ensurePdfJs() {
+        if (window.pdfjsLib) return Promise.resolve();
+        if (window._equiposPdfJsPromise) return window._equiposPdfJsPromise;
+        window._equiposPdfJsPromise = new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+            s.onload = function () {
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; } catch (e) {}
+                resolve();
+            };
+            s.onerror = function () { window._equiposPdfJsPromise = null; reject(new Error('No se pudo cargar el visor de PDF.')); };
+            document.head.appendChild(s);
+        });
+        return window._equiposPdfJsPromise;
+    }
+    // Dibuja el blob PDF en el contenedor (una <canvas> por página, ajustada al ancho).
+    function renderPdfCanvas(cont, blob) {
+        if (!cont || !blob) return Promise.resolve();
+        cont.innerHTML = '<div style="color:#cbd5e0;text-align:center;padding:30px;font-size:13px;">Cargando vista previa…</div>';
+        return ensurePdfJs()
+            .then(function () { return blob.arrayBuffer(); })
+            .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
+            .then(function (pdf) {
+                cont.innerHTML = '';
+                var dpr = window.devicePixelRatio || 1;
+                var ancho = cont.clientWidth - 20; // descontar el padding del contenedor
+                if (ancho <= 0) ancho = Math.min(window.innerWidth - 40, 900);
+                var seq = Promise.resolve();
+                for (var i = 1; i <= pdf.numPages; i++) {
+                    (function (n) {
+                        seq = seq.then(function () {
+                            return pdf.getPage(n).then(function (page) {
+                                var base = page.getViewport({ scale: 1 });
+                                var vp = page.getViewport({ scale: (ancho / base.width) * dpr });
+                                var canvas = document.createElement('canvas');
+                                canvas.width = vp.width; canvas.height = vp.height;
+                                canvas.style.width = '100%'; canvas.style.height = 'auto';
+                                canvas.style.display = 'block'; canvas.style.margin = '0 auto 10px';
+                                canvas.style.background = '#fff'; canvas.style.boxShadow = '0 1px 6px rgba(0,0,0,0.25)';
+                                cont.appendChild(canvas);
+                                return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                            });
+                        });
+                    })(i);
+                }
+                return seq;
+            })
+            .catch(function (e) {
+                cont.innerHTML = '<div style="color:#fecaca;text-align:center;padding:30px;font-size:13px;">No se pudo mostrar la vista previa. ' + (e && e.message ? e.message : '') + '</div>';
+            });
+    }
+
+    // ── Vista de PREVIEW: iframe (escritorio) / canvas (móvil) + [Editar | Confirmar] ──
     function renderPreview() {
         if (cardEl) cardEl.style.maxWidth = '1100px'; // PDF: ancho para leerlo cómodo
         bodyEl.style.background = '#475569';
-        bodyEl.innerHTML = '<iframe src="' + pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width:100%;height:72vh;min-height:520px;border:none;background:#fff;" title="Vista previa Acta de Traslado"></iframe>';
+        if (esMovilPdf()) {
+            // TELÉFONO/TABLET: el iframe no muestra PDF → lo dibujamos en <canvas> con PDF.js.
+            bodyEl.innerHTML = '<div id="mov-prev-canvas" style="width:100%;min-height:520px;padding:10px;box-sizing:border-box;"></div>';
+            renderPdfCanvas(bodyEl.querySelector('#mov-prev-canvas'), pdfBlob);
+        } else {
+            // ESCRITORIO: visor PDF nativo del navegador en el iframe.
+            bodyEl.innerHTML = '<iframe src="' + pdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width:100%;height:72vh;min-height:520px;border:none;background:#fff;" title="Vista previa Acta de Traslado"></iframe>';
+        }
         footEl.innerHTML =
             '<button type="button" id="mov-prev-edit" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">edit</i>Editar</button>' +
             '<button type="button" id="mov-prev-ok" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check_circle</i>Confirmar</button>';

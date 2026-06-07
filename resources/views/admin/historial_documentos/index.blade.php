@@ -237,7 +237,7 @@
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchCorreo" name="search_correo"
                                 value="{{ request('search_correo') }}"
-                                placeholder="Buscar por correo autor..."
+                                placeholder="Buscar por nombre o correo del autor..."
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
@@ -246,9 +246,9 @@
                                 onkeyup="window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo')">
                             <i id="btn_clear_searchCorreo" class="material-icons clear-icon" style="display: {{ request('search_correo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchCorreo', 'searchCorreo');">close</i>
                         </div>
-                        {{-- Autocompletado de correos: dropdown PROPIO con tope de altura + scroll.
-                             Antes era un <datalist> nativo que el navegador desplegaba a pantalla
-                             completa (no se puede limitar por CSS). --}}
+                        {{-- Autocompletado de autores (nombre + correo): dropdown PROPIO con tope
+                             de altura + scroll. Antes era un <datalist> nativo que el navegador
+                             desplegaba a pantalla completa (no se puede limitar por CSS). --}}
                         <div id="hdCorreosSuggest" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:50; margin-top:4px; max-height:220px; overflow-y:auto; background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);"></div>
                     </form>
                 </div>
@@ -830,14 +830,16 @@
 </script>
 @endcan
 
-{{-- Autocompletado del filtro "Buscar por correo autor": dropdown propio con tope
-     de altura + scroll (reemplaza el <datalist> nativo que se desplegaba a pantalla
-     completa). FUERA del @can: el filtro de correo es para TODOS los usuarios. --}}
+{{-- Autocompletado del filtro "Buscar por nombre o correo del autor": dropdown propio
+     con tope de altura + scroll (reemplaza el <datalist> nativo que se desplegaba a
+     pantalla completa). Sugiere por nombre Y correo. FUERA del @can: este filtro es
+     para TODOS los usuarios. --}}
 <script>
 (function () {
     if (window.__hdCorreoAutoInit) return;
     window.__hdCorreoAutoInit = true;
-    var CORREOS = @json($correosAutores ?? []);
+    // Lista de autores {nombre, correo}: se puede ubicar por NOMBRE o por CORREO.
+    var AUTORES = @json($autoresSugeridos ?? []);
     var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
 
     window.hdCorreoSuggest = function () {
@@ -845,13 +847,23 @@
         var box = document.getElementById('hdCorreosSuggest');
         if (!inp || !box) return;
         var term = (inp.value || '').trim().toLowerCase();
-        var m = CORREOS.filter(function (c) { return String(c).toLowerCase().indexOf(term) !== -1; }).slice(0, 50);
+        // Casa por nombre O por correo (substring).
+        var m = AUTORES.filter(function (a) {
+            return String(a.nombre || '').toLowerCase().indexOf(term) !== -1
+                || String(a.correo || '').toLowerCase().indexOf(term) !== -1;
+        }).slice(0, 50);
         if (!m.length) { box.style.display = 'none'; return; }
-        box.innerHTML = m.map(function (c) {
-            return '<div class="hd-correo-item" data-val="' + esc(c) + '"'
+        box.innerHTML = m.map(function (a) {
+            // data-val = correo (único por usuario): al elegir, filtra por esa persona.
+            // Se muestra "Nombre — correo"; si el usuario no tiene nombre, solo el correo.
+            var nombre = a.nombre || '';
+            var label  = nombre
+                ? (esc(nombre) + ' <span style="color:#94a3b8;">— ' + esc(a.correo) + '</span>')
+                : esc(a.correo);
+            return '<div class="hd-correo-item" data-val="' + esc(a.correo) + '"'
                  + ' onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'"'
                  + ' style="padding:9px 14px;font-size:13px;color:#334155;cursor:pointer;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#fff;">'
-                 + esc(c) + '</div>';
+                 + label + '</div>';
         }).join('');
         box.style.display = 'block';
     };

@@ -128,7 +128,7 @@ class MovilizacionController extends Controller
         }
 
         // Fetch paginated results sin puntos suspensivos (mostrando hasta 50 pÃ¡ginas continuas)
-        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(12);
+        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(16);
 
         $totalTransito = $movilizaciones->total();
 
@@ -693,7 +693,7 @@ class MovilizacionController extends Controller
      * Construye el PDF del Acta de Traslado (binario) a partir de datos ya resueltos.
      * Centralizado: lo usan generarActaTraslado() (descarga real con CODIGO_CONTROL)
      * y previewActaLote() (vista previa desde borrador, numero "PENDIENTE"). Asi NO
-     * se duplica el armado/paginacion. Margenes 18/38/18 atados a equiposColWidths
+     * se duplica el armado/paginacion. Margenes 18/40/18 atados a equiposColWidths
      * (=174mm) y cabX/cabW (18/174) del Header.
      */
     /**
@@ -786,8 +786,11 @@ class MovilizacionController extends Controller
         $pdf->numeroOperacion = $numeroOperacion;
         $pdf->setPrintHeader(true);
         $pdf->setPrintFooter(true);
-        $pdf->SetMargins(18, 38, 18);
-        $pdf->SetHeaderMargin(6);
+        // El cabezote arranca en y=16 (16mm de aire desde el borde superior del papel)
+        // y mide 24mm (=68pt) -> bottom = 40mm. top=40 = bottom del cabezote: la primera
+        // tabla del body arranca PEGADA al cabezote, sin franja blanca entre ambos.
+        $pdf->SetMargins(18, 40, 18);
+        $pdf->SetHeaderMargin(16);
         $pdf->SetAutoPageBreak(true, 15);
         $pdf->AddPage();
         $pdf->SetFont('helvetica', '', 10);
@@ -824,7 +827,7 @@ class MovilizacionController extends Controller
         $sigH   = $measureH($sigHtml);
 
         $bottomLimit  = $pdf->getPageHeight() - $pdf->getBreakMargin();
-        $topY         = 38;  // = SetMargins top
+        $topY         = 40;  // = SetMargins top
         $tableHeaderH = 8;
         $rowH         = 7;
         $safetyGap    = 10;
@@ -1285,24 +1288,24 @@ class ActaTrasladoPDF extends \TCPDF
 
         // Geometria del cabezote (atada a SetMargins del controller):
         //   x = 18 mm  (coincide con SetMargins left=18)   width = 174 mm
-        //   y = 6 mm                                       height = 28 mm
-        //   bottom = 6 + 28 = 34 mm   ← SetMargins top=38 deja 4mm de gap
-        //                                hasta el inicio del parrafo del body
+        //   y = 16 mm  (16mm de aire desde el borde sup.)  height = 24 mm (= 68 pt)
+        //   bottom = 16 + 24 = 40 mm  ← coincide con SetMargins top=40, de modo
+        //                                que el body arranca PEGADO al cabezote.
         $cabX = 18;
-        $cabY = 6;
+        $cabY = 16;
         $cabW = 174;
-        $cabH = 28;
-        $logoCellW = $cabW * 0.20;  // 36 mm
+        $cabH = 24;
+        $logoCellW = $cabW * 0.20;  // 34.8 mm
 
         $img = public_path('img/imagen_uno.jpg');
         if (file_exists($img)) {
-            // Logo centrado dentro de la celda 20% × 28mm con padding 1mm.
+            // Logo centrado dentro de la celda 20% × 24mm con padding 1mm.
             // fitbox='CM' = Center+Middle; preserva aspect ratio.
             $padding = 1;
-            $bx = $cabX + $padding;                 // 16
-            $by = $cabY + $padding;                 //  7
-            $bw = $logoCellW - ($padding * 2);      // 34
-            $bh = $cabH - ($padding * 2);           // 26
+            $bx = $cabX + $padding;                 // 19
+            $by = $cabY + $padding;                 // 17
+            $bw = $logoCellW - ($padding * 2);      // 32.8
+            $bh = $cabH - ($padding * 2);           // 22
             $this->Image($img, $bx, $by, $bw, $bh, 'JPG', '', '', false, 300, '', false, false, 0, 'CM', false, false);
         }
 
@@ -1314,19 +1317,19 @@ class ActaTrasladoPDF extends \TCPDF
         $page = $this->PageNo() . ' de ' . max(1, $this->totalSheets ?: $this->getNumPages());
 
         // Geometria vertical en puntos:
-        //   - cada fila derecha: rowH ≈ 16pt (28mm * 2.83 / 5 redondeado)
-        //   - rowspan total (logo + titulo): rowspanH = rowH * 5 = 80pt
-        //     Igualar la altura exacta de ambos lados elimina el "minigap"
-        //     de ~1pt que aparecia antes (79.24 calculado vs 80 sumado).
-        // Font size 8 (antes 7) en las celdas — entra holgado en 16pt.
-        $rowH     = round($cabH * 2.83 / 5);     // 16pt
-        $rowspanH = $rowH * 5;                   // 80pt
+        //   - rowspan total (logo + titulo): headerHeight = 68pt (= 24mm = $cabH)
+        //   - las 5 filas del sello NO llevan height propio: TCPDF reparte el
+        //     rowspan entre ellas (≈13.6pt c/u), igualando ambos lados sin el
+        //     "minigap" de ~1pt. Mismo patron que el cabezote de la Nota de
+        //     Entrega (VID-FO-GEN-019), del cual hereda esta geometria.
+        // Font size 8 en las celdas — entra holgado en ~13.6pt.
+        $headerHeight = 68;                      // pt (= 24 mm = $cabH)
 
         // Line-height del titulo = altura del rowspan menos un padding visual.
         // Truco de centrado vertical en celda con rowspan — TCPDF no respeta
         // valign con rowspan, pero un line-height ≈ alto del rowspan deja el
         // texto exactamente en el centro.
-        $tituloDiv = '<div style="text-align:center;line-height:' . ($rowspanH - 4) . 'pt;font-family:helvetica;font-size:12pt;font-weight:bold;">ACTA DE TRASLADO DE EQUIPOS</div>';
+        $tituloDiv = '<div style="text-align:center;line-height:' . ($headerHeight - 4) . 'pt;font-family:helvetica;font-size:12pt;font-weight:bold;">ACTA DE TRASLADO DE EQUIPOS</div>';
 
         $fechaHoy = \Carbon\Carbon::now()->format('d/m/Y');
         $codigoOp = htmlspecialchars($this->numeroOperacion, ENT_QUOTES, 'UTF-8');
@@ -1338,14 +1341,14 @@ class ActaTrasladoPDF extends \TCPDF
         $bs = 'border:0.1mm solid #000;';
         $html = '<table cellpadding="2" cellspacing="0" width="100%" style="border-collapse:collapse;">'
               . '<tr>'
-              .   '<td width="20%" rowspan="5" height="' . $rowspanH . '" style="' . $bs . '">&nbsp;</td>'
-              .   '<td width="52%" rowspan="5" height="' . $rowspanH . '" align="center" valign="middle" style="' . $bs . '">' . $tituloDiv . '</td>'
-              .   '<td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
+              .   '<td width="20%" rowspan="5" height="' . $headerHeight . '" style="' . $bs . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="5" height="' . $headerHeight . '" align="center" valign="middle" style="' . $bs . '">' . $tituloDiv . '</td>'
+              .   '<td width="28%" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>C&oacute;digo:</b> ' . $codigoOp . '</font></td>'
               . '</tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Proc.de Refe:</b></font></td></tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
-              . '<tr><td width="28%" height="' . $rowH . '" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8">P&aacute;gina ' . $page . '</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Revisi&oacute;n:</b> 1</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Proc.de Refe:</b></font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8"><b>Fecha de Emisi&oacute;n:</b> ' . $fechaHoy . '</font></td></tr>'
+              . '<tr><td width="28%" align="center" valign="middle" style="' . $bs . '"><font face="helvetica" size="8">P&aacute;gina ' . $page . '</font></td></tr>'
               . '</table>';
 
         // SetFont base = mismo tamano que las celdas HTML (size=8). TCPDF lo

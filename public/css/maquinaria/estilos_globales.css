@@ -1267,6 +1267,15 @@ nav[role="navigation"] {
         overflow: visible !important;
     }
 
+    /* Usuarios: tarjeta contenedora más ancha (padding lateral 8px) y con el MISMO
+       aire arriba que el módulo equipos: padding-top 16px + el margin-bottom 20px del
+       page-title-card = 36px de separación título→contenido, igual que equipos (que
+       da 16px de margin del título + 20px de padding del card = 36px). El bottom queda
+       en 10px (compacto). Scopeado para no tocar otros módulos. */
+    .admin-card:has(.table-usuarios-mobile) {
+        padding: 16px 8px 10px 8px !important;
+    }
+
     .table-usuarios-mobile {
         display: block;
         min-width: 0 !important;
@@ -1280,7 +1289,7 @@ nav[role="navigation"] {
         display: flex;
         width: 100%;
         flex-direction: column;
-        gap: 12px;
+        gap: 6px;
     }
 
     .table-usuarios-mobile tr {
@@ -1295,7 +1304,7 @@ nav[role="navigation"] {
     .table-usuarios-mobile tr td {
         display: block;
         border: none !important;
-        padding: 5px 15px;
+        padding: 3px 15px;
         text-align: right;
         position: relative;
         border-radius: 0 !important;
@@ -1306,19 +1315,19 @@ nav[role="navigation"] {
     /* Name (Cell 1) */
     .table-usuarios-mobile tr td:nth-child(1) {
         text-align: left;
-        padding-top: 12px;
+        padding-top: 5px;
         padding-bottom: 0;
-        font-size: 14px;
+        font-size: 13px;
     }
 
     /* Email (Cell 2) - No border to keep together with Rol */
     .table-usuarios-mobile tr td:nth-child(2) {
         text-align: left;
         color: #718096 !important;
-        font-size: 13px;
-        padding-bottom: 6px;
+        font-size: 12px;
+        padding-bottom: 3px;
         border-bottom: none !important;
-        margin-bottom: 2px;
+        margin-bottom: 1px;
     }
 
     /* Data Cells (Rol, Access, Frente, Estado) */
@@ -1329,7 +1338,8 @@ nav[role="navigation"] {
         justify-content: flex-start;
         align-items: center;
         gap: 15px;
-        padding: 6px 15px;
+        padding: 2px 15px;
+        font-size: 13px;
         text-align: left;
         border-bottom: 1px solid #f7fafc !important;
         white-space: normal;
@@ -1343,7 +1353,8 @@ nav[role="navigation"] {
         justify-content: flex-start;
         align-items: center;
         gap: 15px;
-        padding: 5px 15px 8px 15px;
+        padding: 2px 15px 3px 15px;
+        font-size: 13px;
         text-align: left;
         border-bottom: none !important;
         white-space: normal;
@@ -1392,7 +1403,7 @@ nav[role="navigation"] {
        overflow:hidden de la tarjeta recorta las esquinas inferiores del footer. */
     .table-usuarios-mobile tr td:nth-child(7) {
         border-top: 1px solid #edf2f7 !important;
-        padding: 8px 15px;
+        padding: 5px 15px;
         box-sizing: border-box;
         background: #fbfcfd;
     }
@@ -1551,8 +1562,12 @@ input[type="password"]::-ms-clear {
     .page-title,
     .page-title .page-title-line2,
     .page-title span {
-        font-size: 22px !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
         line-height: 1.2 !important;
+        text-align: center !important;
+        width: 100% !important;
+        display: block !important;
     }
 
     /* Ensure the badge in User Management scales down too */
@@ -1569,9 +1584,31 @@ input[type="password"]::-ms-clear {
         margin-bottom: 20px !important;
     }
 
-    .page-title {
+    /* ── Usuarios: el conteo (people + número) va AL LADO del título, no debajo ──
+       La regla general de arriba pone .page-title / span en block + width:100%
+       (para títulos de 2 líneas de otros módulos), lo que empujaba el badge a su
+       propia línea. Solo la página de usuarios tiene #user-count-badge, así que
+       acá (scopeado con :has) devolvemos el título a una sola fila título+conteo. */
+    .page-title:has(#user-count-badge) {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
         justify-content: center !important;
-        flex-wrap: wrap;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    /* width:auto evita que el título tome el 100% y empuje el badge a otra línea.
+       NO fijamos font-size aquí: hereda los 18px de la regla general de arriba, así
+       el título de usuarios queda del MISMO tamaño que el de equipos y demás módulos. */
+    .page-title:has(#user-count-badge) .page-title-line2 {
+        width: auto !important;
+    }
+    .page-title:has(#user-count-badge) #user-count-badge,
+    .page-title:has(#user-count-badge) #user-count-badge span {
+        display: inline-flex !important;
+        width: auto !important;
+        flex: 0 0 auto !important;
     }
 }
 
