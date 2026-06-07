@@ -196,6 +196,23 @@ Route::middleware(['auth'])->group(function () {
             // por cada almacén visible + columna TOTAL.
             Route::get   ('almacen/export',                       [App\Http\Controllers\AlmacenController::class, 'export'])           ->name('almacen.export');
 
+            // ── Etiquetas QR + escaneo (como las etiquetas de góndola del supermercado) ──
+            // Etiquetas QR imprimibles. El QR codifica el CODIGO del producto
+            // (ProductoInventario::qr_payload). GET porque SOLO lee el catálogo y produce
+            // un PDF — mismo nivel de acceso que el export (cualquier usuario que ve el
+            // módulo); no muta nada. Parámetros:
+            //   ?ids=1,2,3   → solo esos productos (selección de filas / "imprimir 1").
+            //   ?categoria=X → todos los activos de esa categoría (cuando no hay ids).
+            //   ?formato=carta|50x30|40x25 → hoja A4 en grilla (impresora normal) o una
+            //                   etiqueta por página al tamaño exacto del rollo (impresora
+            //                   térmica tipo Zebra/Brother). Default: carta. El motor es
+            //                   el mismo TCPDF de la Nota de Entrega; solo cambia la página.
+            Route::get   ('almacen/etiquetas',                    [App\Http\Controllers\AlmacenController::class, 'etiquetasPdf'])     ->name('almacen.etiquetas');
+            // Resolver de escaneo: ?codigo=000123 → JSON { found, producto } con match
+            // EXACTO sobre CODIGO y SOLO activos (el índice UNIQUE incluye soft-deleted,
+            // por eso se filtra). Read-only, sin permiso (igual que la consulta del módulo).
+            Route::get   ('almacen/buscar-codigo',                [App\Http\Controllers\AlmacenController::class, 'resolverPorCodigo'])->name('almacen.buscar-codigo');
+
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
             // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de

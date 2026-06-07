@@ -67,4 +67,19 @@ class ProductoInventario extends Model
     {
         return $q->where('ESTATUS', 'ACTIVO');
     }
+
+    // ── Accessors ────────────────────────────────────────────────
+
+    /**
+     * Contenido que se codifica en el QR de la etiqueta del producto y que
+     * resuelve AlmacenController::resolverPorCodigo al escanear: el CODIGO del
+     * catálogo (índice UNIQUE, identificador de negocio — el equivalente al código
+     * de barras de un producto de supermercado). Centralizado aquí para que la
+     * impresión (etiquetasPdf) y el escaneo usen EXACTAMENTE el mismo valor y nunca
+     * se desincronicen. NO es una columna nueva: el QR es dato derivado del CODIGO.
+     */
+    public function getQrPayloadAttribute(): string
+    {
+        return (string) ($this->CODIGO ?? '');
+    }
 }

@@ -1649,6 +1649,268 @@ class AlmacenController extends Controller
         ]);
     }
 
+    // ─────────────────────────────────────────────────────────────
+    //  Etiquetas QR + escaneo (estilo etiqueta de producto de supermercado)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Genera el PDF de etiquetas QR imprimibles del catálogo.
+     *
+     * El QR codifica el CODIGO del producto (ProductoInventario::qr_payload) — el
+     * mismo valor que resuelve resolverPorCodigo() al escanear, así impresión y
+     * escaneo nunca se desincronizan. Read-only: arma un PDF desde el catálogo sin
+     * tocar BD, por eso NO lleva gate de permiso (igual criterio que export()).
+     *
+     * Selección de productos y cantidades:
+     *   ?items=ID:CANT,ID:CANT → cantidad POR producto (cada uno con su nº de copias).
+     *                            Tiene prioridad sobre ids/categoria/copias.
+     *   ?ids=1,2,3 (+?copias=N) → esos productos, N copias iguales de cada uno (def. 1).
+     *   ?categoria=X (+?copias) → todos los activos de esa categoría, N copias c/u.
+     *   (sin nada)              → todos los productos activos (con tope de seguridad).
+     *
+     * Formato (?formato=):
+     *   carta (default) → A4 vertical, grilla de etiquetas (impresora normal + hoja
+     *                     adhesiva tipo Avery).
+     *   50x30 | 40x25   → una etiqueta por página al tamaño exacto del rollo, para
+     *                     impresora térmica (Zebra/Brother/TSC). Mismo motor (TCPDF)
+     *                     y mismo QR: solo cambia el tamaño de página.
+     *
+     * Solo se incluyen productos CON código: un QR sin CODIGO no sería escaneable.
+     */
+    public function etiquetasPdf(Request $request)
+    {
+        $formato = in_array($request->query('formato'), ['carta', '50x30', '40x25'], true)
+            ? (string) $request->query('formato')
+            : 'carta';
+
+        // Tope total de etiquetas — red de seguridad ante combinaciones grandes (muchos
+        // productos × muchas copias). ~84 páginas A4: más que suficiente para imprimir.
+        $MAX  = 2000;
+        $cols = ['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'UBICACION'];
+        // Base común: solo activos y con código (un QR sin CODIGO no sería escaneable).
+        $base = fn () => ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '');
+
+        $itemsRaw = trim((string) $request->query('items', ''));
+        if ($itemsRaw !== '') {
+            // ── Cantidad POR PRODUCTO: ?items=ID:CANT,ID:CANT ──
+            $pares = [];
+            foreach (explode(',', $itemsRaw) as $tok) {
+                $bits = explode(':', $tok, 2);
+                $id   = (int) trim($bits[0] ?? '');
+                $qty  = isset($bits[1]) ? (int) trim($bits[1]) : 1;
+                if ($id > 0 && $qty > 0) {
+                    $pares[$id] = max(1, min(200, $qty));   // cap 200 por producto
+                }
+            }
+            abort_if(empty($pares), 404, 'No se indicaron productos válidos para las etiquetas.');
+            $productos = $base()->whereIn('ID_PRODUCTO', array_keys($pares))->orderBy('NOMBRE')->get($cols);
+            abort_if($productos->isEmpty(), 404, 'No hay productos con código para generar etiquetas.');
+            $copiasDe = fn ($p) => $pares[$p->ID_PRODUCTO] ?? 1;
+        } else {
+            // ── Cantidad UNIFORME (?copias) sobre ids o categoría ──
+            $copias = max(1, min(200, (int) $request->query('copias', 1)));
+            $q = $base()->orderBy('NOMBRE');
+            $idsRaw = trim((string) $request->query('ids', ''));
+            if ($idsRaw !== '') {
+                $ids = collect(explode(',', $idsRaw))
+                    ->map(fn ($v) => (int) trim($v))
+                    ->filter()->unique()->values()->all();
+                abort_if(empty($ids), 404, 'No se indicaron productos válidos para las etiquetas.');
+                $q->whereIn('ID_PRODUCTO', $ids);
+            } elseif ($request->filled('categoria') && $request->query('categoria') !== 'all') {
+                // El catálogo guarda la categoría en MAYÚSCULAS (ver validarProducto).
+                $q->where('CATEGORIA', mb_strtoupper(trim((string) $request->query('categoria'))));
+            }
+            // Tope de seguridad para el caso "todos/categoría" sobre catálogos grandes.
+            $productos = $q->limit(1000)->get($cols);
+            abort_if($productos->isEmpty(), 404, 'No hay productos con código para generar etiquetas.');
+            $copiasDe = fn ($p) => $copias;
+        }
+
+        // Secuencia PLANA de etiquetas: cada producto repetido su nº de copias, en orden,
+        // con tope total. El render solo la maqueta (grilla o una por página).
+        $secuencia = [];
+        foreach ($productos as $p) {
+            for ($c = 0, $n = $copiasDe($p); $c < $n; $c++) {
+                $secuencia[] = $p;
+                if (count($secuencia) >= $MAX) {
+                    break 2;
+                }
+            }
+        }
+
+        $binary = $this->renderEtiquetasPdfBinary($secuencia, $formato);
+        return response($binary, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Etiquetas_QR_' . $formato . '.pdf"',
+        ]);
+    }
+
+    /**
+     * Resolver de escaneo: traduce un CODIGO (leído del QR por cámara o lector USB,
+     * o tecleado) al producto del catálogo. Match EXACTO sobre CODIGO y SOLO activos
+     * (el índice UNIQUE de CODIGO incluye soft-deleted; por eso se filtra a activos).
+     * Read-only. El saldo NO se calcula aquí: el frontend, tras resolver, reusa el
+     * filtro normal del inventario (almBuscarPick), que ya muestra el saldo del
+     * producto en el almacén seleccionado.
+     *
+     *   ?codigo=000123 → { found:true, producto:{id,codigo,nombre,um,categoria,ubicacion} }
+     *                    o { found:false, message } si no existe.
+     */
+    public function resolverPorCodigo(Request $request)
+    {
+        $codigo = trim((string) $request->query('codigo', ''));
+        if ($codigo === '') {
+            return response()->json(['found' => false, 'message' => 'Código vacío.'], 422);
+        }
+
+        $producto = ProductoInventario::activos()
+            ->where('CODIGO', $codigo)
+            ->first(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'UBICACION']);
+
+        if (!$producto) {
+            return response()->json([
+                'found'   => false,
+                'message' => 'No existe un producto activo con el código ' . $codigo . '.',
+            ]);
+        }
+
+        return response()->json([
+            'found'    => true,
+            'producto' => [
+                'id'        => $producto->ID_PRODUCTO,
+                'codigo'    => $producto->CODIGO,
+                'nombre'    => $producto->NOMBRE,
+                'um'        => $producto->UM,
+                'categoria' => $producto->CATEGORIA,
+                'ubicacion' => $producto->UBICACION,
+            ],
+        ]);
+    }
+
+    /**
+     * Construye el PDF de etiquetas QR. Un único motor (TCPDF, el mismo de la Nota de
+     * Entrega) sirve para impresora normal y térmica — solo cambia el tamaño de página:
+     *   - 'carta'         → A4 vertical con una grilla de etiquetas (impresora normal).
+     *   - '50x30'/'40x25' → página = una etiqueta (impresora térmica de rollo).
+     * El QR usa corrección de error alta ('QRCODE,H') para que se lea aunque la
+     * etiqueta sea pequeña o se imprima a baja resolución (203 dpi térmico).
+     *
+     * Recibe $secuencia: la lista PLANA de productos ya expandida por copias (cada
+     * producto repetido su nº de etiquetas, en orden) — la arma etiquetasPdf(), que
+     * decide si la cantidad es uniforme (?copias) o por producto (?items). Aquí solo
+     * se maqueta (grilla en carta, una etiqueta por página en rollo).
+     */
+    private function renderEtiquetasPdfBinary(array $secuencia, string $formato): string
+    {
+        // Geometría por formato (mm). En 'carta' la grilla la definen cols + el nº de
+        // filas que caben por alto; en los rollos es 1 etiqueta por página.
+        $presets = [
+            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 3, 'cellW' => 64.0, 'cellH' => 33.9, 'mLeft' => 6.0, 'mTop' => 12.0],
+            '50x30' => ['orient' => 'L', 'page' => [50, 30],  'cols' => 1, 'cellW' => 50.0, 'cellH' => 30.0, 'mLeft' => 0.0, 'mTop' => 0.0],
+            '40x25' => ['orient' => 'L', 'page' => [40, 25],  'cols' => 1, 'cellW' => 40.0, 'cellH' => 25.0, 'mLeft' => 0.0, 'mTop' => 0.0],
+        ];
+        $cfg = $presets[$formato] ?? $presets['carta'];
+
+        $pdf = new \TCPDF($cfg['orient'], 'mm', $cfg['page'], true, 'UTF-8', false);
+        $pdf->SetTitle('Etiquetas QR de productos');
+        $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
+        $pdf->SetCreator('Sistema de Gestión VIDALSA');
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetAutoPageBreak(false);
+        $pdf->SetMargins(0, 0, 0);
+        // Fuente base: writeHTMLCell la usa como punto de partida (igual que en la Nota
+        // de Entrega) y respeta el encoding UTF-8 del documento — los nombres con tildes
+        // y ñ salen correctos sin tocar Cell() directamente.
+        $pdf->SetFont('helvetica', '', 8);
+
+        if ($formato === 'carta') {
+            $usableH = 297.0 - 2 * $cfg['mTop'];
+            $rows    = max(1, (int) floor($usableH / $cfg['cellH']));
+            $perPage = $cfg['cols'] * $rows;
+            foreach ($secuencia as $i => $p) {
+                $pos = $i % $perPage;
+                if ($pos === 0) {
+                    $pdf->AddPage();
+                }
+                $col = $pos % $cfg['cols'];
+                $row = intdiv($pos, $cfg['cols']);
+                $x = $cfg['mLeft'] + $col * $cfg['cellW'];
+                $y = $cfg['mTop']  + $row * $cfg['cellH'];
+                $this->dibujarEtiqueta($pdf, $p, $x, $y, $cfg['cellW'], $cfg['cellH']);
+            }
+        } else {
+            foreach ($secuencia as $p) {
+                $pdf->AddPage();
+                $this->dibujarEtiqueta($pdf, $p, 0.0, 0.0, $cfg['cellW'], $cfg['cellH']);
+            }
+        }
+
+        return $pdf->Output('', 'S');
+    }
+
+    /**
+     * Dibuja UNA etiqueta dentro del rectángulo (x,y,w,h): QR alineado a la IZQUIERDA
+     * y a su derecha el texto del producto (CODIGO, NOMBRE y UM) con tipografía
+     * UNIFORME — mismo tipo, tamaño, color y peso. Todo rodeado de un borde de recorte
+     * (línea punteada gris) que delimita el tamaño y sirve de guía para cortar. El texto
+     * va por writeHTMLCell (no Cell()) para respetar UTF-8 (tildes/ñ), mismo criterio
+     * que la Nota de Entrega. Si la etiqueta es demasiado angosta para texto, queda solo el QR.
+     */
+    private function dibujarEtiqueta(\TCPDF $pdf, $p, float $x, float $y, float $w, float $h): void
+    {
+        // Borde de recorte: línea punteada fina y gris alrededor de la etiqueta. Solo
+        // contorno ('D'), sin relleno. Se restablece el estilo de línea para no afectar
+        // a las siguientes etiquetas/elementos.
+        $pdf->SetLineStyle(['width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => '2,2', 'color' => [150, 150, 150]]);
+        $pdf->Rect($x, $y, $w, $h, 'D');
+        $pdf->SetLineStyle(['width' => 0.1, 'dash' => 0, 'color' => [0, 0, 0]]);
+
+        // QR a la izquierda, cuadrado al 85% del alto útil, centrado verticalmente.
+        // Margen interno (quiet zone) para que cualquier lector lo capture.
+        $pad    = 2.0;
+        $qrSize = ($h - 2 * $pad) * 0.85;           // un poco más pequeño que el alto útil
+        if ($qrSize < 6.0) {
+            $qrSize = max(6.0, $h - 2 * $pad);
+        }
+
+        $style = [
+            'border'        => false,
+            'vpadding'      => 0,
+            'hpadding'      => 0,
+            'fgcolor'       => [0, 0, 0],
+            'bgcolor'       => [255, 255, 255],
+            'module_width'  => 1,
+            'module_height' => 1,
+        ];
+        $qrX = $x + $pad;
+        $qrY = $y + ($h - $qrSize) / 2;
+        $pdf->write2DBarcode($p->qr_payload, 'QRCODE,H', $qrX, $qrY, $qrSize, $qrSize, $style, 'N');
+
+        // Texto a la derecha del QR.
+        $tx = $qrX + $qrSize + 2.5;
+        $tw = $w - ($tx - $x) - $pad;
+        if ($tw < 8.0) {
+            return; // etiqueta muy angosta: queda solo el QR.
+        }
+
+        // Tipografía UNIFORME en las tres líneas (código, nombre, unidad): mismo tipo,
+        // tamaño, color y peso de letra — sin negrita ni colores distintos.
+        $pt = $w > 55.0 ? 9 : 6.5;                  // carta vs rollo
+
+        $codigo = htmlspecialchars((string) $p->CODIGO, ENT_QUOTES, 'UTF-8');
+        $nombre = htmlspecialchars((string) $p->NOMBRE, ENT_QUOTES, 'UTF-8');
+        $um     = htmlspecialchars((string) $p->UM, ENT_QUOTES, 'UTF-8');
+
+        $html = '<div style="font-family:helvetica;color:#0f172a;font-size:' . $pt . 'pt;line-height:1.3;">'
+              . $codigo . '<br>'
+              . $nombre . '<br>'
+              . $um
+              . '</div>';
+        $pdf->writeHTMLCell($tw, $h - 2 * $pad, $tx, $y + $pad, $html, 0, 0, false, true, 'L', true);
+    }
+
     /**
      * Vista previa del PDF de la Nota de Entrega ANTES de confirmar la salida.
      *
@@ -1774,14 +2036,19 @@ class AlmacenController extends Controller
         // La Nota de Entrega es un formulario oficial impreso (VID-FO-GEN-019), no un
         // reporte interno — el footer del sistema sobraba.
         $pdf->setPrintFooter(false);
-        // top=30: header arranca en y=6 con altura ~24mm (header=68pt) -> bottom = 30mm
-        // EXACTOS. Sin gap entre el borde inferior del cabezote y el borde superior de la
-        // tabla "PROYECTO/CONTRATO/..." -> las dos lineas se ven como una sola continua.
-        // Si subes/bajas $headerHeight en NotaEntregaPDF::Header(), recalcular este top.
-        $pdf->SetMargins(10, 30, 10);
-        $pdf->SetHeaderMargin(6);
+        // El cabezote arranca en y=16 (16mm de aire desde el borde superior del papel)
+        // y mide 24mm/68pt -> bottom = 40mm. top=40 = bottom del cabezote: el body
+        // arranca PEGADO al cabezote, sin franja blanca entre ambos. Si subes/bajas
+        // $cabY o $headerHeight en NotaEntregaPDF::Header(), recalcular este top
+        // (= cabY + cabH).
+        $pdf->SetMargins(10, 40, 10);
+        $pdf->SetHeaderMargin(16);
+        // Borde blanco SIMETRICO arriba/abajo: el cabezote deja 16mm de aire en el
+        // tope (y=cabY=16), asi que el margen de quiebre de pagina —que es el blanco
+        // inferior cuando el contenido llega al fondo— tambien es 16mm. FooterMargin
+        // queda inerte porque setPrintFooter(false) no dibuja pie.
         $pdf->SetFooterMargin(10);
-        $pdf->SetAutoPageBreak(true, 14);
+        $pdf->SetAutoPageBreak(true, 16);
         $pdf->SetTitle('Nota de Entrega de Materiales' . ($esPreview ? ' (Vista previa)' : ''));
         $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
         $pdf->SetCreator('Sistema de Gestión VIDALSA');
@@ -2064,16 +2331,16 @@ class NotaEntregaPDF extends \TCPDF
         // Cabezote oficial VID-FO-GEN-019.
         // Geometria del cabezote:
         //   x = 10 mm  (margen izquierdo)         width = 190 mm  (210 - 10*2)
-        //   y = 6 mm   (top del cabezote)         height = 68 pt = 24 mm
-        //   bottom = y + height = 30 mm           ← coincide con SetMargins top=30
+        //   y = 16 mm  (16mm de aire desde el borde sup.) height = 68 pt = 24 mm
+        //   bottom = y + height = 40 mm           ← coincide con SetMargins top=40
         //                                          para que la tabla del body
         //                                          arranque PEGADA al cabezote.
         // Celda del logo (20% de 190 = 38 mm — igual que col PROYECTO: del body):
         //   left   = 10     right = 10 + 38 = 48      center x = 29
-        //   top    =  6     bottom = 30                center y = 18
+        //   top    = 16     bottom = 40                center y = 28
         $headerHeight = 68;          // pt (= ~24 mm)
         $cabX = 10;
-        $cabY = 6;
+        $cabY = 16;
         $cabW = 190;                 // mm = 210 - 10 (izq) - 10 (der)
         $cabH = 24;                  // mm (≈ 68 pt)
         $logoCellW = $cabW * 0.20;   // 38 mm — alinea con col PROYECTO: (20%) del body
@@ -2086,7 +2353,7 @@ class NotaEntregaPDF extends \TCPDF
             // Padding interno de 1 mm para que el logo no toque el borde de la celda.
             $padding = 1;
             $bx = $cabX + $padding;                 // 11
-            $by = $cabY + $padding;                 // 7
+            $by = $cabY + $padding;                 // 17
             $bw = $logoCellW - ($padding * 2);      // 36  (= 38 - 2)
             $bh = $cabH - ($padding * 2);           // 22
             // Image(file, x, y, w, h, type, link, align, resize, dpi, palign, ismask, imgmask, border, fitbox, hidden, fitonpage, alt, altimgs)
@@ -2146,7 +2413,7 @@ class NotaEntregaPDF extends \TCPDF
         // notaEntregaPdf() antes del writeHTML del cuerpo — la repetimos aqui
         // por si el Header() se invoca antes que el primer SetFont del body.
         $this->SetFont('helvetica', '', 7);
-        // x=12, y=6 → margen izquierdo y top del cabezote.
+        // x=10 ($cabX), y=16 ($cabY) → margen izquierdo y top del cabezote.
         $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
     }
 

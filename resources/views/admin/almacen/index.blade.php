@@ -21,6 +21,10 @@
     }
     .alm-filter select { cursor: pointer; -webkit-appearance: none; appearance: none; }
     .alm-filter .filter-clear { padding: 0 8px; color: #64748b; font-size: 18px; cursor: pointer; }
+    /* Icono "escanear QR" DENTRO del buscador (patrón apps de súper). Mutuamente
+       excluyente con la "x" de limpiar: visible solo cuando el buscador está vacío. */
+    .alm-filter .alm-scan-ic { padding: 0 8px; color: #64748b; font-size: 20px; cursor: pointer; transition: color .15s; align-items: center; }
+    .alm-filter .alm-scan-ic:hover { color: #7c3aed; }
 
     /* Tabla de inventario: estilo igualado a /admin/equipos (.table-row-header + .table-header-custom):
        thead oscuro con texto blanco uppercase, body con texto negro y bordes claros entre columnas. */
@@ -153,6 +157,10 @@
     /* Multiselect de frentes dentro del modal de almacén: el panel empuja el contenido (no flota) para que el overflow del modal no lo recorte */
     #almAlmacenModal .multiselect-content { position: static; box-shadow: none; margin-top: 6px; }
     #almAlmacenModal .custom-multiselect.active .multiselect-content { animation: slideDown 0.18s ease-out; }
+    /* Desplegable "Formato" del modal de etiquetas: igual que el multiselect de frentes,
+       el panel empuja el contenido (position:static) para que el overflow:hidden del modal no lo recorte. */
+    #almEtiquetasModal .dropdown-content { position: static; box-shadow: none; margin-top: 6px; max-height: none; }
+    #almEtiquetasModal .custom-dropdown.active .dropdown-content { animation: slideDown 0.18s ease-out; }
     .alm-admin-list { display: flex; flex-direction: column; gap: 6px; }
     .alm-admin-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
     .alm-admin-row:hover { background: #f8fafc; }
@@ -546,8 +554,6 @@
                                placeholder="{{ $almacenSel ? $almacenSel->NOMBRE : 'Todos los almacenes' }}"
                                style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                                oninput="window.filterDropdownOptions(this)">
-                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $almacenSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="event.stopPropagation(); clearDropdownFilter('almSelAlmacenDropdown');">close</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                         <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
@@ -607,6 +613,14 @@
                        data-placeholder-empty="Buscar por código o descripción…"
                        oninput="window.almBuscarInput()" onfocus="window.almBuscarSuggest()"
                        onkeydown="window.almBuscarEnter(event)">
+                {{-- Escanear QR: icono dentro del propio buscador. Visible cuando el campo
+                     está vacío; al escribir/filtrar se oculta y aparece la "x" de limpiar
+                     (toggle en almScanIconToggle, llamado desde filtros()/almBuscarInput).
+                     Abre el modal de cámara y deja la caja lista para lector USB (teclea
+                     el código + Enter). --}}
+                <i class="material-icons alm-scan-ic" id="almBuscarScan" title="Escanear código QR"
+                   style="display:{{ $bActivo ? 'none' : 'flex' }};"
+                   onclick="window.almEscanear()">&#xf206;</i>
                 <i class="material-icons filter-clear" style="display:{{ $bActivo ? 'flex' : 'none' }};"
                    onclick="window.almBuscarLimpiar()">close</i>
             </div>
@@ -647,6 +661,13 @@
                     <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
+                    </button>
+                    {{-- Etiquetas QR: imprime etiquetas escaneables (estilo góndola de súper)
+                         de los productos del filtro actual. Abre el modal de formato. Read-only,
+                         disponible para cualquiera que ve el módulo (mismo criterio que el export). --}}
+                    <button type="button" onclick="window.almAccion('etiquetas')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#ede9fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#7c3aed;">&#xe00a;</i></div>
+                        <span style="font-size:14px;font-weight:500;">Generar etiquetas QR</span>
                     </button>
                     {{-- Todos los items SIEMPRE visibles — la verificacion de permiso vive
                          dentro del handler JS de cada funcion (ver almAbrirAlmacen, etc.).
@@ -773,10 +794,108 @@
         <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action" style="background:#dc2626;">
             <i class="material-icons" style="font-size:18px;">north_east</i><span class="desktop-text">Salida</span>
         </button>
+        {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
+             sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
+        <button type="button" onclick="window.almSelEtiquetas()" class="btn-bulk-action" style="background:#7c3aed;">
+            <i class="material-icons" style="font-size:18px;">&#xe00a;</i><span class="desktop-text">Etiquetas</span>
+        </button>
     </div>
 </div>
 
 {{-- ════════════════════════ MODALES ════════════════════════ --}}
+
+{{-- ── Modal: Generar etiquetas QR (elige formato y produce el PDF) ──────────
+     Sin gate de permiso (read-only, igual que el export). idsCsv lo fija quien lo
+     abre: dropdown Acciones (vacío = filtro de categoría actual), barra de selección
+     (los seleccionados) o el modal de detalle (un producto). --}}
+<div id="almEtiquetasModal" class="alm-modal-overlay">
+    <div class="alm-modal" style="max-width:360px;">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;color:#7c3aed;">&#xe00a;</i> Generar etiquetas QR</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
+        </div>
+        <div class="alm-modal-body" style="gap:10px;">
+            <div>
+                <div class="alm-fake-label">Producto(s)</div>
+                <div><strong id="almEtqTarget" style="font-size:12.5px;color:#1e293b;"></strong></div>
+            </div>
+            {{-- MODO A — una sola cantidad para todos (menú Acciones / categoría / 1 producto). --}}
+            <div id="almEtqModoUnico">
+                <label for="almEtqCopias">Copias por producto</label>
+                <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1" style="max-width:120px;">
+            </div>
+            {{-- MODO B — cantidad POR producto (cuando se seleccionan varias filas). La lista
+                 la arma almSelEtiquetas desde almSeleccion; almEtiquetasGenerar lee cada input
+                 .alm-etq-cant y manda ?items=ID:CANT,ID:CANT al backend. --}}
+            <div id="almEtqModoLista" style="display:none;">
+                <label>Copias por producto</label>
+                <div id="almEtqLista" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;"></div>
+            </div>
+            <div>
+                {{-- Desplegable "Formato": mismo componente custom-dropdown del resto de la app
+                     (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
+                     data-filter-type no engancha filtros: el listener de dropdown-selection solo
+                     recarga para almSelAlmacenDropdown. --}}
+                <label class="alm-nota-label" for="almEtqFormato">Formato</label>
+                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Carta/A4 — grilla">
+                    <input type="hidden" id="almEtqFormato" data-filter-value value="carta">
+                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
+                        <input type="text" id="almEtqFormatoSearch" data-filter-search autocomplete="off" readonly
+                               placeholder="Carta/A4 — grilla"
+                               style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;cursor:pointer;">
+                        <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
+                    </div>
+                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                        <div class="dropdown-item-list">
+                            <div class="dropdown-item selected" data-value="carta" onclick="selectOption('almEtqFormatoDropdown','carta','Carta/A4 — grilla');">Carta/A4 — grilla</div>
+                            <div class="dropdown-item" data-value="50x30" onclick="selectOption('almEtqFormatoDropdown','50x30','Rollo 50 × 30 mm');">Rollo 50 × 30 mm</div>
+                            <div class="dropdown-item" data-value="40x25" onclick="selectOption('almEtqFormatoDropdown','40x25','Rollo 40 × 25 mm');">Rollo 40 × 25 mm</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtiquetasModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">&#xe00a;</i>Generar PDF</button>
+        </div>
+    </div>
+</div>
+
+{{-- ── Modal: Escanear QR (cámara de teléfono + lector USB + tecleo) ─────────
+     Read-only. La cámara (html5-qrcode) solo arranca en contexto seguro
+     (HTTPS/localhost) y si el navegador la soporta; si no, el campo manual sigue
+     funcionando — un lector USB "teclea" el código + Enter. Resuelve el CODIGO vía
+     almacen.buscar-codigo y filtra la tabla a ese producto. --}}
+<div id="almEscanearModal" class="alm-modal-overlay">
+    <div class="alm-modal" style="max-width:420px;">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;color:#7c3aed;">&#xf206;</i> Escanear producto</h3>
+            <i class="material-icons alm-x" onclick="window.almEscanearCerrar()">close</i>
+        </div>
+        <div class="alm-modal-body">
+            <div id="almScanReader" style="width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
+            <div id="almScanHint" style="font-size:12px;color:#64748b;text-align:center;"></div>
+            <div>
+                <label for="almScanManual">Código (cámara, lector USB o tecleado)</label>
+                <input type="text" id="almScanManual" inputmode="numeric" autocomplete="off"
+                       placeholder="Escanea o escribe el código y pulsa Enter"
+                       onkeydown="window.almScanManualEnter(event)">
+            </div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almEscanearCerrar()">Cerrar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almScanBuscarManual()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">search</i>Buscar</button>
+        </div>
+    </div>
+</div>
+{{-- Librería de escaneo por cámara — servida LOCALMENTE desde public/js/vendor/.
+     Solo se usa al pulsar "Escanear"; carga diferida. Si por algo no estuviera en el
+     servidor, cae al CDN como respaldo (onerror). Para (re)descargarla en el servidor,
+     ver public/js/vendor/README-html5-qrcode.txt. Si ni local ni CDN cargan, el escaneo
+     por lector USB y el tecleo manual siguen intactos (almScanIniciarCamara degrada). --}}
+<script src="{{ asset('js/vendor/html5-qrcode.min.js') }}" defer
+        onerror="this.onerror=null;this.src='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';"></script>
 
 {{-- Modal antiguo "Registrar entrada / Registrar salida" por producto individual:
      ELIMINADO en 2026-05-13. Las entradas reales ahora se hacen desde
@@ -1475,6 +1594,7 @@
             x.style.display = hasFilter ? 'flex' : 'none';
         };
         tx('almFiltroBuscar'); tx('almFiltroCat');
+        window.almScanIconToggle();   // escanear visible solo si el buscador quedó vacío
         return p;
     }
 
@@ -1831,6 +1951,7 @@
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
         // de aplicar. Lo más simple: descartar siempre que se vuelva a teclear.
         almBuscarPickedId = null;
+        window.almScanIconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
     window.almBuscarEnter = function (ev) {
@@ -1856,6 +1977,7 @@
             inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…';
         }
         almBuscarPickedId = null;
+        window.almScanIconToggle();   // buscador vacío → reaparece el icono escanear
         almSuggestHide();
         almCargar();
     };
@@ -2413,6 +2535,14 @@
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
+            case 'etiquetas':
+                // Sin selección puntual: etiqueta TODO lo del filtro de categoría actual
+                // (idsCsv vacío → almEtiquetasGenerar usa ?categoria). El almacén no aplica:
+                // la etiqueta es del producto del catálogo, no del saldo por almacén.
+                var catElEtq = el('almFiltroCat');
+                var catEtq = catElEtq ? String(catElEtq.dataset.active || '').trim() : '';
+                window.almAbrirEtiquetas('', catEtq ? ('Categoría: ' + catEtq) : 'Todos los productos del catálogo');
+                break;
             case 'export':
                 // Construye la URL del export respetando los filtros activos de la
                 // tabla: almacén + categoría. La categoría se lee de data-active del
@@ -2455,6 +2585,215 @@
             .catch(function () {
                 unpre();
                 if (window.showToast) window.showToast('No se pudo generar el Excel.', 'error');
+            });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ETIQUETAS QR + ESCANEO  (como las etiquetas de producto del supermercado)
+    //   · Imprimir: almEtiquetasModal (elige formato) → PDF GET almacen.etiquetas.
+    //   · Escanear: almEscanearModal (cámara html5-qrcode o lector USB/tecleo) →
+    //     resuelve el CODIGO vía almacen.buscar-codigo → filtra la tabla a ese producto.
+    //  Read-only: sin permiso especial (mismo criterio que el export del inventario).
+    // ═══════════════════════════════════════════════════════════════════════
+    var ROUTE_ETIQUETAS     = @json(route('almacen.etiquetas'));
+    var ROUTE_BUSCAR_CODIGO = @json(route('almacen.buscar-codigo'));
+
+    // Muestra el icono "escanear" SOLO cuando el buscador está vacío (si hay texto o
+    // filtro activo, su lugar lo ocupa la "x" de limpiar). Mantiene ambos iconos
+    // mutuamente excluyentes dentro del cuadro del buscador. En window.* para poder
+    // llamarse desde filtros() sin depender del scope donde se definió.
+    window.almScanIconToggle = function () {
+        var sc = el('almBuscarScan'), bi = el('almFiltroBuscar');
+        if (!sc || !bi) return;
+        var tiene = (bi.value && bi.value.trim()) || (bi.dataset.active && bi.dataset.active.trim());
+        sc.style.display = tiene ? 'none' : 'flex';
+    };
+
+    // Abre el modal de etiquetas en uno de dos modos:
+    //   · lista vacía/ausente  → MODO ÚNICO: una sola cantidad (#almEtqCopias) para todo
+    //     lo que indique idsCsv (o el filtro de categoría si idsCsv viene vacío).
+    //   · lista con items      → MODO POR PRODUCTO: pinta una fila por producto con su
+    //     propio campo de cantidad; al generar manda ?items=ID:CANT,ID:CANT.
+    //     lista = [{ id, label }].
+    window.almAbrirEtiquetas = function (idsCsv, descripcion, lista) {
+        var m = el('almEtiquetasModal'); if (!m) return;
+        m.dataset.ids = idsCsv || '';
+        var t = el('almEtqTarget'); if (t) t.textContent = descripcion || 'Productos del filtro actual';
+
+        var modoLista = Array.isArray(lista) && lista.length > 0;
+        var unico = el('almEtqModoUnico'), wrapLista = el('almEtqModoLista');
+        if (unico)     unico.style.display     = modoLista ? 'none' : '';
+        if (wrapLista) wrapLista.style.display = modoLista ? ''     : 'none';
+
+        if (modoLista) {
+            var cont = el('almEtqLista');
+            if (cont) {
+                cont.innerHTML = lista.map(function (it) {
+                    return '<div style="display:flex;align-items:center;gap:8px;">'
+                        + '<span style="flex:1;font-size:12px;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escHtml(it.label) + '">' + escHtml(it.label) + '</span>'
+                        + '<input type="number" class="alm-etq-cant" data-id="' + escHtml(String(it.id)) + '" value="1" min="1" max="200" step="1" '
+                        + 'style="width:62px;height:32px;border:1px solid #cbd5e0;border-radius:6px;padding:0 8px;font-size:13px;text-align:center;outline:none;flex:0 0 auto;">'
+                        + '</div>';
+                }).join('');
+            }
+        }
+        open('almEtiquetasModal');
+    };
+    window.almEtiquetasGenerar = function () {
+        var m = el('almEtiquetasModal'); if (!m) return;
+        var fmt = (el('almEtqFormato') && el('almEtqFormato').value) || 'carta';
+        var u = new URL(ROUTE_ETIQUETAS, window.location.origin);
+        u.searchParams.set('formato', fmt);
+
+        var wrapLista = el('almEtqModoLista');
+        var modoLista = wrapLista && wrapLista.style.display !== 'none';
+        if (modoLista) {
+            // MODO POR PRODUCTO → items=ID:CANT,ID:CANT (cada uno con su cantidad).
+            var pares = [];
+            (el('almEtqLista') ? el('almEtqLista').querySelectorAll('.alm-etq-cant') : []).forEach(function (inp) {
+                var id = inp.getAttribute('data-id');
+                var q = parseInt(inp.value, 10);
+                if (!isFinite(q) || q < 1) q = 1;
+                if (q > 200) q = 200;
+                if (id) pares.push(id + ':' + q);
+            });
+            if (!pares.length) { toast('No hay productos para etiquetar.', 'error'); return; }
+            u.searchParams.set('items', pares.join(','));
+        } else {
+            // MODO ÚNICO → misma cantidad para todos (?copias) sobre ids o categoría.
+            var ids = m.dataset.ids || '';
+            var copias = parseInt((el('almEtqCopias') && el('almEtqCopias').value) || '1', 10);
+            if (!isFinite(copias) || copias < 1) copias = 1;
+            if (copias > 200) copias = 200;
+            u.searchParams.set('copias', String(copias));
+            if (ids) {
+                u.searchParams.set('ids', ids);
+            } else {
+                // Sin selección: respeta el filtro de categoría APLICADO (data-active), mismo
+                // criterio que el export. El almacén no aplica (la etiqueta es del catálogo).
+                var catEl = el('almFiltroCat');
+                var cat = catEl ? String(catEl.dataset.active || '').trim() : '';
+                if (cat) u.searchParams.set('categoria', cat);
+            }
+        }
+        almCerrar('almEtiquetasModal');
+        window.open(u.toString(), '_blank'); // PDF en pestaña nueva → revisar e imprimir
+    };
+    // Botón "Etiquetas" de la barra de selección masiva → MODO POR PRODUCTO: cada
+    // producto seleccionado con su propio campo de cantidad.
+    window.almSelEtiquetas = function () {
+        if (!almSelCount()) { toast('Selecciona al menos un producto (clic en su fila).', 'error'); return; }
+        var ids = Object.keys(almSeleccion);
+        var lista = ids.map(function (id) {
+            var s = almSeleccion[id] || {};
+            var label = (s.codigo || '') + (s.codigo && s.nombre ? ' — ' : '') + (s.nombre || ('#' + id));
+            return { id: id, label: label };
+        });
+        var n = ids.length;
+        window.almAbrirEtiquetas(ids.join(','), n + ' producto' + (n === 1 ? '' : 's') + ' seleccionado' + (n === 1 ? '' : 's'), lista);
+    };
+
+    // ── Escaneo ────────────────────────────────────────────────────────────
+    var almScanner  = null;   // instancia Html5Qrcode (si la cámara arrancó)
+    var almScanBusy = false;  // evita resolver dos veces el mismo código
+
+    window.almEscanear = function () {
+        var m = el('almEscanearModal'); if (!m) return;
+        almScanBusy = false;
+        var manual = el('almScanManual'); if (manual) manual.value = '';
+        open('almEscanearModal');
+        // Foco al campo manual: deja la caja lista para un lector USB (que teclea el
+        // código + Enter) sin que el usuario tenga que hacer clic.
+        setTimeout(function () { if (manual) manual.focus(); }, 120);
+        almScanIniciarCamara();
+    };
+
+    function almScanIniciarCamara() {
+        var hint = el('almScanHint'), reader = el('almScanReader');
+        // La cámara requiere contexto seguro (HTTPS/localhost) y soporte del navegador.
+        // Si falta cualquiera NO es error: el lector USB / tecleo cubren el caso.
+        if (typeof Html5Qrcode === 'undefined') {
+            if (reader) reader.style.display = 'none';
+            if (hint) hint.textContent = 'Cámara no disponible. Usa un lector USB o escribe el código.';
+            return;
+        }
+        if (!window.isSecureContext) {
+            if (reader) reader.style.display = 'none';
+            if (hint) hint.textContent = 'La cámara necesita HTTPS. Usa un lector USB o escribe el código.';
+            return;
+        }
+        if (reader) reader.style.display = '';
+        if (hint) hint.textContent = 'Apunta la cámara al código QR…';
+        try {
+            almScanner = new Html5Qrcode('almScanReader', { verbose: false });
+            almScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 200, height: 200 } },
+                function (texto) { almScanResolver(texto); },
+                function () { /* frames sin código: ignorar */ }
+            ).catch(function () {
+                if (reader) reader.style.display = 'none';
+                if (hint) hint.textContent = 'No se pudo abrir la cámara. Usa un lector USB o escribe el código.';
+            });
+        } catch (e) {
+            if (reader) reader.style.display = 'none';
+            if (hint) hint.textContent = 'No se pudo abrir la cámara. Usa un lector USB o escribe el código.';
+        }
+    }
+
+    function almScanDetenerCamara() {
+        if (!almScanner) return;
+        try {
+            almScanner.stop()
+                .then(function () { try { almScanner.clear(); } catch (e) {} almScanner = null; })
+                .catch(function () { almScanner = null; });
+        } catch (e) { almScanner = null; }
+    }
+
+    window.almEscanearCerrar = function () {
+        almScanDetenerCamara();
+        almCerrar('almEscanearModal');
+    };
+    window.almScanManualEnter = function (ev) {
+        if (ev && ev.key !== 'Enter') return;
+        if (ev) ev.preventDefault();
+        window.almScanBuscarManual();
+    };
+    window.almScanBuscarManual = function () {
+        var inp = el('almScanManual');
+        var cod = inp ? String(inp.value || '').trim() : '';
+        if (!cod) { toast('Escribe o escanea un código.', 'error'); return; }
+        almScanResolver(cod);
+    };
+
+    // Resuelve el CODIGO contra el catálogo y, si existe, filtra la tabla a ese producto
+    // reusando el "pick" del buscador (almBuscarPick → almCargar), que ya muestra el
+    // saldo del producto en el almacén seleccionado. Si no existe, no cierra el modal
+    // (deja seguir escaneando) y avisa.
+    function almScanResolver(codigo) {
+        codigo = String(codigo || '').trim();
+        if (!codigo || almScanBusy) return;
+        almScanBusy = true;
+        var u = new URL(ROUTE_BUSCAR_CODIGO, window.location.origin);
+        u.searchParams.set('codigo', codigo);
+        fetch(u.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (res) {
+                var j = res.j || {};
+                if (!res.ok || !j.found || !j.producto) {
+                    almScanBusy = false;
+                    toast(j.message || ('No se encontró el código ' + codigo + '.'), 'error');
+                    return;
+                }
+                var p = j.producto;
+                window.almEscanearCerrar();
+                var label = (p.codigo || '') + (p.codigo && p.nombre ? ' — ' : '') + (p.nombre || '');
+                if (window.almBuscarPick) window.almBuscarPick(label, p.id);
+                toast('Producto: ' + label, 'success');
+            })
+            .catch(function () {
+                almScanBusy = false;
+                toast('Error al consultar el código.', 'error');
             });
     }
 
