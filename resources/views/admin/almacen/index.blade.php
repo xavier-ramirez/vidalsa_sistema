@@ -3965,4 +3965,29 @@
     })();
 })();
 </script>
+
+{{-- ── Teclado móvil vs barra flotante de selección ──────────────────────────
+     En algunos teléfonos, al escribir la cantidad de salida en una fila, el
+     teclado numérico TAPA la barra flotante (#almBulkBar: Limpiar / Salida /
+     Etiquetas). En otros (como el del cliente) el navegador empuja el layout y
+     se ve bien. Para que sea CONSISTENTE en todos, usamos la visualViewport API:
+     cuando el teclado abre (la altura visible se achica), elevamos la barra
+     justo por encima del teclado. Sin teclado, vuelve a su posición del CSS.
+     Solo afecta a esta barra fija; no toca el resto del layout. --}}
+<script>
+(function () {
+    var vv = window.visualViewport;
+    var bar = document.getElementById('almBulkBar');
+    if (!vv || !bar) return; // navegador viejo sin visualViewport → comportamiento previo
+    function ajustarBarra() {
+        // Píxeles del layout tapados por el teclado (0 si está cerrado).
+        var tapado = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+        // +12px de respiro sobre el teclado. Sin teclado, '' → vuelve al CSS.
+        bar.style.bottom = tapado > 0 ? (tapado + 12) + 'px' : '';
+    }
+    vv.addEventListener('resize', ajustarBarra);
+    vv.addEventListener('scroll', ajustarBarra);
+    ajustarBarra();
+})();
+</script>
 @endsection
