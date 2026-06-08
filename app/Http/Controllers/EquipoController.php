@@ -16,6 +16,30 @@ use Illuminate\Support\Facades\Log;
 
 class EquipoController extends Controller
 {
+    /**
+     * Filtros de documento → columna LINK_* en `documentacion`.
+     * Fuente única para: (a) detectar qué filtros de doc están activos y
+     * (b) construir el desglose "Con / Sin documento" del Consolidado.
+     */
+    private const DOC_FILTER_COLS = [
+        'filter_propiedad'   => 'LINK_DOC_PROPIEDAD',
+        'filter_poliza'      => 'LINK_POLIZA_SEGURO',
+        'filter_rotc'        => 'LINK_ROTC',
+        'filter_racda'       => 'LINK_RACDA',
+        'filter_adicional'   => 'LINK_DOC_ADICIONAL',
+        'filter_adicional_2' => 'LINK_DOC_ADICIONAL_2',
+    ];
+
+    /** Etiqueta corta por filtro de doc (para el label del Consolidado). */
+    private const DOC_FILTER_LABELS = [
+        'filter_propiedad'   => 'Propiedad',
+        'filter_poliza'      => 'Póliza',
+        'filter_rotc'        => 'ROTC',
+        'filter_racda'       => 'RACDA',
+        'filter_adicional'   => 'Certificado',
+        'filter_adicional_2' => 'Compraventa',
+    ];
+
     public function __construct()
     {
         // mobileIndex y mobileChangeStatus se invocan via routes/api.php con
@@ -179,30 +203,52 @@ class EquipoController extends Controller
             }
         }
 
-        // Filtros de documentacion (Propiedad/Poliza/ROTC/RACDA). Antes vivian
-        // SOLO en index() aplicandose al query principal, asi que las stats
-        // ($statsBase, $tiposQuery, $frentesQuery, $ubicQuery) NO los reflejaban
-        // y el card "Ubicación por Frente" mostraba el conteo sin tener en
-        // cuenta estos filtros. Usamos whereHas para evitar conflicto con los
-        // leftJoin existentes (doc_search, doc_filter) en el query principal.
-        // IMPORTANTE: !=null Y !='': el LINK_* puede quedar como string vacio
-        // tras un borrado y un whereNotNull solo no lo descarta. Sin esto el
-        // filtro "Propiedad" devolvia equipos sin PDF cargado realmente.
-        $docFlags = [
-            'filter_propiedad'   => 'LINK_DOC_PROPIEDAD',
-            'filter_poliza'      => 'LINK_POLIZA_SEGURO',
-            'filter_rotc'        => 'LINK_ROTC',
-            'filter_racda'       => 'LINK_RACDA',
-            'filter_adicional'   => 'LINK_DOC_ADICIONAL',
-            'filter_adicional_2' => 'LINK_DOC_ADICIONAL_2',
-        ];
-        foreach ($docFlags as $param => $col) {
-            if (!in_array($param, $exclude) && $request->filled($param) && $request->input($param) === 'true') {
-                $query->whereHas('documentacion', function ($q) use ($col) {
-                    $q->whereNotNull($col)->where($col, '!=', '');
-                });
+        // Filtros de documentacion (Propiedad/Poliza/ROTC/RACDA/Certificado/
+        // Compraventa): RESTRINGEN el listado (y los stats que comparten esta
+        // base). Varios activos = AND (el equipo debe tener TODOS). El parámetro
+        // $exclude permite omitirlos para calcular el universo "Con / Sin
+        // documento" del Consolidado (ver index()). La presencia real del PDF
+        // (!=null Y !='') la resuelve applyDocPresence().
+        $docFilters = array_diff_key($this->activeDocFilters($request), array_flip($exclude));
+        $this->applyDocPresence($query, $docFilters);
+    }
+
+    /**
+     * Filtros de documento activos en el request (param => columna LINK_*).
+     * Soporta varios activos a la vez.
+     */
+    private function activeDocFilters(Request $request): array
+    {
+        $active = [];
+        foreach (self::DOC_FILTER_COLS as $param => $col) {
+            if ($request->input($param) === 'true') {
+                $active[$param] = $col;
             }
         }
+        return $active;
+    }
+
+    /**
+     * Restringe $query a los equipos que TIENEN cargados los documentos de
+     * $docFilters (param => columna). Con varios activos exige TODOS (AND).
+     * !=null Y !='': el LINK_* puede quedar como string vacío tras un borrado.
+     */
+    private function applyDocPresence($query, array $docFilters): void
+    {
+        foreach ($docFilters as $col) {
+            $query->whereHas('documentacion', function ($q) use ($col) {
+                $q->whereNotNull($col)->where($col, '!=', '');
+            });
+        }
+    }
+
+    /** Etiqueta del desglose: "Propiedad" si hay uno solo, "Documentos" si varios. */
+    private function docFilterLabel(array $docFilters): string
+    {
+        if (count($docFilters) === 1) {
+            return self::DOC_FILTER_LABELS[array_key_first($docFilters)] ?? 'Documento';
+        }
+        return 'Documentos';
     }
 
     public function index(Request $request)
@@ -333,6 +379,28 @@ class EquipoController extends Controller
             $stats['inactivos']       = (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
             $stats['mantenimiento']   = (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
             $stats['desincorporados'] = (clone $statsBase)->where('ESTADO_OPERATIVO', 'DESINCORPORADO')->count();
+
+            // Desglose "Con / Sin documento" para el Consolidado.
+            // La LISTA sigue filtrada por documento (no se toca). Aquí solo
+            // calculamos, sobre el universo del frente/estado IGNORANDO el filtro
+            // de documento (docFreeBase), cuántos equipos tienen el/los doc(s)
+            // (= lo que muestra la lista) y cuántos no. doc_con + doc_sin = doc_total.
+            $docFilters = $this->activeDocFilters($request);
+            if (!empty($docFilters)) {
+                $docFreeBase = Equipo::query();
+                $this->applyEquipoFilters($docFreeBase, $request, array_keys(self::DOC_FILTER_COLS));
+                if ($filtroEstado !== 'DESINCORPORADO') {
+                    $docFreeBase->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO');
+                }
+                $conDoc = (clone $docFreeBase);
+                $this->applyDocPresence($conDoc, $docFilters);
+
+                $stats['doc_mode']  = true;
+                $stats['doc_label'] = $this->docFilterLabel($docFilters);
+                $stats['doc_total'] = (clone $docFreeBase)->count();
+                $stats['doc_con']   = $conDoc->count();
+                $stats['doc_sin']   = max(0, $stats['doc_total'] - $stats['doc_con']);
+            }
 
             // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse
             $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');

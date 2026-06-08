@@ -611,6 +611,20 @@
                   || request('filter_propiedad') || request('filter_poliza')
                   || request('filter_rotc') || request('filter_racda')
                   || request('filter_adicional') || request('filter_adicional_2');
+
+        // ── Consolidado: modo "Con / Sin documento" ──
+        // La LISTA sigue filtrada por documento como siempre. Cuando hay filtros
+        // de documento activos, SOLO el Consolidado cambia: los dos bloques
+        // verde/rojo pasan a "Con [doc]" / "Sin [doc]" y el TOTAL pasa a ser el
+        // universo del frente IGNORANDO el filtro de doc (doc_total), de modo que
+        // con + sin = total. El JS replica esta lógica al refrescar vía AJAX.
+        $docMode    = $stats['doc_mode'] ?? false;
+        $docLabel   = $stats['doc_label'] ?? '';
+        $operLabel  = $docMode ? 'Con ' . $docLabel : 'Operativo';
+        $inopLabel  = $docMode ? 'Sin ' . $docLabel : 'Inoperativo';
+        $totalVal   = $hasFilter ? ($docMode ? ($stats['doc_total'] ?? 0) : $stats['total']) : '--';
+        $operVal    = $hasFilter ? ($docMode ? ($stats['doc_con'] ?? 0) : $stats['activos']) : '--';
+        $inopVal    = $hasFilter ? ($docMode ? ($stats['doc_sin'] ?? 0) : $stats['inactivos']) : '--';
     @endphp
 
     {{-- ── Stats compactas solo en móvil ── --}}
@@ -623,15 +637,15 @@
         <div style="display: flex; gap: 8px; justify-content: space-between;">
             <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
                 <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
-                <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['total'] : '--' }}</span>
+                <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $totalVal }}</span>
             </div>
             <div onclick="filterByStatus('OPERATIVO')" class="eq-mobile-stat-block eq-block-oper" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3);">
-                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> OPER.</span>
-                <span id="mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['activos'] : '--' }}</span>
+                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="mobile_oper_label">{{ $docMode ? 'CON' : 'OPER.' }}</span></span>
+                <span id="mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $operVal }}</span>
             </div>
             <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
-                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
-                <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</span>
+                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="mobile_inop_label">{{ $docMode ? 'SIN' : 'INOP.' }}</span></span>
+                <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $inopVal }}</span>
             </div>
         </div>
     </div>
@@ -687,7 +701,7 @@
                 <!-- Main Total -->
                 <div onclick="filterByStatus('')" title="Ver todos los equipos" style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px;">
                     <span id="stats_total" style="font-size: 36px; font-weight: 800; line-height: 1;">
-                        {{ $hasFilter ? $stats['total'] : '--' }}
+                        {{ $totalVal }}
                     </span>
                     <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">TOTAL</span>
                 </div>
@@ -696,13 +710,13 @@
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
                     <div onclick="filterByStatus('OPERATIVO')" title="Filtrar: Operativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
-                        <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['activos'] : '--' }}</strong>
-                        <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Operativo</span>
+                        <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $operVal }}</strong>
+                        <span id="stats_oper_label" style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">{{ $operLabel }}</span>
                     </div>
                     <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
-                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $hasFilter ? $stats['inactivos'] : '--' }}</strong>
-                        <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativo</span>
+                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $inopVal }}</strong>
+                        <span id="stats_inop_label" style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">{{ $inopLabel }}</span>
                     </div>
                 </div>
             </div>
@@ -1525,6 +1539,12 @@
      super.admin que deba eliminar equipos necesita la clave literal
      en su PERMISOS. Por eso aqui basta con preguntar `can('user.delete')`.
      ═══════════════════════════════════════════════════════════ --}}
+<script>
+    // Estado inicial del Consolidado (modo "Con / Sin documento") en carga dura.
+    // En cargas AJAX, loadEquipos() lo actualiza. Sin esto, clicar los bloques
+    // verde/rojo antes del primer AJAX podría filtrar por estado por error.
+    window.__equiposDocMode = {{ ($stats['doc_mode'] ?? false) ? 'true' : 'false' }};
+</script>
 <script>
     window.CAN_DELETE_EQUIPOS = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};
 </script>

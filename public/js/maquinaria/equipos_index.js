@@ -647,6 +647,13 @@ window.toggleDocFilter = function (type) {
 };
 
 window.filterByStatus = function (status) {
+    // En modo "Con / Sin documento" los bloques verde/rojo ya no representan
+    // Operativo/Inoperativo, así que clicarlos no debe filtrar por estado.
+    // El bloque TOTAL (status === "") sigue funcionando con normalidad.
+    if (window.__equiposDocMode && (status === "OPERATIVO" || status === "INOPERATIVO")) {
+        return;
+    }
+
     const dropdown = document.getElementById("estadoAdvFilter");
     if (!dropdown) return;
 
@@ -830,12 +837,31 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const hasActiveFilters = !!paramStr;
                 const displayStat = (val) => hasActiveFilters ? val : '--';
                 const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-                setEl('stats_total',            displayStat(data.stats.total));
-                setEl('stats_activos',          displayStat(data.stats.activos));
-                setEl('stats_inactivos',        displayStat(data.stats.inactivos));
-                setEl('mobile_stats_total',     displayStat(data.stats.total));
-                setEl('mobile_stats_activos',   displayStat(data.stats.activos));
-                setEl('mobile_stats_inactivos', displayStat(data.stats.inactivos));
+
+                // Consolidado: modo "Con / Sin documento". La lista sigue filtrada
+                // por documento como siempre; aquí solo cambia el Consolidado:
+                // los bloques verde/rojo muestran cuántos equipos tienen el doc y
+                // cuántos no, y el TOTAL pasa a ser el universo del frente sin el
+                // recorte de doc (doc_total). Misma lógica que el render en Blade.
+                const docMode = !!(data.stats && data.stats.doc_mode);
+                window.__equiposDocMode = docMode;
+                const docLabel  = (data.stats && data.stats.doc_label) || '';
+                const totalVal  = docMode ? data.stats.doc_total : data.stats.total;
+                const operVal   = docMode ? data.stats.doc_con   : data.stats.activos;
+                const inopVal   = docMode ? data.stats.doc_sin   : data.stats.inactivos;
+
+                setEl('stats_total',            displayStat(totalVal));
+                setEl('stats_activos',          displayStat(operVal));
+                setEl('stats_inactivos',        displayStat(inopVal));
+                setEl('mobile_stats_total',     displayStat(totalVal));
+                setEl('mobile_stats_activos',   displayStat(operVal));
+                setEl('mobile_stats_inactivos', displayStat(inopVal));
+
+                // Etiquetas dinámicas de los dos bloques.
+                setEl('stats_oper_label',  docMode ? 'Con ' + docLabel  : 'Operativo');
+                setEl('stats_inop_label',  docMode ? 'Sin ' + docLabel  : 'Inoperativo');
+                setEl('mobile_oper_label', docMode ? 'CON' : 'OPER.');
+                setEl('mobile_inop_label', docMode ? 'SIN' : 'INOP.');
 
                 const distroContainer = document.getElementById('distributionStatsContainer');
                 if (distroContainer) distroContainer.innerHTML = data.distribution;
