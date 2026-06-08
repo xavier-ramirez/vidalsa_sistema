@@ -55,8 +55,9 @@
                     </div>
                 @endif
                 @if($m->REFERENCIA)
-                    {{-- En ENTRADA directa REFERENCIA es la Nota de entrega del proveedor. --}}
-                    <div style="font-size:10.5px;color:#64748b;" title="Nota de entrega / referencia">Ref: {{ $m->REFERENCIA }}</div>
+                    {{-- En ENTRADA directa REFERENCIA es la Nota de entrega del proveedor:
+                         en negrita igual que la Nota de Entrega (NUMERO_NOTA) de las SALIDAS. --}}
+                    <div style="font-size:10.5px;color:#334155;font-weight:700;" title="Nota de entrega / referencia">Ref: {{ $m->REFERENCIA }}</div>
                 @endif
                 @if($m->TIPO === 'ENTRADA' && $m->MOTIVO)
                     {{-- Proveedor visible — dato clave para una devolución. --}}

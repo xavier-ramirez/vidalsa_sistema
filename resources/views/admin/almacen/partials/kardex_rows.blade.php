@@ -97,7 +97,10 @@
                        title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
                 @endif
                 @if($m->REFERENCIA)
-                    <div style="font-size:10.5px;color:#64748b;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
+                    {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: en negrita igual que
+                         la Nota de Entrega de las SALIDAS (NUMERO_NOTA), para que se vea con la
+                         misma prominencia en ambos tipos de movimiento. --}}
+                    <div style="font-size:12px;color:#334155;font-weight:700;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
                 @endif
                 @if($esEntradaDirecta && $m->MOTIVO)
                     {{-- Proveedor: visible (no solo hover) — es el dato clave para una devolución. --}}
