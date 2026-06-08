@@ -143,7 +143,22 @@ class AlmacenController extends Controller
             $offset = max(0, (int) $request->input('offset', 0));
             $rows = collect();
             $hasMore = false;
-            if ($hayInventario) {
+
+            // La tabla del almacén arranca VACÍA y solo muestra inventario cuando hay un
+            // filtro de contenido activo (mismo criterio que la carga inicial HTML, donde
+            // 'productos' => null y $inicial pinta el estado "usá los filtros"). Sin este
+            // chequeo, al limpiar la búsqueda con la "x" el AJAX volcaba TODO el inventario
+            // del almacén en vez de volver al estado vacío. id_almacen NO cuenta como filtro
+            // de contenido (es el contexto, no un filtro).
+            $hayFiltro = $request->filled('search')
+                || $request->filled('id_producto')
+                || $request->filled('id_producto_in')
+                || $request->filled('categoria')
+                || $request->boolean('solo_bajo')
+                || $request->boolean('solo_con_saldo')
+                || $request->boolean('ver_todo'); // acción explícita "Ver todo el stock"
+
+            if ($hayInventario && $hayFiltro) {
                 $rows = $this->productosConSaldoQuery($idAlmacenSel, $request)
                     ->orderBy('productos_inventario.NOMBRE')
                     ->skip($offset)->take($PAGE_SIZE + 1)
@@ -154,9 +169,10 @@ class AlmacenController extends Controller
             // En las páginas siguientes del scroll infinito ($offset > 0) NO devolvemos la
             // empty-state row del partial — sería un mensaje "Sin coincidencias" appended al
             // final de las filas ya pintadas. Si el lote viene vacío, el html es ''.
+            // Sin filtro → inicial=true para pintar "usá los filtros" (no "sin coincidencias").
             $html = ($offset > 0 && $rows->isEmpty())
                 ? ''
-                : view('admin.almacen.partials.table_rows', ['productos' => $rows, 'almacen' => $almacenSel, 'inicial' => false])->render();
+                : view('admin.almacen.partials.table_rows', ['productos' => $rows, 'almacen' => $almacenSel, 'inicial' => !$hayFiltro])->render();
             $resp = [
                 'almacen'    => $almacenSel,
                 'html'       => $html,
@@ -166,18 +182,29 @@ class AlmacenController extends Controller
             // Stats y distribución solo en la primera página (offset=0) — son costosos y
             // no cambian al hacer scroll, solo cuando el usuario cambia un filtro.
             if ($offset === 0) {
-                $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
-                // El sidebar "Distribución de Inventario" tiene DOS modos:
-                //  - normal: lista por categoria (cuando el filtro NO apunta a un producto unico)
-                //  - cruzado: cuando el usuario clickeo una sugerencia (id_producto en la URL),
-                //    el panel muestra ese producto en otros almacenes visibles — util para saber
-                //    a donde pedir un traspaso si el almacen actual quedo en cero o bajo minimo.
-                $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
-                $productoOtros = $idProductoSel ? $this->productoEnOtrosAlmacenes($idProductoSel, $idAlmacenSel, $user) : null;
-                $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
-                    'distribucion'  => $this->distribucionPorCategoria($idAlmacenSel, $request),
-                    'productoOtros' => $productoOtros,
-                ])->render();
+                if ($hayFiltro) {
+                    $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
+                    // El sidebar "Distribución de Inventario" tiene DOS modos:
+                    //  - normal: lista por categoria (cuando el filtro NO apunta a un producto unico)
+                    //  - cruzado: cuando el usuario clickeo una sugerencia (id_producto en la URL),
+                    //    el panel muestra ese producto en otros almacenes visibles — util para saber
+                    //    a donde pedir un traspaso si el almacen actual quedo en cero o bajo minimo.
+                    $idProductoSel = $request->filled('id_producto') ? (int) $request->input('id_producto') : null;
+                    $productoOtros = $idProductoSel ? $this->productoEnOtrosAlmacenes($idProductoSel, $idAlmacenSel, $user) : null;
+                    $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
+                        'distribucion'  => $this->distribucionPorCategoria($idAlmacenSel, $request),
+                        'productoOtros' => $productoOtros,
+                    ])->render();
+                } else {
+                    // Sin filtro = estado inicial: KPIs en "—" (el JS pinta '—' ante null) y
+                    // distribución vacía, idéntico a la carga inicial HTML (stats=null,
+                    // distribucion=collect()). Así limpiar la "x" deja la pantalla como recién entrada.
+                    $resp['stats'] = ['total' => null, 'con_saldo' => null, 'stock_bajo' => null];
+                    $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
+                        'distribucion'  => collect(),
+                        'productoOtros' => null,
+                    ])->render();
+                }
             }
             return response()->json($resp);
         }

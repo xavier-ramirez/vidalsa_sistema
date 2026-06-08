@@ -1528,6 +1528,11 @@
     var _almInitParams = (function () { try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); } })();
     var soloConSaldo = false; // atajo "Con stock" — el usuario lo enciende explicitamente
     var soloBajo     = false; // atajo "Stock bajo" — el usuario lo enciende explicitamente
+    // "Ver todo el stock" (acción explícita): la tabla arranca VACÍA y solo muestra
+    // inventario cuando hay un filtro. "Ver todo" es la ÚNICA forma de pedir TODO sin
+    // filtro, así que manda ver_todo=1. Lo enciende almVerTodo(); cualquier otra recarga
+    // (sin opts.verTodo) lo apaga; el scroll infinito (append) lo conserva.
+    var almVerTodoActivo = false;
     (function () {
         if (!_almInitParams.has('solo_bajo') && !_almInitParams.has('solo_con_saldo')) return;
         try {
@@ -1592,6 +1597,7 @@
         var cat = valActive('almFiltroCat'); if (cat) p.set('categoria', cat);
         if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
+        if (almVerTodoActivo)           p.set('ver_todo', '1'); // "Ver todo el stock" explícito
         // "Ver solo seleccionados" (bulk counter clickado): manda los IDs como CSV. El
         // backend hace whitelist por estos IDs e IGNORA search/categoria/solo_bajo —
         // asi el usuario ve TODOS sus seleccionados, incluso si los otros filtros los
@@ -1646,6 +1652,9 @@
         if (typeof opts === 'string' || opts == null) opts = {};
         var offset = Math.max(0, parseInt(opts.offset || 0, 10));
         var append = !!opts.append && offset > 0;
+        // ver_todo solo lo activa almVerTodo({verTodo:true}); cualquier otra recarga lo
+        // apaga. En el scroll infinito (append) NO se toca, para conservar "ver todo".
+        if (!append) almVerTodoActivo = !!opts.verTodo;
         var body = el('almTableBody'); if (!body) return;
         var loadMore = el('almLoadingMore');
         // Construir URL preservando los filtros activos + offset.
@@ -1692,7 +1701,9 @@
                     try {
                         var cleanU = new URL(ROUTE_INDEX, window.location.origin);
                         filtros().forEach(function (v, k) {
-                            if (k === 'id_producto_in') return;
+                            // id_producto_in (selección efímera) y ver_todo (acción transitoria)
+                            // NO van a la URL: no se honran al recargar y solo confundirían.
+                            if (k === 'id_producto_in' || k === 'ver_todo') return;
                             cleanU.searchParams.set(k, v);
                         });
                         window.history.replaceState({}, '', cleanU.toString());
@@ -1730,7 +1741,7 @@
         soloBajo = false; soloConSaldo = false;
         almPintarBadges();
         almBuscarPickedId = null; // descartar match exacto si quedó pegado de un clic previo
-        almCargar();
+        almCargar({ verTodo: true }); // acción explícita: mostrar TODO el inventario del almacén
     };
     window.almFilterByCategoria = function (cat) { var s = el('almFiltroCat'); if (s) { s.value = cat || ''; } almCatSuggestHide(); almCargar(); };
     // Los dos badges del header son TOGGLES: clic con el mismo filtro activo lo apaga.
