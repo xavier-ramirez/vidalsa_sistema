@@ -71,6 +71,9 @@
         return fetch(url, {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin', // manda la cookie de sesión (la ruta es auth)
+            priority: 'low',            // PRIORIDAD: que esta bajada NO le quite ancho de
+                                        // banda a las búsquedas del usuario. El navegador
+                                        // atiende primero las peticiones de prioridad normal.
         }).then((r) => {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
@@ -125,22 +128,35 @@
         estaListo: () => idbGet('meta').then((m) => !!(m && m.version)),
     };
 
+    // Ejecuta `fn` cuando el navegador esté OCIOSO (sin trabajo del usuario en
+    // curso, ej. una búsqueda). Así el sync no compite por CPU/hilo principal con
+    // lo que el usuario está haciendo. Fallback a setTimeout donde no exista la API.
+    function enInactividad(fn, timeoutMs) {
+        if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(fn, { timeout: timeoutMs || 4000 });
+        } else {
+            setTimeout(fn, 300);
+        }
+    }
+
     // ── Disparadores automáticos ───────────────────────────────────────────────
     // Al cargar la app (con internet): asegura una copia fresca sin bloquear el render.
     // PRIMERA VEZ (recién iniciada la sesión, aún sin copia local) → baja de una
-    // para que el offline quede listo cuanto antes. Cargas siguientes → defer de
-    // 1.5 s para no competir con el render. Siempre en segundo plano (sync es
-    // async/no-bloqueante y falla en silencio conservando la última copia buena).
+    // para que el offline quede listo cuanto antes. Cargas siguientes → cuando el
+    // navegador esté ocioso. Siempre en segundo plano (sync es async/no-bloqueante,
+    // la bajada usa priority:'low' y falla en silencio conservando la última copia).
     if (navigator.onLine) {
         idbGet('meta')
             .then((meta) => {
                 const primeraVez = !meta || !meta.version;
-                setTimeout(() => sync(false), primeraVez ? 0 : 1500);
+                if (primeraVez) sync(false);
+                else enInactividad(() => sync(false));
             })
-            .catch(() => setTimeout(() => sync(false), 1500));
+            .catch(() => enInactividad(() => sync(false)));
     }
-    // Revisión periódica mientras haya internet.
-    setInterval(() => { if (navigator.onLine) sync(false); }, CHECK_CADA_MS);
-    // Al recuperar la conexión, intenta ponerse al día.
-    window.addEventListener('online', () => sync(false));
+    // Revisión periódica mientras haya internet: SOLO cuando el navegador esté
+    // ocioso, para no interrumpir una búsqueda que el usuario esté haciendo.
+    setInterval(() => { if (navigator.onLine) enInactividad(() => sync(false)); }, CHECK_CADA_MS);
+    // Al recuperar la conexión, intenta ponerse al día (también en inactividad).
+    window.addEventListener('online', () => enInactividad(() => sync(false)));
 })();
