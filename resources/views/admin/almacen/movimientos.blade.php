@@ -1263,37 +1263,56 @@
 // ── Deshacer movimiento (SOLO super.admin) ──────────────────────────────────
 // El botón .alm-mov-undo solo lo renderiza blade para super.admin, y la ruta DELETE
 // está además gateada con can:super.admin (defensa real, no solo ocultar el botón).
-// Confirmación SIMPLE (un confirm nativo); al aceptar borra el movimiento, revierte el
-// stock y recarga la tabla. La URL viene resuelta por fila en data-undo-url.
+// Confirmación con el modal estilizado de la app (window.showModal), NO el confirm()
+// nativo del navegador (que muestra la IP 127.0.0.1 y rompe el diseño). Al aceptar
+// borra el movimiento, revierte el stock y recarga la tabla. URL por fila en data-undo-url.
 window.almDeshacerMovimiento = function (btn) {
     if (!btn || btn.disabled) return;
     var url = btn.getAttribute('data-undo-url');
     if (!url) return;
-    if (!window.confirm('¿Deshacer este movimiento?\n\nSe revertirá el stock y el movimiento desaparecerá del historial.\nEsta acción NO se puede deshacer.')) return;
 
-    var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    btn.disabled = true;
-    fetch(url, {
-        method: 'DELETE',
-        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
-    })
-    .then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
-    })
-    .then(function (res) {
-        if (!res.ok) {
-            if (window.showToast) window.showToast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+    var ejecutar = function () {
+        var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        btn.disabled = true;
+        if (window.showPreloader) window.showPreloader();
+        fetch(url, {
+            method: 'DELETE',
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
+        })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (!res.ok) {
+                if (window.showToast) window.showToast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+                btn.disabled = false;
+                return;
+            }
+            if (window.showToast) window.showToast(res.d.message || 'Movimiento deshecho.', 'success');
+            // Recargar la bitácora: la fila desaparece y los saldos posteriores ya vienen recalculados.
+            if (window.loadMovimientos) window.loadMovimientos();
+        })
+        .catch(function () {
+            if (window.hidePreloader) window.hidePreloader();
+            if (window.showToast) window.showToast('No se pudo contactar al servidor.', 'error');
             btn.disabled = false;
-            return;
-        }
-        if (window.showToast) window.showToast(res.d.message || 'Movimiento deshecho.', 'success');
-        // Recargar la bitácora: la fila desaparece y los saldos posteriores ya vienen recalculados.
-        if (window.loadMovimientos) window.loadMovimientos();
-    })
-    .catch(function () {
-        if (window.showToast) window.showToast('No se pudo contactar al servidor.', 'error');
-        btn.disabled = false;
-    });
+        });
+    };
+
+    if (window.showModal) {
+        window.showModal({
+            type: 'danger',
+            title: '¿Deshacer este movimiento?',
+            message: 'Se revertirá el stock y el movimiento.',
+            confirmText: 'Deshacer',
+            cancelText: 'Cancelar',
+            onConfirm: ejecutar
+        });
+    } else {
+        // Fallback defensivo si showModal no estuviera cargado.
+        if (window.confirm('¿Deshacer este movimiento? Se revertirá el stock y el movimiento.')) ejecutar();
+    }
 };
 </script>
 @endsection
