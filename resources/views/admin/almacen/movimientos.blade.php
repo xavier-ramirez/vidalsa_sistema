@@ -101,6 +101,11 @@
     .amf-suggest-item { display:flex; flex-direction:column; gap:2px; padding:10px 15px; border-radius:8px; cursor:default; transition:background 0.2s; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); }
     .amf-suggest-item:hover, .amf-suggest-item.active { background:#f0f4f8; }
     .amf-suggest-item .nom { font-size:13.5px; color:#475569; font-weight:600; }
+    /* CODIGO + descripción en una línea (mismo patrón que el filtro Buscar de
+       /admin/almacen): el código va PRIMERO y la descripción ocupa el resto. */
+    .amf-suggest-line { display:flex; align-items:flex-start; gap:8px; }
+    .amf-suggest-line .nom { flex:1 1 auto; min-width:0; }
+    .amf-suggest-cod { font-size:13.5px; font-weight:600; color:#475569; flex:0 0 auto; white-space:nowrap; }
     .amf-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
     /* Tabla limpia: thead oscuro + body con TODOS los valores CENTRADOS (verticales y horizontales).
        Sin bordes verticales entre columnas. */
@@ -901,7 +906,12 @@
         } else {
             html = matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
-                return '<div class="amf-suggest-item" data-pick="' + nom + '"><span class="nom">' + nom + '</span></div>';
+                var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
+                // CODIGO primero + descripción, igual que el filtro Buscar de /admin/almacen.
+                var codBadge = cod ? '<span class="amf-suggest-cod">' + cod + '</span>' : '';
+                return '<div class="amf-suggest-item" data-pick="' + nom + '" title="' + cod + '">'
+                     + '<div class="amf-suggest-line">' + codBadge + '<span class="nom">' + nom + '</span></div>'
+                     + '</div>';
             }).join('');
         }
         box.innerHTML = html;
