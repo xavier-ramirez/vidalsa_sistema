@@ -1326,7 +1326,12 @@
                     const group = title.closest('.mobile-nav-group');
                     if (!group) return;
                     e.stopPropagation();
-                    group.classList.toggle('active');
+                    // Acordeón: solo UN grupo desplegado a la vez. Cerramos todos y, si
+                    // el tocado no estaba abierto, lo abrimos → al desplegar uno se
+                    // recoge el otro. Clic en el que ya estaba abierto = se cierra.
+                    const yaAbierto = group.classList.contains('active');
+                    document.querySelectorAll('.mobile-nav-group.active').forEach(g => g.classList.remove('active'));
+                    if (!yaAbierto) group.classList.add('active');
                 });
             }
 

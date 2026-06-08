@@ -250,6 +250,13 @@
        de almacen queda full-width como header efectivo. Filtros apilados, boton
        Acciones full-width al final, menu desplegable limitado al viewport. */
     @media (max-width: 768px) {
+        /* La barra de selección en móvil muestra TEXTO en vez de iconos (regla global
+           en estilos_globales.css:2109). Excepción pedida: el botón "Etiquetas" se
+           muestra con su ÍCONO QR (más compacto y reconocible) y sin el texto. El #id
+           gana en especificidad sobre la regla global por clase. */
+        #almBulkEtqBtn i.material-icons { display: inline-flex !important; }
+        #almBulkEtqBtn .desktop-text { display: none !important; }
+
         /* Titulo de pagina oculto en mobile + separador vertical (ya no tiene sentido) */
         .page-title-card .page-title { display: none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display: none !important; }
@@ -799,7 +806,7 @@
         </button>
         {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
              sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
-        <button type="button" onclick="window.almSelEtiquetas()" class="btn-bulk-action" style="background:#7c3aed;">
+        <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action" style="background:#7c3aed;">
             <i class="material-icons" style="font-size:18px;">&#xe00a;</i><span class="desktop-text">Etiquetas</span>
         </button>
     </div>
