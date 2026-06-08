@@ -96,7 +96,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     // HTML / rutas no-admin: network-first con fallback a cache si está offline
-    if (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html')) {
+    if (request.mode === 'navigate' || request.headers.get('X-SPA-Navigate') === '1' || (request.headers.get('accept') || '').includes('text/html')) {
         event.respondWith(
             fetch(request).then((response) => {
                 if (response && response.status === 200) {
