@@ -21,7 +21,12 @@
 --}}
 @php
     $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ','), '0'), '.') ?: '0';
-    $minFilas = 24;
+    // Filas mínimas de la tabla de ítems: se rellena con filas vacías hasta esta
+    // cantidad para que la nota luzca como el formulario oficial. 20 es el MÁXIMO que
+    // mantiene la nota en UNA sola hoja A4 junto con los bloques de Observaciones,
+    // Firmas y Vehículo/Chofer (con 24 se desbordaba a una 2.ª página). Verificado:
+    // 1 a 3 productos —incluso con nombres largos de 2 líneas— caben en 1 página.
+    $minFilas = 20;
 @endphp
 
 {{-- N° de Nota se renderiza en el cabezote (esquina derecha, Header() del PDF).
