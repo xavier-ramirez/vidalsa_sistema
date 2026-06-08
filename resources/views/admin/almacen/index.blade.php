@@ -885,6 +885,14 @@
                  y se usa el campo de abajo (lector USB o tecleo). --}}
             <div id="almScanReader" style="display:none;width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
             <div id="almScanHint" style="font-size:12px;color:#64748b;text-align:center;"></div>
+            {{-- Botón para activar/reintentar la cámara con un gesto EXPLÍCITO del usuario.
+                 Aparece solo si el arranque automático falla (permiso denegado, etc.).
+                 Tocarlo vuelve a pedir permiso de cámara y reintenta el recuadro EN LA
+                 PÁGINA (no abre ninguna app externa). --}}
+            <button type="button" id="almScanActivar" onclick="window.almScanReintentar()"
+                    style="display:none;width:100%;padding:11px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
+                <i class="material-icons" style="font-size:19px;vertical-align:-4px;margin-right:6px;">photo_camera</i>Activar cámara
+            </button>
             <div>
                 <label for="almScanManual">Código (lector USB o tecleado)</label>
                 <input type="text" id="almScanManual" inputmode="numeric" autocomplete="off"
@@ -2726,24 +2734,27 @@
         var m = el('almEscanearModal'); if (!m) return;
         almScanBusy = false;
         var manual = el('almScanManual'); if (manual) manual.value = '';
+        var actBtn = el('almScanActivar'); if (actBtn) actBtn.style.display = 'none';
         open('almEscanearModal');
-        // Foco al campo manual: deja la caja lista para un lector USB (que teclea el
-        // código + Enter) sin que el usuario tenga que hacer clic.
-        setTimeout(function () { if (manual) manual.focus(); }, 120);
+        // El modal es SOLO móvil (en PC se enfoca el buscador). NO auto-enfocamos el
+        // campo manual: en el teléfono eso levantaba el teclado y TAPABA la cámara.
+        // La cámara es lo primario; el usuario toca el campo solo si prefiere teclear.
         almScanIniciarCamara();
     };
 
     function almScanIniciarCamara() {
-        var hint = el('almScanHint'), reader = el('almScanReader');
+        var hint = el('almScanHint'), reader = el('almScanReader'), btn = el('almScanActivar');
         // La cámara requiere contexto seguro (HTTPS/localhost) y soporte del navegador.
         // Si falta cualquiera NO es error: el lector USB / tecleo cubren el caso.
         if (typeof Html5Qrcode === 'undefined') {
             if (reader) reader.style.display = 'none';
+            if (btn) btn.style.display = 'none';
             if (hint) hint.textContent = 'Cámara no disponible. Usa un lector USB o escribe el código.';
             return;
         }
         if (!window.isSecureContext) {
             if (reader) reader.style.display = 'none';
+            if (btn) btn.style.display = 'none';
             if (hint) hint.textContent = 'La cámara necesita HTTPS. Usa un lector USB o escribe el código.';
             return;
         }
@@ -2752,14 +2763,15 @@
         var cfg    = { fps: 10, qrbox: { width: 220, height: 220 } };
         var onOk   = function (texto) { almScanResolver(texto); };
         var onTick = function () { /* frames sin código: ignorar */ };
-        var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; };
+        var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; if (btn) btn.style.display = 'none'; };
         // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
-        // NotFoundError = sin cámara, etc.) para no quedar a ciegas: el usuario sabe si
-        // es permiso o hardware, en vez del genérico "No se pudo abrir la cámara".
+        // NotFoundError = sin cámara, etc.) y dejamos visible el botón "Activar cámara"
+        // para reintentar con un gesto explícito (vuelve a pedir permiso).
         var fail = function (err) {
             if (reader) reader.style.display = 'none';
             var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
-            if (hint) hint.textContent = 'No se pudo abrir la cámara (' + msg + '). Da permiso de cámara al sitio o usa el código manual abajo.';
+            if (hint) hint.textContent = 'No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso, o usa el código manual.';
+            if (btn) btn.style.display = '';
         };
         try {
             almScanner = new Html5Qrcode('almScanReader', { verbose: false });
@@ -2788,6 +2800,17 @@
                 .catch(function () { almScanner = null; });
         } catch (e) { almScanner = null; }
     }
+
+    // Reintenta la cámara con un gesto EXPLÍCITO del usuario (botón "Activar cámara").
+    // Detiene cualquier intento previo, espera un instante a que libere el dispositivo
+    // y vuelve a arrancar — esto re-dispara el pedido de permiso del navegador cuando
+    // el arranque automático falló (gesto de usuario).
+    window.almScanReintentar = function () {
+        var btn = el('almScanActivar'); if (btn) btn.style.display = 'none';
+        var hint = el('almScanHint'); if (hint) hint.textContent = 'Iniciando cámara…';
+        almScanDetenerCamara();
+        setTimeout(almScanIniciarCamara, 250);
+    };
 
     window.almEscanearCerrar = function () {
         almScanDetenerCamara();
