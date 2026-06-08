@@ -863,6 +863,27 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 setEl('mobile_oper_label', docMode ? 'CON' : 'OPER.');
                 setEl('mobile_inop_label', docMode ? 'SIN' : 'INOP.');
 
+                // En modo documento el label es más largo: .is-doc lo achica y lo
+                // mantiene en una sola línea (ver CSS .consolidado-stat-label).
+                ['stats_oper_label', 'stats_inop_label'].forEach((id) => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.toggle('is-doc', docMode);
+                });
+
+                // En modo documento los bloques verde/rojo no filtran por estado
+                // (ver guard en filterByStatus): reflejarlo en cursor + tooltip
+                // para que no parezcan clicables.
+                const blkOper = document.getElementById('block_oper');
+                const blkInop = document.getElementById('block_inop');
+                if (blkOper) {
+                    blkOper.style.cursor = docMode ? 'default' : 'pointer';
+                    blkOper.title = docMode ? ('Con ' + docLabel) : 'Filtrar: Operativos';
+                }
+                if (blkInop) {
+                    blkInop.style.cursor = docMode ? 'default' : 'pointer';
+                    blkInop.title = docMode ? ('Sin ' + docLabel) : 'Filtrar: Inoperativos';
+                }
+
                 const distroContainer = document.getElementById('distributionStatsContainer');
                 if (distroContainer) distroContainer.innerHTML = data.distribution;
 

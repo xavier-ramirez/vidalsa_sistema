@@ -708,15 +708,15 @@
 
                 <!-- Detailed Stats Row -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
-                    <div onclick="filterByStatus('OPERATIVO')" title="Filtrar: Operativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
+                    <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? $operLabel : 'Filtrar: Operativos' }}" style="cursor: {{ $docMode ? 'default' : 'pointer' }}; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
                         <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $operVal }}</strong>
-                        <span id="stats_oper_label" style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">{{ $operLabel }}</span>
+                        <span id="stats_oper_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}">{{ $operLabel }}</span>
                     </div>
-                    <div onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
+                    <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? $inopLabel : 'Filtrar: Inoperativos' }}" style="cursor: {{ $docMode ? 'default' : 'pointer' }}; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                         <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $inopVal }}</strong>
-                        <span id="stats_inop_label" style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">{{ $inopLabel }}</span>
+                        <span id="stats_inop_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}">{{ $inopLabel }}</span>
                     </div>
                 </div>
             </div>
@@ -798,6 +798,23 @@
     <!-- Fleet Dashboard Modal -->
     <style>
         @keyframes fleetSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+        /* Label de los bloques verde/rojo del Consolidado. En modo documento
+           ("Con/Sin Certificado", "Con Compraventa"...) el texto es más largo y
+           se partía en dos líneas: .is-doc lo achica y fuerza una sola línea. */
+        .consolidado-stat-label {
+            font-size: 11px;
+            letter-spacing: -0.2px;
+            opacity: 0.9;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .consolidado-stat-label.is-doc {
+            font-size: 9px;
+            letter-spacing: -0.3px;
+            text-transform: none;
+        }
 
         .fleet-dashboard-header {
             background: linear-gradient(135deg, #00004d 0%, #000033 100%);
