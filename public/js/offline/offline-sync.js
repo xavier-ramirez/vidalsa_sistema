@@ -9,11 +9,16 @@
  * se queda con la última copia buena. El online sigue intacto.
  *
  * ¿CADA CUÁNTO se baja la copia?  (responde la pregunta del cliente)
- *   1) Al abrir la app CON internet (si hay datos nuevos).
+ *   1) Al abrir la app CON internet: la PRIMERA vez (sin copia local) baja de una;
+ *      las cargas siguientes, cuando el navegador esté ocioso (si hay datos nuevos).
  *   2) Cada CHECK_CADA_MS mientras haya internet, consultando primero /offline/version
  *      (barato): solo baja el snapshot completo si la versión cambió.
  *   3) Al volver la conexión (evento 'online').
  *   4) Manual: window.OfflineDB.sync(true) — para un botón "Actualizar datos".
+ *
+ * PRIORIDAD: la búsqueda del usuario manda. La bajada usa fetch priority:'low' y
+ * los disparadores automáticos esperan inactividad (requestIdleCallback) para no
+ * competir por red ni CPU con lo que el usuario esté haciendo.
  *
  * API pública (window.OfflineDB):
  *   .ready            Promise que resuelve cuando la BD local está abierta.
