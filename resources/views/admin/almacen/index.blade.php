@@ -906,13 +906,13 @@
         </div>
     </div>
 </div>
-{{-- Librería de escaneo por cámara — servida LOCALMENTE desde public/js/vendor/.
-     Solo se usa al pulsar "Escanear"; carga diferida. Si por algo no estuviera en el
-     servidor, cae al CDN como respaldo (onerror). Para (re)descargarla en el servidor,
-     ver public/js/vendor/README-html5-qrcode.txt. Si ni local ni CDN cargan, el escaneo
-     por lector USB y el tecleo manual siguen intactos (almScanIniciarCamara degrada). --}}
-<script src="{{ asset('js/vendor/html5-qrcode.min.js') }}" defer
-        onerror="this.onerror=null;this.src='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';"></script>
+{{-- Librería de escaneo por cámara (html5-qrcode, servida LOCALMENTE desde
+     public/js/vendor/). Ya NO se carga con un <script> de página: se inyecta BAJO
+     DEMANDA al pulsar "Escanear" vía almCargarQrLib() (local → CDN, verificando que
+     Html5Qrcode quede definida). Así se evita el caso en que el servidor devuelve el
+     index.html en vez del .js (try_files de nginx) sin disparar onerror. Si ni local
+     ni CDN cargan, el lector USB y el tecleo manual siguen intactos. Para (re)descargar
+     el archivo en el servidor, ver public/js/vendor/README-html5-qrcode.txt. --}}
 
 {{-- Modal antiguo "Registrar entrada / Registrar salida" por producto individual:
      ELIMINADO en 2026-05-13. Las entradas reales ahora se hacen desde
@@ -2754,48 +2754,75 @@
         if (hint) hint.textContent = msg;
     }
 
+    // Carga la librería html5-qrcode BAJO DEMANDA (al escanear), probando primero el
+    // archivo local y, si no quedó definida, el CDN. Comprueba `typeof Html5Qrcode`
+    // DESPUÉS de cada carga: así detecta el caso en que el servidor devuelve el
+    // index.html (HTML 200, por el try_files de nginx) en vez del .js — que NO dispara
+    // onerror — y cae al CDN igual. Cachea la promesa para no recargar en cada intento.
+    var almQrLibPromise = null;
+    function almCargarQrLib() {
+        if (typeof Html5Qrcode !== 'undefined') return Promise.resolve(true);
+        if (almQrLibPromise) return almQrLibPromise;
+        var local = @json(asset('js/vendor/html5-qrcode.min.js'));
+        var cdn   = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+        almQrLibPromise = new Promise(function (resolve) {
+            function load(src, next) {
+                var s = document.createElement('script');
+                s.async = true; s.src = src;
+                s.onload  = function () { (typeof Html5Qrcode !== 'undefined') ? resolve(true) : (next ? next() : resolve(false)); };
+                s.onerror = function () { next ? next() : resolve(false); };
+                document.head.appendChild(s);
+            }
+            load(local, function () { load(cdn, null); });   // local → si no, CDN
+        });
+        return almQrLibPromise;
+    }
+
     function almScanIniciarCamara() {
         var hint = el('almScanHint'), reader = el('almScanReader'), btn = el('almScanActivar');
-        // La cámara requiere contexto seguro (HTTPS/localhost) y soporte del navegador.
-        // Si falta cualquiera NO es error: el lector USB / tecleo cubren el caso.
-        if (typeof Html5Qrcode === 'undefined') {
-            almScanFallback('Cámara no disponible. Usa un lector USB o escribe el código.', false);
-            return;
-        }
-        if (!window.isSecureContext) {
-            almScanFallback('La cámara necesita HTTPS. Usa un lector USB o escribe el código.', false);
-            return;
-        }
-        if (reader) reader.style.display = '';
-        if (hint) hint.textContent = 'Iniciando cámara…';
-        var cfg    = { fps: 10, qrbox: { width: 220, height: 220 } };
-        var onOk   = function (texto) { almScanResolver(texto); };
-        var onTick = function () { /* frames sin código: ignorar */ };
-        var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; if (btn) btn.style.display = 'none'; };
-        // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
-        // NotFoundError = sin cámara, etc.) y dejamos visible el botón "Activar cámara"
-        // para reintentar con un gesto explícito (vuelve a pedir permiso).
-        var fail = function (err) {
-            var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
-            almScanFallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso, o usa el código manual.', true);
-        };
-        try {
-            almScanner = new Html5Qrcode('almScanReader', { verbose: false });
-            // 1) Intento directo con la cámara trasera (facingMode environment).
-            almScanner.start({ facingMode: 'environment' }, cfg, onOk, onTick)
-                .then(ok)
-                .catch(function (e1) {
-                    // 2) Fallback: enumerar cámaras y usar la última (suele ser la trasera).
-                    //    Cubre teléfonos donde facingMode falla pero el deviceId sí sirve.
-                    return Html5Qrcode.getCameras().then(function (cams) {
-                        if (!cams || !cams.length) throw e1;
-                        return almScanner.start(cams[cams.length - 1].id, cfg, onOk, onTick).then(ok);
-                    });
-                })
-                .catch(fail);
-        } catch (e) {
-            fail(e);
-        }
+        if (hint) hint.textContent = 'Cargando cámara…';
+        // Aseguramos la librería ANTES de arrancar (carga local/CDN bajo demanda).
+        almCargarQrLib().then(function (cargada) {
+            if (!cargada) {
+                almScanFallback('Cámara no disponible. Usa un lector USB o escribe el código.', false);
+                return;
+            }
+            // La cámara requiere contexto seguro (HTTPS/localhost). Si no, lector/tecleo.
+            if (!window.isSecureContext) {
+                almScanFallback('La cámara necesita HTTPS. Usa un lector USB o escribe el código.', false);
+                return;
+            }
+            if (reader) reader.style.display = '';
+            if (hint) hint.textContent = 'Iniciando cámara…';
+            var cfg    = { fps: 10, qrbox: { width: 220, height: 220 } };
+            var onOk   = function (texto) { almScanResolver(texto); };
+            var onTick = function () { /* frames sin código: ignorar */ };
+            var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; if (btn) btn.style.display = 'none'; };
+            // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
+            // NotFoundError = sin cámara, etc.) y dejamos visible el botón "Activar cámara"
+            // para reintentar con un gesto explícito (vuelve a pedir permiso).
+            var fail = function (err) {
+                var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
+                almScanFallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso, o usa el código manual.', true);
+            };
+            try {
+                almScanner = new Html5Qrcode('almScanReader', { verbose: false });
+                // 1) Intento directo con la cámara trasera (facingMode environment).
+                almScanner.start({ facingMode: 'environment' }, cfg, onOk, onTick)
+                    .then(ok)
+                    .catch(function (e1) {
+                        // 2) Fallback: enumerar cámaras y usar la última (suele ser la trasera).
+                        //    Cubre teléfonos donde facingMode falla pero el deviceId sí sirve.
+                        return Html5Qrcode.getCameras().then(function (cams) {
+                            if (!cams || !cams.length) throw e1;
+                            return almScanner.start(cams[cams.length - 1].id, cfg, onOk, onTick).then(ok);
+                        });
+                    })
+                    .catch(fail);
+            } catch (e) {
+                fail(e);
+            }
+        });
     }
 
     function almScanDetenerCamara() {
