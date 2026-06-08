@@ -129,7 +129,7 @@
         visibility:visible !important;
         transform:translateY(0) !important;
     }
-    /* Botón "deshacer movimiento" — SOLO super.admin (blade lo gatea con @can).
+    /* Botón "deshacer movimiento" — SOLO super.admin (blade lo gatea con can()).
        Casi invisible en reposo; se realza al pasar el mouse por la fila y se pone
        rojo al hover directo. Anclado al borde superior derecho de la celda Ref. */
     .alm-mov-table td.mv-td-ref { position:relative; }
