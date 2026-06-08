@@ -10,7 +10,8 @@
      con autocomplete de producto por codigo o descripcion.
 
      Flujo de captura:
-       1) Cabecera con datos del lote (almacen derivado + OC + proveedor + fecha + nota).
+       1) Cabecera con datos del lote (almacen derivado + nota de entrega + proveedor
+          + fecha; observaciones van en el sidebar "Resumen de Recepción").
        2) Fila de captura: [Buscar serial/descripcion] [Cantidad] (stepper ▲▼).
           - Si el producto EXISTE: aparece como sugerencia → Enter elige el primero →
             escribir cantidad → Enter agrega a la tabla.
@@ -420,9 +421,10 @@
 <aside class="ent-sidebar">
     <h2 class="ent-sb-title">Resumen de Recepción</h2>
 
-    {{-- Observaciones: texto libre que se anexa al payload (campo `notas`) junto a
-         la "Nota de entrega" externa. Quedan en MovimientoInventario.NOTAS para
-         consulta posterior desde el kardex. El wrap (.ent-sb-obs) es solo un
+    {{-- Observaciones: texto libre que viaja SOLO en el campo `notas` →
+         MovimientoInventario.NOTAS, para consulta posterior desde el kardex. La
+         "Nota de entrega" NO va aquí: tiene su propio campo `referencia` (REFERENCIA)
+         y el Proveedor el suyo (`motivo` → MOTIVO). El wrap (.ent-sb-obs) es solo un
          agrupamiento lógico sin estilos — junta label+textarea para que el flex
          gap del sidebar (14px) las trate como una unidad y NO meta 14px entre
          label y textarea. Sin background ni padding lateral: la textarea queda
@@ -872,18 +874,11 @@
             return;
         }
 
-        // El backend acepta `referencia` (Nº OC), `motivo` (proveedor) y `notas`.
-        // Nº de Nota de Entrega externa: lo metemos en `notas` con un prefijo claro
-        // — el endpoint no tiene columna dedicada y notas es texto libre. Las
-        // Observaciones del sidebar tambien viajan en el mismo campo `notas`
-        // separadas con " — " para que se lean limpias en el kardex.
-        var notaEntrega = v('entNotaEntrega');
-        var observaciones = v('entObservaciones');
-        var partes = [];
-        if (notaEntrega)   partes.push('Nota de entrega: ' + notaEntrega);
-        if (observaciones) partes.push(observaciones);
-        var notasFinal = partes.join(' — ');
-
+        // Trazabilidad del lote — cada dato en SU columna del kardex (no apilados en
+        // texto libre, así se ven limpios y se pueden filtrar/devolver):
+        //   · Nota de entrega → `referencia` (REFERENCIA) — documento del proveedor.
+        //   · Proveedor       → `motivo`     (MOTIVO)     — a quién devolver si hace falta.
+        //   · Observaciones   → `notas`      (NOTAS)      — texto libre del lote.
         var payload = {
             tipo:       'ENTRADA',
             id_almacen: parseInt(idAlm, 10),
@@ -894,8 +889,9 @@
             // el nombre del almacen como fallback (b6c326b).
             id_frente:  ID_FRENTE_DESTINO,
             fecha:      v('entFecha') || null,
-            motivo:     v('entProveedor') || null,   // Proveedor
-            notas:      notasFinal || null,
+            referencia: v('entNotaEntrega')   || null,   // Nota de entrega (doc. del proveedor)
+            motivo:     v('entProveedor')     || null,   // Proveedor (a quién devolver)
+            notas:      v('entObservaciones') || null,   // Observaciones del lote
             lineas:     entLineas.map(function (l) {
                 return { id_producto: l.id_producto, cantidad: l.cantidad };
             }),

@@ -161,6 +161,9 @@
        el panel empuja el contenido (position:static) para que el overflow:hidden del modal no lo recorte. */
     #almEtiquetasModal .dropdown-content { position: static; box-shadow: none; margin-top: 6px; max-height: none; }
     #almEtiquetasModal .custom-dropdown.active .dropdown-content { animation: slideDown 0.18s ease-out; }
+    /* El "Formato" muestra su valor en el placeholder del input readonly: lo pintamos como
+       texto sólido (no gris) para que "Carta/A4 — grilla" se vea como la opción elegida por defecto. */
+    #almEtiquetasModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
     .alm-admin-list { display: flex; flex-direction: column; gap: 6px; }
     .alm-admin-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; }
     .alm-admin-row:hover { background: #f8fafc; }
@@ -616,8 +619,8 @@
                 {{-- Escanear QR: icono dentro del propio buscador. Visible cuando el campo
                      está vacío; al escribir/filtrar se oculta y aparece la "x" de limpiar
                      (toggle en almScanIconToggle, llamado desde filtros()/almBuscarInput).
-                     Abre el modal de cámara y deja la caja lista para lector USB (teclea
-                     el código + Enter). --}}
+                     En teléfono abre el modal de cámara; en PC NO abre nada: enfoca este
+                     mismo buscador para que el lector USB teclee aquí (almEscanear). --}}
                 <i class="material-icons alm-scan-ic" id="almBuscarScan" title="Escanear código QR"
                    style="display:{{ $bActivo ? 'none' : 'flex' }};"
                    onclick="window.almEscanear()">&#xf206;</i>
@@ -815,10 +818,6 @@
             <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
-            <div>
-                <div class="alm-fake-label">Producto(s)</div>
-                <div><strong id="almEtqTarget" style="font-size:12.5px;color:#1e293b;"></strong></div>
-            </div>
             {{-- MODO A — una sola cantidad para todos (menú Acciones / categoría / 1 producto). --}}
             <div id="almEtqModoUnico">
                 <label for="almEtqCopias">Copias por producto</label>
@@ -868,18 +867,21 @@
      funcionando — un lector USB "teclea" el código + Enter. Resuelve el CODIGO vía
      almacen.buscar-codigo y filtra la tabla a ese producto. --}}
 <div id="almEscanearModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:420px;">
+    <div class="alm-modal" style="max-width:340px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;color:#7c3aed;">&#xf206;</i> Escanear producto</h3>
             <i class="material-icons alm-x" onclick="window.almEscanearCerrar()">close</i>
         </div>
         <div class="alm-modal-body">
-            <div id="almScanReader" style="width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
+            {{-- Recuadro de cámara: oculto por defecto. almScanIniciarCamara() lo muestra
+                 SOLO si la cámara arranca (teléfono/HTTPS). En PC sin cámara queda oculto
+                 y se usa el campo de abajo (lector USB o tecleo). --}}
+            <div id="almScanReader" style="display:none;width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
             <div id="almScanHint" style="font-size:12px;color:#64748b;text-align:center;"></div>
             <div>
-                <label for="almScanManual">Código (cámara, lector USB o tecleado)</label>
+                <label for="almScanManual">Código (lector USB o tecleado)</label>
                 <input type="text" id="almScanManual" inputmode="numeric" autocomplete="off"
-                       placeholder="Escanea o escribe el código y pulsa Enter"
+                       placeholder="Escanea o escribe y pulsa Enter"
                        onkeydown="window.almScanManualEnter(event)">
             </div>
         </div>
@@ -2536,12 +2538,10 @@
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'etiquetas':
-                // Sin selección puntual: etiqueta TODO lo del filtro de categoría actual
-                // (idsCsv vacío → almEtiquetasGenerar usa ?categoria). El almacén no aplica:
-                // la etiqueta es del producto del catálogo, no del saldo por almacén.
-                var catElEtq = el('almFiltroCat');
-                var catEtq = catElEtq ? String(catElEtq.dataset.active || '').trim() : '';
-                window.almAbrirEtiquetas('', catEtq ? ('Categoría: ' + catEtq) : 'Todos los productos del catálogo');
+                // Sin selección: etiqueta TODO lo del filtro de categoría actual (idsCsv
+                // vacío → almEtiquetasGenerar lee la categoría aplicada). El almacén no
+                // aplica: la etiqueta es del producto del catálogo, no del saldo por almacén.
+                window.almAbrirEtiquetas('');
                 break;
             case 'export':
                 // Construye la URL del export respetando los filtros activos de la
@@ -2559,18 +2559,20 @@
         }
     };
 
-    // ── Descargar Excel con preloader ─────────────────────────────────────
-    // Se baja vía fetch + blob (no window.location.href) para poder mostrar el
-    // spinner global MIENTRAS el servidor genera el archivo. Con window.location
-    // el usuario clickeaba y no veía ningún feedback hasta que el archivo bajaba.
-    function almDescargarExcel(url) {
+    // ── Descarga genérica con preloader ───────────────────────────────────
+    // Baja el archivo vía fetch + blob (no window.location.href / window.open) para
+    // mostrar el spinner global MIENTRAS el servidor lo genera y forzar la DESCARGA
+    // (en vez de abrir otra pestaña). El nombre sale del Content-Disposition; si no
+    // viene, usa el fallback. La usan la Copia de Inventario (Excel) y las Etiquetas
+    // QR (PDF) — misma UX de descarga que el resto del módulo.
+    function almDescargarArchivo(url, fallbackName, okMsg, errMsg) {
         pre();
-        fetch(url, { credentials: 'same-origin' })
+        return fetch(url, { credentials: 'same-origin' })
             .then(function (r) {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 var cd = r.headers.get('Content-Disposition') || '';
                 var m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
-                var nombre = m ? decodeURIComponent(m[1]) : 'Copia_Inventario.xlsx';
+                var nombre = m ? decodeURIComponent(m[1]) : fallbackName;
                 return r.blob().then(function (blob) { return { blob: blob, nombre: nombre }; });
             })
             .then(function (res) {
@@ -2580,12 +2582,16 @@
                 document.body.appendChild(a); a.click(); a.remove();
                 setTimeout(function () { URL.revokeObjectURL(objUrl); }, 2000);
                 unpre();
-                if (window.showToast) window.showToast('Excel descargado.', 'success');
+                if (okMsg && window.showToast) window.showToast(okMsg, 'success');
             })
             .catch(function () {
                 unpre();
-                if (window.showToast) window.showToast('No se pudo generar el Excel.', 'error');
+                if (window.showToast) window.showToast(errMsg, 'error');
             });
+    }
+
+    function almDescargarExcel(url) {
+        almDescargarArchivo(url, 'Copia_Inventario.xlsx', 'Excel descargado.', 'No se pudo generar el Excel.');
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2615,10 +2621,9 @@
     //   · lista con items      → MODO POR PRODUCTO: pinta una fila por producto con su
     //     propio campo de cantidad; al generar manda ?items=ID:CANT,ID:CANT.
     //     lista = [{ id, label }].
-    window.almAbrirEtiquetas = function (idsCsv, descripcion, lista) {
+    window.almAbrirEtiquetas = function (idsCsv, lista) {
         var m = el('almEtiquetasModal'); if (!m) return;
         m.dataset.ids = idsCsv || '';
-        var t = el('almEtqTarget'); if (t) t.textContent = descripcion || 'Productos del filtro actual';
 
         var modoLista = Array.isArray(lista) && lista.length > 0;
         var unico = el('almEtqModoUnico'), wrapLista = el('almEtqModoLista');
@@ -2676,8 +2681,10 @@
                 if (cat) u.searchParams.set('categoria', cat);
             }
         }
+        // Cierra el modal y baja el PDF con spinner (misma UX que la Copia de
+        // Inventario y la Nota de Entrega): nada de abrir otra pestaña.
         almCerrar('almEtiquetasModal');
-        window.open(u.toString(), '_blank'); // PDF en pestaña nueva → revisar e imprimir
+        almDescargarArchivo(u.toString(), 'Etiquetas_QR_' + fmt + '.pdf', 'Etiquetas descargadas.', 'No se pudieron generar las etiquetas.');
     };
     // Botón "Etiquetas" de la barra de selección masiva → MODO POR PRODUCTO: cada
     // producto seleccionado con su propio campo de cantidad.
@@ -2689,8 +2696,7 @@
             var label = (s.codigo || '') + (s.codigo && s.nombre ? ' — ' : '') + (s.nombre || ('#' + id));
             return { id: id, label: label };
         });
-        var n = ids.length;
-        window.almAbrirEtiquetas(ids.join(','), n + ' producto' + (n === 1 ? '' : 's') + ' seleccionado' + (n === 1 ? '' : 's'), lista);
+        window.almAbrirEtiquetas(ids.join(','), lista);
     };
 
     // ── Escaneo ────────────────────────────────────────────────────────────
@@ -2698,6 +2704,18 @@
     var almScanBusy = false;  // evita resolver dos veces el mismo código
 
     window.almEscanear = function () {
+        // En PC NO se abre el modal de cámara (no hay cámara → salía el feo "No se
+        // pudo abrir la cámara"). La búsqueda SIEMPRE se hace en el buscador general
+        // (#almFiltroBuscar): un lector USB teclea ahí (y el lector global ya resuelve
+        // los escaneos sin abrir nada). El modal de cámara solo tiene sentido en
+        // teléfono. Detección por user-agent móvil (los equipos de campo son Android).
+        var esMovil = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+        if (!esMovil) {
+            var bi = el('almFiltroBuscar');
+            if (bi) { bi.focus(); if (bi.select) bi.select(); }
+            toast('Escanea con el lector USB o escribe el código en el buscador.', 'info');
+            return;
+        }
         var m = el('almEscanearModal'); if (!m) return;
         almScanBusy = false;
         var manual = el('almScanManual'); if (manual) manual.value = '';
@@ -2796,6 +2814,45 @@
                 toast('Error al consultar el código.', 'error');
             });
     }
+
+    // ── Lector USB global (escanear en PC SIN abrir el modal) ──────────────
+    // Un lector de código de barras/QR por USB se comporta como teclado: "teclea"
+    // el código completo + Enter en milisegundos. Para que en PC NO haga falta
+    // abrir el modal de escaneo (que sin cámara solo ofrecía tecleo manual),
+    // escuchamos a nivel de documento: si los caracteres llegan en RÁFAGA (propio
+    // del lector, no del tecleo humano) y NO hay un campo enfocado ni un modal
+    // abierto, los acumulamos y al Enter resolvemos el código con el MISMO
+    // almScanResolver del modal → lo busca en el catálogo y lo muestra en el
+    // buscador general (almBuscarPick). Si hay un input/textarea enfocado o un
+    // modal abierto NO interceptamos: el lector entra por el flujo normal (la
+    // caja de búsqueda o el campo manual del modal) y el tecleo humano no se afecta.
+    (function () {
+        var buf = '', lastT = 0;
+        var GAP_MS = 50, MIN_LEN = 3;   // ráfaga < 50ms entre teclas; código de >= 3 chars
+        function enCampoEditable() {
+            var a = document.activeElement; if (!a) return false;
+            var t = (a.tagName || '').toLowerCase();
+            return t === 'input' || t === 'textarea' || t === 'select' || a.isContentEditable;
+        }
+        function hayModalAbierto() { return !!document.querySelector('.alm-modal-overlay.open'); }
+        document.addEventListener('keydown', function (e) {
+            if (enCampoEditable() || hayModalAbierto()) { buf = ''; return; }
+            if (e.ctrlKey || e.metaKey || e.altKey) return;   // atajos de teclado: no son del lector
+            var now = (window.performance && performance.now) ? performance.now() : Date.now();
+            if (now - lastT > GAP_MS) buf = '';   // pausa larga entre teclas → reinicia (descarta tecleo humano)
+            lastT = now;
+            if (e.key === 'Enter') {
+                var cod = buf.trim(); buf = '';
+                if (cod.length >= MIN_LEN) {
+                    e.preventDefault();
+                    almScanBusy = false;          // permite resolver aunque no se haya abierto el modal
+                    almScanResolver(cod);
+                }
+                return;
+            }
+            if (e.key && e.key.length === 1) buf += e.key;   // solo caracteres imprimibles del código
+        }, true);
+    })();
 
     function hoy() { var d = new Date(); var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
     function showErr(id, msg) { var e = el(id); if (e) { e.textContent = msg; e.style.display = msg ? 'block' : 'none'; } }

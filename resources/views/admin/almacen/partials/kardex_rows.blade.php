@@ -77,11 +77,15 @@
                     —
                 @endif
             </td>
-            {{-- Ref: N° de Nota (NE-YYYY-NNNN) como link al PDF + REFERENCIA debajo (más chica).
-                 NUMERO_NOTA lo asigna el backend cuando es SALIDA / TRASPASO_SALIDA generadas via
-                 Nota de Entrega VID-FO-GEN-019; REFERENCIA viene del modal de Entrada directa
-                 (N° de OC). Si ambos están presentes se muestran apilados; si ninguno → "—". --}}
-            <td class="mv-td-ref" data-label="Ref" title="{{ $m->MOTIVO ?? '' }}">
+            {{-- Ref: apila la trazabilidad del movimiento, cada dato en su columna propia:
+                   · NUMERO_NOTA (NE-YYYY-NNNN) → link al PDF de la Nota de Entrega (SALIDA).
+                   · REFERENCIA → Nota de entrega del proveedor (en ENTRADA directa) / N° OC.
+                   · MOTIVO     → en ENTRADA es el PROVEEDOR (ícono 🚚, a quién devolver);
+                                  en SALIDA/AJUSTE es el motivo → se deja como tooltip de la celda.
+                   · NOTAS      → Observaciones del lote: inline truncado + texto completo al hover.
+                 Si no hay nada → "—". --}}
+            @php $esEntradaDirecta = $m->TIPO === 'ENTRADA'; @endphp
+            <td class="mv-td-ref" data-label="Ref" @if(!$esEntradaDirecta && $m->MOTIVO) title="{{ $m->MOTIVO }}" @endif>
                 @if($m->NUMERO_NOTA)
                     {{-- Mismo visor in-page que usa /admin/almacen/notas y el resto del módulo
                          (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
@@ -93,9 +97,20 @@
                        title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
                 @endif
                 @if($m->REFERENCIA)
-                    <div style="font-size:10.5px;color:#64748b;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}">{{ $m->REFERENCIA }}</div>
+                    <div style="font-size:10.5px;color:#64748b;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
                 @endif
-                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA)—@endif
+                @if($esEntradaDirecta && $m->MOTIVO)
+                    {{-- Proveedor: visible (no solo hover) — es el dato clave para una devolución. --}}
+                    <div style="font-size:10.5px;color:#64748b;display:flex;align-items:center;gap:3px;{{ ($m->NUMERO_NOTA || $m->REFERENCIA) ? 'margin-top:2px;' : '' }}" title="Proveedor">
+                        <i class="material-icons" style="font-size:12px;color:#94a3b8;">local_shipping</i><span>{{ $m->MOTIVO }}</span>
+                    </div>
+                @endif
+                @if($m->NOTAS)
+                    <div style="font-size:10.5px;color:#94a3b8;display:flex;align-items:center;gap:3px;margin-top:2px;" title="{{ $m->NOTAS }}">
+                        <i class="material-icons" style="font-size:12px;">sticky_note_2</i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">{{ $m->NOTAS }}</span>
+                    </div>
+                @endif
+                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO) && !$m->NOTAS)—@endif
             </td>
         </tr>
     @endforeach

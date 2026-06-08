@@ -1897,18 +1897,29 @@ class AlmacenController extends Controller
 
         // Tipografía UNIFORME en las tres líneas (código, nombre, unidad): mismo tipo,
         // tamaño, color y peso de letra — sin negrita ni colores distintos.
-        $pt = $w > 55.0 ? 9 : 6.5;                  // carta vs rollo
+        $pt = $w > 55.0 ? 7.5 : 5.5;                // carta vs rollo (un poco más pequeño para que nombres largos quepan)
 
         $codigo = htmlspecialchars((string) $p->CODIGO, ENT_QUOTES, 'UTF-8');
         $nombre = htmlspecialchars((string) $p->NOMBRE, ENT_QUOTES, 'UTF-8');
         $um     = htmlspecialchars((string) $p->UM, ENT_QUOTES, 'UTF-8');
+
+        // Centrado VERTICAL del bloque de texto dentro del alto de la etiqueta. TCPDF
+        // pega writeHTMLCell arriba, así que medimos cuántas líneas ocupa (el NOMBRE
+        // puede partirse en varias) y arrancamos en una Y que lo deja centrado, igual
+        // que el QR. getNumLines usa la fuente activa → la fijamos al mismo $pt.
+        $pdf->SetFont('helvetica', '', $pt);
+        $lineMm  = ($pt / 72 * 25.4) * 1.3;                                   // alto de línea (line-height 1.3) en mm
+        $nLineas = 1 + max(1, $pdf->getNumLines((string) $p->NOMBRE, $tw))    // código + nombre(s) + um
+                     + ($um !== '' ? 1 : 0);
+        $textoH  = $nLineas * $lineMm;
+        $ty      = $y + max($pad, ($h - $textoH) / 2.0);
 
         $html = '<div style="font-family:helvetica;color:#0f172a;font-size:' . $pt . 'pt;line-height:1.3;">'
               . $codigo . '<br>'
               . $nombre . '<br>'
               . $um
               . '</div>';
-        $pdf->writeHTMLCell($tw, $h - 2 * $pad, $tx, $y + $pad, $html, 0, 0, false, true, 'L', true);
+        $pdf->writeHTMLCell($tw, 0, $tx, $ty, $html, 0, 0, false, true, 'L', true);
     }
 
     /**

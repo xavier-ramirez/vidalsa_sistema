@@ -360,8 +360,8 @@
             font-weight: normal;
         }
 
-        /* Ref (NE-AAAA-NNNN + REFERENCIA): se renderiza como BURBUJA FLOTANTE
-           al estilo del tooltip-bubble de /admin/equipos. Oculta por default;
+        /* Ref (N° Nota + REFERENCIA + Proveedor + Observaciones): se renderiza como
+           BURBUJA FLOTANTE al estilo del tooltip-bubble de /admin/equipos. Oculta por default;
            al seleccionar la tarjeta (mv-row-selected) aparece arriba del centro
            de la tarjeta con un trianguito apuntando hacia abajo. NO ocupa grid
            area (position:absolute la saca del flujo del grid). */
@@ -417,7 +417,7 @@
             text-decoration-color: rgba(255,255,255,0.4) !important;
             white-space: nowrap !important;
         }
-        /* REFERENCIA secundaria (si viene): texto chico debajo del numero */
+        /* Sub-líneas (REFERENCIA, Proveedor, Observaciones): texto chico bajo el N° de nota */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
             font-size: 10px !important;
             color: rgba(255,255,255,0.75) !important;
@@ -936,8 +936,9 @@
 
     // ── Seleccion de tarjeta en mobile (toggle azul + revela burbuja NE-AAAA-NNNN) ──
     // Mismo patron de UX que /admin/equipos: tocar la tarjeta la resalta en azul y
-    // muestra una burbuja flotante con la info de Nota de Entrega (NE-AAAA-NNNN +
-    // REFERENCIA opcional) por encima del centro de la tarjeta.
+    // muestra una burbuja flotante con la info de referencia del movimiento
+    // (N° Nota NE-AAAA-NNNN + REFERENCIA + Proveedor + Observaciones, lo que aplique)
+    // por encima del centro de la tarjeta.
     //
     // Early returns para que clicks en la burbuja NO togglee la seleccion:
     //   - Click dentro de .mv-td-ref (burbuja entera, incluido el <a> del PDF):

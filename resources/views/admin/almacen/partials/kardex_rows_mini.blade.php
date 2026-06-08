@@ -55,9 +55,21 @@
                     </div>
                 @endif
                 @if($m->REFERENCIA)
-                    <div style="font-size:10.5px;color:#64748b;">Ref: {{ $m->REFERENCIA }}</div>
+                    {{-- En ENTRADA directa REFERENCIA es la Nota de entrega del proveedor. --}}
+                    <div style="font-size:10.5px;color:#64748b;" title="Nota de entrega / referencia">Ref: {{ $m->REFERENCIA }}</div>
                 @endif
-                @if(!$m->frente && !$m->ID_ALMACEN_CONTRAPARTE && !$m->NUMERO_NOTA && !$m->REFERENCIA)
+                @if($m->TIPO === 'ENTRADA' && $m->MOTIVO)
+                    {{-- Proveedor visible — dato clave para una devolución. --}}
+                    <div style="font-size:10.5px;color:#64748b;display:flex;align-items:center;gap:3px;" title="Proveedor">
+                        <i class="material-icons" style="font-size:12px;color:#94a3b8;">local_shipping</i><span>{{ $m->MOTIVO }}</span>
+                    </div>
+                @endif
+                @if($m->NOTAS)
+                    <div style="font-size:10.5px;color:#94a3b8;display:flex;align-items:center;gap:3px;" title="{{ $m->NOTAS }}">
+                        <i class="material-icons" style="font-size:12px;">sticky_note_2</i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">{{ $m->NOTAS }}</span>
+                    </div>
+                @endif
+                @if(!$m->frente && !$m->ID_ALMACEN_CONTRAPARTE && !$m->NUMERO_NOTA && !$m->REFERENCIA && !($m->TIPO === 'ENTRADA' && $m->MOTIVO) && !$m->NOTAS)
                     —
                 @endif
             </td>
