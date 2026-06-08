@@ -1928,6 +1928,11 @@ class EquipoController extends Controller
             'file' => 'required|file|mimes:pdf|max:51200',
             'doc_type' => 'required|in:propiedad,poliza,rotc,racda,adicional,adicional_2',
             'expiration_date' => 'nullable|date'
+        ], [
+            'file.required' => 'Debe seleccionar un archivo.',
+            'file.file'     => 'El documento no es válido.',
+            'file.mimes'    => 'Solo se aceptan archivos en formato PDF.',
+            'file.max'      => 'El archivo supera el tamaño máximo permitido (50 MB).',
         ]);
 
         $equipo = $this->findAndAuthorizeEquipo($id);

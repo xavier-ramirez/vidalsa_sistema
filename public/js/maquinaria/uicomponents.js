@@ -1278,9 +1278,23 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
 
     if (!input.files || !input.files[0]) return;
     const file = input.files[0];
-    
+
+    // Solo se aceptan PDF: validacion en el navegador para avisar al instante
+    // (sin subir el archivo) si el usuario elige una foto u otro formato.
+    const esPdf = /\.pdf$/i.test(file.name) &&
+        (file.type === "application/pdf" || file.type === "");
+    if (!esPdf) {
+        input.value = "";
+        if (window.showToast) {
+            window.showToast("Solo se aceptan archivos en formato PDF.", "error");
+        } else {
+            alert("Solo se aceptan archivos en formato PDF.");
+        }
+        return;
+    }
+
     // IMPORTANTE: Limpiamos el input enseguida para permitir reelección del MISMO archivo en caso de fallo
-    input.value = ""; 
+    input.value = "";
 
     if (window.showPreloader) window.showPreloader();
 
@@ -1351,12 +1365,24 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
                 }
             }
         } else {
-            // Manejar errores como 413 Payload Too Large u otros
+            // Manejar errores como 413 Payload Too Large, 422 validacion u otros
             if (window.hidePreloader) window.hidePreloader();
             if (window.showToast) {
-                let msgError = (xhr.status === 413) 
-                    ? "Error: El archivo pesa más del límite permitido." 
-                    : `Error del servidor (Código: ${xhr.status}). Verifique su archivo.`;
+                let msgError;
+                if (xhr.status === 413) {
+                    msgError = "Error: El archivo pesa más del límite permitido.";
+                } else if (xhr.status === 422) {
+                    // Validacion fallida: mostramos el mensaje exacto del servidor
+                    // (p.ej. "Solo se aceptan archivos en formato PDF.").
+                    let serverMsg = "";
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        serverMsg = (err.errors && err.errors.file && err.errors.file[0]) || err.message || "";
+                    } catch (_) { /* respuesta no-JSON */ }
+                    msgError = serverMsg || "Solo se aceptan archivos en formato PDF.";
+                } else {
+                    msgError = `Error del servidor (Código: ${xhr.status}). Verifique su archivo.`;
+                }
                 window.showToast(msgError, "error");
             }
         }
