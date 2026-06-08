@@ -2742,20 +2742,28 @@
         almScanIniciarCamara();
     };
 
+    // Estado de fallback del modal de escaneo: oculta el recuadro de cámara, pone el
+    // mensaje y muestra (o no) el botón "Activar cámara". Centralizado aquí para no
+    // repetir el mismo bloque en los 3 puntos donde la cámara no arranca (sin librería,
+    // sin HTTPS, o error al iniciar). mostrarBtn=true solo cuando reintentar tiene
+    // sentido (un fallo de arranque/permiso), no cuando es imposible (sin HTTPS).
+    function almScanFallback(msg, mostrarBtn) {
+        var reader = el('almScanReader'), hint = el('almScanHint'), btn = el('almScanActivar');
+        if (reader) reader.style.display = 'none';
+        if (btn) btn.style.display = mostrarBtn ? '' : 'none';
+        if (hint) hint.textContent = msg;
+    }
+
     function almScanIniciarCamara() {
         var hint = el('almScanHint'), reader = el('almScanReader'), btn = el('almScanActivar');
         // La cámara requiere contexto seguro (HTTPS/localhost) y soporte del navegador.
         // Si falta cualquiera NO es error: el lector USB / tecleo cubren el caso.
         if (typeof Html5Qrcode === 'undefined') {
-            if (reader) reader.style.display = 'none';
-            if (btn) btn.style.display = 'none';
-            if (hint) hint.textContent = 'Cámara no disponible. Usa un lector USB o escribe el código.';
+            almScanFallback('Cámara no disponible. Usa un lector USB o escribe el código.', false);
             return;
         }
         if (!window.isSecureContext) {
-            if (reader) reader.style.display = 'none';
-            if (btn) btn.style.display = 'none';
-            if (hint) hint.textContent = 'La cámara necesita HTTPS. Usa un lector USB o escribe el código.';
+            almScanFallback('La cámara necesita HTTPS. Usa un lector USB o escribe el código.', false);
             return;
         }
         if (reader) reader.style.display = '';
@@ -2768,10 +2776,8 @@
         // NotFoundError = sin cámara, etc.) y dejamos visible el botón "Activar cámara"
         // para reintentar con un gesto explícito (vuelve a pedir permiso).
         var fail = function (err) {
-            if (reader) reader.style.display = 'none';
             var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
-            if (hint) hint.textContent = 'No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso, o usa el código manual.';
-            if (btn) btn.style.display = '';
+            almScanFallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso, o usa el código manual.', true);
         };
         try {
             almScanner = new Html5Qrcode('almScanReader', { verbose: false });
