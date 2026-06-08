@@ -115,6 +115,15 @@
                     <div class="button-login-container">
                         <button type="submit" class="btn-maquinaria-primary">Iniciar sesión</button>
                     </div>
+                    {{-- Botón de acceso OFFLINE: solo aparece sin internet y si ya iniciaste
+                         sesión con internet al menos una vez en este equipo. Verifica tu
+                         correo+clave contra un hash local (la clave nunca se guarda en texto)
+                         y abre la versión cacheada. Ver public/js/offline/offline-auth.js --}}
+                    <button type="button" id="btnOfflineLogin"
+                            style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:#fff;color:#b45309;border:1.5px solid #fdba74;border-radius:8px;padding:11px;font-weight:800;font-size:14px;cursor:pointer;">
+                        Entrar sin conexión
+                    </button>
+                    <div id="offlineLoginMsg" style="display:none;margin-top:8px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;"></div>
                 </form>
             </div>
         </div>
@@ -176,6 +185,16 @@
                 preloader.style.display = 'flex';
             }
 
+            // Guarda el verificador OFFLINE (hash de correo+clave, nunca la clave en texto)
+            // para poder entrar sin internet luego. Se "confirma" al llegar al menú. La
+            // función es asíncrona pero el handshake de abajo da tiempo de sobra a que termine.
+            if (window.OfflineAuth) {
+                window.OfflineAuth.guardarPendiente(
+                    (document.getElementById('login_identifier') || {}).value,
+                    (document.getElementById('password') || {}).value
+                );
+            }
+
             // 1. Handshake: Request fresh security token
             fetch('/refresh-csrf')
                 .then(response => response.text())
@@ -197,5 +216,7 @@
         });
     }
 </script>
+{{-- Login OFFLINE: botón "Entrar sin conexión" + verificación por hash local. --}}
+<script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 </html>
 
