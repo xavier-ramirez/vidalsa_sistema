@@ -2741,21 +2741,35 @@
             return;
         }
         if (reader) reader.style.display = '';
-        if (hint) hint.textContent = 'Apunta la cámara al código QR…';
+        if (hint) hint.textContent = 'Iniciando cámara…';
+        var cfg    = { fps: 10, qrbox: { width: 220, height: 220 } };
+        var onOk   = function (texto) { almScanResolver(texto); };
+        var onTick = function () { /* frames sin código: ignorar */ };
+        var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; };
+        // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
+        // NotFoundError = sin cámara, etc.) para no quedar a ciegas: el usuario sabe si
+        // es permiso o hardware, en vez del genérico "No se pudo abrir la cámara".
+        var fail = function (err) {
+            if (reader) reader.style.display = 'none';
+            var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
+            if (hint) hint.textContent = 'No se pudo abrir la cámara (' + msg + '). Da permiso de cámara al sitio o usa el código manual abajo.';
+        };
         try {
             almScanner = new Html5Qrcode('almScanReader', { verbose: false });
-            almScanner.start(
-                { facingMode: 'environment' },
-                { fps: 10, qrbox: { width: 200, height: 200 } },
-                function (texto) { almScanResolver(texto); },
-                function () { /* frames sin código: ignorar */ }
-            ).catch(function () {
-                if (reader) reader.style.display = 'none';
-                if (hint) hint.textContent = 'No se pudo abrir la cámara. Usa un lector USB o escribe el código.';
-            });
+            // 1) Intento directo con la cámara trasera (facingMode environment).
+            almScanner.start({ facingMode: 'environment' }, cfg, onOk, onTick)
+                .then(ok)
+                .catch(function (e1) {
+                    // 2) Fallback: enumerar cámaras y usar la última (suele ser la trasera).
+                    //    Cubre teléfonos donde facingMode falla pero el deviceId sí sirve.
+                    return Html5Qrcode.getCameras().then(function (cams) {
+                        if (!cams || !cams.length) throw e1;
+                        return almScanner.start(cams[cams.length - 1].id, cfg, onOk, onTick).then(ok);
+                    });
+                })
+                .catch(fail);
         } catch (e) {
-            if (reader) reader.style.display = 'none';
-            if (hint) hint.textContent = 'No se pudo abrir la cámara. Usa un lector USB o escribe el código.';
+            fail(e);
         }
     }
 
