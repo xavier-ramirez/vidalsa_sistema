@@ -495,6 +495,12 @@
                 font-family:'Inter','Segoe UI',sans-serif;">
         <i class="material-icons" id="netStatusIcon" style="font-size:18px;">wifi_off</i>
         <span id="netStatusText">Sin conexión a internet</span>
+        {{-- Botón que OFRECE pasar a la versión offline (no se cambia solo). Solo
+             aparece sin conexión y si el módulo actual tiene render offline. --}}
+        <button id="netStatusAction" type="button"
+                style="display:none;margin-left:10px;background:#fff;color:#dc2626;border:none;border-radius:6px;padding:4px 12px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;">
+            Trabajar sin conexión
+        </button>
     </div>
 
     <!-- Permanent Header (Never reloads) -->
@@ -1115,21 +1121,83 @@
                     setTimeout(() => { banner.style.display = 'none'; }, 300);
                 }
 
-                window.addEventListener('offline', function () {
+                // ── Modo OFFLINE: se OFRECE, no se cambia solo ──────────────────
+                // Los módulos con vista offline registran su render aquí (OfflineMode).
+                // Sin conexión, el banner rojo muestra el botón "Trabajar sin conexión";
+                // al tocarlo se pinta la versión local y el banner pasa a ámbar.
+                //
+                // Registro POR CLAVE (no array): la navegación SPA re-ejecuta el script del
+                // módulo en cada visita; con clave se SOBREESCRIBE en vez de acumular (sin
+                // fuga). Cada render se guarda con su propio guard (pinta solo si su tabla
+                // sigue en el DOM), así los módulos que ya no están en pantalla no hacen nada.
+                const action = document.getElementById('netStatusAction');
+                const renders = {};
+                let offlineActivo = false;
+
+                function correrRenders() {
+                    Object.keys(renders).forEach(function (k) { try { renders[k](); } catch (e) {} });
+                }
+                function mostrarOffline() {
                     showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
-                });
+                    if (action) action.style.display = (Object.keys(renders).length && !offlineActivo) ? 'inline-block' : 'none';
+                }
+                function activarOffline() {
+                    if (offlineActivo) return;
+                    offlineActivo = true;
+                    if (action) action.style.display = 'none';
+                    correrRenders();
+                    // Banner ámbar con la fecha de la copia local (si OfflineDB ya cargó).
+                    var pintar = function (cuando) {
+                        showBanner('Trabajando sin conexión (solo lectura)' + (cuando || ''), 'cloud_off', '#b45309', 0);
+                    };
+                    if (window.OfflineDB) {
+                        window.OfflineDB.meta().then(function (m) {
+                            var c = '';
+                            if (m && m.generado) { var d = new Date(m.generado); if (!isNaN(d)) c = ' · datos del ' + d.toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+                            pintar(c);
+                        }).catch(function () { pintar(''); });
+                    } else { pintar(''); }
+                }
+                if (action) action.addEventListener('click', activarOffline);
+
+                window.addEventListener('offline', mostrarOffline);
                 window.addEventListener('online', function () {
+                    offlineActivo = false;
+                    if (action) action.style.display = 'none';
                     showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
                 });
+                // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
+                // visible. (La re-pintada al navegar por SPA la hace cada módulo en su
+                // propio init sobre 'spa:contentLoaded', no aquí, para no duplicar.)
+                window.addEventListener('offline-datos-actualizados', function () { if (offlineActivo) correrRenders(); });
 
-                // Estado inicial al cargar
-                if (!navigator.onLine) {
-                    showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
-                }
+                // Estado inicial al cargar (la app se abrió ya sin conexión)
+                if (!navigator.onLine) mostrarOffline();
 
-                window.netStatus = {
-                    showOffline: () => showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0),
-                    hide: hideBanner
+                window.netStatus = { showOffline: mostrarOffline, hide: hideBanner };
+
+                // API para los módulos. registrar(clave, fn): clave única por módulo.
+                // Helpers compartidos (esc, conOfflineDB) para no duplicarlos en cada módulo.
+                window.OfflineMode = {
+                    registrar: function (clave, fn) {
+                        renders[clave] = fn;
+                        if (!navigator.onLine && !offlineActivo && action) action.style.display = 'inline-block';
+                    },
+                    activar: activarOffline,
+                    estaActivo: function () { return offlineActivo; },
+                    esc: function (s) {
+                        return String(s == null ? '' : s)
+                            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    },
+                    // Espera a que OfflineDB (offline-sync.js, al final del body) esté listo.
+                    conOfflineDB: function (cb) {
+                        if (window.OfflineDB) return cb();
+                        var n = 0;
+                        var t = setInterval(function () {
+                            if (window.OfflineDB) { clearInterval(t); cb(); }
+                            else if (++n > 50) { clearInterval(t); }
+                        }, 100);
+                    }
                 };
             })();
 
@@ -2847,6 +2915,17 @@
 
         {{-- ===== PWA: registro del Service Worker + banner "Instalar aplicacion" ===== --}}
         <script src="{{ asset('js/pwa-install.js') }}?v={{ @filemtime(public_path('js/pwa-install.js')) }}" defer></script>
+
+        {{-- ===== OFFLINE (Fase 1): baja la copia de datos a IndexedDB para consultar sin internet ===== --}}
+        <script src="{{ asset('js/offline/offline-sync.js') }}?v={{ @filemtime(public_path('js/offline/offline-sync.js')) }}" defer></script>
+        {{-- Confirma el verificador de login offline (el servidor aceptó las credenciales). --}}
+        <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
+        {{-- Render offline por módulo (GLOBAL: se (re)inicializan en cada navegación SPA vía
+             su propio listener 'spa:contentLoaded'; en @section('content') NO se ejecutaban
+             porque la SPA omite los <script src> ya cargados). --}}
+        <script src="{{ asset('js/maquinaria/almacen-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen-offline.js')) }}" defer></script>
+        <script src="{{ asset('js/maquinaria/equipos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos-offline.js')) }}" defer></script>
+        <script src="{{ asset('js/maquinaria/movilizaciones-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones-offline.js')) }}" defer></script>
 </body>
 
 </html>

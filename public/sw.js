@@ -2,7 +2,14 @@
  * Vidalsa PWA Service Worker
  * Estrategia: network-first para HTML (la app es dinámica), cache-first para assets
  * estáticos (/icons, /css, /js, /fonts, /images) que ya vienen con cache-busting via
- * ?v=filemtime. Nunca se cachean rutas admin ni API para evitar data stale.
+ * ?v=filemtime.
+ *
+ * MODO OFFLINE (Fase 1): las navegaciones (incluidas /admin/ y /dashboard/) son
+ * network-first y se CACHEAN; offline se sirve el cascarón cacheado para que el
+ * módulo cargue igual. Online no cambia: siempre se intenta la red primero, el
+ * cache solo se usa cuando NO hay internet. Los datos frescos los repone el JS
+ * desde IndexedDB (ver /js/offline/offline-sync.js). Las rutas de API/acciones y
+ * el snapshot (/offline/) NUNCA se cachean para no servir datos viejos.
  *
  * CACHE_VERSION es inyectado por la ruta Laravel que sirve este archivo; el placeholder
  * __CACHE_VERSION__ se reemplaza con filemtime en cada response para que todo cambio
@@ -43,13 +50,15 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
-    // Nunca cachear rutas dinámicas NI el manifest (el manifest debe leerse fresco
-    // siempre: si cachea uno viejo, el navegador no detecta cambios en display_override
-    // / tab_strip y nunca activa el modo pestañas aunque reinstales el PWA).
+    // Nunca cachear API/acciones, el snapshot offline, ni el manifest (el manifest
+    // debe leerse fresco siempre: si cachea uno viejo, el navegador no detecta cambios
+    // en display_override / tab_strip y nunca activa el modo pestañas aunque reinstales
+    // el PWA). OJO: /admin/ y /dashboard/ YA NO se excluyen — sus navegaciones se
+    // cachean (network-first) para que los módulos carguen offline; los datos viejos
+    // del HTML cacheado los reemplaza el JS leyendo de IndexedDB.
     if (
-        url.pathname.startsWith('/admin/') ||
         url.pathname.startsWith('/api/') ||
-        url.pathname.startsWith('/dashboard/') ||
+        url.pathname.startsWith('/offline/') ||
         url.pathname.startsWith('/storage/') ||
         url.pathname.includes('/export') ||
         url.pathname.includes('/acta-traslado') ||
@@ -95,7 +104,11 @@ self.addEventListener('fetch', (event) => {
                     caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
                 }
                 return response;
-            }).catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
+            }).catch(() => caches.match(request).then(
+                // Offline: 1) la misma página si está cacheada; 2) el menú cacheado
+                // (lo más útil para reabrir la app sin señal); 3) la raíz como último recurso.
+                (cached) => cached || caches.match('/menu').then((m) => m || caches.match('/'))
+            ))
         );
     }
 });

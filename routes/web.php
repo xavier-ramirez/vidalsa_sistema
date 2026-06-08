@@ -25,6 +25,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/dashboard/iniciar-gestion', [App\Http\Controllers\DashboardController::class, 'iniciarGestion'])->name('dashboard.iniciarGestion');
         Route::get('/dashboard/export-documents-pdf', [App\Http\Controllers\DashboardController::class, 'exportDocumentsPDF'])->name('dashboard.exportDocumentsPDF');
 
+        // ── Modo OFFLINE (Fase 1: consulta sin internet) ──────────────────────────
+        // version(): huella barata para que el teléfono sepa si hay datos nuevos.
+        // snapshot(): copia de solo lectura, acotada a los almacenes visibles del usuario.
+        Route::get('/offline/version',  [App\Http\Controllers\OfflineController::class, 'version'])->name('offline.version');
+        Route::get('/offline/snapshot', [App\Http\Controllers\OfflineController::class, 'snapshot'])->name('offline.snapshot');
 
         Route::prefix('admin')->group(function () {
             // Ruta de perfil propio (disponible para TODOS los usuarios autenticados)

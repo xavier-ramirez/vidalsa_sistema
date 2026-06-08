@@ -151,6 +151,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 signal: controller.signal,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
+                    // Accept HTML: declara que esta navegación SPA espera HTML. Así el
+                    // Service Worker la trata como navegación → la cachea (network-first)
+                    // y, SIN internet, le sirve la copia cacheada para que la navegación
+                    // entre módulos funcione offline en vez de fallar.
+                    'Accept': 'text/html',
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache'
                 },
