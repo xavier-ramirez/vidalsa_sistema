@@ -810,7 +810,11 @@ class AlmacenController extends Controller
         }
         $q->periodo($request->input('desde'), $request->input('hasta'));
 
-        $paginator = $q->orderByDesc('FECHA')->orderByDesc('ID_MOVIMIENTO')
+        // Orden por ORDEN DE REGISTRO (ID_MOVIMIENTO autoincremental), NO por FECHA: la
+        // FECHA la teclea el usuario y puede ser pasada o incluso futura, así que ordenar
+        // por ella hundía la última operación registrada bajo movimientos con fecha mayor.
+        // El cliente quiere ver SIEMPRE primero lo más recientemente registrado.
+        $paginator = $q->orderByDesc('ID_MOVIMIENTO')
             ->paginate($request->integer('per_page') ?: 50)->withQueryString();
 
         if ($request->wantsJson()) {
@@ -967,8 +971,10 @@ class AlmacenController extends Controller
         }
         $q->periodo($request->input('desde'), $request->input('hasta'));
 
-        // La fila más reciente arriba.
-        $q->orderByDesc('FECHA')->orderByDesc('ULT_ID');
+        // La nota más recientemente REGISTRADA arriba: ordenamos por ULT_ID (mayor
+        // ID_MOVIMIENTO del grupo = orden de registro), no por FECHA — la FECHA la teclea
+        // el usuario y puede ser pasada/futura, lo que hundía la última nota registrada.
+        $q->orderByDesc('ULT_ID');
 
         // paginate() sobre groupBy: Laravel hace el COUNT con DISTINCT internamente.
         $paginator = $q->paginate($request->integer('per_page') ?: 50)->withQueryString();
