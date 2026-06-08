@@ -237,6 +237,12 @@ Route::middleware(['auth'])->group(function () {
             // DELETE: borra la Nota completa por código y revierte el stock vía ENTRADA inversa.
             // Requiere la clave almacen.nota.eliminar: una nota borrada no se recupera y el stock se mueve.
             Route::delete('almacen/nota-entrega',                 [App\Http\Controllers\AlmacenController::class, 'eliminarNota'])      ->middleware('can:almacen.nota.eliminar')->name('almacen.nota-entrega.destroy');
+            // DESHACER un movimiento individual del kardex — EXCLUSIVO super.admin.
+            // Borrado DURO sin rastro: elimina la fila, revierte el stock y RECALCULA el
+            // saldo de los movimientos posteriores del mismo producto+almacén para que el
+            // kardex quede coherente (como si nunca hubiera ocurrido). En traspasos deshace
+            // AMBAS patas del par. Irreversible — por eso va tras el gate can:super.admin.
+            Route::delete('almacen/movimientos/{id}',             [App\Http\Controllers\AlmacenController::class, 'eliminarMovimiento'])->whereNumber('id')->middleware('can:super.admin')->name('almacen.movimientos.destroy');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 
             // Productos (catálogo global)

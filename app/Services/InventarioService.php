@@ -170,6 +170,143 @@ class InventarioService
         });
     }
 
+    /**
+     * Deshace un movimiento del kardex con BORRADO DURO (sin rastro) y deja el stock
+     * coherente — operación EXCLUSIVA de super.admin (el gate vive en la ruta).
+     *
+     * A diferencia de una reversión por contrapartida (que añade una fila inversa y
+     * CONSERVA el rastro, como eliminarNota), aquí la fila se ELIMINA físicamente: el
+     * movimiento desaparece "como si nunca hubiera ocurrido". Para que el saldo no quede
+     * con un salto, se RECALCULA CANTIDAD_ANTERIOR/RESULTANTE de todos los movimientos
+     * posteriores del mismo (almacén, producto) y se reescribe almacen_stock.CANTIDAD.
+     *
+     * Traspasos: un traspaso son DOS filas (salida en origen + entrada en destino)
+     * enlazadas por ID_MOVIMIENTO_RELACIONADO. Deshacer una sola dejaría medio traspaso
+     * colgando, así que se borran AMBAS patas y se recalcula cada almacén afectado. El
+     * pedido de Traspaso (tabla `traspasos`) NO se toca: solo el kardex y el stock.
+     *
+     * Irreversible: no deja registro en ninguna parte.
+     *
+     * @return array{eliminados:int, afectados:array<int,array{id_almacen:int,id_producto:int,saldo:float}>}
+     */
+    public function eliminarMovimientoConReverso(int $idMovimiento): array
+    {
+        return DB::transaction(function () use ($idMovimiento) {
+            $mov = MovimientoInventario::lockForUpdate()->find($idMovimiento);
+            if (! $mov) {
+                throw new InvalidArgumentException("El movimiento #{$idMovimiento} no existe o ya fue eliminado.");
+            }
+
+            // Reunir las filas a borrar: la propia + su contraparte de traspaso, siguiendo
+            // el enlace ID_MOVIMIENTO_RELACIONADO en AMBOS sentidos.
+            $ids = collect([(int) $mov->ID_MOVIMIENTO]);
+            if ($mov->ID_MOVIMIENTO_RELACIONADO) {
+                $ids->push((int) $mov->ID_MOVIMIENTO_RELACIONADO);
+            }
+            $ids = $ids->merge(
+                MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)->pluck('ID_MOVIMIENTO')
+            )->map(fn ($v) => (int) $v)->unique()->values();
+
+            $movs = MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->get();
+
+            // (almacén, producto) únicos afectados — hay que recalcular el saldo de cada uno.
+            $pares = $movs->map(fn ($m) => ['a' => (int) $m->ID_ALMACEN, 'p' => (int) $m->ID_PRODUCTO])
+                ->unique(fn ($x) => $x['a'] . '-' . $x['p'])
+                ->values();
+
+            // Capturar el SALDO DE APERTURA de cada chain ANTES de borrar: es el
+            // CANTIDAD_ANTERIOR del movimiento más antiguo (menor ID). El kardex NO siempre
+            // arranca en 0 — puede haber un saldo inicial de migración o movimientos previos
+            // ya archivados — así que recalcular desde 0 destrozaría el stock. Esa apertura
+            // es el saldo previo al primer movimiento y se preserva tal cual.
+            $aperturas = [];
+            foreach ($pares as $par) {
+                $clave = $par['a'] . '-' . $par['p'];
+                $aperturas[$clave] = (float) (
+                    MovimientoInventario::where('ID_ALMACEN', $par['a'])
+                        ->where('ID_PRODUCTO', $par['p'])
+                        ->orderBy('ID_MOVIMIENTO')
+                        ->value('CANTIDAD_ANTERIOR') ?? 0
+                );
+            }
+
+            // Borrado duro de las filas del kardex.
+            MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->delete();
+
+            // Recalcular el saldo de cada (almacén, producto) afectado desde el kardex restante,
+            // partiendo del saldo de apertura capturado arriba.
+            $afectados = [];
+            foreach ($pares as $par) {
+                $saldo = $this->recalcularSaldoProducto($par['a'], $par['p'], $aperturas[$par['a'] . '-' . $par['p']]);
+                $afectados[] = ['id_almacen' => $par['a'], 'id_producto' => $par['p'], 'saldo' => $saldo];
+            }
+
+            return ['eliminados' => $movs->count(), 'afectados' => $afectados];
+        });
+    }
+
+    /**
+     * Reconstruye el saldo de un (almacén, producto) recorriendo su kardex en orden de
+     * inserción (ID_MOVIMIENTO ASC) y reescribiendo CANTIDAD_ANTERIOR / CANTIDAD_RESULTANTE
+     * (y la magnitud, para AJUSTE) de cada fila. Persiste el saldo final en
+     * almacen_stock.CANTIDAD y lo devuelve. DEBE llamarse dentro de una transacción.
+     *
+     * $apertura = saldo previo al primer movimiento (el kardex puede no arrancar en 0). Si
+     * ya no quedan movimientos, el stock vuelve a esa apertura.
+     *
+     * Reglas por tipo (las mismas que aplicarMovimiento, recorridas a posteriori):
+     *  - ENTRADA / TRASPASO_ENTRADA : resultante = anterior + CANTIDAD
+     *  - SALIDA  / TRASPASO_SALIDA  : resultante = anterior − CANTIDAD
+     *  - AJUSTE  : CANTIDAD_RESULTANTE es un saldo OBJETIVO absoluto (conteo físico) y se
+     *              conserva tal cual; se recalcula anterior y la magnitud = |resultante − anterior|.
+     */
+    private function recalcularSaldoProducto(int $idAlmacen, int $idProducto, float $apertura = 0.0): float
+    {
+        // Bloquear la fila de stock PRIMERO: es el mismo cerrojo que toma aplicarMovimiento,
+        // así el recálculo se serializa contra una entrada/salida simultánea del producto.
+        $stock = AlmacenStock::where('ID_ALMACEN', $idAlmacen)
+            ->where('ID_PRODUCTO', $idProducto)
+            ->lockForUpdate()
+            ->first();
+
+        $movs = MovimientoInventario::where('ID_ALMACEN', $idAlmacen)
+            ->where('ID_PRODUCTO', $idProducto)
+            ->orderBy('ID_MOVIMIENTO')
+            ->get();
+
+        $saldo = round($apertura, 3);
+        foreach ($movs as $m) {
+            $anterior = $saldo;
+            if ($m->TIPO === MovimientoInventario::TIPO_AJUSTE) {
+                $resultante = round((float) $m->CANTIDAD_RESULTANTE, 3); // objetivo absoluto: se respeta
+                $magnitud   = round(abs($resultante - $anterior), 3);
+            } elseif (in_array($m->TIPO, MovimientoInventario::TIPOS_ENTRADA, true)) {
+                $magnitud   = round((float) $m->CANTIDAD, 3);
+                $resultante = round($anterior + $magnitud, 3);
+            } else { // TIPOS_SALIDA
+                $magnitud   = round((float) $m->CANTIDAD, 3);
+                $resultante = round($anterior - $magnitud, 3);
+            }
+
+            $m->CANTIDAD_ANTERIOR   = $anterior;
+            $m->CANTIDAD_RESULTANTE = $resultante;
+            $m->CANTIDAD            = $magnitud;
+            $m->save();
+
+            $saldo = $resultante;
+        }
+
+        // Persistir el acumulador (la fila ya quedó bloqueada arriba). Si ya no quedan
+        // movimientos, el saldo cae a 0.
+        if ($stock) {
+            $stock->CANTIDAD             = $saldo;
+            $stock->FECHA_ULT_MOVIMIENTO = now();
+            $stock->save();
+        }
+
+        return $saldo;
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Núcleo
     // ─────────────────────────────────────────────────────────────

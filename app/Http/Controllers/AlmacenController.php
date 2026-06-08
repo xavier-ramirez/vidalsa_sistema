@@ -2193,6 +2193,35 @@ class AlmacenController extends Controller
         ]);
     }
 
+    /**
+     * Deshace un movimiento del kardex — EXCLUSIVO super.admin (gate `can:super.admin`
+     * en la ruta). Borrado DURO sin rastro: elimina la fila, revierte el stock y recalcula
+     * el saldo de los movimientos posteriores para que el kardex quede coherente. En
+     * traspasos deshace ambas patas del par enlazado. Irreversible.
+     */
+    public function eliminarMovimiento(Request $request, int $id)
+    {
+        $mov = MovimientoInventario::find($id);
+        if (! $mov) {
+            return response()->json(['message' => 'El movimiento no existe o ya fue eliminado.'], 404);
+        }
+        // Coherencia con el resto del módulo: el almacén del movimiento debe ser visible
+        // para el usuario (un super.admin GLOBAL los ve todos).
+        $this->assertPuedeVerAlmacen($request, (int) $mov->ID_ALMACEN);
+
+        try {
+            $r = $this->inventario->eliminarMovimientoConReverso($id);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $msg = $r['eliminados'] > 1
+            ? "Movimiento deshecho ({$r['eliminados']} filas del traspaso) y stock recalculado."
+            : 'Movimiento deshecho y stock recalculado.';
+
+        return response()->json(['message' => $msg, 'eliminados' => $r['eliminados']]);
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Internos
     // ─────────────────────────────────────────────────────────────

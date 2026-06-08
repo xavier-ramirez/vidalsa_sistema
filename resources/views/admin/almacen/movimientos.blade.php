@@ -129,6 +129,21 @@
         visibility:visible !important;
         transform:translateY(0) !important;
     }
+    /* Botón "deshacer movimiento" — SOLO super.admin (blade lo gatea con @can).
+       Casi invisible en reposo; se realza al pasar el mouse por la fila y se pone
+       rojo al hover directo. Anclado al borde superior derecho de la celda Ref. */
+    .alm-mov-table td.mv-td-ref { position:relative; }
+    .alm-mov-undo {
+        position:absolute; top:3px; right:3px;
+        width:20px; height:20px; padding:0; margin:0;
+        display:inline-flex; align-items:center; justify-content:center;
+        border:none; border-radius:5px; background:transparent;
+        color:#cbd5e1; cursor:pointer; opacity:.08;
+        transition:opacity .15s ease, background .15s ease, color .15s ease;
+    }
+    .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-undo { opacity:.5; }
+    .alm-mov-undo:hover { opacity:1; background:#fee2e2; color:#dc2626; }
+    .alm-mov-undo:disabled { cursor:default; opacity:.5; }
     /* Chip de conteo: visible en todos los viewports. Antes solo aparecia en mobile
        (el desktop dependia del big-counter del sidebar) — el cliente pidio tener
        el conteo siempre a la vista en la parte superior del modulo. */
@@ -1244,5 +1259,41 @@
         if (x && x.style.display === 'flex' && window.closeEliminarNotaModal) window.closeEliminarNotaModal();
     });
 })();
+
+// ── Deshacer movimiento (SOLO super.admin) ──────────────────────────────────
+// El botón .alm-mov-undo solo lo renderiza blade para super.admin, y la ruta DELETE
+// está además gateada con can:super.admin (defensa real, no solo ocultar el botón).
+// Confirmación SIMPLE (un confirm nativo); al aceptar borra el movimiento, revierte el
+// stock y recarga la tabla. La URL viene resuelta por fila en data-undo-url.
+window.almDeshacerMovimiento = function (btn) {
+    if (!btn || btn.disabled) return;
+    var url = btn.getAttribute('data-undo-url');
+    if (!url) return;
+    if (!window.confirm('¿Deshacer este movimiento?\n\nSe revertirá el stock y el movimiento desaparecerá del historial.\nEsta acción NO se puede deshacer.')) return;
+
+    var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    btn.disabled = true;
+    fetch(url, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
+    })
+    .then(function (res) {
+        if (!res.ok) {
+            if (window.showToast) window.showToast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+            btn.disabled = false;
+            return;
+        }
+        if (window.showToast) window.showToast(res.d.message || 'Movimiento deshecho.', 'success');
+        // Recargar la bitácora: la fila desaparece y los saldos posteriores ya vienen recalculados.
+        if (window.loadMovimientos) window.loadMovimientos();
+    })
+    .catch(function () {
+        if (window.showToast) window.showToast('No se pudo contactar al servidor.', 'error');
+        btn.disabled = false;
+    });
+};
 </script>
 @endsection

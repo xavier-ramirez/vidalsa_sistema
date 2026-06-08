@@ -111,6 +111,20 @@
                     </div>
                 @endif
                 @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO) && !$m->NOTAS)—@endif
+                @can('super.admin')
+                    {{-- Botón "deshacer" CASI INVISIBLE — SOLO super.admin (gateado también en
+                         la ruta DELETE almacen.movimientos.destroy, no basta ocultarlo). Borra el
+                         movimiento del kardex SIN rastro, revierte el stock y recalcula el saldo
+                         de los movimientos posteriores. Irreversible: la confirmación vive en JS.
+                         La URL ya viene resuelta por fila (data-undo-url) para no construirla en JS. --}}
+                    <button type="button" class="alm-mov-undo"
+                            data-undo-url="{{ route('almacen.movimientos.destroy', ['id' => $m->ID_MOVIMIENTO]) }}"
+                            title="Deshacer este movimiento (irreversible)"
+                            aria-label="Deshacer movimiento"
+                            onclick="event.stopPropagation(); window.almDeshacerMovimiento(this);">
+                        <i class="material-icons" style="font-size:14px;">undo</i>
+                    </button>
+                @endcan
             </td>
         </tr>
     @endforeach
