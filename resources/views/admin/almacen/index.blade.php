@@ -1879,6 +1879,21 @@
         }
         function enEsteAlmacen(p) { return idsSet === null || !!idsSet[p.ID_PRODUCTO]; }
 
+        // Agrupacion por DESCRIPCION: desde que Recepcion permite la misma descripcion en
+        // varias presentaciones (distinta UM = producto aparte), el catalogo puede tener N
+        // productos con identico NOMBRE. Para que el buscador no repita la misma descripcion,
+        // contamos cuantas presentaciones tiene cada nombre y si ALGUNA esta en el almacen
+        // actual. En la sugerencia se muestra UNA sola entrada por nombre; al clickearla, si
+        // tiene >1 presentacion se busca por texto (LIKE) para que la tabla liste TODAS; si es
+        // unica se fija id_producto (match exacto, como antes).
+        var gruposNombre = {};
+        for (var gI = 0; gI < lista.length; gI++) {
+            var gKey = almNorm(lista[gI].NOMBRE || '');
+            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false };
+            gruposNombre[gKey].count++;
+            if (enEsteAlmacen(lista[gI])) gruposNombre[gKey].anyStock = true;
+        }
+
         // Recorremos la lista una vez y recogemos TODOS los matches del catalogo (esten o no
         // en este almacen). Razon (pedido del cliente 2026-05-19): si un producto existe en el
         // sistema, debe SIEMPRE aparecer en la sugerencia — sino la gente cree que no esta
@@ -1888,9 +1903,14 @@
         // este caso debería ser raro, pero es defensa en profundidad por si un almacén nuevo
         // se crea después de un producto o por importaciones legacy.
         var matches = [];
+        // vistosNom: dedupe por nombre normalizado — una sola entrada por descripcion.
+        var vistosNom = {};
         if (tokens.length === 0) {
-            // Sin termino → primeros 12 del catalogo (orden del backend).
+            // Sin termino → primeras 12 descripciones DISTINTAS del catalogo (orden del backend).
             for (var i = 0; i < lista.length && matches.length < 12; i++) {
+                var kI = almNorm(lista[i].NOMBRE || '');
+                if (vistosNom[kI]) continue;
+                vistosNom[kI] = true;
                 matches.push(lista[i]);
             }
         } else {
@@ -1922,7 +1942,13 @@
                 if (b.score !== a.score) return b.score - a.score;
                 return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
             });
-            for (var s = 0; s < scored.length && s < 12; s++) matches.push(scored[s].p);
+            // 12 descripciones DISTINTAS, mejor-scoreadas primero (dedupe por nombre).
+            for (var s = 0; s < scored.length && matches.length < 12; s++) {
+                var kS = almNorm(scored[s].p.NOMBRE || '');
+                if (vistosNom[kS]) continue;
+                vistosNom[kS] = true;
+                matches.push(scored[s].p);
+            }
         }
 
         if (!matches.length) {
@@ -1937,15 +1963,24 @@
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var sinStock = !enEsteAlmacen(p);
+                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p) };
+                var multi = grp.count > 1;
+                // sinStock a nivel GRUPO: solo si NINGUNA presentacion esta en este almacen.
+                var sinStock = !grp.anyStock;
                 var badge = sinStock
                     ? '<span style="font-size:10.5px;color:#94a3b8;margin-left:8px;font-weight:500;">• sin stock aquí</span>'
                     : '';
-                // data-pid (ID_PRODUCTO) = match EXACTO al hacer clic; data-pick = nombre que
-                // se pega en el input para que se vea lo elegido y siga siendo editable.
-                var codBadge = cod ? '<span class="alm-suggest-cod">' + cod + '</span>' : '';
-                return '<div class="alm-suggest-item" data-pid="' + (p.ID_PRODUCTO || '') + '" data-pick="' + nom + '" title="' + cod + '">'
-                     + '<div class="alm-suggest-line">' + codBadge + '<span class="nom">' + nom + '</span></div>'
+                // data-pid = match EXACTO al hacer clic. Si la descripcion tiene VARIAS
+                // presentaciones lo dejamos vacio: el clic busca por texto (LIKE) y la tabla
+                // lista TODAS las presentaciones. data-pick = nombre que se pega en el input.
+                var pid = multi ? '' : (p.ID_PRODUCTO || '');
+                // A la derecha: el codigo si la descripcion es unica; "N presentaciones" si hay
+                // varias (mostrar un solo codigo seria enganoso cuando hay multiples).
+                var rightBadge = multi
+                    ? '<span class="alm-suggest-cod" style="color:#0067b1;font-weight:700;">' + grp.count + ' presentaciones</span>'
+                    : (cod ? '<span class="alm-suggest-cod">' + cod + '</span>' : '');
+                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pick="' + nom + '" title="' + cod + '">'
+                     + '<div class="alm-suggest-line">' + rightBadge + '<span class="nom">' + nom + '</span></div>'
                      + badge + '</div>';
             }).join('');
             box.innerHTML = html;
