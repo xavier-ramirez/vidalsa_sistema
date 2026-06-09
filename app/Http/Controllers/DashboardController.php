@@ -222,6 +222,11 @@ class DashboardController extends Controller
     private function getRecentActivity($isGlobal, $frenteIds)
     {
         $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino'])
+            // Excluir movilizaciones cuyo equipo fue borrado / ya no existe: sin esto
+            // llegaban con equipo=null y el partial las pintaba como filas basura
+            // "Equipo / —" (sin tipo, placa, ni serial). whereHas respeta el soft-delete
+            // del equipo, así que tampoco aparecen las de equipos enviados a la papelera.
+            ->whereHas('equipo')
             ->orderBy('created_at', 'desc')
             ->limit(50);
 
