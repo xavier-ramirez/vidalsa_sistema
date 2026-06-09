@@ -48,7 +48,9 @@ class Documentacion extends Model
         'rotc_gestion_fecha',
         'racda_gestion_frente_id',
         'racda_gestion_fecha',
-        
+        // Adicional = "Certificado Asociado" en la UI.
+        'adicional_gestion_frente_id',
+        'adicional_gestion_fecha',
 
     ];
 
@@ -65,6 +67,7 @@ class Documentacion extends Model
         'poliza_gestion_fecha' => 'datetime',
         'rotc_gestion_fecha' => 'datetime',
         'racda_gestion_fecha' => 'datetime',
+        'adicional_gestion_fecha' => 'datetime',
     ];
 
     public function equipo()
@@ -123,6 +126,11 @@ class Documentacion extends Model
     {
         return $this->belongsTo(FrenteTrabajo::class, 'racda_gestion_frente_id', 'ID_FRENTE');
     }
-    
+
+    // Gestión del documento ADICIONAL (= "Certificado Asociado" en la UI).
+    public function frenteGestionAdicional()
+    {
+        return $this->belongsTo(FrenteTrabajo::class, 'adicional_gestion_frente_id', 'ID_FRENTE');
+    }
 
 }

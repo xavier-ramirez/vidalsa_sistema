@@ -184,13 +184,15 @@ class DashboardController extends Controller
         $query = Equipo::whereHas('documentacion', function ($q) use ($in30Days) {
             $q->where('FECHA_VENC_POLIZA', '<', $in30Days)
               ->orWhere('FECHA_ROTC', '<', $in30Days)
-              ->orWhere('FECHA_RACDA', '<', $in30Days);
+              ->orWhere('FECHA_RACDA', '<', $in30Days)
+              ->orWhere('FECHA_ADICIONAL', '<', $in30Days); // Certificado (= documento adicional)
         })
         ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
         ->with([
             'documentacion.frenteGestionPoliza',
             'documentacion.frenteGestionRotc',
             'documentacion.frenteGestionRacda',
+            'documentacion.frenteGestionAdicional',
             'tipo',
             'frenteActual'
         ]);
@@ -274,6 +276,26 @@ class DashboardController extends Controller
                     ]);
                 }
             }
+
+            // Certificado (= Documento Adicional en la BD, "Certificado Asociado" en la UI).
+            // Mismo flujo y MISMOS botones que poliza/rotc/racda (es un documento del equipo).
+            if ($doc->FECHA_ADICIONAL) {
+                $fechaCert = \Carbon\Carbon::parse($doc->FECHA_ADICIONAL);
+                $status = $fechaCert->lt($now) ? 'expired' : ($fechaCert->lt($in30Days) ? 'warning' : 'valid');
+
+                if ($status !== 'valid') {
+                    $alerts->push((object)[
+                        'equipo' => $equipo,
+                        'type_key' => 'adicional',
+                        'label' => $status === 'expired' ? 'Certificado Vencido' : 'Certificado Por Vencer',
+                        'fecha' => $doc->FECHA_ADICIONAL,
+                        'current_link' => $doc->LINK_DOC_ADICIONAL,
+                        'status' => $status,
+                        'gestionado_por' => $doc->frenteGestionAdicional ? $doc->frenteGestionAdicional->NOMBRE_FRENTE : null,
+                        'fecha_gestion' => $doc->adicional_gestion_fecha
+                    ]);
+                }
+            }
         }
 
         // Separate expired from warnings
@@ -291,7 +313,7 @@ class DashboardController extends Controller
     {
         $request->validate([
             'equipo_id' => 'required|exists:equipos,ID_EQUIPO',
-            'doc_type'  => 'required|in:poliza,rotc,racda'
+            'doc_type'  => 'required|in:poliza,rotc,racda,adicional'
         ]);
 
         $user = auth()->user();
