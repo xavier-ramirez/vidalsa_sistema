@@ -57,38 +57,10 @@ window.loadUsuarios = function (url = null) {
         }
     }
 
-    // OPTIMIZATION: Check if there are any meaningful filters
-    // Strategy: Only skip server request if EVERYTHING is null/empty (truly no input from user)
-    const hasAnyInput = Object.values(filters).some(value => {
-        if (value === null || value === '' || value === undefined) return false;
-        if (typeof value === 'string' && value.trim() === '') return false;
-        if (value === 'all') return true; // 'all' is a valid filter
-        return true; // Any non-empty value means user provided input
-    });
-
-    // If truly no input at all, clear UI without server request
-    if (!hasAnyInput) {
-        // Clear table with friendly message
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #94a3b8; font-style: italic;">SELECCIONE UN FILTRO PARA VISUALIZAR LOS USUARIOS</td></tr>';
-        tableBody.style.opacity = '1';
-
-        // Clear pagination
-        const paginationContainer = document.getElementById('usuariosPagination');
-        if (paginationContainer) paginationContainer.innerHTML = '';
-
-        // Clear user count badge
-        const badgeText = document.getElementById('user-count-text');
-        const badge = document.getElementById('user-count-badge');
-        if (badgeText) badgeText.innerText = '0';
-        if (badge) badge.innerText = '0';
-
-        // Update URL to reflect empty state
-        window.history.pushState(null, '', window.location.pathname);
-        if (window.hidePreloader) window.hidePreloader();
-
-        return Promise.resolve();
-    }
-
+    // Sin filtros = mostrar TODOS los usuarios (el backend pagina sin exigir filtro).
+    // Antes aquí se cortaba y se pintaba "SELECCIONE UN FILTRO", dejando la tabla en blanco
+    // al borrar el buscador — inconsistente con la carga inicial (que SÍ muestra todos).
+    // Ahora la tabla siempre se llena: buscador vacío → todos; con texto → filtrado.
     const finalUrl = baseUrl + '?' + params.toString();
     tableBody.style.opacity = '0.5';
     if (window.showPreloader) window.showPreloader();
@@ -196,16 +168,21 @@ function hideSearchSuggest() {
     if (box) { box.style.display = 'none'; box.innerHTML = ''; }
 }
 
-function renderSearchSuggest(term) {
+function renderSearchSuggest(term, browseIfEmpty) {
     const box = document.getElementById('searchSuggest');
     if (!box) return;
     const t = usuariosNorm((term || '').trim());
-    // Sugerencias desde la PRIMERA letra (antes exigia 2): asi salen "apenas al escribir".
-    if (t.length < 1) { hideSearchSuggest(); return; }
-
-    const matches = getUsuariosSugerencias().filter(function (u) {
-        return u._n.indexOf(t) > -1; // _n = nombre+correo ya normalizados (sin normalize() por tecla)
-    }).slice(0, 8);
+    const all = getUsuariosSugerencias();
+    let matches;
+    if (t.length < 1) {
+        // Vacío: si se pidió "browse" (al enfocar/click en el filtro), mostramos los primeros
+        // usuarios para poder elegir SIN escribir; si no (p.ej. al borrar), ocultamos la lista.
+        if (!browseIfEmpty) { hideSearchSuggest(); return; }
+        matches = all.slice(0, 8);
+    } else {
+        // Desde la PRIMERA letra: filtra nombre+correo (ya normalizados → indexOf por tecla).
+        matches = all.filter(function (u) { return u._n.indexOf(t) > -1; }).slice(0, 8);
+    }
 
     if (!matches.length) {
         box.innerHTML = '<div style="padding:10px 15px; font-size:13px; color:#94a3b8;">Sin coincidencias</div>';
@@ -280,7 +257,9 @@ function initUsuarios() {
         });
         // Al enfocar, si ya hay texto, reabrir las sugerencias.
         searchInput.addEventListener('focus', function () {
-            if (this.value.trim().length >= 1) renderSearchSuggest(this.value);
+            // Al hacer click/enfocar el filtro: mostrar sugerencias SIEMPRE (browse) — con
+            // texto filtra, vacío muestra los primeros usuarios para elegir sin escribir.
+            renderSearchSuggest(this.value, true);
         });
     }
 
