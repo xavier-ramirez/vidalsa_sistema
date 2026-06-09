@@ -2016,11 +2016,14 @@
                 //    substrings: "ABRAZADERA" no debe arrastrar "ABRAZADERA 5\" PARA MANGUERA…").
                 var pid  = multi ? '' : (p.ID_PRODUCTO || '');
                 var pids = multi ? (grp.ids || []).join(',') : '';
-                // A la derecha: el codigo si la descripcion es unica; el conteo COMPACTO ("N pres.")
-                // si hay varias presentaciones (mostrar un solo codigo seria enganoso).
+                // El codigo/serial NO se muestra en la lista (pedido cliente): la sugerencia
+                // queda limpia con SOLO la descripcion. Igual se PUEDE buscar por serial (el
+                // scoring del autocomplete y el backend matchean CODIGO) y el serial sigue en
+                // el title de la fila (hover). Lo unico a la derecha es el conteo "N pres."
+                // cuando una descripcion tiene varias presentaciones.
                 var rightBadge = multi
                     ? '<span class="alm-suggest-cod" style="color:#0067b1;font-weight:700;" title="' + grp.count + ' presentaciones (distintas unidades)">' + grp.count + ' pres.</span>'
-                    : (cod ? '<span class="alm-suggest-cod">' + cod + '</span>' : '');
+                    : '';
                 return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" title="' + cod + '">'
                      + '<div class="alm-suggest-line">' + rightBadge + '<span class="nom">' + nom + '</span></div>'
                      + badge + '</div>';
