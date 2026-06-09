@@ -48,8 +48,6 @@
 <style>
     /* Cards y secciones */
     .ent-card     { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
-    .ent-section-title { margin:0 0 8px 0; font-size:13px; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; gap:8px; }
-    .ent-section-title i { font-size:16px; color:#0284c7; }
 
     /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
        comparten las mismas 4 columnas para que los campos queden alineados
@@ -335,7 +333,6 @@
      y la textarea de Observaciones). --}}
 <div class="ent-layout">
 <div class="ent-card">
-    <h3 class="ent-section-title"><i class="material-icons">tune</i>Datos de la entrada</h3>
     {{-- Almacén destino: derivado del frente del usuario (TraspasoController@nuevaEntrada);
          se muestra como pill en el page-title-card (arriba), aqui solo guardamos el id
          en un <input hidden> para que el submit lo envie al backend. --}}

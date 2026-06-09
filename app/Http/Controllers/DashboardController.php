@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Equipo;
-use App\Models\Movilizacion;
 use App\Models\FrenteTrabajo;
 use App\Models\CaracteristicaModelo;
 use Carbon\Carbon;
@@ -23,22 +22,19 @@ class DashboardController extends Controller
 
         // Cache the dashboard logic to improve speed
         $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($isGlobal, $frenteIds) {
-            // 1. Mobilizations Today
-            $movilizacionesHoy = $this->getMovilizacionesHoyCount($isGlobal, $frenteIds);
-
-            // 2. Pending Mobilizations (disabled since transit is instant)
+            // 1. Pending Mobilizations (disabled since transit is instant)
             $pendientes = 0;
 
-            // 3. Alerts List — LOCAL users see only their frentes' equipment
+            // 2. Alerts List — LOCAL users see only their frentes' equipment
             $expiredList = $this->generateAlertsList(!$isGlobal ? $frenteIds : null);
             $totalAlerts  = $expiredList->count();
 
-            // 4. Frentes activos (necesarios para el modal de Recepción Directa)
+            // 3. Frentes activos (necesarios para el modal de Recepción Directa)
             $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
                 ->orderBy('NOMBRE_FRENTE')
                 ->get();
 
-            // 5. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
+            // 4. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
             $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
                 ->excludeEspecial();
 
@@ -65,7 +61,7 @@ class DashboardController extends Controller
             }
 
             return compact(
-                'movilizacionesHoy', 'pendientes', 'totalAlerts',
+                'pendientes', 'totalAlerts',
                 'expiredList', 'frentes', 'totalFlotaActiva',
                 'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento',
                 'catalogosDestacados'
@@ -173,23 +169,6 @@ class DashboardController extends Controller
             'html'        => view('partials.dashboard_alerts', compact('expiredList'))->render(),
             'totalAlerts' => $totalAlerts
         ]);
-    }
-
-    /**
-     * Reusable query for counting today's mobilizations
-     */
-    private function getMovilizacionesHoyCount($isGlobal, $frenteIds)
-    {
-        $query = Movilizacion::whereDate('created_at', \Carbon\Carbon::today());
-        if (count($frenteIds) > 0) {
-            $query->where(function ($q) use ($frenteIds) {
-                $q->whereIn('ID_FRENTE_ORIGEN', $frenteIds)
-                  ->orWhereIn('ID_FRENTE_DESTINO', $frenteIds);
-            });
-        } elseif (!$isGlobal) {
-            $query->whereRaw('1 = 0');
-        }
-        return $query->count();
     }
 
     /**

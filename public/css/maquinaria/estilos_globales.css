@@ -3284,8 +3284,6 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
         margin: 0 !important; box-sizing: border-box !important;
         padding: 8px !important;
     }
-    /* Titulo de seccion centrado en mobile (pedido del cliente). */
-    body:has(.ent-layout) .ent-section-title { justify-content: center !important; text-align: center !important; margin-bottom: 6px !important; }
     /* Margen entre el page-title-card y la primera card: el global pone 20px,
        en este modulo es excesivo (no hay titulo visible, solo la pill almacen). */
     body:has(.ent-layout) .page-title-card { margin-bottom: 10px !important; }
