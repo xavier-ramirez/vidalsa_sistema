@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
 use App\Models\CaracteristicaModelo;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {

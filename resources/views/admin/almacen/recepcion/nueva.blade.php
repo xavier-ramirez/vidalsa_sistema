@@ -49,11 +49,10 @@
     /* Cards y secciones */
     .ent-card     { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
 
-    /* ── Grid unificado de 2 filas: fila-1 (cabecera) + fila-2 (captura)
-       comparten las mismas 4 columnas para que los campos queden alineados
-       verticalmente. Columnas: [Nota 1fr] [Proveedor 1fr] [Fecha/UM 130px] [Boton/Cant 100px]
-       Nota y Proveedor son ambos minmax(0,1fr): mismo ancho, pueden comprimir hasta 0
-       sin desbordar el card blanco. El boton/stepper ocupan la col 4 de 100px.
+    /* ── Grid de la CABECERA del lote: una sola fila, 4 columnas alineadas:
+       [Nota 1fr] [Proveedor 1fr] [Fecha 130px] [Bandeja 100px]. Nota y Proveedor
+       son minmax(0,1fr): mismo ancho, comprimen hasta 0 sin desbordar el card blanco.
+       (La captura de productos ya no vive acá — ver .ent-head-row / .ent-capt-bar.)
        Mobile responsive movido a estilos_globales.css. */
     .ent-form-grid {
         display: grid;
@@ -338,11 +337,9 @@
          en un <input hidden> para que el submit lo envie al backend. --}}
     <input type="hidden" id="entAlmacen" value="{{ $almacenDestino->ID_ALMACEN }}">
 
-    {{-- Grid unificado de 2 filas: ambas comparten el mismo grid-template-columns
-         para que los campos queden alineados verticalmente entre fila 1 y fila 2.
-         Fila 1: Nota | Proveedor | Fecha | [Boton-bandeja]
-         Fila 2: [Buscador ──────────] | UM   | [Stepper]
-         Los separadores visuales (bordes, gap) hacen evidente la estructura. --}}
+    {{-- Grid de la CABECERA del lote — una sola fila de 4 columnas:
+         Nota | Proveedor | Fecha | [Botón Bandeja].
+         (La captura de productos se movió a la barra del fondo de la tabla, .ent-capt-bar.) --}}
     <div class="ent-form-grid">
 
         {{-- ── FILA 1: cabecera de datos del lote ── --}}
