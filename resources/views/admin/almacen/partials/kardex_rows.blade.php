@@ -32,7 +32,9 @@
                  de tipo debajo. En mobile la pill se oculta (.mv-tipo-inline) igual que
                  antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}
             <td class="mv-td-fecha" data-label="Fecha" style="white-space:nowrap;line-height:1.6;">
-                <div>{{ optional($m->FECHA)->format('d/m/Y') }}</div>
+                {{-- Fecha del movimiento (FECHA, solo dia) + HORA real de registro (created_at,
+                     que sí guarda la hora — FECHA es tipo date y siempre va en 00:00). --}}
+                <div>{{ optional($m->FECHA)->format('d/m/Y') }} <span style="color:#94a3b8;font-weight:500;font-size:11.5px;">{{ optional($m->created_at)->format('h:i A') }}</span></div>
                 <span class="mv-tipo-inline" style="display:inline-flex;align-items:center;gap:4px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;margin-top:3px;">
                     <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
