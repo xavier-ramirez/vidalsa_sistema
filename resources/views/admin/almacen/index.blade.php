@@ -1235,22 +1235,16 @@
 
 {{-- Detalles del producto (se abre con el "ojo" de cada fila — agrupa todas las acciones del producto) --}}
 <div id="almDetalleModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:480px;">
+    <div class="alm-modal" style="max-width:420px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">inventory_2</i> Detalles del producto</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almDetalleModal')">close</i>
         </div>
         <div class="alm-modal-body">
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
-                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Categoría</div>
-                    <div id="almDetCat" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
-                </div>
-                <div style="background:#f8fafc;border-radius:8px;padding:10px;">
-                    <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock mínimo</div>
-                    <div id="almDetMin" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
-                </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:10px;">
+                <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock mínimo</div>
+                <div id="almDetMin" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
             </div>
             {{-- Aviso de stock bajo en este almacén. Misma paleta que .alm-row-bajo en la
                  tabla (#fee2e2 / #fecaca / #b91c1c) para que el usuario asocie ambos avisos.
@@ -3032,7 +3026,6 @@
         m.dataset.ubicacion = ubicacion || '';
         m.dataset.saldo = (saldo == null ? '0' : String(saldo));
         m.dataset.minimo = hasMin ? String(minimo) : '';
-        el('almDetCat').textContent = (cat && String(cat).trim()) ? cat : '—';
         el('almDetMin').textContent = hasMin ? formatNum(minimo) : 'Sin definir';
         var bajo = hasMin && parseFloat(saldo || 0) <= parseFloat(minimo);
         // 'flex' (no '' ni 'block') porque el badge se layoutea con icono a la izquierda
