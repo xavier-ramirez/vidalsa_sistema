@@ -3306,7 +3306,10 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
         width: 100% !important; flex: 1 1 100% !important;
         justify-content: center !important;
     }
-    body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; }
+    /* Pill del almacén destino: mismo ancho que el selector "Almacén" de
+       /admin/almacen (wrapper width:280px; min:200px; max:100%) — antes era
+       flex:0 1 auto y se encogía al texto, quedando comprimida en el teléfono. */
+    body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill { flex: 0 0 auto !important; width: 280px !important; min-width: 200px !important; max-width: 100% !important; overflow: hidden; }
     body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* ── MOBILE CARD LAYOUT — Lineas de la recepcion ──
