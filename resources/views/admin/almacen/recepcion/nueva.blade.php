@@ -1013,5 +1013,19 @@
         }
     });
 })();
+
+// Móvil: el tamaño del teclado lo decide el teléfono (no se achica por web sin perder
+// el punto decimal). Para que el teclado no tape lo que se edita, al enfocar el campo
+// de cantidad lo subimos a la zona visible. Mismo criterio que /admin/almacen.
+(function () {
+    document.addEventListener('focusin', function (e) {
+        var inp = e.target;
+        if (!inp || !inp.classList || !inp.classList.contains('ent-cant-input')) return;
+        setTimeout(function () {
+            try { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+            catch (_) { try { inp.scrollIntoView(); } catch (e2) {} }
+        }, 300);
+    });
+})();
 </script>
 @endsection
