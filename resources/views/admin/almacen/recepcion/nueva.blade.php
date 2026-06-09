@@ -180,7 +180,6 @@
        sin necesidad de un tono distinto. */
     .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
-    .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0f172a; letter-spacing:.3px; flex:0 0 auto; white-space:nowrap; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     /* UM al final de la sugerencia: diferencia presentaciones del mismo material
        (mismo nombre, distinta UM). Texto atenuado alineado a la derecha, SIN caja —
@@ -547,13 +546,13 @@
                 var nom  = escHtml(p.NOMBRE);
                 var um   = escHtml(p.UM);
                 var cat  = escHtml(p.CATEGORIA || '');
-                // Sugerencia: CODIGO + NOMBRE + UM. La UM se pinta como tag al final
-                // porque un mismo material puede existir en varias presentaciones
-                // (mismo nombre, distinta UM) — sin la UM serian indistinguibles en la
-                // lista. `data-um` lo necesita entPick para prefijar el campo UM; `data-cat`
-                // lo necesita para que una presentacion nueva herede la categoria del original.
+                // Sugerencia: SOLO NOMBRE + UM (sin codigo en la lista — pedido cliente). La UM
+                // se pinta como tag al final porque un mismo material puede existir en varias
+                // presentaciones (mismo nombre, distinta UM) — sin la UM serian indistinguibles.
+                // data-cod queda en el elemento (no visible) porque entPick lo usa para el badge
+                // del producto seleccionado; data-um prefija el campo UM; data-cat para que una
+                // presentacion nueva herede la categoria del original.
                 return '<div class="ent-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + cod + '" data-nom="' + nom + '" data-um="' + um + '" data-cat="' + cat + '">'
-                    +    '<span class="cod">' + cod + '</span>'
                     +    '<span class="nom">' + nom + '</span>'
                     +    (um ? '<span class="um">' + um + '</span>' : '')
                     +  '</div>';
