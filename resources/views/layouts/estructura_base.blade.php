@@ -476,7 +476,6 @@
                 </div>
             @endauth
 
-
             {{-- Logout solo visible en desktop (en mobile se usa el menú hamburguesa) --}}
             <form action="{{ route('logout') }}" method="POST" class="desktop-only" style="margin: 0; display: inline;">
                 @csrf
