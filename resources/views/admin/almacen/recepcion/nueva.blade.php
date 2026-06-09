@@ -861,7 +861,18 @@
                 }, cant);
                 return;
             }
-            entDoCreateProducto(entSelected.nombre, cant, umNueva, entSelected.categoria);
+            // Categoria heredada: la del producto seleccionado SI la tiene; si no, la de
+            // CUALQUIER presentacion con el MISMO nombre que tenga categoria (el producto
+            // canonico/original). Asi la presentacion nueva no queda sin categoria por haber
+            // elegido una presentacion que estaba en NULL.
+            var catHeredada = (entSelected.categoria || '').trim();
+            if (!catHeredada) {
+                var conCat = PRODUCTOS.find(function (p) {
+                    return norm(p.NOMBRE) === norm(entSelected.nombre) && p.CATEGORIA && String(p.CATEGORIA).trim();
+                });
+                if (conCat) catHeredada = String(conCat.CATEGORIA).trim();
+            }
+            entDoCreateProducto(entSelected.nombre, cant, umNueva, catHeredada);
             return;
         }
         // Caso 2: el usuario tipeo algo que no esta en el catalogo → registrar
