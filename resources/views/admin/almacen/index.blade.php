@@ -1572,6 +1572,10 @@
         var n = parseInt(v, 10);
         return isFinite(n) && n > 0 ? n : null;
     })();
+    // almBuscarPickedIds: CSV de IDs de presentaciones cuando se clickea una sugerencia
+    // AGRUPADA (misma descripcion, varias UM). Manda id_producto_in → el backend devuelve
+    // EXACTAMENTE esas presentaciones, no substrings (a diferencia del LIKE de `search`).
+    var almBuscarPickedIds = null;
     // Auto-seleccion en el primer render: si llegamos por URL con ?id_producto=NNN,
     // marcamos la fila como si el usuario la hubiera clickeado (resaltado azul +
     // entrada en almSeleccion). Asi el usuario llega listo para escribir cantidad
@@ -1608,6 +1612,9 @@
         // Se prioriza sobre `search` en el backend (que sigue yendo para que la UI
         // muestre el texto y la URL compartible mantenga el contexto).
         if (almBuscarPickedId) p.set('id_producto', String(almBuscarPickedId));
+        // Clic en sugerencia AGRUPADA (varias presentaciones): mandamos los IDs exactos como
+        // id_producto_in → el backend devuelve SOLO esas presentaciones (no substrings del LIKE).
+        else if (almBuscarPickedIds) p.set('id_producto_in', almBuscarPickedIds);
         var cat = valActive('almFiltroCat'); if (cat) p.set('categoria', cat);
         if (soloBajo)                   p.set('solo_bajo', '1');
         if (soloConSaldo)               p.set('solo_con_saldo', '1');
@@ -1617,7 +1624,9 @@
         // asi el usuario ve TODOS sus seleccionados, incluso si los otros filtros los
         // habian excluido de la vista cuando seleccionaba. Solo se manda si hay algo
         // seleccionado (si no, el backend caeria al modo normal sin filtro).
-        if (almSoloSel && typeof almSelCount === 'function' && almSelCount() > 0) {
+        // (Si vino de un clic en sugerencia agrupada ya pusimos id_producto_in arriba; el
+        // bulk "solo seleccionados" no debe pisarlo.)
+        if (!almBuscarPickedIds && almSoloSel && typeof almSelCount === 'function' && almSelCount() > 0) {
             p.set('id_producto_in', Object.keys(almSeleccion).join(','));
         }
         // reflejar estado "active" en los wrappers
@@ -1918,8 +1927,9 @@
         var gruposNombre = {};
         for (var gI = 0; gI < lista.length; gI++) {
             var gKey = almNorm(lista[gI].NOMBRE || '');
-            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false };
+            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false, ids: [] };
             gruposNombre[gKey].count++;
+            gruposNombre[gKey].ids.push(lista[gI].ID_PRODUCTO);
             if (enEsteAlmacen(lista[gI])) gruposNombre[gKey].anyStock = true;
         }
 
@@ -1992,23 +2002,26 @@
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p) };
+                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p), ids: [p.ID_PRODUCTO] };
                 var multi = grp.count > 1;
                 // sinStock a nivel GRUPO: solo si NINGUNA presentacion esta en este almacen.
                 var sinStock = !grp.anyStock;
                 var badge = sinStock
                     ? '<span style="font-size:10.5px;color:#94a3b8;margin-left:8px;font-weight:500;">• sin stock aquí</span>'
                     : '';
-                // data-pid = match EXACTO al hacer clic. Si la descripcion tiene VARIAS
-                // presentaciones lo dejamos vacio: el clic busca por texto (LIKE) y la tabla
-                // lista TODAS las presentaciones. data-pick = nombre que se pega en el input.
-                var pid = multi ? '' : (p.ID_PRODUCTO || '');
-                // A la derecha: el codigo si la descripcion es unica; "N presentaciones" si hay
-                // varias (mostrar un solo codigo seria enganoso cuando hay multiples).
+                // Clic en la sugerencia:
+                //  - Descripcion UNICA → data-pid = id exacto (match de 1 producto).
+                //  - VARIAS presentaciones → data-pids = CSV de los IDs de ESAS presentaciones;
+                //    el clic manda id_producto_in y la tabla muestra EXACTAMENTE esas (no
+                //    substrings: "ABRAZADERA" no debe arrastrar "ABRAZADERA 5\" PARA MANGUERA…").
+                var pid  = multi ? '' : (p.ID_PRODUCTO || '');
+                var pids = multi ? (grp.ids || []).join(',') : '';
+                // A la derecha: el codigo si la descripcion es unica; el conteo COMPACTO ("N pres.")
+                // si hay varias presentaciones (mostrar un solo codigo seria enganoso).
                 var rightBadge = multi
-                    ? '<span class="alm-suggest-cod" style="color:#0067b1;font-weight:700;">' + grp.count + ' presentaciones</span>'
+                    ? '<span class="alm-suggest-cod" style="color:#0067b1;font-weight:700;" title="' + grp.count + ' presentaciones (distintas unidades)">' + grp.count + ' pres.</span>'
                     : (cod ? '<span class="alm-suggest-cod">' + cod + '</span>' : '');
-                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pick="' + nom + '" title="' + cod + '">'
+                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" title="' + cod + '">'
                      + '<div class="alm-suggest-line">' + rightBadge + '<span class="nom">' + nom + '</span></div>'
                      + badge + '</div>';
             }).join('');
@@ -2028,6 +2041,7 @@
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
         // de aplicar. Lo más simple: descartar siempre que se vuelva a teclear.
         almBuscarPickedId = null;
+        almBuscarPickedIds = null;
         window.almScanIconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
@@ -2035,14 +2049,18 @@
         if (ev && ev.key !== 'Enter') return;
         if (ev) ev.preventDefault();
         almBuscarPickedId = null;
+        almBuscarPickedIds = null;
         almSuggestHide();
         almCargar();
     };
-    window.almBuscarPick = function (texto, idProducto) {
+    window.almBuscarPick = function (texto, idProducto, idsCsv) {
         // Patron placeholder-background: el termino elegido va al value temporalmente
         // para que filtros() -> valActive() lo promueva a data-active + placeholder.
         var inp = el('almFiltroBuscar'); if (inp) inp.value = texto;
-        almBuscarPickedId = idProducto ? parseInt(idProducto, 10) : null;
+        almBuscarPickedId  = idProducto ? parseInt(idProducto, 10) : null;
+        // idsCsv: presentaciones agrupadas (misma descripcion). Si viene, el filtro usa
+        // id_producto_in con esos IDs exactos en vez del LIKE por texto.
+        almBuscarPickedIds = (idsCsv && idsCsv.length) ? idsCsv : null;
         almSuggestHide();
         almCargar();
     };
@@ -2054,6 +2072,7 @@
             inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…';
         }
         almBuscarPickedId = null;
+        almBuscarPickedIds = null;
         window.almScanIconToggle();   // buscador vacío → reaparece el icono escanear
         almSuggestHide();
         almCargar();
@@ -2123,7 +2142,7 @@
                 return;
             }
             // data-pid → match exacto en el backend; data-pick → texto visible en el input.
-            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '');
+            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '', item.getAttribute('data-pids') || '');
             return;
         }
         var catItem = e.target.closest('#almFiltroCatSuggest .alm-suggest-item');
