@@ -3323,7 +3323,7 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     }
     body:has(.ent-layout) .ent-list-table { display: block !important; }
     body:has(.ent-layout) .ent-list-table thead { display: none !important; }
-    body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 12px !important; }
+    body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 8px !important; }
     body:has(.ent-layout) .ent-list-table tbody tr {
         display: grid !important;
         grid-template-columns: 1fr auto !important;
@@ -3352,11 +3352,11 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
         grid-area: desc !important;
         background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
         border-bottom: 1px solid #e2e8f0 !important;
-        padding: 9px 14px !important;
-        font-size: 12px !important;
+        padding: 6px 12px !important;
+        font-size: 11.5px !important;
         font-weight: 700 !important;
         color: #1e293b !important;
-        line-height: 1.3 !important;
+        line-height: 1.25 !important;
     }
     body:has(.ent-layout) .ent-list-table tbody tr td.col-desc::before {
         content: attr(data-num) " · " attr(data-codigo) "  ";
@@ -3370,8 +3370,8 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     }
     body:has(.ent-layout) .ent-list-table tbody tr td.col-cant {
         grid-area: cant !important;
-        padding: 10px 8px 10px 14px !important;
-        font-size: 16px !important;
+        padding: 6px 8px 6px 12px !important;
+        font-size: 14px !important;
         font-weight: 800 !important;
         color: #0f172a !important;
         justify-content: flex-start !important;
@@ -3396,7 +3396,7 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     }
     body:has(.ent-layout) .ent-list-table tbody tr td.col-del {
         grid-area: del !important;
-        padding: 8px 14px 8px 4px !important;
+        padding: 6px 12px 6px 4px !important;
         justify-content: flex-end !important;
     }
 
@@ -3407,14 +3407,23 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
        UND + cantidad + ↵ en la fila de abajo (flex-wrap ya lo gestiona). */
     body:has(.ent-layout) .ent-capt-bar {
         border: 1px solid #cbd5e1 !important;
-        border-radius: 14px !important;
-        margin-top: 12px !important;
-        padding: 10px !important;
-        gap: 8px !important;
+        border-radius: 12px !important;
+        margin-top: 10px !important;
+        padding: 8px !important;
+        gap: 6px !important;
     }
-    body:has(.ent-layout) .ent-capt-bar .ent-search-field { flex: 1 1 100% !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-um-wrap      { flex: 0 1 90px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper { flex: 1 1 auto !important; }
+    /* Buscador full-width arriba; UND + cantidad + ↵ JUNTOS en UNA sola fila abajo,
+       todo más compacto (36px de alto) para que entren en el ancho del teléfono. */
+    body:has(.ent-layout) .ent-capt-bar .ent-search-field { flex: 1 1 100% !important; height: 36px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-search-input { height: 36px !important; font-size: 13px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-selected-badge { font-size: 12px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-um-wrap       { flex: 0 0 60px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-um-input      { height: 36px !important; font-size: 12px !important; padding: 0 7px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper  { flex: 1 1 auto !important; height: 36px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-cant-input    { font-size: 13px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-cant-btns     { width: 22px !important; }
+    body:has(.ent-layout) .ent-capt-add-btn { flex: 0 0 36px !important; width: 36px !important; height: 36px !important; border-radius: 8px !important; }
+    body:has(.ent-layout) .ent-capt-add-btn .material-icons { font-size: 18px !important; }
     /* El "+" decorativo no aporta en el ancho chico del teléfono → se oculta. */
     body:has(.ent-layout) .ent-capt-plus { display: none !important; }
 }
