@@ -61,8 +61,8 @@
                 @endif
                 @if($m->TIPO === 'ENTRADA' && $m->MOTIVO)
                     {{-- Proveedor visible — dato clave para una devolución. --}}
-                    <div style="font-size:10.5px;color:#64748b;display:flex;align-items:center;gap:3px;" title="Proveedor">
-                        <i class="material-icons" style="font-size:12px;color:#94a3b8;">local_shipping</i><span>{{ $m->MOTIVO }}</span>
+                    <div style="font-size:10.5px;color:#64748b;" title="Proveedor">
+                        <span>{{ $m->MOTIVO }}</span>
                     </div>
                 @endif
                 @if($m->NOTAS)

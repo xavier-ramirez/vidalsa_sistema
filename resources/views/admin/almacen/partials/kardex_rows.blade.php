@@ -104,8 +104,8 @@
                 @endif
                 @if($esEntradaDirecta && $m->MOTIVO)
                     {{-- Proveedor: visible (no solo hover) — es el dato clave para una devolución. --}}
-                    <div style="font-size:10.5px;color:#64748b;display:flex;align-items:center;gap:3px;{{ ($m->NUMERO_NOTA || $m->REFERENCIA) ? 'margin-top:2px;' : '' }}" title="Proveedor">
-                        <i class="material-icons" style="font-size:12px;color:#94a3b8;">local_shipping</i><span>{{ $m->MOTIVO }}</span>
+                    <div style="font-size:10.5px;color:#64748b;{{ ($m->NUMERO_NOTA || $m->REFERENCIA) ? 'margin-top:2px;' : '' }}" title="Proveedor">
+                        <span>{{ $m->MOTIVO }}</span>
                     </div>
                 @endif
                 @if($m->NOTAS)

@@ -14,18 +14,20 @@
     $reqSearch   = request('search');
     $reqDesde    = request('desde');
     $reqHasta    = request('hasta');
+    $reqNota     = request('nota');
+    // Filtro Tipo SIMPLIFICADO: solo Entradas / Salidas. Son CLAVES DE GRUPO (no TIPO
+    // exactos): el backend pliega los traspasos (y las auditorías por signo) dentro de
+    // cada grupo — "Entradas" = ENTRADA + TRASPASO_ENTRADA + ajuste que subió el stock;
+    // "Salidas" = SALIDA + TRASPASO_SALIDA + ajuste que lo bajó. Ver AlmacenController@movimientos.
     $tipos = [
-        'ENTRADA'          => ['label' => 'Entradas', 'sub' => ''],
-        'SALIDA'           => ['label' => 'Salidas', 'sub' => ''],
-        'AJUSTE'           => ['label' => 'Auditoría', 'sub' => 'de conteo'],
-        'TRASPASO_ENTRADA' => ['label' => 'Traspasos (entran)', 'sub' => ''],
-        'TRASPASO_SALIDA'  => ['label' => 'Traspasos (salen)', 'sub' => ''],
+        'ENTRADAS' => ['label' => 'Entradas', 'sub' => ''],
+        'SALIDAS'  => ['label' => 'Salidas', 'sub' => ''],
     ];
     $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
     // $hayAdv pinta el boton Filtros Avanzados en rojo si HAY filtros aplicados
     // dentro del panel. Tipo vive ahora ahí también — sin esto, seleccionar
     // Entrada/Salida no resaltaría visualmente el botón.
-    $hayAdv      = $reqDesde || $reqHasta || $tipoSelLabel;
+    $hayAdv      = $reqDesde || $reqHasta || $tipoSelLabel || $reqNota;
     $almSel      = $reqAlmacen ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
     $frenteSel    = ($reqFrente && $reqFrente !== 'all') ? ($frentesLista ?? collect())->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
 @endphp
@@ -579,7 +581,8 @@
                 {{-- Tipo de movimiento — custom-dropdown (estilo general de la app,
                      igual que los filtros de Almacen / Frente). Sin opcion "Todos":
                      la X (data-clear-btn) limpia el filtro y muestra todo. --}}
-                <div style="margin-bottom:10px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start;">
+                  <div>
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Tipo</span>
                     <div class="custom-dropdown" id="almMovTipoDropdown" data-filter-type="tipo" data-default-label="Tipo de movimiento">
                         <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}">
@@ -602,6 +605,20 @@
                             </div>
                         </div>
                     </div>
+                  </div>{{-- /col Tipo --}}
+                  <div>{{-- col Nota de entrega: filtra por N° de Nota de Entrega (salidas) o por
+                            la referencia del proveedor (entradas) — backend: NUMERO_NOTA / REFERENCIA. --}}
+                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Nota de entrega</span>
+                    <div style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
+                        <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">receipt_long</i></span>
+                        <input type="text" id="almMovNota" autocomplete="off" placeholder="N° NE / ref. proveedor" value="{{ $reqNota }}"
+                               oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none';"
+                               onkeyup="if(event.key==='Enter') window.loadMovimientos();" onchange="window.loadMovimientos()"
+                               style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;">
+                        <i class="material-icons" id="almMovNotaClear" style="padding:0 6px;color:#64748b;font-size:18px;display:{{ $reqNota ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; window.loadMovimientos();">close</i>
+                    </div>
+                  </div>{{-- /col Nota --}}
                 </div>
                 {{-- Desde + Hasta (2 columnas, mismo grid que Marca/Modelo en /admin/equipos) --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -762,6 +779,7 @@
         var s = el('almMovSearch'); if (s && s.value.trim()) p.set('search', s.value.trim());
         var d = el('almMovDesde'); if (d && d.value) p.set('desde', d.value);
         var h = el('almMovHasta'); if (h && h.value) p.set('hasta', h.value);
+        var nt = el('almMovNota'); if (nt && nt.value.trim()) p.set('nota', nt.value.trim());
         // conservar id_producto si vino en la URL (al entrar desde el detalle de un producto)
         var urlProd = new URLSearchParams(window.location.search).get('id_producto');
         if (urlProd) p.set('id_producto', urlProd);
@@ -1026,14 +1044,15 @@
         document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = '');
 
         // Refrescar el href del link "Bitácora por Nota" con los filtros activos para
-        // que la vista por nota se abra ya filtrada por almacén / frente / fechas / tipo
-        // (sólo SALIDA / TRASPASO_SALIDA — los demás los ignora la vista por nota).
+        // que la vista por nota se abra ya filtrada por almacén / frente / fechas / tipo.
+        // Solo reenviamos el tipo si es el grupo "SALIDAS" (la vista por nota únicamente
+        // lista notas de salida; bitacoraNotas ignora un tipo que no sea de salida).
         var lnk = el('lnkBitNotas');
         if (lnk) {
             var p2 = new URLSearchParams();
             var alm = hv('id_almacen'); if (alm) p2.set('id_almacen', alm);
             var fr  = hv('id_frente'); if (fr && fr !== 'all') p2.set('id_frente', fr);
-            var tp  = hv('tipo'); if (tp === 'SALIDA' || tp === 'TRASPASO_SALIDA') p2.set('tipo', tp);
+            var tp  = hv('tipo'); if (tp === 'SALIDAS') p2.set('tipo', tp);
             var s   = el('almMovSearch'); if (s && s.value.trim()) p2.set('search', s.value.trim());
             var d   = el('almMovDesde'); if (d && d.value) p2.set('desde', d.value);
             var h   = el('almMovHasta'); if (h && h.value) p2.set('hasta', h.value);

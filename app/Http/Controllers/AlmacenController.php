@@ -830,7 +830,37 @@ class AlmacenController extends Controller
             });
         }
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
-            $q->where('TIPO', $request->string('tipo'));
+            // Filtro Tipo SIMPLIFICADO a 2 grupos (Entradas / Salidas). El frontend manda
+            // las claves de grupo ENTRADAS/SALIDAS; aquí se pliegan los traspasos y las
+            // auditorías (AJUSTE) según su signo:
+            //   Entradas = ENTRADA + TRASPASO_ENTRADA + ajuste que SUBIÓ el stock.
+            //   Salidas  = SALIDA  + TRASPASO_SALIDA  + ajuste que BAJÓ  el stock.
+            // Se mantiene compat con un TIPO exacto por si llega de un link viejo.
+            $tipoReq = (string) $request->input('tipo');
+            if ($tipoReq === 'ENTRADAS') {
+                $q->where(function ($w) {
+                    $w->whereIn('TIPO', MovimientoInventario::TIPOS_ENTRADA)
+                      ->orWhere(fn ($a) => $a->where('TIPO', MovimientoInventario::TIPO_AJUSTE)
+                          ->whereColumn('CANTIDAD_RESULTANTE', '>=', 'CANTIDAD_ANTERIOR'));
+                });
+            } elseif ($tipoReq === 'SALIDAS') {
+                $q->where(function ($w) {
+                    $w->whereIn('TIPO', MovimientoInventario::TIPOS_SALIDA)
+                      ->orWhere(fn ($a) => $a->where('TIPO', MovimientoInventario::TIPO_AJUSTE)
+                          ->whereColumn('CANTIDAD_RESULTANTE', '<', 'CANTIDAD_ANTERIOR'));
+                });
+            } else {
+                $q->where('TIPO', $tipoReq);
+            }
+        }
+        // Filtro "Nota de entrega": matchea el N° de Nota de Entrega (NUMERO_NOTA, salidas)
+        // O la referencia/nota del proveedor (REFERENCIA, entradas) — LIKE en ambos.
+        if ($request->filled('nota')) {
+            $nota = trim((string) $request->input('nota'));
+            $q->where(function ($w) use ($nota) {
+                $w->where('NUMERO_NOTA', 'like', "%{$nota}%")
+                  ->orWhere('REFERENCIA', 'like', "%{$nota}%");
+            });
         }
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
             $q->where('ID_FRENTE', $request->integer('id_frente'));
