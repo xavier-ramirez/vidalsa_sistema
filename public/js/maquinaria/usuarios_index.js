@@ -200,7 +200,8 @@ function renderSearchSuggest(term) {
     const box = document.getElementById('searchSuggest');
     if (!box) return;
     const t = usuariosNorm((term || '').trim());
-    if (t.length < 2) { hideSearchSuggest(); return; }
+    // Sugerencias desde la PRIMERA letra (antes exigia 2): asi salen "apenas al escribir".
+    if (t.length < 1) { hideSearchSuggest(); return; }
 
     const matches = getUsuariosSugerencias().filter(function (u) {
         return u._n.indexOf(t) > -1; // _n = nombre+correo ya normalizados (sin normalize() por tecla)
@@ -255,31 +256,31 @@ function initUsuarios() {
     // Guard: only attach listener once per DOM instance
     if (searchInput && !searchInput.dataset.usuariosInitialized) {
         searchInput.dataset.usuariosInitialized = 'true';
-        searchInput.addEventListener('keyup', function (e) {
+        // Sugerencias en el evento `input` (NO `keyup`): `input` dispara en CADA cambio de
+        // valor — tipeo, pegar, autofill, IME, tipeo rapido — asi las sugerencias salen
+        // SIEMPRE y consistentes. Con `keyup` a veces no aparecian (paste/autofill/teclas
+        // que no liberan keyup). Al ESCRIBIR solo se muestran sugerencias; la tabla NO se
+        // filtra por tecla (el filtro se aplica al ELEGIR una sugerencia o con Enter).
+        searchInput.addEventListener('input', function () {
             const val = this.value;
             const clearBtn = document.getElementById('btn_clear_search');
             if (clearBtn) clearBtn.style.display = (val.length > 0) ? 'block' : 'none';
 
-            // Escape cierra las sugerencias. Enter aplica el filtro vía submit del
-            // form (más abajo) — aquí solo cerramos la lista.
-            if (e && e.key === 'Escape') { hideSearchSuggest(); return; }
-            if (e && e.key === 'Enter')  { hideSearchSuggest(); return; }
-
-            // Al ESCRIBIR solo se muestran sugerencias; la tabla NO se filtra en cada
-            // tecla. El filtro se aplica al ELEGIR una sugerencia (handler de clic en
-            // #searchSuggest .usuarios-suggest-item → loadUsuarios) o al presionar Enter.
             renderSearchSuggest(val);
 
-            // Excepción: si el campo queda vacío, recargar para limpiar el filtro
-            // (no tendría sentido dejar la tabla filtrada con el buscador en blanco).
+            // Si el campo queda vacío, recargar para limpiar el filtro.
             if (val.length === 0) {
                 clearTimeout(window.searchTimeout);
                 window.searchTimeout = setTimeout(() => window.loadUsuarios(), 300);
             }
         });
+        // Escape cierra las sugerencias (Enter aplica el filtro vía submit del form, más abajo).
+        searchInput.addEventListener('keydown', function (e) {
+            if (e && e.key === 'Escape') hideSearchSuggest();
+        });
         // Al enfocar, si ya hay texto, reabrir las sugerencias.
         searchInput.addEventListener('focus', function () {
-            if (this.value.trim().length >= 2) renderSearchSuggest(this.value);
+            if (this.value.trim().length >= 1) renderSearchSuggest(this.value);
         });
     }
 
