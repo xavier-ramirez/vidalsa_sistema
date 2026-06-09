@@ -3980,5 +3980,22 @@
     vv.addEventListener('scroll', ajustarBarra);
     ajustarBarra();
 })();
+
+// El tamaño del teclado numérico lo decide el SO/teclado del teléfono (no se puede
+// achicar por web sin perder el punto decimal que la cantidad necesita). Lo que SÍ
+// hacemos: al tocar el campo de cantidad, subir esa fila a la zona visible por encima
+// del teclado, así SIEMPRE se ve el producto + lo que se escribe, sea grande o chico
+// el teclado. Delegado en document para que aplique a las filas cargadas por AJAX.
+(function () {
+    document.addEventListener('focusin', function (e) {
+        var inp = e.target;
+        if (!inp || !inp.classList || !inp.classList.contains('alm-row-cant')) return;
+        // Esperamos ~300ms a que el teclado abra y el viewport se reajuste, y centramos.
+        setTimeout(function () {
+            try { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+            catch (_) { try { inp.scrollIntoView(); } catch (e2) {} }
+        }, 300);
+    });
+})();
 </script>
 @endsection
