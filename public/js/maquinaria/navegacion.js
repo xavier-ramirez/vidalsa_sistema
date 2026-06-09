@@ -25,6 +25,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Saltar links que NO son navegación de página — los maneja su propio JS
+        // (onclick) o el navegador. Sin esto, en un <a href="#" onclick="accion()">
+        // el onclick corre pero su `return false` NO detiene la propagación, así que
+        // este listener global del SPA igual se dispara y hace un GET extra a la URL
+        // del href; si esa ruta no acepta GET → "405 Method Not Allowed". Cubre las
+        // acciones tipo Export/Crear (<a href="#"/"javascript:" onclick=...>) y descargas.
+        const rawHref = (link.getAttribute('href') || '').trim();
+        if (rawHref === '' || rawHref.charAt(0) === '#'
+            || rawHref.toLowerCase().startsWith('javascript:')
+            || link.hasAttribute('onclick')
+            || link.hasAttribute('download')) {
+            return;
+        }
+
         e.preventDefault();
         navigateTo(link.href);
     });
