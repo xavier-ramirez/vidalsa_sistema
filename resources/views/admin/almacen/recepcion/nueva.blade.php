@@ -1021,6 +1021,9 @@
     document.addEventListener('focusin', function (e) {
         var inp = e.target;
         if (!inp || !inp.classList || !inp.classList.contains('ent-cant-input')) return;
+        // Solo en móvil: en PC no hay teclado que tape nada y centrar provocaría un
+        // salto de scroll innecesario al enfocar el campo (block:'center' siempre centra).
+        if (window.innerWidth > 768) return;
         setTimeout(function () {
             try { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
             catch (_) { try { inp.scrollIntoView(); } catch (e2) {} }

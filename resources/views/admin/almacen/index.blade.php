@@ -3990,6 +3990,9 @@
     document.addEventListener('focusin', function (e) {
         var inp = e.target;
         if (!inp || !inp.classList || !inp.classList.contains('alm-row-cant')) return;
+        // Solo en móvil: en PC no hay teclado que tape nada y centrar provocaría un
+        // salto de scroll innecesario al enfocar el campo (block:'center' siempre centra).
+        if (window.innerWidth > 768) return;
         // Esperamos ~300ms a que el teclado abra y el viewport se reajuste, y centramos.
         setTimeout(function () {
             try { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
