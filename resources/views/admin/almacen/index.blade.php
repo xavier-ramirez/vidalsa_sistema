@@ -672,13 +672,6 @@
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
                     </button>
-                    {{-- Etiquetas QR: imprime etiquetas escaneables (estilo góndola de súper)
-                         de los productos del filtro actual. Abre el modal de formato. Read-only,
-                         disponible para cualquiera que ve el módulo (mismo criterio que el export). --}}
-                    <button type="button" onclick="window.almAccion('etiquetas')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
-                        <div style="background:#ede9fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#7c3aed;">&#xe00a;</i></div>
-                        <span style="font-size:14px;font-weight:500;">Generar etiquetas QR</span>
-                    </button>
                     {{-- Todos los items SIEMPRE visibles — la verificacion de permiso vive
                          dentro del handler JS de cada funcion (ver almAbrirAlmacen, etc.).
                          Si el usuario no tiene el permiso, aparece toast moderno; antes los
@@ -2555,12 +2548,6 @@
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
-            case 'etiquetas':
-                // Sin selección: etiqueta TODO lo del filtro de categoría actual (idsCsv
-                // vacío → almEtiquetasGenerar lee la categoría aplicada). El almacén no
-                // aplica: la etiqueta es del producto del catálogo, no del saldo por almacén.
-                window.almAbrirEtiquetas('');
-                break;
             case 'export':
                 // Construye la URL del export respetando los filtros activos de la
                 // tabla: almacén + categoría. La categoría se lee de data-active del
