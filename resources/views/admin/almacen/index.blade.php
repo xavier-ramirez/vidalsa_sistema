@@ -931,7 +931,7 @@
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAjusteModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almVolverADetalle('almAjusteModal')">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAjuste()">Guardar</button>
         </div>
     </div>
@@ -959,7 +959,7 @@
             <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almMinimoModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almVolverADetalle('almMinimoModal')">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarMinimo()">Guardar</button>
         </div>
     </div>
@@ -1194,7 +1194,7 @@
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almProductoModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almVolverADetalle('almProductoModal')">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" id="almProdSubmit" onclick="window.almGuardarProducto()">Guardar</button>
         </div>
     </div>
@@ -3038,12 +3038,24 @@
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         open('almDetalleModal');
     };
+    // Cancelar de un sub-modal (Auditoría / Stock mínimo / Editar): cierra ese modal y, si
+    // venía de "Detalles del producto" (window.almDesdeDetalle), REABRE Detalles — sus datos
+    // siguen en el dataset. La X de cada modal cierra del todo (no llama a esto). El flag se
+    // pone en false al abrir "Nuevo producto" (almAbrirProducto), que comparte el modal Editar
+    // pero NO viene de Detalles.
+    window.almVolverADetalle = function (subId) {
+        almCerrar(subId);
+        var det = el('almDetalleModal');
+        if (window.almDesdeDetalle && det && det.dataset.id) open('almDetalleModal');
+        window.almDesdeDetalle = false;
+    };
     window.almDetalleAccion = function (which) {
         var m = el('almDetalleModal'); if (!m) return;
         var d = m.dataset, id = parseInt(d.id, 10);
         var minimo = (d.minimo === '' ? null : parseFloat(d.minimo));
         var saldo  = parseFloat(d.saldo || 0);
         almCerrar('almDetalleModal');
+        window.almDesdeDetalle = true;   // los sub-modales que siguen se abrieron desde Detalles
         switch (which) {
             // 'entrada'/'salida' removidos (esos flujos ya no van por producto individual).
             case 'ajuste':   if (window.almAbrirAjuste)         window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo); break;
@@ -3440,6 +3452,7 @@
     }
     window.almAbrirProducto = function () {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para crear productos.')) return;
+        window.almDesdeDetalle = false;   // "Nuevo producto" NO viene de Detalles → Cancelar no regresa allí
         almResetProductoModal();
         el('almProdTitulo').textContent = 'Nuevo producto'; el('almProdSubmit').textContent = 'Guardar';
         el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
