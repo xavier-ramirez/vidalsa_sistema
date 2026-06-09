@@ -33,15 +33,12 @@ class DashboardController extends Controller
             $expiredList = $this->generateAlertsList(!$isGlobal ? $frenteIds : null);
             $totalAlerts  = $expiredList->count();
 
-            // 4. Recent Activity (list) — LOCAL users see only their frentes
-            $recentActivity = $this->getRecentActivity($isGlobal, $frenteIds);
-
-            // 5. Frentes activos (necesarios para el modal de Recepción Directa)
+            // 4. Frentes activos (necesarios para el modal de Recepción Directa)
             $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
                 ->orderBy('NOMBRE_FRENTE')
                 ->get();
 
-            // 6. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
+            // 5. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
             $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
                 ->excludeEspecial();
 
@@ -68,7 +65,7 @@ class DashboardController extends Controller
             }
 
             return compact(
-                'movilizacionesHoy', 'pendientes', 'totalAlerts', 'recentActivity',
+                'movilizacionesHoy', 'pendientes', 'totalAlerts',
                 'expiredList', 'frentes', 'totalFlotaActiva',
                 'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento',
                 'catalogosDestacados'
@@ -179,27 +176,6 @@ class DashboardController extends Controller
     }
 
     /**
-     * AJAX: Devuelve HTML actualizado de la lista de movilizaciones pendientes + contadores
-     * Mismo criterio de filtrado LOCAL/GLOBAL que index().
-     */
-    public function getPendingMovsHtml()
-    {
-        $user     = auth()->user();
-        $isGlobal = $user && $user->NIVEL_ACCESO == 1;
-        $frenteIds = $user ? $user->getFrentesIds() : [];
-
-        $pendientes = 0;
-        $recentActivity = $this->getRecentActivity($isGlobal, $frenteIds);
-        $movilizacionesHoy = $this->getMovilizacionesHoyCount($isGlobal, $frenteIds);
-
-        return response()->json([
-            'html'              => view('partials.pending_movs_list', compact('recentActivity'))->render(),
-            'pendientes'        => $pendientes,
-            'movilizacionesHoy' => $movilizacionesHoy,
-        ]);
-    }
-
-    /**
      * Reusable query for counting today's mobilizations
      */
     private function getMovilizacionesHoyCount($isGlobal, $frenteIds)
@@ -214,29 +190,6 @@ class DashboardController extends Controller
             $query->whereRaw('1 = 0');
         }
         return $query->count();
-    }
-
-    /**
-     * Reusable query for getting recent activity
-     */
-    private function getRecentActivity($isGlobal, $frenteIds)
-    {
-        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteDestino'])
-            // Excluir movilizaciones cuyo equipo fue borrado / ya no existe: sin esto
-            // llegaban con equipo=null y el partial las pintaba como filas basura
-            // "Equipo / —" (sin tipo, placa, ni serial). whereHas respeta el soft-delete
-            // del equipo, así que tampoco aparecen las de equipos enviados a la papelera.
-            ->whereHas('equipo')
-            ->orderBy('created_at', 'desc')
-            ->limit(50);
-
-        if (count($frenteIds) > 0) {
-            $query->whereIn('ID_FRENTE_DESTINO', $frenteIds);
-        } elseif (!$isGlobal) {
-            $query->whereRaw('1 = 0');
-        }
-
-        return $query->get();
     }
 
     /**

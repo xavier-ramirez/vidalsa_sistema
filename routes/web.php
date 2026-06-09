@@ -21,7 +21,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');
         Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');
         Route::get('/dashboard/alerts-html', [App\Http\Controllers\DashboardController::class, 'getAlertsHtml'])->name('dashboard.alertsHtml');
-        Route::get('/dashboard/pending-movs-html', [App\Http\Controllers\DashboardController::class, 'getPendingMovsHtml'])->name('dashboard.pendingMovsHtml');
         Route::post('/dashboard/iniciar-gestion', [App\Http\Controllers\DashboardController::class, 'iniciarGestion'])->name('dashboard.iniciarGestion');
         Route::get('/dashboard/export-documents-pdf', [App\Http\Controllers\DashboardController::class, 'exportDocumentsPDF'])->name('dashboard.exportDocumentsPDF');
 
