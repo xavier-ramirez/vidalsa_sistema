@@ -3399,13 +3399,31 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
         padding: 8px 14px 8px 4px !important;
         justify-content: flex-end !important;
     }
+
+    /* ── Barra de captura en móvil ──
+       En desktop la barra se pega a la lista (borde-top none, radio solo abajo).
+       En móvil la lista son tarjetas sueltas, así que la barra pasa a ser su PROPIA
+       tarjeta: borde y radio completos. Y compacta: buscador full-width arriba,
+       UND + cantidad + ↵ en la fila de abajo (flex-wrap ya lo gestiona). */
+    body:has(.ent-layout) .ent-capt-bar {
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 14px !important;
+        margin-top: 12px !important;
+        padding: 10px !important;
+        gap: 8px !important;
+    }
+    body:has(.ent-layout) .ent-capt-bar .ent-search-field { flex: 1 1 100% !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-um-wrap      { flex: 0 1 90px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper { flex: 1 1 auto !important; }
+    /* El "+" decorativo no aporta en el ancho chico del teléfono → se oculta. */
+    body:has(.ent-layout) .ent-capt-plus { display: none !important; }
 }
 
 @media (max-width: 480px) {
     /* Pantallas muy chicas (telefono): Nota y Proveedor ocupan su propia fila
        full-width; Fecha y Bandeja van JUNTAS en la ultima fila, una al lado de la
-       otra (50/50), cada una llenando su mitad. El buscador ya esta al 100%
-       (grid-column: 1 / 3). */
+       otra (50/50), cada una llenando su mitad. (La captura ya no está en este grid:
+       vive en .ent-capt-bar, con su propio responsive.) */
     body:has(.ent-layout) .ent-head-row > :nth-child(1),
     body:has(.ent-layout) .ent-head-row > :nth-child(2) {
         grid-column: 1 / -1;

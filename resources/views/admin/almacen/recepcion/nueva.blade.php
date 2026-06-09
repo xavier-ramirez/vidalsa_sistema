@@ -994,17 +994,16 @@
         // Modal del sistema (window.showModal), con confirm() nativo de fallback
         // por si el helper global no estuviera cargado (carga parcial / SPA bug).
         var n = entLineas.length;
-        var prodWord = (n === 1 ? 'producto capturado' : 'productos capturados');
-        var mensaje  = 'Se vaciará la tabla y se perderán <strong>' + n + ' ' + prodWord + '</strong>. '
-                     + 'Esta acción no se puede deshacer.';
+        var prodWord = (n === 1 ? 'producto' : 'productos');
+        var mensaje  = 'Perderás <strong>' + n + ' ' + prodWord + '</strong> capturado' + (n === 1 ? '' : 's') + '. No se puede deshacer.';
 
         if (typeof window.showModal === 'function') {
             window.showModal({
                 type:        'warning',
                 title:       'Cancelar operación',
                 message:     mensaje,
-                confirmText: 'Sí, vaciar la tabla',
-                cancelText:  'Continuar capturando',
+                confirmText: 'Sí, vaciar',
+                cancelText:  'Seguir',
                 onConfirm:   hacer,
             });
         } else {
