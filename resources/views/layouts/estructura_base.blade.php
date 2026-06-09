@@ -448,10 +448,21 @@
                             <i class="material-icons">manage_accounts</i> Mi Usuario
                         </a>
                     @endcan
+                    {{-- "Frentes de trabajo": módulo EXCLUSIVO super.admin (clave literal en
+                         PERMISOS, sin relación con el rol). Visible para todos, pero solo navega
+                         si tiene la clave; sin ella muestra la notificación moderna (showToast)
+                         en vez de ir a un 403. El gate real vive en la ruta (can:super.admin). --}}
+                    @can('super.admin')
                     <a href="{{ route('frentes.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
                         <i class="material-icons">business</i> Frentes de trabajo
                     </a>
+                    @else
+                    <a href="#" class="nav-dropdown-link"
+                        onclick="event.preventDefault(); if (window.showToast) { window.showToast('No tienes permiso para acceder a Frentes de trabajo.', 'error'); }">
+                        <i class="material-icons">business</i> Frentes de trabajo
+                    </a>
+                    @endcan
                     @can('super.admin')
                     <a href="{{ route('historial-documentos.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('historial-documentos.*') ? 'active' : '' }}">

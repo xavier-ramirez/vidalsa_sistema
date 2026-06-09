@@ -36,14 +36,22 @@ Route::middleware(['auth'])->group(function () {
             Route::put('usuarios/mi-perfil', [App\Http\Controllers\UserController::class, 'actualizarMiClave'])->name('usuarios.actualizarMiClave');
 
             Route::resource('usuarios', App\Http\Controllers\UserController::class)->except(['show']);
+            // Autocomplete de frentes (/admin/frentes/buscar): lo consume uicomponents.js en
+            // formularios de OTROS módulos (equipos/usuarios/almacén), así que NO va gateado
+            // por super.admin — solo el módulo de gestión de frentes (abajo) lo está.
             Route::get('frentes/buscar', [App\Http\Controllers\FrenteTrabajoController::class, 'search'])->name('frentes.search');
-            // Frentes "papelera": listado de finalizados + restore. Definidos antes del
-            // resource para que el segmento literal /finalizados no choque con {frente}.
-            Route::get('frentes/finalizados', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizados'])->name('frentes.finalizados');
-            Route::get('frentes/sin-equipos', [App\Http\Controllers\FrenteTrabajoController::class, 'sinEquipos'])->name('frentes.sinEquipos');
-            Route::patch('frentes/{frente}/restore', [App\Http\Controllers\FrenteTrabajoController::class, 'restore'])->name('frentes.restore');
-            Route::patch('frentes/{frente}/finalizar', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizar'])->name('frentes.finalizar');
-            Route::resource('frentes', App\Http\Controllers\FrenteTrabajoController::class)->except(['show']);
+            // Módulo "Frentes de trabajo": EXCLUSIVO super.admin (clave literal en PERMISOS,
+            // independiente del rol — Gate::before en AppServiceProvider). El gate protege
+            // server-side; el menú además muestra un toast si un usuario sin la clave intenta abrirlo.
+            Route::middleware('can:super.admin')->group(function () {
+                // Frentes "papelera": listado de finalizados + restore. Definidos antes del
+                // resource para que el segmento literal /finalizados no choque con {frente}.
+                Route::get('frentes/finalizados', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizados'])->name('frentes.finalizados');
+                Route::get('frentes/sin-equipos', [App\Http\Controllers\FrenteTrabajoController::class, 'sinEquipos'])->name('frentes.sinEquipos');
+                Route::patch('frentes/{frente}/restore', [App\Http\Controllers\FrenteTrabajoController::class, 'restore'])->name('frentes.restore');
+                Route::patch('frentes/{frente}/finalizar', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizar'])->name('frentes.finalizar');
+                Route::resource('frentes', App\Http\Controllers\FrenteTrabajoController::class)->except(['show']);
+            });
 
             // Catalog Linking API Routes (Must be before resource to avoid ID conflict)
             Route::get('equipos/all-models', [App\Http\Controllers\EquipoController::class, 'getAllModels'])->name('equipos.allModels');
