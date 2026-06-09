@@ -14,7 +14,10 @@
           + fecha; observaciones van en el sidebar "Resumen de Recepción").
        2) Fila de captura: [Buscar serial/descripcion] [Cantidad] (stepper ▲▼).
           - Si el producto EXISTE: aparece como sugerencia → Enter elige el primero →
-            escribir cantidad → Enter agrega a la tabla.
+            (la UM se prefija con la del catalogo pero queda EDITABLE) → escribir
+            cantidad → Enter agrega a la tabla. Si se cambia la UM a otra presentacion
+            (UND→CAJA, etc.) entra como un producto aparte con el mismo nombre y la UM
+            nueva — el original queda intacto (reusa la presentacion si ya existia).
           - Si el producto NO existe: igual escribis la cantidad → Enter → el sistema
             crea el producto al vuelo (codigo auto numerico de 6 digitos, UM=UND) y lo agrega a la
             tabla. Se puede editar despues desde /admin/almacen.
@@ -124,10 +127,6 @@
         background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
     .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
-    /* Estado bloqueado: cuando se elige un producto del catalogo, la UM ya viene
-       definida y el campo se pone readOnly + clase .is-locked (ver entPick). El
-       input nunca usa el atributo `disabled`, asi que el estilo va por clase. */
-    .ent-um-input.is-locked { background-color:#f1f5f9; cursor:not-allowed; color:#475569; }
     /* Dropdown de sugerencias del campo UM — mismo estilo que .ent-suggest pero mas
        compacto (solo lista UMs cortas). */
     .ent-um-suggest {
@@ -183,6 +182,9 @@
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
     .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0f172a; letter-spacing:.3px; flex:0 0 auto; white-space:nowrap; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    /* Tag de UM al final de la sugerencia: diferencia presentaciones del mismo
+       material (mismo nombre, distinta UM). Pill gris discreto, no compite con el codigo. */
+    .ent-suggest-item .um { flex:0 0 auto; font-size:10.5px; font-weight:800; color:#475569; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; padding:1px 6px; text-transform:uppercase; letter-spacing:.3px; }
     .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
 
     /* Stepper de cantidad — clon del .alm-cant-stepper de /admin/almacen (variante
@@ -542,12 +544,14 @@
                 var cod  = escHtml(p.CODIGO);
                 var nom  = escHtml(p.NOMBRE);
                 var um   = escHtml(p.UM);
-                // Sugerencia: solo CODIGO + NOMBRE. La UM no se pinta (aparece
-                // en la tabla de productos agregados). `data-um` queda en el
-                // elemento porque entPick lo necesita para armar la fila.
+                // Sugerencia: CODIGO + NOMBRE + UM. La UM se pinta como tag al final
+                // porque un mismo material puede existir en varias presentaciones
+                // (mismo nombre, distinta UM) — sin la UM serian indistinguibles en la
+                // lista. `data-um` lo necesita entPick para prefijar el campo UM.
                 return '<div class="ent-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + cod + '" data-nom="' + nom + '" data-um="' + um + '">'
                     +    '<span class="cod">' + cod + '</span>'
                     +    '<span class="nom">' + nom + '</span>'
+                    +    (um ? '<span class="um">' + um + '</span>' : '')
                     +  '</div>';
             }).join('');
         }
@@ -556,9 +560,8 @@
     function entSuggestHide() { var b = el('entSuggest'); if (b) b.classList.remove('open'); }
 
     // Elegir sugerencia: pinta el badge, oculta el dropdown, salta a Cantidad.
-    // Tambien sincroniza el select de UM con la UM del producto y lo bloquea
-    // (la UM de un producto del catalogo no se modifica desde esta pantalla —
-    // ya viene definida en /admin/almacen).
+    // Prefija el input de UM con la UM del producto pero lo deja EDITABLE — si el
+    // usuario la cambia, entAgregar registra una presentacion aparte (ver caso 1).
     function entPick(item) {
         entSelected = {
             id_producto: parseInt(item.getAttribute('data-id'), 10),
@@ -578,15 +581,14 @@
         badge.classList.add('show');
         entSuggestHide();
 
-        // Sincronizar el input de UM con la UM del producto y bloquearlo (la UM de
-        // un producto del catalogo no se modifica desde Recepcion ODC — ya esta
-        // definida en /admin/almacen). Usamos readOnly en vez de disabled para que
-        // el valor se siga enviando en el form si fuera necesario.
+        // Prefijar el input de UM con la UM del producto, pero DEJARLO EDITABLE: un
+        // mismo material puede entrar en distintas presentaciones (p.ej. UND vs CAJA
+        // vs BARRIL). Si el usuario cambia la UM a una distinta de la del catalogo,
+        // entAgregar lo trata como una presentacion NUEVA — registra/reusa un producto
+        // con el MISMO nombre y la nueva UM, sin tocar el original (ver entAgregar caso 1).
         var umInp = el('entUm');
         if (umInp && entSelected.um) {
             umInp.value = entSelected.um;
-            umInp.readOnly = true;
-            umInp.classList.add('is-locked');
             entUmHide();
         }
 
@@ -602,14 +604,10 @@
         entSelected = null;
         el('entSelectedBadge').classList.remove('show');
         var inp = el('entSearch'); inp.style.display = ''; inp.value = '';
-        // Re-habilitar y resetear el input de UM para la siguiente captura
-        // (queda en UND como default — el usuario lo cambia si registra producto nuevo).
+        // Resetear el input de UM para la siguiente captura (queda en UND como default
+        // — el usuario lo cambia si registra un producto nuevo o una presentacion distinta).
         var umInp = el('entUm');
-        if (umInp) {
-            umInp.readOnly = false;
-            umInp.classList.remove('is-locked');
-            umInp.value = 'UND';
-        }
+        if (umInp) umInp.value = 'UND';
         if (suppressSuggest) entSkipNextSuggest = true;
         inp.focus();
     };
@@ -624,7 +622,6 @@
     window.entUmSuggest = function (forceAll) {
         var inp = el('entUm'), box = el('entUmSuggest');
         if (!inp || !box) return;
-        if (inp.readOnly) { entUmHide(); return; }
         var term = norm(inp.value.trim());
         var matches = [];
         for (var i = 0; i < UNIDADES_MEDIDA.length; i++) {
@@ -815,9 +812,37 @@
             el('entCant').focus();
             return;
         }
-        // Caso 1: el usuario eligio una sugerencia → producto del catalogo, fluye normal.
+        // Caso 1: el usuario eligio una sugerencia del catalogo.
         if (entSelected) {
-            entInsertarLinea(entSelected, cant);
+            // La UM puede haberse cambiado a una presentacion distinta (UND→CAJA, etc.).
+            // Comparamos la UM tipeada contra la del producto elegido:
+            var umInp1 = el('entUm');
+            var umNueva = umInp1 ? String(umInp1.value || '').trim().toUpperCase() : '';
+            if (!umNueva) umNueva = entSelected.um;   // campo vacio → presentacion original
+            // Misma UM (o equivalente sin tildes/case) → es el mismo producto, fluye normal.
+            // Si el producto base no trae UM registrada (entSelected.um vacio) tampoco
+            // ramificamos: no hay una UM "original" contra la cual comparar.
+            if (!entSelected.um || norm(umNueva) === norm(entSelected.um)) {
+                entInsertarLinea(entSelected, cant);
+                return;
+            }
+            // UM distinta → es OTRA presentacion del mismo material. El producto original
+            // queda intacto con su UM; esta entra como un producto aparte (mismo nombre,
+            // nueva UM). Reusamos una presentacion ya existente en el catalogo si la hay
+            // (mismo nombre + misma UM) para no duplicar; si no, se crea al vuelo.
+            var existenteVariante = PRODUCTOS.find(function (p) {
+                return norm(p.NOMBRE) === norm(entSelected.nombre) && norm(p.UM) === norm(umNueva);
+            });
+            if (existenteVariante) {
+                entInsertarLinea({
+                    id_producto: existenteVariante.ID_PRODUCTO,
+                    codigo:      existenteVariante.CODIGO || '',
+                    nombre:      existenteVariante.NOMBRE || entSelected.nombre,
+                    um:          existenteVariante.UM || umNueva,
+                }, cant);
+                return;
+            }
+            entDoCreateProducto(entSelected.nombre, cant, umNueva);
             return;
         }
         // Caso 2: el usuario tipeo algo que no esta en el catalogo → registrar
