@@ -742,6 +742,12 @@
     // linea mas y al catalogo en memoria (PRODUCTOS) para que aparezca en
     // busquedas posteriores sin recargar la pagina.
     function entDoCreateProducto(nombre, cant, um) {
+        // El catalogo guarda NOMBRE y UM en MAYUSCULAS (backend: validarProducto hace
+        // mb_strtoupper). Normalizamos aca tambien para que el payload, el catalogo en
+        // memoria, la linea de la tabla y el toast queden en mayusculas — incluido el
+        // camino de respaldo `|| nombre` si la respuesta no trajera el valor.
+        nombre = String(nombre || '').trim().toUpperCase();
+        um     = String(um || 'UND').trim().toUpperCase() || 'UND';
         entCreandoProducto = true;
         if (window.showPreloader) window.showPreloader();
         // IMPORTANTE: mandamos id_almacen aunque NO haya cantidad inicial — el backend
@@ -853,10 +859,9 @@
         // en un dialogo aparte — ahora la UM esta in-line en la barra de captura.
         var textoBuscador = String(el('entSearch').value || '').trim();
         if (textoBuscador.length >= 2) {
+            // entDoCreateProducto normaliza nombre y UM a mayusculas (y UM vacia → UND).
             var umInp = el('entUm');
-            var um = umInp ? String(umInp.value || 'UND').trim().toUpperCase() : 'UND';
-            if (!um) um = 'UND';
-            entDoCreateProducto(textoBuscador, cant, um);
+            entDoCreateProducto(textoBuscador, cant, umInp ? umInp.value : 'UND');
             return;
         }
         // Caso 3: ni hay seleccion ni texto util → pedir descripcion.
