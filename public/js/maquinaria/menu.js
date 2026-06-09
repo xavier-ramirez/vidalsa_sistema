@@ -29,8 +29,8 @@ if (!window._alertasModalEscHandler) {
     });
 }
 
-// togglePendingMovs removido: la lista de "Equipos Por Confirmar" ahora vive en el
-// centro de notificaciones del navbar (layouts/estructura_base.blade.php).
+// togglePendingMovs removido: la funcionalidad "Equipos Por Confirmar" se eliminó
+// por completo (vivía en el centro de notificaciones del navbar, ya removido).
 
 console.log('✅ Menu Dashboard Functions Loaded (Global Scope)');
 

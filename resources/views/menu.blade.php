@@ -772,8 +772,8 @@
         <div class="card-section" style="grid-column: span 12;">
             <div class="cards-wrapper">
 
-                {{-- MOVILIZACIONES SECTION: removido. La lista "Equipos Por Confirmar Recepción"
-                     ahora vive en el centro de notificaciones del navbar (layouts/estructura_base). --}}
+                {{-- MOVILIZACIONES / "Equipos Por Confirmar Recepción": funcionalidad ELIMINADA
+                     por completo (antes vivía en el centro de notificaciones del navbar, ya removido). --}}
 
                 {{-- ── Card "Salud Operacional" (al lado de Alertas, 1 col del cards-wrapper) ── --}}
                 @php
