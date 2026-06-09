@@ -799,7 +799,7 @@
         </button>
         {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
              sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
-        <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action" style="background:#7c3aed;">
+        <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action" style="background:var(--maquinaria-blue,#0067b1);">
             <i class="material-icons" style="font-size:18px;">&#xe00a;</i><span class="desktop-text">Etiquetas</span>
         </button>
     </div>
