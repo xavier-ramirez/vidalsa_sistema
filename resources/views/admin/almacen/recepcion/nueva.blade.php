@@ -742,9 +742,9 @@
     }
 
     // POST al endpoint almacen.productos.store con el UM elegido por el usuario.
-    // La UM ya viene del select #entUm en la fila de captura (entAgregar la lee y
+    // La UM ya viene del select #entUm en la barra de captura (entAgregar la lee y
     // la pasa). Antes esto se hacia via un mini-modal aparte — removido por
-    // redundancia ahora que UM esta in-line en la fila de captura.
+    // redundancia ahora que UM esta in-line en la barra de captura.
     // Al volver con el id real del backend, lo insertamos a entLineas como una
     // linea mas y al catalogo en memoria (PRODUCTOS) para que aparezca en
     // busquedas posteriores sin recargar la pagina.
@@ -829,7 +829,7 @@
         // Caso 2: el usuario tipeo algo que no esta en el catalogo → registrar
         // producto nuevo al vuelo. La UM se toma del input #entUm (autocompletado,
         // permite tipear UM nueva). Reemplaza al mini-modal que antes pedia la UM
-        // en un dialogo aparte — ahora la UM esta in-line en la fila de captura.
+        // en un dialogo aparte — ahora la UM esta in-line en la barra de captura.
         var textoBuscador = String(el('entSearch').value || '').trim();
         if (textoBuscador.length >= 2) {
             var umInp = el('entUm');
@@ -961,7 +961,7 @@
 
     // ── Limpiar el borrador completo (sin navegar ni notificar) ──
     //
-    // Vacia la tabla de lineas, la fila de captura (buscador/UM/cantidad), la
+    // Vacia la tabla de lineas, la barra de captura (buscador/UM/cantidad), la
     // cabecera (nota/proveedor/fecha) y las observaciones. Lo reusan "Cancelar
     // operacion" y el EXITO de "Registrar entrada": en ambos casos el modulo NO
     // navega ni recarga, solo deja el formulario en blanco para la siguiente
@@ -969,7 +969,7 @@
     function entLimpiarTodo() {
         entLineas = [];
         entRender();
-        // Reset de la fila de captura (buscador + badge + UM). El `true` suprime
+        // Reset de la barra de captura (buscador + badge + UM). El `true` suprime
         // la auto-apertura del dropdown de sugerencias al refocar el buscador.
         window.entClearSelected(true);
         var c = el('entCant'); if (c) c.value = '';
