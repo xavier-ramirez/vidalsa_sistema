@@ -154,7 +154,7 @@
        (inset:0 = cubre todo el .ent-search-field). Antes era inline-flex normal y
        el input quedaba visible "atras" del badge en algunos browsers — con absolute
        el badge tapa por completo el area del buscador. z-index>input para garantizarlo. */
-    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#e1effa; border:1px solid #93c5fd; border-radius:10px; color:#0067b1; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
+    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
     .ent-selected-badge .cod { font-family:monospace; font-size:11.5px; font-weight:800; }
     .ent-selected-badge .clear { cursor:pointer; color:#475569; margin-left:auto; font-size:18px; }
@@ -185,7 +185,7 @@
     /* UM al final de la sugerencia: diferencia presentaciones del mismo material
        (mismo nombre, distinta UM). Texto atenuado alineado a la derecha, SIN caja —
        precedido de un separador fino "·" para no competir con el codigo ni el nombre. */
-    .ent-suggest-item .um { flex:0 0 auto; font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.3px; }
+    .ent-suggest-item .um { flex:0 0 auto; font-size:11px; font-weight:800; color:var(--maquinaria-blue,#0067b1); text-transform:uppercase; letter-spacing:.3px; }
     .ent-suggest-item .um::before { content:'·'; margin-right:6px; color:#cbd5e0; font-weight:400; }
     .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
 
