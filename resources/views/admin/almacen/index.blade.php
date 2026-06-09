@@ -3032,7 +3032,6 @@
         var d = m.dataset, id = parseInt(d.id, 10);
         var minimo = (d.minimo === '' ? null : parseFloat(d.minimo));
         var saldo  = parseFloat(d.saldo || 0);
-        var label  = (d.cod || '') + (d.cod && d.nom ? ' — ' : '') + (d.nom || '');
         almCerrar('almDetalleModal');
         switch (which) {
             // 'entrada'/'salida' removidos (esos flujos ya no van por producto individual).
