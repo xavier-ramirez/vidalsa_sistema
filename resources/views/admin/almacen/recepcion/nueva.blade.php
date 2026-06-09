@@ -348,8 +348,8 @@
 
         {{-- ── FILA 1: cabecera de datos del lote ── --}}
         <div class="ent-head-row">
-            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Nota de entrega (opcional)">
-            <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Proveedor (opcional)">
+            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Nota de entrega (opcional)" autocomplete="off">
+            <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Proveedor (opcional)" autocomplete="off">
             {{-- Wrapper de fecha: clic en CUALQUIER parte abre el picker. --}}
             <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
                  onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }"
