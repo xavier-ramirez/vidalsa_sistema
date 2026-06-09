@@ -748,8 +748,12 @@
         // camino de respaldo `|| nombre` si la respuesta no trajera el valor.
         nombre = String(nombre || '').trim().toUpperCase();
         um     = String(um || 'UND').trim().toUpperCase() || 'UND';
+        // NO usamos el preloader de pantalla completa aca: crear el producto al vuelo es
+        // una operacion inline rapida (agregar una linea), y el overlay full-screen se
+        // veia como una "recarga" de pagina. El preloader queda reservado para el submit
+        // final (entGuardar / boton "Registrar entrada"). El guard entCreandoProducto ya
+        // evita el doble-POST mientras la creacion esta en curso.
         entCreandoProducto = true;
-        if (window.showPreloader) window.showPreloader();
         // IMPORTANTE: mandamos id_almacen aunque NO haya cantidad inicial — el backend
         // (AlmacenController::storeProducto) llama a asegurarStock() que crea la fila
         // almacen_stock con CANTIDAD=0 si no existia. Sin esto, el producto creado al
@@ -770,7 +774,6 @@
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
-            if (window.hidePreloader) window.hidePreloader();
             entCreandoProducto = false;
             if (!res.ok) {
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el producto nuevo.';
@@ -797,7 +800,6 @@
             toast('Producto nuevo registrado: ' + (p.CODIGO || '') + ' · ' + (p.NOMBRE || nombre));
         })
         .catch(function () {
-            if (window.hidePreloader) window.hidePreloader();
             entCreandoProducto = false;
             var m = 'Error de red al registrar el producto.';
             showErr(m); toast(m, 'error');
