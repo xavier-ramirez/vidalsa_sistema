@@ -296,7 +296,10 @@ class TraspasoController extends Controller
         // cliente (sin endpoint AJAX adicional — la lista cabe holgadamente en el
         // HTML inicial). El autocomplete matchea por CODIGO o NOMBRE, no necesita
         // CATEGORIA ni UBICACION.
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
+        // CATEGORIA viaja en la lista para que, al crear una presentacion nueva (cambiar la
+        // UM de un producto del catalogo en Recepcion), el producto-presentacion herede la
+        // categoria del original — ver entDoCreateProducto en la vista.
+        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
 
         // Unidades de medida DISTINTAS ya registradas en el catalogo — alimentan el
         // autocomplete del campo UM (mismo patron que el modal "Nuevo producto" de

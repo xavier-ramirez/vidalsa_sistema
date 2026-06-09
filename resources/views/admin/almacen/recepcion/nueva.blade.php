@@ -546,11 +546,13 @@
                 var cod  = escHtml(p.CODIGO);
                 var nom  = escHtml(p.NOMBRE);
                 var um   = escHtml(p.UM);
+                var cat  = escHtml(p.CATEGORIA || '');
                 // Sugerencia: CODIGO + NOMBRE + UM. La UM se pinta como tag al final
                 // porque un mismo material puede existir en varias presentaciones
                 // (mismo nombre, distinta UM) — sin la UM serian indistinguibles en la
-                // lista. `data-um` lo necesita entPick para prefijar el campo UM.
-                return '<div class="ent-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + cod + '" data-nom="' + nom + '" data-um="' + um + '">'
+                // lista. `data-um` lo necesita entPick para prefijar el campo UM; `data-cat`
+                // lo necesita para que una presentacion nueva herede la categoria del original.
+                return '<div class="ent-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + cod + '" data-nom="' + nom + '" data-um="' + um + '" data-cat="' + cat + '">'
                     +    '<span class="cod">' + cod + '</span>'
                     +    '<span class="nom">' + nom + '</span>'
                     +    (um ? '<span class="um">' + um + '</span>' : '')
@@ -570,6 +572,7 @@
             codigo:      item.getAttribute('data-cod') || '',
             nombre:      item.getAttribute('data-nom') || '',
             um:          item.getAttribute('data-um') || '',
+            categoria:   item.getAttribute('data-cat') || '',
         };
         var badge = el('entSelectedBadge');
         el('entSelectedCod').textContent = entSelected.codigo;
@@ -741,13 +744,17 @@
     // Al volver con el id real del backend, lo insertamos a entLineas como una
     // linea mas y al catalogo en memoria (PRODUCTOS) para que aparezca en
     // busquedas posteriores sin recargar la pagina.
-    function entDoCreateProducto(nombre, cant, um) {
+    function entDoCreateProducto(nombre, cant, um, categoria) {
         // El catalogo guarda NOMBRE y UM en MAYUSCULAS (backend: validarProducto hace
         // mb_strtoupper). Normalizamos aca tambien para que el payload, el catalogo en
         // memoria, la linea de la tabla y el toast queden en mayusculas — incluido el
         // camino de respaldo `|| nombre` si la respuesta no trajera el valor.
         nombre = String(nombre || '').trim().toUpperCase();
         um     = String(um || 'UND').trim().toUpperCase() || 'UND';
+        // categoria: solo se usa cuando la presentacion nueva nace de un producto del
+        // catalogo (cambiar la UM) — hereda la categoria del original. Para un producto
+        // tecleado desde cero (caso 2) llega vacio y el producto queda sin categoria.
+        categoria = String(categoria || '').trim();
         // NO usamos el preloader de pantalla completa aca: crear el producto al vuelo es
         // una operacion inline rapida (agregar una linea), y el overlay full-screen se
         // veia como una "recarga" de pagina. El preloader queda reservado para el submit
@@ -763,6 +770,7 @@
         // el check de permiso almacen.movimiento (que solo aplica cuando cant > 0).
         var idAlmacenForm = v('entAlmacen');
         var body = { NOMBRE: nombre, UM: um };
+        if (categoria) body.CATEGORIA = categoria;
         if (idAlmacenForm) {
             body.id_almacen      = parseInt(idAlmacenForm, 10);
             body.cantidad_inicial = 0;
@@ -790,6 +798,7 @@
                 CODIGO:      p.CODIGO || '',
                 NOMBRE:      p.NOMBRE || nombre,
                 UM:          p.UM || 'UND',
+                CATEGORIA:   p.CATEGORIA || categoria || '',
             });
             entInsertarLinea({
                 id_producto: p.ID_PRODUCTO,
@@ -852,7 +861,7 @@
                 }, cant);
                 return;
             }
-            entDoCreateProducto(entSelected.nombre, cant, umNueva);
+            entDoCreateProducto(entSelected.nombre, cant, umNueva, entSelected.categoria);
             return;
         }
         // Caso 2: el usuario tipeo algo que no esta en el catalogo → registrar
