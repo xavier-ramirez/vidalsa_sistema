@@ -182,9 +182,11 @@
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
     .ent-suggest-item .cod { font-family:monospace; font-size:11.5px; font-weight:700; color:#0f172a; letter-spacing:.3px; flex:0 0 auto; white-space:nowrap; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    /* Tag de UM al final de la sugerencia: diferencia presentaciones del mismo
-       material (mismo nombre, distinta UM). Pill gris discreto, no compite con el codigo. */
-    .ent-suggest-item .um { flex:0 0 auto; font-size:10.5px; font-weight:800; color:#475569; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; padding:1px 6px; text-transform:uppercase; letter-spacing:.3px; }
+    /* UM al final de la sugerencia: diferencia presentaciones del mismo material
+       (mismo nombre, distinta UM). Texto atenuado alineado a la derecha, SIN caja —
+       precedido de un separador fino "·" para no competir con el codigo ni el nombre. */
+    .ent-suggest-item .um { flex:0 0 auto; font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.3px; }
+    .ent-suggest-item .um::before { content:'·'; margin-right:6px; color:#cbd5e0; font-weight:400; }
     .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
 
     /* Stepper de cantidad — clon del .alm-cant-stepper de /admin/almacen (variante
