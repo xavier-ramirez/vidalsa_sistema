@@ -868,11 +868,11 @@
     </div>
 </div>
 
-{{-- ── Modal: Escanear QR (cámara de teléfono + lector USB + tecleo) ─────────
-     Read-only. La cámara (html5-qrcode) solo arranca en contexto seguro
-     (HTTPS/localhost) y si el navegador la soporta; si no, el campo manual sigue
-     funcionando — un lector USB "teclea" el código + Enter. Resuelve el CODIGO vía
-     almacen.buscar-codigo y filtra la tabla a ese producto. --}}
+{{-- ── Modal: Escanear QR (cámara de teléfono) ──────────────────────────────
+     Read-only y SOLO móvil. La cámara (html5-qrcode) arranca en contexto seguro
+     (HTTPS/localhost) pidiendo el permiso de una al abrir. Resuelve el CODIGO vía
+     almacen.buscar-codigo y filtra la tabla a ese producto. (El input manual se
+     quitó; en PC el lector USB sigue resolviendo por el listener global, sin modal.) --}}
 <div id="almEscanearModal" class="alm-modal-overlay">
     <div class="alm-modal" style="max-width:340px;">
         <div class="alm-modal-head">
@@ -881,28 +881,20 @@
         </div>
         <div class="alm-modal-body">
             {{-- Recuadro de cámara: oculto por defecto. almScanIniciarCamara() lo muestra
-                 SOLO si la cámara arranca (teléfono/HTTPS). En PC sin cámara queda oculto
-                 y se usa el campo de abajo (lector USB o tecleo). --}}
+                 cuando la cámara arranca (teléfono/HTTPS). El modal es SOLO móvil; el
+                 escaneo por cámara es la única vía aquí (el input manual se quitó). --}}
             <div id="almScanReader" style="display:none;width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
             <div id="almScanHint" style="font-size:12px;color:#64748b;text-align:center;"></div>
-            {{-- Botón para activar/reintentar la cámara con un gesto EXPLÍCITO del usuario.
-                 Aparece solo si el arranque automático falla (permiso denegado, etc.).
-                 Tocarlo vuelve a pedir permiso de cámara y reintenta el recuadro EN LA
-                 PÁGINA (no abre ninguna app externa). --}}
+            {{-- Botón de reintento: aparece SOLO si el arranque/permiso de la cámara falla.
+                 En el flujo normal queda oculto (la cámara pide permiso de una al abrir).
+                 Tocarlo vuelve a pedir permiso y reintenta EN LA PÁGINA (no abre apps). --}}
             <button type="button" id="almScanActivar" onclick="window.almScanReintentar()"
                     style="display:none;width:100%;padding:11px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
                 <i class="material-icons" style="font-size:19px;vertical-align:-4px;margin-right:6px;">photo_camera</i>Activar cámara
             </button>
-            <div>
-                <label for="almScanManual">Código (lector USB o tecleado)</label>
-                <input type="text" id="almScanManual" inputmode="numeric" autocomplete="off"
-                       placeholder="Escanea o escribe y pulsa Enter"
-                       onkeydown="window.almScanManualEnter(event)">
-            </div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almEscanearCerrar()">Cerrar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almScanBuscarManual()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">search</i>Buscar</button>
         </div>
     </div>
 </div>
@@ -2744,12 +2736,10 @@
         }
         var m = el('almEscanearModal'); if (!m) return;
         almScanBusy = false;
-        var manual = el('almScanManual'); if (manual) manual.value = '';
         var actBtn = el('almScanActivar'); if (actBtn) actBtn.style.display = 'none';
         open('almEscanearModal');
-        // El modal es SOLO móvil (en PC se enfoca el buscador). NO auto-enfocamos el
-        // campo manual: en el teléfono eso levantaba el teclado y TAPABA la cámara.
-        // La cámara es lo primario; el usuario toca el campo solo si prefiere teclear.
+        // El modal es SOLO móvil (en PC se enfoca el buscador). La cámara es la única
+        // vía: arranca al abrir y pide el permiso de una (la lib se precargó en idle).
         almScanIniciarCamara();
     };
 
@@ -2795,12 +2785,12 @@
         // Aseguramos la librería ANTES de arrancar (carga local/CDN bajo demanda).
         almCargarQrLib().then(function (cargada) {
             if (!cargada) {
-                almScanFallback('Cámara no disponible. Usa un lector USB o escribe el código.', false);
+                almScanFallback('Cámara no disponible en este dispositivo.', false);
                 return;
             }
             // La cámara requiere contexto seguro (HTTPS/localhost). Si no, lector/tecleo.
             if (!window.isSecureContext) {
-                almScanFallback('La cámara necesita HTTPS. Usa un lector USB o escribe el código.', false);
+                almScanFallback('La cámara necesita HTTPS para funcionar.', false);
                 return;
             }
             if (reader) reader.style.display = '';
@@ -2814,7 +2804,7 @@
             // para reintentar con un gesto explícito (vuelve a pedir permiso).
             var fail = function (err) {
                 var msg = (err && (err.name || err.message)) ? (err.name || err.message) : 'desconocido';
-                almScanFallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso, o usa el código manual.', true);
+                almScanFallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso.', true);
             };
             try {
                 almScanner = new Html5Qrcode('almScanReader', { verbose: false });
@@ -2860,17 +2850,18 @@
         almScanDetenerCamara();
         almCerrar('almEscanearModal');
     };
-    window.almScanManualEnter = function (ev) {
-        if (ev && ev.key !== 'Enter') return;
-        if (ev) ev.preventDefault();
-        window.almScanBuscarManual();
-    };
-    window.almScanBuscarManual = function () {
-        var inp = el('almScanManual');
-        var cod = inp ? String(inp.value || '').trim() : '';
-        if (!cod) { toast('Escribe o escanea un código.', 'error'); return; }
-        almScanResolver(cod);
-    };
+
+    // Pre-carga la librería de cámara en MÓVIL (en idle, sin competir con el render).
+    // Clave para que al tocar "Escanear" el .start() corra DENTRO del gesto del usuario
+    // y el navegador pida el permiso de cámara DE UNA — si la lib se bajara recién al
+    // tocar, el .then() caería en una tarea posterior, se perdería el gesto y saldría el
+    // paso extra "Activar cámara". En PC no hace falta (el modal no se abre).
+    (function () {
+        if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')) return;
+        var pre = function () { try { almCargarQrLib(); } catch (e) {} };
+        if (typeof requestIdleCallback === 'function') requestIdleCallback(pre, { timeout: 3000 });
+        else setTimeout(pre, 2000);
+    })();
 
     // Resuelve el CODIGO contra el catálogo y, si existe, filtra la tabla a ese producto
     // reusando el "pick" del buscador (almBuscarPick → almCargar), que ya muestra el
