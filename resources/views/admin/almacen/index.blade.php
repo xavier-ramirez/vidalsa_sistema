@@ -906,7 +906,9 @@
      Para correcciones puntuales del saldo de un producto se usa el modal
      "Auditoría de Inventario" que sigue abajo. --}}
 
-{{-- Auditoría de Inventario (ajuste del saldo + stock mínimo).
+{{-- Auditoría de Inventario (ajuste del saldo por conteo físico).
+     El "Stock mínimo (alerta)" YA NO vive aquí: tiene su propio modal #almMinimoModal
+     (botón propio en "Detalles del producto"), para no mezclar dos operaciones distintas.
      Gateado server-side por $puedeMover (almacen.movimiento) — mismo patrón que
      #almSalidaModal y #almAdminAlmacenesModal. Sin la clave el modal ni siquiera
      se renderiza en el DOM; almAbrirAjuste/almGuardarAjuste validan además en
@@ -926,15 +928,10 @@
             </div>
             <div>
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
-                <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Dejar vacío si solo cambias el mínimo">
+                <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada">
                 <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
                     La diferencia se registra en la bitácora como <b>Auditoría</b>.
                 </small>
-            </div>
-            <div>
-                <label for="almAjMinimo">Stock mínimo (alerta)</label>
-                {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
-                <input type="number" id="almAjMinimo" min="0.001" step="any" placeholder="Vacío = sin alerta">
             </div>
             <div><label for="almAjMotivo">Motivo / observaciones de la auditoría</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Ej: conteo trimestral, merma detectada…"></div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
@@ -942,6 +939,38 @@
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almAjusteModal')">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarAjuste()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+{{-- Stock mínimo (alerta) — modal propio, separado de la Auditoría. Setea SOLO el mínimo
+     de alerta del producto en el almacén actual (PATCH almacen.minimo). Se abre desde su
+     botón en "Detalles del producto". Mismo gate que Auditoría ($puedeMover) para no
+     cambiar quién podía configurarlo cuando vivía dentro de la Auditoría. --}}
+<div id="almMinimoModal" class="alm-modal-overlay">
+    <div class="alm-modal" style="max-width:420px;">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;">production_quantity_limits</i> Stock mínimo (alerta)</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almMinimoModal')">close</i>
+        </div>
+        <div class="alm-modal-body">
+            <div>
+                <div class="alm-fake-label">Producto</div>
+                <div><strong id="almMinNombre" style="font-size:12.5px;color:#1e293b;"></strong></div>
+            </div>
+            <div>
+                <label for="almMinValor">Stock mínimo (alerta)</label>
+                {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
+                <input type="number" id="almMinValor" min="0.001" step="any" placeholder="Vacío = sin alerta">
+                <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
+                    Cuando el saldo llegue a este valor o menos, el producto se marca como <b>stock bajo</b>. Dejalo vacío para quitar la alerta.
+                </small>
+            </div>
+            <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almMinimoModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almGuardarMinimo()">Guardar</button>
         </div>
     </div>
 </div>
@@ -1251,6 +1280,7 @@
                      — si el usuario no tiene la clave necesaria, salta toast moderno con la
                      razon. Antes se ocultaban; el cliente pidio "ver botones + notificacion". --}}
                 <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('ajuste')"><span class="alm-det-ic" style="background:#dbeafe;color:#0067b1;"><i class="material-icons" style="font-size:18px;">fact_check</i></span> Auditoría de Inventario</button>
+                <button type="button" class="alm-det-act" onclick="window.almDetalleAccion('minimo')"><span class="alm-det-ic" style="background:#fef3c7;color:#d97706;"><i class="material-icons" style="font-size:18px;">production_quantity_limits</i></span> Stock mínimo (alerta)</button>
                 {{-- En mobile (≤768px) el modal "Movimientos del producto" es
                      un kardex tabular pesado; el cliente prefirio ocultarlo en
                      telefono para mantener el modal de detalles compacto. La
@@ -3007,7 +3037,9 @@
         almCerrar('almDetalleModal');
         switch (which) {
             // 'entrada'/'salida' removidos (esos flujos ya no van por producto individual).
-            case 'ajuste':   if (window.almAbrirAjuste)         window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo, minimo); break;
+            case 'ajuste':   if (window.almAbrirAjuste)         window.almAbrirAjuste(id, d.cod, d.nom, d.um, saldo); break;
+            // 'minimo' → modal propio (separado de la Auditoría) para configurar el stock minimo.
+            case 'minimo':   if (window.almAbrirMinimo)         window.almAbrirMinimo(id, d.nom, minimo); break;
             // 'kardex' antes navegaba a /admin/almacen/movimientos; ahora abre un
             // modal local con los movimientos solo de este producto + filtros mínimos.
             case 'kardex':   if (window.almAbrirKardexProducto) window.almAbrirKardexProducto(id, d.cod, d.nom, d.um, saldo); break;
@@ -3087,73 +3119,84 @@
         window.almKpCargar(a.href);
     }, true);
 
-    window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo, minimo) {
+    window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo) {
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
-        m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si el usuario lo cambió
         if (el('almAjNombre')) el('almAjNombre').textContent = nombre;
-        el('almAjNuevoSaldo').value = ''; el('almAjMinimo').value = (minimo == null ? '' : minimo); el('almAjMotivo').value = '';
+        el('almAjNuevoSaldo').value = ''; el('almAjMotivo').value = '';
         showErr('almAjError', ''); open('almAjusteModal');
     };
 
     window.almGuardarAjuste = function () {
-        // Guard de permiso — mismo patrón que el resto de acciones del módulo y que
-        // almAbrirAjuste: la auditoría registra un AJUSTE de inventario y/o cambia el
-        // stock mínimo, ambas operaciones exigen la clave almacen.movimiento. Sin este
-        // guard el botón "Guardar" actuaba aunque el usuario no tuviera el permiso.
+        // Guard de permiso: la Auditoría registra un AJUSTE de inventario, que exige la
+        // clave almacen.movimiento. (El stock mínimo se movió a su propio modal/flujo.)
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         var idAlm = val('almSelAlmacen'); if (!idAlm) { showErr('almAjError', 'No hay almacén seleccionado.'); return; }
         var nuevoSaldoRaw = val('almAjNuevoSaldo');
-        var minimoRaw = val('almAjMinimo');
-
-        // Validaciones previas (antes de disparar nada).
-        var ns = null;
-        if (nuevoSaldoRaw !== '') {
-            ns = parseFloat(nuevoSaldoRaw);
-            if (isNaN(ns) || ns < 0) { showErr('almAjError', 'El nuevo saldo debe ser un número ≥ 0.'); return; }
-        }
-        var cambiaMinimo = (minimoRaw !== (m.dataset.minimoOrig || ''));
-        var nuevoMinimo = null;
-        if (cambiaMinimo && minimoRaw !== '') {
-            // El minimo de alerta debe ser > 0 (un minimo de 0 no avisa de nada, equivale
-            // a "sin alerta" — que ya se logra dejando el campo vacio).
-            nuevoMinimo = parseFloat(minimoRaw);
-            if (isNaN(nuevoMinimo) || nuevoMinimo <= 0) { showErr('almAjError', 'El mínimo debe ser un número mayor que 0 (o dejarlo vacío para quitar la alerta).'); return; }
-        }
-        if (ns === null && !cambiaMinimo) { almCerrar('almAjusteModal'); return; } // nada que hacer
-
-        var tareas = [];
-        if (ns !== null) {
-            // Endpoint unificado de lote: la Auditoría se registra como un lote de 1 línea
-            // con tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE.
-            tareas.push(fetch(ROUTE_LOTE, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: JSON.stringify({
-                    id_almacen: idAlm,
-                    tipo: 'AJUSTE',
-                    motivo: val('almAjMotivo') || 'Auditoría de Inventario',
-                    lineas: [{ id_producto: m.dataset.idProducto, cantidad: ns }],
-                })
-            }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); }));
-        }
-        if (cambiaMinimo) {
-            tareas.push(fetch(ROUTE_MIN(idAlm), {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: JSON.stringify({ id_producto: m.dataset.idProducto, cantidad_minima: (minimoRaw === '' ? null : nuevoMinimo) })
-            }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); }));
-        }
+        if (nuevoSaldoRaw === '') { showErr('almAjError', 'Indica el saldo según el conteo físico.'); return; }
+        var ns = parseFloat(nuevoSaldoRaw);
+        if (isNaN(ns) || ns < 0) { showErr('almAjError', 'El nuevo saldo debe ser un número ≥ 0.'); return; }
 
         pre();
-        Promise.all(tareas).then(function (ress) {
-            unpre();
-            var fail = ress.find(function (x) { return !x.ok; });
-            if (fail) { showErr('almAjError', (fail.b && fail.b.message) || 'No se pudo registrar la auditoría.'); almCargar(); return; }
-            almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almCargar();
-        }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
+        // Endpoint unificado de lote: la Auditoría se registra como un lote de 1 línea con
+        // tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE.
+        fetch(ROUTE_LOTE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                id_almacen: idAlm,
+                tipo: 'AJUSTE',
+                motivo: val('almAjMotivo') || 'Auditoría de Inventario',
+                lineas: [{ id_producto: m.dataset.idProducto, cantidad: ns }],
+            })
+        }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+          .then(function (res) {
+              unpre();
+              if (!res.ok) { showErr('almAjError', (res.b && res.b.message) || 'No se pudo registrar la auditoría.'); almCargar(); return; }
+              almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almCargar();
+          }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
+    };
+
+    // ── Modal "Stock mínimo (alerta)" — setea SOLO el mínimo de alerta del producto en el
+    //    almacén actual (PATCH almacen.minimo). Separado de la Auditoría: son dos
+    //    operaciones distintas con su propio botón en "Detalles del producto". ──
+    window.almAbrirMinimo = function (idProducto, nombre, minimo) {
+        if (!ensurePerm(HAS_MOVER, 'No tienes permiso para configurar el stock mínimo.')) return;
+        var m = el('almMinimoModal'); if (!m) return;
+        m.dataset.idProducto = idProducto;
+        m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si cambió
+        if (el('almMinNombre')) el('almMinNombre').textContent = nombre || '';
+        el('almMinValor').value = (minimo == null ? '' : minimo);
+        showErr('almMinError', ''); open('almMinimoModal');
+    };
+
+    window.almGuardarMinimo = function () {
+        if (!ensurePerm(HAS_MOVER, 'No tienes permiso para configurar el stock mínimo.')) return;
+        var m = el('almMinimoModal');
+        var idAlm = val('almSelAlmacen'); if (!idAlm) { showErr('almMinError', 'No hay almacén seleccionado.'); return; }
+        var minimoRaw = val('almMinValor');
+        // Si no cambió respecto al valor original, no hay nada que guardar.
+        if (minimoRaw === (m.dataset.minimoOrig || '')) { almCerrar('almMinimoModal'); return; }
+        var nuevoMinimo = null;
+        if (minimoRaw !== '') {
+            // El mínimo de alerta debe ser > 0 (un mínimo de 0 no avisa de nada, equivale a
+            // "sin alerta" — que ya se logra dejando el campo vacío).
+            nuevoMinimo = parseFloat(minimoRaw);
+            if (isNaN(nuevoMinimo) || nuevoMinimo <= 0) { showErr('almMinError', 'El mínimo debe ser un número mayor que 0 (o dejarlo vacío para quitar la alerta).'); return; }
+        }
+        pre();
+        fetch(ROUTE_MIN(idAlm), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: JSON.stringify({ id_producto: m.dataset.idProducto, cantidad_minima: (minimoRaw === '' ? null : nuevoMinimo) })
+        }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+          .then(function (res) {
+              unpre();
+              if (!res.ok) { showErr('almMinError', (res.b && res.b.message) || 'No se pudo actualizar el stock mínimo.'); return; }
+              almCerrar('almMinimoModal'); toast('Stock mínimo actualizado.'); almCargar();
+          }).catch(function () { unpre(); showErr('almMinError', 'Error de red.'); });
     };
 
     // confirmación reutilizable (usa el modal estándar de la app si existe; si no, confirm()).
