@@ -933,7 +933,6 @@
                     La diferencia se registra en la bitácora como <b>Auditoría</b>.
                 </small>
             </div>
-            <div><label for="almAjMotivo">Motivo / observaciones de la auditoría</label><input type="text" id="almAjMotivo" maxlength="200" placeholder="Ej: conteo trimestral, merma detectada…"></div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
         <div class="alm-modal-foot">
@@ -3124,7 +3123,7 @@
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
         if (el('almAjNombre')) el('almAjNombre').textContent = nombre;
-        el('almAjNuevoSaldo').value = ''; el('almAjMotivo').value = '';
+        el('almAjNuevoSaldo').value = '';
         showErr('almAjError', ''); open('almAjusteModal');
     };
 
@@ -3148,7 +3147,7 @@
             body: JSON.stringify({
                 id_almacen: idAlm,
                 tipo: 'AJUSTE',
-                motivo: val('almAjMotivo') || 'Auditoría de Inventario',
+                motivo: 'Auditoría de Inventario',
                 lineas: [{ id_producto: m.dataset.idProducto, cantidad: ns }],
             })
         }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
