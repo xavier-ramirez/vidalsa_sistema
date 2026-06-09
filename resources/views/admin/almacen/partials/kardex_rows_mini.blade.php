@@ -4,7 +4,7 @@
      5 columnas: Fecha · Tipo · Cantidad · Stock · Destino/Ref. --}}
 @php
     $rows = $movimientos ?? collect();
-    $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ','), '0'), '.') ?: '0';
+    $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     // Metadata visual única (TIPO_META) definida en el modelo — coherencia con el partial grande.
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
 @endphp

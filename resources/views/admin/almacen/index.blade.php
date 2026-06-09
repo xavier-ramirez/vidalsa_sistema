@@ -1693,7 +1693,12 @@
                 // Stats + distribución solo en la primera página (el backend ya las omite
                 // cuando offset>0; aquí evitamos rebajar a "—" lo que ya pintamos).
                 if (!append && data.stats) {
-                    var num = function (id, v) { var e = el(id); if (e) e.textContent = (v == null ? '—' : v); };
+                    var num = function (id, v) {
+                        var e = el(id); if (!e) return;
+                        // KPIs (conteos): miles con punto (formato latino). '—' cuando no hay valor.
+                        var f = parseFloat(v);
+                        e.textContent = (v == null) ? '—' : (isNaN(f) ? v : f.toLocaleString('es-ES'));
+                    };
                     num('almStatsTotal',    data.stats.total);
                     num('almStatsConSaldo', data.stats.con_saldo);
                     num('almStatsBajo',     data.stats.stock_bajo);
@@ -1735,8 +1740,8 @@
     function formatNum(n) {
         n = parseFloat(n || 0);
         if (isNaN(n)) return '0';
-        var s = n.toFixed(3).replace(/\.?0+$/, '');
-        return s === '' ? '0' : s;
+        // Formato latino: miles con punto, decimal con coma, hasta 3 decimales sin ceros sobrantes.
+        return n.toLocaleString('es-ES', { maximumFractionDigits: 3 });
     }
 
     // ── helpers desde el sidebar / distribución ──

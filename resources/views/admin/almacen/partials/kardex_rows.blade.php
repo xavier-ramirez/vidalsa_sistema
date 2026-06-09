@@ -2,7 +2,7 @@
      $tipoMeta viene del modelo (TIPO_META / TIPO_META_DEFAULT) para single source of truth. --}}
 @php
     $rows = $movimientos ?? collect();
-    $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ','), '0'), '.') ?: '0';
+    $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     $tipoMeta = \App\Models\MovimientoInventario::TIPO_META;
 @endphp
 

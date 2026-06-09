@@ -78,7 +78,7 @@
                  ("UND", "C/U", etc.) inline al lado del numero — en mobile la
                  columna UM se oculta y la unidad vive dentro del td de stock. --}}
             <td class="alm-td-stock" data-um="{{ $p->UM }}" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
-                {{ rtrim(rtrim(number_format($saldo, 3, '.', ','), '0'), '.') ?: '0' }}
+                {{ rtrim(rtrim(number_format($saldo, 3, ',', '.'), '0'), ',') ?: '0' }}
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
             {{-- Cantidad de salida por fila: stepper con input a la izquierda y dos botones

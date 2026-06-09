@@ -20,7 +20,7 @@
       - $movs:  Collection<MovimientoInventario>  con relaciones {producto}
 --}}
 @php
-    $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, '.', ','), '0'), '.') ?: '0';
+    $fmt = fn ($n) => rtrim(rtrim(number_format((float) $n, 3, ',', '.'), '0'), ',') ?: '0';
     // Filas mínimas de la tabla de ítems: se rellena con filas vacías hasta esta
     // cantidad para que la nota luzca como el formulario oficial. 20 es el MÁXIMO que
     // mantiene la nota en UNA sola hoja A4 junto con los bloques de Observaciones,

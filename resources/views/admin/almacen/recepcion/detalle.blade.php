@@ -134,7 +134,7 @@
                                 <span style="color:#475569;font-size:13px;">{{ optional($linea->producto)->NOMBRE }} <span style="color:#94a3b8;">({{ optional($linea->producto)->UM }})</span></span>
                             </div>
                         </td>
-                        <td style="text-align:right;font-weight:700;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ','), '0'), '.') }}</td>
+                        <td style="text-align:right;font-weight:700;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',') }}</td>
                         @if($puedeRecibir)
                             <td style="text-align:right;">
                                 <input type="number" min="0" step="0.001" class="rec-cantidad" style="text-align:right;"
@@ -149,10 +149,10 @@
                             <td><input type="text" class="rec-notas" placeholder="Observaciones…" maxlength="1000"></td>
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
                             <td style="text-align:right;font-weight:700;color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
-                                {{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, '.', ','), '0'), '.') }}
+                                {{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}
                             </td>
                             <td style="text-align:right;color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};font-weight:700;">
-                                {{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, '.', ','), '0'), '.') }}
+                                {{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}
                             </td>
                             <td style="text-align:center;">
                                 <span class="pill-linea" style="background:{{ $el[1] }};color:{{ $el[2] }};">{{ $el[0] }}</span>

@@ -6,7 +6,7 @@
     $cons     = $consumo ?? collect();
     $maxTotal = $cons->max('total') ?: 0;
     $fmt      = function ($v) {
-        return rtrim(rtrim(number_format((float) $v, 3, '.', ','), '0'), '.');
+        return rtrim(rtrim(number_format((float) $v, 3, ',', '.'), '0'), ',');
     };
 @endphp
 

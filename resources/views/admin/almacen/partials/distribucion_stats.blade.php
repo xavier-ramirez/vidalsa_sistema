@@ -33,8 +33,9 @@
         <ul style="list-style:none;padding:0;margin:0;max-height:64vh;overflow-y:auto;display:flex;flex-direction:column;gap:3px;" class="custom-scrollbar">
             @foreach($productoOtros as $row)
                 @php
-                    // Saldo limpio: "12" o "12.5" (sin ceros sobrantes ni separador roto).
-                    $qty = rtrim(rtrim(number_format((float) $row->CANTIDAD, 3, '.', ','), '0'), '.');
+                    // Saldo limpio formato latino: "12" o "12,5" / "1.800" (miles con punto,
+                    // decimal con coma, sin ceros sobrantes ni separador roto).
+                    $qty = rtrim(rtrim(number_format((float) $row->CANTIDAD, 3, ',', '.'), '0'), ',');
                     if ($qty === '' || $qty === '-') { $qty = '0'; }
                     $bajo = $row->CANTIDAD_MINIMA !== null && (float) $row->CANTIDAD <= (float) $row->CANTIDAD_MINIMA;
                 @endphp
@@ -77,7 +78,7 @@
                     <li onclick="window.almFilterByCategoria('{{ $row->categoria === 'SIN CATEGORÍA' ? '' : addslashes($row->categoria) }}')"
                         style="padding:5px 6px;border-bottom:1px dashed #f1f5f9;cursor:pointer;border-radius:6px;transition:background 0.15s;"
                         onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'"
-                        title="{{ rtrim(rtrim(number_format((float)$row->unidades,3,'.',','),'0'),'.') }} unidades en total">
+                        title="{{ rtrim(rtrim(number_format((float)$row->unidades,3,',','.'),'0'),',') }} unidades en total">
                         <div style="display:flex;justify-content:space-between;margin-bottom:2px;gap:4px;">
                             <span style="color:#334155;font-size:12.5px;font-weight:600;line-height:1.25;flex:1;text-transform:uppercase;">
                                 {{ $row->categoria }}

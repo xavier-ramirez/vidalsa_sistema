@@ -886,8 +886,10 @@
         entRender();
     };
     function fmtCant(n) {
-        // 3 decimales max, sin ceros redundantes.
-        return String(parseFloat(Number(n).toFixed(3)));
+        // 3 decimales max, sin ceros redundantes. Formato latino: miles con punto, decimal con coma.
+        var v = parseFloat(Number(n).toFixed(3));
+        if (isNaN(v)) return '0';
+        return v.toLocaleString('es-ES', { maximumFractionDigits: 3 });
     }
     function entRender() {
         var tb = el('entLineasTbody');
