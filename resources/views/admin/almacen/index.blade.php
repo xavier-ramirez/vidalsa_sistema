@@ -922,11 +922,6 @@
         </div>
         <div class="alm-modal-body">
             <div>
-                {{-- "Producto" rotula un texto fijo, no un campo editable: usamos <div> en vez de <label>. --}}
-                <div class="alm-fake-label">Producto</div>
-                <div><strong id="almAjNombre" style="font-size:12.5px;color:#1e293b;"></strong></div>
-            </div>
-            <div>
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada">
                 <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
@@ -953,10 +948,6 @@
             <i class="material-icons alm-x" onclick="almCerrar('almMinimoModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div>
-                <div class="alm-fake-label">Producto</div>
-                <div><strong id="almMinNombre" style="font-size:12.5px;color:#1e293b;"></strong></div>
-            </div>
             <div>
                 <label for="almMinValor">Stock mínimo (alerta)</label>
                 {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
@@ -3143,7 +3134,6 @@
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
-        if (el('almAjNombre')) el('almAjNombre').textContent = nombre;
         el('almAjNuevoSaldo').value = '';
         showErr('almAjError', ''); open('almAjusteModal');
     };
@@ -3187,7 +3177,6 @@
         var m = el('almMinimoModal'); if (!m) return;
         m.dataset.idProducto = idProducto;
         m.dataset.minimoOrig = (minimo == null ? '' : String(minimo)); // para detectar si cambió
-        if (el('almMinNombre')) el('almMinNombre').textContent = nombre || '';
         el('almMinValor').value = (minimo == null ? '' : minimo);
         showErr('almMinError', ''); open('almMinimoModal');
     };
