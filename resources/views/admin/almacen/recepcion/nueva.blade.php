@@ -67,18 +67,8 @@
     /* Fila 1 de la cabecera: Nota de entrega ocupa col 1, Proveedor col 2,
        Fecha col 3, Boton col 4. */
     .ent-head-row { display: contents; }
-    /* Fila 2 de captura: Buscador ocupa col 1-2 (span 2), UM col 3, Stepper col 4.
-       IMPORTANTE: .ent-capt-row tiene display:contents para participar en el grid
-       del padre pero SIN crear un nuevo contexto de apilamiento — los dropdowns
-       position:absolute siguen anclados a .ent-search-field y .ent-um-wrap. */
-    .ent-capt-row { display: contents; }
-    /* Buscador abarca columnas 1 y 2 (Nota + Proveedor). position:relative y
-       height:40px viven en la regla base .ent-search-field — aqui solo el span. */
-    .ent-capt-row > .ent-search-field { grid-column: 1 / 3; min-width: 0; max-width: none; }
-    /* UM ocupa la columna de Fecha (col 3) */
-    .ent-capt-row > .ent-um-wrap { grid-column: 3; }
-    /* Stepper ocupa la columna del boton (col 4) */
-    .ent-capt-row > .ent-cant-stepper { grid-column: 4; width: 100%; }
+    /* La fila 2 de captura se movió a una BARRA pegada al fondo de la tabla
+       (.ent-capt-bar, más abajo) — ya no vive en este grid de cabecera. */
     /* Mobile responsive (≤900px y ≤480px) movido a estilos_globales.css —
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
        el SPA puede no aplicar consistentemente <style> inline en hard reload. */
@@ -122,10 +112,9 @@
     .ent-input::placeholder { color:#64748b; opacity:1; }
     select.ent-input { cursor:pointer; }
 
-    /* ent-capt-row usa display:contents — sus hijos participan directamente en
-       .ent-form-grid. Los dropdowns (position:absolute) siguen anclados a
-       .ent-search-field y .ent-um-wrap, que SÍ tienen position:relative. */
-    /* Mobile responsive (≤480px) movido a estilos_globales.css. */
+    /* Los dropdowns (position:absolute) se anclan a .ent-search-field y .ent-um-wrap
+       (position:relative). En la barra de captura van FUERA de .ent-list-wrap para
+       que el overflow:hidden de la lista no los recorte. */
     /* Campo de UM — text input con autocomplete (mismo patron que el modal "Nuevo
        producto" de /admin/almacen). NO es un select con lista cerrada — el usuario
        puede escribir cualquier UM nueva (KG, ROLLO, M, M2, BARRIL, etc.) y queda
@@ -213,7 +202,36 @@
     .ent-cant-btn:first-child { border-bottom:1px solid #cbd5e0; }
     .ent-cant-btn:hover { background:#e0f2fe; }
     /* ── Tabla de productos agregados — estilo clon de .alm-table de /admin/almacen ── */
-    .ent-list-wrap { margin-top:14px; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; }
+    /* Lista redondeada SOLO arriba: la barra de captura (.ent-capt-bar) se pega
+       debajo y cierra las esquinas inferiores, para que tabla + barra se vean como
+       una sola pieza. overflow:hidden recorta la tabla a las esquinas superiores. */
+    .ent-list-wrap { margin-top:14px; border:1px solid #e2e8f0; border-radius:12px 12px 0 0; overflow:hidden; }
+    /* ── Barra de captura = "fila activa" al fondo de la lista ── */
+    .ent-capt-bar {
+        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        padding:10px 14px; background:#f8fafc;
+        border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px;
+    }
+    /* flex-wrap: en móvil el buscador toma el ancho y UND/cantidad bajan solos
+       (sin @media — los <style> inline no sobreviven el hard reload del SPA). */
+    .ent-capt-bar .ent-search-field { flex:1 1 220px; }
+    .ent-capt-bar .ent-um-wrap      { flex:0 1 100px; }
+    .ent-capt-bar .ent-cant-stepper { flex:0 1 130px; }
+    .ent-capt-plus {
+        flex:0 0 auto; width:34px; height:34px; border-radius:8px;
+        background:#e1effa; color:#0067b1;
+        display:flex; align-items:center; justify-content:center;
+    }
+    .ent-capt-plus .material-icons { font-size:20px; }
+    .ent-capt-add-btn {
+        flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:none; cursor:pointer;
+        background:var(--maquinaria-blue,#0067b1); color:#fff;
+        display:flex; align-items:center; justify-content:center;
+        transition:background .15s, transform .1s;
+    }
+    .ent-capt-add-btn:hover { background:#005391; }
+    .ent-capt-add-btn:active { transform:scale(0.96); }
+    .ent-capt-add-btn .material-icons { font-size:20px; }
     .ent-list-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .ent-list-table thead tr { background:#1e293b; }
     .ent-list-table thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
@@ -348,47 +366,6 @@
             </a>
         </div>
 
-        {{-- ── FILA 2: captura de producto ── --}}
-        {{-- display:contents permite que los hijos participen en .ent-form-grid
-             sin crear un bloque intermedio que rompa el alineado de columnas. --}}
-        <div class="ent-capt-row">
-
-            {{-- Buscador: abarca las 2 primeras columnas (Nota + Proveedor, ambas 1fr) --}}
-            <div class="ent-search-field">
-                <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
-                       placeholder="Buscar por código (serial) o descripción…"
-                       oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
-                {{-- Badge del producto seleccionado: tapa el input con position:absolute --}}
-                <div id="entSelectedBadge" class="ent-selected-badge">
-                    <span class="cod" id="entSelectedCod"></span>
-                    <span id="entSelectedNom"></span>
-                    <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>
-                </div>
-                {{-- Dropdown de sugerencias: z-index:9000 --}}
-                <div id="entSuggest" class="ent-suggest"></div>
-            </div>
-
-            {{-- UM: se alinea bajo la columna de Fecha (col 3) --}}
-            <div class="ent-um-wrap" title="Unidad de medida (UND, KG, L, M, etc.)">
-                <input type="text" id="entUm" class="ent-um-input" value="UND"
-                       maxlength="20" autocomplete="off" aria-label="Unidad de medida"
-                       placeholder="UND"
-                       oninput="window.entUmSuggest()" onfocus="window.entUmSuggest(true)" onkeydown="window.entUmKey(event)">
-                <div id="entUmSuggest" class="ent-um-suggest"></div>
-            </div>
-
-            {{-- Stepper: se alinea bajo el boton (col 4, 140px) --}}
-            <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
-                <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
-                       placeholder="" autocomplete="off"
-                       onkeydown="window.entCantKey(event)">
-                <div class="ent-cant-btns">
-                    <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>
-                    <button type="button" class="ent-cant-btn" onclick="window.entCantStep(-1)" tabindex="-1" title="−1">▼</button>
-                </div>
-            </div>
-
-        </div>
     </div>{{-- /ent-form-grid --}}
 
     {{-- Tabla de productos ya agregados — estilo clon de .alm-table del modulo
@@ -406,6 +383,44 @@
             </thead>
             <tbody id="entLineasTbody"></tbody>
         </table>
+    </div>
+
+    {{-- Barra de captura = la "fila activa" pegada al fondo de la lista. Buscás el
+         material (con sugerencias), UND y cantidad → Enter (o el botón ↵) agrega la
+         línea ARRIBA y la barra se vacía para el siguiente. Si el material no existe,
+         ponés UND + cantidad y se crea al vuelo (mismo flujo de antes, ahora aquí).
+         Va FUERA de .ent-list-wrap (overflow:hidden) para que los dropdowns de
+         sugerencias no queden recortados; el CSS la pega visualmente a la tabla. --}}
+    <div class="ent-capt-bar">
+        <div class="ent-capt-plus" title="Agregar producto"><i class="material-icons">add</i></div>
+        <div class="ent-search-field">
+            <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
+                   placeholder="Buscar por código (serial) o descripción…"
+                   oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
+            <div id="entSelectedBadge" class="ent-selected-badge">
+                <span class="cod" id="entSelectedCod"></span>
+                <span id="entSelectedNom"></span>
+                <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>
+            </div>
+            <div id="entSuggest" class="ent-suggest"></div>
+        </div>
+        <div class="ent-um-wrap" title="Unidad de medida (UND, KG, L, M, etc.)">
+            <input type="text" id="entUm" class="ent-um-input" value="UND"
+                   maxlength="20" autocomplete="off" aria-label="Unidad de medida" placeholder="UND"
+                   oninput="window.entUmSuggest()" onfocus="window.entUmSuggest(true)" onkeydown="window.entUmKey(event)">
+            <div id="entUmSuggest" class="ent-um-suggest"></div>
+        </div>
+        <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
+            <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
+                   placeholder="Cant." autocomplete="off" onkeydown="window.entCantKey(event)">
+            <div class="ent-cant-btns">
+                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>
+                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(-1)" tabindex="-1" title="−1">▼</button>
+            </div>
+        </div>
+        <button type="button" class="ent-capt-add-btn" onclick="window.entAgregar()" title="Agregar (Enter)">
+            <i class="material-icons">subdirectory_arrow_left</i>
+        </button>
     </div>
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>

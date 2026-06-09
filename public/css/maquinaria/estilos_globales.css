@@ -3241,17 +3241,11 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
 }
 
 @media (max-width: 900px) {
-    /* Fila Datos + Captura: 4 cols → 2 cols.
-       .ent-head-row y .ent-capt-row son display:contents — el grid está en .ent-form-grid.
-       minmax(0,1fr) (no 1fr plano) — coherente con el fix anti-desborde del grid
-       desktop: el `auto` implícito de `1fr` deja que un hijo ancho expanda la
-       columna y desborde el card blanco. Con base 0 las columnas siempre caben. */
+    /* Cabecera (Nota|Proveedor|Fecha|Bandeja): 4 cols → 2 cols. .ent-head-row es
+       display:contents — el grid vive en .ent-form-grid. minmax(0,1fr) (no 1fr) por
+       el fix anti-desborde: con base 0 las columnas siempre caben. (La captura ya
+       no está acá: se movió a .ent-capt-bar, que maneja su propio responsive con flex-wrap.) */
     body:has(.ent-layout) .ent-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    /* Buscador vuelve a ocupar solo 2 columnas (span 2 de 2) */
-    body:has(.ent-layout) .ent-capt-row > .ent-search-field { grid-column: 1 / 3; }
-    /* UM col 1, Stepper col 2 */
-    body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { grid-column: 1; }
-    body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { grid-column: 2; width: 100%; }
     /* Boton bandeja: ancho fijo moderado. Desde 900px el grid es de 2 columnas
        — width:100% ocuparia media fila (enorme en tablet) y fit-content lo
        dejaba diminuto en telefono. 130px = tamaño parejo y tappable en ambos;
@@ -3298,11 +3292,6 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     /* Sidebar: gap mas compacto 14→10 en mobile (cliente: "comprime bien las
        cosas") — el gap del .ent-layout se consolido en su regla de arriba. */
     body:has(.ent-layout) .ent-sidebar { gap: 10px !important; }
-    /* Captura: display:contents ya no es flex. Mantenemos el grid de 2 columnas
-       (heredado de 900px) pero ajustamos anchos. */
-    /* UM y Stepper: 50% c/u (ocupan col 1 y 2 respectivamente) */
-    body:has(.ent-layout) .ent-capt-row > .ent-um-wrap { width: auto !important; }
-    body:has(.ent-layout) .ent-capt-row > .ent-cant-stepper { width: auto !important; }
     /* page-title-card: titulo OCULTO, separador OCULTO, layout apilado para
        que el bloque del Almacen ocupe todo el ancho. */
     body:has(.ent-layout) .page-title-card .page-title { display: none !important; }
