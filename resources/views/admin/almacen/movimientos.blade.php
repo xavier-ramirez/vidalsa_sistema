@@ -673,6 +673,17 @@
 
             <div id="splitDropdownMenuMovInv"
                  style="display:none;position:absolute;top:calc(100% + 5px);right:0;min-width:260px;background:#e2e8f0;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 20px -5px rgba(15,23,42,0.18);z-index:50;overflow:hidden;">
+                {{-- Dashboard de Consumo: abre el modal con gráficos (Chart.js) sobre las
+                     salidas, respetando los filtros activos. --}}
+                <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
+                    <button type="button"
+                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none'; window.abrirConsumoDashboard();"
+                        style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;"
+                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">insights</i></div>
+                        <span>Dashboard de consumo</span>
+                    </button>
+                </div>
                 {{-- Bitácora por Nota: vista alterna agrupada por NUMERO_NOTA — una fila por
                      Nota de Entrega; clic abre el PDF oficial. Conserva los filtros activos. --}}
                 <div style="padding:6px;border-bottom:1px solid #cbd5e1;">
@@ -1102,6 +1113,10 @@
      titulo + mensaje centrados, botones al pie. Sin banner rojo de cabecera y
      sin icono en el boton de confirmar — el color rojo del CTA basta como
      senal de accion destructiva. --}}
+{{-- Modal "Dashboard de Consumo" (abierto desde el menú Acciones). Compartido con
+     /admin/almacen — misma vista parcial, mismo endpoint. --}}
+@include('admin.almacen.partials.consumo_dashboard_modal')
+
 <div id="eliminarNotaOverlay"
      style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
      onclick="if(event.target===this) window.closeEliminarNotaModal()">

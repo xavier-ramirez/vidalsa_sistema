@@ -29,10 +29,10 @@
     <tr>
         <td colspan="{{ $cols }}" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:42px;color:#cbd5e0;display:block;margin:0 auto 8px;">search_off</i>
-            No hay productos que coincidan con los filtros en <strong>{{ $almacen->NOMBRE }}</strong>.
+            Sin coincidencias en <strong>{{ $almacen->NOMBRE }}</strong>.
             @if(request()->filled('search'))
-                <br><span style="display:inline-block;margin-top:6px;font-size:12.5px;color:#94a3b8;max-width:520px;">
-                    El producto puede existir en el catálogo global pero <strong>aún no tiene movimientos en este almacén</strong>. Registra una entrada (Recepción) o un traspaso para que aparezca aquí.
+                <br><span style="display:inline-block;margin-top:6px;font-size:12.5px;color:#94a3b8;max-width:420px;">
+                    Quizá existe en el catálogo pero sin movimientos aquí. Agrégalo con una entrada o traspaso.
                 </span>
             @endif
         </td>

@@ -704,7 +704,10 @@
          (cada modelo tiene su historial). El panel saturaba la vista de
          graficos sin aportar contexto de consumo. --}}
 
-    <script src="{{ asset('js/chart.umd.min.js') }}"></script>
+    {{-- Chart.js se carga GLOBAL en el layout (estructura_base) — NO se repite aquí.
+         El setInterval de abajo espera a que `Chart` exista (venga de donde venga) antes
+         de registrar el plugin, así que esta página funciona con la carga global.
+         Solo quedan los específicos de esta vista: datalabels (etiquetas) y html2canvas. --}}
     <script src="{{ asset('js/chartjs-plugin-datalabels.min.js') }}"></script>
     <script src="{{ asset('js/html2canvas.min.js') }}"></script>
     <script>

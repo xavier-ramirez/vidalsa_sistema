@@ -668,6 +668,12 @@
                          módulo. Construye la URL de export respetando los filtros de almacén
                          y categoría activos. Como ahora todos los items siguen visibles bajo
                          el de export, el border-bottom se pinta siempre. --}}
+                    {{-- Dashboard de Consumo: abre el modal con gráficos (Chart.js). Mismo
+                         modal/endpoint que en /admin/almacen/movimientos. --}}
+                    <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.abrirConsumoDashboard();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">insights</i></div>
+                        <span style="font-size:14px;font-weight:500;">Dashboard de consumo</span>
+                    </button>
                     <button type="button" onclick="window.almAccion('export')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">download</i></div>
                         <span style="font-size:14px;font-weight:500;">Descargar Excel</span>
@@ -1932,13 +1938,12 @@
         var gruposNombre = {};
         for (var gI = 0; gI < lista.length; gI++) {
             var gKey = almNorm(lista[gI].NOMBRE || '');
-            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false, ids: [], cat: '', enCat: false };
+            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false, ids: [], enCat: false };
             gruposNombre[gKey].count++;
             gruposNombre[gKey].ids.push(lista[gI].ID_PRODUCTO);
             if (enEsteAlmacen(lista[gI])) gruposNombre[gKey].anyStock = true;
-            // Categoría representativa del grupo (primera no vacía) + si ALGUNA presentación
-            // pertenece a la categoría filtrada (las presentaciones suelen compartir categoría).
-            if (!gruposNombre[gKey].cat && lista[gI].CATEGORIA) gruposNombre[gKey].cat = lista[gI].CATEGORIA;
+            // enCat = ALGUNA presentación del grupo pertenece a la categoría filtrada
+            // (las presentaciones suelen compartir categoría). Filtra las sugerencias.
             if (perteneceACat(lista[gI].CATEGORIA)) gruposNombre[gKey].enCat = true;
         }
 
@@ -1958,6 +1963,10 @@
             for (var i = 0; i < lista.length && matches.length < 12; i++) {
                 var kI = almNorm(lista[i].NOMBRE || '');
                 if (vistosNom[kI]) continue;
+                // Con categoría activa, SOLO descripciones cuyo grupo tiene alguna presentación
+                // en esa categoría (mismo criterio que la tabla: search AND categoria). Sin
+                // categoría activa, catActivaNorm == '' → no filtra (muestra todo).
+                if (catActivaNorm && !(gruposNombre[kI] && gruposNombre[kI].enCat)) continue;
                 vistosNom[kI] = true;
                 matches.push(lista[i]);
             }
@@ -1994,6 +2003,8 @@
             for (var s = 0; s < scored.length && matches.length < 12; s++) {
                 var kS = almNorm(scored[s].p.NOMBRE || '');
                 if (vistosNom[kS]) continue;
+                // Con categoría activa, SOLO descripciones de esa categoría (ver nota arriba).
+                if (catActivaNorm && !(gruposNombre[kS] && gruposNombre[kS].enCat)) continue;
                 vistosNom[kS] = true;
                 matches.push(scored[s].p);
             }
@@ -2011,16 +2022,8 @@
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p), ids: [p.ID_PRODUCTO], cat: p.CATEGORIA || '', enCat: perteneceACat(p.CATEGORIA) };
+                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p), ids: [p.ID_PRODUCTO], enCat: perteneceACat(p.CATEGORIA) };
                 var multi = grp.count > 1;
-                // Material de OTRA categoría: hay filtro de categoría activo y NINGUNA presentación
-                // de este grupo pertenece a esa categoría. Se avisa (badge ámbar + toast al clic)
-                // porque la tabla, que cruza search AND categoria, lo dejaría fuera sin explicación.
-                var otraCat = !!catActivaNorm && !grp.enCat;
-                var catReal = String(grp.cat || '').replace(/[<>&"]/g, '');
-                var catBadge = otraCat
-                    ? '<span style="font-size:10.5px;color:#b45309;background:#fef3c7;border-radius:6px;padding:1px 7px;margin-left:8px;font-weight:600;" title="Este material pertenece a otra categoría">' + (catReal || 'sin categoría') + '</span>'
-                    : '';
                 // sinStock a nivel GRUPO: solo si NINGUNA presentacion esta en este almacen.
                 var sinStock = !grp.anyStock;
                 var badge = sinStock
@@ -2043,13 +2046,10 @@
                 var rightBadge = multi
                     ? '<span class="alm-suggest-cod" style="color:#0067b1;display:inline-flex;align-items:center;gap:1px;" title="' + grp.count + ' presentaciones (distintas unidades)"><i class="material-icons" style="font-size:15px;line-height:1;">layers</i><span style="font-size:10.5px;font-weight:700;line-height:1;">' + grp.count + '</span></span>'
                     : '';
-                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" data-othercat="' + (otraCat ? '1' : '') + '" data-cat="' + catReal + '" title="' + cod + '">'
+                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" title="' + cod + '">'
                      {{-- nom PRIMERO (flex:1 → ocupa el ancho y hace wrap desde el margen
-                          izquierdo); los badges (categoría + nº presentaciones) van DESPUÉS,
-                          a la derecha. Antes el badge iba primero y empujaba la descripción a
-                          una columna, por lo que la 2ª línea quedaba indentada en vez de volver
-                          al margen izquierdo. --}}
-                     + '<div class="alm-suggest-line"><span class="nom">' + nom + '</span>' + catBadge + rightBadge + '</div>'
+                          izquierdo); el badge de nº de presentaciones va DESPUÉS, a la derecha. --}}
+                     + '<div class="alm-suggest-line"><span class="nom">' + nom + '</span>' + rightBadge + '</div>'
                      + badge + '</div>';
             }).join('');
             box.innerHTML = html;
@@ -2080,7 +2080,7 @@
         almSuggestHide();
         almCargar();
     };
-    window.almBuscarPick = function (texto, idProducto, idsCsv, otraCategoria) {
+    window.almBuscarPick = function (texto, idProducto, idsCsv) {
         // Patron placeholder-background: el termino elegido va al value temporalmente
         // para que filtros() -> valActive() lo promueva a data-active + placeholder.
         var inp = el('almFiltroBuscar'); if (inp) inp.value = texto;
@@ -2088,18 +2088,9 @@
         // idsCsv: presentaciones agrupadas (misma descripcion). Si viene, el filtro usa
         // id_producto_in con esos IDs exactos en vez del LIKE por texto.
         almBuscarPickedIds = (idsCsv && idsCsv.length) ? idsCsv : null;
-        // El material elegido es de OTRA categoría que la filtrada: la tabla (search AND
-        // categoria) lo ocultaría. Quitamos el filtro de categoría para que SÍ se vea y
-        // avisamos al usuario por qué cambió. Sin esto, el clic dejaría la tabla vacía.
-        if (otraCategoria) {
-            var cInp = el('almFiltroCat');
-            if (cInp) {
-                cInp.value = '';
-                cInp.dataset.active = '';
-                cInp.placeholder = cInp.dataset.placeholderEmpty || 'Filtrar por categoría…';
-            }
-            toast('«' + texto + '» pertenece a la categoría «' + otraCategoria + '». Se quitó el filtro de categoría para mostrarlo.', 'info');
-        }
+        // Nota: las sugerencias ya se limitan a la categoría activa (ver almBuscarSuggest),
+        // así que el clic nunca trae un material de otra categoría — no hay que tocar el
+        // filtro de categoría aquí.
         almSuggestHide();
         almCargar();
     };
@@ -2181,9 +2172,7 @@
                 return;
             }
             // data-pid → match exacto en el backend; data-pick → texto visible en el input.
-            // data-othercat → el material es de otra categoría distinta a la filtrada: avisamos.
-            var otraCatPick = item.getAttribute('data-othercat') ? (item.getAttribute('data-cat') || 'otra categoría') : '';
-            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '', item.getAttribute('data-pids') || '', otraCatPick);
+            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '', item.getAttribute('data-pids') || '');
             return;
         }
         var catItem = e.target.closest('#almFiltroCatSuggest .alm-suggest-item');
@@ -4132,4 +4121,8 @@
     });
 })();
 </script>
+
+{{-- Modal "Dashboard de Consumo" (menú Acciones). Vista parcial compartida con
+     /admin/almacen/movimientos — mismo modal y mismo endpoint. --}}
+@include('admin.almacen.partials.consumo_dashboard_modal')
 @endsection

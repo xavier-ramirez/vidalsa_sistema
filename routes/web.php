@@ -227,6 +227,9 @@ Route::middleware(['auth'])->group(function () {
 
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
+            // Dashboard de Consumo (JSON para Chart.js) — alimenta el modal abrible desde el
+            // botón Acciones de /admin/almacen y /admin/almacen/movimientos. Solo lectura.
+            Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');
             // Vista alterna de la bitácora agrupada por NUMERO_NOTA — una fila por Nota de
             // Entrega (SALIDA / TRASPASO_SALIDA con N° NE-YYYY-NNNN); clic en la fila abre el
             // PDF oficial. Acceso desde el botón "Bitácora por Nota" del menú Acciones de

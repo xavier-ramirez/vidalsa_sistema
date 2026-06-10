@@ -195,12 +195,8 @@
        para coincidir con los otros campos. */
     .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:40px; }
     .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
-    /* El input ocupa el espacio sobrante dentro del stepper (ancho de columna − 24px de botones − bordes) */
+    /* El input ocupa todo el ancho del stepper (los botones ▲▼ se eliminaron). */
     .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
-    .ent-cant-btns { display:flex; flex-direction:column; border-left:1px solid #cbd5e0; width:24px; }
-    .ent-cant-btn  { flex:1; border:none; background:#fff; color:#0067b1; font-weight:800; font-size:12px; line-height:1; cursor:pointer; padding:0; }
-    .ent-cant-btn:first-child { border-bottom:1px solid #cbd5e0; }
-    .ent-cant-btn:hover { background:#e0f2fe; }
     /* ── Tabla de productos agregados — estilo clon de .alm-table de /admin/almacen ── */
     /* Lista redondeada SOLO arriba: la barra de captura (.ent-capt-bar) se pega
        debajo y cierra las esquinas inferiores, para que tabla + barra se vean como
@@ -401,10 +397,6 @@
         <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
             <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
                    placeholder="Cant." autocomplete="off" onkeydown="window.entCantKey(event)">
-            <div class="ent-cant-btns">
-                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(1)"  tabindex="-1" title="+1">▲</button>
-                <button type="button" class="ent-cant-btn" onclick="window.entCantStep(-1)" tabindex="-1" title="−1">▼</button>
-            </div>
         </div>
         <button type="button" class="ent-capt-add-btn" onclick="window.entAgregar()" title="Agregar (Enter)">
             <i class="material-icons">subdirectory_arrow_left</i>

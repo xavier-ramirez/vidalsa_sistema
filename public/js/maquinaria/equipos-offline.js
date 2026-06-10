@@ -15,7 +15,18 @@
     if (!OM) return;
     const esc = OM.esc;
     const COLS = 6;
-    let movilCache = null;
+
+    // Inyecta una sola vez la regla .eq-hide-mobile: la versión online la trae en el
+    // <style> del partial, pero al repintar offline reemplazamos el tbody y ese style
+    // desaparece. Sin esto, las tarjetas offline mostrarían CATEGORÍA/MODELO/AÑO que la
+    // online oculta en móvil → diseño distinto.
+    function ensureHideStyle() {
+        if (document.getElementById('eqOfflineHideStyle')) return;
+        const st = document.createElement('style');
+        st.id = 'eqOfflineHideStyle';
+        st.textContent = '@media(max-width:900px){.eq-hide-mobile{display:none!important;}}';
+        document.head.appendChild(st);
+    }
 
     const ESTADOS = {
         'OPERATIVO':        { color: '#16a34a', icon: 'check_circle', label: 'OPERATIVO' },
@@ -41,51 +52,79 @@
         const buscar = [e.serial_chasis, e.serial_motor, e.placa, e.etiqueta, e.marca, e.modelo, e.tipo, e.codigo_patio]
             .filter(Boolean).join(' ').toLowerCase();
 
+        // FINALIZADO: mismo badge que online (wrapper flex centrado + icono ⚠).
         const finalizado = e.frente_finalizado
-            ? '<div style="margin-top:3px;"><span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;border:1px solid #fecaca;">FINALIZADO</span></div>' : '';
+            ? '<div style="display:flex;align-items:center;justify-content:center;gap:3px;margin-top:3px;">' +
+                '<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;display:inline-flex;align-items:center;gap:2px;border:1px solid #fecaca;">' +
+                    '<i class="material-icons" style="font-size:10px;">warning</i>FINALIZADO</span>' +
+              '</div>' : '';
         const etiqueta = e.etiqueta
             ? '<span style="font-weight:700;color:var(--maquinaria-blue);margin-left:6px;white-space:nowrap;"><i class="material-icons" style="font-size:13px;vertical-align:-2px;">tag</i>' + esc(e.etiqueta) + '</span>' : '';
+        // eq-hide-mobile: CATEGORIA/MODELO/AÑO se OCULTAN en móvil (≤900px), igual que la
+        // tabla online (partials/table_rows.blade.php) — así la tarjeta offline luce idéntica.
         const categoria = e.categoria
-            ? '<div style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;margin-top:5px;">' + esc(e.categoria) + '</div>' : '';
-        const modelo = e.modelo ? '<div style="font-size:13.5px;color:#475569;font-weight:500;text-transform:uppercase;margin-top:4px;">' + esc(e.modelo) + '</div>' : '';
-        const anio = e.anio ? '<div style="font-size:12.5px;color:#64748b;margin-top:5px;">Año: ' + esc(e.anio) + '</div>' : '';
-        const motor = e.serial_motor ? '<div style="margin-top:3px;"><strong style="color:#64748b;">M:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_motor) + '</span></div>' : '';
+            ? '<div class="eq-hide-mobile" style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;margin-top:5px;letter-spacing:0.3px;">' + esc(e.categoria) + '</div>' : '';
+        const modelo = e.modelo ? '<div class="eq-hide-mobile" style="font-size:13.5px;color:#475569;font-weight:500;text-transform:uppercase;margin-top:4px;line-height:1.3;">' + esc(e.modelo) + '</div>' : '';
+        const anio = e.anio ? '<div class="eq-hide-mobile" style="font-size:12.5px;color:#64748b;margin-top:5px;font-weight:500;">Año: ' + esc(e.anio) + '</div>' : '';
+        const motor = e.serial_motor ? '<div style="line-height:1.5;margin-top:3px;word-break:break-all;"><strong style="color:#64748b;">M:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_motor) + '</span></div>' : '';
         const placa = e.placa
-            ? '<div style="margin-top:3px;"><strong style="color:#64748b;">P:</strong> <span style="color:var(--maquinaria-blue);font-weight:700;text-transform:uppercase;">' + esc(e.placa) + '</span></div>'
-            : '<div style="margin-top:3px;"><strong style="color:#64748b;">P:</strong> <span style="color:#a0aec0;font-style:italic;">Sin Placa</span></div>';
-        const tituloHist = ((e.tipo || '') + ' ' + (e.etiqueta || e.codigo_patio || '')).replace(/'/g, '');
+            ? '<div style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">P:</strong> <span style="color:var(--maquinaria-blue);font-weight:700;text-transform:uppercase;">' + esc(e.placa) + '</span></div>'
+            : '<div style="line-height:1.4;margin-top:3px;"><strong style="color:#64748b;">P:</strong> <span style="color:#a0aec0;font-style:italic;">Sin Placa</span></div>';
 
         return '' +
             '<tr data-offline="1" data-buscar="' + esc(buscar) + '">' +
             '<td class="table-cell-custom table-cell-center" style="padding:6px 4px;width:150px;">' +
-                '<div style="font-size:13px;color:#000;margin-bottom:5px;font-weight:700;text-align:center;text-transform:uppercase;">' + esc(e.frente || 'SIN ASIGNAR') + finalizado + '</div>' +
+                '<div class="tooltip-wrapper" style="font-size:13px;color:#000;margin-bottom:5px;line-height:1.25;font-weight:700;text-align:center;text-transform:uppercase;word-wrap:break-word;position:relative;cursor:default;">' + esc(e.frente || 'SIN ASIGNAR') + finalizado + '</div>' +
                 '<div class="table-image-wrapper placeholder"><span class="material-icons">image_not_supported</span></div>' +
             '</td>' +
-            '<td class="table-cell-custom" style="font-size:14.5px;color:#000;">' +
+            '<td class="table-cell-custom" style="font-size:14.5px;color:#000;word-wrap:break-word;">' +
                 '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.tipo || '—') + etiqueta + '</div>' + categoria +
             '</td>' +
-            '<td class="table-cell-custom" style="font-size:13px;color:#000;">' +
+            '<td class="table-cell-custom" style="font-size:13px;color:#000;word-wrap:break-word;">' +
                 '<div style="font-weight:700;text-transform:uppercase;line-height:1.3;">' + esc(e.marca || '—') + '</div>' + modelo + anio +
             '</td>' +
             '<td class="table-cell-custom" style="font-size:14px;color:#4a5568;">' +
                 '<div style="line-height:1.5;word-break:break-all;"><strong style="color:#64748b;">S:</strong> <span style="color:#1e293b;font-weight:600;text-transform:uppercase;">' + esc(e.serial_chasis || '—') + '</span></div>' +
                 motor + placa +
-                '<div style="margin-top:3px;"><strong style="color:#64748b;">ID:</strong> <span style="color:#1e293b;font-weight:600;">#' + esc(e.codigo_patio || '—') + '</span></div>' +
+                '<div style="line-height:1.4;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><strong style="color:#64748b;">ID:</strong> <span style="color:#1e293b;font-weight:600;">#' + esc(e.codigo_patio || '—') + '</span></div>' +
             '</td>' +
+            // Estatus: mismo look que el trigger online (chip blanco + chevron + sombra).
+            // Offline es SOLO LECTURA (no se puede cambiar sin internet) → sin onclick; el
+            // chevron queda por paridad visual con la versión online.
             '<td class="table-cell-custom" style="padding:8px 2px;width:145px;">' +
-                '<div style="padding:6px 10px;border-radius:8px;display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;background:white;border:1px solid #e2e8f0;color:' + est.color + ';text-transform:uppercase;">' +
-                    '<i class="material-icons" style="font-size:16px;">' + est.icon + '</i><span style="color:#334155;">' + est.label + '</span>' +
+                '<div title="Estado (solo lectura sin conexión)" style="padding:6px 10px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:12.5px;font-weight:700;background:white;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,0.05);">' +
+                    '<div style="display:flex;align-items:center;gap:5px;color:' + est.color + ';">' +
+                        '<i class="material-icons" style="font-size:16px;">' + est.icon + '</i><span style="color:#334155;text-transform:uppercase;">' + est.label + '</span>' +
+                    '</div>' +
+                    '<i class="material-icons" style="font-size:16px;color:#94a3b8;">expand_more</i>' +
                 '</div>' +
             '</td>' +
-            '<td class="table-cell-center" style="width:72px;text-align:center;">' +
-                '<button type="button" class="btn-details-mini" title="Historial de movilizaciones" onclick="window.eqHistorialOffline(' + e.id + ',\'' + esc(tituloHist) + '\')"><i class="material-icons">history</i></button>' +
+            // Acciones: MISMO botón "Ver Detalles" que online (showDetailsImproved abre
+            // #detailsModal, incluido en index.blade y cacheado por la PWA). Los data-* se
+            // llenan con lo que hay en el snapshot; los campos no descargados (seguros, docs,
+            // GPS) el modal los muestra como "N/A"/"Sin Documento" — degrada sin romper, NO
+            // hace llamadas de red al abrir.
+            '<td class="table-cell-center" style="padding:8px 5px;width:72px;text-align:center;vertical-align:middle;">' +
+                '<div style="display:flex;justify-content:center;align-items:center;gap:4px;">' +
+                    '<button type="button" class="btn-details-mini" title="Ver Detalles"' +
+                        ' data-equipo-id="' + e.id + '"' +
+                        ' data-codigo="' + esc(e.codigo_patio || '') + '"' +
+                        ' data-chasis="' + esc(e.serial_chasis || '') + '"' +
+                        ' data-placa="' + esc(e.placa || 'N/A') + '"' +
+                        ' data-tipo="' + esc(e.tipo || 'SIN TIPO') + '"' +
+                        ' data-anio="' + esc(e.anio || '') + '"' +
+                        ' data-categoria="' + esc(e.categoria || '') + '"' +
+                        ' onclick="showDetailsImproved(this, event)">' +
+                        '<i class="material-icons">visibility</i>' +
+                    '</button>' +
+                '</div>' +
             '</td>' +
             '</tr>';
     }
 
     async function render() {
         const tbody = getBody(); if (!tbody) return;
-        movilCache = null; // refresca el cache del historial al repintar
+        ensureHideStyle();
         const equipos = await window.OfflineDB.get('equipos').catch(() => []);
 
         if (!equipos || !equipos.length) {
@@ -96,45 +135,6 @@
         tbody.innerHTML = equipos.map(filaEquipo).join('');
         aplicarFiltro();
     }
-
-    // ── Historial de movilizaciones de un equipo (overlay offline) ──
-    window.eqHistorialOffline = async function (idEquipo, titulo) {
-        if (movilCache === null) movilCache = await window.OfflineDB.get('movilizaciones').catch(() => []);
-        const items = (movilCache || []).filter(function (m) { return m.id_equipo === idEquipo; });
-
-        let cuerpo;
-        if (!items.length) {
-            cuerpo = '<div style="padding:30px;text-align:center;color:#94a3b8;">Sin movilizaciones en la copia local para este equipo.</div>';
-        } else {
-            cuerpo = items.map(function (m) {
-                const tipoTxt = (m.tipo === 'RECEPCION_DIRECTA' || m.tipo === 'ACT.') ? 'ACTUALIZACIÓN DE UBICACIÓN' : 'MOVILIZACIÓN';
-                return '<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
-                    '<div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;font-weight:700;">' +
-                        '<span>' + esc(m.codigo || '—') + '</span><span>' + esc(m.fecha || '') + '</span></div>' +
-                    '<div style="margin-top:6px;font-size:13px;color:#1e293b;font-weight:600;">' +
-                        esc(m.origen || 'Sin Origen') + ' <i class="material-icons" style="font-size:14px;vertical-align:middle;color:#cbd5e0;">east</i> ' + esc(m.destino || 'Sin Destino') + '</div>' +
-                    '<div style="margin-top:4px;font-size:11px;color:#1e40af;font-weight:700;">' + tipoTxt + '</div>' +
-                '</div>';
-            }).join('');
-        }
-
-        let ov = document.getElementById('eqHistOverlay');
-        if (!ov) {
-            ov = document.createElement('div');
-            ov.id = 'eqHistOverlay';
-            ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
-            ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
-            document.body.appendChild(ov);
-        }
-        ov.innerHTML =
-            '<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">' +
-                '<div style="background:#1e293b;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">' +
-                    '<div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;"><i class="material-icons" style="font-size:20px;">history</i> Historial · ' + esc(titulo || '') + '</div>' +
-                    '<i class="material-icons" style="cursor:pointer;" onclick="document.getElementById(\'eqHistOverlay\').remove()">close</i>' +
-                '</div>' +
-                '<div style="padding:14px 16px;overflow-y:auto;">' + cuerpo + '</div>' +
-            '</div>';
-    };
 
     function init() {
         if (!getBody()) return;      // no estamos en /admin/equipos

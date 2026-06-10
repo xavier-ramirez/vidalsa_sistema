@@ -196,10 +196,11 @@ class AlmacenController extends Controller
                         'productoOtros' => $productoOtros,
                     ])->render();
                 } else {
-                    // Sin filtro = estado inicial: KPIs en "—" (el JS pinta '—' ante null) y
-                    // distribución vacía, idéntico a la carga inicial HTML (stats=null,
-                    // distribucion=collect()). Así limpiar la "x" deja la pantalla como recién entrada.
-                    $resp['stats'] = ['total' => null, 'con_saldo' => null, 'stock_bajo' => null];
+                    // Sin filtro = estado inicial. Los KPIs (Consolidado) muestran el total
+                    // del almacén — NO "—" — coherente con la carga inicial HTML: al limpiar
+                    // la "x", el Consolidado sigue visible. La DISTRIBUCIÓN sí vuelve a vacío
+                    // (solo se llena con un filtro activo).
+                    $resp['stats'] = $this->statsInventario($idAlmacenSel, $request);
                     $resp['distribucionHtml'] = view('admin.almacen.partials.distribucion_stats', [
                         'distribucion'  => collect(),
                         'productoOtros' => null,
@@ -247,9 +248,12 @@ class AlmacenController extends Controller
             'productosLista'     => $productosLista,
             'productosEnAlmacen' => $productosEnAlmacen,
             'frentesLista'       => $frentesLista,
-            // Stats y distribución NO se calculan en la carga inicial:
-            // se obtienen por AJAX la primera vez que el usuario aplica un filtro.
-            'stats'              => null,
+            // El Consolidado de Inventario (KPIs: PRODUCTOS / Con stock / Stock bajo) SÍ se
+            // calcula en la carga inicial — el cliente quiere verlo apenas abre el módulo,
+            // sin esperar a filtrar. Es 1 query agregada (statsInventario), barata. Sin
+            // filtros activos devuelve el consolidado completo del almacén.
+            // La DISTRIBUCIÓN por categoría sigue diferida a AJAX (se llena al filtrar).
+            'stats'              => $this->statsInventario($idAlmacenSel, $request),
             'distribucion'       => collect(),
             'unidadesMedida'     => $unidadesMedida,
         ]);
@@ -418,35 +422,41 @@ class AlmacenController extends Controller
         ]);
     }
 
-    /** Consolidado del almacén seleccionado (respeta los filtros activos). */
+    /**
+     * Consolidado del almacén seleccionado.
+     *   total / con_saldo → SÍ respetan los filtros activos (reflejan lo que muestra la tabla).
+     *   stock_bajo / unidades → indicadores del ALMACÉN COMPLETO, NO se acotan por filtros.
+     * La alerta "Stock bajo" debe reflejar SIEMPRE cuántos productos del almacén están bajo
+     * mínimo, se filtre o no la tabla — si dependiera de la búsqueda, al buscar algo que no
+     * está bajo mínimo la alerta caía a 0 y parecía (falsamente) que no había riesgo.
+     */
     private function statsInventario(?int $idAlmacen, Request $request): array
     {
         if ($idAlmacen === null) {
             return ['total' => 0, 'con_saldo' => 0, 'stock_bajo' => 0, 'unidades' => 0.0];
         }
 
-        // Un SOLO query con agregación condicional en vez de 3 COUNT separados (cada
-        // inventarioBaseQuery reconstruía el JOIN + filtros). Esto corre en cada cambio
-        // de filtro, así que pasar de 3 queries a 1 ahorra ~2/3 del costo. Criterios
-        // idénticos a la versión anterior:
-        //   con_saldo  → CANTIDAD > 0
-        //   stock_bajo → tiene CANTIDAD_MINIMA y CANTIDAD <= CANTIDAD_MINIMA
+        // total + con_saldo: acotados por los filtros (un solo query con agregación
+        // condicional). con_saldo → CANTIDAD > 0.
         $row = $this->inventarioBaseQuery($idAlmacen, $request)
             ->select(
                 DB::raw('COUNT(productos_inventario.ID_PRODUCTO) as total'),
-                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo'),
-                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD_MINIMA IS NOT NULL AND almacen_stock.CANTIDAD <= almacen_stock.CANTIDAD_MINIMA THEN 1 ELSE 0 END) as stock_bajo')
+                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo')
             )
             ->first();
 
-        // 'unidades' es el total físico del almacén (NO se acota por los filtros del
-        // inventario), por eso queda como SUM aparte sobre almacen_stock.
-        $unidades = (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)->sum('CANTIDAD');
+        // unidades + stock_bajo: GLOBALES del almacén (SIN filtros) — SUM/COUNT directos
+        // sobre almacen_stock. stock_bajo = productos con mínimo definido y CANTIDAD <= mínimo.
+        $unidades  = (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)->sum('CANTIDAD');
+        $stockBajo = (int) AlmacenStock::where('ID_ALMACEN', $idAlmacen)
+            ->whereNotNull('CANTIDAD_MINIMA')
+            ->whereColumn('CANTIDAD', '<=', 'CANTIDAD_MINIMA')
+            ->count();
 
         return [
             'total'      => (int) ($row->total ?? 0),
             'con_saldo'  => (int) ($row->con_saldo ?? 0),
-            'stock_bajo' => (int) ($row->stock_bajo ?? 0),
+            'stock_bajo' => $stockBajo,
             'unidades'   => $unidades,
         ];
     }
@@ -1159,6 +1169,102 @@ class AlmacenController extends Controller
                 DB::raw('SUM(movimientos_inventario.CANTIDAD) as total'),
                 DB::raw('COUNT(*) as movimientos'),
             ]);
+    }
+
+    /**
+     * Dashboard de Consumo (JSON para Chart.js). Devuelve KPIs + series para los
+     * gráficos del modal. "Consumo" = movimientos de SALIDA (y TRASPASO_SALIDA si
+     * hay un almacén filtrado, igual criterio que consumoRanking()). Respeta los
+     * MISMOS filtros que el kardex/ranking (almacén, frente, producto, búsqueda,
+     * categoría, período + visibilidad por usuario) — así el dashboard refleja
+     * exactamente lo que el usuario está viendo. Los nombres se pasan por
+     * MojibakeFix porque las queries crudas (con JOIN) NO aplican el cast del modelo.
+     */
+    public function consumoDashboard(Request $request)
+    {
+        // El dashboard es INDEPENDIENTE de los filtros generales del módulo
+        // (búsqueda, frente, almacén seleccionado, producto). Usa SOLO sus propios
+        // filtros: rango de meses (desde/hasta en formato YYYY-MM) y categoría.
+        // Mide consumo REAL = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles
+        // (los TRASPASO_SALIDA son movimientos internos entre almacenes, no consumo).
+
+        // Rango de meses → límites de fecha: 'YYYY-MM' se expande a [día 1 .. fin de mes].
+        $desdeIn = $request->input('desde');
+        $hastaIn = $request->input('hasta');
+        $desde = ($desdeIn && preg_match('/^\d{4}-\d{2}$/', $desdeIn)) ? $desdeIn . '-01' : ($desdeIn ?: null);
+        $hasta = ($hastaIn && preg_match('/^\d{4}-\d{2}$/', $hastaIn))
+            ? \Carbon\Carbon::parse($hastaIn . '-01')->endOfMonth()->format('Y-m-d') // '-01' evita el desbordamiento de día (feb 31 → marzo)
+            : ($hastaIn ?: null);
+
+        $idsVisibles = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
+
+        // Fábrica de query base: cada agregación necesita su propio builder (sum/count
+        // ejecutan la consulta), por eso devolvemos uno nuevo en cada llamada.
+        // IMPORTANTE: las columnas de movimientos van PREFIJADAS con
+        // `movimientos_inventario.` — las queries top_productos/por_almacen hacen JOIN
+        // con productos_inventario y almacenes, que tienen columnas homónimas (almacenes
+        // también tiene TIPO e ID_ALMACEN) → sin prefijo, MySQL lanza error 1052 (ambiguo).
+        $base = function () use ($request, $idsVisibles, $desde, $hasta) {
+            $q = MovimientoInventario::query()
+                ->where('movimientos_inventario.TIPO', 'SALIDA')
+                ->whereIn('movimientos_inventario.ID_ALMACEN', $idsVisibles);
+            if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
+                $cat = trim((string) $request->input('categoria'));
+                $q->whereExists(function ($sub) use ($cat) {
+                    $sub->select(DB::raw(1))
+                        ->from('productos_inventario as pc')
+                        ->whereColumn('pc.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
+                        ->where('pc.CATEGORIA', 'like', "%{$cat}%");
+                });
+            }
+            $q->periodo($desde, $hasta);
+            return $q;
+        };
+
+        // ── KPIs ──────────────────────────────────────────────────────────────
+        $totalUnidades = (float) $base()->sum('CANTIDAD');
+        $totalMovs     = (int)   $base()->count();
+        $productosDist = (int)   $base()->distinct()->count('movimientos_inventario.ID_PRODUCTO');
+
+        // ── Consumo por mes ── (todos los meses del rango; sin filtro, últimos 12)
+        $porMes = $base()
+            ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(CANTIDAD) as total")
+            ->groupBy('mes')->orderBy('mes')
+            ->get()
+            ->map(fn ($r) => ['mes' => $r->mes, 'total' => (float) $r->total]);
+        if (!$desde && !$hasta) {
+            $porMes = $porMes->slice(-12);
+        }
+        $porMes = $porMes->values();
+
+        // ── Top 20 productos más consumidos ────────────────────────────────────
+        $topProductos = $base()
+            ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
+            ->groupBy('p.ID_PRODUCTO', 'p.NOMBRE')
+            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->limit(20)
+            ->get(['p.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
+            ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total]);
+
+        // ── Consumo por almacén ─────────────────────────────────────────────────
+        $porAlmacen = $base()
+            ->join('almacenes as a', 'a.ID_ALMACEN', '=', 'movimientos_inventario.ID_ALMACEN')
+            ->groupBy('a.ID_ALMACEN', 'a.NOMBRE')
+            ->orderByDesc(DB::raw('SUM(movimientos_inventario.CANTIDAD)'))
+            ->get(['a.NOMBRE as nombre', DB::raw('SUM(movimientos_inventario.CANTIDAD) as total')])
+            ->map(fn ($r) => ['nombre' => \App\Casts\MojibakeFix::fix($r->nombre), 'total' => (float) $r->total]);
+
+        return response()->json([
+            'kpis' => [
+                'total_unidades'     => $totalUnidades,
+                'total_movimientos'  => $totalMovs,
+                'productos_distintos'=> $productosDist,
+            ],
+            'categorias'    => $this->categoriasDistintas()->values(),
+            'por_mes'       => $porMes,
+            'top_productos' => $topProductos,
+            'por_almacen'   => $porAlmacen,
+        ]);
     }
 
     /**

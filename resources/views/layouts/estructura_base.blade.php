@@ -1145,6 +1145,13 @@
         <script
             src="{{ asset('js/maquinaria/equipo_catalog_linking.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipo_catalog_linking.js')) }}"></script>
 
+        {{-- Chart.js GLOBAL: lo usa el modal "Dashboard de Consumo" (Acciones de
+             /admin/almacen y /admin/almacen/movimientos). Debe ir aquí (global) y no
+             en la vista: la SPA omite los <script src> dentro de @section('content'),
+             así que cargarlo por página no sobreviviría la navegación. --}}
+        <script
+            src="{{ asset('js/chart.umd.min.js') }}?v={{ @filemtime(public_path('js/chart.umd.min.js')) }}"></script>
+
         {{-- Module Scripts (Global Load for SPA Navigation) --}}
         {{-- NOTE: These MUST be loaded globally because the SPA navigation --}}
         {{-- calls functions like window.loadEquipos(), window.loadCatalogo(), etc. --}}

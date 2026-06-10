@@ -3205,6 +3205,21 @@ input:-webkit-autofill:active {
 
 }
 
+/* ── Paginador "custom-sliding" en móvil (compartido por movilizaciones, almacén
+   movimientos/notas/recepción, fallas, historial) ──
+   En desktop muestra hasta 11 números (actual ±5) + Anterior/Siguiente, que en
+   teléfono desbordaban el ancho. En ≤768px se compacta:
+     · solo los números cercanos (actual ±1) — el resto (.pag-far) se oculta;
+     · "Anterior"/"Siguiente" se reducen a las flechas « » (.pag-nav-text oculto);
+     · celdas más chicas y menos gap.
+   Así el paginador entra siempre en una sola línea sin scroll lateral. */
+@media (max-width: 768px) {
+    .pag-sliding { gap: 4px !important; }
+    .pag-sliding li > * { padding: 6px 10px !important; font-size: 12px !important; }
+    .pag-sliding .pag-far { display: none !important; }
+    .pag-sliding .pag-nav-text { display: none !important; }
+}
+
 /* --- Movilidad Modal PDF: Overlay Panel en lugar de Grid en teléfonos --- */
 @media (max-width: 768px) {
     .pdf-metadata-panel-responsive {
@@ -3500,7 +3515,6 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     body:has(.ent-layout) .ent-capt-bar .ent-um-input      { height: 36px !important; font-size: 12px !important; padding: 0 7px !important; }
     body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper  { flex: 0 0 100px !important; height: 36px !important; }
     body:has(.ent-layout) .ent-capt-bar .ent-cant-input    { font-size: 13px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-cant-btns     { width: 22px !important; }
     body:has(.ent-layout) .ent-capt-add-btn { flex: 0 0 36px !important; width: 36px !important; height: 36px !important; border-radius: 8px !important; }
     body:has(.ent-layout) .ent-capt-add-btn .material-icons { font-size: 18px !important; }
 }
@@ -3521,4 +3535,15 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
         max-width: none !important;
         justify-self: stretch !important;
     }
+}
+
+/* ── Recepción "Nueva entrada": botón "Agregar línea" (subdirectory_arrow_left) ──
+   En PC la línea se agrega con Enter (entCantKey/entUmKey → entAgregar), así que el
+   botón se OCULTA; en móvil (≤900px, sin Enter cómodo) se MUESTRA. Va aquí (global,
+   con cache-busting ?v=filemtime) y no en el <style> inline de la vista porque ese
+   no es fiable tras navegación SPA. El !important gana sobre el display:flex inline;
+   el orden importa: la base oculta, la regla @media (más abajo) la muestra en móvil. */
+.ent-capt-add-btn { display: none !important; }
+@media (max-width: 900px) {
+    .ent-capt-add-btn { display: flex !important; }
 }

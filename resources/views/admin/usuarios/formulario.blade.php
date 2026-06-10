@@ -191,12 +191,38 @@
                         <i class="material-icons">expand_more</i>
                     </div>
                     <div class="multiselect-content" id="multiselectContent">
-                        @php $user_perms = old('PERMISOS', $user->PERMISOS ?? []); @endphp
-                        @foreach($available_permissions as $key => $label)
-                            <label class="multiselect-item" for="perm_{{ $loop->index }}">
-                                <input type="checkbox" id="perm_{{ $loop->index }}" name="PERMISOS[]" value="{{ $key }}" {{ in_array($key, $user_perms) ? 'checked' : '' }} onchange="updateSelectedCount()">
-                                <span><strong>{{ $key }}</strong> <span style="color:#64748b; font-size:12px;">— {{ $label }}</span></span>
-                            </label>
+                        @php
+                            $user_perms = old('PERMISOS', $user->PERMISOS ?? []);
+                            // Agrupar los permisos por MODULO (segun el prefijo de la clave) para que
+                            // la lista sea navegable en vez de un bloque plano gigante. Es SOLO
+                            // presentacion: availablePermissions() sigue siendo la fuente plana
+                            // (validacion intacta) y cada checkbox conserva su name/value = la clave.
+                            $gruposDef = [
+                                'user'    => 'Usuarios',
+                                'equipos' => 'Equipos',
+                                'almacen' => 'Almacén / Inventario',
+                                'alertas' => 'Alertas de Documentos',
+                                'sistema' => 'Sistema',
+                            ];
+                            $permisosAgrupados = array_fill_keys(array_keys($gruposDef), []);
+                            foreach ($available_permissions as $permKey => $permLabel) {
+                                $prefijo = explode('.', $permKey)[0]; // user / equipos / almacen / alertas / super…
+                                $grupo = array_key_exists($prefijo, $gruposDef) ? $prefijo : 'sistema';
+                                $permisosAgrupados[$grupo][$permKey] = $permLabel;
+                            }
+                            $permIdx = 0;
+                        @endphp
+                        @foreach($gruposDef as $grupoKey => $grupoLabel)
+                            @if(!empty($permisosAgrupados[$grupoKey]))
+                                <div style="padding:9px 14px 3px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">{{ $grupoLabel }}</div>
+                                @foreach($permisosAgrupados[$grupoKey] as $key => $label)
+                                    <label class="multiselect-item" for="perm_{{ $permIdx }}">
+                                        <input type="checkbox" id="perm_{{ $permIdx }}" name="PERMISOS[]" value="{{ $key }}" {{ in_array($key, $user_perms) ? 'checked' : '' }} onchange="updateSelectedCount()">
+                                        <span><strong>{{ $key }}</strong> <span style="color:#64748b; font-size:12px;">— {{ $label }}</span></span>
+                                    </label>
+                                    @php $permIdx++; @endphp
+                                @endforeach
+                            @endif
                         @endforeach
                     </div>
                 </div>
