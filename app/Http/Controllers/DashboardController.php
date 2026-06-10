@@ -298,6 +298,25 @@ class DashboardController extends Controller
             }
         }
 
+        // ── Filtro por ROL ──────────────────────────────────────────────────────────
+        // Algunos roles ven SOLO un subconjunto de documentos en el panel de alertas.
+        // Se matchea por PALABRA CLAVE en el nombre del rol (robusto entre entornos: el ID
+        // del rol puede variar entre local/producción; el nombre 'SIHO' es distintivo).
+        // Mapa centralizado y extensible — agregar aquí futuros roles/tipos. Default
+        // (rol no listado) = ve TODOS los tipos de documento.
+        //   COORD. SIHO → solo CERTIFICADOS (type_key 'adicional').
+        $restriccionesPorRol = [
+            'SIHO' => ['adicional'],
+        ];
+        $nombreRol = strtoupper(trim(optional(optional(auth()->user())->rol)->NOMBRE_ROL ?? ''));
+        $soloTipos = null;
+        foreach ($restriccionesPorRol as $keyword => $tipos) {
+            if ($nombreRol !== '' && str_contains($nombreRol, $keyword)) { $soloTipos = $tipos; break; }
+        }
+        if ($soloTipos !== null) {
+            $alerts = $alerts->whereIn('type_key', $soloTipos)->values();
+        }
+
         // Separate expired from warnings
         $expired = $alerts->where('status', 'expired')->sortBy('fecha')->values();
         $warnings = $alerts->where('status', 'warning')->sortBy('fecha')->values();
