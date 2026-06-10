@@ -142,7 +142,7 @@
                 <div class="custom-multiselect" id="frentesSelect">
                     <div class="multiselect-trigger" id="frentesMultiselectTrigger"
                          style="cursor: text; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;"
-                         onclick="document.getElementById('frentesSearchInput').focus(); if(!document.getElementById('frentesSelect').classList.contains('active')) toggleDropdown('frentesSelect', event)"
+                         onclick="toggleDropdown('frentesSelect', event)"
                          tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_title">
                         <span id="frentesSelectedCount" style="display:flex;flex-wrap:wrap;gap:4px;padding-left:8px;"></span>
                         <input type="text" id="frentesSearchInput"

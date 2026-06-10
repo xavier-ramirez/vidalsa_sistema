@@ -214,7 +214,9 @@ class AlmacenController extends Controller
         // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de producto.
         $unidadesMedida = ProductoInventario::activos()
             ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']);
+        // CATEGORIA se incluye para que el buscador pueda avisar cuando un material existe
+        // pero pertenece a OTRA categoría distinta a la filtrada (badge + toast en el front).
+        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
         // CONTRATOS se carga junto al frente para alimentar las sugerencias del campo
         // "Contrato N°" del modal "Registrar salida" (Nota de Entrega).
         $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
@@ -268,29 +270,20 @@ class AlmacenController extends Controller
      *    una sugerencia la tabla NUNCA queda vacía (que hacía creer "no registrado"
      *    y disparaba que la persona lo registrara de nuevo).
      */
-    private function inventarioBaseQuery(?int $idAlmacen, Request $request)
+    /**
+     * Aplica los filtros de CONTENIDO (los que operan sobre columnas de
+     * productos_inventario) a una query: id_producto_in, id_producto, search, categoria.
+     * NO toca el JOIN con almacen_stock ni los filtros por stock (solo_bajo/solo_con_saldo),
+     * que dependen del almacén y los maneja el llamador.
+     *
+     * Lo usan inventarioBaseQuery() (la tabla) y export() (la exportación), para que ambos
+     * filtren IDÉNTICO y "exportar" devuelva justo lo que se ve en pantalla.
+     *
+     * @return bool true si `id_producto_in` hizo short-circuit (acotó a esos IDs e ignora
+     *              el resto de filtros) — el llamador debe cortar ahí.
+     */
+    private function aplicarFiltrosContenido($q, Request $request): bool
     {
-        $q = ProductoInventario::query()->activos();
-
-        $q->leftJoin('almacen_stock', function ($j) use ($idAlmacen) {
-            $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO');
-            if ($idAlmacen !== null) {
-                $j->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
-            } else {
-                $j->whereRaw('1 = 0'); // sin almacén → no devolver nada
-            }
-        });
-
-        // Navegación normal → solo productos con fila de stock en este almacén
-        // (replica el INNER JOIN clásico). Se EXCEPTÚA cuando el usuario pidió ver
-        // un producto puntual (clic en sugerencia = id_producto, o "ver solo
-        // seleccionados" = id_producto_in): ahí dejamos pasar el saldo 0 para que
-        // el producto seleccionado siempre se muestre.
-        $verProductoPuntual = $request->filled('id_producto') || $request->filled('id_producto_in');
-        if (!$verProductoPuntual) {
-            $q->whereNotNull('almacen_stock.ID_PRODUCTO');
-        }
-
         // ─── Modo "Ver solo seleccionados" del bulk counter ────────────────────────
         // El frontend manda los IDs ya seleccionados como CSV en `id_producto_in`.
         // Cuando esta presente, la query se ACOTA EXCLUSIVAMENTE a esos productos e
@@ -310,7 +303,7 @@ class AlmacenController extends Controller
                 ->all();
             if (!empty($ids)) {
                 $q->whereIn('productos_inventario.ID_PRODUCTO', $ids);
-                return $q; // short-circuit: ignoramos los demas filtros
+                return true; // short-circuit: ignoramos los demas filtros
             }
         }
 
@@ -363,6 +356,40 @@ class AlmacenController extends Controller
             // input de texto con sugerencias, así que se va estrechando conforme se escribe.
             $cat = trim((string) $request->input('categoria'));
             $q->where('productos_inventario.CATEGORIA', 'like', "%{$cat}%");
+        }
+
+        return false;
+    }
+
+    private function inventarioBaseQuery(?int $idAlmacen, Request $request)
+    {
+        $q = ProductoInventario::query()->activos();
+
+        $q->leftJoin('almacen_stock', function ($j) use ($idAlmacen) {
+            $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO');
+            if ($idAlmacen !== null) {
+                $j->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
+            } else {
+                $j->whereRaw('1 = 0'); // sin almacén → no devolver nada
+            }
+        });
+
+        // Navegación normal → solo productos con fila de stock en este almacén
+        // (replica el INNER JOIN clásico). Se EXCEPTÚA cuando el usuario pidió ver
+        // un producto puntual (clic en sugerencia = id_producto, o "ver solo
+        // seleccionados" = id_producto_in): ahí dejamos pasar el saldo 0 para que
+        // el producto seleccionado siempre se muestre.
+        $verProductoPuntual = $request->filled('id_producto') || $request->filled('id_producto_in');
+        if (!$verProductoPuntual) {
+            $q->whereNotNull('almacen_stock.ID_PRODUCTO');
+        }
+
+        // Filtros de CONTENIDO (id_producto_in / id_producto / search / categoría),
+        // compartidos con export() para que la exportación refleje EXACTAMENTE lo que
+        // muestra la tabla. Si `id_producto_in` hizo short-circuit (modo "ver solo
+        // seleccionados"), la query queda acotada a esos IDs e ignoramos el resto.
+        if ($this->aplicarFiltrosContenido($q, $request)) {
+            return $q;
         }
         if ($request->boolean('solo_bajo')) {
             $q->whereNotNull('almacen_stock.CANTIDAD_MINIMA')
@@ -929,7 +956,8 @@ class AlmacenController extends Controller
             'idAlmacenActivo' => $idAlmacenActivo,
             'frentesLista'    => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
             // Lista de productos activos para el autocomplete del filtro de búsqueda.
-            'productosLista'  => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM']),
+            // CATEGORIA incluida para avisar en el buscador si un material es de otra categoría.
+            'productosLista'  => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']),
             // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
             // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
             'consumo'         => $this->consumoRanking($request),
@@ -1173,15 +1201,25 @@ class AlmacenController extends Controller
             $tituloProyecto = 'GLOBAL';
         }
 
-        // Catálogo de productos activos + sus stocks indexados por almacén.
-        // Si la tabla venía filtrada por categoría, el export respeta ese filtro
-        // (coincidencia parcial LIKE — mismo criterio que index()).
-        $productosQuery = ProductoInventario::activos()->orderBy('NOMBRE');
-        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
-            $cat = trim((string) $request->input('categoria'));
-            $productosQuery->where('CATEGORIA', 'like', "%{$cat}%");
+        // Productos a exportar = EXACTAMENTE los que muestra la tabla en pantalla.
+        // Reusamos la misma lógica de filtrado que el listado para que coincidan:
+        //  - Con almacén seleccionado: inventarioBaseQuery() aplica TODOS los filtros
+        //    (búsqueda/producto puntual, categoría, stock bajo/con saldo) sobre ese almacén.
+        //  - Global (sin almacén): inventarioBaseQuery devolvería vacío (su JOIN exige un
+        //    almacén), así que aplicamos solo los filtros de contenido sobre el catálogo
+        //    (los de stock son por-almacén y no aplican a la vista de todos los almacenes).
+        if ($idAlmacenSel !== null) {
+            $ids = $this->inventarioBaseQuery($idAlmacenSel, $request)
+                ->distinct()
+                ->pluck('productos_inventario.ID_PRODUCTO');
+            $productos = ProductoInventario::whereIn('ID_PRODUCTO', $ids)
+                ->orderBy('NOMBRE')
+                ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+        } else {
+            $productosQuery = ProductoInventario::activos()->orderBy('NOMBRE');
+            $this->aplicarFiltrosContenido($productosQuery, $request);
+            $productos = $productosQuery->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
         }
-        $productos = $productosQuery->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
 
         $stocks = AlmacenStock::query()
             ->whereIn('ID_ALMACEN', $almacenesEnExport->pluck('ID_ALMACEN'))

@@ -90,11 +90,21 @@ class UserController extends Controller
             $query->whereDate('created_at', $request->input('fecha_creacion'));
         }
 
+        // FILTER 4: Rol del usuario (independent)
+        if ($request->filled('id_rol') && $request->input('id_rol') !== 'all') {
+            $query->where('ID_ROL', $request->input('id_rol'));
+        }
+
         // Execute query with pagination (15 por página).
         $users = $query->paginate(15)->onEachSide(3)->withQueryString();
-        
+
         // Frentes for dropdown
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->get();
+
+        // Roles for dropdown
+        // Solo roles con al menos un usuario (mismo criterio que el form): filtrar por un
+        // rol sin usuarios no tendría sentido (devolvería vacío) y ensuciaría la lista.
+        $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->has('usuarios')->orderBy('NOMBRE_ROL')->get();
 
         // Statistics for info cards (Optimized to 1 query)
         $stats = Usuario::selectRaw("
@@ -127,7 +137,7 @@ class UserController extends Controller
             ])
             ->values();
 
-        return view('admin.usuarios.lista', compact('users', 'frentes', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias'));
+        return view('admin.usuarios.lista', compact('users', 'frentes', 'roles', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias'));
     }
 
     /**
@@ -135,7 +145,11 @@ class UserController extends Controller
      */
     public function create()
     {
-        $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->get();
+        // Solo roles que YA tiene asignados algún usuario: los huérfanos (roles que
+        // quedaron sin nadie, p. ej. creados por firstOrCreate y luego desasignados) no
+        // ensucian las sugerencias. Para asignar un rol nuevo se escribe el nombre y
+        // firstOrCreate lo resuelve/crea al guardar.
+        $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->has('usuarios')->get();
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
         $available_permissions = self::availablePermissions();
 
@@ -235,7 +249,11 @@ class UserController extends Controller
     public function edit(string $id)
     {
         $user = Usuario::findOrFail($id);
-        $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->get();
+        // Solo roles que YA tiene asignados algún usuario: los huérfanos (roles que
+        // quedaron sin nadie, p. ej. creados por firstOrCreate y luego desasignados) no
+        // ensucian las sugerencias. Para asignar un rol nuevo se escribe el nombre y
+        // firstOrCreate lo resuelve/crea al guardar.
+        $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->has('usuarios')->get();
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
         $available_permissions = self::availablePermissions();
 

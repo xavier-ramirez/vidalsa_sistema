@@ -1907,6 +1907,18 @@
         }
         function enEsteAlmacen(p) { return idsSet === null || !!idsSet[p.ID_PRODUCTO]; }
 
+        // Categoría ACTIVA (la que filtra la tabla). Lectura NO mutante: vive en data-active
+        // tras un almCatPick; si el usuario tipeó pero no aplicó, cae al value. Sirve para
+        // avisar cuando un material existe pero pertenece a otra categoría (badge + toast).
+        var catActiva = (function () { var e = el('almFiltroCat'); if (!e) return ''; return String(e.dataset.active || e.value || '').trim(); })();
+        var catActivaNorm = almNorm(catActiva);
+        // Mismo criterio que el backend (CATEGORIA LIKE %cat%): "pertenece" = la categoría del
+        // producto CONTIENE el texto filtrado (normalizado). Sin filtro → todo pertenece.
+        function perteneceACat(catProd) {
+            if (!catActivaNorm) return true;
+            return almNorm(catProd || '').indexOf(catActivaNorm) !== -1;
+        }
+
         // Agrupacion por DESCRIPCION: desde que Recepcion permite la misma descripcion en
         // varias presentaciones (distinta UM = producto aparte), el catalogo puede tener N
         // productos con identico NOMBRE. Para que el buscador no repita la misma descripcion,
@@ -1917,10 +1929,14 @@
         var gruposNombre = {};
         for (var gI = 0; gI < lista.length; gI++) {
             var gKey = almNorm(lista[gI].NOMBRE || '');
-            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false, ids: [] };
+            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false, ids: [], cat: '', enCat: false };
             gruposNombre[gKey].count++;
             gruposNombre[gKey].ids.push(lista[gI].ID_PRODUCTO);
             if (enEsteAlmacen(lista[gI])) gruposNombre[gKey].anyStock = true;
+            // Categoría representativa del grupo (primera no vacía) + si ALGUNA presentación
+            // pertenece a la categoría filtrada (las presentaciones suelen compartir categoría).
+            if (!gruposNombre[gKey].cat && lista[gI].CATEGORIA) gruposNombre[gKey].cat = lista[gI].CATEGORIA;
+            if (perteneceACat(lista[gI].CATEGORIA)) gruposNombre[gKey].enCat = true;
         }
 
         // Recorremos la lista una vez y recogemos TODOS los matches del catalogo (esten o no
@@ -1992,8 +2008,16 @@
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p), ids: [p.ID_PRODUCTO] };
+                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p), ids: [p.ID_PRODUCTO], cat: p.CATEGORIA || '', enCat: perteneceACat(p.CATEGORIA) };
                 var multi = grp.count > 1;
+                // Material de OTRA categoría: hay filtro de categoría activo y NINGUNA presentación
+                // de este grupo pertenece a esa categoría. Se avisa (badge ámbar + toast al clic)
+                // porque la tabla, que cruza search AND categoria, lo dejaría fuera sin explicación.
+                var otraCat = !!catActivaNorm && !grp.enCat;
+                var catReal = String(grp.cat || '').replace(/[<>&"]/g, '');
+                var catBadge = otraCat
+                    ? '<span style="font-size:10.5px;color:#b45309;background:#fef3c7;border-radius:6px;padding:1px 7px;margin-left:8px;font-weight:600;" title="Este material pertenece a otra categoría">' + (catReal || 'sin categoría') + '</span>'
+                    : '';
                 // sinStock a nivel GRUPO: solo si NINGUNA presentacion esta en este almacen.
                 var sinStock = !grp.anyStock;
                 var badge = sinStock
@@ -2014,8 +2038,8 @@
                 var rightBadge = multi
                     ? '<span class="alm-suggest-cod" style="color:#0067b1;font-weight:700;" title="' + grp.count + ' presentaciones (distintas unidades)">' + grp.count + ' pres.</span>'
                     : '';
-                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" title="' + cod + '">'
-                     + '<div class="alm-suggest-line">' + rightBadge + '<span class="nom">' + nom + '</span></div>'
+                return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" data-othercat="' + (otraCat ? '1' : '') + '" data-cat="' + catReal + '" title="' + cod + '">'
+                     + '<div class="alm-suggest-line">' + rightBadge + '<span class="nom">' + nom + '</span>' + catBadge + '</div>'
                      + badge + '</div>';
             }).join('');
             box.innerHTML = html;
@@ -2046,7 +2070,7 @@
         almSuggestHide();
         almCargar();
     };
-    window.almBuscarPick = function (texto, idProducto, idsCsv) {
+    window.almBuscarPick = function (texto, idProducto, idsCsv, otraCategoria) {
         // Patron placeholder-background: el termino elegido va al value temporalmente
         // para que filtros() -> valActive() lo promueva a data-active + placeholder.
         var inp = el('almFiltroBuscar'); if (inp) inp.value = texto;
@@ -2054,6 +2078,18 @@
         // idsCsv: presentaciones agrupadas (misma descripcion). Si viene, el filtro usa
         // id_producto_in con esos IDs exactos en vez del LIKE por texto.
         almBuscarPickedIds = (idsCsv && idsCsv.length) ? idsCsv : null;
+        // El material elegido es de OTRA categoría que la filtrada: la tabla (search AND
+        // categoria) lo ocultaría. Quitamos el filtro de categoría para que SÍ se vea y
+        // avisamos al usuario por qué cambió. Sin esto, el clic dejaría la tabla vacía.
+        if (otraCategoria) {
+            var cInp = el('almFiltroCat');
+            if (cInp) {
+                cInp.value = '';
+                cInp.dataset.active = '';
+                cInp.placeholder = cInp.dataset.placeholderEmpty || 'Filtrar por categoría…';
+            }
+            toast('«' + texto + '» pertenece a la categoría «' + otraCategoria + '». Se quitó el filtro de categoría para mostrarlo.', 'info');
+        }
         almSuggestHide();
         almCargar();
     };
@@ -2135,7 +2171,9 @@
                 return;
             }
             // data-pid → match exacto en el backend; data-pick → texto visible en el input.
-            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '', item.getAttribute('data-pids') || '');
+            // data-othercat → el material es de otra categoría distinta a la filtrada: avisamos.
+            var otraCatPick = item.getAttribute('data-othercat') ? (item.getAttribute('data-cat') || 'otra categoría') : '';
+            window.almBuscarPick(item.getAttribute('data-pick') || '', item.getAttribute('data-pid') || '', item.getAttribute('data-pids') || '', otraCatPick);
             return;
         }
         var catItem = e.target.closest('#almFiltroCatSuggest .alm-suggest-item');
@@ -2625,16 +2663,13 @@
             case 'almacen':  if (window.almAbrirAlmacen)        window.almAbrirAlmacen();        break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'export':
-                // Construye la URL del export respetando los filtros activos de la
-                // tabla: almacén + categoría. La categoría se lee de data-active del
-                // filtro (= el filtro APLICADO, lo que muestra la tabla). Sin
-                // almacén → inventario global (una col por almacén visible).
+                // El export debe reflejar EXACTAMENTE lo que muestra la tabla. Reusamos
+                // filtros() —la única fuente de verdad de los filtros activos: almacén,
+                // búsqueda/producto puntual, categoría, stock bajo/con saldo— en vez de
+                // armar la URL a mano. Antes solo mandaba almacén + categoría, así que
+                // ignoraba el producto buscado y exportaba toda la categoría.
                 var u = new URL(@json(route('almacen.export')), window.location.origin);
-                var idAlm = el('almSelAlmacen') ? el('almSelAlmacen').value : '';
-                if (idAlm) u.searchParams.set('id_almacen', idAlm);
-                var catEl = el('almFiltroCat');
-                var catActiva = catEl ? String(catEl.dataset.active || '').trim() : '';
-                if (catActiva) u.searchParams.set('categoria', catActiva);
+                filtros().forEach(function (v, k) { u.searchParams.set(k, v); });
                 almDescargarExcel(u.toString());
                 break;
         }

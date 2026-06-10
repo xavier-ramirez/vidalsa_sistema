@@ -2272,17 +2272,19 @@ class EquipoController extends Controller
                     break;
 
                 case 'adicional':
+                    // FECHA_ADICIONAL está casteado a 'date' (Carbon), a diferencia de
+                    // FECHA_VENC_POLIZA/ROTC/RACDA que son string crudo. Si se devuelve el
+                    // Carbon tal cual, el JSON lo serializa con hora (ISO) y el <input type="date">
+                    // del panel del preview no lo entiende → casilla vacía. Lo formateamos a
+                    // 'Y-m-d' para que la fecha registrada se muestre, igual que en póliza.
                     $data = [
-                        'fecha_vencimiento' => $doc->FECHA_ADICIONAL ?? '',
-                        'categoria' => $equipo->CATEGORIA_FLOTA
+                        'fecha_vencimiento' => $doc->FECHA_ADICIONAL ? $doc->FECHA_ADICIONAL->format('Y-m-d') : '',
                     ];
                     break;
 
                 case 'adicional_2':
-                    // Compraventa: NO tiene fecha de vencimiento.
-                    $data = [
-                        'categoria' => $equipo->CATEGORIA_FLOTA,
-                    ];
+                    // Compraventa: NO tiene fecha de vencimiento (panel sin campos editables).
+                    $data = [];
                     break;
             }
         }
@@ -2466,6 +2468,15 @@ class EquipoController extends Controller
                 $updateData = [
                     'FECHA_ADICIONAL' => $request->input('fecha_vencimiento'),
                 ];
+                // Coherente con poliza/rotc/racda: si la nueva fecha es futura, la gestión
+                // (frente que la tramita + fecha de gestión) ya no aplica → se limpia.
+                if ($request->filled('fecha_vencimiento')) {
+                    $newDate = \Carbon\Carbon::parse($request->input('fecha_vencimiento'));
+                    if ($newDate->isFuture()) {
+                        $updateData['adicional_gestion_frente_id'] = null;
+                        $updateData['adicional_gestion_fecha'] = null;
+                    }
+                }
                 break;
 
             case 'adicional_2':

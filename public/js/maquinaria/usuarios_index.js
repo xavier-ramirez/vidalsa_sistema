@@ -6,6 +6,8 @@ window.clearUsuariosFilter = function (filterName) {
     if (filterName === 'id_frente' || filterName === 'frente_filter') {
         // Use the new generic function from uicomponents.js
         window.clearDropdownFilter('frenteFilterSelect');
+    } else if (filterName === 'id_rol' || filterName === 'rol_filter') {
+        window.clearDropdownFilter('rolFilterSelect');
     } else if (filterName === 'search') {
         const input = document.getElementById('searchInput');
         if (input) input.value = '';
@@ -27,12 +29,14 @@ window.loadUsuarios = function (url = null) {
     let baseUrl = url || window.location.pathname;
     const searchInput = document.getElementById('searchInput');
     const frenteInput = document.querySelector('input[name="id_frente"]');
+    const rolInput = document.querySelector('input[name="id_rol"]');
     const fechaInput = document.querySelector('input[name="fecha_creacion"]');
 
     // Unified Filter Object (Single Source of Truth)
     const filters = {
         search: searchInput?.value,
         id_frente: (frenteInput?.value !== '') ? frenteInput?.value : null,
+        id_rol: (rolInput?.value !== '') ? rolInput?.value : null,
         fecha_creacion: fechaInput?.value || null
     };
 

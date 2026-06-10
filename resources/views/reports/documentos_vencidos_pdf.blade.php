@@ -37,13 +37,13 @@
             font-weight: bold;
             text-align: center;
             padding: 5px;
-            font-size: 8.5pt;
+            font-size: 7.5pt;
         }
         .data-table td {
             border: 0.5pt solid #000; 
             text-align: center;
             padding: 5px;
-            font-size: 8.5pt;
+            font-size: 7.5pt;
         }
         .data-table tr {
             page-break-inside: avoid;
@@ -101,10 +101,10 @@
             <thead>
                 <tr>
                     <th width="5%">N°</th>
-                    <th width="25%">TIPO</th>
-                    <th width="25%">SERIAL / CHASIS</th>
-                    <th width="11%">PLACA</th>
-                    <th width="22%">DOCUMENTO</th>
+                    <th width="23%">FRENTE</th>
+                    <th width="18%">TIPO</th>
+                    <th width="23%">SERIAL / PLACA</th>
+                    <th width="19%">DOCUMENTO</th>
                     <th width="12%">VENCE</th>
                 </tr>
             </thead>
@@ -112,10 +112,11 @@
                 @foreach($vencidos as $index => $alerta)
                 <tr>
                     <td width="5%">{{ $index + 1 }}</td>
-                    <td width="25%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
-                    <td width="25%">{{ $alerta->equipo->SERIAL_CHASIS ?? 'N/A' }}</td>
-                    <td width="11%">{{ $alerta->equipo->documentacion->PLACA ?? '---' }}</td>
-                    <td width="22%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
+                    <td width="23%">{{ $alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}</td>
+                    <td width="18%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
+                    {{-- Campo unificado: serial de chasis si existe; si no, la placa; si no hay ninguno, '---'. --}}
+                    <td width="23%">{{ ($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---' }}</td>
+                    <td width="19%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
                     <td width="12%">{{ \Carbon\Carbon::parse($alerta->fecha)->format('d/m/Y') }}</td>
                 </tr>
                 @endforeach
@@ -138,10 +139,10 @@
             <thead>
                 <tr>
                     <th width="5%">N°</th>
-                    <th width="25%">TIPO</th>
-                    <th width="25%">SERIAL / CHASIS</th>
-                    <th width="11%">PLACA</th>
-                    <th width="22%">DOCUMENTO</th>
+                    <th width="23%">FRENTE</th>
+                    <th width="18%">TIPO</th>
+                    <th width="23%">SERIAL / PLACA</th>
+                    <th width="19%">DOCUMENTO</th>
                     <th width="12%">VENCE</th>
                 </tr>
             </thead>
@@ -149,10 +150,11 @@
                 @foreach($proximos as $index => $alerta)
                 <tr>
                     <td width="5%">{{ $index + 1 }}</td>
-                    <td width="25%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
-                    <td width="25%">{{ $alerta->equipo->SERIAL_CHASIS ?? 'N/A' }}</td>
-                    <td width="11%">{{ $alerta->equipo->documentacion->PLACA ?? '---' }}</td>
-                    <td width="22%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
+                    <td width="23%">{{ $alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}</td>
+                    <td width="18%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
+                    {{-- Campo unificado: serial de chasis si existe; si no, la placa; si no hay ninguno, '---'. --}}
+                    <td width="23%">{{ ($alerta->equipo->SERIAL_CHASIS ?: $alerta->equipo->documentacion?->PLACA) ?: '---' }}</td>
+                    <td width="19%">{{ mb_strtoupper($alerta->label, 'UTF-8') }}</td>
                     <td width="12%">{{ \Carbon\Carbon::parse($alerta->fecha)->format('d/m/Y') }}</td>
                 </tr>
                 @endforeach

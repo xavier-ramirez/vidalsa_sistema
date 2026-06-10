@@ -85,9 +85,55 @@
             </div>
         </div>
 
-        <!-- Filtro Fecha de creación: calendario nativo (igual que los otros módulos);
-             se abre al hacer clic (showPicker) y filtra por created_at del usuario. -->
+        <!-- Rol Filter -->
         <div class="filter-item aligned-filter responsive-filter-item">
+            <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
+                <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
+
+                @php
+                    $currentRol = $roles->firstWhere('ID_ROL', request('id_rol'));
+                @endphp
+
+                <div class="dropdown-trigger {{ request('id_rol') ? 'filter-active' : '' }}" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+
+                    <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
+                        <i class="material-icons" style="font-size: 18px;">search</i>
+                    </div>
+
+                    <input type="text" name="filter_search_dropdown" data-filter-search
+                        placeholder="{{ $currentRol ? $currentRol->NOMBRE_ROL : 'Filtrar Rol...' }}"
+                        style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
+                        onkeyup="window.filterDropdownOptions(this)"
+                        onfocus="this.closest('.custom-dropdown').classList.add('active')"
+                        autocomplete="off">
+
+                    <div style="display: flex; align-items: center; padding-right: 10px;">
+                        <i class="material-icons" data-clear-btn
+                           style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ request('id_rol') ? 'block' : 'none' }};"
+                           onclick="event.stopPropagation(); clearDropdownFilter('rolFilterSelect'); loadUsuarios();"
+                           title="Limpiar filtro">close</i>
+                    </div>
+                </div>
+
+                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
+                    <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
+                        <div class="dropdown-item {{ !request('id_rol') || request('id_rol') == 'all' ? 'selected' : '' }}" data-value="all" onclick="selectOption('rolFilterSelect', 'all', 'TODOS LOS ROLES'); loadUsuarios();">
+                            TODOS LOS ROLES
+                        </div>
+                        @foreach($roles as $rol)
+                            <div class="dropdown-item {{ request('id_rol') == $rol->ID_ROL ? 'selected' : '' }}" data-value="{{ $rol->ID_ROL }}" onclick="selectOption('rolFilterSelect', '{{ $rol->ID_ROL }}', '{{ $rol->NOMBRE_ROL }}'); loadUsuarios();">
+                                {{ $rol->NOMBRE_ROL }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtro Fecha de creación: calendario nativo (igual que los otros módulos);
+             se abre al hacer clic (showPicker) y filtra por created_at del usuario.
+             Contenedor más angosto: el date no necesita los 350px de los otros filtros. -->
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 0 1 180px;">
             <input type="date" name="fecha_creacion" class="native-date"
                 value="{{ request('fecha_creacion') }}"
                 onchange="loadUsuarios()"

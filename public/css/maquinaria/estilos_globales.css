@@ -1274,6 +1274,35 @@ nav[role="navigation"] {
        en 10px (compacto). Scopeado para no tocar otros módulos. */
     .admin-card:has(.table-usuarios-mobile) {
         padding: 16px 8px 10px 8px !important;
+        /* Full-width en móvil (como equipos): la tarjeta usaba width:95% inline, que la
+           dejaba más angosta y desalineada respecto al título (.page-title-card ya es
+           100% por la regla general). Igualamos a todo el ancho del main-viewport. */
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    /* Usuarios: main-viewport a 8px laterales (como los módulos con .page-layout-grid:
+       equipos/almacen). Sin esto, al no usar .page-layout-grid, heredaba padding:20px y
+       el contenido quedaba angosto. Scopeado con body:has para no tocar otros módulos. */
+    body:has(.table-usuarios-mobile) .main-viewport {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Movilizaciones: mismo criterio. Su tarjeta blanca ya es width:100%, pero el
+       main-viewport heredaba padding:20px (no usa .page-layout-grid) → contenedor
+       angosto. Lo llevamos a 8px laterales para que ocupe casi todo el ancho, como
+       equipos. Scopeado con body:has(.movilizaciones-layout). */
+    body:has(.movilizaciones-layout) .main-viewport {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        box-sizing: border-box !important;
     }
 
     .table-usuarios-mobile {
