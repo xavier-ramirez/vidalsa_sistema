@@ -71,7 +71,7 @@
     
     <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height: 5mm; font-size: 1px; line-height: 1px;">&nbsp;</td></tr></table>
 
-    <div class="intro-text">El presente reporte, emitido por el <strong>Sistema de Gestión de Flota</strong>, tiene como propósito informar sobre el estatus legal de la documentación técnica (pólizas, RACDA, ROTC) de los vehículos y maquinaria pesada y liviana de la empresa.</div>
+    <div class="intro-text">El presente reporte, emitido por el <strong>Sistema de Gestión de Flota</strong>, tiene como propósito informar sobre el estatus legal de la documentación técnica (pólizas, RACDA, ROTC, certificados) de los vehículos y maquinaria pesada y liviana de la empresa.</div>
 
     <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height: 4mm; font-size: 1px; line-height: 1px;">&nbsp;</td></tr></table>
 
