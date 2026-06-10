@@ -391,14 +391,23 @@ class DashboardController extends Controller
             // Get alerts list
             $alertsList = $this->generateAlertsList();
             
-            // Separate by status and Sort by Equipment Type for grouping
+            // Separar por estado y ordenar cada tabla AGRUPANDO por frente: todas las filas
+            // de un mismo frente quedan juntas (p. ej. primero todo PATIO MATURIN, luego el
+            // siguiente) y, dentro de cada frente, por tipo de equipo. Los equipos sin frente
+            // van al final ('ZZZ'). Pedido del cliente: leer el reporte por proyecto/frente.
+            $ordenFrenteTipo = function ($alert) {
+                $frente = optional(optional($alert->equipo)->frenteActual)->NOMBRE_FRENTE ?? 'ZZZ';
+                $tipo   = optional(optional($alert->equipo)->tipo)->nombre ?? '';
+                return mb_strtoupper($frente . '|' . $tipo);
+            };
+
             $vencidos = $alertsList->filter(function($alert) {
                 return $alert->status === 'expired';
-            })->sortBy('equipo.tipo.nombre')->values();
-            
+            })->sortBy($ordenFrenteTipo)->values();
+
             $proximos = $alertsList->filter(function($alert) {
                 return $alert->status === 'warning';
-            })->sortBy('equipo.tipo.nombre')->values();
+            })->sortBy($ordenFrenteTipo)->values();
 
             // Calculate totals
             $totalVencidos = $vencidos->count();

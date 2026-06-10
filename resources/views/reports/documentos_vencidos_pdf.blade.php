@@ -45,12 +45,6 @@
             padding: 5px;
             font-size: 7.5pt;
         }
-        .data-table tr {
-            page-break-inside: avoid;
-        }
-        .spacer {
-            height: 10px;
-        }
         .intro-text {
             text-align: justify;
             text-justify: inter-word;
@@ -110,7 +104,9 @@
             </thead>
             <tbody>
                 @foreach($vencidos as $index => $alerta)
-                <tr>
+                {{-- nobr="true": atributo NATIVO de TCPDF para que la fila NO se parta entre
+                     páginas (TCPDF ignora el CSS page-break-inside:avoid en filas de tabla). --}}
+                <tr nobr="true">
                     <td width="5%">{{ $index + 1 }}</td>
                     <td width="23%">{{ $alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}</td>
                     <td width="18%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>
@@ -124,9 +120,17 @@
         </table>
     @endif
 
-    <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height: 15mm; font-size: 1px; line-height: 1px;">&nbsp;</td></tr></table>
-
     @if(count($proximos) > 0)
+        {{-- PRÓXIMOS empieza en PÁGINA NUEVA cuando hubo vencidos: así su encabezado no
+             queda al pie de una hoja con la primera fila cortada (el problema reportado).
+             Usamos el salto NATIVO de TCPDF (<br pagebreak="true">), no CSS. Si no hubo
+             vencidos, no forzamos el salto (evita una primera hoja en blanco) y dejamos
+             el espaciador para el aire de arriba. --}}
+        @if(count($vencidos) > 0)
+            <br pagebreak="true"/>
+        @else
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height: 15mm; font-size: 1px; line-height: 1px;">&nbsp;</td></tr></table>
+        @endif
         <table class="section-header" width="100%" cellpadding="0" cellspacing="0">
             <tr>
                 <td style="padding: 15px 8px;">PRÓXIMOS A VENCER (30 DÍAS)</td>
@@ -148,7 +152,9 @@
             </thead>
             <tbody>
                 @foreach($proximos as $index => $alerta)
-                <tr>
+                {{-- nobr="true": atributo NATIVO de TCPDF para que la fila NO se parta entre
+                     páginas (TCPDF ignora el CSS page-break-inside:avoid en filas de tabla). --}}
+                <tr nobr="true">
                     <td width="5%">{{ $index + 1 }}</td>
                     <td width="23%">{{ $alerta->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}</td>
                     <td width="18%">{{ $alerta->equipo->tipo->nombre ?? 'N/A' }}</td>

@@ -1360,11 +1360,11 @@ class AlmacenController extends Controller
                 $total += $v;
             }
 
-            // Saltar productos con stock 0 en TODOS los almacenes del export si el usuario filtró
-            // un almacén específico (es ruido); en la vista global SÍ los listamos (catálogo completo).
-            if ($idAlmacenSel !== null && $total == 0.0) {
-                continue;
-            }
+            // NO se filtra por stock aquí: la lista `$productos` ya es EXACTAMENTE la
+            // que muestra la tabla (la decidió inventarioBaseQuery con TODOS los filtros
+            // activos: almacén, búsqueda, categoría, stock bajo/con saldo, selección).
+            // Re-filtrar por total==0 borraba filas que SÍ se ven en pantalla (productos
+            // con saldo 0 pero fila de stock) → "exporto lo que veo" quedaba roto.
 
             $minimo = $minimoMap[$p->ID_PRODUCTO] ?? null;
 

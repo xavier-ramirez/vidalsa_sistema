@@ -1206,6 +1206,16 @@ body {
     transform: translateY(-1px);
 }
 
+/* Paginación de Movilizaciones SIEMPRE en una sola línea. La vista compartida
+   custom-sliding trae flex-wrap:wrap inline en el <ul>, que en móvil partía la
+   paginación («Anterior 1 2 3… Siguiente») en dos líneas. Lo anulamos SOLO aquí
+   (#movilizacionesPagination es único, no toca los otros 5 módulos que usan la
+   misma vista). El contenedor ya tiene overflow-x:auto → si no entra, scroll
+   horizontal en vez de envolver. */
+#movilizacionesPagination ul {
+    flex-wrap: nowrap !important;
+}
+
 /* Hide legacy pagination text */
 nav[role="navigation"] {
     display: flex;
