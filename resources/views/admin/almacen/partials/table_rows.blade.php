@@ -22,7 +22,7 @@
     <tr>
         <td colspan="{{ $cols }}" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">filter_alt</i>
-            Usa los filtros (buscar, categoría o los atajos del panel) para ver el inventario de <strong>{{ $almacen->NOMBRE }}</strong>.
+            Usa los filtros para ver el inventario de <strong>{{ $almacen->NOMBRE }}</strong>.
         </td>
     </tr>
 @elseif($rows->count() === 0)

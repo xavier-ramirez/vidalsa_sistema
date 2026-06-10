@@ -12,8 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('equipos', function (Blueprint $table) {
-            // Add indexes for autocomplete performance
-            $table->index('MODELO', 'idx_equipos_modelo');
+            // Add indexes for autocomplete performance.
+            // NOTA: MODELO ya esta indexado por la migracion 2026_01_24 (v2,
+            // 'equipos_modelo_index') y queda cubierto por el compuesto de abajo;
+            // por eso NO se crea un 'idx_equipos_modelo' aparte (era duplicado).
             $table->index('ANIO', 'idx_equipos_anio');
             $table->index(['MODELO', 'ANIO'], 'idx_equipos_modelo_anio');
         });
@@ -32,7 +34,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('equipos', function (Blueprint $table) {
-            $table->dropIndex('idx_equipos_modelo');
             $table->dropIndex('idx_equipos_anio');
             $table->dropIndex('idx_equipos_modelo_anio');
         });

@@ -3165,6 +3165,43 @@ input:-webkit-autofill:active {
         padding-right: 10px !important;
     }
 
+    /* ── Panel "Filtros Avanzados" en mobile: CENTRADO respecto al viewport ──
+       El panel cuelga (position:absolute) de un wrapper de 45px (el botón de
+       filtros) anclado a la derecha de la fila; por eso right:0/right:10px lo
+       dejaba recostado/desbordado hacia la izquierda en teléfono. Solución
+       única para TODOS los módulos (equipos, almacén movimientos/recepción/
+       notas, fallas, equipos_auxiliares, historial, movilizaciones,
+       consumibles) — sin duplicar la regla en cada blade:
+         1) Neutralizamos el wrapper (position:static) para que la caja de
+            referencia deje de ser el botón de 45px.
+         2) Anclamos el panel con left/right simétricos (8px, = padding lateral
+            del main-viewport en mobile) → queda centrado en la pantalla.
+         3) top:auto conserva la posición vertical (justo debajo del botón).
+       Las reglas de posicionamiento per-módulo se eliminaron para no competir
+       por !important según el orden de carga del <style> inline. */
+    div:has(> #advancedFilterPanel),
+    div:has(> #almMovFechasPanel),
+    div:has(> #trAdvPanel),
+    div:has(> #almNotFechasPanel),
+    div:has(> #fallasAdvPanel),
+    div:has(> #auxAdvPanel),
+    div:has(> #hdAdvancedFilterPanel) {
+        position: static !important;
+    }
+    #advancedFilterPanel,
+    #almMovFechasPanel,
+    #trAdvPanel,
+    #almNotFechasPanel,
+    #fallasAdvPanel,
+    #auxAdvPanel,
+    #hdAdvancedFilterPanel {
+        left: 8px !important;
+        right: 8px !important;
+        top: auto !important;
+        width: auto !important;
+        max-width: none !important;
+        box-sizing: border-box !important;
+    }
 
 }
 
@@ -3466,8 +3503,6 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     body:has(.ent-layout) .ent-capt-bar .ent-cant-btns     { width: 22px !important; }
     body:has(.ent-layout) .ent-capt-add-btn { flex: 0 0 36px !important; width: 36px !important; height: 36px !important; border-radius: 8px !important; }
     body:has(.ent-layout) .ent-capt-add-btn .material-icons { font-size: 18px !important; }
-    /* El "+" decorativo no aporta en el ancho chico del teléfono → se oculta. */
-    body:has(.ent-layout) .ent-capt-plus { display: none !important; }
 }
 
 @media (max-width: 480px) {

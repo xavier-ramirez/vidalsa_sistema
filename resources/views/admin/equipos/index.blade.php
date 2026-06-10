@@ -7,15 +7,9 @@
 <style>
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {
-        #advancedFilterPanel {
-            /* En vez de 300px fijo alineado al borde derecho, ocupar casi todo el viewport */
-            width: calc(100vw - 20px) !important;
-            max-width: calc(100vw - 20px) !important;
-            right: 10px !important;
-            left: auto !important;
-            /* Evita que el padding lo empuje fuera de la pantalla */
-            box-sizing: border-box !important;
-        }
+        /* El posicionamiento/centrado del panel en mobile vive ahora en
+           estilos_globales.css (regla unica para todos los modulos). Aqui solo
+           quedan los ajustes de contenido interno del panel. */
         /* Dropdowns internos (estado, GPS, etc.) tambien ocupan el ancho completo del panel */
         #advancedFilterPanel .custom-dropdown,
         #advancedFilterPanel .dropdown-trigger {

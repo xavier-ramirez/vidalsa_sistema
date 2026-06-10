@@ -222,18 +222,25 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
 
             const data = await response.json();
 
-            if (data.success) {
-                if (typeof window.refreshDashboardAlerts === 'function') {
-                    await window.refreshDashboardAlerts();
-                }
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Gestión iniciada con éxito', 'success');
-                }
-            } else {
+            if (!data.success) {
                 throw new Error(data.message || 'Error al iniciar gestión');
+            }
+
+            // El POST ya terminó (rápido: 1 update + limpiar caché). Damos feedback
+            // y ocultamos el spinner DE INMEDIATO. El refresco de la lista regenera
+            // TODAS las alertas en el servidor (generateAlertsList recorre la flota),
+            // así que lo lanzamos en SEGUNDO PLANO (sin await) para no dejar al usuario
+            // mirando el spinner — antes se esperaba a ese refresco y por eso tardaba.
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
+            if (typeof window.showToast === 'function') {
+                window.showToast('Gestión iniciada con éxito', 'success');
+            }
+            if (typeof window.refreshDashboardAlerts === 'function') {
+                window.refreshDashboardAlerts(); // background: la lista se actualiza sola al terminar
             }
         } catch (error) {
             console.error('Error:', error);
+            if (typeof window.hidePreloader === 'function') window.hidePreloader();
             if (typeof window.showToast === 'function') {
                 window.showToast(error.message, 'error');
             } else if (typeof window.showModal === 'function') {
@@ -241,8 +248,6 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
             } else {
                 alert(error.message);
             }
-        } finally {
-            if (typeof window.hidePreloader === 'function') window.hidePreloader();
         }
     };
 };

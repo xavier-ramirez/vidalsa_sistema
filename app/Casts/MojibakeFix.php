@@ -79,13 +79,17 @@ class MojibakeFix implements CastsAttributes
             return $s;
         }
 
-        // ── Caso 2: import CP850 — acentos convertidos a caracteres de caja ──
-        // (Í→═, Á→┴, Ú→┌, Ñ→╤, É→╔, Ó→Ë …). Pasa cuando bytes Windows-1252 se
-        // leen como CP850 (OEM) al correr un .sql de importacion. Se detecta por
-        // la presencia de un caracter de dibujo de caja (U+2500–U+257F), que NUNCA
-        // aparece en datos legitimos de la app; se revierte UTF-8→CP850→Win-1252.
-        // Los strings limpios (sin caja) NO entran aqui — quedan intactos.
-        if (preg_match('/[\x{2500}-\x{257F}]/u', $s)) {
+        // ── Caso 2: import CP850 — acentos convertidos a otros caracteres ────
+        // Pasa cuando bytes Windows-1252 se leen como CP850 (OEM) al correr un
+        // .sql de importacion. La MAYORIA de acentos mayusculos caen en chars de
+        // dibujo de caja (Í→═, Á→┴, Ú→┌, É→╔ …; U+2500–U+257F), que NUNCA aparecen
+        // en datos legitimos. PERO dos NO son de caja y se escapaban a la deteccion
+        // vieja: Ó→Ë (U+00CB) y Ñ→Ð (U+00D0) — tampoco existen en el español de la
+        // app, asi que se incluyen explicitamente. Un solo pase UTF-8→CP850→Win-1252
+        // corrige TODA la cadena (mezcle o no chars de caja con Ë/Ð). Si la conversion
+        // no da UTF-8 valido se devuelve el original (defensivo); los strings limpios
+        // NO entran aqui — quedan intactos.
+        if (preg_match('/[\x{2500}-\x{257F}\x{00CB}\x{00D0}]/u', $s)) {
             $bytes = @iconv('UTF-8', 'CP850', $s);
             if ($bytes !== false) {
                 $rev = @iconv('Windows-1252', 'UTF-8', $bytes);

@@ -12,14 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('documentacion', function (Blueprint $table) {
+            // ADICIONAL_FECHA_SUBIDA y ADICIONAL_SUBIDO_POR las crea (y dropea) la
+            // migracion 2026_02_12_add_upload_tracking_to_documentacion; aqui solo
+            // se anade FECHA_ADICIONAL (fecha del certificado del documento adicional).
             if (!Schema::hasColumn('documentacion', 'FECHA_ADICIONAL')) {
                 $table->date('FECHA_ADICIONAL')->nullable();
-            }
-            if (!Schema::hasColumn('documentacion', 'ADICIONAL_FECHA_SUBIDA')) {
-                $table->timestamp('ADICIONAL_FECHA_SUBIDA')->nullable();
-            }
-            if (!Schema::hasColumn('documentacion', 'ADICIONAL_SUBIDO_POR')) {
-                $table->unsignedBigInteger('ADICIONAL_SUBIDO_POR')->nullable();
             }
         });
     }

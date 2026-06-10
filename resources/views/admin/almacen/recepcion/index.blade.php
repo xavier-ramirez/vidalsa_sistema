@@ -177,8 +177,8 @@
            Si el usuario no tiene `almacen.movimiento` el directive Blade oculta
            la `<a>` y no pasa nada. */
         #trFilters > a { flex: 1 1 100% !important; width: 100% !important; margin-left: 0 !important; justify-content: center !important; }
-        /* Panel Filtros Avanzados desplegado: ancho del viewport (10px de margen lateral) */
-        #trAdvPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
+        /* Panel Filtros Avanzados desplegado: su centrado en mobile vive ahora en
+           estilos_globales.css (regla unica para todos los modulos). */
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Recepción (bandeja)

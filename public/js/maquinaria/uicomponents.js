@@ -955,6 +955,9 @@ window.showDetailsImproved = function (target, event) {
 
     // Show Modal
     if (modal) {
+        // Elevar z-index para que el modal de detalles siempre quede
+        // encima del panel de alertas (z-index: 9500) u otros overlays.
+        modal.style.zIndex = '10000';
         modal.style.display = "flex";
         // Force reflow
         void modal.offsetWidth;
@@ -1116,10 +1119,15 @@ window.closeDetailsModal = function (event) {
         }, 300);
     }
 
-    // CRITICO: restaurar scroll del body. El modal lo setea a 'hidden' al abrir,
-    // y si no lo revertimos aqui, cualquier pagina que venga despues (ej. al
-    // navegar a /edit desde el boton del modal) queda sin scroll vertical.
-    document.body.style.overflow = '';
+    // CRITICO: restaurar scroll del body.
+    // Si el panel de alertas sigue abierto (expiredDocsContainer.open),
+    // mantenemos overflow:hidden para que el layout del panel no se mueva.
+    // Solo lo liberamos si no hay otro overlay activo.
+    const alertasOverlay = document.getElementById('expiredDocsContainer');
+    const alertasOpen = alertasOverlay && alertasOverlay.classList.contains('open');
+    if (!alertasOpen) {
+        document.body.style.overflow = '';
+    }
 };
 
 window.loadResponsables = (function () {

@@ -953,7 +953,7 @@
                 {{-- min="0.001" + step="any": cualquier valor > 0 vale (no se acepta 0). Vacio = sin alerta. --}}
                 <input type="number" id="almMinValor" min="0.001" step="any" placeholder="Vacío = sin alerta">
                 <small style="display:block;font-size:11px;color:#64748b;margin-top:3px;line-height:1.4;">
-                    Cuando el saldo llegue a este valor o menos, el producto se marca como <b>stock bajo</b>. Dejalo vacío para quitar la alerta.
+                    Cuando el saldo llegue a este valor o menos, se marca como <b>stock bajo</b>.
                 </small>
             </div>
             <div id="almMinError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
@@ -1061,9 +1061,9 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAlmacenModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div><label for="almNvNombre">Nombre *</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS"></div>
+            <div><label for="almNvNombre">Nombre</label><input type="text" id="almNvNombre" maxlength="150" placeholder="Ej: ALMACÉN CENTRAL CARACAS" autocomplete="off"></div>
             <div>
-                <label for="almNvTipoDisplay">Tipo *</label>
+                <label for="almNvTipoDisplay">Tipo</label>
                 <div class="custom-dropdown" id="almNvTipoDropdown" data-default-label="Selecciona un tipo">
                     <input type="hidden" id="almNvTipo" value="PROYECTO">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
@@ -1090,7 +1090,7 @@
             {{-- Almacenista: nombre del responsable del almacén. Aparecerá como "Entregado por:"
                  en la Nota de Entrega VID-FO-GEN-019. --}}
             <div>
-                <label for="almNvAlmacenista">Almacenista *</label>
+                <label for="almNvAlmacenista">Almacenista</label>
                 <input type="text" id="almNvAlmacenista" maxlength="200" placeholder="Ej: Juan Pérez (almacenista)" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "Entregado por:" en la Nota de Entrega.</div>
             </div>
@@ -1098,12 +1098,12 @@
                  seccion "ENTREGADO POR" del PDF. Sustituye al literal "COORD. DE
                  MATERIALES" que antes estaba hardcodeado en el template. --}}
             <div>
-                <label for="almNvCargoAlmacenista">Cargo del almacenista *</label>
+                <label for="almNvCargoAlmacenista">Cargo del almacenista</label>
                 <input type="text" id="almNvCargoAlmacenista" maxlength="200" placeholder="Ej: COORD. DE MATERIALES" autocomplete="off">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;">Aparece como "CARGO:" debajo del nombre en la Nota de Entrega.</div>
             </div>
             <div id="almNvFrentesWrap">
-                <label for="almNvFrentesInput">Frentes que usan este almacén *</label>
+                <label for="almNvFrentesInput">Frentes que usan este almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
                     {{-- El trigger es un input directo: clic lo abre y escribir filtra la lista de abajo. --}}
                     <div class="multiselect-trigger" tabindex="-1" role="button" aria-haspopup="listbox" style="padding:0;display:flex;align-items:center;overflow:hidden;cursor:text;">
@@ -1170,8 +1170,11 @@
                                onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
                         <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
                                 onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
+                        {{-- Suggest FLOTANTE (position:absolute) anclado a .alm-cat-field: se monta
+                             ENCIMA del contenido en vez de empujarlo, así NO crece el alto del modal.
+                             Mismo patrón que el suggest de UM (#almProdUmSuggestBox). --}}
+                        <div class="alm-suggest-inline" id="almProdCatSuggest" style="position:absolute;top:100%;left:0;right:0;z-index:9999;margin-top:2px;"></div>
                     </div>
-                    <div class="alm-suggest-inline" id="almProdCatSuggest"></div>
                     <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Elige de la lista o escribe una nueva categoría.</div>
                 </div>
                 {{-- Cantidad inicial: solo se muestra al CREAR (no al editar). Si está vacío o en 0
@@ -1180,7 +1183,7 @@
                 <div id="almProdCantInicialWrap" style="flex:1;">
                     <label for="almProdCantInicial">Cantidad</label>
                     <input type="number" id="almProdCantInicial" min="0" step="any" placeholder="0 (opcional)" autocomplete="off">
-                    <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Vacío o 0 → stock 0 en este almacén.</div>
+                    <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Vacío o 0</div>
                 </div>
             </div>
             {{-- Ubicación física en bodega (texto libre). Se muestra como tooltip al pasar el
@@ -2033,13 +2036,20 @@
                 // El codigo/serial NO se muestra en la lista (pedido cliente): la sugerencia
                 // queda limpia con SOLO la descripcion. Igual se PUEDE buscar por serial (el
                 // scoring del autocomplete y el backend matchean CODIGO) y el serial sigue en
-                // el title de la fila (hover). Lo unico a la derecha es el conteo "N pres."
-                // cuando una descripcion tiene varias presentaciones.
+                // el title de la fila (hover). Cuando una descripcion tiene varias
+                // presentaciones se muestra un ICONO compacto (layers) + el numero, en
+                // vez del texto "N pres." (robaba ancho a la descripcion). El detalle
+                // completo queda en el tooltip.
                 var rightBadge = multi
-                    ? '<span class="alm-suggest-cod" style="color:#0067b1;font-weight:700;" title="' + grp.count + ' presentaciones (distintas unidades)">' + grp.count + ' pres.</span>'
+                    ? '<span class="alm-suggest-cod" style="color:#0067b1;display:inline-flex;align-items:center;gap:1px;" title="' + grp.count + ' presentaciones (distintas unidades)"><i class="material-icons" style="font-size:15px;line-height:1;">layers</i><span style="font-size:10.5px;font-weight:700;line-height:1;">' + grp.count + '</span></span>'
                     : '';
                 return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" data-othercat="' + (otraCat ? '1' : '') + '" data-cat="' + catReal + '" title="' + cod + '">'
-                     + '<div class="alm-suggest-line">' + rightBadge + '<span class="nom">' + nom + '</span>' + catBadge + '</div>'
+                     {{-- nom PRIMERO (flex:1 → ocupa el ancho y hace wrap desde el margen
+                          izquierdo); los badges (categoría + nº presentaciones) van DESPUÉS,
+                          a la derecha. Antes el badge iba primero y empujaba la descripción a
+                          una columna, por lo que la 2ª línea quedaba indentada en vez de volver
+                          al margen izquierdo. --}}
+                     + '<div class="alm-suggest-line"><span class="nom">' + nom + '</span>' + catBadge + rightBadge + '</div>'
                      + badge + '</div>';
             }).join('');
             box.innerHTML = html;
@@ -2567,8 +2577,9 @@
     document.addEventListener('click', function (e) {
         var item = e.target.closest('#almProdCatSuggest .si-item');
         if (item) { e.preventDefault(); window.almProdCatPick(item.getAttribute('data-cat') || ''); return; }
-        // No cerrar si el click fue dentro del propio campo (input + caret) o de la lista.
-        if (!e.target.closest('.alm-cat-field') && !e.target.closest('#almProdCatSuggest')) almProdCatHide();
+        // No cerrar si el click fue dentro del propio campo (input + caret + lista,
+        // que ahora vive DENTRO de .alm-cat-field — por eso un solo closest cubre todo).
+        if (!e.target.closest('.alm-cat-field')) almProdCatHide();
     });
     // Enter dentro del input → si hay coincidencia exacta o "nueva", la fija y cierra.
     var _almProdCatInp = el('almProdCategoria');

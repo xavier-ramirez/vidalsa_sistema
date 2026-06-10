@@ -217,12 +217,6 @@
     .ent-capt-bar .ent-search-field { flex:1 1 220px; }
     .ent-capt-bar .ent-um-wrap      { flex:0 1 100px; }
     .ent-capt-bar .ent-cant-stepper { flex:0 1 130px; }
-    .ent-capt-plus {
-        flex:0 0 auto; width:34px; height:34px; border-radius:8px;
-        background:#e1effa; color:#0067b1;
-        display:flex; align-items:center; justify-content:center;
-    }
-    .ent-capt-plus .material-icons { font-size:20px; }
     .ent-capt-add-btn {
         flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:none; cursor:pointer;
         background:var(--maquinaria-blue,#0067b1); color:#fff;
@@ -285,11 +279,9 @@
         font-size:16px; font-weight:700; color:#0f172a;
         border-bottom:1px solid #e2e8f0;
     }
-    /* Bloque "Observaciones" — label sobre la textarea, ambos a 100% del ancho
-       del sidebar para alinear exactamente con los botones (Registrar / Cancelar).
-       Sin caja gris envolvente: la propia textarea blanca con borde define el
-       bloque visual. */
-    .ent-sb-obs-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+    /* Bloque "Observaciones" — textarea a 100% del ancho del sidebar para alinear
+       exactamente con los botones (Registrar / Cancelar). Sin caja gris envolvente
+       ni label: el placeholder define el propósito del campo. */
     .ent-sb-obs-input {
         width:100%; box-sizing:border-box;
         border:1px solid #cbd5e0; border-radius:10px;
@@ -389,7 +381,6 @@
          Va FUERA de .ent-list-wrap (overflow:hidden) para que los dropdowns de
          sugerencias no queden recortados; el CSS la pega visualmente a la tabla. --}}
     <div class="ent-capt-bar">
-        <div class="ent-capt-plus" title="Agregar producto"><i class="material-icons">add</i></div>
         <div class="ent-search-field">
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
                    placeholder="Buscar por código (serial) o descripción…"
@@ -442,7 +433,6 @@
          label y textarea. Sin background ni padding lateral: la textarea queda
          al 100% del sidebar y alinea con los botones de abajo. --}}
     <div class="ent-sb-obs">
-        <label for="entObservaciones" class="ent-sb-obs-label">Observaciones</label>
         <textarea id="entObservaciones" class="ent-sb-obs-input" rows="2"
                   maxlength="500" placeholder="Añadir comentarios internos..."></textarea>
     </div>

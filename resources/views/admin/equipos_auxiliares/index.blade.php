@@ -162,22 +162,9 @@
             font-weight: 700 !important;
             justify-content: center !important;
         }
-        /* Panel Filtros Avanzados en mobile: alineado a la derecha como en equipos */
-        #auxAdvPanel {
-            position: absolute !important;
-            top: 100% !important;
-            bottom: auto !important;
-            width: calc(100vw - 20px) !important;
-            max-width: calc(100vw - 20px) !important;
-            right: 0 !important;
-            left: auto !important;
-            border-radius: 12px !important;
-            margin-top: 10px !important;
-            padding: 15px !important;
-            z-index: 500 !important;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15) !important;
-            box-sizing: border-box !important;
-        }
+        /* El posicionamiento/centrado del panel en mobile vive ahora en
+           estilos_globales.css (regla unica para todos los modulos). Aqui solo
+           quedan los ajustes de contenido interno del panel. */
         /* Compactar campos del panel para que no ocupen tanto vertical */
         #auxAdvPanel > h4 { margin: 0 0 10px 0 !important; font-size: 13px !important; }
         #auxAdvPanel span { font-size: 11.5px !important; margin-bottom: 3px !important; }

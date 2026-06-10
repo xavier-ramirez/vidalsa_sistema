@@ -187,9 +187,8 @@
         #almMovFilters > div:last-child:not(.amf-item) { width: 100% !important; flex: 1 1 100% !important; margin-left: 0 !important; }
         #btnAccionesMov { width: 100% !important; }
         #splitDropdownMenuMovInv { left: 0 !important; right: 0 !important; min-width: 0 !important; max-width: calc(100vw - 20px) !important; }
-        /* Panel de Filtros Avanzados (Tipo + Desde/Hasta): no overflow lateral
-           en mobile, mismo patron que el panel #advancedFilterPanel de /admin/equipos. */
-        #almMovFechasPanel { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; right: 10px !important; left: auto !important; box-sizing: border-box !important; }
+        /* Panel de Filtros Avanzados (Tipo + Desde/Hasta): su centrado en mobile
+           vive ahora en estilos_globales.css (regla unica para todos los modulos). */
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Movimientos
@@ -380,6 +379,11 @@
             font-size: 13px;
             color: #c6c6cd;
             font-weight: normal;
+        }
+        /* En las tarjetas (móvil) la hora NO se muestra: la tarjeta es compacta y
+           el día ya basta; la hora solo aporta en la tabla de escritorio. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha .mv-hora {
+            display: none !important;
         }
 
         /* Ref (N° Nota + REFERENCIA + Proveedor + Observaciones): se renderiza como
@@ -582,7 +586,7 @@
                      igual que los filtros de Almacen / Frente). Sin opcion "Todos":
                      la X (data-clear-btn) limpia el filtro y muestra todo. --}}
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start;">
-                  <div>
+                  <div style="min-width:0;">{{-- min-width:0: deja que la columna se encoja al ancho 1fr (sin esto el grid no la achica por debajo del contenido y se desborda del panel). --}}
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Tipo</span>
                     <div class="custom-dropdown" id="almMovTipoDropdown" data-filter-type="tipo" data-default-label="Tipo de movimiento">
                         <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}">
@@ -606,8 +610,9 @@
                         </div>
                     </div>
                   </div>{{-- /col Tipo --}}
-                  <div>{{-- col Nota de entrega: filtra por N° de Nota de Entrega (salidas) o por
-                            la referencia del proveedor (entradas) — backend: NUMERO_NOTA / REFERENCIA. --}}
+                  <div style="min-width:0;">{{-- col Nota de entrega: filtra por N° de Nota de Entrega (salidas) o por
+                            la referencia del proveedor (entradas) — backend: NUMERO_NOTA / REFERENCIA.
+                            min-width:0 igual que Tipo: evita el desborde del grid. --}}
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Nota de entrega</span>
                     <div style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
                         <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">receipt_long</i></span>
@@ -625,7 +630,7 @@
                     {{-- Cajas Desde/Hasta: la caja COMPLETA dispara el date picker (no
                          solo el iconito nativo). Click en el contenedor → input.showPicker(),
                          que es la API estándar para abrir el selector de fecha de <input type="date">. --}}
-                    <div>
+                    <div style="min-width:0;">
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
                         <div id="almMovDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 4px;cursor:pointer;"
                              onclick="var i=document.getElementById('almMovDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
@@ -636,7 +641,7 @@
                                onclick="event.stopPropagation(); var i=document.getElementById('almMovDesde'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovDesdeBox').style.background='white'; window.loadMovimientos();">close</i>
                         </div>
                     </div>
-                    <div>
+                    <div style="min-width:0;">
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
                         <div id="almMovHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 4px;cursor:pointer;"
                              onclick="var i=document.getElementById('almMovHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
