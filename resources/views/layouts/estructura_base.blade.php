@@ -1886,18 +1886,28 @@
                         }
                         if (window.activeEquipoButton) {
                             const d = window.activeEquipoButton.dataset;
-                            if (ctx.docType === 'propiedad') {
-                                d.nroDoc = formData.get('nro_documento'); d.titular = formData.get('titular');
-                                d.placa = formData.get('placa'); d.marca = formData.get('marca');
-                                d.modelo = formData.get('modelo'); d.chasis = formData.get('serial_chasis');
-                                d.motorSerial = formData.get('serial_motor');
-                            } else {
-                                // Consolidado: usa la misma fuente de verdad (DOC_FIELD_MAP.vencKey)
-                                // que el resto de los flujos de subida/borrado.
-                                const vk = (window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[ctx.docType]) ? window.DOC_FIELD_MAP[ctx.docType].vencKey : null;
-                                if (vk) d[vk] = formData.get('fecha_vencimiento');
-                                if (ctx.docType === 'poliza') d.seguro = formData.get('nombre_aseguradora');
-                            }
+                            const eqId = d.equipoId;
+                            const cache = (window.equiposData && eqId) ? window.equiposData[eqId] : null;
+                            // showDetailsImproved hace d = {...dataset, ...equiposData[id]} y equiposData
+                            // PISA al dataset. Por eso aplicamos los cambios a AMBOS: si solo tocáramos el
+                            // dataset, la fecha nueva quedaría tapada por la vieja del cache (síntoma: había
+                            // que recargar la página — se notaba sobre todo en el Certificado/adicional).
+                            const aplicar = (obj) => {
+                                if (!obj) return;
+                                if (ctx.docType === 'propiedad') {
+                                    obj.nroDoc = formData.get('nro_documento'); obj.titular = formData.get('titular');
+                                    obj.placa = formData.get('placa'); obj.marca = formData.get('marca');
+                                    obj.modelo = formData.get('modelo'); obj.chasis = formData.get('serial_chasis');
+                                    obj.motorSerial = formData.get('serial_motor');
+                                } else {
+                                    // Misma fuente de verdad (DOC_FIELD_MAP.vencKey) que subida/borrado.
+                                    const vk = (window.DOC_FIELD_MAP && window.DOC_FIELD_MAP[ctx.docType]) ? window.DOC_FIELD_MAP[ctx.docType].vencKey : null;
+                                    if (vk) obj[vk] = formData.get('fecha_vencimiento');
+                                    if (ctx.docType === 'poliza') obj.seguro = formData.get('nombre_aseguradora');
+                                }
+                            };
+                            aplicar(d);
+                            aplicar(cache);
                             showDetailsImproved(window.activeEquipoButton);
                         }
                         if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
