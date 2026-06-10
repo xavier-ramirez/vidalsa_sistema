@@ -298,23 +298,28 @@ class DashboardController extends Controller
             }
         }
 
-        // ── Filtro por ROL ──────────────────────────────────────────────────────────
-        // Algunos roles ven SOLO un subconjunto de documentos en el panel de alertas.
-        // Se matchea por PALABRA CLAVE en el nombre del rol (robusto entre entornos: el ID
-        // del rol puede variar entre local/producción; el nombre 'SIHO' es distintivo).
-        // Mapa centralizado y extensible — agregar aquí futuros roles/tipos. Default
-        // (rol no listado) = ve TODOS los tipos de documento.
-        //   COORD. SIHO → solo CERTIFICADOS (type_key 'adicional').
-        $restriccionesPorRol = [
-            'SIHO' => ['adicional'],
+        // ── Filtro por PERMISOS (visibilidad POR USUARIO) ────────────────────────────
+        // Qué tipos de documento ve cada usuario en el panel de alertas se controla con
+        // claves alertas.ver.* en usuarios.PERMISOS (asignables desde el editor de usuarios,
+        // SIN tocar código ni redeploy). Regla: si el usuario tiene AL MENOS una clave
+        // alertas.ver.*, ve SOLO esos tipos; si no tiene ninguna, ve TODOS (default).
+        // Se lee el LITERAL en PERMISOS (no vía can()) para que super.admin NO quede
+        // auto-restringido por su grant — un super.admin sin claves alertas.ver.* ve todo.
+        $mapaPermisos = [
+            'alertas.ver.poliza'      => 'poliza',
+            'alertas.ver.rotc'        => 'rotc',
+            'alertas.ver.racda'       => 'racda',
+            'alertas.ver.certificado' => 'adicional', // "certificado" = documento adicional
         ];
-        $nombreRol = strtoupper(trim(optional(optional(auth()->user())->rol)->NOMBRE_ROL ?? ''));
-        $soloTipos = null;
-        foreach ($restriccionesPorRol as $keyword => $tipos) {
-            if ($nombreRol !== '' && str_contains($nombreRol, $keyword)) { $soloTipos = $tipos; break; }
+        $raw = optional(auth()->user())->PERMISOS;
+        $permisosUser = is_array($raw) ? $raw : (is_string($raw) ? explode(',', $raw) : []);
+        $permisosUser = array_map('strtolower', array_map('trim', array_filter($permisosUser, 'is_string')));
+        $tiposPermitidos = [];
+        foreach ($mapaPermisos as $clave => $tipo) {
+            if (in_array($clave, $permisosUser, true)) { $tiposPermitidos[] = $tipo; }
         }
-        if ($soloTipos !== null) {
-            $alerts = $alerts->whereIn('type_key', $soloTipos)->values();
+        if (!empty($tiposPermitidos)) {
+            $alerts = $alerts->whereIn('type_key', $tiposPermitidos)->values();
         }
 
         // Separate expired from warnings

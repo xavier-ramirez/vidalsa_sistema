@@ -176,6 +176,14 @@ class UserController extends Controller
             'almacen.productos'  => 'Registrar y editar productos del catálogo',
             'almacen.movimiento' => 'Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
             'almacen.nota.eliminar' => 'Eliminar Notas de Entrega y productos del catálogo',
+            // Visibilidad del panel "Alertas de Documentos" (menú), POR USUARIO. Regla en
+            // DashboardController@generateAlertsList: si el usuario tiene AL MENOS una clave
+            // alertas.ver.*, ve SOLO esos documentos; si no tiene ninguna, ve TODOS (default).
+            // Ej.: un COORD. SIHO con solo 'alertas.ver.certificado' verá solo certificados.
+            'alertas.ver.poliza'      => 'Alertas de documentos: ver Pólizas',
+            'alertas.ver.rotc'        => 'Alertas de documentos: ver ROTC',
+            'alertas.ver.racda'       => 'Alertas de documentos: ver RACDA',
+            'alertas.ver.certificado' => 'Alertas de documentos: ver Certificados',
             'super.admin'         => 'Acceso Total (Super Admin)',
         ];
     }
