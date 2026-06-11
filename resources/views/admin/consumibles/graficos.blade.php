@@ -70,6 +70,27 @@
             .hide-on-mobile {
                 display: none !important;
             }
+
+            /* Forzar el ancho completo en mobile, reduciendo el padding del viewport */
+            body:has(.graficos-layout) .main-viewport {
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .admin-card {
+                padding: 15px !important;
+            }
+
+            /* Centrar el titulo solo en mobile */
+            .graficos-header {
+                justify-content: center !important;
+            }
+            .graficos-title-wrapper {
+                text-align: center;
+                width: 100%;
+            }
         }
         /* Ranking "Total de Consumo por Frente" - compactar en pantallas chicas */
         @media (max-width: 640px) {
@@ -180,86 +201,38 @@
             margin-top: 1px;
         }
 
-        /* Grid de tarjetas de equipos */
-        .eq-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-            gap: 10px;
-        }
-
-        .eq-card {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 12px 14px;
-            transition: box-shadow .2s;
-        }
-
-        .eq-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
-        }
-
-        .eq-tipo {
-            font-size: 10px;
-            font-weight: 700;
-            color: #0067b1;
-            text-transform: uppercase;
-            letter-spacing: .4px;
-            margin-bottom: 2px;
-        }
-
-        .eq-modelo {
-            font-size: 12px;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .eq-total {
-            font-size: 20px;
-            font-weight: 800;
-            color: #003a70;
-            line-height: 1;
-        }
-
-        .eq-unidad {
-            font-size: 10px;
-            color: #94a3b8;
-        }
-
-        .eq-desp {
-            font-size: 12px;
-            font-weight: 700;
-            color: #0077cc;
-            margin-top: 5px;
-        }
-
-        .eq-bar {
-            margin-top: 8px;
-            background: #e2e8f0;
-            border-radius: 20px;
-            height: 4px;
-            overflow: hidden;
-        }
-
-        .eq-bar-fill {
-            height: 100%;
-            border-radius: 20px;
-            transition: width .6s;
-        }
-
-        .eq-frente {
-            font-size: 11px;
-            color: #475569;
-            font-weight: 600;
-            margin-bottom: 6px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        /* Ranking "Top 20" — BOARD horizontal: cada FRENTE es una COLUMNA (cabecera arriba
+           + sus equipos apilados debajo). Las columnas van lado a lado; si no caben, hay
+           scroll horizontal. La ubicación del frente vive en la cabecera (.eq-frente-head),
+           fuera de las tarjetas, que son compactas para que entren la mayor cantidad. */
+        .eq-board { display:flex; gap:12px; overflow-x:auto; align-items:flex-start; padding-bottom:6px; }
+        .eq-frente-group { flex:0 0 190px; min-width:190px; display:flex; flex-direction:column; gap:8px; }
+        .eq-frente-head { display:flex; flex-direction:column; gap:2px; padding:6px 10px;
+                          background:#eef2f7; border-radius:8px; border-left:4px solid #0067b1; }
+        .eq-frente-name { font-size:12px; font-weight:800; color:#1e293b;
+                          white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .eq-frente-meta { font-size:11px; font-weight:700; color:#0077cc; }
+        .eq-col-cards { display:flex; flex-direction:column; gap:8px; }
+        /* .eq-grid la usa renderInoperativos (otra sección que COMPARTE .eq-card/.eq-tipo/
+           .eq-modelo). El ranking ya NO la usa (pasó a board por columnas), pero NO se
+           elimina: rompería la grilla de inoperativos. */
+        .eq-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:8px; }
+        .eq-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+                   padding:5px 8px; transition:box-shadow .2s; }
+        .eq-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+        .eq-tipo { font-size:9px; font-weight:700; color:#0067b1; text-transform:uppercase;
+                   letter-spacing:.4px; margin-bottom:0px; }
+        .eq-modelo { font-size:12px; font-weight:700; color:#1e293b; margin-bottom:2px;
+                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        /* Monospace SOLO en las tarjetas del ranking (no en inoperativos, que comparte .eq-modelo). */
+        .eq-col-cards .eq-modelo { font-family:monospace; letter-spacing:.5px; }
+        .eq-total { font-size:17px; font-weight:800; color:#003a70; line-height:1; }
+        .eq-unidad{ font-size:10px; color:#94a3b8; margin-left:3px; }
+        .eq-desp  { font-size:11px; font-weight:700; color:#0077cc; margin-top:2px; }
+        .eq-bar   { margin-top:4px; background:#e2e8f0; border-radius:20px; height:4px; overflow:hidden; }
+        .eq-bar-fill { height:100%; border-radius:20px; transition:width .6s; }
+        .eq-desp-badge { display:inline-flex; align-items:center; gap:4px; background:#003a70;
+                         color:#fff; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
 
         .loading-overlay {
             display: flex;
@@ -280,40 +253,13 @@
                 transform: rotate(360deg)
             }
         }
-
-        /* Tabla de todos los equipos */
-        .eq-desp-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: #003a70;
-            color: #fff;
-            border-radius: 20px;
-            padding: 2px 10px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .eq-search {
-            width: 100%;
-            padding: 9px 12px;
-            border: 1px solid #cbd5e0;
-            border-radius: 10px;
-            font-size: 13px;
-            margin-bottom: 14px;
-            outline: none;
-        }
-
-        .eq-search:focus {
-            border-color: #0067b1;
-        }
     </style>
 
     {{-- HEADER --}}
-    <div
+    <div class="graficos-layout graficos-header"
         style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-        <div>
-            <h1 class="page-title" style="margin-bottom:4px;">
+        <div class="graficos-title-wrapper">
+            <h1 class="page-title" style="margin:0;">
                 <span class="page-title-line2" style="color:#000;">Análisis de Consumibles</span>
             </h1>
         </div>
@@ -400,25 +346,23 @@
                 </button>
 
                 <div id="advancedFilterPanel" class="no-close-on-click"
-                    style="display: none; position: absolute; top: 100%; right: 0; width: 300px; background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 1000; margin-top: 10px; padding: 15px;">
+                    style="display: none; position: absolute; top: 100%; right: 0; width: 240px; box-sizing: border-box; background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 1000; margin-top: 10px; padding: 15px;">
                     <h4
                         style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
                         Filtros Avanzados
-                        <button type="button" onclick="window.clearAdvancedFilters(); window.cargarDatos();"
-                            style="font-size: 11px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer; border: none; background: transparent;">Limpiar
-                            Todo</button>
                     </h4>
 
                     <div style="margin-bottom: 15px;">
                         <span
-                            style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Rango
-                            de Fechas</span>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="date" id="fDesde" class="native-date" onchange="window.cargarDatos()" title="Desde"
-                                style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
+                            style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Período (por mes)</span>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            {{-- Dos meses: filtra UN mes (mismo valor en ambos, o solo uno) o un
+                                 PERÍODO de varios meses (meses distintos). Se traducen a día en getParams. --}}
+                            <input type="month" id="fMesDesde" class="native-date" onchange="window.cargarDatos()" title="Mes inicial (desde)"
+                                style="width: 100%; box-sizing: border-box; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
                                 onclick="try{this.showPicker()}catch(e){}">
-                            <input type="date" id="fHasta" class="native-date" onchange="window.cargarDatos()" title="Hasta"
-                                style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
+                            <input type="month" id="fMesHasta" class="native-date" onchange="window.cargarDatos()" title="Mes final (hasta)"
+                                style="width: 100%; box-sizing: border-box; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
                                 onclick="try{this.showPicker()}catch(e){}">
                         </div>
                     </div>
@@ -576,9 +520,7 @@
         <div class="g-card">
             <p class="g-title" style="justify-content:space-between;">
                 <span style="display:flex;align-items:center;gap:8px;">
-                    <i class="material-icons">emoji_events</i>
-                    Top 15 Equipos Mayor Consumo
-                    <span class="g-subtitle">— total · nº de despachos</span>
+                    Top 20 Equipos Mayor Consumo
                 </span>
                 <button onclick="descargarRanking()" title="Descargar imagen"
                     style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
@@ -653,51 +595,6 @@
         </div>
     </div>
 
-    {{-- TODOS LOS EQUIPOS — TABLA COMPLETA. Solo visible cuando el filtro
-         de tipo es GASOIL (despachos de combustible). Para CAUCHO/ACEITE/etc
-         no aplica el concepto de "despachos por equipo" — la tabla se ocultaria
-         con valores 0 que confunden. La logica de mostrar/ocultar esta en el
-         JS (tipoFiltro === 'GASOIL'). --}}
-    <div class="g-grid-1" id="secTodosEquipos" style="display:none;">
-        <div class="g-card">
-            <p class="g-title">
-                <i class="material-icons">table_chart</i>
-                Despachos por Equipo — Todos
-                <span class="g-subtitle" id="subtotalEquipos"></span>
-            </p>
-            <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
-                <input class="eq-search" id="eqSearch" type="text" placeholder="Buscar placa, marca o modelo..."
-                    oninput="filtrarTablaEquipos()" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-                <select id="eqFilterTipo" class="eq-search" onchange="filtrarTablaEquipos()"
-                    style="margin-bottom: 0; width: auto; flex: 0 1 auto; min-width: 150px; background-color: #fbfcfd;">
-                    <option value="">Todos los Tipos</option>
-                </select>
-                <select id="eqFilterFrente" class="eq-search" onchange="filtrarTablaEquipos()"
-                    style="margin-bottom: 0; width: auto; flex: 0 1 auto; min-width: 150px; background-color: #fbfcfd;">
-                    <option value="">Todos los Frentes</option>
-                </select>
-            </div>
-            <div id="loadingTodosEq" class="loading-overlay">
-                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-            </div>
-            <div style="overflow-x:auto; display:none;" id="wrapTodosEq">
-                <table class="admin-table" id="tablaEquipos">
-                    <thead>
-                        <tr>
-                            <th class="sortable" onclick="sortTabla(0)">Tipo ▵</th>
-                            <th class="sortable" onclick="sortTabla(1)">Identificador(es)</th>
-                            <th class="sortable" onclick="sortTabla(2)">Marca / Modelo</th>
-                            <th class="sortable" onclick="sortTabla(3)">Frente</th>
-                            <th class="sortable" onclick="sortTabla(4)" style="text-align:right;">Despachos ▾</th>
-                            <th class="sortable" onclick="sortTabla(5)" style="text-align:right;">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody id="bodyTodosEq"></tbody>
-                </table>
-            </div>
-            <div id="paginacionEquipos"></div>
-        </div>
-    </div>
 
     {{-- Auditoria de Catalogo removida: la auditoria de cambios en
          CaracteristicaModelo se accede directamente desde /admin/catalogo
@@ -747,18 +644,26 @@
             var p = new URLSearchParams();
             var frente = document.getElementById('fFrente') ? document.getElementById('fFrente').value : '';
             var tipo = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
-            var desde = document.getElementById('fDesde') ? document.getElementById('fDesde').value : '';
-            var hasta = document.getElementById('fHasta') ? document.getElementById('fHasta').value : '';
+            // Filtro por PERÍODO de meses (inputs type=month → "YYYY-MM"). Cada mes se traduce
+            // a día para el backend (que espera desde/hasta): desde = primer día del mes inicial;
+            // hasta = último día del mes final. Independientes: un solo mes = mismo valor en
+            // ambos (o solo uno); varios meses = meses distintos. Backend sin cambios.
+            var mDesde = document.getElementById('fMesDesde') ? document.getElementById('fMesDesde').value : '';
+            var mHasta = document.getElementById('fMesHasta') ? document.getElementById('fMesHasta').value : '';
             if (frente) p.set('id_frente', frente);
             if (tipo) p.set('tipo', tipo);
-            if (desde) p.set('desde', desde);
-            if (hasta) p.set('hasta', hasta);
+            if (mDesde) p.set('desde', mDesde + '-01');
+            if (mHasta) {
+                var ph = mHasta.split('-');                        // [YYYY, MM]
+                var ult = new Date(parseInt(ph[0], 10), parseInt(ph[1], 10), 0).getDate();
+                p.set('hasta', mHasta + '-' + (ult < 10 ? '0' + ult : ult));
+            }
             return p;
         }
 
         window.clearAdvancedFilters = function () {
-            if (document.getElementById('fDesde')) document.getElementById('fDesde').value = '';
-            if (document.getElementById('fHasta')) document.getElementById('fHasta').value = '';
+            var d = document.getElementById('fMesDesde'); if (d) d.value = '';
+            var h = document.getElementById('fMesHasta'); if (h) h.value = '';
         };
 
         function show(id) { document.getElementById(id).style.display = ''; }
@@ -786,19 +691,11 @@
             }
             const params = getParams();
 
-            // tipoFiltroPre se conserva por compatibilidad con codigo abajo;
-            // se usa para mostrar el preloader del panel "todos los equipos".
-            const tipoFiltroPre = document.getElementById('fTipo') ? document.getElementById('fTipo').value : '';
-
             // ── Loading: mostrar spinners de las secciones siempre visibles ──
-            ['loadingTotalFrente',
-                'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(show);
+            ['loadingTotalFrente', 'loadingRanking', 'loadingInoperativos'].forEach(show);
 
             // ── Ocultar contenido previo (prev carga) ────────────────────────
-            // Removido: secCauchoModelo + chartCauchoModelo + loadingCauchoModelo
-            // (panel "Cauchos por Tipo de Equipo y Medida" eliminado a pedido).
-            ['totalFrenteBody',
-                'rankingBody', 'wrapTodosEq', 'inoperativosBody'].forEach(hide);
+            ['totalFrenteBody', 'rankingBody', 'inoperativosBody'].forEach(hide);
 
             // ── Secciones de especificación: ocultar antes de cada carga ─────
             // Evita que queden datos viejos visibles durante la nueva carga.
@@ -843,24 +740,12 @@
                     }
                     renderRanking(data.top_equipos);
 
-                    // Tabla "Despachos por Equipo — Todos": solo visible cuando
-                    // el filtro es GASOIL (despachos de combustible). Para
-                    // CAUCHO/ACEITE/etc el concepto no aplica, asi que ocultamos
-                    // la seccion completa y skip el render para no procesar.
-                    var secTodosEq = document.getElementById('secTodosEquipos');
-                    if (tipoFiltro === 'GASOIL') {
-                        if (secTodosEq) secTodosEq.style.display = '';
-                        renderTodosEquipos(data.todos_equipos);
-                    } else {
-                        if (secTodosEq) secTodosEq.style.display = 'none';
-                    }
                     renderEspecFrente(data.espec_frente, data.tipo_activo);
                     renderEspecEquipo(data.espec_equipo, data.tipo_activo);
                 })
                 .catch(err => {
                     console.error('Error cargando datos de gráficos:', err);
-                    ['loadingTotalFrente',
-                        'loadingRanking', 'loadingTodosEq', 'loadingInoperativos'].forEach(id => {
+                    ['loadingTotalFrente', 'loadingRanking', 'loadingInoperativos'].forEach(id => {
                             const el = document.getElementById(id);
                             if (el) el.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
                         });
@@ -1212,39 +1097,57 @@
                 return;
             }
             const maxVal = Math.max(..._rankingData.map(d => parseFloat(d.total)));
-            body.innerHTML = `<div class="eq-grid">${_rankingData.map((d, i) => {
+
+            // Identificador del equipo: Placa primero, sino Serial, sino Código, sino Modelo.
+            const idEquipo = (d) => (d.PLACA && d.PLACA.trim()) ? d.PLACA :
+                (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim()) ? d.SERIAL_CHASIS :
+                    (d.CODIGO_PATIO && d.CODIGO_PATIO.trim()) ? d.CODIGO_PATIO :
+                        (d.MODELO || 'S/ID');
+
+            // Tarjeta COMPACTA por equipo — SIN el frente adentro (ahora va de cabecera del
+            // grupo). El color de la barra va por magnitud relativa al máximo global.
+            const tarjeta = (d) => {
                 const total = parseFloat(d.total);
-                const pct = maxVal > 0 ? (total / maxVal * 100).toFixed(1) : 0;
+                const pct = maxVal > 0 ? (total / maxVal * 100) : 0;   // numérico (para color y ancho)
                 const desp = d.despachos || 0;
-                const barColor = i === 0 ? '#003a70'
-                    : i <= 2 ? '#0077cc'
-                        : i <= 5 ? '#546e7a'
-                            : '#9ca3af';
-
-                // Identificador: Placa primero, sino Serial, sino Codigo, sino Modelo
-                const idTexto = (d.PLACA && d.PLACA.trim()) ? d.PLACA :
-                    (d.SERIAL_CHASIS && d.SERIAL_CHASIS.trim()) ? d.SERIAL_CHASIS :
-                        (d.CODIGO_PATIO && d.CODIGO_PATIO.trim()) ? d.CODIGO_PATIO :
-                            (d.MODELO || 'S/ID');
-
-                const frenteTxt = d.frente ? `<div class="eq-frente">📍 ${d.frente}</div>` : '';
-
+                // Escala de calor VIVA por magnitud (rojo = mayor consumo → verde = menor).
+                const barColor = pct >= 70 ? '#ef4444' : pct >= 45 ? '#f97316' : pct >= 20 ? '#eab308' : '#22c55e';
+                const idTexto = idEquipo(d);
                 return `
                 <div class="eq-card">
                     <div class="eq-tipo">${d.tipo || 'S/T'}</div>
-                    <div class="eq-modelo" title="${idTexto}" style="font-family:monospace; font-size:13px; letter-spacing:0.5px; color:#1e293b;">${idTexto}</div>
-                    ${frenteTxt}
-                    <div class="eq-total">
-                        ${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
-                        <span class="eq-unidad">${d.unidad}</span>
-                    </div>
+                    <div class="eq-modelo" title="${idTexto}">${idTexto}</div>
+                    <div class="eq-total">${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}<span class="eq-unidad">${d.unidad}</span></div>
                     <div class="eq-desp">⛽ ${desp} despacho${desp !== 1 ? 's' : ''}</div>
-                    <div class="eq-bar">
-                        <div class="eq-bar-fill" style="width:${pct}%; background:${barColor};"></div>
-                    </div>
+                    <div class="eq-bar"><div class="eq-bar-fill" style="width:${pct.toFixed(1)}%; background:${barColor};"></div></div>
                 </div>`;
-            }).join('')
-                }</div>`;
+            };
+
+            // Agrupar por FRENTE: la ubicación pasa a ser la cabecera del grupo (fuera de las
+            // tarjetas), con su total + nº de equipos. Conserva el orden de mayor consumo del
+            // backend dentro de cada grupo (los datos ya vienen ordenados desc por total).
+            const grupos = {};
+            const orden = [];
+            _rankingData.forEach((d) => {
+                const fr = (d.frente && d.frente.trim()) ? d.frente : 'Sin frente';
+                if (!grupos[fr]) { grupos[fr] = { items: [], total: 0, unidad: d.unidad }; orden.push(fr); }
+                grupos[fr].items.push(d);
+                grupos[fr].total += parseFloat(d.total) || 0;
+            });
+
+            // Todas las cabeceras de frente usan el MISMO color (uniforme, vía CSS); no se
+            // pinta un acento distinto por frente.
+            body.innerHTML = '<div class="eq-board">' + orden.map((fr) => {
+                const g = grupos[fr];
+                return `
+                <div class="eq-frente-group">
+                    <div class="eq-frente-head">
+                        <span class="eq-frente-name">📍 ${fr}</span>
+                        <span class="eq-frente-meta">${g.total.toLocaleString('es-VE', { maximumFractionDigits: 1 })} ${g.unidad || ''} · ${g.items.length} equipo${g.items.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="eq-col-cards">${g.items.map(tarjeta).join('')}</div>
+                </div>`;
+            }).join('') + '</div>';
         }
 
         function descargarRanking() {

@@ -3,11 +3,11 @@
 @section('title', 'Movilizaciones de Equipos y Maquinarias')
 
 @section('content')
-<section class="page-title-card" style="text-align: left; margin: 0 0 10px 0;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
     <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000; white-space: normal; word-break: break-word;">Bitácora de Movilizaciones y Actualizaciones</span>
+        <span class="page-title-line2" style="color: #000; white-space: normal; word-break: break-word;">Bitácora de Movilizaciones</span>
     </h1>
-</section>
+</div>
 
 
 <div class="movilizaciones-layout" style="align-items: start; width: 100%;">
@@ -344,6 +344,19 @@
     }
     #movilizacionesTable tr.selected-row-maquinaria td:last-child {
         border-right-color: #93c5fd !important;
+    }
+
+    /* Ocultar TODO EL CALCULO DE OPERACIONES en móviles de forma forzada */
+    @media (max-width: 900px) {
+        .movilizaciones-sidebar,
+        .counter-sidebar.movilizaciones-sidebar,
+        .movilizaciones-mobile-stats {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
     }
 </style>
 

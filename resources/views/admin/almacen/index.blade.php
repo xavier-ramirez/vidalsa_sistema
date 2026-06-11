@@ -725,7 +725,7 @@
         </table>
     </div>
 
-    {{-- Indicador opcional cuando el scroll infinito está cargando más filas. --}}
+    {{-- Indicador inferior mientras la auto-carga trae los lotes siguientes. --}}
     <div id="almLoadingMore" style="display:none;text-align:center;padding:12px;color:#64748b;font-size:12.5px;font-weight:600;">
         <i class="material-icons" style="font-size:16px;vertical-align:middle;animation:spin 1s linear infinite;">refresh</i>
         Cargando más productos…
@@ -1547,7 +1547,7 @@
     // "Ver todo el stock" (acción explícita): la tabla arranca VACÍA y solo muestra
     // inventario cuando hay un filtro. "Ver todo" es la ÚNICA forma de pedir TODO sin
     // filtro, así que manda ver_todo=1. Lo enciende almVerTodo(); cualquier otra recarga
-    // (sin opts.verTodo) lo apaga; el scroll infinito (append) lo conserva.
+    // (sin opts.verTodo) lo apaga; la auto-carga (append) lo conserva.
     var almVerTodoActivo = false;
     (function () {
         if (!_almInitParams.has('solo_bajo') && !_almInitParams.has('solo_con_saldo')) return;
@@ -1646,31 +1646,21 @@
         return p;
     }
 
-    // ── Carga AJAX de la tabla + sidebar — con scroll infinito ──────────────────
-    // almCargar(opts?) acepta { offset, append }:
+    // ── Carga AJAX de la tabla + sidebar — con AUTO-CARGA continua ───────────────
+    // almCargar(opts?) acepta { offset, append, gen }:
     //   • Sin args (o offset=0)    → reemplaza la tabla, refresca stats + distribución
     //                                y actualiza la URL para compartir.
     //   • { offset>0, append }     → trae la siguiente página y la appendea al tbody.
-    // Tras cada lote, si data.hasMore=true, observamos la última fila .alm-row con
-    // IntersectionObserver (rootMargin 400px) para disparar el siguiente fetch al
-    // acercarse el usuario al final — mismo patrón que /admin/equipos.
-    var almInfObs = null; // observer activo (se desconecta antes de crear uno nuevo)
-    function almAttachInfiniteObserver(nextOffset) {
-        var body = el('almTableBody'); if (!body) return;
-        // Buscar la ÚLTIMA fila .alm-row (puede haber filas placeholder al final).
-        var last = body.lastElementChild;
-        while (last && !last.classList.contains('alm-row')) last = last.previousElementSibling;
-        if (!last) return;
-        if (almInfObs) { try { almInfObs.disconnect(); } catch (e) {} almInfObs = null; }
-        almInfObs = new IntersectionObserver(function (entries, obs) {
-            if (entries[0] && entries[0].isIntersecting) {
-                obs.disconnect();
-                almInfObs = null;
-                window.almCargar({ offset: nextOffset, append: true });
-            }
-        }, { root: null, rootMargin: '400px', threshold: 0 });
-        almInfObs.observe(last);
-    }
+    // Tras cada lote, si data.hasMore=true, encadenamos AUTOMÁTICAMENTE la siguiente
+    // página (sin esperar a que el usuario llegue al final): así TODO el inventario
+    // baja de corrido y se elimina la intermitencia del viejo scroll infinito ("llegas
+    // al final y hay que esperar unos segundos a que carguen las demás"). El spinner
+    // inferior (almLoadingMore) queda visible hasta el último lote.
+    //
+    // Generación de carga: cada recarga completa (offset 0) la incrementa. La cadena de
+    // auto-carga lleva su generación; si el usuario filtra/recarga mientras baja el
+    // resto, la cadena vieja se descarta (no pinta datos obsoletos ni sigue trayendo).
+    var almLoadGen = 0;
     window.almCargar = function (opts) {
         // back-compat: si llaman almCargar() sin args o almCargar('url-string') se trata
         // como recarga completa (offset=0). Si se pasa un objeto, respetamos sus opciones.
@@ -1678,10 +1668,22 @@
         var offset = Math.max(0, parseInt(opts.offset || 0, 10));
         var append = !!opts.append && offset > 0;
         // ver_todo solo lo activa almVerTodo({verTodo:true}); cualquier otra recarga lo
-        // apaga. En el scroll infinito (append) NO se toca, para conservar "ver todo".
+        // apaga. En la auto-carga (append) NO se toca, para conservar "ver todo".
         if (!append) almVerTodoActivo = !!opts.verTodo;
         var body = el('almTableBody'); if (!body) return;
         var loadMore = el('almLoadingMore');
+
+        // Generación: una recarga completa invalida la cadena de auto-carga en vuelo;
+        // cada append hereda la suya y se aborta si ya cambió (ver comentario arriba).
+        var gen;
+        if (!append) {
+            gen = ++almLoadGen;
+        } else {
+            gen = (typeof opts.gen === 'number') ? opts.gen : almLoadGen;
+            if (gen !== almLoadGen) return; // una recarga nueva ya reemplazó esta cadena
+        }
+        var seguira = false; // ¿se encadena otra página tras ésta? (controla el spinner)
+
         // Construir URL preservando los filtros activos + offset.
         var f = filtros(); f.set('offset', String(offset));
         var finalUrl = ROUTE_INDEX + '?' + f.toString();
@@ -1690,13 +1692,13 @@
         } else {
             body.style.opacity = '0.5';
             pre();
-            // Cancelar cualquier observer pendiente — los filtros cambiaron y la
-            // próxima lista será diferente (evita disparar un fetch obsoleto).
-            if (almInfObs) { try { almInfObs.disconnect(); } catch (e) {} almInfObs = null; }
         }
         fetch(finalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
+                // Si una recarga nueva cambió la generación mientras volaba este fetch,
+                // descartamos el resultado para no pintar datos obsoletos.
+                if (gen !== almLoadGen) return;
                 if (data.html !== undefined) {
                     if (append) {
                         var tmp = document.createElement('tbody');
@@ -1739,15 +1741,19 @@
                         window.history.replaceState({}, '', cleanU.toString());
                     } catch (e) {}
                 }
-                // Scroll infinito: si hay más, observar la última fila para traer la siguiente página.
+                // Auto-carga continua: encadenamos la siguiente página apenas llega ésta,
+                // para que el resto baje solo sin que el usuario tenga que llegar al final.
                 if (data.hasMore && typeof data.nextOffset === 'number') {
-                    almAttachInfiniteObserver(data.nextOffset);
+                    seguira = true;
+                    window.almCargar({ offset: data.nextOffset, append: true, gen: gen });
                 }
             })
             .catch(function () { toast('No se pudo cargar el inventario.', 'error'); })
             .finally(function () {
                 if (append) {
-                    if (loadMore) loadMore.style.display = 'none';
+                    // El spinner se mantiene mientras la cadena siga; se oculta al cerrar
+                    // el último lote (o si esta página quedó obsoleta y no encadenó).
+                    if (!seguira && loadMore) loadMore.style.display = 'none';
                 } else {
                     body.style.opacity = '1'; unpre();
                 }
@@ -2191,7 +2197,7 @@
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { almSuggestHide(); almCatSuggestHide(); } });
 
-    // El paginador clásico fue reemplazado por scroll infinito (ver almAttachInfiniteObserver).
+    // El paginador clásico fue reemplazado por auto-carga continua por offset (ver almCargar).
     // ════════════════════════════════════════════════════════════════════════
     //  Selección de productos en la tabla — IGUAL que /admin/equipos:
     //  clic en una fila → se resalta en azul (.selected-row-maquinaria) y aparece

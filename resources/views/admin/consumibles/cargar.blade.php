@@ -240,6 +240,26 @@
 
                 {{-- SELECTORES INTEGRADAMENTE DENTRO DEL CONTENEDOR --}}
                 <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:end; margin-bottom: 20px;">
+                    {{-- FRENTE (primer filtro, a pedido del cliente) --}}
+                    <div style="flex: 1; min-width: 200px;">
+                        <div style="position:relative;">
+                            <div
+                                style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
+                                <input type="text" id="frenteSearch" name="search_frente_cargar"
+                                    placeholder="Frente de Trabajo *" autocomplete="off"
+                                    style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; font-family:inherit;"
+                                    oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
+                                <i class="material-icons"
+                                    style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:default;"
+                                    onclick="document.getElementById('frenteSearch').focus()">arrow_drop_down</i>
+                            </div>
+                            <input type="hidden" name="id_frente" id="idFrenteHidden" value="{{ old('id_frente') }}">
+                            <div id="frenteDropdown"
+                                style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #cbd5e0; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,.12); z-index:200; max-height:240px; overflow-y:auto; margin-top:4px;">
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- TIPO CONSUMIBLE --}}
                     <div style="flex: 1; min-width: 160px; position:relative;">
                         <div class="custom-dropdown" id="tipoDropdownCargar" data-default-label="— Seleccionar —">
@@ -298,26 +318,6 @@
                                         </div>
                                     @endforeach
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- FRENTE --}}
-                    <div style="flex: 1; min-width: 200px;">
-                        <div style="position:relative;">
-                            <div
-                                style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
-                                <input type="text" id="frenteSearch" name="search_frente_cargar"
-                                    placeholder="Frente de Trabajo *" autocomplete="off"
-                                    style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; font-family:inherit;"
-                                    oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
-                                <i class="material-icons"
-                                    style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:default;"
-                                    onclick="document.getElementById('frenteSearch').focus()">arrow_drop_down</i>
-                            </div>
-                            <input type="hidden" name="id_frente" id="idFrenteHidden" value="{{ old('id_frente') }}">
-                            <div id="frenteDropdown"
-                                style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #cbd5e0; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,.12); z-index:200; max-height:240px; overflow-y:auto; margin-top:4px;">
                             </div>
                         </div>
                     </div>
@@ -387,14 +387,8 @@
                 </table>
             </div>
 
-            <button type="button"
-                style="background:none; border:2px dashed #cbd5e0; color:#64748b; width:100%; padding:10px;
-                                                           border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; display:flex;
-                                                           align-items:center; justify-content:center; gap:6px; transition:all .2s; margin-top:10px;"
-                onmouseover="this.style.borderColor='#0067b1'; this.style.color='#0067b1';"
-                onmouseout="this.style.borderColor='#cbd5e0'; this.style.color='#64748b';" onclick="agregarFila()">
-                <i class="material-icons" style="font-size:18px;">add</i> Agregar Fila
-            </button>
+            {{-- El botón "Agregar Fila" se eliminó: ahora la fila se agrega sola al escribir
+                 en la última (auto-row en initCargarConsumibles). --}}
         </div>
 
         {{-- ACCIONES. "Guardar Lote" solo visible con permiso super.admin
@@ -760,11 +754,28 @@
         }
 
 
-        // ── Inicio: 5 filas vacías ────────────────────────────────────────
+        // ── Inicio: 5 filas vacías + auto-agregado de fila ────────────────
         function initCargarConsumibles() {
             var tabla = document.getElementById('cuerpoTabla');
-            if (tabla && tabla.children.length === 0) {
+            if (!tabla) return;
+            if (tabla.children.length === 0) {
                 for (var i = 0; i < 5; i++) agregarFila();
+            }
+            // Auto-agregar fila: al escribir en la ÚLTIMA fila aparece otra vacía debajo
+            // (estilo hoja de cálculo) — por eso ya no hace falta el botón "Agregar Fila".
+            // Delegado en el tbody (sobrevive al alta/baja de filas); guard para no duplicar
+            // el listener si init corre de nuevo (navegación SPA).
+            if (!tabla._autoRowBound) {
+                tabla._autoRowBound = true;
+                tabla.addEventListener('input', function (e) {
+                    var fila = e.target.closest('tr');
+                    if (!fila || fila !== tabla.lastElementChild) return;
+                    var algunDato = Array.prototype.some.call(
+                        fila.querySelectorAll('input'),
+                        function (inp) { return inp.value.trim() !== ''; }
+                    );
+                    if (algunDato) window.agregarFila();
+                });
             }
         }
 

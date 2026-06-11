@@ -202,13 +202,19 @@
     color: var(--maquinaria-blue);
 }
 
-/* Grupo DESPLEGADO (telefono): plano y limpio — sin tarjeta, sin bordes, sin
-   líneas ni sombras. Solo el padre en azul y los sub-botones visibles. */
+/* Grupo DESPLEGADO (telefono): la lista de sub-módulos se muestra sobre un panel
+   gris suave (a pedido del cliente) para distinguirla del resto del menú; el
+   título padre queda en azul. */
 .mobile-nav-group.active .mobile-nav-group-title {
     color: var(--maquinaria-blue);
 }
 .mobile-nav-group.active .mobile-nav-group-content {
     display: flex;
+    /* Gris suave visible sobre el panel blanco del menú (#f1f5f9 quedaba casi
+       idéntico al blanco; #e2e8f0 resultaba algo marcado). */
+    background: #e8edf2;
+    border-radius: 10px;
+    margin-top: 2px;
 }
 
 .mobile-nav-group-title i.chevron {

@@ -24,9 +24,9 @@
             @endphp
 
             @for ($i = $start; $i <= $end; $i++)
-                {{-- pag-far: en teléfono solo se muestran los números cercanos (actual ±1);
+                {{-- pag-far: en teléfono solo se muestran los números cercanos (actual ±2);
                      el resto se oculta vía CSS para que el paginador no desborde la pantalla. --}}
-                @php $esFar = abs($i - $paginator->currentPage()) > 1; @endphp
+                @php $esFar = abs($i - $paginator->currentPage()) > 2; @endphp
                 @if ($i == $paginator->currentPage())
                     <li class="pag-num">
                         <span style="display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;">

@@ -697,7 +697,11 @@ body {
 }
 
 .modal-overlay-front {
-    z-index: 3000 !important;
+    /* Visor de PDF (#pdfPreviewModal, único que usa esta clase). Va por ENCIMA del modal
+       de detalles —que uicomponents.js sube a z-index:10000 para tapar el panel de
+       alertas (9500)— así el PDF abierto DESDE detalles queda al frente y no detrás.
+       Sigue por debajo de standardModal (1000001), que debe poder taparlo. */
+    z-index: 10001 !important;
 }
 
 .modal-overlay.active {

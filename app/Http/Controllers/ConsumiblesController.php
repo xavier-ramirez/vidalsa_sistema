@@ -422,7 +422,7 @@ class ConsumiblesController extends Controller
                     'consumibles.TIPO_CONSUMIBLE'
                 )
                 ->orderBy('total', 'desc')
-                ->limit(15)
+                ->limit(20)
                 ->get();
 
             // ── 3. Resumen general (tarjetas) — TODOS los registros ──────────────────

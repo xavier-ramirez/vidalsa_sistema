@@ -448,12 +448,20 @@ async function loadFleetDashboardData(frenteId) {
         const data = await response.json();
 
         if (!data || data.success === false) {
-            throw new Error(data.message || 'El servidor devolvi├│ un error');
+            throw new Error(data.message || 'El servidor devolvió un error');
         }
 
         // Render inmediato de lo que NO requiere Chart (stats numericos y panel lateral)
         updateStatCards(data.stats);
-        renderFleetEquiposAsignados(data.equiposPorFrente || []);
+        
+        // Mostrar 'Equipos Asignados por Frente' SOLO si se seleccionan 'Todos'
+        const panelAssigned = document.getElementById('fdm-panel-assigned');
+        if (!frenteId || frenteId === 'all') {
+            if (panelAssigned) panelAssigned.style.display = 'block';
+            renderFleetEquiposAsignados(data.equiposPorFrente || []);
+        } else {
+            if (panelAssigned) panelAssigned.style.display = 'none';
+        }
 
         // Esperar Chart.js si aun se esta bajando (carga paralela disparada en openFleetDashboard)
         if (window._fleetChartReady) {

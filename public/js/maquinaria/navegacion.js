@@ -289,10 +289,14 @@ document.addEventListener('DOMContentLoaded', () => {
             _hidePreloaderRespectingMinTime();
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            // Cerrar menú mobile si está abierto
+            // Cerrar menú mobile si está abierto. Además colapsar los grupos (Flota,
+            // Almacén…): sin esto, al navegar desde un módulo de la lista el menú se
+            // cerraba pero el grupo quedaba desplegado y reaparecía abierto al reabrir.
+            // Reusamos _mobileNavCollapseAll (definido en el layout) para no duplicar.
             const mobileMenu = document.getElementById('mobileMenu');
             if (mobileMenu && mobileMenu.classList.contains('active')) {
                 mobileMenu.classList.remove('active');
+                if (typeof window._mobileNavCollapseAll === 'function') window._mobileNavCollapseAll();
             }
 
         } catch (error) {
