@@ -998,7 +998,7 @@
             </div>
 
             {{-- Filtros: select Tipo + rango de fechas --}}
-            <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;background:#fff;padding:4px 0;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:15px;flex-wrap:wrap;background:#fff;padding:4px 0;">
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Tipo:</span>
                     <select id="almKpTipoSelect" onchange="window.almKpChipSelect(this.value)"
@@ -1013,13 +1013,21 @@
                 <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:280px;">
                     <span style="font-size:10.5px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;">Fechas:</span>
                     <div style="display:flex;align-items:center;gap:4px;flex-wrap:nowrap;">
-                        <input type="date" id="almKpDesde" onchange="window.almKpCargar()"
-                               onclick="try{this.showPicker();}catch(e){}"
-                               style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;cursor:pointer;">
+                        {{-- Wrapper clickable: cualquier click en la caja abre el calendario
+                             (focus()+showPicker(), mismo patrón que la fecha de la Nota de
+                             Entrega). Antes el onclick iba en el input sin focus() → solo abría
+                             al tocar el ícono nativo. --}}
+                        <div style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
+                             onclick="var i=document.getElementById('almKpDesde'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
+                            <input type="date" id="almKpDesde" onchange="window.almKpCargar()"
+                                   style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">
+                        </div>
                         <span style="color:#94a3b8;font-size:14px;">→</span>
-                        <input type="date" id="almKpHasta" onchange="window.almKpCargar()"
-                               onclick="try{this.showPicker();}catch(e){}"
-                               style="height:30px;padding:0 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#334155;cursor:pointer;">
+                        <div style="display:flex;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:6px;height:30px;overflow:hidden;cursor:pointer;"
+                             onclick="var i=document.getElementById('almKpHasta'); if(i){ i.focus(); if(i.showPicker){ try{ i.showPicker(); }catch(e){} } }">
+                            <input type="date" id="almKpHasta" onchange="window.almKpCargar()"
+                                   style="flex:1;width:auto;min-width:0;height:28px;padding:0 6px;border:none;background:transparent;font-size:12px;color:#334155;outline:none;cursor:pointer;">
+                        </div>
                     </div>
                     <button type="button" onclick="window.almKpLimpiar()" style="background:transparent;border:none;color:#64748b;font-size:11px;font-weight:700;text-decoration:underline;cursor:pointer;margin-left:auto;white-space:nowrap;">Limpiar</button>
                 </div>
@@ -1959,8 +1967,10 @@
         // vistosNom: dedupe por nombre normalizado — una sola entrada por descripcion.
         var vistosNom = {};
         if (tokens.length === 0) {
-            // Sin termino → primeras 12 descripciones DISTINTAS del catalogo (orden del backend).
-            for (var i = 0; i < lista.length && matches.length < 12; i++) {
+            // Sin termino → TODAS las descripciones DISTINTAS del catalogo (orden del backend).
+            // La lista hace scroll (.alm-suggest max-height:260px); el usuario quiere ver el
+            // catalogo completo de una vez al abrir el filtro, no solo las primeras.
+            for (var i = 0; i < lista.length; i++) {
                 var kI = almNorm(lista[i].NOMBRE || '');
                 if (vistosNom[kI]) continue;
                 // Con categoría activa, SOLO descripciones cuyo grupo tiene alguna presentación
@@ -1999,8 +2009,8 @@
                 if (b.score !== a.score) return b.score - a.score;
                 return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
             });
-            // 12 descripciones DISTINTAS, mejor-scoreadas primero (dedupe por nombre).
-            for (var s = 0; s < scored.length && matches.length < 12; s++) {
+            // TODAS las descripciones DISTINTAS que matchean, mejor-scoreadas primero (dedupe por nombre).
+            for (var s = 0; s < scored.length; s++) {
                 var kS = almNorm(scored[s].p.NOMBRE || '');
                 if (vistosNom[kS]) continue;
                 // Con categoría activa, SOLO descripciones de esa categoría (ver nota arriba).

@@ -15,8 +15,8 @@ class MovilizacionController extends Controller
         $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
         // Permiso para MOVER equipos (Crear movilizaciones o registrar recepcion directa sin despacho previo)
         $this->middleware('can:equipos.assign')->only(['create', 'store', 'bulkStore', 'recepcionDirecta']);
-        // Borrar movilizaciones es destructivo: solo super.admin (consistente con el modulo de equipos).
-        $this->middleware('can:super.admin')->only(['destroy', 'bulkDestroy']);
+        // Borrar/deshacer movilizaciones es destructivo: solo super.admin (consistente con el modulo de equipos).
+        $this->middleware('can:super.admin')->only(['destroy', 'bulkDestroy', 'deshacer']);
     }
 
     public function index(Request $request)
@@ -1104,6 +1104,52 @@ class MovilizacionController extends Controller
         } catch (\Exception $e) {
             Log::error('destroy movilizacion error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'No se pudo eliminar el registro.'], 500);
+        }
+    }
+
+    /**
+     * Deshacer una movilización: devuelve el equipo (o auxiliar) a su frente de ORIGEN y borra
+     * el registro — "como si nunca hubiera ocurrido". super.admin (gateado en __construct).
+     *
+     * Guarda de seguridad: solo se permite si el equipo SIGUE en el frente DESTINO de ESTA
+     * movilización. Si ya fue movilizado de nuevo después, deshacer esta (vieja) lo dejaría en
+     * un frente equivocado → se rechaza y se pide deshacer primero la más reciente.
+     */
+    public function deshacer($id)
+    {
+        DB::beginTransaction();
+        try {
+            $mov = Movilizacion::lockForUpdate()->findOrFail($id);
+
+            if ($mov->ID_EQUIPO) {
+                $equipo = \App\Models\Equipo::lockForUpdate()->find($mov->ID_EQUIPO);
+                if ($equipo) {
+                    if ((int) $equipo->ID_FRENTE_ACTUAL !== (int) $mov->ID_FRENTE_DESTINO) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'No se puede deshacer: el equipo ya fue movilizado a otro frente después de esta. Deshaz primero la movilización más reciente.'], 422);
+                    }
+                    $equipo->update(['ID_FRENTE_ACTUAL' => $mov->ID_FRENTE_ORIGEN]);
+                }
+            } elseif ($mov->ID_AUXILIAR) {
+                $aux = \App\Models\EquipoAuxiliar::lockForUpdate()->find($mov->ID_AUXILIAR);
+                if ($aux) {
+                    if ((int) $aux->ID_FRENTE_ACTUAL !== (int) $mov->ID_FRENTE_DESTINO) {
+                        DB::rollBack();
+                        return response()->json(['success' => false, 'message' => 'No se puede deshacer: el auxiliar ya fue movilizado a otro frente después de esta.'], 422);
+                    }
+                    $aux->update(['ID_FRENTE_ACTUAL' => $mov->ID_FRENTE_ORIGEN]);
+                }
+            }
+
+            // Borrado DURO (Movilizacion no usa SoftDeletes) → no deja rastro.
+            $mov->delete();
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Movilización deshecha: el equipo volvió a su frente de origen.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('deshacer movilizacion error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'No se pudo deshacer la movilización.'], 500);
         }
     }
 

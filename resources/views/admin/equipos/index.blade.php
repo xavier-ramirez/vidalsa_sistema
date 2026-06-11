@@ -133,14 +133,14 @@
                     <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
                         <div class="dropdown-item {{ !$currentFrenteId || $currentFrenteId == 'all' ? 'selected' : '' }}"
                              data-value="all"
-                             onclick="selectOption('frenteFilterSelect', 'all', '{{ $isLocalUser ? 'Todos Mis Frentes' : 'TODOS LOS FRENTES' }}'); loadEquipos();">
+                             onclick="selectOption('frenteFilterSelect', 'all', '{{ $isLocalUser ? 'Todos Mis Frentes' : 'TODOS LOS FRENTES' }}'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();">
                             {{ $isLocalUser ? 'TODOS MIS FRENTES' : 'TODOS LOS FRENTES' }}
                         </div>
                         {{-- Sentinel "none": filtra equipos sin ID_FRENTE_ACTUAL en BD --}}
                         @if(!$isLocalUser)
                         <div class="dropdown-item {{ $currentFrenteId == 'none' ? 'selected' : '' }}"
                              data-value="none"
-                             onclick="selectOption('frenteFilterSelect', 'none', 'SIN ASIGNAR'); loadEquipos();"
+                             onclick="selectOption('frenteFilterSelect', 'none', 'SIN ASIGNAR'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();"
                              style="font-style: italic; color: #94a3b8;">
                             SIN ASIGNAR
                         </div>
@@ -148,7 +148,7 @@
                         @foreach($frentesDropdown as $frente)
                             <div class="dropdown-item {{ $currentFrenteId == $frente->ID_FRENTE ? 'selected' : '' }}"
                                  data-value="{{ $frente->ID_FRENTE }}"
-                                 onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); loadEquipos();">
+                                 onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); window.eqSyncTiposFrente && window.eqSyncTiposFrente(); loadEquipos();">
                                 {{ $frente->NOMBRE_FRENTE }}
                             </div>
                         @endforeach
@@ -195,6 +195,51 @@
                 </div>
             </div>
         </div>
+
+        {{-- Filtro Tipo dependiente del Frente: al elegir un frente, el dropdown de Tipo
+             muestra SOLO los tipos presentes en ese frente (mapa provisto por el backend).
+             Va inline porque la SPA re-ejecuta los <script> del contenido al navegar. --}}
+        <script>
+            window.EQ_TIPOS_POR_FRENTE = @json($tiposPorFrente ?? []);
+
+            // Muestra/oculta las opciones del filtro Tipo según el frente seleccionado.
+            // Frente = 'all' → todos los tipos. Frente concreto (o 'none') → solo sus tipos.
+            // Si el tipo elegido deja de ser válido para el frente, se resetea a "TODOS".
+            window.eqSyncTiposFrente = function () {
+                var fInput = document.querySelector('#frenteFilterSelect input[name="id_frente"]');
+                var frente = fInput && fInput.value ? fInput.value : 'all';
+                var map = window.EQ_TIPOS_POR_FRENTE || {};
+                // permitidos = null → sin restricción (mostrar todos los tipos).
+                var permitidos = (frente && frente !== 'all') ? (map[frente] || []) : null;
+
+                var cont = document.querySelector('#tipoFilterSelect .dropdown-item-list');
+                if (!cont) return;
+                cont.querySelectorAll('.dropdown-item[data-value]').forEach(function (it) {
+                    var v = it.getAttribute('data-value');
+                    if (v === 'all') { it.style.display = ''; it.classList.remove('eq-tipo-oculto'); return; } // "TODOS LOS TIPOS" siempre visible
+                    var ok = (permitidos === null) || (permitidos.indexOf(parseInt(v, 10)) !== -1);
+                    // La clase 'eq-tipo-oculto' marca los tipos que NO son del frente: el buscador
+                    // interno del dropdown (filterDropdownOptions) la respeta y NO los re-muestra
+                    // aunque coincidan con el texto buscado (antes los re-mostraba con !important).
+                    it.classList.toggle('eq-tipo-oculto', !ok);
+                    it.style.setProperty('display', ok ? '' : 'none', ok ? '' : 'important');
+                });
+
+                // Resetear el Tipo si el seleccionado ya no pertenece al frente.
+                if (permitidos !== null) {
+                    var tInput = document.querySelector('#tipoFilterSelect input[name="id_tipo"]');
+                    var cur = tInput ? tInput.value : '';
+                    if (cur && cur !== 'all' && permitidos.indexOf(parseInt(cur, 10)) === -1
+                        && typeof selectOption === 'function') {
+                        selectOption('tipoFilterSelect', 'all', 'TODOS LOS TIPOS');
+                    }
+                }
+            };
+
+            // Init: aplica el filtrado según el frente activo al cargar la página (incluye
+            // el caso de llegar por URL con ?id_frente=NN ya seleccionado).
+            window.eqSyncTiposFrente();
+        </script>
 
         <!-- Search Filter / Seriales + Advanced Filter Button -->
         <div class="filter-item aligned-filter" style="display: flex; gap: 10px;">

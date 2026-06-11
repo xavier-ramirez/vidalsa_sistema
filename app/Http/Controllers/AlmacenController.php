@@ -423,12 +423,14 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Consolidado del almacén seleccionado.
-     *   total / con_saldo → SÍ respetan los filtros activos (reflejan lo que muestra la tabla).
-     *   stock_bajo / unidades → indicadores del ALMACÉN COMPLETO, NO se acotan por filtros.
-     * La alerta "Stock bajo" debe reflejar SIEMPRE cuántos productos del almacén están bajo
-     * mínimo, se filtre o no la tabla — si dependiera de la búsqueda, al buscar algo que no
-     * está bajo mínimo la alerta caía a 0 y parecía (falsamente) que no había riesgo.
+     * Consolidado de Inventario del almacén seleccionado — SIEMPRE del almacén COMPLETO,
+     * NO se acota por los filtros de la tabla (búsqueda/categoría). El sidebar es un
+     * resumen del almacén, no del subconjunto filtrado: si dependiera del filtro, al
+     * buscar algo puntual los tres KPIs caían a 0 mientras la alerta de stock bajo seguía
+     * marcando 1 → incoherente. La TABLA sí se filtra; el Consolidado no.
+     *
+     * `$request` se mantiene en la firma (lo pasan los llamadores) pero ya no se usa:
+     * el consolidado es deliberadamente independiente de los filtros.
      */
     private function statsInventario(?int $idAlmacen, Request $request): array
     {
@@ -436,28 +438,29 @@ class AlmacenController extends Controller
             return ['total' => 0, 'con_saldo' => 0, 'stock_bajo' => 0, 'unidades' => 0.0];
         }
 
-        // total + con_saldo: acotados por los filtros (un solo query con agregación
-        // condicional). con_saldo → CANTIDAD > 0.
-        $row = $this->inventarioBaseQuery($idAlmacen, $request)
+        // Un SOLO query sobre los productos ACTIVOS con stock en este almacén (SIN filtros):
+        //   total      → productos con fila de stock en el almacén
+        //   con_saldo  → CANTIDAD > 0
+        //   stock_bajo → tiene mínimo definido y CANTIDAD <= mínimo
+        //   unidades   → suma física de existencias
+        $row = ProductoInventario::query()->activos()
+            ->join('almacen_stock', function ($j) use ($idAlmacen) {
+                $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO')
+                  ->where('almacen_stock.ID_ALMACEN', '=', $idAlmacen);
+            })
             ->select(
-                DB::raw('COUNT(productos_inventario.ID_PRODUCTO) as total'),
-                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo')
+                DB::raw('COUNT(*) as total'),
+                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo'),
+                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD_MINIMA IS NOT NULL AND almacen_stock.CANTIDAD <= almacen_stock.CANTIDAD_MINIMA THEN 1 ELSE 0 END) as stock_bajo'),
+                DB::raw('COALESCE(SUM(almacen_stock.CANTIDAD), 0) as unidades')
             )
             ->first();
-
-        // unidades + stock_bajo: GLOBALES del almacén (SIN filtros) — SUM/COUNT directos
-        // sobre almacen_stock. stock_bajo = productos con mínimo definido y CANTIDAD <= mínimo.
-        $unidades  = (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)->sum('CANTIDAD');
-        $stockBajo = (int) AlmacenStock::where('ID_ALMACEN', $idAlmacen)
-            ->whereNotNull('CANTIDAD_MINIMA')
-            ->whereColumn('CANTIDAD', '<=', 'CANTIDAD_MINIMA')
-            ->count();
 
         return [
             'total'      => (int) ($row->total ?? 0),
             'con_saldo'  => (int) ($row->con_saldo ?? 0),
-            'stock_bajo' => $stockBajo,
-            'unidades'   => $unidades,
+            'stock_bajo' => (int) ($row->stock_bajo ?? 0),
+            'unidades'   => (float) ($row->unidades ?? 0),
         ];
     }
 
@@ -1273,12 +1276,13 @@ class AlmacenController extends Controller
      * Estructura del archivo (sigue el patrón de /admin/equipos):
      *  Fila 1-3 : logo (A1:B3) · título "COPIA DE INVENTARIO – <ALMACÉN>" (C1:E3) · EDICION/REV/FECHA (F1:..3)
      *  Fila 4   : "Exportado por: Sistema de Gestión …"
-     *  Fila 5   : headers   [N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, MÍNIMO, <stock por almacén visible>, TOTAL]
+     *  Fila 5   : headers   [N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, STOCK (por almacén visible), TOTAL]
      *  Fila 6+  : datos
      *
      * Si el usuario filtró un almacén, sólo se exporta la columna de stock de ESE almacén
-     * (sin TOTAL — el saldo es el mismo). Si no hay filtro, se exporta una columna por
+     * (sin TOTAL — el saldo es el mismo). Si no hay filtro, se exporta una columna STOCK por
      * cada almacén visible al usuario más una columna TOTAL a la derecha.
+     * Solo se incluyen productos con saldo total > 0 (los de stock 0 o negativo se omiten).
      */
     public function export(Request $request)
     {
@@ -1335,8 +1339,8 @@ class AlmacenController extends Controller
         foreach ($stocks as $s) {
             $stockMap[$s->ID_PRODUCTO][$s->ID_ALMACEN] = (float) $s->CANTIDAD;
             // El mínimo se toma del primer almacén que lo tenga (cada par producto/almacén
-            // tiene su mínimo; en la exportación mostramos el del almacén seleccionado o
-            // el primero encontrado en la vista global).
+            // tiene su mínimo). Ya NO se exporta como columna; solo se usa para resaltar en
+            // amarillo las filas cuyo saldo total quede en o por debajo del mínimo.
             if (!isset($minimoMap[$s->ID_PRODUCTO]) && $s->CANTIDAD_MINIMA !== null) {
                 $minimoMap[$s->ID_PRODUCTO] = (float) $s->CANTIDAD_MINIMA;
             }
@@ -1355,18 +1359,18 @@ class AlmacenController extends Controller
             ->setCompany('Constructora Vidalsa 27, C.A.');
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        // Layout: las primeras 6 columnas fijas (A..F = N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, MÍNIMO),
+        // Layout: las primeras 5 columnas fijas (A..E = N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA),
         // luego N columnas para los stocks por almacén, y si hay >1 almacén una columna TOTAL al final.
         // Usamos Coordinate::stringFromColumnIndex (1-indexed) en vez de range('A','Z') para no
         // quedarnos cortos si algún día hay >20 almacenes visibles (a partir de la 21 vendría AA, AB…).
         $col = fn (int $idx1) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx1);
-        $fixedCols = array_map($col, range(1, 6));            // A..F
+        $fixedCols = array_map($col, range(1, 5));            // A..E
         $almCount  = $almacenesEnExport->count();
-        // Guard: range(7, 6) en PHP devuelve [7,6] (descendente). Si por algún motivo almCount=0,
-        // stockCols debe quedar vacío en vez de ['G','F'].
-        $stockCols = $almCount > 0 ? array_map($col, range(7, 6 + $almCount)) : [];
-        $totalCol  = $almCount > 1 ? $col(7 + $almCount) : null;
-        $lastCol   = $totalCol ?: ($stockCols ? end($stockCols) : 'F');
+        // Guard: range(6, 5) en PHP devuelve [6,5] (descendente). Si por algún motivo almCount=0,
+        // stockCols debe quedar vacío en vez de ['F','E'].
+        $stockCols = $almCount > 0 ? array_map($col, range(6, 5 + $almCount)) : [];
+        $totalCol  = $almCount > 1 ? $col(6 + $almCount) : null;
+        $lastCol   = $totalCol ?: ($stockCols ? end($stockCols) : 'E');
 
         // ── Encabezado: logo + título + meta ───────────────────────────────────
         $sheet->mergeCells('A1:B3');
@@ -1426,11 +1430,11 @@ class AlmacenController extends Controller
             ->getColor()->setARGB('FF000000');
 
         // ── Fila 5 — encabezados de tabla ──────────────────────────────────────
-        $headers = ['N°', 'CÓDIGO', 'DESCRIPCIÓN DEL PRODUCTO', 'UND', 'CATEGORÍA', 'MÍNIMO'];
-        foreach ($almacenesEnExport as $a) {
-            $sufijo = $a->TIPO === 'GENERAL' ? ' (Principal)' : ' (Proyecto)';
-            $headers[] = mb_strtoupper($a->NOMBRE) . $sufijo;
-        }
+        $headers = ['N°', 'CÓDIGO', 'DESCRIPCIÓN DEL PRODUCTO', 'UND', 'CATEGORÍA'];
+        // Cada columna de stock por almacén se titula simplemente "STOCK" (a pedido del
+        // cliente). En la vista global se repite el encabezado por cada almacén; el TOTAL
+        // al final consolida el saldo.
+        $headers = array_merge($headers, array_fill(0, $almCount, 'STOCK'));
         if ($totalCol) $headers[] = 'TOTAL';
 
         $colMap = array_merge($fixedCols, $stockCols, $totalCol ? [$totalCol] : []);
@@ -1450,7 +1454,6 @@ class AlmacenController extends Controller
         $sheet->getColumnDimension('C')->setWidth(45);
         $sheet->getColumnDimension('D')->setWidth(8);
         $sheet->getColumnDimension('E')->setWidth(22);
-        $sheet->getColumnDimension('F')->setWidth(10);
         foreach ($stockCols as $col) $sheet->getColumnDimension($col)->setWidth(18);
         if ($totalCol) $sheet->getColumnDimension($totalCol)->setWidth(12);
 
@@ -1466,11 +1469,13 @@ class AlmacenController extends Controller
                 $total += $v;
             }
 
-            // NO se filtra por stock aquí: la lista `$productos` ya es EXACTAMENTE la
-            // que muestra la tabla (la decidió inventarioBaseQuery con TODOS los filtros
-            // activos: almacén, búsqueda, categoría, stock bajo/con saldo, selección).
-            // Re-filtrar por total==0 borraba filas que SÍ se ven en pantalla (productos
-            // con saldo 0 pero fila de stock) → "exporto lo que veo" quedaba roto.
+            // Solo se exportan productos con saldo positivo: si el stock total es 0 o
+            // negativo, la fila se omite (a pedido del cliente). El mínimo se sigue
+            // calculando para resaltar las filas bajo mínimo, aunque su columna ya no
+            // se muestre en el archivo.
+            if ($total <= 0) {
+                continue;
+            }
 
             $minimo = $minimoMap[$p->ID_PRODUCTO] ?? null;
 
@@ -1479,7 +1484,6 @@ class AlmacenController extends Controller
             $sheet->setCellValue('C' . $rowNum, $p->NOMBRE ?? '');
             $sheet->setCellValue('D' . $rowNum, $p->UM ?? '');
             $sheet->setCellValue('E' . $rowNum, $p->CATEGORIA ?? '');
-            $sheet->setCellValue('F' . $rowNum, $minimo);
 
             foreach ($stocksFila as $i => $v) {
                 $sheet->setCellValue($stockCols[$i] . $rowNum, $v);
@@ -1516,7 +1520,7 @@ class AlmacenController extends Controller
                 $sheet->getStyle($c . '6:' . $c . $ultimaFila)->getAlignment()
                     ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             }
-            foreach (array_merge(['F'], $stockCols, $totalCol ? [$totalCol] : []) as $c) {
+            foreach (array_merge($stockCols, $totalCol ? [$totalCol] : []) as $c) {
                 $sheet->getStyle($c . '6:' . $c . $ultimaFila)->getAlignment()
                     ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
             }
@@ -2425,6 +2429,35 @@ class AlmacenController extends Controller
         $msg = $r['eliminados'] > 1
             ? "Movimiento deshecho ({$r['eliminados']} filas del traspaso) y stock recalculado."
             : 'Movimiento deshecho y stock recalculado.';
+
+        return response()->json(['message' => $msg, 'eliminados' => $r['eliminados']]);
+    }
+
+    /**
+     * Elimina un movimiento SOLO del historial — EXCLUSIVO super.admin (gate `can:super.admin`
+     * en la ruta). A diferencia de eliminarMovimiento() (que deshace y recalcula el stock),
+     * este NO toca el stock: el saldo de almacen_stock queda igual y solo desaparece la fila
+     * del kardex (más su contraparte si es traspaso). Irreversible.
+     */
+    public function eliminarMovimientoSoloHistorial(Request $request, int $id)
+    {
+        $mov = MovimientoInventario::find($id);
+        if (! $mov) {
+            return response()->json(['message' => 'El movimiento no existe o ya fue eliminado.'], 404);
+        }
+        // Mismo control de visibilidad que el deshacer: el almacén del movimiento debe ser
+        // visible para el usuario (un super.admin GLOBAL los ve todos).
+        $this->assertPuedeVerAlmacen($request, (int) $mov->ID_ALMACEN);
+
+        try {
+            $r = $this->inventario->eliminarMovimientoSinReverso($id);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $msg = $r['eliminados'] > 1
+            ? "Registro eliminado del historial ({$r['eliminados']} filas del traspaso). El stock NO se modificó."
+            : 'Registro eliminado del historial. El stock NO se modificó.';
 
         return response()->json(['message' => $msg, 'eliminados' => $r['eliminados']]);
     }

@@ -14,11 +14,15 @@
         @csrf
         @method('PUT')
 
+        {{-- Listado al que volver con sus filtros (frente/búsqueda) al Cancelar o Guardar.
+             Lo provee el controlador ($returnUrl, saneado contra open-redirect); el lápiz
+             del modal de detalles lo manda como ?return=…. Sin esto la tabla volvía vacía. --}}
+        <input type="hidden" name="return_url" value="{{ $returnUrl ?? route('equipos.index') }}">
 
         @include('admin.equipos.partials.form_fields')
 
         <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center;">
-            <a href="{{ route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">
+            <a href="{{ $returnUrl ?? route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria"

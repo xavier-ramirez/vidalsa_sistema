@@ -109,6 +109,10 @@ Route::middleware(['auth'])->group(function () {
             // real lo hace equipos/bulk-mobilize al confirmar en la vista previa.
             Route::post('movilizaciones/preview-acta', [App\Http\Controllers\MovilizacionController::class, 'previewActaLote'])->name('movilizaciones.previewActa');
             Route::post('movilizaciones/preview-acta-meta', [App\Http\Controllers\MovilizacionController::class, 'previewActaMeta'])->name('movilizaciones.previewActaMeta');
+            // Deshacer una movilización: devuelve el equipo/auxiliar a su frente de ORIGEN y borra
+            // el registro (como si nunca hubiera ocurrido). Destructivo → super.admin (gateado
+            // también en el constructor del controlador).
+            Route::post('movilizaciones/{id}/deshacer', [App\Http\Controllers\MovilizacionController::class, 'deshacer'])->name('movilizaciones.deshacer');
             // Resource route al final para que sus wildcards no capturen las rutas estáticas de arriba
             Route::resource('movilizaciones', App\Http\Controllers\MovilizacionController::class);
 
@@ -258,6 +262,10 @@ Route::middleware(['auth'])->group(function () {
             // kardex quede coherente (como si nunca hubiera ocurrido). En traspasos deshace
             // AMBAS patas del par. Irreversible — por eso va tras el gate can:super.admin.
             Route::delete('almacen/movimientos/{id}',             [App\Http\Controllers\AlmacenController::class, 'eliminarMovimiento'])->whereNumber('id')->middleware('can:super.admin')->name('almacen.movimientos.destroy');
+            // ELIMINAR solo del historial — EXCLUSIVO super.admin. Igual que el destroy de
+            // arriba PERO sin tocar el stock: borra la fila (y su contraparte de traspaso)
+            // del kardex y NO revierte ni recalcula el saldo. Irreversible.
+            Route::delete('almacen/movimientos/{id}/solo-historial', [App\Http\Controllers\AlmacenController::class, 'eliminarMovimientoSoloHistorial'])->whereNumber('id')->middleware('can:super.admin')->name('almacen.movimientos.destroyHistorial');
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 
             // Productos (catálogo global)

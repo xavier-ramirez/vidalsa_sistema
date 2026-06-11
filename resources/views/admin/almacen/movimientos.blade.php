@@ -151,6 +151,25 @@
     .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-undo { opacity:.5; }
     .alm-mov-undo:hover { opacity:1; background:#fee2e2; color:#dc2626; }
     .alm-mov-undo:disabled { cursor:default; opacity:.5; }
+    /* Botón "eliminar SOLO del historial" — mismo patrón casi-invisible que el de
+       deshacer, pero anclado a su IZQUIERDA (right:26px) y en tono ámbar al hover
+       (no rojo) para distinguir la acción: borra el rastro pero NO revierte el stock.
+       Ancla a la celda Ref (td.mv-td-ref ya es position:relative, declarado arriba). */
+    .alm-mov-purge {
+        position:absolute; top:3px; right:26px;
+        width:20px; height:20px; padding:0; margin:0;
+        display:inline-flex; align-items:center; justify-content:center;
+        border:none; border-radius:5px; background:transparent;
+        color:#cbd5e1; cursor:pointer; opacity:.08;
+        transition:opacity .15s ease, background .15s ease, color .15s ease;
+    }
+    .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-purge { opacity:.5; }
+    .alm-mov-purge:hover { opacity:1; background:#fef3c7; color:#d97706; }
+    .alm-mov-purge:disabled { cursor:default; opacity:.5; }
+    /* Observación del lote (NOTAS): en desktop NO va inline en la columna Ref —
+       aparece en la burbuja de hover de la fila (junto al usuario que registró).
+       En móvil (sin hover) se re-muestra dentro de la tarjeta Ref (media query). */
+    .mv-notas-inline { display:none; }
     /* Chip de conteo: visible en todos los viewports. Antes solo aparecia en mobile
        (el desktop dependia del big-counter del sidebar) — el cliente pidio tener
        el conteo siempre a la vista en la parte superior del modulo. */
@@ -451,6 +470,12 @@
             white-space: normal !important;
             font-style: italic !important;
         }
+        /* La observación inline (.mv-notas-inline) se oculta en desktop, pero en la
+           tarjeta móvil (sin hover) debe volver a verse dentro de la burbuja Ref. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline {
+            display: flex !important;
+            justify-content: center !important;
+        }
 
         /* Destino: spans las 2 columnas (fila 3 sola). Se renderiza como una
            BANDA gris full-width pegada al pie de la tarjeta — el fondo gris
@@ -591,7 +616,7 @@
                     <div class="custom-dropdown" id="almMovTipoDropdown" data-filter-type="tipo" data-default-label="Tipo de movimiento">
                         <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}">
                         <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid #cbd5e0;border-radius:8px;height:36px;">
-                            <span style="padding:0 8px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">swap_vert</i></span>
+                            <span style="padding:0 8px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
                             <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                                    placeholder="{{ $tipoSelLabel ?: 'Tipo de movimiento' }}"
                                    style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;"
@@ -615,7 +640,7 @@
                             min-width:0 igual que Tipo: evita el desborde del grid. --}}
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Nota de entrega</span>
                     <div style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
-                        <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">receipt_long</i></span>
+                        <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
                         <input type="text" id="almMovNota" autocomplete="off" placeholder="N° NE / ref. proveedor" value="{{ $reqNota }}"
                                oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none';"
                                onkeyup="if(event.key==='Enter') window.loadMovimientos();" onchange="window.loadMovimientos()"
@@ -1309,59 +1334,87 @@
     });
 })();
 
-// ── Deshacer movimiento (SOLO super.admin) ──────────────────────────────────
-// El botón .alm-mov-undo solo lo renderiza blade para super.admin, y la ruta DELETE
-// está además gateada con can:super.admin (defensa real, no solo ocultar el botón).
+// ── Borrar movimiento del kardex (SOLO super.admin) ─────────────────────────
+// Dos botones, ambos renderizados por blade solo para super.admin y con su ruta DELETE
+// gateada con can:super.admin (defensa real, no solo ocultar el botón):
+//   · .alm-mov-undo  (deshacer)            → revierte el stock y recalcula los saldos.
+//   · .alm-mov-purge (eliminar historial)  → borra el rastro SIN tocar el stock.
 // Confirmación con el modal estilizado de la app (window.showModal), NO el confirm()
-// nativo del navegador (que muestra la IP 127.0.0.1 y rompe el diseño). Al aceptar
-// borra el movimiento, revierte el stock y recarga la tabla. URL por fila en data-undo-url.
-window.almDeshacerMovimiento = function (btn) {
-    if (!btn || btn.disabled) return;
-    var url = btn.getAttribute('data-undo-url');
-    if (!url) return;
+// nativo del navegador (que muestra la IP 127.0.0.1 y rompe el diseño).
+    // Borrado de una fila del kardex (super.admin). Las dos variantes comparten TODA la
+    // mecánica (DELETE + toast + recarga); solo cambian la URL (atributo data-*) y los
+    // textos de confirmación:
+    //   · almDeshacerMovimiento    → revierte el stock y recalcula (data-undo-url).
+    //   · almEliminarSoloHistorial → borra el rastro SIN tocar el stock (data-purge-url).
+    function almBorrarFilaKardex(btn, opts) {
+        if (!btn || btn.disabled) return;
+        var url = btn.getAttribute(opts.urlAttr);
+        if (!url) return;
 
-    var ejecutar = function () {
-        var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        btn.disabled = true;
-        if (window.showPreloader) window.showPreloader();
-        fetch(url, {
-            method: 'DELETE',
-            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
-        })
-        .then(function (r) {
-            return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
-        })
-        .then(function (res) {
-            if (window.hidePreloader) window.hidePreloader();
-            if (!res.ok) {
-                if (window.showToast) window.showToast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+        var ejecutar = function () {
+            var CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            btn.disabled = true;
+            if (window.showPreloader) window.showPreloader();
+            fetch(url, {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+            })
+            .then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
+            })
+            .then(function (res) {
+                if (window.hidePreloader) window.hidePreloader();
+                if (!res.ok) {
+                    if (window.showToast) window.showToast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+                    btn.disabled = false;
+                    return;
+                }
+                if (window.showToast) window.showToast(res.d.message || opts.okMsg, 'success');
+                // Recargar la bitácora: la fila desaparece. En el deshacer los saldos
+                // posteriores ya vienen recalculados; en el borrado solo-historial NO
+                // (a propósito) — el stock no se tocó.
+                if (window.loadMovimientos) window.loadMovimientos();
+            })
+            .catch(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) window.showToast('No se pudo contactar al servidor.', 'error');
                 btn.disabled = false;
-                return;
-            }
-            if (window.showToast) window.showToast(res.d.message || 'Movimiento deshecho.', 'success');
-            // Recargar la bitácora: la fila desaparece y los saldos posteriores ya vienen recalculados.
-            if (window.loadMovimientos) window.loadMovimientos();
-        })
-        .catch(function () {
-            if (window.hidePreloader) window.hidePreloader();
-            if (window.showToast) window.showToast('No se pudo contactar al servidor.', 'error');
-            btn.disabled = false;
-        });
-    };
+            });
+        };
 
-    if (window.showModal) {
-        window.showModal({
-            type: 'danger',
+        if (window.showModal) {
+            window.showModal({
+                type: 'danger',
+                title: opts.title,
+                message: opts.message,
+                confirmText: opts.confirmText,
+                cancelText: 'Cancelar',
+                onConfirm: ejecutar
+            });
+        } else {
+            // Fallback defensivo si showModal no estuviera cargado.
+            if (window.confirm(opts.title + ' ' + opts.message)) ejecutar();
+        }
+    }
+
+    window.almDeshacerMovimiento = function (btn) {
+        almBorrarFilaKardex(btn, {
+            urlAttr: 'data-undo-url',
             title: '¿Deshacer este movimiento?',
             message: 'Se revertirá el stock y el movimiento.',
             confirmText: 'Deshacer',
-            cancelText: 'Cancelar',
-            onConfirm: ejecutar
+            okMsg: 'Movimiento deshecho.'
         });
-    } else {
-        // Fallback defensivo si showModal no estuviera cargado.
-        if (window.confirm('¿Deshacer este movimiento? Se revertirá el stock y el movimiento.')) ejecutar();
-    }
-};
+    };
+
+    window.almEliminarSoloHistorial = function (btn) {
+        almBorrarFilaKardex(btn, {
+            urlAttr: 'data-purge-url',
+            title: '¿Eliminar del historial?',
+            message: 'Se borrará el registro del kardex pero el STOCK NO se modificará: no se revierte la entrada/salida que sumó o restó. Irreversible.',
+            confirmText: 'Eliminar del historial',
+            okMsg: 'Registro eliminado del historial.'
+        });
+    };
 </script>
 @endsection

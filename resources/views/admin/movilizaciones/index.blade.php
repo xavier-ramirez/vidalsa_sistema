@@ -414,6 +414,39 @@ window._eliminarSeleccionados = function () {
         }
     }
 };
+
+// ── Deshacer una movilización (por fila) ──
+// Devuelve el equipo a su frente de ORIGEN y borra el registro (como si nunca ocurrió).
+window.movDeshacer = function (id) {
+    if (!id) return;
+    var msg = 'El equipo volverá a su frente de ORIGEN y este registro se borrará por completo (como si nunca hubiera ocurrido).';
+    var doIt = function () {
+        var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content;
+        var preloader = document.getElementById('preloader'); if (preloader) preloader.style.display = 'flex';
+        fetch('/admin/movilizaciones/' + id + '/deshacer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+            if (res.ok && res.b.success) {
+                if (window.showToast) window.showToast(res.b.message || 'Movilización deshecha.', 'success');
+                if (window.loadMovilizaciones) window.loadMovilizaciones(); else window.location.reload();
+            } else {
+                if (preloader) preloader.style.display = 'none';
+                if (window.showModal) window.showModal({ type: 'warning', title: 'No se pudo deshacer', message: (res.b && res.b.message) || 'Error al deshacer.', hideCancel: true });
+                else alert((res.b && res.b.message) || 'Error al deshacer.');
+            }
+        })
+        .catch(function () {
+            if (preloader) preloader.style.display = 'none';
+            alert('Error de red al deshacer la movilización.');
+        });
+    };
+    if (window.showModal) {
+        window.showModal({ type: 'danger', title: '¿Deshacer movilización?', message: msg + '<br><strong>¿Continuar?</strong>', confirmText: 'Deshacer', cancelText: 'Cancelar', onConfirm: doIt });
+    } else if (confirm(msg + '\n\n¿Continuar?')) { doIt(); }
+};
 </script>
 @endcan
 

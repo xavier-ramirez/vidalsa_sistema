@@ -97,6 +97,19 @@
             /* Force visible immediately */
         }
 
+        /* Banner de estado de red (#netStatusBanner): es position:fixed top:0 y, sin
+           esto, quedaba ENCIMA del header flotante (top:5px) tapándolo. Cuando está
+           visible (clase .net-banner-active, puesta por JS) empujamos header + contenido
+           hacia abajo su ALTURA REAL (--net-banner-h, medida por JS para soportar el
+           wrap en móvil) — así el aviso se ve completo arriba y NO tapa el header. */
+        body.net-banner-active {
+            padding-top: calc(70px + var(--net-banner-h, 0px));
+        }
+
+        body.net-banner-active .dashboard-header {
+            top: calc(5px + var(--net-banner-h, 0px));
+        }
+
         .dashboard-header {
             /* Reserve space even before CSS loads */
             height: 70px;
@@ -936,6 +949,12 @@
                     icon.textContent = iconName;
                     text.textContent = message;
                     banner.style.display = 'flex';
+                    // Empujar header + contenido hacia abajo la ALTURA REAL del banner para
+                    // que no lo tape (se re-mide en cada showBanner: el texto cambia entre
+                    // estados y en móvil puede ocupar 2 líneas). offsetHeight ya es válido
+                    // con display:flex; el transform del slide no lo afecta.
+                    document.documentElement.style.setProperty('--net-banner-h', banner.offsetHeight + 'px');
+                    document.body.classList.add('net-banner-active');
                     requestAnimationFrame(() => {
                         banner.style.transform = 'translateY(0)';
                     });
@@ -945,6 +964,10 @@
                 }
                 function hideBanner() {
                     banner.style.transform = 'translateY(-100%)';
+                    // Restaurar el layout: el header vuelve a top:5px (con su transición) y
+                    // el body a su padding normal — en sync con el slide-up del banner.
+                    document.body.classList.remove('net-banner-active');
+                    document.documentElement.style.removeProperty('--net-banner-h');
                     setTimeout(() => { banner.style.display = 'none'; }, 300);
                 }
 

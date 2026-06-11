@@ -410,7 +410,12 @@ if (!window._gpsModalScriptLoaded) {
                 }
                 return;
             }
-            var url = '/admin/equipos/' + encodeURIComponent(equipoId) + '/edit';
+            // Conservar el listado activo CON sus filtros (frente/búsqueda) para volver a
+            // él al Cancelar/Guardar — sin esto el editor regresaba a /admin/equipos pelado
+            // y la tabla salía vacía. El modal de detalles SIEMPRE se abre desde el índice,
+            // así que location.pathname+search es la URL del listado que el usuario veía.
+            var listUrl = window.location.pathname + window.location.search;
+            var url = '/admin/equipos/' + encodeURIComponent(equipoId) + '/edit?return=' + encodeURIComponent(listUrl);
             if (typeof window.closeDetailsModal === 'function') {
                 try { window.closeDetailsModal(); } catch (e) { /* noop */ }
             }

@@ -564,6 +564,19 @@ class EquipoController extends Controller
 
         $allTipos = TipoEquipo::orderBy('nombre', 'asc')->get();
 
+        // Mapa { ID_FRENTE_ACTUAL : [ID_TIPO, ...] } con los tipos de equipo presentes en
+        // cada frente. Lo usa el filtro "Tipo" para mostrar SOLO los tipos que existen en
+        // el frente seleccionado (filtro dependiente). Clave 'none' = equipos sin frente.
+        // distinct sobre (frente, tipo) → barato; respeta el soft-delete del modelo.
+        $tiposPorFrente = Equipo::query()
+            ->whereNotNull('id_tipo_equipo')
+            ->select('ID_FRENTE_ACTUAL', 'id_tipo_equipo')
+            ->distinct()
+            ->get()
+            ->groupBy(fn ($e) => $e->ID_FRENTE_ACTUAL ?: 'none')
+            ->map(fn ($g) => $g->pluck('id_tipo_equipo')->map(fn ($v) => (int) $v)->values())
+            ->toArray();
+
         // Advanced Filter Lists (Optimized with cache: Only needed for initial page load, not AJAX)
         $availableModelos = \Illuminate\Support\Facades\Cache::remember('equipos_modelos_dropdown', 3600, function () {
             return Equipo::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')->orderBy('MODELO', 'asc')->pluck('MODELO');
@@ -591,7 +604,7 @@ class EquipoController extends Controller
         $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all')
                        && !($request->filled('id_frente') && $request->id_frente !== 'all');
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableUbicaciones', 'jsonPayload', 'showFrentes'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableUbicaciones', 'jsonPayload', 'showFrentes'));
     }
 
     public function export(Request $request)
@@ -1526,9 +1539,43 @@ class EquipoController extends Controller
         return view('admin.equipos.show', compact('equipo'));
     }
 
-    public function edit($id)
+    /**
+     * URL segura para volver al listado de equipos tras Cancelar/Guardar en el editor.
+     *
+     * El editor se abre desde el modal de detalles (editEquipoFromDetails, en el partial
+     * equipment_details_modal.blade.php), que pasa `?return=<url del listado con sus filtros>`
+     * para no perder el frente/búsqueda
+     * activos — sin esto, Cancelar/Guardar caían a `/admin/equipos` pelado y la tabla salía
+     * vacía (el módulo se ve filtrado por frente).
+     *
+     * Solo se acepta si es una ruta RELATIVA (sin host) que apunta EXACTAMENTE al índice de
+     * equipos — así se evita un open-redirect. Cualquier otra cosa cae al index sin filtros.
+     */
+    private function equiposReturnUrl(?string $candidate): string
+    {
+        $fallback = route('equipos.index');
+        if (! $candidate) {
+            return $fallback;
+        }
+        // Rechazar URLs absolutas (con host): solo permitimos rutas internas.
+        if (parse_url($candidate, PHP_URL_HOST) !== null) {
+            return $fallback;
+        }
+        $path = parse_url($candidate, PHP_URL_PATH) ?: '';
+        if ($path !== '/admin/equipos') {
+            return $fallback;
+        }
+        $query = parse_url($candidate, PHP_URL_QUERY);
+        return $query ? $path . '?' . $query : $path;
+    }
+
+    public function edit(Request $request, $id)
     {
         $equipo = $this->findAndAuthorizeEquipo($id, ['frenteActual', 'especificaciones', 'documentacion', 'responsables', 'tipo']);
+
+        // Listado al que volver (con sus filtros) al Cancelar/Guardar. Lo manda el lápiz
+        // del modal de detalles como ?return=…; se sanea para evitar open-redirect.
+        $returnUrl = $this->equiposReturnUrl($request->query('return'));
 
         // Reutilizar las mismas claves de caché que create() para evitar duplicidad de datos
         $frentes = \Illuminate\Support\Facades\Cache::remember('frentes_activos_form', 3600, function () {
@@ -1556,7 +1603,7 @@ class EquipoController extends Controller
         $modelosList = [];
 
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        return view('admin.equipos.edit', compact('equipo', 'frentes', 'seguros', 'categorias', 'tipos_equipo', 'marcas', 'modelos', 'aniosList', 'modelosList'));
+        return view('admin.equipos.edit', compact('equipo', 'frentes', 'seguros', 'categorias', 'tipos_equipo', 'marcas', 'modelos', 'aniosList', 'modelosList', 'returnUrl'));
     }
 
     public function update(Request $request, $id)
@@ -1800,11 +1847,15 @@ class EquipoController extends Controller
         // antes/despues — mas rico que un registro plano. Agregar un
         // registrar() aqui generaba duplicados en equipo_audit_log.
 
+        // Volver al listado con los filtros que tenía el usuario (frente/búsqueda). El
+        // editor lleva el destino en un hidden `return_url` (saneado igual que en edit()).
+        $backUrl = $this->equiposReturnUrl($request->input('return_url'));
+
         if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.', 'redirect' => route('equipos.index')]);
+            return response()->json(['success' => true, 'message' => 'Equipo actualizado correctamente.', 'redirect' => $backUrl]);
         }
 
-        return redirect()->route('equipos.index')->with('success', 'Equipo actualizado.');
+        return redirect()->to($backUrl)->with('success', 'Equipo actualizado.');
     }
 
     public function destroy($id)

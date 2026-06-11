@@ -197,15 +197,9 @@ class InventarioService
                 throw new InvalidArgumentException("El movimiento #{$idMovimiento} no existe o ya fue eliminado.");
             }
 
-            // Reunir las filas a borrar: la propia + su contraparte de traspaso, siguiendo
-            // el enlace ID_MOVIMIENTO_RELACIONADO en AMBOS sentidos.
-            $ids = collect([(int) $mov->ID_MOVIMIENTO]);
-            if ($mov->ID_MOVIMIENTO_RELACIONADO) {
-                $ids->push((int) $mov->ID_MOVIMIENTO_RELACIONADO);
-            }
-            $ids = $ids->merge(
-                MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)->pluck('ID_MOVIMIENTO')
-            )->map(fn ($v) => (int) $v)->unique()->values();
+            // Reunir las filas a borrar: la propia + su contraparte de traspaso (helper
+            // compartido con el borrado SIN reverso, para no duplicar la lógica del enlace).
+            $ids = $this->idsMovimientoYContraparte($mov);
 
             $movs = MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->get();
 
@@ -243,6 +237,53 @@ class InventarioService
 
             return ['eliminados' => $movs->count(), 'afectados' => $afectados];
         });
+    }
+
+    /**
+     * Borra un movimiento SOLO del historial (kardex) SIN tocar el stock — el reverso de
+     * eliminarMovimientoConReverso() para el caso "depurar el registro pero NO mover el
+     * saldo". El stock de almacen_stock queda EXACTAMENTE como está; solo desaparece la
+     * fila (o el par de traspaso) del kardex. Se usa cuando el saldo físico ya es correcto
+     * y la entrada/salida NO debe revertirse, solo borrarse del historial.
+     *
+     * A diferencia del reverso: NO se recalcula CANTIDAD_ANTERIOR/RESULTANTE de los
+     * movimientos posteriores. Eso deja un "salto" en los saldos corridos del kardex —
+     * es el comportamiento PEDIDO a propósito (borrar el rastro sin alterar el stock).
+     *
+     * Irreversible: no deja registro en ninguna parte.
+     *
+     * @return array{eliminados:int}
+     */
+    public function eliminarMovimientoSinReverso(int $idMovimiento): array
+    {
+        return DB::transaction(function () use ($idMovimiento) {
+            $mov = MovimientoInventario::lockForUpdate()->find($idMovimiento);
+            if (! $mov) {
+                throw new InvalidArgumentException("El movimiento #{$idMovimiento} no existe o ya fue eliminado.");
+            }
+
+            // Mismo conjunto de filas que el reverso (la propia + su contraparte de
+            // traspaso) para no dejar media pata colgando — pero aquí NO se toca el stock.
+            $ids = $this->idsMovimientoYContraparte($mov);
+
+            return ['eliminados' => MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->delete()];
+        });
+    }
+
+    /**
+     * IDs de las filas del kardex que forman una unidad atómica con $mov: la propia más su
+     * contraparte de traspaso (enlace ID_MOVIMIENTO_RELACIONADO en AMBOS sentidos). La
+     * comparten el borrado CON reverso y el borrado SIN reverso.
+     */
+    private function idsMovimientoYContraparte(MovimientoInventario $mov): \Illuminate\Support\Collection
+    {
+        $ids = collect([(int) $mov->ID_MOVIMIENTO]);
+        if ($mov->ID_MOVIMIENTO_RELACIONADO) {
+            $ids->push((int) $mov->ID_MOVIMIENTO_RELACIONADO);
+        }
+        return $ids->merge(
+            MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)->pluck('ID_MOVIMIENTO')
+        )->map(fn ($v) => (int) $v)->unique()->values();
     }
 
     /**

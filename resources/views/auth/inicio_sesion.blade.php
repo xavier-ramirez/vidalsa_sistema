@@ -113,7 +113,7 @@
                         </div>
                     @endif
                     <div class="button-login-container">
-                        <button type="submit" class="btn-maquinaria-primary">Iniciar sesión</button>
+                        <button type="submit" id="btnOnlineLogin" class="btn-maquinaria-primary">Iniciar sesión</button>
                     </div>
                     {{-- Botón de acceso OFFLINE: solo aparece sin internet y si ya iniciaste
                          sesión con internet al menos una vez en este equipo. Verifica tu

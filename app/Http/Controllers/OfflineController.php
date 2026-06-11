@@ -38,6 +38,11 @@ class OfflineController extends Controller
      * Huella de versión: cambia cuando cambia cualquier dato relevante. Incluye el id
      * del usuario para que, al cambiar de sesión, el teléfono vuelva a bajar su propio
      * alcance. Barato: solo MAX() indexados, sin traer filas.
+     *
+     * Es GLOBAL a propósito (cubre equipos Y almacén sin mirar permisos): a lo sumo un
+     * usuario re-baja su snapshot tras un cambio de un módulo que él no cachea (el
+     * snapshot ya viene gateado y vacío para ese módulo). Preferimos eso a duplicar aquí
+     * la lógica de accesos de snapshot() en un endpoint que el teléfono consulta seguido.
      */
     private function calcularVersion(Request $request): string
     {
@@ -63,9 +68,28 @@ class OfflineController extends Controller
         $user    = $request->user();
         $version = $this->calcularVersion($request);
 
-        // Almacenes visibles para este usuario: acota TODO lo de inventario.
-        $almacenes = Almacen::visiblesPara($user)->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
-        $almIds    = $almacenes->pluck('ID_ALMACEN');
+        // ── Alcance por permisos — snapshot ADITIVO: cada módulo viaja al teléfono solo
+        //    si el usuario realmente lo usa, para no inflar el cache con datos ajenos.
+        //   · Equipos (flota): requiere alguna clave equipos.* (super.admin la hereda).
+        //   · Almacén: requiere alguna clave almacen.* o super.admin. NO basta con que el
+        //     almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO=1) ve todos los
+        //     almacenes, así que la visibilidad solo ACOTA cuáles viajan, no DA acceso al
+        //     módulo offline (si no, todo GLOBAL bajaría almacén aunque no lo use).
+        $puedeEquipos = $user->can('equipos.create')
+            || $user->can('equipos.edit')
+            || $user->can('equipos.assign');
+        $puedeAlmacen = $user->can('almacen.productos')
+            || $user->can('almacen.movimiento')
+            || $user->can('almacen.nota.eliminar')
+            || $user->can('super.admin');
+
+        // Almacenes visibles (acotan TODO el inventario). Sin acceso a almacén ni se
+        // consultan: la lista queda vacía y, como stock/movimientos se acotan con $almIds,
+        // quedan vacíos solos (productos se gatea aparte porque su query no va por almacén).
+        $almacenes = $puedeAlmacen
+            ? Almacen::visiblesPara($user)->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO'])
+            : collect();
+        $almIds = $almacenes->pluck('ID_ALMACEN');
 
         // ── STOCK (autocontenido: trae nombre/código/UM del producto para mostrar sin joins en el front) ──
         $stock = AlmacenStock::query()
@@ -88,7 +112,7 @@ class OfflineController extends Controller
             ]);
 
         // ── PRODUCTOS activos (para filtros/autocomplete offline) ──
-        $productos = ProductoInventario::activos()
+        $productos = ! $puedeAlmacen ? collect() : ProductoInventario::activos()
             ->orderBy('NOMBRE')
             ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
             ->map(static fn ($p) => [
@@ -131,7 +155,7 @@ class OfflineController extends Controller
         // Trae lo que muestra la tabla de /admin/equipos: tipo, frente actual (+ si está
         // FINALIZADO), seriales, placa (de documentacion) y código de patio. La FOTO no
         // viaja: vive en Drive (/storage/google) y no sirve offline → se muestra ícono.
-        $equipos = Equipo::query()
+        $equipos = ! $puedeEquipos ? collect() : Equipo::query()
             ->with([
                 'tipo:id,nombre',
                 'frenteActual:ID_FRENTE,NOMBRE_FRENTE,ESTATUS_FRENTE',
@@ -164,7 +188,7 @@ class OfflineController extends Controller
 
         // ── MOVILIZACIONES recientes (historial de equipos) ──
         // id_equipo permite filtrar el historial de UN equipo en su detalle offline.
-        $movilizaciones = Movilizacion::query()
+        $movilizaciones = ! $puedeEquipos ? collect() : Movilizacion::query()
             ->with([
                 'equipo:ID_EQUIPO,NUMERO_ETIQUETA,SERIAL_CHASIS,CODIGO_PATIO,id_tipo_equipo',
                 'equipo.tipo:id,nombre',
@@ -197,7 +221,7 @@ class OfflineController extends Controller
             ]);
 
         // ── FRENTES activos (para etiquetas/filtros) ──
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+        $frentes = ! ($puedeEquipos || $puedeAlmacen) ? collect() : FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
             ->map(static fn ($f) => [

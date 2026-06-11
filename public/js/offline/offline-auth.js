@@ -97,13 +97,20 @@
 
     // Página de LOGIN: gestiona el botón "Entrar sin conexión".
     const btnOff = document.getElementById('btnOfflineLogin');
+    const btnOn  = document.getElementById('btnOnlineLogin');
     const idEl   = document.getElementById('login_identifier');
     const pwEl   = document.getElementById('password');
     const msgEl  = document.getElementById('offlineLoginMsg');
 
     function refrescarBoton() {
         if (!btnOff) return;
-        btnOff.style.display = (!navigator.onLine && window.OfflineAuth.tieneOffline()) ? 'flex' : 'none';
+        // Solo se ofrece el acceso offline si NO hay internet y ya hay credencial local.
+        const mostrarOffline = !navigator.onLine && window.OfflineAuth.tieneOffline();
+        btnOff.style.display = mostrarOffline ? 'flex' : 'none';
+        // En ese caso ocultamos "Iniciar sesión" (requiere servidor y fallaría sin
+        // internet) para no mostrar DOS botones: offline → solo "Entrar sin conexión",
+        // online (o sin credencial local) → solo "Iniciar sesión".
+        if (btnOn) btnOn.style.display = mostrarOffline ? 'none' : '';
     }
     function mostrarMsg(t) { if (msgEl) { msgEl.textContent = t; msgEl.style.display = 'block'; } }
 

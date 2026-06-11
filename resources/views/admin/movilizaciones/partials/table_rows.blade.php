@@ -135,6 +135,16 @@
                     <i class="material-icons" style="font-size: 15px;">person</i>
                     {{ $mov->usuario->NOMBRE_COMPLETO ?? $mov->USUARIO_REGISTRO }}
                 </div>
+                {{-- Deshacer: devuelve el equipo a su frente de ORIGEN y borra el registro
+                     (como si nunca ocurrió). Solo super.admin (acción destructiva). --}}
+                @can('super.admin')
+                <button type="button" onclick="window.movDeshacer({{ $mov->ID_MOVILIZACION }})"
+                        title="Deshacer: devolver el equipo a su frente de origen"
+                        style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;transition:background .15s;"
+                        onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                    <i class="material-icons" style="font-size:14px;">undo</i>Deshacer
+                </button>
+                @endcan
             </div>
         </td>
 

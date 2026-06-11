@@ -54,6 +54,13 @@
                 {{ $m->producto?->NOMBRE ?? '—' }}
                 <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
                     👤 {{ $usuarioTip }}
+                    {{-- Observación del lote (NOTAS): se muestra aquí, en la burbuja al hacer
+                         foco/hover de la fila — igual que el usuario — en vez de inline en la
+                         columna Ref (pedido del cliente). Inline solo sobrevive en la tarjeta
+                         móvil, donde no hay hover (regla .mv-notas-inline). --}}
+                    @if($m->NOTAS)
+                        <div style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.18);font-style:italic;">📝 {{ $m->NOTAS }}</div>
+                    @endif
                     <div style="position:absolute;top:100%;left:30px;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div>
                 </div>
             </td>
@@ -111,12 +118,27 @@
                     </div>
                 @endif
                 @if($m->NOTAS)
-                    <div style="font-size:10.5px;color:#94a3b8;display:flex;align-items:center;gap:3px;margin-top:2px;" title="{{ $m->NOTAS }}">
+                    {{-- Observación inline OCULTA en desktop (.mv-notas-inline → display:none):
+                         ahí la observación vive en la burbuja de hover. En la tarjeta móvil
+                         (sin hover) el CSS la vuelve a mostrar dentro de la burbuja Ref. --}}
+                    <div class="mv-notas-inline" style="font-size:10.5px;color:#94a3b8;align-items:center;gap:3px;margin-top:2px;" title="{{ $m->NOTAS }}">
                         <i class="material-icons" style="font-size:12px;">sticky_note_2</i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px;">{{ $m->NOTAS }}</span>
                     </div>
                 @endif
                 @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO) && !$m->NOTAS)—@endif
                 @can('super.admin')
+                    {{-- Botón "eliminar SOLO del historial" CASI INVISIBLE — SOLO super.admin
+                         (gateado también en la ruta DELETE almacen.movimientos.destroyHistorial).
+                         Borra la fila del kardex SIN tocar el stock: NO revierte ni recalcula el
+                         saldo. Va a la IZQUIERDA del deshacer y en tono ámbar para distinguirlo.
+                         Irreversible: la confirmación vive en JS. --}}
+                    <button type="button" class="alm-mov-purge"
+                            data-purge-url="{{ route('almacen.movimientos.destroyHistorial', ['id' => $m->ID_MOVIMIENTO]) }}"
+                            title="Eliminar del historial sin tocar el stock (irreversible)"
+                            aria-label="Eliminar del historial"
+                            onclick="event.stopPropagation(); window.almEliminarSoloHistorial(this);">
+                        <i class="material-icons" style="font-size:14px;">playlist_remove</i>
+                    </button>
                     {{-- Botón "deshacer" CASI INVISIBLE — SOLO super.admin (gateado también en
                          la ruta DELETE almacen.movimientos.destroy, no basta ocultarlo). Borra el
                          movimiento del kardex SIN rastro, revierte el stock y recalcula el saldo

@@ -432,7 +432,11 @@ window.filterDropdownOptions = function (input) {
 
     items.forEach((item) => {
         const text = normalize(item.innerText);
-        const shouldShow = text.includes(filter);
+        // Respeta el filtrado dependiente por frente del modulo Equipos: un item marcado
+        // como oculto por frente (clase 'eq-tipo-oculto', la pone eqSyncTiposFrente) NO se
+        // re-muestra aunque coincida con el texto buscado. Otros dropdowns no usan esa clase,
+        // asi que su comportamiento no cambia.
+        const shouldShow = text.includes(filter) && !item.classList.contains("eq-tipo-oculto");
 
         // Use setProperty to override any potential CSS conflicts
         item.style.setProperty(
