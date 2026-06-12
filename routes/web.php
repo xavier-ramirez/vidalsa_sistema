@@ -319,6 +319,12 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
+// GET /logout → redirección limpia. El logout REAL es POST (anti-CSRF, lo hace el form
+// del header). Si alguien cae en /logout por GET —típico: pestaña vieja con la sesión
+// expirada que recargó esa URL— en vez del 405 genérico de Symfony lo mandamos a la
+// pantalla de login. NO cierra sesión vía GET (eso seguiría siendo solo por POST).
+Route::get('/logout', fn () => redirect()->route('login'));
+
 // Route replaced by root POST
 Route::post('/logout', [App\Http\Controllers\Auth\LoginController::class, 'logout'])->name('logout');
 

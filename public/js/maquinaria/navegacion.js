@@ -251,6 +251,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Igual que los scripts, pero para HOJAS DE ESTILO (<link rel="stylesheet">):
+            // la SPA NO re-evalúa los <link> al navegar, así que un cambio CSS-only (z-index
+            // del PDF, menú, etc.) no se veía en PCs cacheadas hasta un F5 manual. Si cambió
+            // el ?v de algún CSS propio, forzamos recarga completa para tomarlo.
+            if (!versionChanged) {
+                const newLinks     = Array.from(doc.querySelectorAll('link[rel="stylesheet"][href]'));
+                const currentLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'));
+                for (let i = 0; i < newLinks.length; i++) {
+                    const nl = newLinks[i];
+                    if (!nl.href.includes(window.location.origin)) continue; // CDNs externos
+                    const basePath = nl.href.split('?')[0];
+                    const matchingCurrent = currentLinks.find(cl => cl.href.split('?')[0] === basePath);
+                    if (matchingCurrent && matchingCurrent.href !== nl.href) {
+                        versionChanged = true;
+                        console.log(`Nueva versión de CSS detectada para: ${basePath}. Requiriendo recarga completa.`);
+                        break;
+                    }
+                }
+            }
+
             if (versionChanged) {
                 handledCleanup = true;
                 window.location.href = url;
