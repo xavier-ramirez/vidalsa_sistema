@@ -54,8 +54,6 @@
             const WARNING_DURATION_SEC  = Math.max(15, Math.min(60, Math.floor(SESSION_LIFETIME_MS / 1000 * 0.33)));
             // Throttle = 25% del tiempo de sesión (mín 5s, máx 30s)
             const ACTIVITY_THROTTLE_MS  = Math.max(5000, Math.min(30000, Math.floor(SESSION_LIFETIME_MS * 0.25)));
-            // "Activo" = último 50% del tiempo de sesión (mín 30s, máx 2min)
-            const RECENT_ACTIVITY_MS    = Math.max(30000, Math.min(120000, Math.floor(SESSION_LIFETIME_MS * 0.50)));
             // Ping cada 80% del tiempo de sesión
             const SERVER_PING_MS        = Math.floor(SESSION_LIFETIME_MS * 0.80);
 
@@ -119,10 +117,12 @@
             }
 
             // ── Ping al servidor ────────────────────────────────────────
-            // REGLA CLAVE: el ping SOLO toca el servidor (y renueva la sesión backend)
-            // si el usuario estuvo activo en los últimos 2 minutos.
-            // Si está inactivo → el ping se salta → el servidor deja expirar la sesión
-            // → el timer del frontend llega a 0 → performLogout() se ejecuta.
+            // El ping renueva la sesión del BACKEND mientras el frontend la considere viva
+            // (su timer aún no llega a 0). Así el backend no expira ANTES que el frontend
+            // cuando el usuario estuvo activo pero sin pedir nada al servidor (p. ej. clics
+            // en modales JS). Quien decide el cierre por inactividad es el timer del
+            // frontend: al llegar a 0 dispara performLogout(). Durante el aviso (modal) NO
+            // se pinga — el usuario debe decidir si extiende.
             function startServerPing() {
                 if (serverPingInterval) clearInterval(serverPingInterval);
                 serverPingInterval = setInterval(pingServer, SERVER_PING_MS);
