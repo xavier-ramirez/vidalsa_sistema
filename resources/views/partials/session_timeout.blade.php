@@ -44,7 +44,9 @@
          * - Sesión: lee SESSION_LIFETIME de Laravel (local=20min, prod=25min)
          * - Throttle de 30s: actividad real no reinicia el timer en cada micro-evento
          * - Solo escucha: click y keydown (sin scroll/touchstart para evitar ruido)
-         * - Ping al servidor SOLO si el usuario estuvo activo en los últimos 2 min
+         * - Ping al servidor SOLO si hubo actividad en el último ciclo de ping; si el
+         *   usuario está inactivo NO se pinga y el backend deja expirar la sesión
+         *   (cierre por inactividad garantizado por el servidor, no dependiente del JS)
          * - Modal de aviso aparece con 60s de antelación al cierre
          */
         (function() {
@@ -116,13 +118,13 @@
                 }
             }
 
-            // ── Ping al servidor ────────────────────────────────────────
-            // El ping renueva la sesión del BACKEND mientras el frontend la considere viva
-            // (su timer aún no llega a 0). Así el backend no expira ANTES que el frontend
-            // cuando el usuario estuvo activo pero sin pedir nada al servidor (p. ej. clics
-            // en modales JS). Quien decide el cierre por inactividad es el timer del
-            // frontend: al llegar a 0 dispara performLogout(). Durante el aviso (modal) NO
-            // se pinga — el usuario debe decidir si extiende.
+            // ── Ping al servidor (CONDICIONAL a actividad reciente) ─────
+            // El ping renueva la sesión del BACKEND, pero SOLO si hubo actividad real en el
+            // último ciclo de ping. Si el usuario está inactivo NO se pinga → la sesión del
+            // servidor expira sola a los SESSION_LIFETIME desde la última actividad, así el
+            // cierre por inactividad queda GARANTIZADO por el backend aunque el JS se
+            // deshabilite o falle. El timer del frontend + el modal son la capa de UX/aviso;
+            // el backend es la fuente de verdad. Durante el aviso (modal) tampoco se pinga.
             function startServerPing() {
                 if (serverPingInterval) clearInterval(serverPingInterval);
                 serverPingInterval = setInterval(pingServer, SERVER_PING_MS);
@@ -131,12 +133,15 @@
             function pingServer() {
                 if (isModalVisible) return; // El usuario debe decidir, no renovar
 
-                // Se eliminó la restricción de 2 minutos. Si el frontend aún considera que la sesión 
-                // está viva (no ha llegado a cero), DEBEMOS hacer ping al backend para que no expire
-                // prematuramente, ya que el usuario pudo haber estado activo hace 5 minutos (lo cual
-                // extendió el timer del frontend pero requiere ping para extender el backend).
+                // Sin actividad real en el último ciclo de ping → NO renovamos: dejamos que
+                // la sesión del backend expire sola (cierre por inactividad garantizado por
+                // el servidor, no dependiente del JS). El umbral es el PROPIO intervalo de
+                // ping (no un valor arbitrario): renueva a cualquiera que haya estado activo
+                // dentro del ciclo —incluido el caso "activo hace 5 min sin pedir nada al
+                // server"— y solo omite al usuario realmente inactivo.
+                if (Date.now() - lastActivityReset >= SERVER_PING_MS) return;
 
-                // Usuario activo: renovar CSRF y mantener sesión backend viva
+                // Usuario activo: renovar CSRF y mantener viva la sesión del backend.
                 fetch('/refresh-csrf', { method: 'GET' })
                     .then(response => {
                         if (response.ok) {

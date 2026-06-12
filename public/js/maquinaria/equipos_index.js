@@ -1793,12 +1793,16 @@ window.openBulkModal = function (event) {
                 }
             }
 
-            // Toast de éxito
+            // Toast de éxito. Si algún equipo ya estaba en el frente destino, el backend
+            // lo omite (no se movilizó) y lo informa en data.omitidos.
             if (typeof window.showToast === 'function') {
+                const omit = data.omitidos > 0
+                    ? ` (${data.omitidos} ya ${data.omitidos === 1 ? 'estaba' : 'estaban'} en el frente, omitido${data.omitidos === 1 ? '' : 's'})`
+                    : '';
                 if (data.generar_pdf) {
-                    window.showToast(`¡Movilización exitosa! Descargando acta de ${data.count} traslado(s)...`, 'success');
+                    window.showToast(`¡Movilización exitosa! Descargando acta de ${data.count} traslado(s)...${omit}`, 'success');
                 } else {
-                    window.showToast('Actualización de ubicación exitosa', 'success');
+                    window.showToast(`Actualización de ubicación exitosa${omit}`, 'success');
                 }
             }
 

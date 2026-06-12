@@ -332,12 +332,29 @@ class MovilizacionController extends Controller
                 return response()->json(['success' => false, 'message' => 'No se encontraron equipos validos para movilizar.'], 422);
             }
 
+            // Omitir los equipos que YA están en el frente destino: no se movilizan (no se
+            // les crea movilización ni se actualizan) — ya están ahí. La operación continúa
+            // solo con los que cambian de frente. Si TODOS ya estaban, no hay nada que hacer
+            // (rollback antes de consumir un CODIGO_CONTROL).
+            $aMovilizar = $equipos->filter(
+                fn ($e) => (int) $e->ID_FRENTE_ACTUAL !== (int) $frente->ID_FRENTE
+            )->values();
+            $omitidos = $equipos->count() - $aMovilizar->count();
+
+            if ($aMovilizar->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Todos los equipos seleccionados ya están en el frente «' . $destNombre . '». No hay nada que movilizar.',
+                ], 422);
+            }
+
             $nextId = $generarPdf ? self::generateNextCodigoControl() : null;
 
             // Crear movilizaciones una por una para obtener IDs exactos
             // (sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
             $movilizacionIds = [];
-            foreach ($equipos as $equipo) {
+            foreach ($aMovilizar as $equipo) {
                 $mov = Movilizacion::create([
                     'CODIGO_CONTROL'    => $generarPdf ? $nextId : null,
                     'ID_EQUIPO'         => $equipo->ID_EQUIPO,
@@ -350,7 +367,7 @@ class MovilizacionController extends Controller
                 $movilizacionIds[] = $mov->ID_MOVILIZACION;
             }
 
-            \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
+            \App\Models\Equipo::whereIn('ID_EQUIPO', $aMovilizar->pluck('ID_EQUIPO'))->update([
                 'ID_FRENTE_ACTUAL'         => $frente->ID_FRENTE,
                 'CONFIRMADO_EN_SITIO'      => 1,
                 'DETALLE_UBICACION_ACTUAL' => null,
@@ -362,6 +379,7 @@ class MovilizacionController extends Controller
                 'success'          => true,
                 'movilizacion_ids' => $movilizacionIds,
                 'count'            => count($movilizacionIds),
+                'omitidos'         => $omitidos, // ya estaban en el frente destino → no se movilizaron
                 'generar_pdf'      => $generarPdf,
             ]);
 
