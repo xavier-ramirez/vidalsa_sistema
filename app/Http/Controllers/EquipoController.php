@@ -891,7 +891,7 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('Q')->setWidth(13); // Venc. RACDA
             $sheet->getColumnDimension('R')->setWidth(9);  // ROTC (SÍ/NO)
             $sheet->getColumnDimension('S')->setWidth(13); // Venc. ROTC
-            $sheet->getColumnDimension('T')->setWidth(12); // Certificado (SÍ/NO)
+            $sheet->getColumnDimension('T')->setWidth(14); // Certificado (SÍ/NO) — ancho p/ que el header "CERTIFICADO" no se corte
             $sheet->getColumnDimension('U')->setWidth(13); // Venc. Certificado
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
@@ -912,7 +912,7 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('P')->setWidth(13); // Venc. RACDA
             $sheet->getColumnDimension('Q')->setWidth(9);  // ROTC (SÍ/NO)
             $sheet->getColumnDimension('R')->setWidth(13); // Venc. ROTC
-            $sheet->getColumnDimension('S')->setWidth(12); // Certificado (SÍ/NO)
+            $sheet->getColumnDimension('S')->setWidth(14); // Certificado (SÍ/NO) — ancho p/ que el header "CERTIFICADO" no se corte
             $sheet->getColumnDimension('T')->setWidth(13); // Venc. Certificado
         }
 
