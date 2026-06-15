@@ -245,11 +245,13 @@ class MovilizacionController extends Controller
                 'USUARIO_REGISTRO' => auth()->user()->CORREO_ELECTRONICO ?? 'SISTEMA',
             ]);
 
-            $equipo->update([
-                'ID_FRENTE_ACTUAL' => $request->ID_FRENTE_DESTINO,
-                'DETALLE_UBICACION_ACTUAL' => null,
-                'CONFIRMADO_EN_SITIO' => 1
-            ]);
+            // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable): asignación por
+            // propiedad + save(), NO update([...]) que lo descartaría en silencio y el
+            // equipo no se movería al frente destino.
+            $equipo->ID_FRENTE_ACTUAL         = $request->ID_FRENTE_DESTINO;
+            $equipo->DETALLE_UBICACION_ACTUAL = null;
+            $equipo->CONFIRMADO_EN_SITIO      = 1;
+            $equipo->save();
 
             DB::commit();
             return redirect()->route('movilizaciones.index')->with('success', 'Movilizacion registrada correctamente.');
@@ -473,17 +475,13 @@ class MovilizacionController extends Controller
     {
         $query = \App\Models\Equipo::with(['tipo', 'frenteActual', 'documentacion', 'especificaciones:ID_ESPEC,FOTO_REFERENCIAL']);
 
-        // Scope LOCAL: el usuario solo ve equipos de los frentes que tiene asignados.
-        // Sin este scope, un usuario local podria buscar (y ver PLACA) de cualquier
-        // equipo del sistema, contradiciendo la politica aplicada en los otros flujos.
-        $user    = auth()->user();
-        $isLocal = $user && $user->NIVEL_ACCESO == 2;
-        if ($isLocal) {
-            $permitidos = $user->getFrentesIds();
-            if (empty($permitidos)) {
-                return response()->json([]);
-            }
-            $query->whereIn('ID_FRENTE_ACTUAL', $permitidos);
+        // Scope LOCAL: el usuario solo ve equipos de los frentes asignados (barrera
+        // centralizada en Usuario::aplicarScopeFrentes — global ve todo; local sin
+        // frentes no ve nada → query vacío → []). Sin esto, un local podría buscar y
+        // ver PLACA de cualquier equipo, contradiciendo el resto de los flujos.
+        $user = auth()->user();
+        if ($user) {
+            $user->aplicarScopeFrentes($query, 'ID_FRENTE_ACTUAL');
         }
 
         if ($request->filled('search')) {
@@ -1097,11 +1095,12 @@ class MovilizacionController extends Controller
                 'USUARIO_REGISTRO'  => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
             ]);
 
-            $equipo->update([
-                'ID_FRENTE_ACTUAL'         => $request->ID_FRENTE_DESTINO,
-                'DETALLE_UBICACION_ACTUAL' => null,
-                'CONFIRMADO_EN_SITIO'      => 1,
-            ]);
+            // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable): asignación por
+            // propiedad + save(), NO update([...]) (mass-assign lo descartaría en silencio).
+            $equipo->ID_FRENTE_ACTUAL         = $request->ID_FRENTE_DESTINO;
+            $equipo->DETALLE_UBICACION_ACTUAL = null;
+            $equipo->CONFIRMADO_EN_SITIO      = 1;
+            $equipo->save();
 
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Despacho registrado correctamente.']);
@@ -1146,7 +1145,11 @@ class MovilizacionController extends Controller
                         DB::rollBack();
                         return response()->json(['success' => false, 'message' => 'No se puede deshacer: el equipo ya fue movilizado a otro frente después de esta. Deshaz primero la movilización más reciente.'], 422);
                     }
-                    $equipo->update(['ID_FRENTE_ACTUAL' => $mov->ID_FRENTE_ORIGEN]);
+                    // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable): se asigna por
+                    // propiedad + save(), NO con update([...]) (mass-assign lo descartaría en
+                    // silencio y el equipo NO volvería al origen, solo se borraría el registro).
+                    $equipo->ID_FRENTE_ACTUAL = $mov->ID_FRENTE_ORIGEN;
+                    $equipo->save();
                 }
             } elseif ($mov->ID_AUXILIAR) {
                 $aux = \App\Models\EquipoAuxiliar::lockForUpdate()->find($mov->ID_AUXILIAR);

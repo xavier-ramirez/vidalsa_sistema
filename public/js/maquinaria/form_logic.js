@@ -20,26 +20,37 @@ window.updateSelectedCount = function () {
     }
 };
 
-window.updateFrentesCount = function () {
-    const checks = document.querySelectorAll('#frentesSelect input[type="checkbox"]:checked');
-    const span  = document.getElementById('frentesSelectedCount');
-    const input = document.getElementById('frentesSearchInput');
+// Render generico de chips de frentes dentro del trigger de un multiselect.
+// Reutilizado por "Frentes Asignados" (azul) y "Frentes Bloqueados" (rojo) para
+// no duplicar la logica. Cuando 0 seleccionados, el placeholder informa.
+window.__renderFrenteChips = function (selectId, spanId, inputId, emptyPlaceholder, chipBg, chipColor) {
+    const checks = document.querySelectorAll('#' + selectId + ' input[type="checkbox"]:checked');
+    const span  = document.getElementById(spanId);
+    const input = document.getElementById(inputId);
     if (!span) return;
-    // Chips de frentes seleccionados van DENTRO del trigger, a la izquierda del
-    // input de busqueda. Cuando 0 estan seleccionados, span queda vacio y el
-    // placeholder del input ("Seleccione o escriba frentes...") informa.
     if (checks.length === 0) {
         span.innerHTML = '';
-        if (input) input.placeholder = 'Seleccione o escriba frentes...';
+        if (input) input.placeholder = emptyPlaceholder;
         return;
     }
     const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     span.innerHTML = Array.from(checks).map(c => {
         const name = c.closest('label').querySelector('span').textContent.trim();
-        return '<span style="display:inline-flex;align-items:center;background:#e0f2fe;color:#0284c7;font-weight:600;padding:2px 10px;border-radius:999px;font-size:12.5px;line-height:1.6;">' + esc(name) + '</span>';
+        return '<span style="display:inline-flex;align-items:center;background:' + chipBg + ';color:' + chipColor + ';font-weight:600;padding:2px 10px;border-radius:999px;font-size:12.5px;line-height:1.6;">' + esc(name) + '</span>';
     }).join('');
     // Placeholder mas corto cuando ya hay chips — el campo se entiende como "buscar mas".
     if (input) input.placeholder = 'Buscar...';
+};
+
+window.updateFrentesCount = function () {
+    window.__renderFrenteChips('frentesSelect', 'frentesSelectedCount', 'frentesSearchInput',
+        'Seleccione o escriba frentes...', '#e0f2fe', '#0284c7');
+};
+
+// "Frentes Bloqueados" (lista negra): chips rojos para diferenciarlos visualmente.
+window.updateFrentesBloqueadosCount = function () {
+    window.__renderFrenteChips('frentesBloqueadosSelect', 'frentesBloqueadosSelectedCount', 'frentesBloqueadosSearchInput',
+        'Seleccione frentes a ocultar...', '#fee2e2', '#dc2626');
 };
 
 // NOTE: selectOption is now in uicomponents.js (single source of truth)

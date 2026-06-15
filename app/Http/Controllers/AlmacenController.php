@@ -101,12 +101,13 @@ class AlmacenController extends Controller
             ->with('frentes') // para el modal de edición de almacén (lista de frentes asociados)
             ->get();
 
-        // Guard: usuario LOCAL (NIVEL_ACCESO=2) sin almacenes visibles → redirigir al menu
+        // Guard: usuario LOCAL (restringido) sin almacenes visibles → redirigir al menu
         // con notificacion. El LOCAL NO puede crear almacenes (esa accion es solo super.admin),
         // asi que entrar a una pantalla vacia donde no puede hacer nada era frustrante. El
         // GLOBAL sigue entrando aunque no haya almacenes (puede crearlos con "Nuevo almacén").
         // Se respeta el flujo AJAX (paginacion / cambio de filtro vuelven JSON) para no romperlo.
-        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($user?->NIVEL_ACCESO ?? 0) === 2) {
+        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosFrentes).
+        if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($user)) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
                 'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
@@ -797,7 +798,8 @@ class AlmacenController extends Controller
         // Guard: LOCAL sin almacenes visibles → redirigir al menu con notificacion.
         // (Mismo razonamiento que index(): un LOCAL sin almacen asignado no puede tomar
         // ninguna accion util en la bitacora, mejor avisarle que falta configuracion.)
-        if (!$request->wantsJson() && $almacenes->isEmpty() && (int) ($request->user()?->NIVEL_ACCESO ?? 0) === 2) {
+        // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosFrentes).
+        if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($request->user())) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
                 'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
@@ -1191,13 +1193,12 @@ class AlmacenController extends Controller
         // Mide consumo REAL = movimientos TIPO 'SALIDA' de TODOS los almacenes visibles
         // (los TRASPASO_SALIDA son movimientos internos entre almacenes, no consumo).
 
-        // Rango de meses → límites de fecha: 'YYYY-MM' se expande a [día 1 .. fin de mes].
-        $desdeIn = $request->input('desde');
-        $hastaIn = $request->input('hasta');
-        $desde = ($desdeIn && preg_match('/^\d{4}-\d{2}$/', $desdeIn)) ? $desdeIn . '-01' : ($desdeIn ?: null);
-        $hasta = ($hastaIn && preg_match('/^\d{4}-\d{2}$/', $hastaIn))
-            ? \Carbon\Carbon::parse($hastaIn . '-01')->endOfMonth()->format('Y-m-d') // '-01' evita el desbordamiento de día (feb 31 → marzo)
-            : ($hastaIn ?: null);
+        // Rango de meses → límites de fecha. Idiom centralizado (FUENTE ÚNICA) en
+        // MovimientoInventario::expandirRangoMes, el mismo que usa scopePeriodo.
+        [$desde, $hasta] = MovimientoInventario::expandirRangoMes(
+            $request->input('desde'),
+            $request->input('hasta')
+        );
 
         $idsVisibles = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
 

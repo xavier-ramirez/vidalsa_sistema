@@ -643,15 +643,48 @@ window.enlargeImage = function (src) {
 };
 
 window.toggleDocFilter = function (type) {
+    // Al cambiar qué documentos están tildados volvemos al lado "Con" (default
+    // histórico: tildar un doc muestra los que lo tienen). El usuario elige
+    // "Sin" o "Todos" clicando los bloques del Consolidado después.
+    window.__equiposDocPresence = 'con';
     window.loadEquipos();
 };
 
+// Resalta el bloque activo del Consolidado (Con / Sin / Total) según
+// __equiposDocPresence cuando estamos en modo documento. Fuera de ese modo no
+// resalta nada (los bloques filtran por estado y conservan su estilo normal).
+window.__updateDocPresenceUI = function () {
+    const docMode  = !!window.__equiposDocMode;
+    const presence = window.__equiposDocPresence || 'con';
+    // Cada lado cubre su bloque de escritorio (#id) y el de móvil (.eq-block-*),
+    // para que el resaltado del lado activo sea coherente en ambas vistas.
+    [
+        { sel: '#block_total, .eq-block-total', key: 'all' },
+        { sel: '#block_oper,  .eq-block-oper',  key: 'con' },
+        { sel: '#block_inop,  .eq-block-inop',  key: 'sin' },
+    ].forEach(({ sel, key }) => {
+        const active = docMode && presence === key;
+        document.querySelectorAll(sel).forEach((el) => {
+            el.style.outline = active ? '2px solid #ffffff' : 'none';
+            el.style.outlineOffset = active ? '-2px' : '0';
+        });
+    });
+};
+
 window.filterByStatus = function (status) {
-    // En modo "Con / Sin documento" los bloques verde/rojo ya no representan
-    // Operativo/Inoperativo, así que clicarlos no debe filtrar por estado.
-    // El bloque TOTAL (status === "") sigue funcionando con normalidad.
-    if (window.__equiposDocMode && (status === "OPERATIVO" || status === "INOPERATIVO")) {
-        return;
+    // En modo "Con / Sin documento" los bloques NO filtran por estado: filtran la
+    // LISTA por presencia del documento. Verde = Con · Rojo = Sin · TOTAL = ambos.
+    if (window.__equiposDocMode) {
+        let presence = null;
+        if (status === "OPERATIVO")        presence = "con";
+        else if (status === "INOPERATIVO") presence = "sin";
+        else if (status === "")            presence = "all";
+        if (presence) {
+            window.__equiposDocPresence = presence;
+            window.__updateDocPresenceUI();
+            window.loadEquipos();
+            return;
+        }
     }
 
     const dropdown = document.getElementById("estadoAdvFilter");
@@ -735,6 +768,11 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             : null,
         filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
             ? "true"
+            : null,
+        // Dirección del filtro de documento (bloques clicables del Consolidado).
+        // Solo se envía si NO es el default 'con', para no ensuciar la URL.
+        doc_presence: (window.__equiposDocPresence && window.__equiposDocPresence !== "con")
+            ? window.__equiposDocPresence
             : null,
     };
 
@@ -870,19 +908,26 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     if (el) el.classList.toggle('is-doc', docMode);
                 });
 
-                // En modo documento los bloques verde/rojo no filtran por estado
-                // (ver guard en filterByStatus): reflejarlo en cursor + tooltip
-                // para que no parezcan clicables.
-                const blkOper = document.getElementById('block_oper');
-                const blkInop = document.getElementById('block_inop');
+                // En modo documento los bloques verde/rojo/total filtran la LISTA por
+                // presencia (Con/Sin/Todos), no por estado. Cursor pointer + tooltips
+                // acordes, y resaltar el lado activo (__updateDocPresenceUI).
+                const blkOper  = document.getElementById('block_oper');
+                const blkInop  = document.getElementById('block_inop');
+                const blkTotal = document.getElementById('block_total');
                 if (blkOper) {
-                    blkOper.style.cursor = docMode ? 'default' : 'pointer';
-                    blkOper.title = docMode ? ('Con ' + docLabel) : 'Filtrar: Operativos';
+                    blkOper.style.cursor = 'pointer';
+                    blkOper.title = docMode ? ('Ver solo los que tienen ' + docLabel) : 'Filtrar: Operativos';
                 }
                 if (blkInop) {
-                    blkInop.style.cursor = docMode ? 'default' : 'pointer';
-                    blkInop.title = docMode ? ('Sin ' + docLabel) : 'Filtrar: Inoperativos';
+                    blkInop.style.cursor = 'pointer';
+                    blkInop.title = docMode ? ('Ver solo los que NO tienen ' + docLabel) : 'Filtrar: Inoperativos';
                 }
+                if (blkTotal) {
+                    blkTotal.title = docMode ? 'Ver todos (con + sin)' : 'Ver todos los equipos';
+                }
+                // Fuera de docMode, resetear la dirección para la próxima vez.
+                if (!docMode) window.__equiposDocPresence = 'con';
+                window.__updateDocPresenceUI();
 
                 const distroContainer = document.getElementById('distributionStatsContainer');
                 if (distroContainer) distroContainer.innerHTML = data.distribution;
@@ -2048,14 +2093,27 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         '</div>';
     }
 
+    // Roles válidos del acta: el rol (ELABORADO/REVISADO/APROBADO/RECIBIDO) es un SELECT
+    // cerrado, NO texto libre — antes la gente podía escribir cualquier cosa en "quién
+    // elabora / quién aprueba". Cargo · Nombre · Cédula sí quedan libres (varían por persona).
+    var ROLES_ACTA = ['ELABORADO:', 'REVISADO:', 'APROBADO:', 'RECIBIDO:'];
+
     function firmasRowsHtml() {
         var fs = actaState.firmas || [];
         if (!fs.length) {
             return '<p style="margin:0;font-size:12px;color:#94a3b8;font-style:italic;">Sin firmantes. Usa el botón "Firma" para añadir uno.</p>';
         }
         return fs.map(function (f, i) {
+            var cur = (f.label || '').trim();
+            // Preserva un rol heredado que no esté en la lista estándar (no perder datos viejos),
+            // pero a partir de ahora solo se elige de las opciones del select.
+            var roleOpts = ROLES_ACTA.slice();
+            if (cur && roleOpts.indexOf(cur) === -1) roleOpts.unshift(cur);
+            var labelSelect = '<select class="ed-f-label" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;background:white;cursor:pointer;">' +
+                roleOpts.map(function (o) { return '<option value="' + escA(o) + '"' + (o === cur ? ' selected' : '') + '>' + escA(o) + '</option>'; }).join('') +
+                '</select>';
             return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:1fr 1fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
-                '<input class="ed-f-label" value="' + escA(f.label) + '" placeholder="Rol" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
+                labelSelect +
                 '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
                 '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
                 '<input class="ed-f-ced" value="' + escA(f.ced) + '" placeholder="Cédula" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
@@ -2167,7 +2225,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         // Agregar / quitar firma (delegación sobre #ed-firmas, que persiste).
         bodyEl.querySelector('#ed-firma-add').onclick = function () {
             syncFirmasFromDOM();
-            actaState.firmas.push({ label: '', car: '', nom: '', ced: '' });
+            actaState.firmas.push({ label: 'APROBADO:', car: '', nom: '', ced: '' }); // rol por defecto válido (el select lo restringe)
             bodyEl.querySelector('#ed-firmas').innerHTML = firmasRowsHtml();
         };
         bodyEl.querySelector('#ed-firmas').addEventListener('click', function (ev) {
@@ -2678,24 +2736,47 @@ window.exportEquipos = function () {
         return;
     }
 
-    // Descargar mediante formulario invisible (GET) para que el archivo
-    // se descargue directamente sin abrir ninguna pestaña nueva.
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = '/admin/equipos/export';
-    form.style.display = 'none';
+    // Descargar vía fetch → blob (NO form.submit()): así se puede MOSTRAR el spinner
+    // mientras el backend genera el Excel y ocultarlo al terminar. Un form.submit()
+    // descarga en segundo plano sin avisar cuándo acaba, por eso no salía el spinner.
+    const url = '/admin/equipos/export?' + params.toString();
+    if (window.showPreloader) window.showPreloader();
 
-    params.forEach((value, key) => {
-        const input = document.createElement('input');
-        input.type  = 'hidden';
-        input.name  = key;
-        input.value = value;
-        form.appendChild(input);
-    });
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    var d = new Date();
+    var fname = 'Listado_Maquinarias_Equipos_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
 
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+        credentials: 'same-origin'
+    })
+        .then(function (r) {
+            if (!r.ok) throw new Error('No se pudo generar el Excel.');
+            // Si el backend respondió HTML (p.ej. redirect por falta de filtro) en vez del
+            // archivo, no lo descargamos como .xlsx corrupto.
+            var ct = (r.headers.get('Content-Type') || '').toLowerCase();
+            if (ct.indexOf('spreadsheet') === -1 && ct.indexOf('octet-stream') === -1) {
+                throw new Error('Aplica al menos un filtro antes de exportar.');
+            }
+            return r.blob();
+        })
+        .then(function (blob) {
+            var burl = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = burl;
+            a.download = fname;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 1500);
+        })
+        .catch(function (e) {
+            if (window.showToast) window.showToast(e.message || 'Error al exportar el Excel.', 'error');
+        })
+        .finally(function () {
+            if (window.hidePreloader) window.hidePreloader();
+        });
 };
 
 function initEquipos() {

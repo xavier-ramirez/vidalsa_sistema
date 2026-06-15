@@ -26,9 +26,37 @@ class EquipoAuxiliarController extends Controller
     private function userScope(): array
     {
         $user = auth()->user();
-        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
+        // "Restringido" = NO ve todos los frentes (criterio ÚNICO: Usuario::veTodosLosFrentes).
+        $isLocalUser = $user ? !$user->veTodosLosFrentes() : false;
         $frentesPermitidos = $user ? $user->getFrentesIds() : [];
         return [$isLocalUser, $frentesPermitidos];
+    }
+
+    /**
+     * Barrera COMPLETA de visibilidad por frente sobre $query/$columna: lista blanca
+     * (LOCAL → solo sus frentes) + lista negra de bloqueados (whereNotIn, también GLOBAL).
+     * Reemplaza el patrón whereIn/whereRaw('1=0') que estaba repetido por todo el módulo.
+     */
+    private function scopeFrentes($query, string $columna = 'ID_FRENTE_ACTUAL'): void
+    {
+        $user = auth()->user();
+        if ($user) {
+            $user->aplicarScopeFrentes($query, $columna);
+        }
+    }
+
+    /**
+     * True si $frenteId está en la lista negra del usuario actual. Se usa en las
+     * acciones de ESCRITURA (crear/mover auxiliar) para que nadie —ni GLOBAL— pueda
+     * dar de alta o movilizar hacia un frente bloqueado.
+     */
+    private function frenteEstaBloqueado($frenteId): bool
+    {
+        $user = auth()->user();
+        if (!$user || $frenteId === null || $frenteId === '') {
+            return false;
+        }
+        return in_array((string) $frenteId, array_map('strval', $user->getFrentesBloqueadosIds()), true);
     }
 
     /**
@@ -38,10 +66,19 @@ class EquipoAuxiliarController extends Controller
      */
     private function authorizeAuxScope(EquipoAuxiliar $aux): void
     {
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-        if (!$isLocalUser) return;
+        $user = auth()->user();
+        if (!$user) return;
         $auxFrente = $aux->ID_FRENTE_ACTUAL !== null ? (string) $aux->ID_FRENTE_ACTUAL : null;
-        $permitidos = array_map('strval', $frentesPermitidos);
+
+        // Lista negra: nadie (ni GLOBAL) puede abrir un auxiliar de un frente bloqueado.
+        $bloqueados = array_map('strval', $user->getFrentesBloqueadosIds());
+        if ($auxFrente !== null && in_array($auxFrente, $bloqueados, true)) {
+            abort(404);
+        }
+
+        // Lista blanca: el LOCAL solo ve sus frentes asignados.
+        if ($user->veTodosLosFrentes()) return;
+        $permitidos = array_map('strval', $user->getFrentesIds());
         if (!in_array($auxFrente, $permitidos, true)) {
             abort(404);
         }
@@ -55,6 +92,7 @@ class EquipoAuxiliarController extends Controller
         // Acceso global (NIVEL_ACCESO=1) ve todo. Local (NIVEL_ACCESO=2) queda
         // limitado a sus frentes asignados; si seleccionara un frente fuera
         // de su scope el filtro se ignora silenciosamente.
+        $user = auth()->user();
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
         // Buscar por serial/codigo/marca/modelo bypassa el scope LOCAL: el
@@ -62,13 +100,11 @@ class EquipoAuxiliarController extends Controller
         // a ninguno de los frentes del usuario (mismo patron que /admin/equipos).
         $bypassScope = trim((string) $request->input('search', '')) !== '';
 
-        $applyFilters = function ($q) use ($request, $isLocalUser, $frentesPermitidos, $bypassScope) {
-            if ($isLocalUser && !$bypassScope) {
-                if (count($frentesPermitidos) > 0) {
-                    $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-                } else {
-                    $q->whereRaw('1 = 0');
-                }
+        $applyFilters = function ($q) use ($request, $user, $isLocalUser, $frentesPermitidos, $bypassScope) {
+            // Barrera completa: whitelist (LOCAL → sus frentes) + blacklist de bloqueados
+            // (aplica también a GLOBAL). El search bypassa el scope, igual que en /admin/equipos.
+            if ($user && !$bypassScope) {
+                $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL');
             }
             if ($request->filled('tipo') && $request->tipo !== 'all') {
                 $q->where('TIPO', $request->tipo);
@@ -158,28 +194,19 @@ class EquipoAuxiliarController extends Controller
             $auxiliares = collect([]);
         }
 
-        // Frentes para el dropdown: usuario LOCAL solo ve los que tiene asignados
+        // Frentes para el dropdown: oculta los no visibles (whitelist LOCAL +
+        // blacklist de bloqueados) — un frente bloqueado no aparece como filtro.
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
-            } else {
-                $frentesQuery->whereRaw('1 = 0');
-            }
+        if ($user) {
+            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
         }
         $frentes = $frentesQuery->get();
         $estados = EquipoAuxiliar::estadosLabel();
 
         // Listas para los dropdowns de filtros avanzados.
-        // Para usuario LOCAL se restringen a su scope de frentes.
-        $advBaseScope = function ($q) use ($isLocalUser, $frentesPermitidos) {
-            if ($isLocalUser) {
-                if (count($frentesPermitidos) > 0) {
-                    $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-                } else {
-                    $q->whereRaw('1 = 0');
-                }
-            }
+        // Barrera por frente: whitelist LOCAL + blacklist de bloqueados (también GLOBAL).
+        $advBaseScope = function ($q) {
+            $this->scopeFrentes($q, 'ID_FRENTE_ACTUAL');
         };
 
         // TIPOS para el filtro del listado: solo los que realmente existen en
@@ -228,12 +255,9 @@ class EquipoAuxiliarController extends Controller
         // Stats: total/operativos/inoperativos/mantenimiento respetando los filtros
         // activos excepto el propio filtro de estado (para mostrar el breakdown real).
         $statsBase = EquipoAuxiliar::query();
-        if ($isLocalUser && !$bypassScope) {
-            if (count($frentesPermitidos) > 0) {
-                $statsBase->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $statsBase->whereRaw('1 = 0');
-            }
+        // Barrera por frente (whitelist LOCAL + blacklist bloqueados); el search la bypassa.
+        if (!$bypassScope) {
+            $this->scopeFrentes($statsBase, 'ID_FRENTE_ACTUAL');
         }
         if ($request->filled('tipo') && $request->tipo !== 'all')         $statsBase->where('TIPO', $request->tipo);
         if ($request->filled('id_frente') && $request->id_frente === 'none') {
@@ -391,15 +415,10 @@ class EquipoAuxiliarController extends Controller
         set_time_limit(180);
         $query = EquipoAuxiliar::with('frente');
 
-        // Acceso global vs local: el usuario LOCAL solo exporta sus frentes.
+        // Acceso por frente: whitelist LOCAL + blacklist de bloqueados (también GLOBAL).
+        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
+        // Se reusan abajo para decidir si se ignora un filtro id_frente fuera del scope LOCAL.
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
 
         // Capturar filtros activos para reflejarlos en el titulo
         $tipoFiltro   = ($request->filled('tipo') && $request->tipo !== 'all') ? $request->tipo : null;
@@ -595,13 +614,7 @@ class EquipoAuxiliarController extends Controller
             'equipoHost.especificaciones',
         ])->whereNotNull('ID_EQUIPO_HOST');
 
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
 
         // Filtros opcionales (heredados del listado principal): si el usuario
         // tiene un frente o tipo activo en la URL del index, el modal de
@@ -665,13 +678,7 @@ class EquipoAuxiliarController extends Controller
         $query = EquipoAuxiliar::with(['equipoHost.documentacion', 'equipoHost.tipo', 'frente'])
             ->whereNotNull('ID_EQUIPO_HOST');
 
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $query->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
 
         // Mismos filtros que anchoredList: respetar el frente/tipo del listado
         // principal cuando el usuario los tiene activos.
@@ -830,16 +837,8 @@ class EquipoAuxiliarController extends Controller
      */
     public function catalogo(Request $request)
     {
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-
         $base = EquipoAuxiliar::query();
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $base->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $base->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($base, 'ID_FRENTE_ACTUAL');
 
         // Filtros opcionales (search libre eliminado: el catalogo se filtra
         // por tipo, marca y modelo — son los unicos atributos relevantes para
@@ -904,13 +903,7 @@ class EquipoAuxiliarController extends Controller
         // Listas para los filtros — se calculan SIN el filtro propio para que
         // el dropdown muestre todas las opciones validas (no se auto-limita).
         $listsBase = EquipoAuxiliar::query();
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $listsBase->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $listsBase->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($listsBase, 'ID_FRENTE_ACTUAL');
         $marcas = (clone $listsBase)
             ->whereNotNull('MARCA')->where('MARCA', '!=', '')
             ->distinct()->orderBy('MARCA')->pluck('MARCA');
@@ -962,21 +955,33 @@ class EquipoAuxiliarController extends Controller
         // Construir el query del grupo (modelo+ano). Lo usamos primero para
         // obtener la(s) FOTO(s) anteriores y borrar el archivo viejo de Drive
         // antes de subir el nuevo (evita acumulacion de huerfanos).
+        // MISMA normalización que catalogo() (COALESCE(NULLIF(TRIM(x),''),'—')) para que
+        // el grupo matchee SIEMPRE — antes usaba COALESCE(MARCA,'—') que NO capturaba
+        // marcas/modelos en cadena VACÍA (solo NULL) → la tarjeta los agrupaba como '—'
+        // pero el update no encontraba filas → $updated=0 y la foto no se veía.
         $groupQ = EquipoAuxiliar::query()
             ->where('TIPO', $tipoKey)
-            ->whereRaw('UPPER(TRIM(COALESCE(MARCA,?))) = ?', ['—', $marcaKey])
-            ->whereRaw('UPPER(TRIM(COALESCE(MODELO,?))) = ?', ['—', $modeloKey]);
+            ->whereRaw("UPPER(COALESCE(NULLIF(TRIM(MARCA), ''), '—')) = ?", [$marcaKey])
+            ->whereRaw("UPPER(COALESCE(NULLIF(TRIM(MODELO), ''), '—')) = ?", [$modeloKey]);
         if ($anio !== null) {
             $groupQ->where('ANIO', $anio);
         } else {
             $groupQ->whereNull('ANIO');
         }
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $groupQ->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                return response()->json(['success' => false, 'message' => 'No tienes auxiliares en tu scope para este modelo.'], 403);
-            }
+        // LOCAL sin frentes asignados: no tiene auxiliares que agrupar (se conserva el 403 UX).
+        if ($isLocalUser && count($frentesPermitidos) === 0) {
+            return response()->json(['success' => false, 'message' => 'No tienes auxiliares en tu scope para este modelo.'], 403);
+        }
+        // Barrera por frente: whitelist LOCAL + blacklist de bloqueados (también GLOBAL).
+        $this->scopeFrentes($groupQ, 'ID_FRENTE_ACTUAL');
+
+        // Guard: si NO hay unidades en el grupo, no subimos nada (evita un huérfano en
+        // Drive y un "éxito" silencioso de 0 unidades) y avisamos claro al usuario.
+        if ((clone $groupQ)->count() === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontraron unidades de ese modelo (en tu alcance) para asociar la foto.',
+            ], 422);
         }
 
         // FOTOs anteriores (drive ids unicos) — para borrar despues de exito
@@ -1116,15 +1121,8 @@ class EquipoAuxiliarController extends Controller
      */
     public function byHost($hostId)
     {
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
         $auxQuery = EquipoAuxiliar::where('ID_EQUIPO_HOST', $hostId);
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $auxQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $auxQuery->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($auxQuery, 'ID_FRENTE_ACTUAL');
         $auxiliares = $auxQuery
             ->orderBy('TIPO')
             ->get()
@@ -1152,15 +1150,8 @@ class EquipoAuxiliarController extends Controller
     // ═══════════════════════════════════════════════════════════
     public function create()
     {
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
-            } else {
-                $frentesQuery->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
         $frentes = $frentesQuery->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos = $this->getTiposDinamicos();
@@ -1173,12 +1164,16 @@ class EquipoAuxiliarController extends Controller
     {
         $data = $this->validateData($request);
 
-        // LOCAL: solo puede crear auxiliares en sus frentes asignados
+        // LOCAL: solo puede crear auxiliares en sus frentes asignados.
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
         if ($isLocalUser && !empty($data['ID_FRENTE_ACTUAL'])) {
             if (!in_array((string) $data['ID_FRENTE_ACTUAL'], array_map('strval', $frentesPermitidos), true)) {
                 abort(403, 'No tiene permisos para registrar auxiliares en este frente.');
             }
+        }
+        // Nadie (ni GLOBAL) puede crear en un frente BLOQUEADO.
+        if (!empty($data['ID_FRENTE_ACTUAL']) && $this->frenteEstaBloqueado($data['ID_FRENTE_ACTUAL'])) {
+            abort(403, 'No tiene permisos para registrar auxiliares en este frente.');
         }
 
         $data['CREADO_POR'] = auth()->id();
@@ -1215,15 +1210,8 @@ class EquipoAuxiliarController extends Controller
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($auxiliar);
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
-            } else {
-                $frentesQuery->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($frentesQuery, 'ID_FRENTE');
         $frentes = $frentesQuery->get();
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos    = $this->getTiposDinamicos();
@@ -1258,12 +1246,16 @@ class EquipoAuxiliarController extends Controller
         $this->authorizeAuxScope($auxiliar);
         $data = $this->validateData($request, false);
 
-        // LOCAL: tampoco puede mover el auxiliar a un frente fuera de su scope
+        // LOCAL: tampoco puede mover el auxiliar a un frente fuera de su scope.
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
         if ($isLocalUser && !empty($data['ID_FRENTE_ACTUAL'])) {
             if (!in_array((string) $data['ID_FRENTE_ACTUAL'], array_map('strval', $frentesPermitidos), true)) {
                 abort(403, 'No tiene permisos para reasignar a este frente.');
             }
+        }
+        // Nadie (ni GLOBAL) puede reasignar a un frente BLOQUEADO.
+        if (!empty($data['ID_FRENTE_ACTUAL']) && $this->frenteEstaBloqueado($data['ID_FRENTE_ACTUAL'])) {
+            abort(403, 'No tiene permisos para reasignar a este frente.');
         }
 
         // Todos los campos de texto se normalizan a MAYUSCULAS (consistencia
@@ -1493,20 +1485,22 @@ class EquipoAuxiliarController extends Controller
         // tambien debe estar en su scope.
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
         $bulkQuery = EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids']);
-        if ($isLocalUser) {
-            $permitidosStr = array_map('strval', $frentesPermitidos);
-            if (!in_array((string) $frenteId, $permitidosStr, true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No tiene permisos para movilizar a este frente.'
-                ], 403);
-            }
-            if (count($frentesPermitidos) > 0) {
-                $bulkQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $bulkQuery->whereRaw('1 = 0');
-            }
+        if ($isLocalUser && !in_array((string) $frenteId, array_map('strval', $frentesPermitidos), true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para movilizar a este frente.'
+            ], 403);
         }
+        // Nadie (ni GLOBAL) puede movilizar HACIA un frente bloqueado.
+        if ($this->frenteEstaBloqueado($frenteId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para movilizar a este frente.'
+            ], 403);
+        }
+        // Solo se opera sobre auxiliares VISIBLES (whitelist LOCAL + blacklist bloqueados):
+        // no se pueden mover en masa auxiliares de frentes fuera del scope/bloqueados.
+        $this->scopeFrentes($bulkQuery, 'ID_FRENTE_ACTUAL');
 
         // Capturamos el frente origen ANTES del UPDATE para el historial.
         // Sin esto, despues del update todos los registros tendrian
@@ -1573,6 +1567,7 @@ class EquipoAuxiliarController extends Controller
             ->whereNotNull('ID_AUXILIAR')
             ->orderByDesc('created_at');
 
+        // Whitelist LOCAL: movimientos donde su frente es origen O destino.
         if ($isLocalUser) {
             if (count($frentesPermitidos) > 0) {
                 $query->where(function ($q) use ($frentesPermitidos) {
@@ -1582,6 +1577,13 @@ class EquipoAuxiliarController extends Controller
             } else {
                 $query->whereRaw('1 = 0');
             }
+        }
+        // Blacklist (también GLOBAL): ocultar movimientos que TOQUEN un frente bloqueado
+        // (sea origen o destino). Los NULL (recepción inicial sin origen) se conservan.
+        $bloqueados = auth()->user() ? auth()->user()->getFrentesBloqueadosIds() : [];
+        if (!empty($bloqueados)) {
+            $query->where(fn ($q) => $q->whereNotIn('ID_FRENTE_ORIGEN', $bloqueados)->orWhereNull('ID_FRENTE_ORIGEN'))
+                  ->where(fn ($q) => $q->whereNotIn('ID_FRENTE_DESTINO', $bloqueados)->orWhereNull('ID_FRENTE_DESTINO'));
         }
 
         $tipos = $this->getTiposDinamicos();
@@ -1637,7 +1639,6 @@ class EquipoAuxiliarController extends Controller
         if (strlen($q) < 2) return response()->json([]);
 
         $tiposMap = $this->getTiposDinamicos();
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
         $searchQuery = EquipoAuxiliar::with('equipoHost.documentacion')
             ->where(function ($w) use ($q) {
                 $w->where('SERIAL', 'like', "%{$q}%")
@@ -1645,13 +1646,7 @@ class EquipoAuxiliarController extends Controller
                   ->orWhere('MARCA', 'like', "%{$q}%")
                   ->orWhere('MODELO', 'like', "%{$q}%");
             });
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $searchQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $searchQuery->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($searchQuery, 'ID_FRENTE_ACTUAL');
         $results = $searchQuery
             ->limit(20)
             ->get()
@@ -1680,20 +1675,12 @@ class EquipoAuxiliarController extends Controller
         // Modo busqueda: requiere min 2 chars. Modo recommend: vacio OK.
         if (!$recommend && strlen($q) < 2) return response()->json([]);
 
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-
         // Busqueda ampliada: serial chasis, serial motor, placa (docum.),
         // codigo patio, marca y modelo. Join con documentacion para PLACA.
         $hostQuery = Equipo::with('documentacion', 'tipo', 'equiposAuxiliares', 'especificaciones', 'frenteActual')
             ->leftJoin('documentacion as doc_host', 'equipos.ID_EQUIPO', '=', 'doc_host.ID_EQUIPO')
             ->select('equipos.*');
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $hostQuery->whereIn('equipos.ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } else {
-                $hostQuery->whereRaw('1 = 0');
-            }
-        }
+        $this->scopeFrentes($hostQuery, 'equipos.ID_FRENTE_ACTUAL');
 
         // Modo recomendacion: FLOTA LIVIANA con cupo disponible. Los auxiliares
         // (compresores, soldadoras, etc.) tipicamente se anclan a unidades de
@@ -1782,6 +1769,43 @@ class EquipoAuxiliarController extends Controller
             'message' => 'PDF cargado correctamente.',
             'link'    => $type === 'propiedad' ? $aux->LINK_DOC_PROPIEDAD : $aux->LINK_CERTIFICADO,
             'fecha_vencimiento_cert' => $aux->FECHA_VENCIMIENTO_CERT,
+        ]);
+    }
+
+    /**
+     * Elimina un documento (propiedad/certificado) del auxiliar: borra el archivo de
+     * storage/public y limpia la columna en BD (+ la fecha de venc. si es certificado).
+     * Espejo de uploadDoc. Permiso: super.admin (igual que equipos.deleteDoc).
+     */
+    public function deleteDoc(Request $request, $id)
+    {
+        $request->validate([
+            'doc_type' => 'required|in:propiedad,certificado',
+        ]);
+
+        $aux = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
+        $type = $request->input('doc_type');
+        $col  = $type === 'propiedad' ? 'LINK_DOC_PROPIEDAD' : 'LINK_CERTIFICADO';
+
+        // Borrar el archivo físico (los docs de auxiliares viven en disco 'public',
+        // a diferencia de equipos que usan Drive). A prueba de fallos: si el archivo
+        // ya no existe, igual limpiamos la columna en BD.
+        $link = $aux->$col;
+        if ($link && str_starts_with($link, '/storage/')) {
+            $rel = ltrim(substr($link, strlen('/storage/')), '/');
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($rel);
+        }
+
+        $aux->$col = null;
+        if ($type === 'certificado') {
+            $aux->FECHA_VENCIMIENTO_CERT = null; // sin certificado no tiene sentido la fecha
+        }
+        $aux->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Documento eliminado correctamente.',
         ]);
     }
 
@@ -1914,13 +1938,10 @@ class EquipoAuxiliarController extends Controller
             : null;
 
         return DB::transaction(function () use ($request, $valor) {
-            [$isLocalUser, $frentesPermitidos] = $this->userScope();
-
             $auxQuery = EquipoAuxiliar::whereIn('ID_AUXILIAR', $request->ids)
                 ->lockForUpdate();
-            if ($isLocalUser) {
-                $auxQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            }
+            // Solo auxiliares visibles: whitelist LOCAL + blacklist de bloqueados.
+            $this->scopeFrentes($auxQuery, 'ID_FRENTE_ACTUAL');
             $auxiliares = $auxQuery->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
 
             if ($auxiliares->isEmpty()) {

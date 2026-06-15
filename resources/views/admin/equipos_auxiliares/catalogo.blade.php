@@ -284,9 +284,6 @@
         <h1 class="page-title" style="margin-bottom:2px;">
             <span class="page-title-line2" style="color:#000;">Catálogo de Auxiliares</span>
         </h1>
-        <p style="margin:0;font-size:12px;color:#64748b;font-weight:500;line-height:1.3;">
-            La foto representa a TODAS las unidades de ese modelo y año.
-        </p>
     </div>
     {{-- Boton "Nuevo" se desplazo dentro del row de filtros (al lado del
          filtro de Marca) para mantener el patron de /admin/catalogo y para
@@ -314,7 +311,7 @@
         <div class="aux-cat-filter {{ $reqTipo && $reqTipo !== 'all' ? 'active' : '' }}" data-cat-role="dropdown">
             <input type="hidden" id="auxCatValTipo" name="tipo" value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}">
             <div class="aux-cat-filter-box">
-                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">category</i></div>
+                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
                 <input type="text" id="auxCatTxtTipo" placeholder="{{ $tipoLabel ?: 'Filtrar Tipo...' }}"
                        value="{{ $tipoLabel }}" autocomplete="off"
                        oninput="auxCatFilterList('tipo', this.value)"
@@ -341,7 +338,7 @@
         <div class="aux-cat-filter {{ $reqMarca && $reqMarca !== 'all' ? 'active' : '' }}" data-cat-role="dropdown">
             <input type="hidden" id="auxCatValMarca" name="marca" value="{{ $reqMarca && $reqMarca !== 'all' ? $reqMarca : '' }}">
             <div class="aux-cat-filter-box">
-                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">factory</i></div>
+                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
                 <input type="text" id="auxCatTxtMarca" placeholder="{{ $marcaLabel ?: 'Filtrar Marca...' }}"
                        value="{{ $marcaLabel }}" autocomplete="off"
                        oninput="auxCatFilterList('marca', this.value)"
@@ -368,7 +365,7 @@
         <div class="aux-cat-filter {{ $reqModelo && $reqModelo !== 'all' ? 'active' : '' }}" data-cat-role="dropdown">
             <input type="hidden" id="auxCatValModelo" name="modelo" value="{{ $reqModelo && $reqModelo !== 'all' ? $reqModelo : '' }}">
             <div class="aux-cat-filter-box">
-                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">precision_manufacturing</i></div>
+                <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
                 <input type="text" id="auxCatTxtModelo" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
                        value="{{ $modeloLabel }}" autocomplete="off"
                        oninput="auxCatFilterList('modelo', this.value)"
@@ -567,11 +564,14 @@
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
             .then(function (res) {
                 if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada.', 'success');
-                    // Recarga la pagina para que se refresquen TODAS las
-                    // tarjetas de ese modelo (defensa simple, sin reescribir
-                    // el grid en JS).
-                    setTimeout(function () { window.location.reload(); }, 600);
+                    // 1) Apagar el spinner ANTES de confirmar (antes seguía girando y la
+                    //    recarga a 600ms cortaba el toast → parecía que no confirmaba).
+                    if (window.hidePreloader) window.hidePreloader();
+                    // 2) Notificación profesional de éxito.
+                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada correctamente.', 'success');
+                    // 3) Recargar para refrescar TODAS las tarjetas del modelo, con tiempo
+                    //    suficiente para que el usuario alcance a ver la confirmación.
+                    setTimeout(function () { window.location.reload(); }, 1400);
                 } else {
                     if (window.hidePreloader) window.hidePreloader();
                     var msg = (res.body && res.body.message) || 'No se pudo subir la foto.';

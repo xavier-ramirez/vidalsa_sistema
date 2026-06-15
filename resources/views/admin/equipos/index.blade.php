@@ -659,6 +659,9 @@
         // con + sin = total. El JS replica esta lógica al refrescar vía AJAX.
         $docMode    = $stats['doc_mode'] ?? false;
         $docLabel   = $stats['doc_label'] ?? '';
+        // Dirección activa de los bloques clicables (con/sin/all). En carga dura viene
+        // del request; default 'con'. El JS la sincroniza al refrescar vía AJAX.
+        $docPresence = in_array(request('doc_presence'), ['con', 'sin', 'all'], true) ? request('doc_presence') : 'con';
         $operLabel  = $docMode ? 'Con ' . $docLabel : 'Operativo';
         $inopLabel  = $docMode ? 'Sin ' . $docLabel : 'Inoperativo';
         $totalVal   = $hasFilter ? ($docMode ? ($stats['doc_total'] ?? 0) : $stats['total']) : '--';
@@ -738,7 +741,7 @@
             
             <div style="display: flex; align-items: center; gap: 8px;">
                 <!-- Main Total -->
-                <div onclick="filterByStatus('')" title="Ver todos los equipos" style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px;">
+                <div id="block_total" onclick="filterByStatus('')" title="Ver todos los equipos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px;">
                     <span id="stats_total" style="font-size: 36px; font-weight: 800; line-height: 1;">
                         {{ $totalVal }}
                     </span>
@@ -747,12 +750,12 @@
 
                 <!-- Detailed Stats Row -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
-                    <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? $operLabel : 'Filtrar: Operativos' }}" style="cursor: {{ $docMode ? 'default' : 'pointer' }}; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
+                    <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? 'Ver solo los que tienen ' . $docLabel : 'Filtrar: Operativos' }}" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
                         <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $operVal }}</strong>
                         <span id="stats_oper_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}">{{ $operLabel }}</span>
                     </div>
-                    <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? $inopLabel : 'Filtrar: Inoperativos' }}" style="cursor: {{ $docMode ? 'default' : 'pointer' }}; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
+                    <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? 'Ver solo los que NO tienen ' . $docLabel : 'Filtrar: Inoperativos' }}" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                         <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                         <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $inopVal }}</strong>
                         <span id="stats_inop_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}">{{ $inopLabel }}</span>
@@ -1601,6 +1604,12 @@
     // En cargas AJAX, loadEquipos() lo actualiza. Sin esto, clicar los bloques
     // verde/rojo antes del primer AJAX podría filtrar por estado por error.
     window.__equiposDocMode = {{ ($stats['doc_mode'] ?? false) ? 'true' : 'false' }};
+    // Dirección activa de los bloques clicables del Consolidado: 'con' | 'sin' | 'all'.
+    window.__equiposDocPresence = '{{ $docPresence }}';
+    // Resaltar el bloque activo en carga dura (en AJAX lo hace loadEquipos()).
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.__updateDocPresenceUI) window.__updateDocPresenceUI();
+    });
 </script>
 <script>
     window.CAN_DELETE_EQUIPOS = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};

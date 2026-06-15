@@ -1981,7 +1981,31 @@
                     return;
                 }
                 if (ctx.module === 'auxiliar') {
-                    if (window.showToast) window.showToast('El borrado de documentos de auxiliares aún no esta implementado.', 'error');
+                    if (!window.confirm('¿Eliminar este documento?\n\nEsta acción NO se puede deshacer.')) return;
+                    const btnAux = document.getElementById('pdfDeleteBtn');
+                    if (btnAux) btnAux.disabled = true;
+                    if (typeof window.showPreloader === 'function') window.showPreloader();
+                    try {
+                        const csrfA = document.querySelector('meta[name="csrf-token"]');
+                        const r = await fetch(`/admin/equipos-auxiliares/${ctx.equipoId}/delete-doc?doc_type=${encodeURIComponent(ctx.docType)}`, {
+                            method: 'DELETE',
+                            headers: { 'X-CSRF-TOKEN': csrfA ? csrfA.getAttribute('content') : '', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        if (r.ok && d.success) {
+                            if (window.showToast) window.showToast(d.message || 'Documento eliminado.', 'success');
+                            const modal = document.getElementById('pdfPreviewModal');
+                            if (modal) modal.classList.remove('active');
+                            if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares(); // refresca la lista
+                        } else {
+                            if (window.showToast) window.showToast(d.message || 'No se pudo eliminar el documento.', 'error');
+                        }
+                    } catch (e) {
+                        if (window.showToast) window.showToast('Error de red al eliminar el documento.', 'error');
+                    } finally {
+                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                        if (btnAux) btnAux.disabled = false;
+                    }
                     return;
                 }
 

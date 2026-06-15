@@ -96,7 +96,17 @@ class MovimientoInventario extends Model
             ->where('ANIO', $year)
             ->lockForUpdate()
             ->first();
-        $siguiente = ((int) $row->SIGUIENTE) + 1;
+
+        // RECONCILIAR con el máximo número REAL ya usado en movimientos del año. Si el
+        // counter quedó atrás (p.ej. notas importadas/migradas sin pasar por aquí), generar
+        // counter+1 produciría un número YA EXISTENTE → la Nota mostraría movimientos de
+        // OTRAS salidas (bug de "el PDF trae más productos"). Tomamos el mayor de ambos.
+        // SUBSTRING_INDEX(...,'-',-1) extrae el folio tras el último guión (robusto a 4+ dígitos).
+        $maxReal = (int) static::where('NUMERO_NOTA', 'like', 'NE-' . $year . '-%')
+            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(NUMERO_NOTA, '-', -1) AS UNSIGNED)) AS m")
+            ->value('m');
+
+        $siguiente = max((int) $row->SIGUIENTE, $maxReal) + 1;
         \DB::table('numero_nota_counter')
             ->where('ANIO', $year)
             ->update(['SIGUIENTE' => $siguiente, 'updated_at' => now()]);
@@ -160,9 +170,32 @@ class MovimientoInventario extends Model
 
     // ── Scopes ───────────────────────────────────────────────────
 
-    /** Filtra por rango de fechas (usado por el endpoint de kardex). */
+    /**
+     * Normaliza un rango Desde/Hasta. Acepta 'YYYY-MM-DD' (día) o 'YYYY-MM' (filtro por
+     * MES): si llega solo el mes lo expande (Desde → primer día; Hasta → último día).
+     * Sin esto, '<= YYYY-MM' se interpreta como 'YYYY-MM-00' y EXCLUYE todo el mes.
+     * Es idempotente (una fecha completa de 10 chars pasa tal cual) y FUENTE ÚNICA del
+     * idiom — la usan scopePeriodo y AlmacenController::consumoDashboard.
+     * @return array{0:?string,1:?string} [desde, hasta] ya expandidos (o null).
+     */
+    public static function expandirRangoMes(?string $desde, ?string $hasta): array
+    {
+        $desde = $desde ? trim($desde) : null;
+        $hasta = $hasta ? trim($hasta) : null;
+        if ($desde && strlen($desde) === 7) {
+            $desde .= '-01';
+        }
+        if ($hasta && strlen($hasta) === 7) {
+            // '-01' antes de endOfMonth evita el desbordamiento de día (p.ej. feb 31 → marzo).
+            $hasta = \Carbon\Carbon::parse($hasta . '-01')->endOfMonth()->format('Y-m-d');
+        }
+        return [$desde ?: null, $hasta ?: null];
+    }
+
+    /** Filtra por rango de fechas. Soporta día ('YYYY-MM-DD') y mes ('YYYY-MM') vía expandirRangoMes. */
     public function scopePeriodo(Builder $q, ?string $desde, ?string $hasta): Builder
     {
+        [$desde, $hasta] = static::expandirRangoMes($desde, $hasta);
         if ($desde) $q->whereDate('FECHA', '>=', $desde);
         if ($hasta) $q->whereDate('FECHA', '<=', $hasta);
         return $q;

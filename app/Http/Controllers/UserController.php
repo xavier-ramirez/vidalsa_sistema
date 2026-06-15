@@ -227,6 +227,9 @@ class UserController extends Controller
         // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
         $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
         $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
+        // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
+        $frentesBloqueados = $request->input('ID_FRENTE_BLOQUEADO', []);
+        $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
         $user->PERMISOS = $request->PERMISOS;
         $user->REQUIERE_CAMBIO_CLAVE = 1;
         $user->save();
@@ -284,6 +287,9 @@ class UserController extends Controller
         // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
         $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
         $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
+        // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
+        $frentesBloqueados = $request->input('ID_FRENTE_BLOQUEADO', []);
+        $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
         $user->PERMISOS = $request->PERMISOS;
 
         if ($request->filled('password')) {
@@ -312,5 +318,26 @@ class UserController extends Controller
         $user->delete();
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario eliminado correctamente.');
+    }
+
+    /**
+     * Devuelve la lista de roles que no tienen ningún usuario asignado.
+     */
+    public function getUnusedRoles()
+    {
+        $unusedRoles = Role::doesntHave('usuarios')->get(['ID_ROL', 'NOMBRE_ROL']);
+        return response()->json($unusedRoles);
+    }
+
+    /**
+     * Elimina todos los roles que no tienen ningún usuario asignado.
+     */
+    public function deleteUnusedRoles()
+    {
+        $deleted = Role::doesntHave('usuarios')->delete();
+        return response()->json([
+            'success' => true,
+            'message' => "Se han eliminado {$deleted} roles sin uso correctamente."
+        ]);
     }
 }

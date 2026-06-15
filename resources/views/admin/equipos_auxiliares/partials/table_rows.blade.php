@@ -34,8 +34,18 @@
              tooltip-bubble con DETALLE_UBICACION_ACTUAL en hover de fila (CSS
              global .admin-table tr:hover .tooltip-bubble lo hace visible). --}}
         <td class="table-cell-custom table-cell-center" style="padding: 6px 4px; width: 150px;">
-            <div class="tooltip-wrapper" style="font-size: 11px; color: #000; margin-bottom: 5px; line-height: 1.2; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word; position: relative; cursor: default;">
+            <div class="tooltip-wrapper" style="font-size: 13px; color: #000; margin-bottom: 5px; line-height: 1.25; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word; position: relative; cursor: default;">
                 {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+
+                {{-- Badge FINALIZADO: misma lógica/estilo que /admin/equipos --}}
+                @if($aux->frente && $aux->frente->ESTATUS_FRENTE === 'FINALIZADO')
+                    <div style="display:flex; align-items:center; justify-content:center; gap:3px; margin-top:3px;">
+                        <span style="background:#fef2f2; color:#dc2626; padding:1px 6px; border-radius:8px; font-size:9px; font-weight:700; display:inline-flex; align-items:center; gap:2px; border:1px solid #fecaca;">
+                            <i class="material-icons" style="font-size:10px;">warning</i>
+                            FINALIZADO
+                        </span>
+                    </div>
+                @endif
 
                 @if($aux->DETALLE_UBICACION_ACTUAL)
                     <div class="tooltip-bubble" style="pointer-events:none; opacity:0; visibility:hidden; position:absolute; bottom:100%; left:0; transform:translateY(5px); background:#1e293b; color:#fff; padding:6px 10px; border-radius:6px; font-size:11px; font-weight:500; white-space:normal; width:max-content; max-width:220px; word-wrap:break-word; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); transition:all 0.2s ease-in-out; z-index:50; margin-bottom:5px;">

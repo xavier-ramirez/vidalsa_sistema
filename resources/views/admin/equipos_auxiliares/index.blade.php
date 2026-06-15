@@ -195,9 +195,6 @@
         <h1 class="page-title" style="margin-bottom: 2px;">
             <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
         </h1>
-        <p class="aux-page-subtitle" style="margin: 0; font-size: 12px; color: #64748b; font-weight: 500; line-height: 1.3;">
-            Máquinas de soldar, compresores, luminarias, plantas eléctricas, contenedores y otros.
-        </p>
     </div>
 </div>
 
@@ -214,7 +211,7 @@
                 $reqFrente = request('id_frente');
                 $frenteActual = ($reqFrente && $reqFrente !== 'all') ? $frentes->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
             @endphp
-            <div data-aux-role="dropdown" style="flex:1;min-width:180px;max-width:260px;position:relative;">
+            <div data-aux-role="dropdown" style="flex:2;min-width:240px;position:relative;">
                 <input type="hidden" id="aux_main_val_frente" name="id_frente" value="{{ $reqFrente ?: '' }}">
                 <div style="display:flex;align-items:center;background:{{ $frenteActual ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ $frenteActual ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;overflow:hidden;" id="aux_main_box_frente">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
@@ -254,7 +251,7 @@
                 $tipoLabel = ($reqTipo && $reqTipo !== 'all') ? ($tipos[$reqTipo] ?? 'Filtrar Tipo...') : 'Filtrar Tipo...';
                 $tipoActivo = $reqTipo && $reqTipo !== 'all';
             @endphp
-            <div data-aux-role="dropdown" style="flex:1;min-width:180px;max-width:260px;position:relative;">
+            <div data-aux-role="dropdown" style="flex:1.5;min-width:200px;position:relative;">
                 <input type="hidden" id="aux_main_val_tipo" name="tipo" value="{{ $reqTipo ?: '' }}">
                 <div style="display:flex;align-items:center;background:{{ $tipoActivo ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ $tipoActivo ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;overflow:hidden;" id="aux_main_box_tipo">
                     <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
@@ -284,11 +281,11 @@
             </div>
 
             {{-- Serial --}}
-            <div class="search-wrapper" style="flex:1;min-width:200px;max-width:260px;border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};display:flex;align-items:center;height:45px;overflow:hidden;">
+            <div class="search-wrapper" style="flex:1.5;min-width:200px;border:1px solid {{ request('search') ? '#0067b1' : '#cbd5e0' }};border-radius:12px;background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};display:flex;align-items:center;height:45px;overflow:hidden;">
                 <div style="padding:0 12px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:18px;">search</i></div>
                 {{-- Busqueda Serial: solo dispara consulta auto con 4+ caracteres o cuando se vacia
                      el campo (para limpiar resultados). Enter fuerza la busqueda inmediata. --}}
-                <input type="text" id="auxSearchInput" name="search" value="{{ request('search') }}" placeholder="Filtrar Serial (min. 4 chars)..."
+                <input type="text" id="auxSearchInput" name="search" value="{{ request('search') }}" placeholder="Filtrar Serial..."
                        oninput="window.auxToggleSerialClear && window.auxToggleSerialClear(this); window._auxDebounce && clearTimeout(window._auxDebounce); const __v=this.value.trim(); if(__v.length===0||__v.length>=4){ window._auxDebounce = setTimeout(cargarAuxiliares, 300); }"
                        onkeydown="if(event.key==='Enter'){ event.preventDefault(); window._auxDebounce && clearTimeout(window._auxDebounce); cargarAuxiliares(); }"
                        style="flex:1;border:none;background:transparent;padding:12px 5px;font-size:13px;outline:none;min-width:0;" autocomplete="off">
@@ -322,7 +319,9 @@
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
                               onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
-                    <div style="display:flex;flex-direction:column;gap:10px;">
+                    {{-- Filtros de a DOS por fila: Marca | Modelo arriba, Capacidad | Estado
+                         abajo (grid de 2 columnas). En móvil bajan a 1 columna. --}}
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
 
                         {{-- Filtro "Detalle" (DETALLE_UBICACION_ACTUAL) — solo
                              visible cuando el frente seleccionado es TIPO_FRENTE='ESPECIAL'

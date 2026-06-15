@@ -86,7 +86,7 @@
         </div>
 
         <!-- Rol Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 1.5 1 250px;">
             <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
                 <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
 
@@ -130,21 +130,18 @@
             </div>
         </div>
 
-        <!-- Filtro Fecha de creación: calendario nativo (igual que los otros módulos);
-             se abre al hacer clic (showPicker) y filtra por created_at del usuario.
-             Contenedor más angosto: el date no necesita los 350px de los otros filtros. -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 0 1 180px;">
-            <input type="date" name="fecha_creacion" class="native-date"
-                value="{{ request('fecha_creacion') }}"
-                onchange="loadUsuarios()"
-                onclick="try{this.showPicker()}catch(e){}"
-                title="Filtrar por fecha de creación del usuario"
-                style="width: 100%; height: 45px; border-radius: 12px; border: 1px solid {{ request('fecha_creacion') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('fecha_creacion') ? '#e1effa' : '#fbfcfd' }}; outline: none; padding: 0 12px; font-size: 14px; color: #4a5568; cursor: pointer;">
-        </div>
 
-        <!-- New User Button -->
-        <div class="filter-item aligned-filter responsive-btn-item">
-            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario">
+
+        <!-- Action Buttons -->
+        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto;">
+            <!-- Limpiar Roles Button -->
+            <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; padding: 0 12px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 13px; font-weight: 700; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
+                <i class="material-icons" style="font-size:18px;">cleaning_services</i>
+                <span>Limpiar</span>
+            </button>
+
+            <!-- New User Button -->
+            <a href="{{ route('usuarios.create') }}" class="btn-primary-maquinaria btn-nuevo-usuario" style="height: 45px; display: flex; align-items: center; flex: 0 0 auto;">
                 <i class="material-icons">person_add</i>
                 Nuevo
             </a>
@@ -182,8 +179,134 @@
         {{ $users->links() }}
     </div>
 
+    <!-- Modal Limpiar Roles (Estilo Papelera) -->
+    <div id="modalLimpiarRoles" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div style="background: white; border-radius: 14px; width: 90%; max-width: 440px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+            <!-- Encabezado oscuro -->
+            <div style="background: #1e293b; padding: 12px 16px; color: white; display: flex; justify-content: center; align-items: center; position: relative;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="color: #f59e0b; font-size: 18px;">cleaning_services</i>
+                    <h2 style="margin: 0; font-size: 14px; font-weight: 700;">Limpieza de Roles</h2>
+                </div>
+                <button type="button" onclick="document.getElementById('modalLimpiarRoles').style.display='none'" style="position: absolute; right: 12px; background: transparent; border: none; color: white; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                    <i class="material-icons" style="font-size: 18px;">close</i>
+                </button>
+            </div>
+            <!-- Cuerpo Dinámico -->
+            <div id="modalLimpiarRolesBody" style="display: flex; flex-direction: column; flex: 1; overflow: hidden; background: #f8fafc;">
+                <div style="padding: 24px; text-align: center; color: #94a3b8;">
+                    <i class="material-icons" style="animation: spin 1s linear infinite; font-size: 22px;">sync</i>
+                </div>
+            </div>
+        </div>
+    </div>
 
+<style>
+    @media (max-width: 768px) {
+        .usuarios-action-btns {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+        }
+        .usuarios-action-btns > button, .usuarios-action-btns > a {
+            flex: 1 1 0 !important;
+            width: 100% !important;
+            justify-content: center !important;
+        }
+    }
+</style>
 
+<script>
+    // Inyecta el keyframes de rotación en el head si no existe
+    if (!document.getElementById('spin-keyframes')) {
+        const style = document.createElement('style');
+        style.id = 'spin-keyframes';
+        style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+        document.head.appendChild(style);
+    }
 
+    // Asignar al objeto window para que esté disponible globalmente sin importar cómo el SPA inyecte el HTML
+    window.checkUnusedRoles = function() {
+        document.getElementById('modalLimpiarRoles').style.display = 'flex';
+        
+        const body = document.getElementById('modalLimpiarRolesBody');
+        body.innerHTML = '<div style="padding: 24px; text-align: center; color: #94a3b8;"><i class="material-icons" style="animation: spin 1s linear infinite; font-size: 22px;">sync</i></div>';
+
+        fetch("{{ route('usuarios.unused-roles') }}")
+            .then(response => response.json())
+            .then(roles => {
+                if (roles.length > 0) {
+                    // Escapa el nombre del rol antes de inyectarlo como HTML (defensa básica XSS).
+                    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+                    const plural = roles.length === 1 ? 'rol' : 'roles';
+                    let html = `<div style="padding: 10px 16px; font-size: 12px; color: #64748b; background: white; border-bottom: 1px solid #e2e8f0; text-align: center;">Se ${roles.length === 1 ? 'encontró' : 'encontraron'} <strong style="color:#c2410c;">${roles.length}</strong> ${plural} sin usuarios que se pueden eliminar:</div>`;
+                    html += '<div style="overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 160px; max-height: 400px;">';
+
+                    roles.forEach(rol => {
+                        html += `
+                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 5px;">
+                            <div style="width: 42px; height: 42px; border-radius: 6px; background: #fff7ed; color: #c2410c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #e2e8f0;">
+                                <i class="material-icons" style="font-size: 20px;">badge</i>
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 700; color: #1e293b; font-size: 12px; text-transform: uppercase; line-height: 1.2;">${esc(rol.NOMBRE_ROL)}</div>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">SIN USUARIOS ASIGNADOS</div>
+                            </div>
+                        </div>`;
+                    });
+                    
+                    html += '</div>';
+                    
+                    // Footer con el botón de eliminar
+                    html += `
+                    <div style="padding: 12px 16px; background: white; border-top: 1px solid #e2e8f0; display: flex; justify-content: center;">
+                        <button type="button" onclick="window.deleteUnusedRoles()" class="btn-primary-maquinaria" style="background:#ef4444;padding:8px 16px;border-radius:8px;font-size:13px;height:auto;gap:6px;cursor:pointer;">
+                            <i class="material-icons" style="font-size: 18px;">delete_sweep</i>
+                            Confirmar Eliminación
+                        </button>
+                    </div>`;
+                    body.innerHTML = html;
+                } else {
+                    body.innerHTML = `
+                    <div style="padding: 40px 20px; text-align: center;">
+                        <i class="material-icons" style="font-size: 48px; color: #10b981; margin-bottom: 10px;">check_circle_outline</i>
+                        <p style="color: #059669; font-size: 16px; font-weight: bold; margin: 0;">¡Sistema Limpio!</p>
+                        <p style="color: #475569; font-size: 13px; margin-top: 5px;">Todos los roles tienen usuarios asignados.</p>
+                    </div>`;
+                }
+            })
+            .catch(error => {
+                body.innerHTML = '<div style="padding: 24px; text-align: center; color: #ef4444;">Error al consultar los roles.</div>';
+                console.error(error);
+            });
+    };
+
+    window.deleteUnusedRoles = function() {
+        if (!confirm('¿Confirma que desea eliminar estos roles permanentemente?')) return;
+        
+        fetch("{{ route('usuarios.delete-unused-roles') }}", {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('modalLimpiarRoles').style.display = 'none';
+                if (window.showToast) {
+                    window.showToast(data.message, 'success');
+                } else {
+                    alert(data.message);
+                }
+                setTimeout(() => window.location.reload(), 1500);
+            }
+        })
+        .catch(error => {
+            alert('Ocurrió un error al intentar eliminar los roles.');
+            console.error(error);
+        });
+    };
+</script>
 
 @endsection

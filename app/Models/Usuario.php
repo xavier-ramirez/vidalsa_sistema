@@ -159,6 +159,98 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * IDs de frentes BLOQUEADOS para el usuario (lista negra, CSV en ID_FRENTE_BLOQUEADO).
+     * Se RESTAN de la visibilidad SIN importar GLOBAL/LOCAL: un GLOBAL ve todos los frentes
+     * MENOS estos. Es el camino cómodo para "ve casi todo salvo unos pocos" (tildas lo
+     * prohibido en vez de tildar muchísimos asignados como LOCAL). [] = no bloquea nada.
+     */
+    public function getFrentesBloqueadosIds(): array
+    {
+        $raw = $this->attributes['ID_FRENTE_BLOQUEADO'] ?? null;
+        if (!$raw) return [];
+        return array_filter(array_map('trim', explode(',', $raw)));
+    }
+
+    /**
+     * Criterio ÚNICO de visibilidad: ¿el usuario ve TODOS los frentes (sin barrera)?
+     * GLOBAL = NIVEL_ACCESO 1; cualquier otro valor (2/LOCAL, null o inválido) → restringido.
+     *
+     * Decisión de producto (documentada en App\Models\Almacen::usuarioEsGlobal): la
+     * visibilidad depende SOLO de NIVEL_ACCESO, NO del rol ni de super.admin — un
+     * super.admin LOCAL se restringe igual que cualquier LOCAL. Por eso acá NO hay
+     * override de super.admin.
+     *
+     * Antes este criterio estaba DISPERSO e incoherente: Almacén/Dashboard usaban "==1"
+     * y Equipos/Auxiliares/Movilizaciones/Historial "==2" (un NIVEL nulo/raro se trataba
+     * distinto entre módulos). Este método lo unifica.
+     */
+    public function veTodosLosFrentes(): bool
+    {
+        return (int) ($this->NIVEL_ACCESO ?? 0) === 1;
+    }
+
+    /**
+     * IDs de frentes que el usuario PUEDE ver. Convención:
+     *   - null  → SIN restricción (ve todos): usuario GLOBAL.
+     *   - []    → no ve ninguno (LOCAL sin frentes asignados).
+     *   - [ids] → restringido a esos frentes (LOCAL con asignados).
+     *
+     * OJO: esto es SOLO la lista blanca (nivel GLOBAL/LOCAL). La lista negra de
+     * bloqueados es independiente y se aplica aparte (getFrentesBloqueadosIds /
+     * aplicarBloqueoIds). El punto que combina ambas es aplicarScopeFrentes().
+     */
+    public function frentesVisiblesIds(): ?array
+    {
+        if ($this->veTodosLosFrentes()) {
+            return null;
+        }
+        return $this->getFrentesIds();
+    }
+
+    /**
+     * Barrera COMPLETA de visibilidad por frente sobre $query/$columna:
+     *   1) lista blanca por nivel (whereIn asignados si LOCAL; nada si GLOBAL), y
+     *   2) lista negra de bloqueados (whereNotIn), que aplica TAMBIÉN a GLOBAL.
+     * Es el punto ÚNICO recomendado — centraliza el patrón que estaba duplicado en
+     * los controladores. Devuelve el $query para encadenar.
+     */
+    public function aplicarScopeFrentes($query, string $columna = 'ID_FRENTE_ACTUAL')
+    {
+        static::aplicarScopeIds($query, $this->frentesVisiblesIds(), $columna);
+        return static::aplicarBloqueoIds($query, $this->getFrentesBloqueadosIds(), $columna);
+    }
+
+    /**
+     * Aplica la convención de visibilidad (null = ve todo, [] = nada, [ids] = whereIn)
+     * a $query sobre $columna, dado el set YA resuelto de frentes visibles. Útil cuando
+     * el set se calculó una vez (con frentesVisiblesIds()) y se reusa. Punto ÚNICO del
+     * idiom whereIn/whereRaw('1=0') que estaba duplicado por todos lados.
+     */
+    public static function aplicarScopeIds($query, ?array $ids, string $columna = 'ID_FRENTE_ACTUAL')
+    {
+        if ($ids === null) {
+            return $query;                    // ve todo
+        }
+        if (count($ids) === 0) {
+            return $query->whereRaw('1 = 0'); // local sin frentes → nada
+        }
+        return $query->whereIn($columna, $ids);
+    }
+
+    /**
+     * RESTA la lista negra de frentes bloqueados a $query/$columna (whereNotIn). Es
+     * el simétrico de aplicarScopeIds (lista blanca) y aplica SIN importar GLOBAL/LOCAL:
+     * por eso se llama aparte y siempre. [] → no toca el query. Punto ÚNICO del idiom.
+     */
+    public static function aplicarBloqueoIds($query, array $bloqueados, string $columna = 'ID_FRENTE_ACTUAL')
+    {
+        if (count($bloqueados) > 0) {
+            $query->whereNotIn($columna, $bloqueados);
+        }
+        return $query;
+    }
+
+    /**
      * Resuelve el almacén "natural" del usuario para los módulos de Almacén.
      *
      * Convención (en orden de preferencia, primer match gana):
@@ -179,7 +271,11 @@ class Usuario extends Authenticatable
      */
     public function almacenPorDefecto(): ?int
     {
-        $frentes = $this->getFrentesIds();
+        // Restamos los frentes BLOQUEADOS: el almacén por defecto NO puede caer en un
+        // frente que el usuario no ve (si no, el módulo abriría preseleccionado en un
+        // almacén que visiblesPara() oculta → incoherencia). Si todos sus frentes están
+        // bloqueados, no hay default (coherente: tampoco ve almacenes).
+        $frentes = array_values(array_diff($this->getFrentesIds(), $this->getFrentesBloqueadosIds()));
         if (empty($frentes)) return null;
 
         $almacenModel = \App\Models\Almacen::class;

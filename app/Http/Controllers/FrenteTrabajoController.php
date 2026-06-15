@@ -230,17 +230,17 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
-     * Lista los frentes ACTIVOS que no tienen NINGÚN equipo ni auxiliar asignado
-     * (candidatos a eliminar o desactivar). Mismo criterio que la guarda de
-     * destroy()/update(), así "Eliminar" desde el modal nunca es rechazado.
+     * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado
+     * (candidatos a eliminar o desactivar), SIN importar su estatus: incluye ACTIVOS,
+     * FINALIZADOS y DESACTIVADOS. Se devuelve ESTATUS_FRENTE para que el modal muestre
+     * el estado y oculte "Desactivar" en los que ya no están activos.
      */
     public function sinEquipos(Request $request)
     {
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->whereDoesntHave('equipos')
+        $frentes = FrenteTrabajo::whereDoesntHave('equipos')
             ->whereDoesntHave('equiposAuxiliares')
             ->orderBy('NOMBRE_FRENTE')
-            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE']);
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE', 'ESTATUS_FRENTE']);
 
         return response()->json([
             'success' => true,
@@ -250,6 +250,7 @@ class FrenteTrabajoController extends Controller
                 'nombre'    => $f->NOMBRE_FRENTE,
                 'ubicacion' => $f->UBICACION,
                 'tipo'      => $f->TIPO_FRENTE,
+                'estatus'   => $f->ESTATUS_FRENTE,
             ]),
         ]);
     }

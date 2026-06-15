@@ -5,7 +5,7 @@
 @endphp
 
 @if($vencidas->isNotEmpty())
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca;">
+    <div class="js-alert-section-header" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <i class="material-icons" style="font-size: 18px; color: #dc2626;">notifications</i>
             <span style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.3px;">Vencidas</span>
@@ -18,7 +18,7 @@
 @endif
 
 @if($proximas->isNotEmpty())
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #fffbeb; color: #92400e; border-bottom: 1px solid #fcd34d; {{ $vencidas->isNotEmpty() ? 'margin-top: 5px; border-top: 1px solid #e5e7eb;' : '' }}">
+    <div class="js-alert-section-header" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: #fffbeb; color: #92400e; border-bottom: 1px solid #fcd34d; {{ $vencidas->isNotEmpty() ? 'margin-top: 5px; border-top: 1px solid #e5e7eb;' : '' }}">
         <div style="display: flex; align-items: center; gap: 8px;">
             <i class="material-icons" style="font-size: 18px; color: #d97706;">notifications</i>
             <span style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.3px;">Próximas a Vencer</span>

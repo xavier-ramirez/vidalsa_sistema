@@ -155,12 +155,15 @@ class OfflineController extends Controller
         // Trae lo que muestra la tabla de /admin/equipos: tipo, frente actual (+ si está
         // FINALIZADO), seriales, placa (de documentacion) y código de patio. La FOTO no
         // viaja: vive en Drive (/storage/google) y no sirve offline → se muestra ícono.
+        // Misma barrera por frente que online (whitelist LOCAL + blacklist de bloqueados):
+        // el snapshot offline no debe exponer frentes que el usuario no ve en pantalla.
         $equipos = ! $puedeEquipos ? collect() : Equipo::query()
             ->with([
                 'tipo:id,nombre',
                 'frenteActual:ID_FRENTE,NOMBRE_FRENTE,ESTATUS_FRENTE',
                 'documentacion:ID_EQUIPO,PLACA',
             ])
+            ->when($user, fn ($q) => $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL'))
             ->orderBy('NUMERO_ETIQUETA')
             ->get([
                 'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO',
@@ -188,6 +191,9 @@ class OfflineController extends Controller
 
         // ── MOVILIZACIONES recientes (historial de equipos) ──
         // id_equipo permite filtrar el historial de UN equipo en su detalle offline.
+        // Lista negra: no exponer movimientos que TOQUEN un frente bloqueado (origen o
+        // destino). Los NULL (recepción inicial) se conservan. Coherente con el resto.
+        $bloqueadosOffline = $user ? $user->getFrentesBloqueadosIds() : [];
         $movilizaciones = ! $puedeEquipos ? collect() : Movilizacion::query()
             ->with([
                 'equipo:ID_EQUIPO,NUMERO_ETIQUETA,SERIAL_CHASIS,CODIGO_PATIO,id_tipo_equipo',
@@ -198,6 +204,9 @@ class OfflineController extends Controller
                 'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
                 'usuario:ID_USUARIO,NOMBRE_COMPLETO,CORREO_ELECTRONICO',
             ])
+            ->when(!empty($bloqueadosOffline), fn ($q) => $q
+                ->where(fn ($w) => $w->whereNotIn('ID_FRENTE_ORIGEN', $bloqueadosOffline)->orWhereNull('ID_FRENTE_ORIGEN'))
+                ->where(fn ($w) => $w->whereNotIn('ID_FRENTE_DESTINO', $bloqueadosOffline)->orWhereNull('ID_FRENTE_DESTINO')))
             ->orderByDesc('ID_MOVILIZACION')
             ->limit(self::MAX_MOVILIZACIONES)
             ->get()
@@ -220,8 +229,10 @@ class OfflineController extends Controller
                 'ubicacion' => MojibakeFix::fix($mv->DETALLE_UBICACION),
             ]);
 
-        // ── FRENTES activos (para etiquetas/filtros) ──
+        // ── FRENTES activos (para etiquetas/filtros) ── oculta los no visibles
+        //    (whitelist LOCAL + blacklist de bloqueados), igual que los dropdowns online.
         $frentes = ! ($puedeEquipos || $puedeAlmacen) ? collect() : FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+            ->when($user, fn ($q) => $user->aplicarScopeFrentes($q, 'ID_FRENTE'))
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
             ->map(static fn ($f) => [

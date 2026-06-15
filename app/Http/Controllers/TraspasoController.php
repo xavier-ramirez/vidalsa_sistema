@@ -68,10 +68,11 @@ class TraspasoController extends Controller
         // `nuevaEntrada` no encuentra almacenDestino y redirige de vuelta a `index()`,
         // y asi sin parar (ERR_TOO_MANY_REDIRECTS / "error de conexion" en produccion).
         if (!$request->wantsJson() && $almacenes->isEmpty()) {
-            $nivel = (int) ($user?->NIVEL_ACCESO ?? 0);
-            $msg   = $nivel === 2
-                ? 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.'
-                : 'No hay almacenes registrados todavía. Crea uno desde el módulo de Almacén antes de usar Recepción.';
+            // GLOBAL ve "todos" (criterio ÚNICO Almacen::usuarioEsGlobal): si está vacío es
+            // BD sin almacenes → invitar a crear. LOCAL/restringido: su frente no tiene almacén.
+            $msg   = Almacen::usuarioEsGlobal($user)
+                ? 'No hay almacenes registrados todavía. Crea uno desde el módulo de Almacén antes de usar Recepción.'
+                : 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.';
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
                 'message' => $msg,
@@ -602,10 +603,13 @@ class TraspasoController extends Controller
 
     private function assertPuedeVerTraspaso(Request $request, Traspaso $traspaso): void
     {
-        if (Almacen::usuarioEsGlobal($request->user())) {
+        $user = $request->user();
+        // GLOBAL sin frentes bloqueados ve todo (fast path). GLOBAL con bloqueos o LOCAL
+        // pasan por visiblesPara, que ya excluye almacenes ligados solo a frentes bloqueados.
+        if (Almacen::usuarioEsGlobal($user) && empty(Almacen::frentesBloqueadosDe($user))) {
             return;
         }
-        $visibles = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN')->all();
+        $visibles = Almacen::visiblesPara($user)->pluck('ID_ALMACEN')->all();
         $ok = in_array((int) $traspaso->ID_ALMACEN_ORIGEN, $visibles, true)
             || in_array((int) $traspaso->ID_ALMACEN_DESTINO, $visibles, true);
         abort_unless($ok, 403, 'No tienes acceso a este traspaso.');

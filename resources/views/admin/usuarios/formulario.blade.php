@@ -178,7 +178,58 @@
                     <span class="error-message-inline">{{ $message }}</span>
                 @enderror
                 <small style="color: var(--maquinaria-gray-text); font-size: 12px; display: block; margin-top: 5px;">
-                    Selecciona uno o varios frentes de los que este usuario es responsable
+                    Frentes asignados al usuario
+                </small>
+            </div>
+
+            <div>
+                <span id="lbl_usuario_frente_bloq_title" class="form-label">Frentes Bloqueados</span>
+
+                {{-- Lista NEGRA: frentes que este usuario NO debe ver, independiente de
+                     GLOBAL/LOCAL. Pensado para "ve casi todo salvo unos pocos": dejar al
+                     usuario GLOBAL y tildar aqui solo los frentes prohibidos (mas comodo
+                     que hacerlo LOCAL y tildar muchos asignados). Se RESTA en todo el
+                     sistema (equipos, almacen, dashboard, historial, movilizacion). --}}
+                <div class="custom-multiselect" id="frentesBloqueadosSelect">
+                    <div class="multiselect-trigger" id="frentesBloqueadosMultiselectTrigger"
+                         style="cursor: text; padding: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;"
+                         onclick="toggleDropdown('frentesBloqueadosSelect', event)"
+                         tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_usuario_frente_bloq_title">
+                        <span id="frentesBloqueadosSelectedCount" style="display:flex;flex-wrap:wrap;gap:4px;padding-left:8px;"></span>
+                        <input type="text" id="frentesBloqueadosSearchInput"
+                               placeholder="Seleccione frentes a ocultar..."
+                               autocomplete="off"
+                               style="flex: 1; min-width: 120px; border: none; background: transparent; padding: 12px 8px; outline: none; color: var(--maquinaria-text); font-size: 14px; font-family: inherit;"
+                               oninput="const val = this.value.toLowerCase().trim(); document.querySelectorAll('.frente-bloq-item-opt').forEach(i => i.style.display = i.textContent.toLowerCase().includes(val) ? '' : 'none');"
+                               onfocus="document.getElementById('frentesBloqueadosSelect').classList.add('active');"
+                               onclick="event.stopPropagation();">
+                        <i class="material-icons" style="padding-right: 15px; color: var(--maquinaria-gray-text);">expand_more</i>
+                    </div>
+                    <div class="multiselect-content" id="frentesBloqueadosMultiselectContent">
+                        @php
+                            $rawFrenteBloq = old('ID_FRENTE_BLOQUEADO', isset($user) ? $user->getRawOriginal('ID_FRENTE_BLOQUEADO') : '');
+                            $selectedFrentesBloq = is_array($rawFrenteBloq)
+                                ? $rawFrenteBloq
+                                : array_filter(array_map('trim', explode(',', $rawFrenteBloq ?? '')));
+                        @endphp
+                        @foreach($frentes as $frente)
+                            <label class="multiselect-item frente-bloq-item-opt" for="fbloq_{{ $frente->ID_FRENTE }}">
+                                <input type="checkbox"
+                                    id="fbloq_{{ $frente->ID_FRENTE }}"
+                                    name="ID_FRENTE_BLOQUEADO[]"
+                                    value="{{ $frente->ID_FRENTE }}"
+                                    {{ in_array((string)$frente->ID_FRENTE, array_map('strval', (array)$selectedFrentesBloq)) ? 'checked' : '' }}
+                                    onchange="updateFrentesBloqueadosCount()">
+                                <span>{{ $frente->NOMBRE_FRENTE }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                @error('ID_FRENTE_BLOQUEADO')
+                    <span class="error-message-inline">{{ $message }}</span>
+                @enderror
+                <small style="color: var(--maquinaria-gray-text); font-size: 12px; display: block; margin-top: 5px;">
+                    Frentes restringidos (ocultos para este usuario)
                 </small>
             </div>
 
@@ -251,9 +302,10 @@
 
 @section('extra_js')
 <script>
-    // Restaurar contador de frentes al cargar (modo edición)
+    // Restaurar contadores de frentes (asignados + bloqueados) al cargar (modo edición)
     document.addEventListener('DOMContentLoaded', function () {
         if (window.updateFrentesCount) window.updateFrentesCount();
+        if (window.updateFrentesBloqueadosCount) window.updateFrentesBloqueadosCount();
     });
 </script>
 @endsection

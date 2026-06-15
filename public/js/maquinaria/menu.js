@@ -96,11 +96,21 @@ window.filterDashboardAlerts = function () {
         ].map(normalizeStr).join(' ');
 
         if (textToSearch.indexOf(filter) > -1) {
-            item.style.display = "";
+            // IMPORTANTE: restaurar a "flex" (NO ""). El display:flex de .alert-card es
+            // inline y no hay regla CSS que lo respalde; con "" la tarjeta volvería a
+            // display:block y los botones (visibility/gestión) caerían debajo del texto.
+            item.style.display = "flex";
             hasVisibleItems = true;
         } else {
             item.style.display = "none";
         }
+    });
+
+    // Ocultar los encabezados de sección (Vencidas / Próximas) mientras hay búsqueda
+    // activa: con el filtro la lista es plana, y dejarlos visibles mostraría "Vencidas 30"
+    // aunque no haya coincidencias. Al limpiar la búsqueda se restauran.
+    list.querySelectorAll('.js-alert-section-header').forEach(h => {
+        h.style.display = filter.length > 0 ? 'none' : 'flex';
     });
 
     let emptyState = document.getElementById('search-empty-state');

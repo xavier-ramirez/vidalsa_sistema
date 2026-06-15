@@ -109,18 +109,14 @@ class EquipoController extends Controller
     private function applyEquipoFilters($query, Request $request, array $exclude = []): void
     {
         $user = auth()->user();
-        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
         $search = $request->input('search_query');
 
-        // Barrera de acceso por jurisdicción (usuario local → solo sus frentes).
-        // Closure reutilizable para no duplicarla entre el modo "solo
-        // seleccionados" y el filtrado normal.
-        $aplicarAccesoLocal = function ($q) use ($isLocalUser, $frentesPermitidos) {
-            if ($isLocalUser && count($frentesPermitidos) > 0) {
-                $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } elseif ($isLocalUser) {
-                $q->whereRaw('1 = 0');
+        // Barrera de acceso por jurisdicción: lista blanca (LOCAL → solo sus frentes)
+        // + lista negra de bloqueados (aplica TAMBIÉN a GLOBAL). aplicarScopeFrentes
+        // combina ambas; closure reutilizable entre "solo seleccionados" y filtrado normal.
+        $aplicarAccesoLocal = function ($q) use ($user) {
+            if ($user) {
+                $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL');
             }
         };
 
@@ -210,7 +206,10 @@ class EquipoController extends Controller
         // documento" del Consolidado (ver index()). La presencia real del PDF
         // (!=null Y !='') la resuelve applyDocPresence().
         $docFilters = array_diff_key($this->activeDocFilters($request), array_flip($exclude));
-        $this->applyDocPresence($query, $docFilters);
+        // La dirección con/sin/all la fija el usuario clicando los bloques del
+        // Consolidado (param doc_presence). El desglose doc_con/doc_sin se calcula
+        // aparte en index() siempre con 'con', así que no se ve afectado.
+        $this->applyDocPresence($query, $docFilters, $this->docPresenceMode($request));
     }
 
     /**
@@ -229,17 +228,43 @@ class EquipoController extends Controller
     }
 
     /**
-     * Restringe $query a los equipos que TIENEN cargados los documentos de
-     * $docFilters (param => columna). Con varios activos exige TODOS (AND).
-     * !=null Y !='': el LINK_* puede quedar como string vacío tras un borrado.
+     * Restringe $query según la PRESENCIA de los documentos de $docFilters
+     * (param => columna LINK_*), según $mode:
+     *   - 'con' (default): equipos que TIENEN cargados TODOS los docs (AND).
+     *   - 'sin'          : equipos a los que les FALTA cada doc (AND de ausencias).
+     *   - 'all'          : sin recorte de presencia (universo Con+Sin).
+     * !=null Y !='': el LINK_* puede quedar como string vacío tras un borrado, por
+     * eso "tener" = whereNotNull Y !='' y "faltar" = su negación (whereDoesntHave).
      */
-    private function applyDocPresence($query, array $docFilters): void
+    private function applyDocPresence($query, array $docFilters, string $mode = 'con'): void
     {
-        foreach ($docFilters as $col) {
-            $query->whereHas('documentacion', function ($q) use ($col) {
-                $q->whereNotNull($col)->where($col, '!=', '');
-            });
+        if ($mode === 'all') {
+            return; // el universo completo: no se restringe por presencia
         }
+        foreach ($docFilters as $col) {
+            if ($mode === 'sin') {
+                // Le FALTA el doc: col null/'' o sin fila documentacion.
+                $query->whereDoesntHave('documentacion', function ($q) use ($col) {
+                    $q->whereNotNull($col)->where($col, '!=', '');
+                });
+            } else { // 'con': lo TIENE cargado
+                $query->whereHas('documentacion', function ($q) use ($col) {
+                    $q->whereNotNull($col)->where($col, '!=', '');
+                });
+            }
+        }
+    }
+
+    /**
+     * Dirección del filtro de documento en la LISTA (controlada por los bloques
+     * clicables del Consolidado): 'con' | 'sin' | 'all'. Default 'con' (histórico:
+     * tildar un doc muestra los que lo tienen). El desglose del Consolidado
+     * (doc_con/doc_sin) NO depende de esto — siempre muestra ambos lados.
+     */
+    private function docPresenceMode(Request $request): string
+    {
+        $m = (string) $request->input('doc_presence', 'con');
+        return in_array($m, ['con', 'sin', 'all'], true) ? $m : 'con';
     }
 
     /** Etiqueta del desglose: "Propiedad" si hay uno solo, "Documentos" si varios. */
@@ -257,8 +282,6 @@ class EquipoController extends Controller
         $equipos = Equipo::query();
 
         $user = auth()->user();
-        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
 
         // Filtros principales (todos los ejes activos)
         $this->applyEquipoFilters($equipos, $request);
@@ -452,74 +475,10 @@ class EquipoController extends Controller
         // Build JSON payload (needed for AJAX response AND initial page load script tag)
         $jsonPayload = [];
         if ($hasFilter) {
+            // El mapeo del payload vive en UN solo lugar: Equipo::toDetailsPayload()
+            // (reusado por el panel de Alertas en /menu para que el modal sea idéntico).
             foreach ($equipos as $eq) {
-                $foto = ($eq->especificaciones && $eq->especificaciones->FOTO_REFERENCIAL)
-                        ? $eq->especificaciones->FOTO_REFERENCIAL
-                        : $eq->FOTO_EQUIPO;
-                $jsonPayload[$eq->ID_EQUIPO] = [
-                    'equipoId'        => $eq->ID_EQUIPO,
-                    'codigo'          => $eq->CODIGO_PATIO,
-                    'marca'           => $eq->MARCA,
-                    'modelo'          => $eq->MODELO,
-                    'anio'            => $eq->ANIO,
-                    'tipo'            => $eq->tipo->nombre ?? 'N/A',
-                    'categoria'       => $eq->CATEGORIA_FLOTA,
-                    'ubicacion'       => optional($eq->frenteActual)->NOMBRE_FRENTE ?? 'Sin Asignar',
-                    'motorSerial'     => $eq->SERIAL_DE_MOTOR,
-                    'chasis'          => $eq->SERIAL_CHASIS,
-                    'combustible'     => optional($eq->especificaciones)->COMBUSTIBLE ?? 'N/A',
-                    'consumo'         => optional($eq->especificaciones)->CONSUMO_PROMEDIO ?? 'N/A',
-                    'placa'           => optional($eq->documentacion)->PLACA ?? 'N/A',
-                    'titular'         => optional($eq->documentacion)->NOMBRE_DEL_TITULAR ?? 'N/A',
-                    'nroDoc'          => optional($eq->documentacion)->NRO_DE_DOCUMENTO ?? 'N/A',
-                    // Fechas de vencimiento: todas en formato Y-m-d (consistente con <input type=date>).
-                    // Se parsean via Carbon para que sea defensivo frente a casts datetime/string en el model.
-                    'vencSeguro'      => optional($eq->documentacion)->FECHA_VENC_POLIZA ? \Carbon\Carbon::parse($eq->documentacion->FECHA_VENC_POLIZA)->format('Y-m-d') : '',
-                    'seguro'          => optional(optional($eq->documentacion)->seguro)->NOMBRE_ASEGURADORA ?? 'N/A',
-                    'linkPropiedad'   => optional($eq->documentacion)->LINK_DOC_PROPIEDAD ?? '',
-                    'propiedadAutor'  => optional($eq->documentacion)->PROPIEDAD_SUBIDO_POR ?? '',
-                    'propiedadFecha'  => optional($eq->documentacion)->PROPIEDAD_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->PROPIEDAD_FECHA_SUBIDA)->format('d/m/y') : '',
-                    'linkSeguro'      => optional($eq->documentacion)->LINK_POLIZA_SEGURO ?? '',
-                    'polizaAutor'     => optional($eq->documentacion)->POLIZA_SUBIDO_POR ?? '',
-                    'polizaFecha'     => optional($eq->documentacion)->POLIZA_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->POLIZA_FECHA_SUBIDA)->format('d/m/y') : '',
-                    'linkRotc'        => optional($eq->documentacion)->LINK_ROTC ?? '',
-                    'fechaRotc'       => optional($eq->documentacion)->FECHA_ROTC ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ROTC)->format('Y-m-d') : '',
-                    'rotcAutor'       => optional($eq->documentacion)->ROTC_SUBIDO_POR ?? '',
-                    'rotcFecha'       => optional($eq->documentacion)->ROTC_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ROTC_FECHA_SUBIDA)->format('d/m/y') : '',
-                    'linkRacda'       => optional($eq->documentacion)->LINK_RACDA ?? '',
-                    'fechaRacda'      => optional($eq->documentacion)->FECHA_RACDA ? \Carbon\Carbon::parse($eq->documentacion->FECHA_RACDA)->format('Y-m-d') : '',
-                    'racdaAutor'      => optional($eq->documentacion)->RACDA_SUBIDO_POR ?? '',
-                    'racdaFecha'      => optional($eq->documentacion)->RACDA_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->RACDA_FECHA_SUBIDA)->format('d/m/y') : '',
-                    'linkAdicional'   => optional($eq->documentacion)->LINK_DOC_ADICIONAL ?? '',
-                    'fechaAdicional'  => optional($eq->documentacion)->FECHA_ADICIONAL ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ADICIONAL)->format('Y-m-d') : '',
-                    'adicionalAutor'  => optional($eq->documentacion)->ADICIONAL_SUBIDO_POR ?? '',
-                    'adicionalFecha'  => optional($eq->documentacion)->ADICIONAL_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ADICIONAL_FECHA_SUBIDA)->format('d/m/y') : '',
-                    'linkAdicional2'  => optional($eq->documentacion)->LINK_DOC_ADICIONAL_2 ?? '',
-                    'fechaAdicional2' => optional($eq->documentacion)->FECHA_ADICIONAL_2 ? \Carbon\Carbon::parse($eq->documentacion->FECHA_ADICIONAL_2)->format('Y-m-d') : '',
-                    'adicional2Autor' => optional($eq->documentacion)->ADICIONAL_2_SUBIDO_POR ?? '',
-                    'adicional2Fecha' => optional($eq->documentacion)->ADICIONAL_2_FECHA_SUBIDA ? \Carbon\Carbon::parse($eq->documentacion->ADICIONAL_2_FECHA_SUBIDA)->format('d/m/y') : '',
-                    'linkGps'         => $eq->LINK_GPS ?? '',
-                    'frenteId'        => $eq->ID_FRENTE_ACTUAL,
-                    'foto'            => $foto,
-                    'rolAnclaje'      => optional($eq->tipo)->ROL_ANCLAJE ?? 'NEUTRO',
-                    'anchorId'        => $eq->ID_ANCLAJE ?? '',
-                    'anchorCode'      => optional($eq->ancladoA)->CODIGO_PATIO ?? '',
-                    'anchorRol'       => optional(optional($eq->ancladoA)->tipo)->ROL_ANCLAJE ?? '',
-                    'anchorTipoNombre'=> optional(optional($eq->ancladoA)->tipo)->nombre ?? 'Equipo',
-                    'anchorPlaca'     => optional(optional($eq->ancladoA)->documentacion)->PLACA ?? '',
-                    'anchorSerial'    => optional($eq->ancladoA)->SERIAL_CHASIS ?? '',
-                    'anchorMarca'     => optional($eq->ancladoA)->MARCA ?? '',
-                    // Foto del equipo anclado: prioriza FOTO_REFERENCIAL del catalogo,
-                    // cae a FOTO_EQUIPO propia. La seccion "Equipo Anclado" del modal
-                    // de detalles la muestra si existe; si no, placeholder con icono.
-                    'anchorFoto'      => $eq->ancladoA
-                        ? (optional(optional($eq->ancladoA)->especificaciones)->FOTO_REFERENCIAL
-                            ?? $eq->ancladoA->FOTO_EQUIPO
-                            ?? '')
-                        : '',
-                    'subCount'        => $eq->equipos_auxiliares_count ?? 0,
-                    'detalleUbicacion'=> $eq->DETALLE_UBICACION_ACTUAL ?? '',
-                ];
+                $jsonPayload[$eq->ID_EQUIPO] = $eq->toDetailsPayload();
             }
         }
 
@@ -554,22 +513,31 @@ class EquipoController extends Controller
             ]);
         }
 
+        // El dropdown de frentes oculta los que el usuario no puede ver (lista blanca
+        // LOCAL + lista negra de bloqueados): un frente bloqueado no aparece como filtro.
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc');
-        if ($isLocalUser && count($frentesPermitidos) > 0) {
-            $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
-        } elseif ($isLocalUser) {
-            $frentesQuery->whereRaw('1 = 0');
+        if ($user) {
+            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
         }
         $frentes = $frentesQuery->get();
 
-        $allTipos = TipoEquipo::orderBy('nombre', 'asc')->get();
+        // Base de "equipos visibles" para el usuario (whitelist LOCAL + blacklist de
+        // bloqueados). De aquí salen los tipos del filtro, para que un LOCAL NO vea tipos
+        // que no existen en sus frentes (antes traía TODOS los TipoEquipo del sistema).
+        $tiposVisiblesBase = Equipo::query()->whereNotNull('id_tipo_equipo');
+        if ($user) {
+            $user->aplicarScopeFrentes($tiposVisiblesBase, 'ID_FRENTE_ACTUAL');
+        }
 
-        // Mapa { ID_FRENTE_ACTUAL : [ID_TIPO, ...] } con los tipos de equipo presentes en
-        // cada frente. Lo usa el filtro "Tipo" para mostrar SOLO los tipos que existen en
-        // el frente seleccionado (filtro dependiente). Clave 'none' = equipos sin frente.
-        // distinct sobre (frente, tipo) → barato; respeta el soft-delete del modelo.
-        $tiposPorFrente = Equipo::query()
-            ->whereNotNull('id_tipo_equipo')
+        $tipoIdsVisibles = (clone $tiposVisiblesBase)
+            ->distinct()->pluck('id_tipo_equipo')->map(fn ($v) => (int) $v)->all();
+        $allTipos = TipoEquipo::whereIn('id', $tipoIdsVisibles)
+            ->orderBy('nombre', 'asc')->get();
+
+        // Mapa { ID_FRENTE_ACTUAL : [ID_TIPO, ...] } con los tipos presentes en cada frente
+        // VISIBLE. Lo usa el filtro "Tipo" para mostrar SOLO los tipos del frente seleccionado
+        // (filtro dependiente). Clave 'none' = equipos sin frente. distinct (frente, tipo) → barato.
+        $tiposPorFrente = (clone $tiposVisiblesBase)
             ->select('ID_FRENTE_ACTUAL', 'id_tipo_equipo')
             ->distinct()
             ->get()
@@ -610,8 +578,6 @@ class EquipoController extends Controller
     public function export(Request $request)
     {
         $user = auth()->user();
-        $isLocalUser = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
 
         // CRITICAL: Prevent exporting entire database without filters.
         // 'id_frente=all' es un filtro explícito válido (el usuario seleccionó "Todos los Frentes").
@@ -648,12 +614,9 @@ class EquipoController extends Controller
         // Apply Local User Scope EXCEPT when doing a global text search
         // FIX: Single $search variable — do not re-declare below to avoid losing strtoupper/trim normalization.
         $search = strtoupper(trim((string) $request->input('search_query', '')));
-        if (empty($search)) {
-            if ($isLocalUser && count($frentesPermitidos) > 0) {
-                $equipos->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            } elseif ($isLocalUser) {
-                $equipos->whereRaw('1 = 0');
-            }
+        if (empty($search) && $user) {
+            // Lista blanca (LOCAL) + lista negra de bloqueados (también GLOBAL).
+            $user->aplicarScopeFrentes($equipos, 'ID_FRENTE_ACTUAL');
         }
 
         // Apply same filters (mismo criterio que el listado, ver applyEquipoFilters)
@@ -754,10 +717,10 @@ class EquipoController extends Controller
         $equipos->with([
             'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'tipo:id,nombre',
-            'documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC',
+            'documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC,LINK_DOC_ADICIONAL,FECHA_ADICIONAL',
             'equiposAnclados:ID_EQUIPO,id_tipo_equipo,ID_FRENTE_ACTUAL,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR,ANIO,ESTADO_OPERATIVO,CATEGORIA_FLOTA,ID_ANCLAJE',
             'equiposAnclados.tipo:id,nombre',
-            'equiposAnclados.documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC',
+            'equiposAnclados.documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC,LINK_DOC_ADICIONAL,FECHA_ADICIONAL',
             'equiposAnclados.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'ancladoA:ID_EQUIPO,ID_FRENTE_ACTUAL',
             'ancladoA.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
@@ -809,9 +772,10 @@ class EquipoController extends Controller
         }
 
         $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
-        // +8 columnas de documentación: SÍ/NO + dato por cada uno (Tít.Prop+Titular / Póliza+Venc / RACDA+Venc / ROTC+Venc):
-        // con FRENTE → A..S ; sin FRENTE → A..R
-        $lastCol      = $showFrenteCol ? 'S' : 'R';
+        // +10 columnas de documentación: SÍ/NO + dato por cada uno (Tít.Prop+Titular /
+        // Póliza+Venc / RACDA+Venc / ROTC+Venc / Certificado+Venc):
+        // con FRENTE → A..U ; sin FRENTE → A..T
+        $lastCol      = $showFrenteCol ? 'U' : 'T';
         $endTitle     = $showFrenteCol ? 'O' : 'N'; // título C:endTitle (encabezado ancho)
         $startEdicion = $showFrenteCol ? 'P' : 'O'; // EDICION/REV/FECHA: startEdicion..lastCol (4 cols, angosto)
 
@@ -886,13 +850,14 @@ class EquipoController extends Controller
             'PÓLIZA',                "VENC.\nPÓLIZA",
             'RACDA',                 "VENC.\nRACDA",
             'ROTC',                  "VENC.\nROTC",
+            'CERTIFICADO',           "VENC.\nCERTIF.",
         ];
         if ($showFrenteCol) {
             $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
-            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S'];
+            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U'];
         } else {
             $headers = array_merge(['N°', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
-            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'];
+            $colMap  = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T'];
         }
 
         foreach($headers as $index => $hdr) {
@@ -926,6 +891,8 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('Q')->setWidth(13); // Venc. RACDA
             $sheet->getColumnDimension('R')->setWidth(9);  // ROTC (SÍ/NO)
             $sheet->getColumnDimension('S')->setWidth(13); // Venc. ROTC
+            $sheet->getColumnDimension('T')->setWidth(12); // Certificado (SÍ/NO)
+            $sheet->getColumnDimension('U')->setWidth(13); // Venc. Certificado
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(32);
@@ -945,6 +912,8 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('P')->setWidth(13); // Venc. RACDA
             $sheet->getColumnDimension('Q')->setWidth(9);  // ROTC (SÍ/NO)
             $sheet->getColumnDimension('R')->setWidth(13); // Venc. ROTC
+            $sheet->getColumnDimension('S')->setWidth(12); // Certificado (SÍ/NO)
+            $sheet->getColumnDimension('T')->setWidth(13); // Venc. Certificado
         }
 
         $printedIds  = [];
@@ -1031,13 +1000,14 @@ class EquipoController extends Controller
             };
             $doc     = $equipo->documentacion;
             $docCols = $showFrenteCol
-                ? ['L','M','N','O','P','Q','R','S']  // Prop|Tit | Pol|Venc | Racda|Venc | Rotc|Venc
-                : ['K','L','M','N','O','P','Q','R'];
+                ? ['L','M','N','O','P','Q','R','S','T','U']  // Prop|Tit | Pol|Venc | Racda|Venc | Rotc|Venc | Cert|Venc
+                : ['K','L','M','N','O','P','Q','R','S','T'];
 
             $tieneProp   = $doc && $cargado($doc->LINK_DOC_PROPIEDAD);
             $tienePoliza = $doc && $cargado($doc->LINK_POLIZA_SEGURO);
             $tieneRacda  = $doc && $cargado($doc->LINK_RACDA);
             $tieneRotc   = $doc && $cargado($doc->LINK_ROTC);
+            $tieneCert   = $doc && $cargado($doc->LINK_DOC_ADICIONAL); // Certificado = doc. adicional
 
             $titular = ($doc && $tieneProp) ? trim((string) $doc->NOMBRE_DEL_TITULAR) : '';
 
@@ -1049,6 +1019,8 @@ class EquipoController extends Controller
             $sheet->setCellValue($docCols[5].$rowNum, $tieneRacda  ? $fmtFecha($doc->FECHA_RACDA) : '—'); // Venc. RACDA
             $sheet->setCellValue($docCols[6].$rowNum, $tieneRotc   ? 'SÍ' : 'NO'); // ROTC (SÍ/NO)
             $sheet->setCellValue($docCols[7].$rowNum, $tieneRotc   ? $fmtFecha($doc->FECHA_ROTC) : '—'); // Venc. ROTC
+            $sheet->setCellValue($docCols[8].$rowNum, $tieneCert   ? 'SÍ' : 'NO'); // Certificado (SÍ/NO)
+            $sheet->setCellValue($docCols[9].$rowNum, $tieneCert   ? $fmtFecha($doc->FECHA_ADICIONAL) : '—'); // Venc. Certificado
 
             // Estilos por celda removidos: se aplican en LOTE despues del foreach al
             // rango completo de datos (ver bloque "Estilos de filas de datos en lote").
@@ -1111,8 +1083,8 @@ class EquipoController extends Controller
 
             // 5) Columnas de documentos: centradas EXCEPTO la del TITULAR (idx 1 -> left)
             $docColsBatch = $showFrenteCol
-                ? ['L','M','N','O','P','Q','R','S']
-                : ['K','L','M','N','O','P','Q','R'];
+                ? ['L','M','N','O','P','Q','R','S','T','U']
+                : ['K','L','M','N','O','P','Q','R','S','T'];
             foreach ($docColsBatch as $idx => $dc) {
                 $align = $idx === 1
                     ? \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT
@@ -2664,19 +2636,21 @@ class EquipoController extends Controller
     {
         try {
             $user              = auth()->user();
-            $isLocal           = $user && $user->NIVEL_ACCESO == 2;
+            $isLocal           = ($user ? !$user->veTodosLosFrentes() : false);
             $frentesPermitidos = $user ? $user->getFrentesIds() : [];
+            $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
             $requestedFrenteId = $request->input('frente_id');
 
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
 
-            // Cache key — versión v2 para invalidar datos previos sin exclusión ESPECIAL.
-            $cacheKey = 'fleet_stats_v2_u' . ($user?->id ?? 'guest')
-                      . '_f' . ($requestedFrenteId ?: 'all');
+            // Cache key — v3: incluye hash de bloqueados para invalidar si el admin cambia la lista negra.
+            $cacheKey = 'fleet_stats_v3_u' . ($user?->id ?? 'guest')
+                      . '_f' . ($requestedFrenteId ?: 'all')
+                      . '_b' . md5(implode(',', $frentesBloqueados));
 
             return \Illuminate\Support\Facades\Cache::remember($cacheKey, 120, function () use (
-                $isLocal, $frentesPermitidos, $requestedFrenteId, $applyEspecialExclusion
+                $isLocal, $frentesPermitidos, $frentesBloqueados, $requestedFrenteId, $applyEspecialExclusion
             ) {
                 // ── Construir la query base una sola vez ──────────────────────────
                 $baseQuery = Equipo::query();
@@ -2696,6 +2670,9 @@ class EquipoController extends Controller
                 } elseif ($requestedFrenteId && $requestedFrenteId !== 'all') {
                     $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
                 }
+
+                // Lista negra: ocultar frentes bloqueados (aplica también a GLOBAL).
+                \App\Models\Usuario::aplicarBloqueoIds($baseQuery, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
 
                 // Excluir frentes ESPECIAL del dashboard de flota (salvo drill-down explícito).
                 if ($applyEspecialExclusion) {
@@ -2835,8 +2812,9 @@ class EquipoController extends Controller
     {
         try {
             $user = auth()->user();
-            $isLocal = $user && $user->NIVEL_ACCESO == 2;
+            $isLocal = ($user ? !$user->veTodosLosFrentes() : false);
             $frentesPermitidos = $user ? $user->getFrentesIds() : [];
+            $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
             $requestedFrenteId = $request->input('frente_id');
 
             $frenteNombre = 'TODOS LOS FRENTES';
@@ -2862,6 +2840,9 @@ class EquipoController extends Controller
                 $frenteObj = FrenteTrabajo::find($requestedFrenteId);
                 $frenteNombre = $frenteObj ? mb_strtoupper($frenteObj->NOMBRE_FRENTE) : 'FRENTE ESPECÍFICO';
             }
+
+            // Lista negra: ocultar frentes bloqueados (aplica también a GLOBAL).
+            \App\Models\Usuario::aplicarBloqueoIds($baseQuery, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
 
             // Excluir frentes ESPECIAL salvo cuando se filtra explícitamente por uno.
             if (!FrenteTrabajo::isEspecialId($requestedFrenteId)) {
@@ -4109,15 +4090,18 @@ class EquipoController extends Controller
     public function bulkTemplate(Request $request)
     {
         $user    = auth()->user();
-        $isLocal = $user && $user->NIVEL_ACCESO == 2;
+        $isLocal = ($user ? !$user->veTodosLosFrentes() : false);
 
         // Cache el binario XLSX en disco por usuario-scope (solo cambia si agregan frentes/tipos).
         // Se invalida automaticamente al guardar/borrar TipoEquipo o FrenteTrabajo: el
         // counter `bulk_template_gen` incrementa y los archivos viejos quedan obsoletos.
         // Usamos disco en vez de Cache::remember porque algunos drivers (database) no manejan binario.
-        $scopeKey = $isLocal
+        // El sufijo _b<hash> incluye los frentes bloqueados: la lista de frentes de la
+        // plantilla los excluye (también para GLOBAL), así que cambiarlos genera otra clave.
+        $scopeKey = ($isLocal
             ? 'local_' . md5(implode(',', $user->getFrentesIds()))
-            : 'global';
+            : 'global')
+            . '_b' . md5(implode(',', $user ? $user->getFrentesBloqueadosIds() : []));
         $gen     = \Illuminate\Support\Facades\Cache::get('bulk_template_gen', 1);
         $relPath = 'cache/bulk_template/g' . $gen . '_' . $scopeKey . '.xlsx';
 
@@ -4129,7 +4113,7 @@ class EquipoController extends Controller
                     $disk->delete($old);
                 }
             }
-            $binary = $this->buildBulkTemplateBinary($isLocal, $user);
+            $binary = $this->buildBulkTemplateBinary($user);
             $disk->put($relPath, $binary);
         }
 
@@ -4148,7 +4132,7 @@ class EquipoController extends Controller
      * - Un unico applyFromArray al rango de headers (no celda por celda).
      * - Escritura en memoria (php://memory) evitando I/O a disco.
      */
-    private function buildBulkTemplateBinary(bool $isLocal, $user): string
+    private function buildBulkTemplateBinary($user): string
     {
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
 
@@ -4190,9 +4174,11 @@ class EquipoController extends Controller
         $spreadsheet->addSheet($listSheet);
 
         $tipos = TipoEquipo::orderBy('nombre')->pluck('nombre')->toArray();
+        // Lista de frentes de la plantilla: oculta los no visibles (whitelist LOCAL +
+        // blacklist de bloqueados) para que no se pueda dar de alta en un frente prohibido.
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocal) {
-            $frentesQuery->whereIn('ID_FRENTE', $user->getFrentesIds());
+        if ($user) {
+            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
         }
         $frentes    = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
@@ -4271,8 +4257,6 @@ class EquipoController extends Controller
         ]);
 
         $user    = auth()->user();
-        $isLocal = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $isLocal ? $user->getFrentesIds() : [];
 
         // Cargar el archivo
         $path        = $request->file('archivo_excel')->getRealPath();
@@ -4342,11 +4326,13 @@ class EquipoController extends Controller
                 ->toArray()
             : [];
 
-        // Resolver lookups de tipos y frentes en memoria para evitar N+1
+        // Resolver lookups de tipos y frentes en memoria para evitar N+1.
+        // El mapa de frentes válidos oculta los no visibles (whitelist LOCAL + blacklist
+        // de bloqueados): una fila que apunte a un frente prohibido se marca inválida.
         $tiposMap   = TipoEquipo::orderBy('nombre')->get()->keyBy(fn($t) => strtolower(trim($t->nombre)));
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocal) {
-            $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+        if ($user) {
+            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
         }
         $frentesMap = $frentesQuery->get()->keyBy(fn($f) => strtolower(trim($f->NOMBRE_FRENTE)));
 
@@ -4476,8 +4462,8 @@ class EquipoController extends Controller
             ->map(fn($t) => ['id' => $t->id, 'nombre' => $t->nombre]);
 
         $frentesOptionsQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocal) {
-            $frentesOptionsQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+        if ($user) {
+            $user->aplicarScopeFrentes($frentesOptionsQuery, 'ID_FRENTE');
         }
         $frentesOptions = $frentesOptionsQuery->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
             ->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]);
@@ -4505,8 +4491,6 @@ class EquipoController extends Controller
         ]);
 
         $user    = auth()->user();
-        $isLocal = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $isLocal ? $user->getFrentesIds() : [];
 
         $rows            = $request->input('rows');
         $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
@@ -4538,11 +4522,12 @@ class EquipoController extends Controller
                 ->toArray()
             : [];
 
-        // Resolver lookups en memoria
+        // Resolver lookups en memoria. El mapa de frentes válidos oculta los no visibles
+        // (whitelist LOCAL + blacklist de bloqueados): no se puede dar de alta en un frente prohibido.
         $tiposMap  = TipoEquipo::orderBy('nombre')->get()->keyBy(fn($t) => strtolower(trim($t->nombre)));
         $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($isLocal) {
-            $frentesQuery->whereIn('ID_FRENTE', $frentesPermitidos);
+        if ($user) {
+            $user->aplicarScopeFrentes($frentesQuery, 'ID_FRENTE');
         }
         $frentesMap = $frentesQuery->get()->keyBy(fn($f) => strtolower(trim($f->NOMBRE_FRENTE)));
 
@@ -4683,7 +4668,7 @@ class EquipoController extends Controller
                         $tipoCache[$tipoNombre] = $idTipo;
                     }
                 }
-                Equipo::create([
+                $nuevoEquipo = Equipo::create([
                     'id_tipo_equipo'           => $idTipo,
                     'CATEGORIA_FLOTA'          => $row['categoria_flota'],
                     'MARCA'                    => strtoupper($row['marca']),
@@ -4692,17 +4677,20 @@ class EquipoController extends Controller
                     'NUMERO_ETIQUETA'          => $row['numero_etiqueta'],
                     'SERIAL_CHASIS'            => strtoupper($row['serial_chasis']),
                     'SERIAL_DE_MOTOR'          => $row['serial_de_motor'] ? strtoupper($row['serial_de_motor']) : null,
-                    'ID_FRENTE_ACTUAL'         => $row['id_frente_resuelto'],
                     'ESTADO_OPERATIVO'         => $row['status'],
                     'CONFIRMADO_EN_SITIO'      => 0,
                     'ID_ESPEC'                 => null,
-                    'ID_ANCLAJE'               => null,
                     'CODIGO_PATIO'             => null,
                     'DETALLE_UBICACION_ACTUAL' => null,
                     'FOTO_EQUIPO'              => null,
                     'LINK_GPS'                 => null,
                     'CREADO_POR'               => $user->ID_USUARIO,
                 ]);
+                // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable) → se asigna por
+                // propiedad tras crear. Con create([...]) se descartaba en silencio y el
+                // equipo importado quedaba SIN frente asignado. (ID_ANCLAJE nace null por defecto.)
+                $nuevoEquipo->ID_FRENTE_ACTUAL = $row['id_frente_resuelto'];
+                $nuevoEquipo->save();
             }
         });
 

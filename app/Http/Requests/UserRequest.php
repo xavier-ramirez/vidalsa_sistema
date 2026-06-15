@@ -45,6 +45,8 @@ class UserRequest extends FormRequest
             'ID_ROL' => 'required|string|max:150',
             'ID_FRENTE_ASIGNADO' => 'nullable|array',
             'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
+            'ID_FRENTE_BLOQUEADO' => 'nullable|array',
+            'ID_FRENTE_BLOQUEADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
             'NIVEL_ACCESO' => 'required|integer|in:1,2',
             'ESTATUS' => 'required|in:ACTIVO,INACTIVO',
             'PERMISOS' => 'nullable|array',

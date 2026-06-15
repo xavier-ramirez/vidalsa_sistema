@@ -87,9 +87,11 @@ class HistorialDocumentosController extends Controller
         // Usuarios NIVEL_ACCESO=2 (local) solo ven el historial de equipos en
         // los frentes que tienen asignados. Sin frentes => ven nada.
         // Los super.admin / global ven todo el historial.
-        $user              = auth()->user();
-        $isLocalUser       = $user && $user->NIVEL_ACCESO == 2;
-        $frentesPermitidos = $user ? $user->getFrentesIds() : [];
+        $user            = auth()->user();
+        // null = ve todo (global) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesIds).
+        $frentesVisibles = $user ? $user->frentesVisiblesIds() : [];
+        // Lista negra: frentes a OCULTAR siempre (también a GLOBAL).
+        $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
 
         // Pre-filtros que se aplican en SQL (no en memoria) para escalar bien.
         // Si el dataset crece a decenas de miles, esto evita cargar todo a RAM.
@@ -103,15 +105,23 @@ class HistorialDocumentosController extends Controller
 
         // Helper que aplica el scope LOCAL a un query Eloquent que tiene relacion
         // 'equipo'. Usado en Documentacion y EquipoAuditLog (que SI tienen relacion).
-        $applyLocalScopeViaWhereHas = function ($query) use ($isLocalUser, $frentesPermitidos) {
-            if (!$isLocalUser) return;
-            if (empty($frentesPermitidos)) {
-                $query->whereRaw('1 = 0'); // local sin frentes => sin resultados
-                return;
+        $applyLocalScopeViaWhereHas = function ($query) use ($frentesVisibles, $frentesBloqueados) {
+            // Lista blanca (whitelist LOCAL):
+            if ($frentesVisibles !== null) {       // null = global → ve todo (sin whitelist)
+                if (empty($frentesVisibles)) {
+                    $query->whereRaw('1 = 0'); // local sin frentes => sin resultados
+                    return;                    // ya no ve nada, la lista negra es irrelevante
+                }
+                $query->whereHas('equipo', function ($q) use ($frentesVisibles) {
+                    $q->withTrashed()->whereIn('ID_FRENTE_ACTUAL', $frentesVisibles);
+                });
             }
-            $query->whereHas('equipo', function ($q) use ($frentesPermitidos) {
-                $q->withTrashed()->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            });
+            // Lista negra (también para GLOBAL): ocultar historial de equipos en frentes bloqueados.
+            if (!empty($frentesBloqueados)) {
+                $query->whereHas('equipo', function ($q) use ($frentesBloqueados) {
+                    $q->withTrashed()->whereNotIn('ID_FRENTE_ACTUAL', $frentesBloqueados);
+                });
+            }
         };
 
         // Helper que aplica el filtro search_equipo (placa/serial/codigo) en SQL.
@@ -205,14 +215,9 @@ class HistorialDocumentosController extends Controller
             ])
             ->whereNotNull('CREADO_POR');
 
-        // Scope LOCAL en SQL.
-        if ($isLocalUser) {
-            if (empty($frentesPermitidos)) {
-                $equiposQuery->whereRaw('1 = 0');
-            } else {
-                $equiposQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
-            }
-        }
+        // Scope en SQL: lista blanca (LOCAL) + lista negra de bloqueados (también GLOBAL).
+        \App\Models\Usuario::aplicarScopeIds($equiposQuery, $frentesVisibles, 'ID_FRENTE_ACTUAL');
+        \App\Models\Usuario::aplicarBloqueoIds($equiposQuery, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
 
         // search_equipo en SQL (placa/serial/codigo).
         if ($searchEquipoSql !== '') {

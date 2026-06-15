@@ -101,7 +101,11 @@ class GoogleDriveController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Google Drive fetch error: ' . $e->getMessage());
-            abort(404, 'Imagen no disponible');
+            // Este endpoint sirve archivos EMBEBIDOS (PDF en visor/iframe, imágenes).
+            // NO usar abort(404) porque renderiza la página de NAVEGACIÓN con botón
+            // "Ir al inicio de sesión" — absurdo dentro de un visor de PDF (el usuario
+            // ya está logueado). Devolvemos una página propia "Documento no disponible".
+            return response()->view('errors.asset_unavailable', [], 404);
         }
     }
 }

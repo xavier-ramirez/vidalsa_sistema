@@ -109,27 +109,41 @@ class Almacen extends Model
         if (!$user) {
             return false;
         }
-        return (int) ($user->NIVEL_ACCESO ?? 0) === 1;
+        // Criterio ÚNICO centralizado en Usuario::veTodosLosFrentes (mismo "==1").
+        return method_exists($user, 'veTodosLosFrentes')
+            ? $user->veTodosLosFrentes()
+            : (int) ($user->NIVEL_ACCESO ?? 0) === 1;
     }
 
-    /** IDs (int) de los frentes asignados a un usuario; robusto al formato. */
+    /**
+     * IDs (int) de los frentes asignados a un usuario.
+     * El PARSEO del CSV vive en UN solo lugar (Usuario::getFrentesIds); aquí solo
+     * delegamos y normalizamos a int para las queries por el pivote almacen_frentes
+     * (ID_FRENTE es entero). Antes este método re-parseaba el CSV → duplicaba la lógica.
+     */
     public static function frenteIdsDe($user): array
     {
-        if (!$user) {
+        if (!$user || !method_exists($user, 'getFrentesIds')) {
             return [];
         }
-        $ids = method_exists($user, 'getFrentesIds') ? $user->getFrentesIds() : [];
-        if (empty($ids)) {
-            $raw = $user->ID_FRENTE_ASIGNADO ?? null;
-            if (is_array($raw)) {
-                $ids = $raw;
-            } elseif (is_string($raw) && $raw !== '') {
-                $ids = array_filter(array_map('trim', explode(',', $raw)));
-            }
+        return self::normalizarIdsFrente($user->getFrentesIds());
+    }
+
+    /** IDs (int) de los frentes BLOQUEADOS de un usuario (lista negra); espejo de frenteIdsDe. */
+    public static function frentesBloqueadosDe($user): array
+    {
+        if (!$user || !method_exists($user, 'getFrentesBloqueadosIds')) {
+            return [];
         }
+        return self::normalizarIdsFrente($user->getFrentesBloqueadosIds());
+    }
+
+    /** Normaliza una lista de IDs de frente a enteros únicos (sin vacíos/null). Punto ÚNICO. */
+    private static function normalizarIdsFrente(array $ids): array
+    {
         return array_values(array_unique(array_map(
             'intval',
-            array_filter((array) $ids, fn ($v) => $v !== '' && $v !== null)
+            array_filter($ids, fn ($v) => $v !== '' && $v !== null)
         )));
     }
 
@@ -154,12 +168,23 @@ class Almacen extends Model
     public static function visiblesPara($user): Builder
     {
         $q = static::query()->activos();
+        $bloqueados = self::frentesBloqueadosDe($user);
 
         if (self::usuarioEsGlobal($user)) {
+            // GLOBAL: ve todos MENOS los almacenes ligados EXCLUSIVAMENTE a frentes
+            // bloqueados. Un almacén que además sirve a un frente NO bloqueado (o que no
+            // tiene frentes, p.ej. GENERAL) sigue visible. El where(closure) agrupa el
+            // OR para que no rompa el AND con activos().
+            if (!empty($bloqueados)) {
+                $q->where(fn (Builder $w) => $w
+                    ->whereDoesntHave('frentes', fn (Builder $f) => $f->whereIn('frentes_trabajo.ID_FRENTE', $bloqueados))
+                    ->orWhereHas('frentes', fn (Builder $f) => $f->whereNotIn('frentes_trabajo.ID_FRENTE', $bloqueados)));
+            }
             return $q;
         }
 
-        $frenteIds = self::frenteIdsDe($user);
+        // LOCAL: solo sus frentes asignados, restando los bloqueados.
+        $frenteIds = array_values(array_diff(self::frenteIdsDe($user), $bloqueados));
         if (empty($frenteIds)) {
             return $q->whereRaw('1 = 0'); // sin acceso: builder vacío
         }
@@ -173,14 +198,26 @@ class Almacen extends Model
     /** True si $user puede ver/operar sobre este almacén concreto. */
     public function visiblePara($user): bool
     {
-        if (self::usuarioEsGlobal($user)) {
-            return $this->ESTATUS === 'ACTIVO';
-        }
         // El TIPO ya no restringe: GENERAL o PROYECTO, basta compartir un frente.
         if ($this->ESTATUS !== 'ACTIVO') {
             return false;
         }
-        $frenteIds = self::frenteIdsDe($user);
+        $bloqueados = self::frentesBloqueadosDe($user);
+
+        if (self::usuarioEsGlobal($user)) {
+            // GLOBAL ve todos salvo los ligados EXCLUSIVAMENTE a frentes bloqueados
+            // (coherente con visiblesPara): visible si tiene un frente no bloqueado o
+            // ningún frente bloqueado.
+            if (empty($bloqueados)) {
+                return true;
+            }
+            $tieneNoBloqueado = $this->frentes()->whereNotIn('frentes_trabajo.ID_FRENTE', $bloqueados)->exists();
+            $tieneBloqueado   = $this->frentes()->whereIn('frentes_trabajo.ID_FRENTE', $bloqueados)->exists();
+            return $tieneNoBloqueado || !$tieneBloqueado;
+        }
+
+        // LOCAL: comparte alguno de sus frentes asignados NO bloqueados.
+        $frenteIds = array_values(array_diff(self::frenteIdsDe($user), $bloqueados));
         if (empty($frenteIds)) {
             return false;
         }

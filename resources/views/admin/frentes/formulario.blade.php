@@ -735,7 +735,7 @@
                         '</button>' +
                     '</div>' +
                     '<div style="padding:14px 16px;">' +
-                        '<p style="margin:0 0 8px 0;font-size:11px;color:#64748b;text-align:center;line-height:1.35;">Frentes activos sin equipos ni auxiliares. Puedes desactivarlos o eliminarlos.</p>' +
+                        '<p style="margin:0 0 8px 0;font-size:11px;color:#64748b;text-align:center;line-height:1.35;">Frentes sin equipos ni auxiliares asignados (cualquier estado). Puedes desactivar los activos o eliminarlos.</p>' +
                         '<div id="sinEquiposList" style="max-height:380px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;">' +
                             '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:24px;">sync</i></div>' +
                         '</div>' +
@@ -757,23 +757,29 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data.frentes || data.frentes.length === 0) {
-                        list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="font-size:32px;display:block;margin:0 auto 10px;">check_circle</i>Todos los frentes activos tienen equipos</div>';
+                        list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="font-size:32px;display:block;margin:0 auto 10px;">check_circle</i>Todos los frentes tienen equipos asignados</div>';
                         return;
                     }
                     list.innerHTML = data.frentes.map(function (f) {
                         var ubic = f.ubicacion ? '<div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">place</i>' + escapeHtml(f.ubicacion) + '</div>' : '';
+                        // Badge de estatus: verde ACTIVO, ámbar el resto (FINALIZADO/DESACTIVADO).
+                        var esActivo = (f.estatus === 'ACTIVO');
+                        var badge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.3px;background:' +
+                            (esActivo ? '#dcfce7' : '#fef3c7') + ';color:' + (esActivo ? '#16a34a' : '#b45309') + ';">' + escapeHtml(f.estatus || '—') + '</span>';
+                        // "Desactivar" solo tiene sentido en ACTIVOS; los demás solo se eliminan.
+                        var btnDesactivar = esActivo
+                            ? '<button type="button" onclick="window._sinEquiposDesactivar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;border-radius:8px;background:#f59e0b;display:inline-flex;align-items:center;gap:4px;">' +
+                                '<i class="material-icons" style="font-size:14px;">block</i>Desactivar</button>'
+                            : '';
                         return '<div style="padding:10px;border-radius:8px;background:white;border:1px solid #e2e8f0;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
                             '<div style="width:36px;height:36px;background:#e0f2fe;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="material-icons" style="color:#0284c7;font-size:18px;">domain_disabled</i></div>' +
                             '<div style="flex:1;min-width:120px;">' +
-                                '<div style="font-weight:700;color:#1e293b;font-size:13px;">' + escapeHtml(f.nombre) + '</div>' +
+                                '<div style="font-weight:700;color:#1e293b;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' + escapeHtml(f.nombre) + badge + '</div>' +
                                 ubic +
                             '</div>' +
-                            '<button type="button" onclick="window._sinEquiposDesactivar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;background:#f59e0b;border-color:#f59e0b;display:inline-flex;align-items:center;gap:4px;">' +
-                                '<i class="material-icons" style="font-size:14px;">block</i>Desactivar' +
-                            '</button>' +
-                            '<button type="button" onclick="window._sinEquiposEliminar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;background:#ef4444;border-color:#ef4444;display:inline-flex;align-items:center;gap:4px;">' +
-                                '<i class="material-icons" style="font-size:14px;">delete_outline</i>Eliminar' +
-                            '</button>' +
+                            btnDesactivar +
+                            '<button type="button" onclick="window._sinEquiposEliminar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;border-radius:8px;background:#ef4444;display:inline-flex;align-items:center;gap:4px;">' +
+                                '<i class="material-icons" style="font-size:14px;">delete_outline</i>Eliminar</button>' +
                         '</div>';
                     }).join('');
                 })

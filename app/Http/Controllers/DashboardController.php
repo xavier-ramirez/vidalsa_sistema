@@ -12,26 +12,30 @@ class DashboardController extends Controller
     public function index()
     {
         $user      = auth()->user();
-        $isGlobal  = $user && $user->NIVEL_ACCESO == 1;
-        $frenteIds = $user ? $user->getFrentesIds() : [];
+        // null = ve todos (GLOBAL) | [] = local sin frentes | [ids] (Usuario::frentesVisiblesIds).
+        $frentesVisibles = $user ? $user->frentesVisiblesIds() : [];
+        // Lista negra (se resta SIEMPRE, también a GLOBAL).
+        $frentesBloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
         $userId    = $user ? $user->ID_USUARIO : 'guest';
-        
+
         // Ensure each user has their own cache key to avoid leaking data between users
         $cacheKey = "dashboard_user_data_{$userId}";
 
         // Cache the dashboard logic to improve speed
-        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($isGlobal, $frenteIds) {
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addMinutes(1), function () use ($frentesVisibles, $frentesBloqueados) {
             // 1. Pending Mobilizations (disabled since transit is instant)
             $pendientes = 0;
 
-            // 2. Alerts List — LOCAL users see only their frentes' equipment
-            $expiredList = $this->generateAlertsList(!$isGlobal ? $frenteIds : null);
+            // 2. Alerts List — LOCAL ve solo sus frentes; bloqueados se ocultan a todos.
+            $expiredList = $this->generateAlertsList($frentesVisibles, $frentesBloqueados);
             $totalAlerts  = $expiredList->count();
 
-            // 3. Frentes activos (necesarios para el modal de Recepción Directa)
-            $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-                ->orderBy('NOMBRE_FRENTE')
-                ->get();
+            // 3. Frentes activos (modal de Recepción Directa) — oculta los no visibles
+            //    (whitelist LOCAL + blacklist de bloqueados) para no recibir en frente prohibido.
+            $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
+            \App\Models\Usuario::aplicarScopeIds($frentesQuery, $frentesVisibles, 'ID_FRENTE');
+            \App\Models\Usuario::aplicarBloqueoIds($frentesQuery, $frentesBloqueados, 'ID_FRENTE');
+            $frentes = $frentesQuery->get();
 
             // 4. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
             $saludBase = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
@@ -66,6 +70,13 @@ class DashboardController extends Controller
                 'catalogosDestacados'
             );
         });
+
+        // Sembrar window.equiposData para los equipos de las alertas, así el modal de
+        // detalles abierto desde /menu muestra TODOS los campos (igual que en /admin/equipos)
+        // y no solo el subconjunto de data-*. Fuente única: Equipo::toDetailsPayload().
+        $data['equiposData'] = collect($data['expiredList'] ?? [])
+            ->pluck('equipo')->filter()->unique('ID_EQUIPO')
+            ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->toDetailsPayload()]);
 
         return view('menu', $data);
     }
@@ -158,10 +169,13 @@ class DashboardController extends Controller
     public function getAlertsHtml()
     {
         $user        = auth()->user();
-        $isGlobal    = $user && $user->NIVEL_ACCESO == 1;
-        $frenteIds   = $user ? $user->getFrentesIds() : [];
-
-        $expiredList = $this->generateAlertsList(!$isGlobal ? $frenteIds : null);
+        // frentesVisiblesIds(): null = ve todos (GLOBAL) | [] = local sin frentes | [ids].
+        // Es justo lo que generateAlertsList() espera como filtro por frente. Los bloqueados
+        // (lista negra) se restan a todos, también a GLOBAL.
+        $expiredList = $this->generateAlertsList(
+            $user ? $user->frentesVisiblesIds() : [],
+            $user ? $user->getFrentesBloqueadosIds() : []
+        );
         $totalAlerts = $expiredList->count();
 
         return response()->json([
@@ -174,9 +188,10 @@ class DashboardController extends Controller
      * Generate alerts list for expired and expiring documents.
      * Shared by index(), getAlertsHtml().
      *
-     * @param array|null $frenteIds  When set, only returns alerts for equipment in those frentes (LOCAL users).
+     * @param array|null $frenteIds    When set, only returns alerts for equipment in those frentes (LOCAL users).
+     * @param array      $bloqueados   Frentes a OCULTAR siempre (lista negra; aplica también a GLOBAL).
      */
-    public function generateAlertsList(?array $frenteIds = null)
+    public function generateAlertsList(?array $frenteIds = null, array $bloqueados = [])
     {
         $now      = \Carbon\Carbon::now();
         $in30Days = $now->copy()->addDays(30);
@@ -188,28 +203,31 @@ class DashboardController extends Controller
               ->orWhere('FECHA_ADICIONAL', '<', $in30Days); // Certificado (= documento adicional)
         })
         ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
+        // Relaciones del listado de alertas + las que necesita Equipo::toDetailsPayload()
+        // (especificaciones, documentacion.seguro, cadena ancladoA) para sembrar
+        // window.equiposData sin N+1, y withCount para el badge de auxiliares del modal.
         ->with([
             'documentacion.frenteGestionPoliza',
             'documentacion.frenteGestionRotc',
             'documentacion.frenteGestionRacda',
             'documentacion.frenteGestionAdicional',
+            'documentacion.seguro',
             'tipo',
-            'frenteActual'
-        ]);
+            'frenteActual',
+            'especificaciones',
+            'ancladoA.documentacion',
+            'ancladoA.tipo',
+            'ancladoA.especificaciones',
+        ])
+        ->withCount('equiposAuxiliares');
 
         // Excluir equipos en frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales no son flota propia).
         $query->excludeEspecial();
 
-        // Only see alerts for assigned frentes if frentes are explicitly provided
-        // (If Global Admin with no explicit frentes, $frenteIds is null and it skips this)
-        if (is_array($frenteIds)) {
-            if (count($frenteIds) > 0) {
-                $query->whereIn('ID_FRENTE_ACTUAL', $frenteIds);
-            } else {
-                // Si es un arreglo vacío, significa que el usuario (Local) no tiene frentes.
-                $query->whereRaw('1 = 0');
-            }
-        }
+        // Barrera por frente: lista blanca (null = ve todo / [] = local sin frentes →
+        // nada / [ids] = whereIn) + lista negra de bloqueados (whereNotIn, también GLOBAL).
+        \App\Models\Usuario::aplicarScopeIds($query, $frenteIds, 'ID_FRENTE_ACTUAL');
+        \App\Models\Usuario::aplicarBloqueoIds($query, $bloqueados, 'ID_FRENTE_ACTUAL');
 
         $equipos = $query->get();
 

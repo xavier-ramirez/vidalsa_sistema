@@ -1061,6 +1061,11 @@
          .main-viewport y window.downloadDashboardPdf sería undefined tras
          navegar via SPA. --}}
     <script>
+        // Seed window.equiposData con los equipos de las Alertas, para que el modal de
+        // detalles abierto desde /menu muestre TODOS los campos (foto, anclaje, certificado,
+        // etc.) igual que en /admin/equipos. Object.assign = SPA-safe (no pisa lo existente).
+        window.equiposData = Object.assign(window.equiposData || {}, @json($equiposData ?? []));
+
         // Animación del modal de recepción directa
         (function () {
             if (window.__menuStyleRDInjected) return;

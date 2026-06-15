@@ -35,6 +35,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('usuarios/mi-perfil', [App\Http\Controllers\UserController::class, 'miPerfil'])->name('usuarios.miPerfil');
             Route::put('usuarios/mi-perfil', [App\Http\Controllers\UserController::class, 'actualizarMiClave'])->name('usuarios.actualizarMiClave');
 
+            Route::get('usuarios/roles/unused', [App\Http\Controllers\UserController::class, 'getUnusedRoles'])->name('usuarios.unused-roles');
+            Route::delete('usuarios/roles/unused', [App\Http\Controllers\UserController::class, 'deleteUnusedRoles'])->name('usuarios.delete-unused-roles');
             Route::resource('usuarios', App\Http\Controllers\UserController::class)->except(['show']);
             // Autocomplete de frentes (/admin/frentes/buscar): lo consume uicomponents.js en
             // formularios de OTROS módulos (equipos/usuarios/almacén), así que NO va gateado
@@ -179,6 +181,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.assign')->name('equipos-auxiliares.unanchor');
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
             Route::post  ('equipos-auxiliares/{id}/upload-doc',     [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadDoc'])     ->middleware('can:user.edit')->name('equipos-auxiliares.uploadDoc');
+            // Borrar un documento (propiedad/certificado) del auxiliar. EXCLUSIVO super.admin,
+            // igual que equipos.deleteDoc (el visor PDF gatea el botón con CAN_DELETE_DOCS=super.admin).
+            Route::delete('equipos-auxiliares/{id}/delete-doc',     [App\Http\Controllers\EquipoAuxiliarController::class, 'deleteDoc'])     ->middleware('can:super.admin')->name('equipos-auxiliares.deleteDoc');
             Route::patch ('equipos-auxiliares/{id}/cert-expiry',    [App\Http\Controllers\EquipoAuxiliarController::class, 'updateCertExpiry'])->middleware('can:user.edit')->name('equipos-auxiliares.updateCertExpiry');
             Route::get   ('equipos-auxiliares/{id}/metadata',        [App\Http\Controllers\EquipoAuxiliarController::class, 'metadata'])       ->name('equipos-auxiliares.metadata');
             Route::post  ('equipos-auxiliares/{id}/update-metadata', [App\Http\Controllers\EquipoAuxiliarController::class, 'updateMetadata']) ->middleware('can:user.edit')->name('equipos-auxiliares.updateMetadata');
