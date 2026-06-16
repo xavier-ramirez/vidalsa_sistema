@@ -1064,7 +1064,7 @@
             </span>
             {{-- Colaboradores que apoyaron poblando/gestionando los datos (no el desarrollo del sistema). --}}
             <span class="dev menu-about-collab">
-                <span class="collab-title">Apoyo en la carga y gestión de datos</span>
+                <span class="collab-title">Levantamiento y gestión de información</span>
                 <a href="mailto:azerpa@cvidalsa27.com" class="dev-link" title="Escribir a Alejandro Zerpa">
                     <i class="material-icons">badge</i>Alejandro Zerpa · azerpa@cvidalsa27.com
                 </a>
