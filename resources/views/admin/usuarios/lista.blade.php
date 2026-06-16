@@ -90,7 +90,7 @@
         </div>
 
         <!-- Rol Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 2 1 290px; max-width: 360px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 2.6 1 360px; max-width: 460px;">
             <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
                 <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
 

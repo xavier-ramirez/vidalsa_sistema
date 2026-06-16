@@ -735,7 +735,6 @@
                         '</button>' +
                     '</div>' +
                     '<div style="padding:14px 16px;">' +
-                        '<p style="margin:0 0 8px 0;font-size:11px;color:#64748b;text-align:center;line-height:1.35;">Frentes sin equipos ni auxiliares asignados (cualquier estado). Puedes desactivar los activos o eliminarlos.</p>' +
                         '<div id="sinEquiposList" style="max-height:380px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;">' +
                             '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:24px;">sync</i></div>' +
                         '</div>' +
@@ -762,22 +761,14 @@
                     }
                     list.innerHTML = data.frentes.map(function (f) {
                         var ubic = f.ubicacion ? '<div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">place</i>' + escapeHtml(f.ubicacion) + '</div>' : '';
-                        // Badge de estatus: verde ACTIVO, ámbar el resto (FINALIZADO/DESACTIVADO).
-                        var esActivo = (f.estatus === 'ACTIVO');
-                        var badge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.3px;background:' +
-                            (esActivo ? '#dcfce7' : '#fef3c7') + ';color:' + (esActivo ? '#16a34a' : '#b45309') + ';">' + escapeHtml(f.estatus || '—') + '</span>';
-                        // "Desactivar" solo tiene sentido en ACTIVOS; los demás solo se eliminan.
-                        var btnDesactivar = esActivo
-                            ? '<button type="button" onclick="window._sinEquiposDesactivar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;border-radius:8px;background:#f59e0b;display:inline-flex;align-items:center;gap:4px;">' +
-                                '<i class="material-icons" style="font-size:14px;">block</i>Desactivar</button>'
-                            : '';
+                        // Estatus como TEXTO PLANO (sin pastilla), con la misma letra que el resto.
+                        var badge = '<span style="font-size:12px;font-weight:600;color:#64748b;">' + escapeHtml(f.estatus || '—') + '</span>';
                         return '<div style="padding:10px;border-radius:8px;background:white;border:1px solid #e2e8f0;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
                             '<div style="width:36px;height:36px;background:#e0f2fe;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="material-icons" style="color:#0284c7;font-size:18px;">domain_disabled</i></div>' +
                             '<div style="flex:1;min-width:120px;">' +
                                 '<div style="font-weight:700;color:#1e293b;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' + escapeHtml(f.nombre) + badge + '</div>' +
                                 ubic +
                             '</div>' +
-                            btnDesactivar +
                             '<button type="button" onclick="window._sinEquiposEliminar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;border-radius:8px;background:#ef4444;display:inline-flex;align-items:center;gap:4px;">' +
                                 '<i class="material-icons" style="font-size:14px;">delete_outline</i>Eliminar</button>' +
                         '</div>';
@@ -810,13 +801,6 @@
                     if (window.showToast) window.showToast('Error de red.', 'error');
                 });
             }
-
-            window._sinEquiposDesactivar = function (id, nombre) {
-                var run = function () { _sinEquiposAction('PATCH', '{{ url("admin/frentes") }}/' + id + '/finalizar', 'Frente desactivado.', 'No se pudo desactivar.', nombre); };
-                if (typeof window.showModal === 'function') {
-                    window.showModal({ type: 'warning', title: 'Desactivar Frente', message: 'El frente "' + nombre + '" dejará de aparecer en los dropdowns; puedes recuperarlo desde "Finalizados".', confirmText: 'Sí, desactivar', cancelText: 'Cancelar', onConfirm: run });
-                } else if (confirm('¿Desactivar el frente "' + nombre + '"?')) { run(); }
-            };
 
             window._sinEquiposEliminar = function (id, nombre) {
                 var run = function () { _sinEquiposAction('DELETE', '{{ url("admin/frentes") }}/' + id, 'Frente eliminado.', 'No se pudo eliminar.', nombre); };

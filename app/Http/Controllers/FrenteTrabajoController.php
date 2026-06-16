@@ -255,32 +255,6 @@ class FrenteTrabajoController extends Controller
         ]);
     }
 
-    /**
-     * Desactiva un frente (lo marca FINALIZADO). Solo si no tiene equipos ni
-     * auxiliares asignados (mismo criterio que update()). Usado desde el modal
-     * "Frentes sin equipos".
-     */
-    public function finalizar(Request $request, string $id)
-    {
-        $frente = FrenteTrabajo::findOrFail($id);
-
-        $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
-        $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
-        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No se puede desactivar: el frente tiene equipos o auxiliares asignados.',
-            ], 422);
-        }
-
-        $frente->update(['ESTATUS_FRENTE' => 'FINALIZADO']);
-        return response()->json([
-            'success' => true,
-            'message' => "Frente \"{$frente->NOMBRE_FRENTE}\" desactivado (FINALIZADO).",
-            'frente'  => ['id' => $frente->ID_FRENTE, 'nombre' => $frente->NOMBRE_FRENTE],
-        ]);
-    }
-
     // ─── MOBILE API ────────────────────────────────────────────────────────────
     public function mobileIndex()
     {

@@ -710,7 +710,7 @@
         <table class="alm-table">
             <thead>
                 <tr>
-                    <th style="width:88px;">Código</th>
+                    <th style="width:68px;padding:10px 8px;">Código</th>
                     <th>Descripción del producto</th>
                     <th style="text-align:center;width:52px;">UND</th>
                     <th>Categoría</th>
@@ -722,7 +722,7 @@
                          habilita solo cuando la fila está seleccionada. --}}
                     <th style="text-align:center;width:84px;">Salida</th>
                     {{-- Columna de Detalles (botón "ojo"): sin título para ahorrar ancho. --}}
-                    <th style="text-align:center;width:42px;"></th>
+                    <th style="text-align:center;width:38px;padding:10px 6px;"></th>
                 </tr>
             </thead>
             <tbody id="almTableBody">

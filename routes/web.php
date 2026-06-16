@@ -51,7 +51,6 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('frentes/finalizados', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizados'])->name('frentes.finalizados');
                 Route::get('frentes/sin-equipos', [App\Http\Controllers\FrenteTrabajoController::class, 'sinEquipos'])->name('frentes.sinEquipos');
                 Route::patch('frentes/{frente}/restore', [App\Http\Controllers\FrenteTrabajoController::class, 'restore'])->name('frentes.restore');
-                Route::patch('frentes/{frente}/finalizar', [App\Http\Controllers\FrenteTrabajoController::class, 'finalizar'])->name('frentes.finalizar');
                 Route::resource('frentes', App\Http\Controllers\FrenteTrabajoController::class)->except(['show']);
             });
 
