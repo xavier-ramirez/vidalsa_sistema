@@ -2405,7 +2405,10 @@ input:-webkit-autofill:active {
 .page-layout-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
-    gap: 40px;
+    /* gap reducido (antes 40px) para ensanchar la tarjeta blanca de la tabla y
+       acercarla al sidebar — aplica a equipos, equipos-auxiliares, almacén y
+       movimientos (catálogo tiene su propio override en catalogo.css). */
+    gap: 14px;
     align-items: start;
     width: 100%;
 }
@@ -2439,7 +2442,7 @@ input:-webkit-autofill:active {
        da mas aire a la columna "Estado". Solo aplica en PC: el media query
        <=1024px colapsa este grid a 1 sola columna. */
     grid-template-columns: minmax(0, 1fr) 260px;
-    gap: 30px;
+    gap: 14px;
     align-items: start;
     width: 100%;
 }
@@ -2462,9 +2465,9 @@ input:-webkit-autofill:active {
    son la unica fuente de verdad del layout de columnas en escritorio. Los
    mismos % se replican en los .mv-td-* (abajo) para que thead y tbody queden
    coherentes (antes el thead usaba px y el tbody %, lo que se contradecia).
-       Equipo 22 | Trayecto 37 | Fechas 10 | N° Op 16 | Estado 15 = 100 */
+       Equipo 26 | Trayecto 37 | Fechas 10 | N° Op 16 | Estado 11 = 100 */
 #movilizacionesTable th.table-header-custom:nth-child(1) {
-    width: 22%;
+    width: 26%;
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(2) {
@@ -2483,7 +2486,7 @@ input:-webkit-autofill:active {
 }
 
 #movilizacionesTable th.table-header-custom:nth-child(5) {
-    width: 15%;
+    width: 11%;
     text-align: center;
 }
 
@@ -2508,7 +2511,7 @@ input:-webkit-autofill:active {
     text-align: left;
     border-left: 1px solid #cbd5e0;
     border-radius: 12px 0 0 12px;
-    width: 22%;
+    width: 26%;
 }
 
 #movilizacionesTable .mv-td-trayecto {
@@ -2528,7 +2531,7 @@ input:-webkit-autofill:active {
     text-align: center;
     border-right: 1px solid #cbd5e0;
     border-radius: 0 12px 12px 0;
-    width: 15%;
+    width: 11%;
 }
 
 .movilizaciones-mobile-stats {
@@ -2562,6 +2565,13 @@ input:-webkit-autofill:active {
    !important, así que esto solo aplica en escritorio. */
 .mv-filter-item.mv-frente-item {
     flex: 1.4 1 240px;
+}
+
+/* Filtro "Tipo" un poco más ancho que los demás en PC (base 210px). En móvil el
+   media query `.mv-filter-item:not(.mv-search-item)` lo pone full-width, así que
+   esto solo aplica en escritorio. */
+.mv-filter-item.mv-tipo-item {
+    flex: 1.3 1 210px;
 }
 
 /* En desktop el botón Recepción Directa tiene ancho automático */

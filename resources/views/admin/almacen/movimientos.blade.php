@@ -344,18 +344,8 @@
                tarjeta movil el producto va alineado a la izquierda. */
             text-align: left !important;
         }
-        /* CODIGO + NOMBRE como UN SOLO TEXTO uniforme (mismo patron que
-           /admin/almacen mobile). El span del codigo tiene inline
-           font-family:monospace + color:#0f172a + font-weight:800; lo
-           forzamos a HEREDAR del td padre para que codigo y nombre se
-           vean identicos: misma fuente, mismo color, mismo peso. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-producto span[style*="monospace"] {
-            font-family: inherit !important;
-            font-size: inherit !important;
-            color: inherit !important;
-            font-weight: inherit !important;
-            margin-right: 2px !important;
-        }
+        /* (El código del producto ya usa el mismo tipo de letra/peso que la descripción
+           directamente en el partial kardex_rows — ya no necesita override mobile.) */
 
         /* Cantidad: numero a la derecha, color heredado del inline
            (verde entrada / rojo salida). UM va pegada al numero. Tamano
@@ -659,9 +649,11 @@
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
                         <div id="almMovDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 4px;cursor:pointer;"
                              onclick="var i=document.getElementById('almMovDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                            {{-- Filtro por MES (no por día): el backend (scopePeriodo) expande
-                                 'YYYY-MM' → primer día del mes para el rango Desde. --}}
-                            <input type="month" id="almMovDesde" value="{{ $reqDesde }}" onchange="window.loadMovimientos()"
+                            {{-- Filtro por DÍA exacto: el calendario nativo (type=date) permite
+                                 navegar mes/año y elegir el día. El backend (scopePeriodo) acepta
+                                 'YYYY-MM-DD' (whereDate >=). Para un mes completo, se elige el 1° y
+                                 el último día del mes en Desde/Hasta. --}}
+                            <input type="date" id="almMovDesde" value="{{ $reqDesde }}" onchange="window.loadMovimientos()"
                                    style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#334155;cursor:pointer;">
                             <i class="material-icons" id="almMovDesdeClear"
                                style="display:{{ $reqDesde ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
@@ -672,9 +664,9 @@
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
                         <div id="almMovHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 4px;cursor:pointer;"
                              onclick="var i=document.getElementById('almMovHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                            {{-- Filtro por MES (no por día): el backend (scopePeriodo) expande
-                                 'YYYY-MM' → último día del mes para el rango Hasta. --}}
-                            <input type="month" id="almMovHasta" value="{{ $reqHasta }}" onchange="window.loadMovimientos()"
+                            {{-- Filtro por DÍA exacto (type=date). El backend (scopePeriodo) acepta
+                                 'YYYY-MM-DD' (whereDate <=). --}}
+                            <input type="date" id="almMovHasta" value="{{ $reqHasta }}" onchange="window.loadMovimientos()"
                                    style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#334155;cursor:pointer;">
                             <i class="material-icons" id="almMovHastaClear"
                                style="display:{{ $reqHasta ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
@@ -760,7 +752,7 @@
                     <th style="width:130px;">Cantidad</th>
                     <th style="width:75px;">Stock</th>
                     <th style="width:215px;">Destino</th>
-                    <th style="width:115px;">Ref</th>
+                    <th style="width:150px;">Referencia</th>
                 </tr>
             </thead>
             <tbody id="almMovTableBody">
@@ -1132,6 +1124,13 @@
 })();
 </script>
 
+{{-- Modal "Dashboard de Consumo" (abierto desde el menú Acciones). Compartido con
+     /admin/almacen — misma vista parcial, mismo endpoint. DEBE ir FUERA de @can:
+     el botón que lo abre es visible para todos, así que el modal y su <script>
+     (window.abrirConsumoDashboard) tienen que existir siempre. Antes estaba anidado
+     dentro de @can('almacen.nota.eliminar') y no abría para quien no tuviera ese permiso. --}}
+@include('admin.almacen.partials.consumo_dashboard_modal')
+
 @can('almacen.nota.eliminar')
 {{-- ═════════════════════════════════════════════════════════════════
      MODAL: ELIMINAR NOTA DE ENTREGA POR CÓDIGO  (requiere almacen.nota.eliminar)
@@ -1142,10 +1141,6 @@
      titulo + mensaje centrados, botones al pie. Sin banner rojo de cabecera y
      sin icono en el boton de confirmar — el color rojo del CTA basta como
      senal de accion destructiva. --}}
-{{-- Modal "Dashboard de Consumo" (abierto desde el menú Acciones). Compartido con
-     /admin/almacen — misma vista parcial, mismo endpoint. --}}
-@include('admin.almacen.partials.consumo_dashboard_modal')
-
 <div id="eliminarNotaOverlay"
      style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:20px;"
      onclick="if(event.target===this) window.closeEliminarNotaModal()">

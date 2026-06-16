@@ -107,6 +107,13 @@
         @error('MODELO') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
+    <!-- Color (al lado de Modelo) -->
+    <div>
+        <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
+        <input type="text" id="color" name="COLOR" class="form-input-custom @error('COLOR') is-invalid @enderror" value="{{ old('COLOR', $equipo->COLOR ?? '') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+        @error('COLOR') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
     <!-- Año + Número de Etiqueta (Grid 2 columnas en 1 espacio de la grilla principal) -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <!-- Año -->
@@ -452,21 +459,26 @@
         </div>
     </div>
 
+    {{-- Foto del equipo: SOLO al editar una unidad existente. En el alta (create)
+         no se carga foto por unidad — la foto principal viene del catálogo del modelo
+         (FOTO_REFERENCIAL) y se gestiona en /admin/catalogo. --}}
+    @if($equipo->exists)
     <!-- Foto -->
     <div>
         <label for="foto_equipo" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Foto del Equipo</label>
         <div style="display: flex; gap: 10px; align-items: center; height: 38px;">
             <label for="foto_equipo" id="preview_equipo" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: white; border-radius: 8px; border: 1px solid #cbd5e0; flex-shrink: 0; transition: all 0.2s;" title="Foto del Equipo" onmouseover="this.style.borderColor='var(--maquinaria-blue)';" onmouseout="this.style.borderColor='#cbd5e0';">
-                @if(isset($equipo) && $equipo->FOTO_EQUIPO)
+                @if($equipo->FOTO_EQUIPO)
                     <img src="{{ asset($equipo->FOTO_EQUIPO) }}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;">
                 @else
                     <i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>
                 @endif
             </label>
             <input type="file" id="foto_equipo" name="foto_equipo" accept="image/*" style="display: none;">
-            <div style="font-size: 10px; color: #718096; line-height: 1.2;">Click para {{ isset($equipo) ? 'cambiar' : 'cargar' }}</div>
+            <div style="font-size: 10px; color: #718096; line-height: 1.2;">Click para cambiar</div>
         </div>
     </div>
+    @endif
 </div>
 
 <!-- Logic moved to public/js/maquinaria/form_logic.js for CSP compliance -->

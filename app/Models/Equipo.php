@@ -30,6 +30,7 @@ class Equipo extends Model
         'MARCA',
         'MODELO',
         'ANIO',
+        'COLOR',
         'ID_ESPEC',
         'SERIAL_CHASIS',
         'SERIAL_DE_MOTOR',

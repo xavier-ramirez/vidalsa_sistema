@@ -85,17 +85,41 @@
     .cat-action-btn.edit:hover  { background: #0067b1; color: #fff; }
     .cat-action-btn.del   { color: #ef4444; bottom: 6px; right: 6px; }
     .cat-action-btn.del:hover   { background: #ef4444; color: #fff; }
-    .cat-body {
-        padding: 14px 14px 16px;
+    /* Overlay "Cambiar foto": cubre la foto y aparece al hover. pointer-events:none
+       para que el click llegue al .cat-photo (que tiene el onclick de subida). Los
+       botones de acción van por encima (z-index:3). */
+    .cat-photo-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        color: #fff;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        pointer-events: none;
+        z-index: 1;
+    }
+    .cat-photo-overlay .material-icons { font-size: 26px; }
+    .cat-photo:hover .cat-photo-overlay { opacity: 1; }
+    .cat-body {
+        padding: 11px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     }
     .cat-modelo {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 800;
         color: #1e293b;
-        line-height: 1.25;
+        line-height: 1.2;
         text-transform: uppercase;
         word-break: break-word;
     }
@@ -130,42 +154,40 @@
         max-width: 100%;
         box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
-    /* Tabla compacta de specs: 1 fila por campo. Label izquierda muteado,
-       valor derecha en bold. Solo se renderizan los campos con valor.
-       Tamaños subidos para que no se vean apretadas verticalmente. */
+    /* Specs en rejilla de 2 columnas: cada celda apila label (pequeño, muteado)
+       sobre valor (bold). Con esto las ~8 specs ocupan ~4 filas en vez de 8 y la
+       tarjeta no se dispara de alto. Solo se renderizan los campos con valor. */
     .cat-specs {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 12px;
         margin-top: 4px;
         border-top: 1px dashed #e2e8f0;
-        padding-top: 9px;
+        padding-top: 8px;
     }
     .cat-spec-row {
         display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 8px;
-        font-size: 12px;
-        line-height: 1.35;
-        padding: 2px 0;
+        flex-direction: column;
+        gap: 0;
+        min-width: 0; /* habilita el truncado del valor dentro de la celda del grid */
     }
     .cat-spec-label {
         color: #94a3b8;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.3px;
-        font-size: 11px;
-        flex-shrink: 0;
+        font-size: 9px;
+        line-height: 1.3;
     }
     .cat-spec-value {
         color: #1e293b;
         font-weight: 700;
-        text-align: right;
+        font-size: 12px;
+        line-height: 1.3;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 160px;
+        max-width: 100%;
     }
     /* Mobile: el boton "Nuevo" del catalogo se va al final de la fila de
        filtros y ocupa el ancho completo. Breakpoint subido a 768px para que
@@ -503,5 +525,57 @@
         catCloseList(p);
         catSubmit();
     }
+
+    // Subida de foto haciendo click en la foto de la tarjeta — sin abrir el formulario
+    // de edición. Abre un selector de archivo, valida tamaño y sube a catalogo.uploadFoto.
+    // Misma UX que el catálogo de auxiliares (spinner → toast → refresco del grid).
+    window.catUploadPhoto = function (id) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
+        input.style.display = 'none';
+        input.addEventListener('change', function () {
+            if (!input.files || !input.files[0]) return;
+            var file = input.files[0];
+            if (file.size > 5 * 1024 * 1024) {
+                if (window.showToast) window.showToast('La foto supera los 5MB.', 'error');
+                return;
+            }
+            var fd = new FormData();
+            fd.append('foto', file);
+            var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            if (typeof window.showPreloader === 'function') window.showPreloader();
+            fetch('{{ url('admin/catalogo') }}/' + id + '/photo', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: fd,
+                credentials: 'same-origin'
+            })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+            .then(function (res) {
+                if (window.hidePreloader) window.hidePreloader();
+                if (res.ok && res.body.success) {
+                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada correctamente.', 'success');
+                    // Refrescar el grid (preserva filtros) para mostrar la foto nueva del
+                    // modelo y de cualquier equipo que la herede vía auto-link.
+                    setTimeout(function () {
+                        if (typeof window.loadCatalogo === 'function') { window.loadCatalogo(); }
+                        else { window.location.reload(); }
+                    }, 1200);
+                } else {
+                    var msg = (res.body && res.body.message) || 'No se pudo subir la foto.';
+                    if (window.showToast) window.showToast(msg, 'error');
+                }
+            })
+            .catch(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                if (window.showToast) window.showToast('Error de red al subir la foto.', 'error');
+            });
+        });
+        document.body.appendChild(input);
+        input.click();
+        setTimeout(function () { if (input.parentNode) document.body.removeChild(input); }, 1000);
+    };
 </script>
 @endsection

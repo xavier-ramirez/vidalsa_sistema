@@ -79,7 +79,7 @@
         </div>
 
             <!-- Tipo Filter -->
-            <div class="mv-filter-item">
+            <div class="mv-filter-item mv-tipo-item">
                 <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="id_tipo" data-default-label="Filtrar Tipo...">
                     <input type="hidden" name="id_tipo" data-filter-value value="{{ request('id_tipo') }}" form="search-form">
                     

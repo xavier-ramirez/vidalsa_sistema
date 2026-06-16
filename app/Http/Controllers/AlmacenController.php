@@ -65,7 +65,7 @@ class AlmacenController extends Controller
         // (la misma clave que elimina Notas de Entrega) — decision del cliente: una
         // unica clave gobierna los borrados del modulo Almacen.
         $this->middleware('can:almacen.nota.eliminar')->only([
-            'destroyProducto',
+            'destroyProducto', 'papeleraProductos', 'restaurarProducto',
         ]);
         // registrarMovimientoLote NO entra en este middleware: valida 'almacen.movimiento'
         // con un guard al inicio del metodo para poder devolver un mensaje que NOMBRA la
@@ -140,7 +140,11 @@ class AlmacenController extends Controller
         //     (el frontend hace append y NO refresca stats).
         // Se pide $PAGE_SIZE + 1 para detectar hasMore sin un COUNT extra.
         if ($request->wantsJson()) {
-            $PAGE_SIZE = 50;
+            // Lote de 120 (antes 50): trae más filas por tanda para que el scroll fluya como
+            // en /admin/equipos y el indicador "cargar más" rara vez se vea. El render de 120
+            // filas de producto es liviano; el IntersectionObserver (rootMargin 1000px) precarga
+            // la siguiente tanda antes de llegar al final.
+            $PAGE_SIZE = 120;
             $offset = max(0, (int) $request->input('offset', 0));
             $rows = collect();
             $hasMore = false;
@@ -751,6 +755,40 @@ class AlmacenController extends Controller
         $producto = ProductoInventario::findOrFail($id);
         $producto->delete();
         return response()->json(['message' => 'Producto eliminado.']);
+    }
+
+    /**
+     * Papelera de productos: lista los productos SOFT-deleted (deleted_at != null) para
+     * poder buscarlos y restaurarlos. Búsqueda opcional por CODIGO o NOMBRE. El producto
+     * no se borró de verdad — solo está oculto, y su stock en almacen_stock sigue intacto.
+     */
+    public function papeleraProductos(Request $request)
+    {
+        $term = trim((string) $request->input('search', ''));
+
+        $productos = ProductoInventario::onlyTrashed()
+            ->when($term !== '', function ($q) use ($term) {
+                $q->where(function ($w) use ($term) {
+                    $w->where('CODIGO', 'like', "%{$term}%")
+                      ->orWhere('NOMBRE', 'like', "%{$term}%");
+                });
+            })
+            ->orderByDesc('deleted_at')
+            ->limit(200)
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'deleted_at']);
+
+        return response()->json(['productos' => $productos]);
+    }
+
+    /**
+     * Restaura un producto de la papelera (deleted_at → null). Reaparece en el catálogo
+     * con su stock intacto (almacen_stock nunca se borró al eliminarlo).
+     */
+    public function restaurarProducto(int $id)
+    {
+        $producto = ProductoInventario::onlyTrashed()->findOrFail($id);
+        $producto->restore();
+        return response()->json(['message' => 'Producto restaurado.', 'producto' => $producto->fresh()]);
     }
 
     // ─────────────────────────────────────────────────────────────

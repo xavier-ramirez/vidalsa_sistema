@@ -99,7 +99,7 @@
        (no abre dropdown — el almacen se deriva del frente del usuario). */
     .ent-dest-pill {
         display:inline-flex; align-items:center;
-        height:40px; min-width:200px;
+        height:40px; min-width:260px;
         padding:0;
         background:#f8fafc; border:1px solid #cbd5e0; border-radius:10px;
         white-space:nowrap; overflow:hidden;
@@ -210,8 +210,8 @@
     }
     /* flex-wrap: en móvil el buscador toma el ancho y UND/cantidad bajan solos
        (sin @media — los <style> inline no sobreviven el hard reload del SPA). */
-    .ent-capt-bar .ent-search-field { flex:1 1 220px; }
-    .ent-capt-bar .ent-um-wrap      { flex:0 1 100px; }
+    .ent-capt-bar .ent-search-field { flex:1 1 200px; }
+    .ent-capt-bar .ent-um-wrap      { flex:0 1 150px; }
     .ent-capt-bar .ent-cant-stepper { flex:0 1 130px; }
     .ent-capt-add-btn {
         flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:none; cursor:pointer;

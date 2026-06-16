@@ -258,6 +258,55 @@ window.loadModelsList = function () {
         });
 };
 
+// Recomendación por TIPO (form de equipos): al elegir/cambiar el Tipo de Equipo se
+// reconstruyen los dropdowns de MARCA y MODELO con SOLO los valores usados por equipos
+// de ese tipo (endpoints brands/models-from-equipos?tipo=...). Sin tipo → lista completa.
+window.scopeByTipo = function () {
+    var tipoInput = document.getElementById('input_tipo_equipo');
+    if (!tipoInput) return; // No es el form de equipos
+    var tipo = (tipoInput.value || '').trim();
+
+    [['marca', '/admin/catalogo/brands-from-equipos'],
+     ['modelo', '/admin/catalogo/models-from-equipos']].forEach(function (pair) {
+        var input = document.getElementById(pair[0]);
+        if (!input) return;
+        var container = input.closest('.custom-form-autocomplete');
+        var dropdown = container ? container.querySelector('.dropdown-list') : null;
+        if (!dropdown) return;
+
+        var url = pair[1] + (tipo ? ('?tipo=' + encodeURIComponent(tipo)) : '');
+        fetch(url)
+            .then(function (r) { return r.json(); })
+            .then(function (items) {
+                dropdown.innerHTML = '';
+                (items || []).forEach(function (val) {
+                    if (!val || !String(val).trim()) return;
+                    var div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.textContent = val;
+                    div.onmousedown = function () { window.selectDropdownItem(this, val); };
+                    dropdown.appendChild(div);
+                });
+                if (!dropdown.children.length) {
+                    dropdown.innerHTML = '<div class="dropdown-item" style="color:#a0aec0;font-style:italic;">Sin registros para este tipo</div>';
+                }
+                dropdown.dataset.loaded = 'true';
+            })
+            .catch(function () { /* silencioso: si falla, queda la lista previa */ });
+    });
+};
+
+// Listener único: al cambiar el Tipo de Equipo, re-scopear MARCA/MODELO.
+// (selectDropdownItem despacha 'change'; escribir + salir también lo dispara.)
+if (!window.tipoScopeListenerAttached) {
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'input_tipo_equipo') {
+            window.scopeByTipo();
+        }
+    });
+    window.tipoScopeListenerAttached = true;
+}
+
 // --- Initialization Logic ---
 function initFormItems() {
     const form = document.getElementById('equipoForm') || document.getElementById('userForm');

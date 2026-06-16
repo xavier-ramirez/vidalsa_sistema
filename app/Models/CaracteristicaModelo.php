@@ -11,6 +11,7 @@ class CaracteristicaModelo extends Model
 
     protected $fillable = [
         'MODELO',
+        'TIPO',
         'ANIO_ESPEC',
         'MOTOR',
         'COMBUSTIBLE',

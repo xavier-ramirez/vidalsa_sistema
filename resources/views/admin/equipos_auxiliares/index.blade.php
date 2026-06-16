@@ -72,20 +72,22 @@
     #aux_main_list_tipo .aux-main-opt {
         text-transform: uppercase;
     }
-    /* Estilo unificado para opciones de filtros avanzados (igual al main) */
+    /* Estilo unificado para opciones de filtros avanzados (igual al main).
+       Fuente más compacta + truncado con elipsis para que los valores largos
+       (y los cuadros) no se salgan de la lista estrecha del panel. */
     .aux-adv-opt {
         padding: 8px 12px !important;
-        font-size: 14px !important;
+        font-size: 12.5px !important;
         font-weight: 600 !important;
         color: #1e293b !important;
         cursor: pointer;
         border-radius: 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .aux-adv-opt[data-val=""] {
-        font-size: 13px !important;
-        color: #475569 !important;
-        font-weight: 600 !important;
-    }
+    /* Texto de los inputs del panel de filtros avanzados, un poco más pequeño. */
+    #auxAdvPanel input[type="text"] { font-size: 12px; }
     /* Texto del input del filtro (Frente/Tipo/Serial) en oscuro como equipos.
        Sin esto el browser usa un gris muy claro por defecto que se percibia
        lavado vs el modulo de Vehiculos. */
@@ -345,7 +347,6 @@
                                        onmousedown="event.preventDefault();auxAdvClear('detalle_ubicacion');cargarAuxiliares();">close</i>
                                 </div>
                                 <div id="aux_list_detalle_ubicacion" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('detalle_ubicacion','','Seleccionar detalle...');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS DETALLES</div>
                                     @if(isset($availableUbicaciones))
                                         @foreach($availableUbicaciones as $ubi)
                                             @if(trim($ubi) !== '')
@@ -373,7 +374,6 @@
                                        onmousedown="event.preventDefault();auxAdvClear('marca');cargarAuxiliares();">close</i>
                                 </div>
                                 <div id="aux_list_marca" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('marca','','Ej: Miller');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS MARCAS</div>
                                     @foreach($availableMarcas as $m)
                                     <div class="aux-adv-opt" data-val="{{ $m }}" onmousedown="event.preventDefault();auxAdvSelect('marca','{{ $m }}','{{ addslashes($m) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $m }}</div>
                                     @endforeach
@@ -397,7 +397,6 @@
                                        onmousedown="event.preventDefault();auxAdvClear('modelo');cargarAuxiliares();">close</i>
                                 </div>
                                 <div id="aux_list_modelo" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('modelo','','Ej: Bobcat 225');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS MODELOS</div>
                                     @foreach($availableModelos as $mod)
                                     <div class="aux-adv-opt" data-val="{{ $mod }}" onmousedown="event.preventDefault();auxAdvSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $mod }}</div>
                                     @endforeach
@@ -421,7 +420,6 @@
                                        onmousedown="event.preventDefault();auxAdvClear('capacidad');cargarAuxiliares();">close</i>
                                 </div>
                                 <div id="aux_list_capacidad" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('capacidad','','Ej: 300A, 20 pies');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODAS LAS CAPACIDADES</div>
                                     @foreach($availableCapacidades as $cap)
                                     <div class="aux-adv-opt" data-val="{{ $cap }}" onmousedown="event.preventDefault();auxAdvSelect('capacidad','{{ $cap }}','{{ addslashes($cap) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ $cap }}</div>
                                     @endforeach
@@ -445,7 +443,6 @@
                                        onmousedown="event.preventDefault();auxAdvClear('estado');cargarAuxiliares();">close</i>
                                 </div>
                                 <div id="aux_list_estado" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
-                                    <div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect('estado','','Todos los estados');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">TODOS LOS ESTADOS</div>
                                     @foreach($estados as $k => $label)
                                     <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
                                     @endforeach
@@ -1166,7 +1163,9 @@
                     }
                     var listEl = document.getElementById('aux_list_detalle_ubicacion');
                     if (listEl && Array.isArray(data.availableUbicaciones)) {
-                        var optsHtml = '<div class="aux-adv-opt" data-val="" onmousedown="event.preventDefault();auxAdvSelect(\'detalle_ubicacion\',\'\',\'Seleccionar detalle...\');cargarAuxiliares();" style="padding:10px 15px;font-size:13px;color:#64748b;cursor:pointer;font-weight:600;" onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'white\'">TODOS LOS DETALLES</div>';
+                        // Sin opción "TODOS LOS DETALLES": el reset se hace con el icono "✕"
+                        // del filtro o con "Limpiar Todo" (coherente con los demás filtros avanzados).
+                        var optsHtml = '';
                         data.availableUbicaciones.forEach(function (u) {
                             if (!u || !String(u).trim()) return;
                             var safe = String(u).replace(/'/g, "\\'");
@@ -2000,8 +1999,18 @@
         if (list)   list.style.display = 'none';
     };
 
+    // Placeholder por defecto de cada filtro avanzado — se restaura al limpiar
+    // (con la opción "TODOS" eliminada, el reset vive en el icono ✕ / "Limpiar Todo").
+    window.AUX_ADV_PLACEHOLDERS = {
+        marca: 'Ej: Miller',
+        modelo: 'Ej: Bobcat 225',
+        capacidad: 'Ej: 300A, 20 pies',
+        estado: 'Todos los estados',
+        detalle_ubicacion: 'Seleccionar detalle...'
+    };
+
     window.auxAdvClear = function (prefix) {
-        window.auxAdvSelect(prefix, '', '');
+        window.auxAdvSelect(prefix, '', (window.AUX_ADV_PLACEHOLDERS[prefix] || ''));
     };
 
     // ═══════════════════════════════════════════════════════════

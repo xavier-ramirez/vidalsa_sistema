@@ -17,17 +17,21 @@
             'Liga Freno'   => $catalogo->LIGA_FRENO,
             'Refrigerante' => $catalogo->REFRIGERANTE,
         ], fn ($v) => $v !== null && $v !== '');
-
-        // Tipo(s) de equipo asociado(s) al catálogo. Lo derivamos en el controller
-        // ($tiposPorEspec) porque caracteristicas_modelo no tiene columna TIPO propia.
-        $tiposCat = ($tiposPorEspec ?? collect())->get($catalogo->ID_ESPEC, collect());
     @endphp
     <div class="cat-card">
         {{-- Foto representativa con badges flotantes (Tipo arriba-izquierda,
              Año arriba-derecha) + acciones de editar/eliminar abajo-derecha.
+             Con permiso, TODA la foto es clicable para cambiarla (mismo flujo que
+             el catálogo de auxiliares); el overlay "Cambiar foto" aparece al hover.
              Carga directa (sin lazy) — Drive thumbnail w300 es liviano y
              evita el delay del IntersectionObserver. --}}
-        <div class="cat-photo">
+        <div class="cat-photo"
+             @can('equipos.create')
+                style="cursor:pointer;"
+                onclick="catUploadPhoto('{{ $catalogo->ID_ESPEC }}')"
+                title="Click para cambiar la foto del modelo"
+             @endcan
+        >
             @if($driveFileId)
                 {{-- Sin loading=lazy a proposito: el scroll infinito ya difiere
                      las tarjetas fuera de pantalla; lazy encima retrasaba la foto
@@ -43,14 +47,11 @@
                 <i class="material-icons placeholder">precision_manufacturing</i>
             @endif
 
-            {{-- Tipo(s) de equipo asociado(s) ─ badge(s) en la esquina superior
-                 izquierda de la foto, mismo idioma visual que cat-anio-badge.
-                 Si el modelo está vinculado a varios tipos, se apilan vertical. --}}
-            @if($tiposCat->count())
+            {{-- Tipo de equipo del catálogo (columna TIPO propia) ─ badge en la esquina
+                 superior izquierda de la foto, mismo idioma visual que cat-anio-badge. --}}
+            @if($catalogo->TIPO)
                 <div class="cat-tipo-badges">
-                    @foreach($tiposCat as $t)
-                        <span class="cat-tipo-badge" title="Tipo de equipo">{{ $t['nombre'] }}</span>
-                    @endforeach
+                    <span class="cat-tipo-badge" title="Tipo de equipo">{{ $catalogo->TIPO }}</span>
                 </div>
             @endif
 
@@ -59,16 +60,28 @@
                 {{ $catalogo->ANIO_ESPEC }}
             </span>
 
-            {{-- Acciones flotantes en la esquina inferior derecha de la foto --}}
+            {{-- Overlay "Cambiar foto" (solo hover) — afford visual del click sobre la
+                 foto. pointer-events:none en CSS: el click lo recibe .cat-photo. --}}
+            @can('equipos.create')
+                <div class="cat-photo-overlay">
+                    <i class="material-icons">photo_camera</i>
+                    <span>Cambiar foto</span>
+                </div>
+            @endcan
+
+            {{-- Acciones flotantes en la esquina inferior derecha de la foto.
+                 stopPropagation evita que el click dispare también la subida de foto
+                 del contenedor .cat-photo. --}}
             <a href="{{ route('catalogo.edit', $catalogo->ID_ESPEC) }}"
                class="cat-action-btn edit"
-               title="Editar Modelo">
+               title="Editar Modelo"
+               onclick="event.stopPropagation();">
                 <i class="material-icons">edit</i>
             </a>
             @can('equipos.assign')
                 <button type="button"
                         class="cat-action-btn del"
-                        onclick="confirmDeleteCatalogo('{{ $catalogo->ID_ESPEC }}', '{{ addslashes($catalogo->MODELO) }}')"
+                        onclick="event.stopPropagation(); confirmDeleteCatalogo('{{ $catalogo->ID_ESPEC }}', '{{ addslashes($catalogo->MODELO) }}')"
                         title="Eliminar Modelo">
                     <i class="material-icons">delete</i>
                 </button>

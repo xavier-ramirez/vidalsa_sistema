@@ -15,6 +15,7 @@
     const CONFIG = {
         modelInputId: 'modelo',
         yearInputId: 'anio',
+        tipoInputId: 'input_tipo_equipo',
         widgetId: 'catalog_link_widget',
         previewId: 'catalog_preview',
         hiddenInputId: 'linked_id_espec',
@@ -76,7 +77,7 @@
 
     function handleDelegatedInput(e) {
         const id = e.target.id;
-        if (id === CONFIG.modelInputId || id === CONFIG.yearInputId ||
+        if (id === CONFIG.modelInputId || id === CONFIG.yearInputId || id === CONFIG.tipoInputId ||
             id === 'MODELO' || id === 'ANIO' || id === 'anio') {
             debounceSearch();
         }
@@ -90,7 +91,7 @@
 
     function handleDropdownSelection(e) {
         // Only respond to model and year dropdowns
-        const relevantIds = ['modelo', 'anio', 'MODELO', 'ANIO', 'ANIO_ESPEC'];
+        const relevantIds = ['modelo', 'anio', 'MODELO', 'ANIO', 'ANIO_ESPEC', 'input_tipo_equipo'];
         if (e.detail && e.detail.id && relevantIds.includes(e.detail.id)) {
             console.log('📋 Dropdown selected:', e.detail);
             // Clear any pending debounce and search immediately
@@ -114,23 +115,28 @@
 
         const model = modelInput.value.trim();
         const year = yearInput.value.trim();
+        const tipoInput = document.getElementById(CONFIG.tipoInputId);
+        const tipo = tipoInput ? tipoInput.value.trim() : '';
 
         if (model.length < 2 || year.length < 4) {
             hideWidget();
             return;
         }
 
-        // GUARD: Prevent duplicate searches for same values
-        const searchKey = `${model}|${year}`;
+        // GUARD: Prevent duplicate searches for same values (incluye TIPO).
+        const searchKey = `${model}|${year}|${tipo}`;
         if (searchKey === lastSearchKey) {
             console.log('⏭️ Skipping duplicate search:', searchKey);
             return;
         }
         lastSearchKey = searchKey;
 
-        console.log(`🔍 Searching: ${model} (${year})`);
+        console.log(`🔍 Searching: ${model} (${year}) [${tipo || 'sin tipo'}]`);
 
-        fetch(`${CONFIG.searchUrl}?model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`)
+        let url = `${CONFIG.searchUrl}?model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`;
+        if (tipo) url += `&tipo=${encodeURIComponent(tipo)}`;
+
+        fetch(url)
             .then(r => r.json())
             .then(res => {
                 console.log('📥 Response:', res);

@@ -1271,6 +1271,7 @@ class EquipoController extends Controller
                 'MARCA' => 'required',
                 'MODELO' => 'required',
                 'ANIO' => 'required|integer',
+                'COLOR' => 'nullable|string|max:50',
                 'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS',
                 'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR',
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
@@ -1605,6 +1606,7 @@ class EquipoController extends Controller
             'MARCA' => 'required',
             'MODELO' => 'required',
             'ANIO' => 'required|integer',
+            'COLOR' => 'nullable|string|max:50',
             // ID_ESPEC se gestiona desde el widget del catálogo, no desde
             // el formulario de edición general. Se acepta cualquier valor
             // (o null) sin validar existencia para evitar errores con vínculos huérfanos.
@@ -2548,21 +2550,34 @@ class EquipoController extends Controller
         // Sanitize
         $model = strtoupper(trim($request->input('model', '')));
         $year = trim($request->input('year', ''));
+        $tipo = strtoupper(trim($request->input('tipo', '')));
 
-        Log::info("SEARCH CATALOG MATCH: Model='$model', Year='$year'");
+        Log::info("SEARCH CATALOG MATCH: Model='$model', Year='$year', Tipo='$tipo'");
 
         if (!$model || !$year) {
             Log::info("SEARCH CATALOG: Missing params");
             return response()->json(['found' => false]);
         }
 
-        // Use strict match but trim-safe
+        // Match base por MODELO + AÑO. Si llega el TIPO, coincidencia por TIPO + MODELO + AÑO:
+        // se incluyen también los catálogos SIN TIPO (legacy, columna NULL) como respaldo para
+        // no perder sugerencias válidas, pero los del TIPO exacto se muestran primero.
         // OPTIMIZED: Select only necessary columns (not SELECT *)
-        $catalogEntries = CaracteristicaModelo::where('MODELO', $model)
-            ->where('ANIO_ESPEC', $year)
+        $catalogQuery = CaracteristicaModelo::where('MODELO', $model)
+            ->where('ANIO_ESPEC', $year);
+
+        if ($tipo !== '') {
+            $catalogQuery->where(function ($w) use ($tipo) {
+                    $w->whereRaw('UPPER(TIPO) = ?', [$tipo])->orWhereNull('TIPO');
+                })
+                ->orderByRaw('CASE WHEN UPPER(TIPO) = ? THEN 0 ELSE 1 END', [$tipo]);
+        }
+
+        $catalogEntries = $catalogQuery
             ->select([
                 'ID_ESPEC',
                 'MODELO',
+                'TIPO',
                 'ANIO_ESPEC',
                 'MOTOR',
                 'COMBUSTIBLE',
@@ -2586,6 +2601,7 @@ class EquipoController extends Controller
                 return [
                     'ID_ESPEC' => $entry->ID_ESPEC,
                     'MODELO' => $entry->MODELO,
+                    'TIPO' => $entry->TIPO,
                     'ANIO_ESPEC' => $entry->ANIO_ESPEC,
                     'MOTOR' => $entry->MOTOR,
                     'COMBUSTIBLE' => $entry->COMBUSTIBLE,

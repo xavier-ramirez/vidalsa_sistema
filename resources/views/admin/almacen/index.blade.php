@@ -64,7 +64,7 @@
        color inline original (font-weight + color de td) en vez del azul global. */
     .alm-table tbody tr.alm-row.selected-row-maquinaria td { color: unset !important; }
 
-    /* Stepper compacto de "Cant. salida" (vive en cada fila de la tabla):
+    /* Stepper compacto de la columna "Salida" (vive en cada fila de la tabla):
        el input es <type="text" inputmode="decimal"> (sin spinners nativos por construcción)
        y los botones ▲/▼ están manejados por JS — almRowCantKeyDown bloquea letras/signos.
        Los estilos inline del partial pintan el estado DESHABILITADO (gris). Cuando
@@ -75,7 +75,7 @@
     .alm-cant-stepper.is-active .alm-cant-btn:hover { background:#e0f2fe !important; }
     .alm-cant-stepper.is-active .alm-row-cant { color:#0f172a !important; }
 
-    /* Filas seleccionadas a las que les falta "Cant. salida" tras tocar "Registrar salida".
+    /* Filas seleccionadas a las que les falta la cantidad de "Salida" tras tocar "Registrar salida".
        Persistente hasta que el usuario teclee una cantidad > 0 o deseleccione el producto.
        Sobrevive a recargas AJAX del tbody (vía almAplicarFaltantes en almSelApplyToVisible). */
     /* MISMO tratamiento visual para 2 condiciones distintas que bloquean la salida:
@@ -691,9 +691,14 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_business</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo almacén</span>
                     </button>
-                    <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
+                    <button type="button" onclick="window.almAccion('producto')" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;border-bottom:1px solid #f1f5f9;width:100%;text-align:left;cursor:pointer;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">add_circle</i></div>
                         <span style="font-size:14px;font-weight:500;">Nuevo producto</span>
+                    </button>
+                    {{-- Papelera: productos eliminados (soft-delete) — buscar y restaurar. --}}
+                    <button type="button" onclick="document.getElementById('almAccionesMenu').style.display='none'; window.almAbrirPapelera();" class="dropdown-item-custom" style="display:flex;align-items:center;gap:10px;padding:11px 14px;color:#475569;background:transparent;border:none;width:100%;text-align:left;cursor:pointer;">
+                        <div style="background:#fef3c7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#d97706;">restore_from_trash</i></div>
+                        <span style="font-size:14px;font-weight:500;">Papelera de productos</span>
                     </button>
                 </div>
             </div>
@@ -705,18 +710,19 @@
         <table class="alm-table">
             <thead>
                 <tr>
-                    <th>Código</th>
+                    <th style="width:88px;">Código</th>
                     <th>Descripción del producto</th>
-                    <th style="text-align:center;">UND</th>
+                    <th style="text-align:center;width:52px;">UND</th>
                     <th>Categoría</th>
                     <th style="text-align:center;">Stock</th>
-                    {{-- Cant. salida: SIEMPRE visible — el cuerpo (partials/table_rows)
+                    {{-- Salida: SIEMPRE visible — el cuerpo (partials/table_rows)
                          renderiza esta columna para todos (7 columnas fijas); el permiso
                          almacen.movimiento solo bloquea ABRIR la salida, no la captura.
                          Gatearla aquí desajustaba el thead respecto al tbody. El input se
                          habilita solo cuando la fila está seleccionada. --}}
-                    <th style="text-align:center;width:110px;">Cant. salida</th>
-                    <th style="text-align:center;width:60px;">Detalles</th>
+                    <th style="text-align:center;width:84px;">Salida</th>
+                    {{-- Columna de Detalles (botón "ojo"): sin título para ahorrar ancho. --}}
+                    <th style="text-align:center;width:42px;"></th>
                 </tr>
             </thead>
             <tbody id="almTableBody">
@@ -863,6 +869,43 @@
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtiquetasModal')">Cancelar</button>
             <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">&#xe00a;</i>Generar PDF</button>
+        </div>
+    </div>
+</div>
+
+{{-- ── Modal: Papelera de productos (eliminados/soft-delete) ─────────────────
+     Lista los productos borrados para buscarlos y restaurarlos. Restaurar deja el
+     producto activo de nuevo con su stock intacto (almacen_stock no se borra). --}}
+<div id="almPapeleraModal" class="alm-modal-overlay">
+    {{-- Tarjeta con el MISMO estilo del modal "Limpieza de Roles" de /admin/usuarios:
+         header oscuro (#1e293b) con icono ámbar + título centrado, X arriba-derecha,
+         cuerpo gris claro. (El overlay .alm-modal-overlay aporta el fondo y el centrado.) --}}
+    <div style="background:#fff; border-radius:14px; width:90%; max-width:520px; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); animation:almIn 0.16s ease-out;">
+        {{-- Encabezado oscuro --}}
+        <div style="background:#1e293b; padding:12px 16px; color:white; display:flex; justify-content:center; align-items:center; position:relative; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="material-icons" style="color:#f59e0b; font-size:18px;">restore_from_trash</i>
+                <h2 style="margin:0; font-size:14px; font-weight:700;">Papelera de productos</h2>
+            </div>
+            <button type="button" onclick="almCerrar('almPapeleraModal')" style="position:absolute; right:12px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7; transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                <i class="material-icons" style="font-size:18px;">close</i>
+            </button>
+        </div>
+        {{-- Cuerpo (fondo gris claro, como Limpieza de Roles) --}}
+        <div style="display:flex; flex-direction:column; gap:10px; padding:16px; background:#f8fafc; flex:1; min-height:0; overflow:hidden;">
+            <div style="display:flex;align-items:center;border:1px solid #cbd5e0;border-radius:8px;background:#fff;overflow:hidden;height:38px;flex-shrink:0;">
+                <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:18px;">search</i>
+                <input type="text" id="almPapeleraSearch" placeholder="Buscar por código o descripción…" autocomplete="off"
+                       style="flex:1;border:none;outline:none;padding:0 6px;font-size:13px;background:transparent;height:100%;"
+                       oninput="window.almPapeleraBuscar()">
+            </div>
+            <div id="almPapeleraLista" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+                <div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Cargando…</div>
+            </div>
+        </div>
+        {{-- Pie --}}
+        <div style="padding:12px 16px; border-top:1px solid #e2e8f0; display:flex; justify-content:center; background:#fff; flex-shrink:0;">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almPapeleraModal')">Cerrar</button>
         </div>
     </div>
 </div>
@@ -1431,7 +1474,7 @@
             </div>
 
             {{-- La lista de productos a entregar VIVE en la tabla principal: cada fila
-                 seleccionada tiene su propio input "Cant. salida". Este modal solo
+                 seleccionada tiene su propio input "Salida". Este modal solo
                  recoge los datos de la Nota de Entrega y los cruza con almSeleccion. --}}
 
             <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
@@ -1646,20 +1689,20 @@
         return p;
     }
 
-    // ── Carga AJAX de la tabla + sidebar — con AUTO-CARGA continua ───────────────
+    // ── Carga AJAX de la tabla + sidebar — con SCROLL INFINITO PEREZOSO ──────────
     // almCargar(opts?) acepta { offset, append, gen }:
     //   • Sin args (o offset=0)    → reemplaza la tabla, refresca stats + distribución
     //                                y actualiza la URL para compartir.
     //   • { offset>0, append }     → trae la siguiente página y la appendea al tbody.
-    // Tras cada lote, si data.hasMore=true, encadenamos AUTOMÁTICAMENTE la siguiente
-    // página (sin esperar a que el usuario llegue al final): así TODO el inventario
-    // baja de corrido y se elimina la intermitencia del viejo scroll infinito ("llegas
-    // al final y hay que esperar unos segundos a que carguen las demás"). El spinner
-    // inferior (almLoadingMore) queda visible hasta el último lote.
+    // El siguiente lote NO se auto-encadena: lo dispara un IntersectionObserver sobre la
+    // última fila cuando el usuario se acerca (mismo patrón que /admin/equipos). Antes se
+    // encadenaban TODAS las páginas de golpe, lo que causaba el lag al llegar al final y
+    // que el navegador quedara congelado al volver de otra pestaña (los lotes pendientes
+    // se procesaban todos juntos). El observer no dispara con la pestaña oculta.
     //
-    // Generación de carga: cada recarga completa (offset 0) la incrementa. La cadena de
-    // auto-carga lleva su generación; si el usuario filtra/recarga mientras baja el
-    // resto, la cadena vieja se descarta (no pinta datos obsoletos ni sigue trayendo).
+    // Generación de carga: cada recarga completa (offset 0) la incrementa. Cada lote lleva
+    // su generación; si el usuario filtra/recarga mientras baja el resto, los lotes viejos
+    // se descartan (no pintan datos obsoletos ni siguen trayendo).
     var almLoadGen = 0;
     window.almCargar = function (opts) {
         // back-compat: si llaman almCargar() sin args o almCargar('url-string') se trata
@@ -1682,7 +1725,6 @@
             gen = (typeof opts.gen === 'number') ? opts.gen : almLoadGen;
             if (gen !== almLoadGen) return; // una recarga nueva ya reemplazó esta cadena
         }
-        var seguira = false; // ¿se encadena otra página tras ésta? (controla el spinner)
 
         // Construir URL preservando los filtros activos + offset.
         var f = filtros(); f.set('offset', String(offset));
@@ -1703,12 +1745,19 @@
                     if (append) {
                         var tmp = document.createElement('tbody');
                         tmp.innerHTML = data.html;
-                        while (tmp.firstElementChild) body.appendChild(tmp.firstElementChild);
+                        var _nuevasRows = [];
+                        while (tmp.firstElementChild) {
+                            var _r = tmp.firstElementChild;
+                            body.appendChild(_r);
+                            if (_r.nodeType === 1 && _r.classList.contains('alm-row')) _nuevasRows.push(_r);
+                        }
+                        // SOLO las filas nuevas (no re-itera todo el tbody en cada lote → evita el freeze).
+                        almSelApplyToRows(_nuevasRows);
                     } else {
                         body.innerHTML = data.html;
+                        almSelApplyToVisible();
                     }
                 }
-                almSelApplyToVisible();
                 // Stats + distribución solo en la primera página (el backend ya las omite
                 // cuando offset>0; aquí evitamos rebajar a "—" lo que ya pintamos).
                 if (!append && data.stats) {
@@ -1741,19 +1790,34 @@
                         window.history.replaceState({}, '', cleanU.toString());
                     } catch (e) {}
                 }
-                // Auto-carga continua: encadenamos la siguiente página apenas llega ésta,
-                // para que el resto baje solo sin que el usuario tenga que llegar al final.
+                // Scroll infinito PEREZOSO (mismo patrón que /admin/equipos): en vez de
+                // auto-encadenar TODAS las páginas de golpe (causaba el lag al llegar al final
+                // y el congelamiento del navegador al volver de otra pestaña), observamos la
+                // ÚLTIMA fila y traemos el siguiente lote SOLO cuando el usuario se acerca.
+                // El IntersectionObserver NO dispara con la pestaña oculta → al volver no se
+                // acumula un atasco de lotes pendientes.
                 if (data.hasMore && typeof data.nextOffset === 'number') {
-                    seguira = true;
-                    window.almCargar({ offset: data.nextOffset, append: true, gen: gen });
+                    var _rows = body.querySelectorAll('tr.alm-row');
+                    var lastRow = _rows.length ? _rows[_rows.length - 1] : null;
+                    if (lastRow && !lastRow.dataset.infObserved) {
+                        lastRow.dataset.infObserved = '1';
+                        var _nextOffset = data.nextOffset, _gen = gen;
+                        var infObs = new IntersectionObserver(function (entries, obs) {
+                            if (!entries[0] || !entries[0].isIntersecting) return;
+                            obs.disconnect();
+                            if (_gen !== almLoadGen) return; // una recarga nueva ya reemplazó esta lista
+                            window.almCargar({ offset: _nextOffset, append: true, gen: _gen });
+                        }, { root: null, rootMargin: '1000px', threshold: 0 });
+                        infObs.observe(lastRow);
+                    }
                 }
             })
             .catch(function () { toast('No se pudo cargar el inventario.', 'error'); })
             .finally(function () {
                 if (append) {
-                    // El spinner se mantiene mientras la cadena siga; se oculta al cerrar
-                    // el último lote (o si esta página quedó obsoleta y no encadenó).
-                    if (!seguira && loadMore) loadMore.style.display = 'none';
+                    // Carga perezosa: el spinner de "cargando más" se oculta al terminar cada lote
+                    // (el siguiente lo dispara el IntersectionObserver al acercarse a la última fila).
+                    if (loadMore) loadMore.style.display = 'none';
                 } else {
                     body.style.opacity = '1'; unpre();
                 }
@@ -2391,14 +2455,21 @@
             // perderia la intencion del usuario.
             _almPendingAutoSelect = false;
         }
-        document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
-            almSelMarkRow(tr, !!almSeleccion[tr.getAttribute('data-id-producto')]);
+        almSelApplyToRows(document.querySelectorAll('#almTableBody tr.alm-row'));
+    }
+    // Aplica TODO el estado de una fila (selección azul + faltante/exceso de stock +
+    // filtro "solo seleccionados") en UNA sola pasada por fila. En el scroll-infinito
+    // (append) se llama SOLO con las filas recién agregadas — antes se re-iteraba todo
+    // el tbody (×4) en cada lote, lo que era O(n²) y congelaba el navegador al cargarse
+    // todo el stock.
+    function almSelApplyToRows(rows) {
+        rows.forEach(function (tr) {
+            var id = tr.getAttribute('data-id-producto');
+            almSelMarkRow(tr, !!almSeleccion[id]);
+            tr.classList.toggle('alm-row-missing-cant', !!almFaltantes[id]);
+            tr.classList.toggle('alm-row-exceeds-stock', !!almExceden[id]);
+            if (almSoloSel && !almSeleccion[id]) tr.style.display = 'none';
         });
-        // Repintar también el highlight rojo de las filas con cantidad faltante o que
-        // exceden el stock, y re-aplicar el filtro "solo seleccionados" si está activo.
-        almAplicarFaltantes();
-        almAplicarExceden();
-        almAplicarSoloSel();
     }
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -3518,8 +3589,9 @@
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
         el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar';
-        // El código es de sólo lectura al editar (puede ser PRD-XXXX o numérico).
-        el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = true; el('almProdCodigo').style.background = '#f1f5f9';
+        // El código AHORA es editable también al editar: el backend valida unicidad
+        // ignorando el propio producto (Rule::unique->ignore). Solo dígitos (igual que al crear).
+        el('almProdCodigo').value = cod || ''; el('almProdCodigo').readOnly = false; el('almProdCodigo').style.background = '';
         el('almProdNombre').value = nom || ''; el('almProdUm').value = um || 'UND'; el('almProdCategoria').value = cat || '';
         if (el('almProdUbicacion')) el('almProdUbicacion').value = ubicacion || '';
         // Cantidad inicial: solo aplica al CREAR. Al editar se oculta — el saldo se cambia
@@ -3527,6 +3599,78 @@
         var wrap = el('almProdCantInicialWrap'); if (wrap) wrap.style.display = 'none';
         open('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
+
+    // ── Papelera de productos (eliminados / soft-delete): buscar + restaurar ──────
+    var ROUTE_PROD_PAPELERA = ROUTE_INDEX + '/productos/papelera';
+    function ROUTE_PROD_RESTAURAR(id) { return ROUTE_INDEX + '/productos/' + id + '/restaurar'; }
+    var _almPapeleraTimer = null;
+
+    window.almAbrirPapelera = function () {
+        if (!ensurePerm(HAS_NOTA_ELIMINAR, 'No tienes permiso para ver o restaurar productos eliminados.')) return;
+        var inp = el('almPapeleraSearch'); if (inp) inp.value = '';
+        open('almPapeleraModal');
+        window.almPapeleraBuscar();
+        setTimeout(function () { if (inp) inp.focus(); }, 60);
+    };
+
+    window.almPapeleraBuscar = function () {
+        clearTimeout(_almPapeleraTimer);
+        _almPapeleraTimer = setTimeout(function () {
+            var cont = el('almPapeleraLista'); if (!cont) return;
+            var term = (el('almPapeleraSearch') ? el('almPapeleraSearch').value : '').trim();
+            cont.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Cargando…</div>';
+            fetch(ROUTE_PROD_PAPELERA + (term ? ('?search=' + encodeURIComponent(term)) : ''), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var rows = (data && data.productos) || [];
+                if (!rows.length) {
+                    cont.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">No hay productos eliminados' + (term ? ' que coincidan.' : '.') + '</div>';
+                    return;
+                }
+                cont.innerHTML = rows.map(function (p) {
+                    var cod = p.CODIGO ? String(p.CODIGO) : '—';
+                    var nom = String(p.NOMBRE || '').replace(/</g, '&lt;');
+                    var meta = (p.UM || '') + (p.CATEGORIA ? (' · ' + p.CATEGORIA) : '');
+                    return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;">' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-family:monospace;font-weight:700;color:#0f172a;font-size:12.5px;">' + cod + '</div>' +
+                            '<div style="font-size:13px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nom + '</div>' +
+                            '<div style="font-size:11px;color:#94a3b8;">' + meta + '</div>' +
+                        '</div>' +
+                        '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="btn-primary-maquinaria" style="background:#16a34a;box-shadow:none;padding:6px 12px;font-size:12.5px;white-space:nowrap;">' +
+                            '<i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:4px;">restore</i>Restaurar</button>' +
+                    '</div>';
+                }).join('');
+            })
+            .catch(function () {
+                cont.innerHTML = '<div style="text-align:center;color:#dc2626;font-size:13px;padding:24px 0;">No se pudo cargar la papelera.</div>';
+            });
+        }, 250);
+    };
+
+    window.almRestaurarProducto = function (id) {
+        if (!ensurePerm(HAS_NOTA_ELIMINAR, 'No tienes permiso para restaurar productos.')) return;
+        pre();
+        fetch(ROUTE_PROD_RESTAURAR(id), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+        .then(function (res) {
+            unpre();
+            if (res.ok) {
+                toast(res.b.message || 'Producto restaurado.');
+                window.almPapeleraBuscar();                                    // refresca la lista (el restaurado ya no aparece)
+                if (typeof window.almCargar === 'function') window.almCargar(); // refresca la tabla principal
+            } else {
+                toast((res.b && res.b.message) || 'No se pudo restaurar el producto.', 'error');
+            }
+        })
+        .catch(function () { unpre(); toast('Error de red al restaurar.', 'error'); });
+    };
+
     window.almGuardarProducto = function () {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para guardar productos.')) return;
         var m = el('almProductoModal'), id = m.dataset.idProducto || null;
@@ -3534,9 +3678,9 @@
         var ubicacion = val('almProdUbicacion');
         // Validaciones previas al envío.
         if (!nombre) { almProdFieldErr('almProdNombre', true); showErr('almProdError', 'La descripción es obligatoria.'); return; }
-        // Al crear: el código manual debe ser solo dígitos enteros positivos.
-        // Al editar: el código es readonly (puede ser PRD-XXXX), no se valida aquí.
-        if (!id && codigo && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
+        // El código (al CREAR o al EDITAR) debe ser solo dígitos enteros positivos.
+        // Si va vacío al editar, el backend conserva el código actual del producto.
+        if (codigo && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
             almProdFieldErr('almProdCodigo', true);
             showErr('almProdError', 'El código debe ser un número entero positivo.');
             return;
@@ -3568,8 +3712,9 @@
             method: id ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             body: JSON.stringify(id
-                // Al editar: CODIGO no se incluye → el backend conserva el existente (evita conflicto con regex).
-                ? { NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null }
+                // Al editar: ahora SÍ se incluye CODIGO (editable). Si va vacío, el backend
+                // conserva el actual (updateProducto hace unset cuando llega vacío).
+                ? { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null }
                 // Al crear: CODIGO + opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
                 : bodyCreate
             )
@@ -3847,7 +3992,7 @@
             if (!isFinite(c) || c <= 0) faltan.push(nombre);
             else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
         });
-        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Cant. salida" de la tabla).'); return null; }
+        if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Salida" de la tabla).'); return null; }
         if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return null; }
         showErr('almSalidaError', '');
 

@@ -137,7 +137,11 @@ class UserController extends Controller
             ])
             ->values();
 
-        return view('admin.usuarios.lista', compact('users', 'frentes', 'roles', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias'));
+        // Usuarios con sesión activa (últimos 30 min) — misma fuente que el módulo de
+        // Auditoría (Usuario::sesionesActivas), para el panel lateral. No duplica lógica.
+        $activeUsers = \App\Models\Usuario::sesionesActivas(30);
+
+        return view('admin.usuarios.lista', compact('users', 'frentes', 'roles', 'totalUsuarios', 'usuariosActivos', 'usuariosInactivos', 'usuariosSugerencias', 'activeUsers'));
     }
 
     /**

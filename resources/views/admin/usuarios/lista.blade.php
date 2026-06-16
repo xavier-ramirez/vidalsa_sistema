@@ -4,7 +4,7 @@
 
 @section('content')
 <div>
-<section class="page-title-card" style="text-align: left; width: 95%; max-width: 1600px; margin: 0 auto 10px auto;">
+<section class="page-title-card" style="text-align: left; width: 100%; max-width: none; margin: 0 0 10px 0;">
     <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
         <span class="page-title-line2" style="color: #000; margin: 0;">Gestión de Usuarios</span>
         <span id="user-count-badge" style="background: rgba(0, 103, 177, 0.08); color: #0067b1; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(0, 103, 177, 0.15); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; gap: 6px;">
@@ -16,8 +16,12 @@
 
 
 
-<div class="admin-card" style="width: 95%; max-width: 1600px; margin: 0 auto;">
-    <div class="filter-toolbar-container" style="margin-bottom: 5px;">
+<div class="admin-card" style="width: 100%; max-width: none; margin: 0; background: transparent; border: none; box-shadow: none; padding: 0;">
+    {{-- Layout: tarjeta principal (filtros + tabla, como en /admin/equipos) a la izquierda
+         y el panel de Usuarios Activos en su propia tarjeta a la derecha. --}}
+    <div class="usuarios-layout">
+    <div class="usuarios-main">
+    <div class="filter-toolbar-container" style="margin-bottom: 14px;">
         <!-- Search Filter -->
         <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
@@ -86,7 +90,7 @@
         </div>
 
         <!-- Rol Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 1.5 1 250px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 2 1 290px; max-width: 360px;">
             <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
                 <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
 
@@ -135,9 +139,8 @@
         <!-- Action Buttons -->
         <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto;">
             <!-- Limpiar Roles Button -->
-            <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; padding: 0 12px; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; font-size: 13px; font-weight: 700; white-space: nowrap; transition: background 0.2s;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
-                <i class="material-icons" style="font-size:18px;">cleaning_services</i>
-                <span>Limpiar</span>
+            <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
+                <i class="material-icons" style="font-size:20px;">delete_sweep</i>
             </button>
 
             <!-- New User Button -->
@@ -148,18 +151,34 @@
         </div>
     </div>
 
+    <style>
+        /* 2 columnas: izquierda = tarjeta blanca con FILTROS + TABLA (como /admin/equipos),
+           derecha = panel "Usuarios Activos" en su propia tarjeta. El .admin-card exterior
+           es solo el contenedor transparente que centra y limita el ancho. */
+        .usuarios-layout { display: flex; gap: 18px; align-items: flex-start; }
+        .usuarios-layout .usuarios-main {
+            flex: 1 1 auto; min-width: 0;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+            padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
+        }
+        .usuarios-side { width: 300px; flex: 0 0 300px; }
+        @media (max-width: 1024px) {
+            .usuarios-layout { flex-direction: column; }
+            .usuarios-side { width: 100%; flex-basis: auto; }
+        }
+    </style>
     <!-- Unified Responsive Table -->
     <div class="custom-scrollbar-container">
         <table class="admin-table table-usuarios-mobile" style="width: 100% !important;">
             <thead>
-                <tr style="background: #334155; text-align: left; color: #ffffff; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #1e293b;">
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 200px;">Nombre y Apellido</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 180px;">Correo</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 150px;">Rol</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 120px;">Acceso</th>
-                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 180px;">Frente de Trabajo</th>
+                <tr style="background: #1e293b; text-align: left; color: #ffffff; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; border-bottom: 2px solid #0f172a;">
+                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 150px;">Nombre y Apellido</th>
+                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 140px;">Correo</th>
+                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 120px;">Rol</th>
+                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 90px;">Nivel</th>
+                    <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 110px;">Frente</th>
                     <th class="table-cell-bordered" style="padding: 10px 15px; text-align: left; min-width: 100px;">Estado</th>
-                    <th style="padding: 10px 15px; text-align: left; width: 100px;">Acciones</th>
+                    <th style="padding: 10px 8px; text-align: center; width: 60px;"></th>
                 </tr>
             </thead>
             <tbody id="usuariosTableBody" style="font-size: 14px;">
@@ -178,6 +197,45 @@
     <div id="usuariosPagination" style="margin-top: 25px;">
         {{ $users->links() }}
     </div>
+    </div>{{-- /usuarios-main --}}
+
+    {{-- ─── Panel lateral: Usuarios Activos (sesiones últimos 30 min) ───
+         Mismo panel y misma fuente de datos que el módulo de Auditoría
+         (Usuario::sesionesActivas) — para no duplicar la lógica. --}}
+    @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
+    <aside class="usuarios-side">
+        <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="material-icons" style="color: #10b981; font-size: 22px;">radio_button_checked</i>
+                    <h3 style="margin: 0; font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">Usuarios Activos</h3>
+                </div>
+                <span style="background: #dcfce7; color: #15803d; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;">{{ $activeUsers->count() }}</span>
+            </div>
+            @if($activeUsers->count() === 0)
+                <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8; text-align: center; padding: 20px 0;">Nadie conectado en los últimos 30 min.</p>
+            @else
+                <div style="display: flex; flex-direction: column; gap: 8px; max-height: 460px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                    @foreach($activeUsers as $u)
+                        @php
+                            $minsAgo = max(0, (int) floor((now()->timestamp - $u->last_activity) / 60));
+                            $ago = $minsAgo === 0 ? 'ahora' : ($minsAgo === 1 ? 'hace 1 min' : 'hace ' . $minsAgo . ' min');
+                            $nombreCorto = $u->NOMBRE_COMPLETO ?: strtok($u->CORREO_ELECTRONICO, '@');
+                        @endphp
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 9px 12px; border-radius: 8px; border: 1px solid #dcfce7;" title="{{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
+                            <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                                <span style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0;"></span>
+                                <span style="font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nombreCorto }}</span>
+                            </div>
+                            <span style="font-size: 11px; color: #64748b; white-space: nowrap; margin-left: 8px; background: #e2e8f0; padding: 2px 7px; border-radius: 6px; font-weight: 600;">{{ $ago }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </aside>
+    @endif
+    </div>{{-- /usuarios-layout --}}
 
     <!-- Modal Limpiar Roles (Estilo Papelera) -->
     <div id="modalLimpiarRoles" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 99999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">

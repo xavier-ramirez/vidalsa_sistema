@@ -20,29 +20,26 @@
                         $auxDriveId = $auxFoto ? basename(str_replace('/storage/google/', '', explode('?', $auxFoto)[0])) : null;
                     @endphp
                     @if($auxDriveId)
-                        <div style="width: 50px; height: 35px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #fff7ed; border: 1px solid #fed7aa;">
+                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
                             <img src="{{ url('/storage/google/' . $auxDriveId . '?sz=w120') }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
                         </div>
                     @else
-                        <div style="width: 50px; height: 35px; border-radius: 4px; background: #fff7ed; display: flex; align-items: center; justify-content: center; color: #c2410c; flex-shrink: 0; border: 1px dashed #fed7aa;">
-                            <i class="material-icons" style="font-size: 20px;">construction</i>
+                        <div style="width: 68px; height: 48px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
+                            <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
                         </div>
                     @endif
                     <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; overflow-wrap: break-word;">
-                        <span style="font-size: 11px; color: #c2410c; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;">
-                            <i class="material-icons" style="font-size: 11px; vertical-align: middle;">construction</i>
-                            {{ $auxTipoLabel ?? 'AUXILIAR' }}
-                        </span>
+                        <span style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">{{ $auxTipoLabel ?? 'AUXILIAR' }}</span>
                         <div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> {{ $mov->auxiliar->SERIAL ?? '—' }}</div>
                         <div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">{{ $mov->auxiliar->MARCA }} {{ $mov->auxiliar->MODELO }}</div>
                     </div>
                 @else
                     @if($equipoFoto)
-                        <div style="width: 50px; height: 35px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
+                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
                             <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $equipoFoto)]) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
                         </div>
                     @else
-                        <div style="width: 50px; height: 35px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
+                        <div style="width: 68px; height: 48px; border-radius: 4px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e0; flex-shrink: 0; border: 1px dashed #e2e8f0;">
                             <i class="material-icons" style="font-size: 20px;">image_not_supported</i>
                         </div>
                     @endif
@@ -153,7 +150,6 @@
         <td class="mv-td-estado">
             <div style="display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 11px; font-weight: 800;">
                 @if($mov->TIPO_MOVIMIENTO === 'RECEPCION_DIRECTA' || $mov->TIPO_MOVIMIENTO === 'ACT.')
-                    <i class="material-icons" style="font-size: 16px; color: #3730a3;">input</i>
                     <span style="color: #3730a3;">ACTUALIZACIÓN DE UBICACIÓN</span>
                 @else
                     <i class="material-icons" style="font-size: 16px; color: #1e40af;">swap_horiz</i>

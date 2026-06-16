@@ -739,6 +739,100 @@
         .cat-mini-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
         .cat-mini-card:nth-child(n)  { display: flex; }
     }
+
+    /* ── Pie informativo: datos de la empresa + crédito de desarrollo ── */
+    .menu-about {
+        position: relative;
+        margin: 22px 0 8px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 24px 28px;
+        box-shadow: 0 4px 18px -6px rgba(15, 23, 42, 0.10);
+        overflow: hidden;
+    }
+    /* Barra de acento superior (toque corporativo dinámico) */
+    .menu-about::before {
+        content: "";
+        position: absolute; top: 0; left: 0; right: 0; height: 4px;
+        background: linear-gradient(90deg, var(--maquinaria-dark-blue, #00004d), var(--maquinaria-blue, #0067b1));
+    }
+    .menu-about-head {
+        display: flex;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+    /* Logo grande de la empresa: se muestra directo (el propio logo lleva el nombre,
+       así no hace falta repetir título ni subtítulo). Alto fijo, ancho automático. */
+    .menu-about-logo {
+        height: 78px;
+        display: inline-flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .menu-about-logo img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+    @media (max-width: 560px) { .menu-about-logo { height: 60px; } }
+    .menu-about-desc {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.65;
+        color: #475569;
+    }
+    /* Dos columnas: izquierda = empresa (logo + descripción); derecha = crédito del
+       desarrollador (copyright + contacto), separada por una línea vertical. */
+    .menu-about-cols {
+        display: flex;
+        align-items: stretch;
+        gap: 26px;
+    }
+    .menu-about-left { flex: 1 1 58%; min-width: 0; }
+    .menu-about-right {
+        flex: 1 1 42%;
+        min-width: 0;
+        border-left: 1px solid #e2e8f0;
+        padding-left: 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 12px;
+    }
+    .menu-about-collab { margin-top: 4px; }
+    .menu-about-collab .collab-title { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
+    .menu-about-right .dev {
+        font-weight: 700;
+        color: #64748b;
+        font-size: 12.5px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .menu-about-right .dev .dev-name { color: #475569; }
+    .menu-about-right .dev-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #475569;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.15s;
+    }
+    .menu-about-right .dev-link:hover { color: #0067b1; }
+    .menu-about-right .dev-link .material-icons { font-size: 16px; }
+    .menu-about-right .dev-link.wa { color: #128C7E; }
+    .menu-about-right .dev-link.wa:hover { color: #25D366; }
+    .menu-about-right .dev-link.wa svg { width: 16px; height: 16px; flex-shrink: 0; }
+    /* En móvil/tablet: una sola columna; la derecha pasa abajo con separador horizontal. */
+    @media (max-width: 760px) {
+        .menu-about-cols { flex-direction: column; gap: 16px; }
+        .menu-about-right {
+            border-left: none;
+            border-top: 1px dashed #e2e8f0;
+            padding-left: 0;
+            padding-top: 16px;
+            justify-content: flex-start;
+        }
+    }
 </style>
 
 <div class="dashboard-container" style="padding: 10px 20px; position: relative; z-index: 1;">
@@ -898,7 +992,8 @@
                                     ? basename(str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0]))
                                     : null;
                             @endphp
-                            <div class="cat-mini-card">
+                            <a class="cat-mini-card" href="{{ route('catalogo.index') }}"
+                               style="text-decoration:none; color:inherit;" title="Ver el catálogo de equipos">
                                 <div class="cat-mini-photo">
                                     @if($driveFileId)
                                         <img src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
@@ -918,20 +1013,68 @@
                                     </span>
                                 </div>
                                 <div class="cat-mini-body">
-                                    <span class="cat-mini-modelo">{{ $catalogo->marca_calculada ?? '' }} MODELO {{ $catalogo->MODELO }}</span>
-                                    @if($catalogo->MOTOR || $catalogo->COMBUSTIBLE)
-                                        <span class="cat-mini-specs">
-                                            {{ collect([$catalogo->MOTOR, $catalogo->COMBUSTIBLE])->filter()->join(' · ') }}
-                                        </span>
+                                    {{-- Muestra el TIPO (principal) y la MARCA (secundario). Si el
+                                         catálogo aún no tiene TIPO, cae al MODELO como respaldo. --}}
+                                    <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}</span>
+                                    @if($catalogo->marca_calculada)
+                                        <span class="cat-mini-specs">{{ $catalogo->marca_calculada }}</span>
                                     @endif
                                 </div>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
                 </div>
             @endif
         </div>
     </div>
+
+    {{-- ── Pie informativo: breve descripción de la empresa + crédito de desarrollo.
+         Datos tomados del sitio oficial https://www.vidalsa27.com (sobre-nosotros). --}}
+    <footer class="menu-about">
+        <div class="menu-about-cols">
+            {{-- Izquierda: identidad de la empresa (logo + descripción). --}}
+            <div class="menu-about-left">
+                <div class="menu-about-head">
+                    <div class="menu-about-logo">
+                        <img src="{{ asset('images/maquinaria/logo.webp') }}" alt="Constructora Vidalsa 27, C.A."
+                             onerror="this.onerror=null;this.src='{{ asset('images/maquinaria/logo.png') }}';">
+                    </div>
+                </div>
+                <p class="menu-about-desc">
+                    Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
+                    desarrollando proyectos de vivienda, oleoductos y obras de impacto nacional. Su misión es
+                    impulsar el crecimiento del país garantizando calidad, innovación y responsabilidad social,
+                    respaldada por una flota propia de maquinaria pesada operada en todo el territorio.
+                </p>
+            </div>
+            {{-- Derecha: copyright + crédito del desarrollador (contacto). --}}
+            <div class="menu-about-right">
+                <span class="dev">
+                <span>Sistema desarrollado por <span class="dev-name">Fernando Xavier Sánchez Ramírez</span></span>
+                {{-- WhatsApp: 0424-8261501 → wa.me con código de país de Venezuela (+58, sin el 0 inicial) --}}
+                <a href="https://wa.me/584248261501" target="_blank" rel="noopener" class="dev-link wa" title="Escribir por WhatsApp">
+                    <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+                        <path d="M16.04 3C9.4 3 4 8.4 4 15.04c0 2.12.55 4.18 1.6 6L4 29l8.13-1.55c1.75.95 3.72 1.45 5.7 1.45h.01C24.6 28.9 30 23.5 30 16.86 30 9.4 24.6 3 16.04 3zm0 23.7h-.01c-1.78 0-3.52-.48-5.04-1.38l-.36-.21-4.82.92.96-4.7-.24-.38a9.85 9.85 0 0 1-1.51-5.26c0-5.46 4.45-9.9 9.92-9.9 2.65 0 5.14 1.03 7.01 2.9a9.84 9.84 0 0 1 2.9 7.01c0 5.46-4.45 9.9-9.91 9.9zm5.44-7.42c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51l-.57-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35z"/>
+                    </svg>
+                    0424-8261501
+                </a>
+                <a href="mailto:fsanchez@cvidalsa27.com" class="dev-link" title="Enviar correo">
+                    <i class="material-icons">email</i>fsanchez@cvidalsa27.com
+                </a>
+            </span>
+            {{-- Colaboradores que apoyaron poblando/gestionando los datos (no el desarrollo del sistema). --}}
+            <span class="dev menu-about-collab">
+                <span class="collab-title">Apoyo en la carga y gestión de datos</span>
+                <a href="mailto:azerpa@cvidalsa27.com" class="dev-link" title="Escribir a Alejandro Zerpa">
+                    <i class="material-icons">badge</i>Alejandro Zerpa · azerpa@cvidalsa27.com
+                </a>
+                <a href="mailto:bromero@cvidalsa27.com" class="dev-link" title="Escribir a Benny Romero">
+                    <i class="material-icons">badge</i>Benny Romero · bromero@cvidalsa27.com
+                </a>
+            </span>
+            </div>{{-- /menu-about-right --}}
+        </div>{{-- /menu-about-cols --}}
+    </footer>
 </div>
 
     {{-- El panel del usuario se movió al header (ver layouts/estructura_base.blade.php) --}}

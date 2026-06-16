@@ -356,4 +356,52 @@ class Usuario extends Authenticatable
         // Delegar el resto al framework (para Gates/Policies estándar si se usan)
         return parent::can($abilities, $arguments);
     }
+
+    /**
+     * Usuarios con sesión activa en los últimos $mins minutos (driver de sesión = database).
+     * Lee la tabla `sessions` y toma la sesión MÁS RECIENTE por usuario (evita duplicados por
+     * varios navegadores/dispositivos). FUENTE ÚNICA reutilizada por el módulo de Auditoría
+     * (HistorialDocumentos) y por /admin/usuarios — para no duplicar la consulta.
+     *
+     * Devuelve una colección de stdClass con: ID_USUARIO, NOMBRE_COMPLETO, CORREO_ELECTRONICO,
+     * ip_address, last_activity. Colección vacía si la tabla/driver no aplica (no rompe la vista).
+     */
+    public static function sesionesActivas(int $mins = 30)
+    {
+        try {
+            $cutoff = now()->subMinutes($mins)->timestamp;
+
+            $latestPerUser = \Illuminate\Support\Facades\DB::table('sessions')
+                ->selectRaw('user_id, MAX(last_activity) as last_activity')
+                ->whereNotNull('user_id')
+                ->where('last_activity', '>=', $cutoff)
+                ->groupBy('user_id');
+
+            return \Illuminate\Support\Facades\DB::table('sessions')
+                ->joinSub($latestPerUser, 'latest', function ($j) {
+                    $j->on('sessions.user_id', '=', 'latest.user_id')
+                      ->on('sessions.last_activity', '=', 'latest.last_activity');
+                })
+                ->join('usuarios', 'usuarios.ID_USUARIO', '=', 'sessions.user_id')
+                ->select(
+                    'usuarios.ID_USUARIO',
+                    'usuarios.NOMBRE_COMPLETO',
+                    'usuarios.CORREO_ELECTRONICO',
+                    'sessions.ip_address',
+                    'sessions.last_activity'
+                )
+                ->orderByDesc('sessions.last_activity')
+                ->get()
+                ->unique('ID_USUARIO')
+                ->values();
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Illuminate\Support\Facades\Log::error('active users read failed', [
+                'error'    => $e->getMessage(),
+                'sql'      => method_exists($e, 'getRawSql') ? $e->getRawSql() : null,
+                'bindings' => $e->getBindings(),
+                'code'     => $e->getCode(),
+            ]);
+            return collect();
+        }
+    }
 }

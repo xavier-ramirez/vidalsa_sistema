@@ -118,6 +118,9 @@ Route::middleware(['auth'])->group(function () {
             // Resource route al final para que sus wildcards no capturen las rutas estáticas de arriba
             Route::resource('movilizaciones', App\Http\Controllers\MovilizacionController::class);
 
+            // Subida de foto desde la tarjeta del catálogo (sin abrir el form de edición).
+            // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
+            Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->name('catalogo.uploadFoto');
             Route::resource('catalogo', App\Http\Controllers\CaracteristicaModeloController::class);
 
             // ── Consumibles ──────────────────────────────────────────────────
@@ -274,6 +277,9 @@ Route::middleware(['auth'])->group(function () {
             Route::patch ('almacen/almacenes/{idAlmacen}/minimo',        [App\Http\Controllers\AlmacenController::class, 'actualizarMinimo'])->whereNumber('idAlmacen')->name('almacen.minimo');
 
             // Productos (catálogo global)
+            // Papelera: rutas estáticas ANTES de las de {id} (orden de coincidencia).
+            Route::get   ('almacen/productos/papelera',           [App\Http\Controllers\AlmacenController::class, 'papeleraProductos'])->name('almacen.productos.papelera');
+            Route::post  ('almacen/productos/{id}/restaurar',     [App\Http\Controllers\AlmacenController::class, 'restaurarProducto'])->whereNumber('id')->name('almacen.productos.restaurar');
             Route::post  ('almacen/productos',                    [App\Http\Controllers\AlmacenController::class, 'storeProducto'])   ->name('almacen.productos.store');
             Route::patch ('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateProducto'])  ->whereNumber('id')->name('almacen.productos.update');
             Route::delete('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'destroyProducto']) ->whereNumber('id')->name('almacen.productos.destroy');

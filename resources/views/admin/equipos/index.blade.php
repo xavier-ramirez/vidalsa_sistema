@@ -264,7 +264,7 @@
                 @php
                     $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
-                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
                 </button>
                 
@@ -567,7 +567,7 @@
         <div class="filter-item aligned-filter" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
             
             <!-- Main Trigger Button -->
-            <button type="button" id="btnAcciones" onclick="const sm = document.getElementById('splitDropdownMenu'); const p = document.getElementById('advancedFilterPanel'); if (p) p.style.display='none'; sm.style.display = sm.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <button type="button" id="btnAcciones" onclick="const sm = document.getElementById('splitDropdownMenu'); const p = document.getElementById('advancedFilterPanel'); if (p) p.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); sm.style.display = sm.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                 <i class="material-icons">settings</i>
                 <span>Acciones</span>
                 <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>

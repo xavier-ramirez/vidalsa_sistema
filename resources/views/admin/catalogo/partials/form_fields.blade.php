@@ -108,6 +108,29 @@
         @error('MODELO') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
+    <!-- TIPO de Equipo: columna propia del catálogo. Alimenta la sugerencia de catálogo
+         del alta de equipos (coincidencia por TIPO + MODELO + AÑO). -->
+    <div class="catalog-field-group">
+        <label for="TIPO" class="catalog-label">Tipo de Equipo</label>
+        <div class="custom-form-autocomplete">
+            <input type="text" id="TIPO" name="TIPO"
+                   class="form-input-custom @error('TIPO') is-invalid @enderror"
+                   value="{{ old('TIPO', $catalogo->TIPO ?? '') }}"
+                   placeholder="Escriba o seleccione..."
+                   maxlength="35"
+                   oninput="this.value = this.value.toUpperCase(); filterFormDropdown(this)"
+                   onfocus="showFormDropdown(this)"
+                   onblur="hideFormDropdownDelayed(this)"
+                   autocomplete="off">
+            <div class="dropdown-list">
+                @foreach($tipos ?? [] as $t)
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $t }}')">{{ $t }}</div>
+                @endforeach
+            </div>
+        </div>
+        @error('TIPO') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
     <!-- 2. AÑO (Narrow) -->
     <div class="catalog-field-group">
         <label for="ANIO_ESPEC" class="catalog-label">Año</label>
@@ -131,25 +154,9 @@
         @error('ANIO_ESPEC') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
-    <!-- 3. FOTO DEL MODELO (Narrow) -->
-    <div class="catalog-field-group">
-        <label for="foto_referencial" class="catalog-label">Foto del Modelo</label>
-        <div class="file-input-wrapper">
-            <label for="foto_referencial" id="preview_referencial" class="file-preview-box" 
-                   title="Foto del Modelo" 
-                   onmouseover="this.style.borderColor='var(--maquinaria-blue)';" 
-                   onmouseout="this.style.borderColor='#cbd5e0';">
-                @if(isset($catalogo) && $catalogo->FOTO_REFERENCIAL)
-                    <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $catalogo->FOTO_REFERENCIAL)]) }}" 
-                         style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;">
-                @else
-                    <i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>
-                @endif
-            </label>
-            <input type="file" id="foto_referencial" name="foto_referencial" accept="image/*" style="display: none;">
-            <div style="font-size: 10px; color: #718096; line-height: 1.1;">Click para {{ isset($catalogo) ? 'cambiar' : 'cargar' }}</div>
-        </div>
-    </div>
+    {{-- La foto del modelo ya NO se sube desde el formulario: se gestiona haciendo
+         click en la foto de cada tarjeta en /admin/catalogo (mismo flujo que el
+         catálogo de auxiliares). Ver catalogo.uploadFoto + catUploadPhoto(). --}}
 
     <!-- 4. MOTOR (Wider) -->
     <div class="catalog-field-group">
