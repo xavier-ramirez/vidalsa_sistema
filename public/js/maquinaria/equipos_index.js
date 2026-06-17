@@ -234,14 +234,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         return;
     }
 
-    const oldCfg = STATUS_CONFIG[oldStatus] ?? STATUS_CONFIG['DESINCORPORADO'];
-    const iconEl = triggerEl.querySelector('.material-icons');
-    const spanEl = triggerEl.querySelector('span');
-    const revert = function () {
-        if (iconEl) { iconEl.textContent = oldCfg.icon; iconEl.style.color = oldCfg.color; }
-        if (spanEl) spanEl.textContent = oldCfg.label;
-        triggerEl.dataset.status = oldStatus;
-    };
+    const revert = function () { _applyStatusVisual(triggerEl, oldStatus); };
 
     // Actualizar visualmente el trigger de inmediato (optimistic UI)
     _applyStatusVisual(triggerEl, newStatus);
