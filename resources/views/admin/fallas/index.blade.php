@@ -56,10 +56,20 @@
                 overflow: visible;
             }
 
-            /* "Reportó" se muestra debajo de placa/serial (en .falla-meta) en móvil; el
-               de la columna de acciones se oculta para no duplicar visualmente. */
-            .falla-reporto-mobile { display: flex !important; }
+            /* "Reportó" se REVELA al tocar la tarjeta (.falla-expanded), igual que el
+               detalle en el módulo de equipos en móvil; oculto mientras está colapsada.
+               El de la columna de acciones (desktop) se oculta siempre en móvil. */
+            .falla-reporto-mobile { display: none !important; }
+            .falla-row-card.falla-expanded .falla-reporto-mobile { display: flex !important; }
             .falla-actions > .falla-reporto-desktop { display: none !important; }
+
+            /* Pista "Ver quién reportó": visible colapsada, se oculta al expandir
+               (entonces aparece el dato). Afordancia tipo expand_more de equipos. */
+            .falla-tap-hint {
+                display: flex !important; align-items: center; gap: 3px;
+                margin-top: 4px; font-size: 11px; color: #94a3b8;
+            }
+            .falla-row-card.falla-expanded .falla-tap-hint { display: none !important; }
 
             .falla-actions {
                 grid-column: 1 / -1 !important;
@@ -228,6 +238,9 @@
             font-size: 12px;
             color: #64748b;
         }
+
+        /* Pista de toque: solo en móvil (ver media query); oculta en escritorio. */
+        .falla-tap-hint { display: none; }
 
         .falla-actions {
             display: flex;
@@ -807,8 +820,6 @@
         <script>
             window.FALLAS_CFG = {
                 urlIndex: '{{ route("fallas.index") }}',
-                urlSearch: '{{ route("fallas.searchActivos") }}',
-                urlStore: '{{ route("fallas.store") }}',
                 urlBase: '{{ url("admin/fallas") }}'
             };
             // Modal de creación compartido: al crear un reporte se recarga el listado.

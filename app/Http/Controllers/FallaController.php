@@ -699,9 +699,9 @@ class FallaController extends Controller
         $pdf->setPrintFooter(false);   // sin pie "EMITIDO POR..."
         // Márgenes izq/der iguales (17mm) -> tabla centrada. Aire superior/inferior iguales
         // (16mm vía SetHeaderMargin y AutoPageBreak). El margen SUPERIOR (43.16mm) está atado
-        // al alto REAL del cabezote: arranca en y=16 y mide ~27.16mm (sus 6 filas de control
-        // ocupan más que los 24mm nominales), por lo que el cuerpo arranca PEGADO a él, sin
-        // franja blanca ni solape. Si se cambian las filas del cabezote (Header), reajustar.
+        // al alto del cabezote: arranca en y=16 y mide $headerHeight=77pt (≈27.16mm), por lo
+        // que el cuerpo arranca PEGADO a él, sin franja blanca ni solape. Si se cambia el alto
+        // o las filas del cabezote (Header), reajustar este margen (16 + alto en mm).
         $pdf->SetMargins(17, 43.16, 17);
         $pdf->SetHeaderMargin(16);
         $pdf->SetAutoPageBreak(true, 16);
@@ -737,7 +737,10 @@ class ReporteFallaPDF extends \TCPDF
         //    bordes CSS finos (0.1mm); el logo se superpone con Image() sobre la 1.ª celda.
         $this->SetLineWidth(0.1);
 
-        $headerHeight = 68;          // pt (≈ 24 mm)
+        // Alto TOTAL del cabezote (pt). Las 5 filas de control reparten este alto
+        // (rowH cada una) para que el cabezote conserve su altura aunque tenga menos filas.
+        $headerHeight = 77;          // pt (≈ 27.2 mm)
+        $ctrlRowH     = $headerHeight / 5;   // 5 filas: Código, Revisión, Sección, Fecha, Página
         // writeHTML aplica a las tablas del cuerpo un inset IZQUIERDO fijo de 5pt que
         // writeHTMLCell (este cabezote) NO aplica; sin compensarlo el encabezado sobresale
         // ~1.76mm por la izquierda. Lo replicamos para que cabezote y cuerpo arranquen en la
@@ -746,7 +749,7 @@ class ReporteFallaPDF extends \TCPDF
         $cabX  = $this->lMargin + $inset;                          // ≈18.76mm
         $cabY  = 16;
         $cabW  = ($this->w - $this->lMargin - $this->rMargin) - $inset;  // ≈174.24mm
-        $cabH  = 24;
+        $cabH  = 24;                 // alto (mm) del recuadro del LOGO, no del cabezote
         $logoCellW = $cabW * 0.20;   // alinea con la 1.ª col del cuerpo
 
         $img = public_path('img/imagen_uno.jpg');
@@ -771,15 +774,14 @@ class ReporteFallaPDF extends \TCPDF
         $bs   = 'border:0.1mm solid #000;';
         $html = '<table cellpadding="2" cellspacing="0" width="100%" style="border-collapse:collapse;">'
               . '<tr>'
-              .   '<td width="20%" rowspan="6" height="' . $headerHeight . '" style="' . $bs . '">&nbsp;</td>'
-              .   '<td width="52%" rowspan="6" height="' . $headerHeight . '" align="center" valign="middle" bgcolor="#d6e0f2" style="' . $bs . '">' . $tituloDiv . '</td>'
-              .   '<td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Código:</b> ' . htmlspecialchars($codigo, ENT_QUOTES, 'UTF-8') . '</font></td>'
+              .   '<td width="20%" rowspan="5" height="' . $headerHeight . '" style="' . $bs . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="5" height="' . $headerHeight . '" align="center" valign="middle" bgcolor="#d6e0f2" style="' . $bs . '">' . $tituloDiv . '</td>'
+              .   '<td width="28%" height="' . $ctrlRowH . '" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Código:</b> ' . htmlspecialchars($codigo, ENT_QUOTES, 'UTF-8') . '</font></td>'
               . '</tr>'
-              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Revisión:</b> 1</font></td></tr>'
-              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Sección:</b> Mantenimiento</font></td></tr>'
-              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Proc.de Ref:</b> —</font></td></tr>'
-              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Fecha de Emisión:</b> ' . $fecha . '</font></td></tr>'
-              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7">Página 1 de 1</font></td></tr>'
+              . '<tr><td width="28%" height="' . $ctrlRowH . '" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Revisión:</b> 1</font></td></tr>'
+              . '<tr><td width="28%" height="' . $ctrlRowH . '" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Sección:</b> Mantenimiento</font></td></tr>'
+              . '<tr><td width="28%" height="' . $ctrlRowH . '" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Fecha de Emisión:</b> ' . $fecha . '</font></td></tr>'
+              . '<tr><td width="28%" height="' . $ctrlRowH . '" align="center" style="' . $bs . '"><font face="helvetica" size="7">Página 1 de 1</font></td></tr>'
               . '</table>';
 
         $this->SetFont('helvetica', '', 7);

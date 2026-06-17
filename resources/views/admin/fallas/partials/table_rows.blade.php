@@ -90,6 +90,11 @@
 
             {{-- "Reportó" debajo de placa/serial — SOLO móvil (.falla-reporto-mobile). --}}
             @if($f->NOMBRE_REPORTA)
+                {{-- Pista de toque (solo móvil, colapsado): invita a tocar la tarjeta. --}}
+                <div class="falla-tap-hint">
+                    <i class="material-icons" style="font-size:14px;">expand_more</i> Ver quién reportó
+                </div>
+                {{-- Dato revelado al tocar la tarjeta (.falla-expanded). --}}
                 <div class="falla-reporto-mobile">
                     <i class="material-icons" style="font-size:12px;">person</i>
                     Reportó: <span style="color:#1e293b; font-weight:700; margin-left:3px;">{{ $f->NOMBRE_REPORTA }}</span>
