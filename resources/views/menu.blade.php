@@ -807,7 +807,6 @@
         align-items: flex-start;
         gap: 8px;
     }
-    .menu-about-right .dev .dev-name { color: #475569; }
     .menu-about-right .dev-link {
         display: inline-flex;
         align-items: center;
@@ -819,9 +818,6 @@
     }
     .menu-about-right .dev-link:hover { color: #0067b1; }
     .menu-about-right .dev-link .material-icons { font-size: 16px; }
-    .menu-about-right .dev-link.wa { color: #128C7E; }
-    .menu-about-right .dev-link.wa:hover { color: #25D366; }
-    .menu-about-right .dev-link.wa svg { width: 16px; height: 16px; flex-shrink: 0; }
     /* En móvil/tablet: una sola columna; la derecha pasa abajo con separador horizontal. */
     @media (max-width: 760px) {
         .menu-about-cols { flex-direction: column; gap: 16px; }
@@ -1047,19 +1043,12 @@
                     respaldada por una flota propia de maquinaria pesada operada en todo el territorio.
                 </p>
             </div>
-            {{-- Derecha: copyright + crédito del desarrollador (contacto). --}}
+            {{-- Derecha: crédito del desarrollador. --}}
             <div class="menu-about-right">
                 <span class="dev">
-                <span>Sistema desarrollado por <span class="dev-name">Fernando Xavier Sánchez Ramírez</span></span>
-                {{-- WhatsApp: 0424-8261501 → wa.me con código de país de Venezuela (+58, sin el 0 inicial) --}}
-                <a href="https://wa.me/584248261501" target="_blank" rel="noopener" class="dev-link wa" title="Escribir por WhatsApp">
-                    <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-                        <path d="M16.04 3C9.4 3 4 8.4 4 15.04c0 2.12.55 4.18 1.6 6L4 29l8.13-1.55c1.75.95 3.72 1.45 5.7 1.45h.01C24.6 28.9 30 23.5 30 16.86 30 9.4 24.6 3 16.04 3zm0 23.7h-.01c-1.78 0-3.52-.48-5.04-1.38l-.36-.21-4.82.92.96-4.7-.24-.38a9.85 9.85 0 0 1-1.51-5.26c0-5.46 4.45-9.9 9.92-9.9 2.65 0 5.14 1.03 7.01 2.9a9.84 9.84 0 0 1 2.9 7.01c0 5.46-4.45 9.9-9.91 9.9zm5.44-7.42c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51l-.57-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35z"/>
-                    </svg>
-                    0424-8261501
-                </a>
+                <span>Sistema desarrollado</span>
                 <a href="mailto:fsanchez@cvidalsa27.com" class="dev-link" title="Enviar correo">
-                    <i class="material-icons">email</i>fsanchez@cvidalsa27.com
+                    <i class="material-icons">badge</i>Fernando Sánchez · fsanchez@cvidalsa27.com
                 </a>
             </span>
             {{-- Colaboradores que apoyaron poblando/gestionando los datos (no el desarrollo del sistema). --}}

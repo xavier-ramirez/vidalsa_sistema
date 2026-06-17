@@ -221,17 +221,23 @@ class FallaController extends Controller
             'tipo_reporte'    => 'required|in:corto,extenso',
             'activo_tipo'     => 'required|in:equipo,equipo_auxiliar',
             'activo_id'       => 'required|integer',
-            'estado_al_crear' => 'required|in:INOPERATIVO,EN MANTENIMIENTO',
             'descripcion'     => 'required|string|max:5000',
-            'horometro'       => 'nullable|string|max:50',
-            'sistema'         => 'nullable|in:MOTOR,HIDRAULICO,ELECTRICO,NEUMATICO,TRANSMISION,ESTRUCTURAL,FRENOS,OTROS',
-            'prioridad'       => 'nullable|in:CRITICA,ALTA,MEDIA,BAJA',
-            'tipo_intervencion' => 'nullable|in:CORRECTIVO_INMEDIATO,PROGRAMADO',
-            'repuestos'       => 'nullable|string|max:5000',
-            'observaciones'   => 'nullable|string|max:5000',
+            // Seccion 2 — identificacion
+            'kilometraje'     => 'nullable|string|max:50',
+            'horas'           => 'nullable|string|max:50',
+            // Seccion 3 — tipo de mantenimiento
+            'tipo_mantenimiento' => 'nullable|in:PREVENTIVO,CORRECTIVO',
+            // Seccion 4 — taller (opcional al crear)
+            'mecanico_asignado'   => 'nullable|string|max:120',
+            'fecha_recepcion'     => 'nullable|date',
+            'diagnostico'         => 'nullable|string|max:5000',
+            'acciones_realizadas' => 'nullable|string|max:5000',
         ]);
 
-        return DB::transaction(function () use ($request) {
+        // Al crear cualquier reporte de falla, el equipo SIEMPRE queda INOPERATIVO.
+        $estadoAlCrear = 'INOPERATIVO';
+
+        return DB::transaction(function () use ($request, $estadoAlCrear) {
             // Lock del activo y guarda estado previo
             $activo = $this->lockActivo($request->activo_tipo, $request->activo_id);
             if (!$activo) {
@@ -244,37 +250,44 @@ class FallaController extends Controller
 
             $user = auth()->user();
 
+            // Snapshot del frente de trabajo (Sección 1 del acta).
+            $frente = $activo->ID_FRENTE_ACTUAL
+                ? DB::table('frentes_trabajo')->where('ID_FRENTE', $activo->ID_FRENTE_ACTUAL)->value('NOMBRE_FRENTE')
+                : null;
+
             $falla = Falla::create([
-                'CODIGO_REPORTE'         => $this->generateCodigoReporte(),
-                'FECHA_EMISION'          => now(),
-                'TIPO_REPORTE'           => $request->tipo_reporte,
-                'ESTADO_REPORTE'         => 'abierto',
-                'ACTIVO_TIPO'            => $request->activo_tipo,
-                'ACTIVO_ID'              => $request->activo_id,
-                'ESTADO_PREVIO'          => $estadoPrevio,
-                'ESTADO_AL_CREAR'        => $request->estado_al_crear,
-                'HOROMETRO_ACTUAL'       => $request->horometro,
-                'DESCRIPCION_AVERIA'     => $request->descripcion,
-                'SISTEMA_AFECTADO'       => $request->sistema,
-                'PRIORIDAD'              => $request->prioridad,
-                'TIPO_INTERVENCION'      => $request->tipo_intervencion,
-                'REPUESTOS_ESTIMADOS'    => $request->repuestos,
-                'OBSERVACIONES_MECANICO' => $request->observaciones,
-                'ID_USUARIO_REPORTA'     => $user->ID_USUARIO,
-                'NOMBRE_REPORTA'         => $user->NOMBRE_COMPLETO,
-                'CARGO_REPORTA'          => optional($user->rol)->NOMBRE_ROL ?? '',
-                'EMAIL_REPORTA'          => $user->CORREO_ELECTRONICO,
+                'CODIGO_REPORTE'      => $this->generateCodigoReporte(),
+                'FECHA_EMISION'       => now(),
+                'TIPO_REPORTE'        => $request->tipo_reporte,
+                'ESTADO_REPORTE'      => 'abierto',
+                'ACTIVO_TIPO'         => $request->activo_tipo,
+                'ACTIVO_ID'           => $request->activo_id,
+                'ESTADO_PREVIO'       => $estadoPrevio,
+                'ESTADO_AL_CREAR'     => $estadoAlCrear,
+                'FRENTE_TRABAJO'      => $frente,
+                'KILOMETRAJE'         => $request->kilometraje,
+                'HORAS'               => $request->horas,
+                'DESCRIPCION_AVERIA'  => $request->descripcion,
+                'TIPO_MANTENIMIENTO'  => $request->tipo_mantenimiento,
+                'MECANICO_ASIGNADO'   => $request->mecanico_asignado,
+                'FECHA_RECEPCION'     => $request->fecha_recepcion,
+                'DIAGNOSTICO'         => $request->diagnostico,
+                'ACCIONES_REALIZADAS' => $request->acciones_realizadas,
+                'ID_USUARIO_REPORTA'  => $user->ID_USUARIO,
+                'NOMBRE_REPORTA'      => $user->NOMBRE_COMPLETO,
+                'CARGO_REPORTA'       => optional($user->rol)->NOMBRE_ROL ?? '',
+                'EMAIL_REPORTA'       => $user->CORREO_ELECTRONICO,
             ]);
 
-            // Aplica el estado al activo
-            $activo->ESTADO_OPERATIVO = $request->estado_al_crear;
+            // El equipo queda INOPERATIVO (se refleja en el módulo de equipos y sus totales).
+            $activo->ESTADO_OPERATIVO = $estadoAlCrear;
             $activo->save();
 
             $this->logAction($falla->ID_FALLA, $request->activo_tipo, $request->activo_id, 'create_falla', [
                 'codigo'           => $falla->CODIGO_REPORTE,
                 'tipo'             => $falla->TIPO_REPORTE,
                 'estado_previo'    => $estadoPrevio,
-                'estado_al_crear'  => $request->estado_al_crear,
+                'estado_al_crear'  => $estadoAlCrear,
             ]);
 
             return response()->json([
@@ -292,6 +305,11 @@ class FallaController extends Controller
     {
         $request->validate([
             'observaciones_cierre' => 'nullable|string|max:5000',
+            // Campos del taller: se pueden completar/actualizar al cerrar.
+            'mecanico_asignado'    => 'nullable|string|max:120',
+            'fecha_recepcion'      => 'nullable|date',
+            'diagnostico'          => 'nullable|string|max:5000',
+            'acciones_realizadas'  => 'nullable|string|max:5000',
         ]);
 
         return DB::transaction(function () use ($request, $id) {
@@ -307,18 +325,79 @@ class FallaController extends Controller
             $falla->NOMBRE_CIERRA        = $user->NOMBRE_COMPLETO;
             $falla->CARGO_CIERRA         = optional($user->rol)->NOMBRE_ROL ?? '';
             $falla->OBSERVACIONES_CIERRE = $request->input('observaciones_cierre');
+
+            // Solo sobreescribe los campos del taller si vienen con valor
+            // (permite completarlos al cerrar sin borrar lo cargado al crear).
+            foreach ([
+                'mecanico_asignado'   => 'MECANICO_ASIGNADO',
+                'fecha_recepcion'     => 'FECHA_RECEPCION',
+                'diagnostico'         => 'DIAGNOSTICO',
+                'acciones_realizadas' => 'ACCIONES_REALIZADAS',
+            ] as $input => $col) {
+                if ($request->filled($input)) {
+                    $falla->{$col} = $request->input($input);
+                }
+            }
             $falla->save();
 
-            // Al cerrar el reporte, el activo regresa SIEMPRE a OPERATIVO.
+            // Al cerrar, el activo vuelve a OPERATIVO en el módulo de equipos
+            // (columna ESTADO_OPERATIVO) SOLO si ya no le quedan otros reportes
+            // ABIERTOS — un equipo puede tener varios reportes y no debe "curarse"
+            // mientras siga con alguno abierto. El reporte actual ya quedó 'cerrado'
+            // arriba, así que no se cuenta a sí mismo.
             $activo = $this->lockActivo($falla->ACTIVO_TIPO, $falla->ACTIVO_ID);
             if ($activo) {
-                $activo->ESTADO_OPERATIVO = 'OPERATIVO';
-                $activo->save();
+                $tieneAbiertos = Falla::where('ACTIVO_TIPO', $falla->ACTIVO_TIPO)
+                    ->where('ACTIVO_ID', $falla->ACTIVO_ID)
+                    ->where('ESTADO_REPORTE', 'abierto')
+                    ->exists();
+                if (!$tieneAbiertos) {
+                    $activo->ESTADO_OPERATIVO = 'OPERATIVO';
+                    $activo->save();
+                }
             }
 
             $this->logAction($falla->ID_FALLA, $falla->ACTIVO_TIPO, $falla->ACTIVO_ID, 'close_falla', []);
 
             return response()->json(['success' => true, 'message' => 'Reporte cerrado.']);
+        });
+    }
+
+    /**
+     * Borrado DURO de un reporte — EXCLUSIVO super.admin (gate en routes/web.php).
+     * Irreversible y sin rastro: elimina el reporte (forceDelete) y sus entradas de
+     * auditoría. Si el reporte estaba ABIERTO y dejó el activo INOPERATIVO, lo regresa
+     * a OPERATIVO cuando ya no le quedan otros reportes abiertos (deshace su efecto,
+     * mismo criterio que el cierre).
+     */
+    public function destroy($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $falla = Falla::withTrashed()->lockForUpdate()->findOrFail($id);
+            $tipo  = $falla->ACTIVO_TIPO;
+            $aid   = $falla->ACTIVO_ID;
+            $estabaAbierto = $falla->ESTADO_REPORTE === 'abierto';
+
+            // Sin rastro: borra la auditoría del reporte y el reporte mismo.
+            DB::table('fallas_audit_log')->where('ID_FALLA', $falla->ID_FALLA)->delete();
+            $falla->forceDelete();
+
+            // Si lo dejó inoperativo y ya no quedan reportes abiertos, lo cura.
+            if ($estabaAbierto) {
+                $activo = $this->lockActivo($tipo, $aid);
+                if ($activo) {
+                    $tieneAbiertos = Falla::where('ACTIVO_TIPO', $tipo)
+                        ->where('ACTIVO_ID', $aid)
+                        ->where('ESTADO_REPORTE', 'abierto')
+                        ->exists();
+                    if (!$tieneAbiertos) {
+                        $activo->ESTADO_OPERATIVO = 'OPERATIVO';
+                        $activo->save();
+                    }
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'Reporte eliminado.']);
         });
     }
 
@@ -484,21 +563,14 @@ class FallaController extends Controller
     {
         [$eqQ, $auxQ] = $this->buildActivoQueriesForStats($request);
 
-        $eqTotal  = (clone $eqQ)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
-        $auxTotal = (clone $auxQ)->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->count();
-
-        $eqIno  = (clone $eqQ)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
-        $auxIno = (clone $auxQ)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count();
-
-        $eqMan  = (clone $eqQ)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
-        $auxMan = (clone $auxQ)->where('ESTADO_OPERATIVO', 'EN MANTENIMIENTO')->count();
-
-        // Reportes abiertos: aplica los filtros equivalentes sobre la tabla fallas
+        // El Consolidado muestra Reportes Abiertos / Cerrados. Los $eqQ/$auxQ se usan
+        // para acotar las fallas a los activos filtrados (ids de abajo).
+        // Reportes: aplica los filtros equivalentes sobre la tabla fallas
         // (id_frente, tipo_activo, marca, modelo, search se filtran por activo).
         $eqIds  = (clone $eqQ)->pluck('equipos.ID_EQUIPO')->toArray();
         $auxIds = (clone $auxQ)->pluck('ID_AUXILIAR')->toArray();
 
-        $reportesQ = Falla::query()->where('ESTADO_REPORTE', 'abierto');
+        $reportesQ = Falla::query();
         if ($request->filled('fecha_desde')) {
             $reportesQ->whereDate('FECHA_EMISION', '>=', $request->fecha_desde);
         }
@@ -520,11 +592,24 @@ class FallaController extends Controller
             });
         }
 
+        $abiertos = (clone $reportesQ)->where('ESTADO_REPORTE', 'abierto')->count();
+        $cerrados = (clone $reportesQ)->where('ESTADO_REPORTE', 'cerrado')->count();
+        $total    = $abiertos + $cerrados;
+
+        // Desglose por tipo de mantenimiento para el gráfico del Consolidado.
+        // "Rápidos" = el resto (reportes cortos / sin tipo de mantenimiento), de modo
+        // que preventivo + correctivo + rapidos = total siempre.
+        $preventivo = (clone $reportesQ)->where('TIPO_MANTENIMIENTO', 'PREVENTIVO')->count();
+        $correctivo = (clone $reportesQ)->where('TIPO_MANTENIMIENTO', 'CORRECTIVO')->count();
+        $rapidos    = max(0, $total - $preventivo - $correctivo);
+
         return [
-            'total'             => $eqTotal + $auxTotal,
-            'inoperativo'       => $eqIno + $auxIno,
-            'mantenimiento'     => $eqMan + $auxMan,
-            'reportes_abiertos' => $reportesQ->count(),
+            'reportes_abiertos' => $abiertos,
+            'reportes_cerrados' => $cerrados,
+            'total_reportes'    => $total,
+            'preventivo'        => $preventivo,
+            'correctivo'        => $correctivo,
+            'rapidos'           => $rapidos,
         ];
     }
 
@@ -611,12 +696,22 @@ class FallaController extends Controller
         $pdf->codigoReporte = $falla->CODIGO_REPORTE;
         $pdf->fechaEmision  = $falla->FECHA_EMISION->format('d/m/Y');
         $pdf->setPrintHeader(true);
-        $pdf->setPrintFooter(true);
-        $pdf->SetMargins(15, 42, 15);
-        $pdf->SetHeaderMargin(8);
-        $pdf->SetAutoPageBreak(true, 15);
+        $pdf->setPrintFooter(false);   // sin pie "EMITIDO POR..."
+        // Márgenes izq/der iguales (17mm) -> tabla centrada. Aire superior/inferior iguales
+        // (16mm vía SetHeaderMargin y AutoPageBreak). El margen SUPERIOR (43.16mm) está atado
+        // al alto REAL del cabezote: arranca en y=16 y mide ~27.16mm (sus 6 filas de control
+        // ocupan más que los 24mm nominales), por lo que el cuerpo arranca PEGADO a él, sin
+        // franja blanca ni solape. Si se cambian las filas del cabezote (Header), reajustar.
+        $pdf->SetMargins(17, 43.16, 17);
+        $pdf->SetHeaderMargin(16);
+        $pdf->SetAutoPageBreak(true, 16);
+        $pdf->SetTitle('Reporte de Fallas ' . $falla->CODIGO_REPORTE);
+        $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
+        $pdf->SetCreator('Sistema de Gestión VIDALSA');
         $pdf->AddPage();
-        $pdf->SetFont('helvetica', '', 10);
+        // Línea fina 0.1mm: las tablas del cuerpo heredan el mismo grosor que el cabezote.
+        $pdf->SetLineWidth(0.1);
+        $pdf->SetFont('helvetica', '', 9);
 
         $html = view('admin.fallas.acta_falla_pdf', compact('falla', 'activo'))->render();
         $pdf->writeHTML($html, true, false, true, false, '');
@@ -637,24 +732,59 @@ class ReporteFallaPDF extends \TCPDF
 
     public function Header()
     {
-        $image_file = public_path('img/imagen_uno.jpg');
-        if (file_exists($image_file)) {
-            $this->Image($image_file, 15, 8, 0, 25, 'JPG', '', 'T', false, 300, '', false, false, 0, false, false, false);
+        // ── Cabezote oficial (mismo patrón que el acta de movilización) ──
+        //    [LOGO 20%] | REPORTE DE FALLAS (52%) | [SELLO 28%] — una sola tabla con
+        //    bordes CSS finos (0.1mm); el logo se superpone con Image() sobre la 1.ª celda.
+        $this->SetLineWidth(0.1);
+
+        $headerHeight = 68;          // pt (≈ 24 mm)
+        // writeHTML aplica a las tablas del cuerpo un inset IZQUIERDO fijo de 5pt que
+        // writeHTMLCell (este cabezote) NO aplica; sin compensarlo el encabezado sobresale
+        // ~1.76mm por la izquierda. Lo replicamos para que cabezote y cuerpo arranquen en la
+        // MISMA x y queden del mismo ancho y "pegados" (el borde derecho ya cae en el margen).
+        $inset = 5 / $this->getScaleFactor();                      // 5pt -> mm (≈1.76)
+        $cabX  = $this->lMargin + $inset;                          // ≈18.76mm
+        $cabY  = 16;
+        $cabW  = ($this->w - $this->lMargin - $this->rMargin) - $inset;  // ≈174.24mm
+        $cabH  = 24;
+        $logoCellW = $cabW * 0.20;   // alinea con la 1.ª col del cuerpo
+
+        $img = public_path('img/imagen_uno.jpg');
+        if (file_exists($img)) {
+            $padding = 1;
+            $this->Image($img, $cabX + $padding, $cabY + $padding,
+                $logoCellW - ($padding * 2), $cabH - ($padding * 2),
+                'JPG', '', '', false, 300, '', false, false, 0, 'CM', false, false);
         }
-        $this->SetFont('helvetica', '', 8.5);
+
         $codigo = strtoupper($this->codigoReporte ?: '—');
         $fecha  = $this->fechaEmision ?: \Carbon\Carbon::now()->format('d/m/Y');
-        $html = '<div style="text-align: right; line-height: 1.8;">'
-              . '<strong>CÓDIGO REPORTE:</strong> ' . $codigo . '<br>'
-              . '<strong>FECHA DE EMISI&Oacute;N:</strong> ' . $fecha . '<br>'
-              . 'EMITIDO POR SISTEMA DE GESTI&Oacute;N DE FLOTA</div>';
-        $this->writeHTMLCell(0, 0, 15, 20, $html, 0, 1, 0, true, 'R', true);
+
+        // Centrado vertical del titulo dentro del rowspan: line-height ≈ alto del rowspan.
+        $tituloDiv = '<div style="text-align:center;line-height:' . ($headerHeight - 6)
+                   . 'pt;font-family:helvetica;font-size:13pt;font-weight:bold;">REPORTE DE FALLAS</div>';
+
+        // Bloque de control igual al formato oficial (azul claro en el titulo).
+        // Borde por CSS a 0.1mm (NO border="1", que TCPDF dibuja ~0.35mm e ignora
+        // SetLineWidth) — mismo grosor fino que el acta de movilizacion del modulo
+        // equipos. border-collapse evita el efecto "doble linea".
+        $bs   = 'border:0.1mm solid #000;';
+        $html = '<table cellpadding="2" cellspacing="0" width="100%" style="border-collapse:collapse;">'
+              . '<tr>'
+              .   '<td width="20%" rowspan="6" height="' . $headerHeight . '" style="' . $bs . '">&nbsp;</td>'
+              .   '<td width="52%" rowspan="6" height="' . $headerHeight . '" align="center" valign="middle" bgcolor="#d6e0f2" style="' . $bs . '">' . $tituloDiv . '</td>'
+              .   '<td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Código:</b> ' . htmlspecialchars($codigo, ENT_QUOTES, 'UTF-8') . '</font></td>'
+              . '</tr>'
+              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Revisión:</b> 1</font></td></tr>'
+              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Sección:</b> Mantenimiento</font></td></tr>'
+              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Proc.de Ref:</b> —</font></td></tr>'
+              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7"><b>Fecha de Emisión:</b> ' . $fecha . '</font></td></tr>'
+              . '<tr><td width="28%" align="center" style="' . $bs . '"><font face="helvetica" size="7">Página 1 de 1</font></td></tr>'
+              . '</table>';
+
+        $this->SetFont('helvetica', '', 7);
+        $this->writeHTMLCell($cabW, 0, $cabX, $cabY, $html, 0, 0, 0, true, 'L', true);
     }
 
-    public function Footer()
-    {
-        $this->SetY(-15);
-        $this->SetFont('helvetica', 'I', 8);
-        $this->Cell(0, 10, 'Página ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'R');
-    }
+    // Sin Footer(): el pie corporativo se desactivó con setPrintFooter(false) en pdf().
 }

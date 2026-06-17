@@ -1033,8 +1033,8 @@
                 type:        'warning',
                 title:       'Cancelar operación',
                 message:     mensaje,
-                confirmText: 'Sí, vaciar',
-                cancelText:  'Seguir',
+                confirmText: 'Aceptar',
+                cancelText:  'Cancelar',
                 onConfirm:   hacer,
             });
         } else {

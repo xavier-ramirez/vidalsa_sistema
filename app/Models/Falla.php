@@ -20,17 +20,25 @@ class Falla extends Model
     protected $fillable = [
         'CODIGO_REPORTE', 'FECHA_EMISION', 'TIPO_REPORTE', 'ESTADO_REPORTE',
         'ACTIVO_TIPO', 'ACTIVO_ID',
-        'ESTADO_PREVIO', 'ESTADO_AL_CREAR', 'HOROMETRO_ACTUAL',
-        'DESCRIPCION_AVERIA', 'SISTEMA_AFECTADO', 'PRIORIDAD',
-        'TIPO_INTERVENCION', 'REPUESTOS_ESTIMADOS', 'OBSERVACIONES_MECANICO',
+        'ESTADO_PREVIO', 'ESTADO_AL_CREAR',
+        // Seccion 1 — informacion general
+        'FRENTE_TRABAJO',
+        // Seccion 2 — identificacion del equipo
+        'KILOMETRAJE', 'HORAS',
+        // Seccion 3 — tipo de mantenimiento requerido
+        'DESCRIPCION_AVERIA', 'TIPO_MANTENIMIENTO',
+        // Seccion 4 — exclusiva para taller
+        'MECANICO_ASIGNADO', 'FECHA_RECEPCION', 'DIAGNOSTICO', 'ACCIONES_REALIZADAS',
+        // Solicitante / cierre
         'ID_USUARIO_REPORTA', 'NOMBRE_REPORTA', 'CARGO_REPORTA', 'EMAIL_REPORTA',
         'ID_USUARIO_CIERRA',  'NOMBRE_CIERRA',  'CARGO_CIERRA',
         'FECHA_CIERRE', 'OBSERVACIONES_CIERRE',
     ];
 
     protected $casts = [
-        'FECHA_EMISION' => 'datetime',
-        'FECHA_CIERRE'  => 'datetime',
+        'FECHA_EMISION'   => 'datetime',
+        'FECHA_CIERRE'    => 'datetime',
+        'FECHA_RECEPCION' => 'date',
     ];
 
     /**
@@ -59,35 +67,22 @@ class Falla extends Model
         return $this->belongsTo(Usuario::class, 'ID_USUARIO_CIERRA', 'ID_USUARIO');
     }
 
-    public static function sistemasAfectados(): array
+    /** Tipo de mantenimiento requerido (Seccion 3 del acta). */
+    public static function tiposMantenimiento(): array
     {
         return [
-            'MOTOR'        => 'Motor',
-            'HIDRAULICO'   => 'Hidráulico',
-            'ELECTRICO'    => 'Eléctrico',
-            'NEUMATICO'    => 'Neumático',
-            'TRANSMISION'  => 'Transmisión',
-            'ESTRUCTURAL'  => 'Estructural',
-            'FRENOS'       => 'Frenos',
-            'OTROS'        => 'Otros',
+            'PREVENTIVO' => 'Preventivo',
+            'CORRECTIVO' => 'Correctivo',
         ];
     }
 
-    public static function prioridades(): array
+    /** Clase de activo para el check Maquinaria/Vehiculo/Otro (Seccion 2). */
+    public static function clasesActivo(): array
     {
         return [
-            'CRITICA' => 'Crítica',
-            'ALTA'    => 'Alta',
-            'MEDIA'   => 'Media',
-            'BAJA'    => 'Baja',
-        ];
-    }
-
-    public static function tiposIntervencion(): array
-    {
-        return [
-            'CORRECTIVO_INMEDIATO' => 'Correctivo Inmediato',
-            'PROGRAMADO'           => 'Programado',
+            'MAQUINARIA' => 'Maquinaria',
+            'VEHICULO'   => 'Vehículo',
+            'OTRO'       => 'Otro',
         ];
     }
 }

@@ -86,6 +86,9 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    /* Los filtros de a 2 por fila deben poder encoger dentro del panel (300px)
+       para no desbordarse: el min-width:auto por defecto del grid lo impide. */
+    .aux-adv-grid > div { min-width: 0; }
     /* Texto de los inputs del panel de filtros avanzados, un poco más pequeño. */
     #auxAdvPanel input[type="text"] { font-size: 12px; }
     /* Texto del input del filtro (Frente/Tipo/Serial) en oscuro como equipos.
@@ -321,9 +324,10 @@
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
                               onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
-                    {{-- Filtros de a DOS por fila: Marca | Modelo arriba, Capacidad | Estado
-                         abajo (grid de 2 columnas). En móvil bajan a 1 columna. --}}
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
+                    {{-- Filtros de a DOS por fila (Marca|Modelo, Capacidad|Estado). El
+                         min-width:0 en los hijos (regla .aux-adv-grid>div) evita que se
+                         desborden del panel de 300px. --}}
+                    <div class="aux-adv-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
 
                         {{-- Filtro "Detalle" (DETALLE_UBICACION_ACTUAL) — solo
                              visible cuando el frente seleccionado es TIPO_FRENTE='ESPECIAL'
@@ -858,6 +862,11 @@
         </div>
     </div>
 </div>
+
+{{-- Modales de Reporte de Falla (compartidos): "Nuevo Reporte" (al poner INOPERATIVO)
+     y "Cerrar Reporte" (al cambiar el estado de un aux con reporte abierto). --}}
+@include('admin.fallas.partials.create_modal')
+@include('admin.fallas.partials.close_modal')
 
 <script>
 (function () {
@@ -1871,22 +1880,42 @@
         menu.style.display = 'block';
     };
 
+    // Aplica el estado al trigger de aux (icono/label/color/dataset).
+    function _applyAuxStatusVisual(trigger, status) {
+        const cfg = AUX_STATUS_CFG[status] || AUX_STATUS_CFG['DESINCORPORADO'];
+        const iconEl  = trigger.querySelector('.material-icons:first-child') || trigger.querySelector('div > .material-icons');
+        const labelEl = trigger.querySelector('.aux-status-label');
+        const innerBlock = trigger.querySelector('div');
+        if (iconEl)  { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
+        if (labelEl)   labelEl.textContent = cfg.label;
+        if (innerBlock) innerBlock.style.color = cfg.color;
+        trigger.dataset.status = status;
+    }
+
+    // Contexto para marcar el aux INOPERATIVO tras crear el reporte desde el desplegable.
+    let _auxFallaCtx = null;
+
     window.auxChangeStatus = function (trigger, newStatus) {
         if (!trigger) return;
         const oldStatus = trigger.dataset.status;
         if (oldStatus === newStatus) return;
+
+        // INOPERATIVO se gestiona CREANDO un reporte de falla (el backend deja el
+        // auxiliar inoperativo). Abrimos el modal "Nuevo Reporte" pre-seleccionado; si
+        // se cancela no cambia nada; al crear, handleFallaCreatedAux marca el estado.
+        if (newStatus === 'INOPERATIVO' && typeof window.flOpenForActivo === 'function') {
+            _auxFallaCtx = { trigger: trigger, oldStatus: oldStatus };
+            window.flOpenForActivo('equipo_auxiliar', trigger.dataset.auxId,
+                trigger.dataset.label || ('Auxiliar #' + trigger.dataset.auxId),
+                function () { _auxFallaCtx = null; });
+            return;
+        }
+
         const url = trigger.dataset.statusUrl;
-        const cfg = AUX_STATUS_CFG[newStatus] || AUX_STATUS_CFG['DESINCORPORADO'];
+        const revert = function () { _applyAuxStatusVisual(trigger, oldStatus); };
 
-        const iconEl  = trigger.querySelector('.material-icons:first-child') || trigger.querySelector('div > .material-icons');
-        const labelEl = trigger.querySelector('.aux-status-label');
-
-        // Optimistic UI (mismo estilo que equipos)
-        if (iconEl)  { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
-        if (labelEl)   labelEl.textContent = cfg.label;
-        const innerBlock = trigger.querySelector('div');
-        if (innerBlock) innerBlock.style.color = cfg.color;
-        trigger.dataset.status = newStatus;
+        // Optimistic UI
+        _applyAuxStatusVisual(trigger, newStatus);
 
         fetch(url, {
             method: 'PATCH',
@@ -1901,22 +1930,35 @@
         .then(r => r.json().then(body => ({ status: r.status, body })))
         .then(({ status, body }) => {
             if (status === 200) {
-                // UI ya actualizada optimisticamente arriba. Sin recarga ni spinner.
                 if (window.showToast) window.showToast('Estado actualizado.', 'success');
-            } else {
-                throw new Error(body.message || 'Error');
+                return;
             }
+            // El auxiliar tiene un reporte ABIERTO: revertir y abrir el modal de cierre
+            // (compartido falla_create_modal.js → flAbrirCierre).
+            if (body && body.falla_abierta) {
+                revert();
+                window.flAbrirCierre(body.falla_abierta);
+                return;
+            }
+            throw new Error(body.message || 'Error');
         })
         .catch(err => {
-            const oldCfg = AUX_STATUS_CFG[oldStatus] || AUX_STATUS_CFG['DESINCORPORADO'];
-            if (iconEl)  { iconEl.textContent = oldCfg.icon; iconEl.style.color = oldCfg.color; }
-            if (labelEl)   labelEl.textContent = oldCfg.label;
-            if (innerBlock) innerBlock.style.color = oldCfg.color;
-            trigger.dataset.status = oldStatus;
+            revert();
             if (window.showToast) window.showToast('No se pudo actualizar el estado.', 'error');
             console.error('auxChangeStatus:', err);
         });
     };
+
+    // Tras crear un reporte desde el desplegable de estado: marca el aux INOPERATIVO.
+    window.handleFallaCreatedAux = function () {
+        const ctx = _auxFallaCtx;
+        _auxFallaCtx = null;
+        if (ctx && ctx.trigger) _applyAuxStatusVisual(ctx.trigger, 'INOPERATIVO');
+    };
+
+    // El cierre de reporte desde la tabla usa el modal COMPARTIDO
+    // (falla_create_modal.js → flAbrirCierre / flConfirmarCierre), igual que equipos.
+    // FALLA_MODAL_CFG.onClosed (más abajo) recarga el listado de auxiliares.
 
     // Exportar XLSX respetando filtros activos.
     // Usamos fetch() + Blob en vez de <a> click para que el navegador NO muestre
@@ -2729,4 +2771,17 @@ window.toggleAuxAcciones = function(event) {
 
 
 </script>
+
+{{-- Integración con Reportes de Falla (modal compartido). --}}
+<script>
+    window.FALLA_MODAL_CFG = {
+        urlSearch: '{{ route("fallas.searchActivos") }}',
+        urlStore:  '{{ route("fallas.store") }}',
+        urlBase:   '{{ url("admin/fallas") }}',
+        openPdf:   true,
+        onCreated: function () { if (window.handleFallaCreatedAux) window.handleFallaCreatedAux(); },
+        onClosed:  function () { if (window.cargarAuxiliares) window.cargarAuxiliares(); }
+    };
+</script>
+<script src="{{ asset('js/maquinaria/falla_create_modal.js') }}"></script>
 @endsection

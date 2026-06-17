@@ -564,14 +564,26 @@
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
             .then(function (res) {
                 if (res.ok && res.body.success) {
-                    // 1) Apagar el spinner ANTES de confirmar (antes seguía girando y la
-                    //    recarga a 600ms cortaba el toast → parecía que no confirmaba).
                     if (window.hidePreloader) window.hidePreloader();
-                    // 2) Notificación profesional de éxito.
                     if (window.showToast) window.showToast(res.body.message || 'Foto actualizada correctamente.', 'success');
-                    // 3) Recargar para refrescar TODAS las tarjetas del modelo, con tiempo
-                    //    suficiente para que el usuario alcance a ver la confirmación.
-                    setTimeout(function () { window.location.reload(); }, 1400);
+                    // Actualiza SOLO la foto de esta tarjeta (sin recargar la página).
+                    // El servidor devuelve la URL nueva ya con cache-busting (?v=timestamp).
+                    var nuevaUrl = res.body.foto;
+                    if (nuevaUrl) {
+                        var img = photoEl.querySelector('img');
+                        if (img) {
+                            img.src = nuevaUrl;
+                        } else {
+                            // No tenía foto: reemplaza el placeholder por una <img>.
+                            var ph = photoEl.querySelector('.placeholder');
+                            if (ph) ph.remove();
+                            var nueva = document.createElement('img');
+                            nueva.src = nuevaUrl;
+                            nueva.alt = (marca + ' ' + modelo).trim();
+                            nueva.onerror = function () { this.outerHTML = '<i class="material-icons placeholder">image_not_supported</i>'; };
+                            photoEl.insertBefore(nueva, photoEl.firstChild);
+                        }
+                    }
                 } else {
                     if (window.hidePreloader) window.hidePreloader();
                     var msg = (res.body && res.body.message) || 'No se pudo subir la foto.';

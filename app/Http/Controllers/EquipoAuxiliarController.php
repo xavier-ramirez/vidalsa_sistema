@@ -1620,6 +1620,31 @@ class EquipoAuxiliarController extends Controller
 
         $aux = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($aux);
+
+        // Si el equipo tiene un reporte de falla ABIERTO, su estado lo gobierna ese
+        // reporte (quedó INOPERATIVO al crearlo): no se cambia a mano desde aquí. Para
+        // cambiarlo hay que CERRAR el reporte (lo que lo devuelve a OPERATIVO).
+        // Devolvemos los datos del reporte para que el front muestre el modal de cierre.
+        $falla = \App\Models\Falla::where('ACTIVO_TIPO', 'equipo_auxiliar')
+            ->where('ACTIVO_ID', $aux->ID_AUXILIAR)
+            ->where('ESTADO_REPORTE', 'abierto')
+            ->latest('FECHA_EMISION')
+            ->first();
+
+        if ($falla) {
+            $ident = $aux->SERIAL ?: ($aux->CODIGO_INTERNO ?: trim(($aux->MARCA ?? '') . ' ' . ($aux->MODELO ?? '')));
+            return response()->json([
+                'success'       => false,
+                'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
+                'falla_abierta' => [
+                    'id'     => $falla->ID_FALLA,
+                    'codigo' => $falla->CODIGO_REPORTE,
+                    'tipo'   => $falla->TIPO_REPORTE,
+                    'equipo' => $ident,
+                ],
+            ], 409);
+        }
+
         $aux->ESTADO_OPERATIVO = $request->input('ESTADO_OPERATIVO');
         $aux->save();
 

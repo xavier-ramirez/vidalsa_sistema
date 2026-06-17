@@ -4,33 +4,44 @@
         $isAux        = $f->ACTIVO_TIPO === 'equipo_auxiliar';
         $foto         = $a ? ($a->FOTO_EQUIPO ?? $a->FOTO ?? ($a->especificaciones?->FOTO_REFERENCIAL ?? null)) : null;
         $marcaModelo  = $a ? trim(($a->MARCA ?? '') . ' ' . ($a->MODELO ?? '')) : '—';
+        $marca        = $a ? trim($a->MARCA ?? '') : '';
         $serial       = $a ? ($a->SERIAL_CHASIS ?? $a->SERIAL ?? '') : '';
         $placa        = (!$isAux && $a) ? ($a->documentacion?->PLACA ?? '') : '';
         $codigo       = $a ? ($a->CODIGO_PATIO ?? $a->CODIGO_INTERNO ?? '') : '';
         $frente       = $f->_frente_nombre ?? '—';
         $tipoLabel    = $isAux ? ($a->TIPO ?? '') : ($a->tipo?->nombre ?? '');
+        // Identificador para el modal de cierre: placa; si no tiene, el serial
+        // (luego código y marca/modelo como último recurso para no quedar vacío).
+        $idCierre     = $placa ?: ($serial ?: ($codigo ?: $marcaModelo));
     @endphp
-    <div class="falla-row-card">
+    {{-- Tap en la tarjeta (móvil): expande el detalle truncado. No dispara si el tap
+         fue en un botón/enlace (PDF/Cerrar). --}}
+    <div class="falla-row-card" onclick="if(!event.target.closest('button,a')) this.classList.toggle('falla-expanded');">
 
-        {{-- Foto miniatura --}}
-        <div class="falla-foto">
-            @if($foto)
-                @php
-                    if (!str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
-                        $foto = '/storage/' . ltrim($foto, '/');
-                    }
-                @endphp
-                <img src="{{ url($foto) }}" alt=""
-                     onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'material-icons\'>{{ $isAux ? 'construction' : 'agriculture' }}</i>';">
-            @else
-                <i class="material-icons">{{ $isAux ? 'construction' : 'agriculture' }}</i>
+        {{-- Columna de la foto: el frente va FUERA de la foto (arriba), como en /admin/equipos --}}
+        <div class="falla-foto-col">
+            @if($frente !== '—')
+                <div class="falla-foto-frente" title="{{ $frente }}">{{ $frente }}</div>
             @endif
+            <div class="falla-foto">
+                @if($foto)
+                    @php
+                        if (!str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
+                            $foto = '/storage/' . ltrim($foto, '/');
+                        }
+                    @endphp
+                    <img src="{{ url($foto) }}" alt=""
+                         onerror="this.outerHTML='<i class=\'material-icons\'>{{ $isAux ? 'construction' : 'agriculture' }}</i>';">
+                @else
+                    <i class="material-icons">{{ $isAux ? 'construction' : 'agriculture' }}</i>
+                @endif
+            </div>
         </div>
 
         {{-- Meta --}}
         <div class="falla-meta">
 
-            {{-- Línea 1: estado · código · fecha · prioridad --}}
+            {{-- Línea 1: estado · código · tipo de mantenimiento · fecha --}}
             <div class="falla-codigo">
                 <span style="font-weight: 700; color: {{ $f->ESTADO_REPORTE === 'abierto' ? '#ef4444' : '#10b981' }}; text-transform: capitalize;">
                     Reporte {{ $f->ESTADO_REPORTE }}
@@ -38,24 +49,24 @@
                 @if($f->TIPO_REPORTE === 'extenso')
                     · {{ $f->CODIGO_REPORTE }}
                 @endif
-                · {{ $f->FECHA_EMISION->format('d/m/Y H:i') }}
-                @if($f->PRIORIDAD)
-                    <span class="falla-chip falla-chip-prioridad">{{ $f->PRIORIDAD }}</span>
+                @if($f->TIPO_MANTENIMIENTO)
+                    · {{ \App\Models\Falla::tiposMantenimiento()[$f->TIPO_MANTENIMIENTO] ?? $f->TIPO_MANTENIMIENTO }}
                 @endif
+                · {{ $f->FECHA_EMISION->format('d/m/Y H:i') }}
             </div>
 
-            {{-- Línea 2: tipo · marca modelo · código --}}
+            {{-- Línea 2: tipo · marca · código (sin el modelo) --}}
             <div class="falla-equipo">
                 @if($tipoLabel)
                     <span style="font-size:12px; font-weight:700; color:#000; text-transform:uppercase; letter-spacing:0.4px; margin-right:5px;">{{ strtoupper($tipoLabel) }}</span>·
                 @endif
-                {{ $marcaModelo ?: '(sin marca/modelo)' }}
+                {{ $marca ?: '(sin marca)' }}
                 @if($codigo)
                     <span style="color:#64748b; font-weight:400; font-size:12px;"> · {{ $codigo }}</span>
                 @endif
             </div>
 
-            {{-- Línea 3: serial · placa · frente · reportó --}}
+            {{-- Línea 3: serial · placa · mecánico (el frente va sobre la foto) --}}
             <div class="falla-info" style="display:flex; flex-wrap:wrap; align-items:center; gap:3px 14px;">
                 @if($serial)
                     <span style="display:inline-flex; align-items:center; gap:3px;">
@@ -69,46 +80,71 @@
                         <strong>{{ $placa }}</strong>
                     </span>
                 @endif
-                @if($frente !== '—')
-                    <span style="display:inline-flex; align-items:center; gap:3px; color:#3b82f6; font-weight:600;">
-                        <i class="material-icons" style="font-size:12px; color:#3b82f6;">location_on</i>
-                        {{ $frente }}
+                @if($f->MECANICO_ASIGNADO)
+                    <span style="display:inline-flex; align-items:center; gap:3px;">
+                        <i class="material-icons" style="font-size:12px;">build</i>
+                        {{ $f->MECANICO_ASIGNADO }}
                     </span>
-                @endif
-                @if($f->SISTEMA_AFECTADO)
-                    <span>· Sistema: {{ $f->SISTEMA_AFECTADO }}</span>
                 @endif
             </div>
 
-            {{-- Descripción de la avería --}}
-            @if($f->DESCRIPCION_AVERIA)
-                <div class="falla-info" style="margin-top:3px; color:#475569; font-style:italic;">
-                    "{{ \Illuminate\Support\Str::limit($f->DESCRIPCION_AVERIA, 160) }}"
+            {{-- "Reportó" debajo de placa/serial — SOLO móvil (.falla-reporto-mobile). --}}
+            @if($f->NOMBRE_REPORTA)
+                <div class="falla-reporto-mobile">
+                    <i class="material-icons" style="font-size:12px;">person</i>
+                    Reportó: <span style="color:#1e293b; font-weight:700; margin-left:3px;">{{ $f->NOMBRE_REPORTA }}</span>
                 </div>
+            @endif
+
+        </div>
+
+        {{-- Descripción de la avería: columna propia, entre la info del equipo y las acciones --}}
+        <div class="falla-descripcion">
+            @if($f->DESCRIPCION_AVERIA)
+                "{{ \Illuminate\Support\Str::limit($f->DESCRIPCION_AVERIA, 220) }}"
+            @else
+                <span style="color:#cbd5e1; font-style:normal;">Sin descripción</span>
             @endif
         </div>
 
         {{-- Acciones --}}
         <div class="falla-actions" style="flex-direction: column; align-items: flex-end; gap:8px;">
-            <div style="font-size:11.5px; color:#64748b; text-align:right; line-height:1.2;">
+            <div class="falla-reporto-desktop" style="font-size:11.5px; color:#64748b; text-align:right; line-height:1.2;">
                 Reportó:<br>
                 <span style="color:#1e293b; font-weight:700;">{{ $f->NOMBRE_REPORTA ?: '—' }}</span>
             </div>
-            <div style="display:flex; gap:6px;">
+            <div class="falla-btn-stack" style="display:flex; flex-direction:column; gap:6px; align-items:stretch;">
                 @if($f->TIPO_REPORTE === 'extenso')
-                    <button type="button" class="falla-btn" title="Ver PDF"
+                    <button type="button" class="falla-btn" title="Ver PDF" style="justify-content:center;"
                         onclick="window.openPdfPreview('{{ route('fallas.pdf', $f->ID_FALLA) }}', 'falla', 'Reporte {{ $f->CODIGO_REPORTE }}', 0, '', true, 'falla')">
                         <i class="material-icons" style="font-size:16px;">picture_as_pdf</i> PDF
                     </button>
                 @endif
                 @if($f->ESTADO_REPORTE === 'abierto')
                     @can('equipos.edit')
-                        <button type="button" class="falla-btn" title="Cerrar reporte"
-                            onclick="window.cerrarFalla({{ $f->ID_FALLA }}, '{{ $f->CODIGO_REPORTE }}', '{{ addslashes($marcaModelo) }}')">
+                        <button type="button" class="falla-btn" title="Cerrar reporte" style="justify-content:center;"
+                            data-id="{{ $f->ID_FALLA }}"
+                            data-codigo="{{ $f->CODIGO_REPORTE }}"
+                            data-equipo="{{ $idCierre }}"
+                            data-tipo="{{ $f->TIPO_REPORTE }}"
+                            data-mecanico="{{ $f->MECANICO_ASIGNADO }}"
+                            data-fecha-recepcion="{{ optional($f->FECHA_RECEPCION)->format('Y-m-d') }}"
+                            data-diagnostico="{{ $f->DIAGNOSTICO }}"
+                            data-acciones="{{ $f->ACCIONES_REALIZADAS }}"
+                            onclick="window.cerrarFalla(this)">
                             <i class="material-icons" style="font-size:16px;">check_circle</i> Cerrar
                         </button>
                     @endcan
                 @endif
+                {{-- Borrado DURO del reporte: discreto, SOLO super.admin (irreversible). --}}
+                @can('super.admin')
+                    <button type="button" class="falla-btn falla-btn-danger" title="Eliminar reporte (definitivo)" style="justify-content:center;"
+                        data-id="{{ $f->ID_FALLA }}"
+                        data-ref="{{ ($f->TIPO_REPORTE === 'extenso' && $f->CODIGO_REPORTE) ? $f->CODIGO_REPORTE : ($idCierre ?: ('#'.$f->ID_FALLA)) }}"
+                        onclick="window.eliminarFalla(this)">
+                        <i class="material-icons" style="font-size:16px;">delete_forever</i>
+                    </button>
+                @endcan
             </div>
         </div>
     </div>

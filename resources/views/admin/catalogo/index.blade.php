@@ -125,8 +125,9 @@
     }
     /* Badge(s) de Tipo de Equipo: flotan sobre la foto en la esquina superior
        izquierda, simétricos al cat-anio-badge (superior derecha). Misma forma
-       (pill redondeada) y tamaño, pero color azul corporativo sólido para que
-       contraste sobre cualquier foto. Si hay varios tipos se apilan vertical. */
+       (pill redondeada) y tamaño, gris oscuro semitransparente (igual que el
+       catálogo de equipos auxiliares) para que contraste sobre cualquier foto.
+       Si hay varios tipos se apilan vertical. */
     .cat-tipo-badges {
         position: absolute;
         top: 6px;
@@ -139,7 +140,7 @@
         z-index: 2;
     }
     .cat-tipo-badge {
-        background: var(--maquinaria-blue, #0067b1);
+        background: rgba(15,23,42,0.85);
         color: white;
         font-size: 10px;
         font-weight: 700;
@@ -337,35 +338,6 @@
     <form id="catalogoFilters" method="GET" action="{{ route('catalogo.index') }}"
           onsubmit="event.preventDefault(); catSubmit();">
 
-        {{-- Modelo --}}
-        <div class="cat-filter {{ $reqModelo && $reqModelo !== 'all' ? 'active' : '' }}">
-            <input type="hidden" id="catValModelo" name="modelo" value="{{ $reqModelo && $reqModelo !== 'all' ? $reqModelo : '' }}" data-filter-value>
-            <div class="cat-filter-box">
-                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                    <i class="material-icons" style="font-size:18px;">search</i>
-                </div>
-                <input type="text" id="catTxtModelo" name="filter_search_dropdown_m" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
-                       autocomplete="off"
-                       oninput="catFilterList('modelo', this.value)"
-                       onfocus="catOpenList('modelo')"
-                       onclick="catOpenList('modelo')"
-                       onblur="setTimeout(()=>catCloseList('modelo'),200)">
-                <i class="material-icons filter-clear"
-                   style="display: {{ $reqModelo && $reqModelo !== 'all' ? 'flex' : 'none' }};"
-                   onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
-            </div>
-            <div id="catListModelo" class="cat-list">
-                <div class="cat-opt placeholder" data-label="TODOS LOS MODELOS"
-                     onmousedown="event.preventDefault(); catSelect('modelo','','TODOS LOS MODELOS');">TODOS LOS MODELOS</div>
-                @foreach($availableModelos as $mod)
-                    <div class="cat-opt" data-label="{{ $mod }}"
-                         onmousedown="event.preventDefault(); catSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');">
-                        {{ $mod }}
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         {{-- Tipo de Equipo --}}
         <div class="cat-filter {{ $reqTipo && $reqTipo !== 'all' ? 'active' : '' }}">
             <input type="hidden" id="catValTipo" name="id_tipo" value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}" data-filter-value>
@@ -390,6 +362,35 @@
                     <div class="cat-opt" data-label="{{ $t->nombre }}"
                          onmousedown="event.preventDefault(); catSelect('tipo','{{ $t->id }}','{{ addslashes($t->nombre) }}');">
                         {{ $t->nombre }}
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Modelo --}}
+        <div class="cat-filter {{ $reqModelo && $reqModelo !== 'all' ? 'active' : '' }}">
+            <input type="hidden" id="catValModelo" name="modelo" value="{{ $reqModelo && $reqModelo !== 'all' ? $reqModelo : '' }}" data-filter-value>
+            <div class="cat-filter-box">
+                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
+                    <i class="material-icons" style="font-size:18px;">search</i>
+                </div>
+                <input type="text" id="catTxtModelo" name="filter_search_dropdown_m" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
+                       autocomplete="off"
+                       oninput="catFilterList('modelo', this.value)"
+                       onfocus="catOpenList('modelo')"
+                       onclick="catOpenList('modelo')"
+                       onblur="setTimeout(()=>catCloseList('modelo'),200)">
+                <i class="material-icons filter-clear"
+                   style="display: {{ $reqModelo && $reqModelo !== 'all' ? 'flex' : 'none' }};"
+                   onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
+            </div>
+            <div id="catListModelo" class="cat-list">
+                <div class="cat-opt placeholder" data-label="TODOS LOS MODELOS"
+                     onmousedown="event.preventDefault(); catSelect('modelo','','TODOS LOS MODELOS');">TODOS LOS MODELOS</div>
+                @foreach($availableModelos as $mod)
+                    <div class="cat-opt" data-label="{{ $mod }}"
+                         onmousedown="event.preventDefault(); catSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');">
+                        {{ $mod }}
                     </div>
                 @endforeach
             </div>
@@ -528,7 +529,7 @@
 
     // Subida de foto haciendo click en la foto de la tarjeta — sin abrir el formulario
     // de edición. Abre un selector de archivo, valida tamaño y sube a catalogo.uploadFoto.
-    // Misma UX que el catálogo de auxiliares (spinner → toast → refresco del grid).
+    // UX: spinner → toast → refresco del grid por AJAX (loadCatalogo, sin recargar la página).
     window.catUploadPhoto = function (id) {
         var input = document.createElement('input');
         input.type = 'file';

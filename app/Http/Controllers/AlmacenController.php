@@ -52,6 +52,8 @@ class AlmacenController extends Controller
         //                        y confirmar recepciones.
         $this->middleware('can:super.admin')->only([
             'storeAlmacen', 'updateAlmacen', 'destroyAlmacen',
+            // Borrado PERMANENTE de un producto desde la papelera (irreversible).
+            'eliminarPermanenteProducto',
         ]);
         // storeProducto NO entra en este middleware estricto — el flujo "Recepcion
         // ODC" (/admin/almacen/recepcion/nueva) crea productos al vuelo cuando llega
@@ -789,6 +791,34 @@ class AlmacenController extends Controller
         $producto = ProductoInventario::onlyTrashed()->findOrFail($id);
         $producto->restore();
         return response()->json(['message' => 'Producto restaurado.', 'producto' => $producto->fresh()]);
+    }
+
+    /**
+     * Borra PERMANENTEMENTE un producto de la papelera (forceDelete) — irreversible,
+     * EXCLUSIVO super.admin (gate en el constructor). Resguardo: si el producto tiene
+     * movimientos en el kardex, NO se borra (rompería la trazabilidad y las FK); se
+     * mantiene en la papelera para auditoría.
+     */
+    public function eliminarPermanenteProducto(int $id)
+    {
+        $producto = ProductoInventario::onlyTrashed()->findOrFail($id);
+
+        if ($producto->movimientos()->exists()) {
+            return response()->json([
+                'message' => 'No se puede eliminar permanentemente: el producto tiene movimientos registrados en el kardex. Se mantiene en la papelera.',
+            ], 422);
+        }
+
+        try {
+            $producto->stock()->delete();   // limpia stock huérfano (sin movimientos, debe estar en 0)
+            $producto->forceDelete();
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'No se puede eliminar permanentemente: el producto tiene registros asociados.',
+            ], 422);
+        }
+
+        return response()->json(['message' => 'Producto eliminado permanentemente.']);
     }
 
     // ─────────────────────────────────────────────────────────────

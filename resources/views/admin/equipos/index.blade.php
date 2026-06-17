@@ -2336,6 +2336,28 @@
 })();
 </script>
 
+{{-- ═══════════════════════════════════════════════════════════
+     Integración con Reportes de Falla (módulo compartido):
+       · Poner un equipo en INOPERATIVO abre el modal "Nuevo Reporte de Falla"
+         (al crearlo, el backend deja el equipo inoperativo).
+       · Cambiar el estado de un equipo con un reporte ABIERTO abre el modal de
+         cierre (el backend responde 409 con los datos del reporte).
+     Lógica: public/js/maquinaria/falla_create_modal.js (compartido).
+     ═══════════════════════════════════════════════════════════ --}}
+@include('admin.fallas.partials.create_modal')
+@include('admin.fallas.partials.close_modal')
+<script>
+    window.FALLA_MODAL_CFG = {
+        urlSearch: '{{ route("fallas.searchActivos") }}',
+        urlStore:  '{{ route("fallas.store") }}',
+        urlBase:   '{{ url("admin/fallas") }}',
+        openPdf:   true,
+        onCreated: function () { if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(); },
+        onClosed:  function () { if (window.loadEquipos) window.loadEquipos(); }
+    };
+</script>
+<script src="{{ asset('js/maquinaria/falla_create_modal.js') }}"></script>
+
 @endsection
 @section('extra_js')
     {{-- Replaced by Global Load in Layout --}}

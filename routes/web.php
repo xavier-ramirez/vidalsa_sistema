@@ -204,6 +204,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post ('fallas',                [App\Http\Controllers\FallaController::class, 'store'])        ->name('fallas.store');
             Route::get  ('fallas/{id}/pdf',       [App\Http\Controllers\FallaController::class, 'pdf'])          ->name('fallas.pdf');
             Route::patch('fallas/{id}/close',     [App\Http\Controllers\FallaController::class, 'close'])        ->name('fallas.close');
+            // Borrado DURO de un reporte — EXCLUSIVO super.admin (irreversible, sin rastro).
+            Route::delete('fallas/{id}',          [App\Http\Controllers\FallaController::class, 'destroy'])      ->name('fallas.destroy')->middleware('can:super.admin');
             Route::get  ('fallas',                [App\Http\Controllers\FallaController::class, 'index'])        ->name('fallas.index');
 
             // ── Almacén / Inventario ─────────────────────────────────────────
@@ -279,6 +281,8 @@ Route::middleware(['auth'])->group(function () {
             // Papelera: rutas estáticas ANTES de las de {id} (orden de coincidencia).
             Route::get   ('almacen/productos/papelera',           [App\Http\Controllers\AlmacenController::class, 'papeleraProductos'])->name('almacen.productos.papelera');
             Route::post  ('almacen/productos/{id}/restaurar',     [App\Http\Controllers\AlmacenController::class, 'restaurarProducto'])->whereNumber('id')->name('almacen.productos.restaurar');
+            // Borrado PERMANENTE desde la papelera (forceDelete) — EXCLUSIVO super.admin.
+            Route::delete('almacen/productos/{id}/permanente',    [App\Http\Controllers\AlmacenController::class, 'eliminarPermanenteProducto'])->whereNumber('id')->name('almacen.productos.eliminarPermanente');
             Route::post  ('almacen/productos',                    [App\Http\Controllers\AlmacenController::class, 'storeProducto'])   ->name('almacen.productos.store');
             Route::patch ('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateProducto'])  ->whereNumber('id')->name('almacen.productos.update');
             Route::delete('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'destroyProducto']) ->whereNumber('id')->name('almacen.productos.destroy');

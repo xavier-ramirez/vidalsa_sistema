@@ -207,21 +207,44 @@ const STATUS_CONFIG = {
     }
 })();
 
+// Aplica el estado al trigger (icono/label/dataset). Reutilizado por el cambio
+// normal y por el "reporte creado" (que deja el equipo INOPERATIVO).
+function _applyStatusVisual(triggerEl, status) {
+    const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG['DESINCORPORADO'];
+    const iconEl = triggerEl.querySelector('.material-icons');
+    const spanEl = triggerEl.querySelector('span');
+    if (iconEl) { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
+    if (spanEl) spanEl.textContent = cfg.label;
+    triggerEl.dataset.status = status;
+}
+
 // Manejador de cambio de estatus para el menú compartido
 window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     // Usa STATUS_CONFIG del ámbito de módulo (definido al inicio del archivo)
     const oldStatus = triggerEl.dataset.status;
     if (oldStatus === newStatus) return;
 
-    const cfg    = STATUS_CONFIG[newStatus] ?? STATUS_CONFIG['DESINCORPORADO'];
+    // INOPERATIVO se gestiona CREANDO un reporte de falla (el backend deja el
+    // equipo inoperativo). Abrimos el modal "Nuevo Reporte" pre-seleccionado; si
+    // se cancela, no cambia nada; al crear, handleFallaCreatedEquipo marca el estado.
+    if (newStatus === 'INOPERATIVO' && typeof window.flOpenForActivo === 'function') {
+        window._fallaStatusCtx = { triggerEl: triggerEl, oldStatus: oldStatus };
+        window.flOpenForActivo('equipo', id, triggerEl.dataset.label || ('Equipo #' + id),
+            function () { window._fallaStatusCtx = null; });
+        return;
+    }
+
     const oldCfg = STATUS_CONFIG[oldStatus] ?? STATUS_CONFIG['DESINCORPORADO'];
     const iconEl = triggerEl.querySelector('.material-icons');
     const spanEl = triggerEl.querySelector('span');
+    const revert = function () {
+        if (iconEl) { iconEl.textContent = oldCfg.icon; iconEl.style.color = oldCfg.color; }
+        if (spanEl) spanEl.textContent = oldCfg.label;
+        triggerEl.dataset.status = oldStatus;
+    };
 
     // Actualizar visualmente el trigger de inmediato (optimistic UI)
-    if (iconEl) { iconEl.textContent = cfg.icon; iconEl.style.color = cfg.color; }
-    if (spanEl) spanEl.textContent = cfg.label;
-    triggerEl.dataset.status = newStatus;
+    _applyStatusVisual(triggerEl, newStatus);
 
     fetch(url, {
         method: 'PATCH',
@@ -232,22 +255,34 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         },
         body: JSON.stringify({ status: newStatus })
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data && data.success) {
+    .then(r => r.json().then(body => ({ status: r.status, body })))
+    .then(({ status, body }) => {
+        if (status === 200 && body && body.success) {
             if (window.updateLocalStats) window.updateLocalStats(oldStatus, newStatus);
             if (window.showToast) window.showToast('Estatus actualizado correctamente.', 'success');
-        } else {
-            throw new Error(data.message ?? 'Error desconocido');
+            return;
         }
+        // El equipo tiene un reporte ABIERTO: revertir y abrir el modal de cierre.
+        if (body && body.falla_abierta) {
+            revert();
+            if (typeof window.flAbrirCierre === 'function') window.flAbrirCierre(body.falla_abierta);
+            return;
+        }
+        throw new Error((body && body.message) ?? 'Error desconocido');
     })
     .catch(err => {
-        // Revertir cambio visual si falla
-        if (iconEl) { iconEl.textContent = oldCfg.icon; iconEl.style.color = oldCfg.color; }
-        if (spanEl) spanEl.textContent = oldCfg.label;
-        triggerEl.dataset.status = oldStatus;
+        revert();
         if (window.showToast) window.showToast('Error al cambiar el estatus: ' + err.message, 'error');
     });
+};
+
+// Tras crear un reporte desde el desplegable de estado: marca el equipo INOPERATIVO.
+window.handleFallaCreatedEquipo = function () {
+    const ctx = window._fallaStatusCtx;
+    window._fallaStatusCtx = null;
+    if (!ctx || !ctx.triggerEl) return;
+    _applyStatusVisual(ctx.triggerEl, 'INOPERATIVO');
+    if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, 'INOPERATIVO');
 };
 
 // Selection UI Update Tracker

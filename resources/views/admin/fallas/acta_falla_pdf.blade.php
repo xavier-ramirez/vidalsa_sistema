@@ -3,190 +3,120 @@
 <head><meta charset="UTF-8"></head>
 <body>
 @php
-    $isAux       = $falla->ACTIVO_TIPO === 'equipo_auxiliar';
-    $tipoActivo  = $isAux ? 'EQUIPO AUXILIAR' : 'VEHÍCULO';
-    $codigoUnit  = $activo ? ($activo->CODIGO_PATIO ?? $activo->CODIGO_INTERNO ?? '—') : '—';
-    $marca       = $activo ? ($activo->MARCA ?? '—') : '—';
-    $modelo      = $activo ? ($activo->MODELO ?? '—') : '—';
-    $serial      = $activo ? ($activo->SERIAL_CHASIS ?? $activo->SERIAL ?? '—') : '—';
-    $serialMotor = $activo ? ($activo->SERIAL_DE_MOTOR ?? '—') : '—';
-    $placa       = ($activo && method_exists($activo, 'documentacion'))
-                      ? (optional($activo->documentacion)->PLACA ?? 'S/P')
-                      : 'S/P';
-    $anio        = $activo ? ($activo->ANIO ?? '—') : '—';
-    $sistema     = $falla->SISTEMA_AFECTADO
-                      ? (\App\Models\Falla::sistemasAfectados()[$falla->SISTEMA_AFECTADO] ?? $falla->SISTEMA_AFECTADO)
-                      : '—';
-    $prioridad   = $falla->PRIORIDAD
-                      ? (\App\Models\Falla::prioridades()[$falla->PRIORIDAD] ?? $falla->PRIORIDAD)
-                      : '—';
-    $tipoIntv    = $falla->TIPO_INTERVENCION
-                      ? (\App\Models\Falla::tiposIntervencion()[$falla->TIPO_INTERVENCION] ?? $falla->TIPO_INTERVENCION)
-                      : '—';
+    use Illuminate\Support\Str;
+
+    $marca  = $activo ? ($activo->MARCA ?? '') : '';
+    $modelo = $activo ? ($activo->MODELO ?? '') : '';
+    $serial = $activo ? ($activo->SERIAL_CHASIS ?? $activo->SERIAL ?? '') : '';
+    $placa  = ($activo && method_exists($activo, 'documentacion'))
+                  ? (optional($activo->documentacion)->PLACA ?? '') : '';
+
+    $tipoMant = $falla->TIPO_MANTENIMIENTO;
+    $cerrado  = $falla->ESTADO_REPORTE === 'cerrado';
+
+    $box      = fn($on) => $on ? '[X]' : '[&nbsp;&nbsp;]';
+    $boxEmpty = '[&nbsp;&nbsp;]';   // Maquinaria/Vehículo/Otro: vacías, las marca el usuario al imprimir.
+
+    $descripcion = Str::limit((string) $falla->DESCRIPCION_AVERIA, 700);
+    $diagnostico = Str::limit((string) $falla->DIAGNOSTICO, 350);
+    $acciones    = Str::limit((string) $falla->ACCIONES_REALIZADAS, 350);
+
+    // Líneas finas 0.1mm por CSS (NO border="1", que TCPDF dibuja ~0.35mm grueso e
+    // ignora SetLineWidth). Mismo grosor que el acta de movilización del módulo equipos.
+    $bs = 'border:0.1mm solid #000;';
+    $hb = 'bgcolor="#d6e0f2"';
 @endphp
 
-<!-- Título principal centrado -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0">
-    <tr><td align="center" style="font-size: 15pt;"><b>REPORTE DE FALLAS</b></td></tr>
-</table>
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="6">&nbsp;</td></tr></table>
-<table width="100%" border="0" cellpadding="0" cellspacing="0">
-<tr><td align="center" style="font-size: 9pt; color:#475569;">{{ $tipoActivo }} · CÓDIGO {{ $falla->CODIGO_REPORTE }} · {{ $falla->FECHA_EMISION->format('d/m/Y H:i') }}</td></tr>
-</table>
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="12">&nbsp;</td></tr></table>
+{{-- Todas las secciones van pegadas (sin espaciadores) para que no haya franja
+     blanca entre tablas: una termina y la siguiente empieza de una. --}}
 
-<!-- ─── 1. ENCABEZADO DE CONTROL ─── -->
-<table width="100%" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
-    <tr bgcolor="#1e293b">
-<td colspan="4" align="center" style="font-size: 9pt; font-weight: bold; color:#ffffff;">1. ENCABEZADO DE CONTROL</td>
-    </tr>
-    <tr bgcolor="#f1f5f9">
-        <td width="22%" style="font-size: 8.5pt;"><b>Código de Reporte:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ $falla->CODIGO_REPORTE }}</td>
-        <td width="22%" style="font-size: 8.5pt;"><b>Fecha de Emisión:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ $falla->FECHA_EMISION->format('d/m/Y H:i') }}</td>
+{{-- ─── 1. INFORMACIÓN GENERAL ─── --}}
+<table width="100%" cellpadding="4" cellspacing="0" style="border-collapse:collapse;">
+    <tr><td colspan="4" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="9"><b>1. INFORMACIÓN GENERAL</b></font></td></tr>
+    <tr>
+        <td width="27%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Nombre, apellido y cargo:</b></font></td>
+        <td width="40%" style="{!! $bs !!}"><font face="helvetica" size="8">{{ strtoupper($falla->NOMBRE_REPORTA ?? '') }}@if($falla->CARGO_REPORTA) — {{ strtoupper($falla->CARGO_REPORTA) }}@endif</font></td>
+        <td width="17%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Fecha de solicitud:</b></font></td>
+        <td width="16%" style="{!! $bs !!}"><font face="helvetica" size="8">{{ $falla->FECHA_EMISION->format('d/m/Y') }}</font></td>
     </tr>
     <tr>
-        <td style="font-size: 8.5pt;"><b>Estado del Reporte:</b></td>
-<td style="font-size: 8.5pt;">{{ strtoupper($falla->ESTADO_REPORTE) }}</td>
-        <td style="font-size: 8.5pt;"><b>Estado del Equipo:</b></td>
-<td style="font-size: 8.5pt;">{{ $falla->ESTADO_AL_CREAR ?? '—' }}</td>
+        <td width="27%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Frente de trabajo:</b></font></td>
+        <td width="73%" colspan="3" style="{!! $bs !!}"><font face="helvetica" size="8">{{ strtoupper($falla->FRENTE_TRABAJO ?: '') }}</font></td>
     </tr>
 </table>
 
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="10">&nbsp;</td></tr></table>
-
-<!-- ─── 2. IDENTIFICACIÓN DEL ACTIVO ─── -->
-<table width="100%" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
-    <tr bgcolor="#1e293b">
-<td colspan="4" align="center" style="font-size: 9pt; font-weight: bold; color:#ffffff;">2. IDENTIFICACIÓN DEL ACTIVO</td>
-    </tr>
-    <tr bgcolor="#f1f5f9">
-        <td width="22%" style="font-size: 8.5pt;"><b>Tipo de Activo:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ $tipoActivo }}</td>
-        <td width="22%" style="font-size: 8.5pt;"><b>Código Interno:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ $codigoUnit }}</td>
+{{-- ─── 2. IDENTIFICACIÓN DEL EQUIPO (2 columnas: cada celda "Etiqueta: valor") ─── --}}
+<table width="100%" cellpadding="4" cellspacing="0" style="border-collapse:collapse;">
+    <tr><td colspan="2" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="9"><b>2. IDENTIFICACIÓN DEL EQUIPO</b></font></td></tr>
+    <tr>
+        <td colspan="2" style="{!! $bs !!}"><font face="helvetica" size="8">Maquinaria <b>{!! $boxEmpty !!}</b> &nbsp;&nbsp;&nbsp;&nbsp; Vehículo <b>{!! $boxEmpty !!}</b> &nbsp;&nbsp;&nbsp;&nbsp; Otro <b>{!! $boxEmpty !!}</b></font></td>
     </tr>
     <tr>
-        <td style="font-size: 8.5pt;"><b>Marca:</b></td>
-<td style="font-size: 8.5pt;">{{ strtoupper($marca) }}</td>
-        <td style="font-size: 8.5pt;"><b>Modelo:</b></td>
-<td style="font-size: 8.5pt;">{{ strtoupper($modelo) }}</td>
-    </tr>
-    <tr bgcolor="#f1f5f9">
-        <td style="font-size: 8.5pt;"><b>Placa:</b></td>
-<td style="font-size: 8.5pt;">{{ strtoupper($placa) }}</td>
-        <td style="font-size: 8.5pt;"><b>Año:</b></td>
-<td style="font-size: 8.5pt;">{{ $anio }}</td>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Marca:</b> {{ strtoupper($marca) }}</font></td>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Modelo:</b> {{ strtoupper($modelo) }}</font></td>
     </tr>
     <tr>
-        <td style="font-size: 8.5pt;"><b>Serial de Chasis:</b></td>
-<td style="font-size: 8.5pt;">{{ strtoupper($serial) }}</td>
-        <td style="font-size: 8.5pt;"><b>Serial de Motor:</b></td>
-<td style="font-size: 8.5pt;">{{ strtoupper($serialMotor) }}</td>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Placa:</b> {{ strtoupper($placa) }}</font></td>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Serial:</b> {{ strtoupper($serial) }}</font></td>
     </tr>
-    <tr bgcolor="#f1f5f9">
-        <td style="font-size: 8.5pt;"><b>Horómetro / Kilometraje:</b></td>
-<td colspan="3" style="font-size: 8.5pt;">{{ $falla->HOROMETRO_ACTUAL ?: '—' }}</td>
+    <tr>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Kilometraje:</b> {{ $falla->KILOMETRAJE ?: '' }}</font></td>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Horas:</b> {{ $falla->HORAS ?: '' }}</font></td>
     </tr>
 </table>
 
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="10">&nbsp;</td></tr></table>
-
-<!-- ─── 3. DETALLE TÉCNICO ─── -->
-<table width="100%" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
-    <tr bgcolor="#1e293b">
-<td colspan="4" align="center" style="font-size: 9pt; font-weight: bold; color:#ffffff;">3. DETALLE TÉCNICO DE LA FALLA</td>
-    </tr>
-    <tr bgcolor="#f1f5f9">
-        <td width="22%" style="font-size: 8.5pt;"><b>Sistema Afectado:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ strtoupper($sistema) }}</td>
-        <td width="22%" style="font-size: 8.5pt;"><b>Nivel de Prioridad:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ strtoupper($prioridad) }}</td>
+{{-- ─── 3. TIPO DE MANTENIMIENTO REQUERIDO ─── --}}
+<table width="100%" cellpadding="4" cellspacing="0" style="border-collapse:collapse;">
+    <tr>
+        <td width="55%" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="9"><b>3. TIPO DE MANTENIMIENTO REQUERIDO</b></font></td>
+        <td width="22%" {!! $hb !!} align="center" style="{!! $bs !!}"><font face="helvetica" size="8"><b>PREVENTIVO {!! $box($tipoMant === 'PREVENTIVO') !!}</b></font></td>
+        <td width="23%" {!! $hb !!} align="center" style="{!! $bs !!}"><font face="helvetica" size="8"><b>CORRECTIVO {!! $box($tipoMant === 'CORRECTIVO') !!}</b></font></td>
     </tr>
     <tr>
-<td colspan="4" style="font-size: 8.5pt;"><b>Descripción Detallada de la Avería:</b><br><br>{{ $falla->DESCRIPCION_AVERIA ?: '—' }}</td>
+        <td colspan="3" valign="top" height="120" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Descripción de falla o requerimiento:</b><br><br>{{ $descripcion }}</font></td>
     </tr>
 </table>
 
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="10">&nbsp;</td></tr></table>
-
-<!-- ─── 4. GESTIÓN DE MANTENIMIENTO ─── -->
-<table width="100%" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
-    <tr bgcolor="#1e293b">
-<td colspan="4" align="center" style="font-size: 9pt; font-weight: bold; color:#ffffff;">4. GESTIÓN DE MANTENIMIENTO</td>
-    </tr>
-    <tr bgcolor="#f1f5f9">
-        <td width="22%" style="font-size: 8.5pt;"><b>Tipo de Intervención:</b></td>
-<td colspan="3" style="font-size: 8.5pt;">{{ strtoupper($tipoIntv) }}</td>
+{{-- ─── 4. SECCIÓN EXCLUSIVA PARA TALLER DE MANTENIMIENTO ─── --}}
+<table width="100%" cellpadding="4" cellspacing="0" style="border-collapse:collapse;">
+    <tr><td colspan="2" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="9"><b>4. SECCIÓN EXCLUSIVA PARA TALLER DE MANTENIMIENTO</b></font></td></tr>
+    <tr>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Mecánico asignado:</b> {{ strtoupper($falla->MECANICO_ASIGNADO ?: '') }}</font></td>
+        <td width="50%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Fecha de recepción:</b> {{ optional($falla->FECHA_RECEPCION)->format('d/m/Y') ?: '' }}</font></td>
     </tr>
     <tr>
-<td colspan="4" style="font-size: 8.5pt;"><b>Repuestos Estimados:</b><br><br>{{ $falla->REPUESTOS_ESTIMADOS ?: '—' }}</td>
+        <td width="50%" {!! $hb !!} align="center" style="{!! $bs !!}"><font face="helvetica" size="8"><b>DIAGNÓSTICO</b></font></td>
+        <td width="50%" {!! $hb !!} align="center" style="{!! $bs !!}"><font face="helvetica" size="8"><b>ACCIONES REALIZADAS</b></font></td>
     </tr>
-    <tr bgcolor="#f1f5f9">
-<td colspan="4" style="font-size: 8.5pt;"><b>Observaciones del Mecánico:</b><br><br>{{ $falla->OBSERVACIONES_MECANICO ?: '—' }}</td>
+    <tr>
+        <td width="50%" valign="top" height="130" style="{!! $bs !!}"><font face="helvetica" size="8">{{ $diagnostico }}</font></td>
+        <td width="50%" valign="top" height="130" style="{!! $bs !!}"><font face="helvetica" size="8">{{ $acciones }}</font></td>
     </tr>
 </table>
 
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="10">&nbsp;</td></tr></table>
-
-<!-- ─── 5. CIERRE / RESOLUCIÓN ─── -->
-@if($falla->ESTADO_REPORTE === 'cerrado')
-<table width="100%" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
-    <tr bgcolor="#1e293b">
-<td colspan="4" align="center" style="font-size: 9pt; font-weight: bold; color:#ffffff;">5. CIERRE DEL REPORTE</td>
-    </tr>
-    <tr bgcolor="#f1f5f9">
-        <td width="22%" style="font-size: 8.5pt;"><b>Fecha de Cierre:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ optional($falla->FECHA_CIERRE)->format('d/m/Y H:i') }}</td>
-        <td width="22%" style="font-size: 8.5pt;"><b>Cerrado por:</b></td>
-<td width="28%" style="font-size: 8.5pt;">{{ $falla->NOMBRE_CIERRA ?? '—' }}</td>
-    </tr>
+{{-- ─── ESTATUS (todo en UNA casilla) ─── --}}
+<table width="100%" cellpadding="4" cellspacing="0" style="border-collapse:collapse;">
     <tr>
-<td colspan="4" style="font-size: 8.5pt;"><b>Observaciones de Cierre:</b><br><br>{{ $falla->OBSERVACIONES_CIERRE ?: '—' }}</td>
+        <td style="{!! $bs !!}"><font face="helvetica" size="8"><b>Estatus:</b> &nbsp;&nbsp; <b>Pendiente:</b> {!! $box(!$cerrado) !!} &nbsp;&nbsp;&nbsp;&nbsp; <b>Cerrado:</b> {!! $box($cerrado) !!}@if($cerrado && $falla->FECHA_CIERRE) &nbsp;({{ $falla->FECHA_CIERRE->format('d/m/Y') }})@endif</font></td>
     </tr>
 </table>
-<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td height="14">&nbsp;</td></tr></table>
-@endif
 
-<!-- ─── BLOQUE DE FIRMAS (nobr para que no se parta) ─── -->
-<table width="100%" border="0" cellpadding="0" cellspacing="0" nobr="true">
-    <tr><td colspan="3" height="20">&nbsp;</td></tr>
+{{-- ─── FIRMAS: SOLICITADO · RECIBIDO · AUTORIZADO ─── --}}
+<table width="100%" cellpadding="4" cellspacing="0" style="border-collapse:collapse;" nobr="true">
     <tr>
-        <!-- REPORTADO POR -->
-        <td width="45%" align="center" valign="bottom">
-            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                <tr><td align="center" style="font-size: 9pt;"><b>REPORTADO POR:</b></td></tr>
-                <tr><td height="30">&nbsp;</td></tr>
-                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($falla->CARGO_REPORTA ?: 'RESPONSABLE') }}</b></td></tr>
-                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($falla->NOMBRE_REPORTA ?? '') }}</td></tr>
-                <tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ $falla->EMAIL_REPORTA ?? '' }}</td></tr>
-                <tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ $falla->FECHA_EMISION->format('d/m/Y H:i') }}</td></tr>
-            </table>
-        </td>
-
-        <td width="10%"></td>
-
-        <!-- AUTORIZA / CIERRE -->
-        <td width="45%" align="center" valign="bottom">
-            <table width="85%" align="center" border="0" cellpadding="0" cellspacing="0">
-                <tr><td align="center" style="font-size: 9pt;"><b>{{ $falla->ESTADO_REPORTE === 'cerrado' ? 'AUTORIZA CIERRE:' : 'AUTORIZA / SUPERVISOR:' }}</b></td></tr>
-                <tr><td height="30">&nbsp;</td></tr>
-                <tr><td style="border-top: 0.5pt solid #000; height: 1px;"></td></tr>
-                @if($falla->ESTADO_REPORTE === 'cerrado')
-                <tr><td align="center" style="font-size: 8pt; line-height: 1.5;"><b>{{ strtoupper($falla->CARGO_CIERRA ?: 'RESPONSABLE') }}</b></td></tr>
-                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">{{ strtoupper($falla->NOMBRE_CIERRA ?? '') }}</td></tr>
-                <tr><td align="center" style="font-size: 7.5pt; line-height: 1.5; color: #475569;">{{ optional($falla->FECHA_CIERRE)->format('d/m/Y H:i') }}</td></tr>
-                @else
-                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Nombre: ___________________________</td></tr>
-                <tr><td height="2">&nbsp;</td></tr>
-                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Cédula: ___________________________</td></tr>
-                <tr><td height="2">&nbsp;</td></tr>
-                <tr><td align="center" style="font-size: 8.5pt; line-height: 1.5;">Firma: _____________________________</td></tr>
-                @endif
-            </table>
-        </td>
+        <td width="34%" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="8"><b>SOLICITADO:</b></font></td>
+        <td width="33%" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="8"><b>RECIBIDO:</b></font></td>
+        <td width="33%" {!! $hb !!} style="{!! $bs !!}"><font face="helvetica" size="8"><b>AUTORIZADO:</b></font></td>
+    </tr>
+    <tr>
+        <td width="34%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Nombre:</b> {{ strtoupper($falla->NOMBRE_REPORTA ?: '') }}</font></td>
+        <td width="33%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Nombre:</b> {{ strtoupper($falla->MECANICO_ASIGNADO ?: '') }}</font></td>
+        <td width="33%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Nombre:</b> {{ strtoupper($cerrado ? ($falla->NOMBRE_CIERRA ?: '') : '') }}</font></td>
+    </tr>
+    <tr>
+        <td width="34%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Firma:</b></font></td>
+        <td width="33%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Firma:</b></font></td>
+        <td width="33%" style="{!! $bs !!}"><font face="helvetica" size="8"><b>Firma:</b></font></td>
     </tr>
 </table>
 

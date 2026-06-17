@@ -880,7 +880,7 @@
     {{-- Tarjeta con el MISMO estilo del modal "Limpieza de Roles" de /admin/usuarios:
          header oscuro (#1e293b) con icono ámbar + título centrado, X arriba-derecha,
          cuerpo gris claro. (El overlay .alm-modal-overlay aporta el fondo y el centrado.) --}}
-    <div style="background:#fff; border-radius:14px; width:90%; max-width:520px; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); animation:almIn 0.16s ease-out;">
+    <div style="background:#fff; border-radius:14px; width:90%; max-width:440px; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); animation:almIn 0.16s ease-out;">
         {{-- Encabezado oscuro --}}
         <div style="background:#1e293b; padding:12px 16px; color:white; display:flex; justify-content:center; align-items:center; position:relative; flex-shrink:0;">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -902,10 +902,6 @@
             <div id="almPapeleraLista" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
                 <div style="text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;">Cargando…</div>
             </div>
-        </div>
-        {{-- Pie --}}
-        <div style="padding:12px 16px; border-top:1px solid #e2e8f0; display:flex; justify-content:center; background:#fff; flex-shrink:0;">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almPapeleraModal')">Cerrar</button>
         </div>
     </div>
 </div>
@@ -3603,6 +3599,7 @@
     // ── Papelera de productos (eliminados / soft-delete): buscar + restaurar ──────
     var ROUTE_PROD_PAPELERA = ROUTE_INDEX + '/productos/papelera';
     function ROUTE_PROD_RESTAURAR(id) { return ROUTE_INDEX + '/productos/' + id + '/restaurar'; }
+    function ROUTE_PROD_ELIMINAR_PERM(id) { return ROUTE_INDEX + '/productos/' + id + '/permanente'; }
     var _almPapeleraTimer = null;
 
     window.almAbrirPapelera = function () {
@@ -3639,8 +3636,13 @@
                             '<div style="font-size:13px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nom + '</div>' +
                             '<div style="font-size:11px;color:#94a3b8;">' + meta + '</div>' +
                         '</div>' +
-                        '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="btn-primary-maquinaria" style="background:#16a34a;box-shadow:none;padding:6px 12px;font-size:12.5px;white-space:nowrap;">' +
-                            '<i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:4px;">restore</i>Restaurar</button>' +
+                        '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:stretch;">' +
+                            '<button type="button" onclick="window.almRestaurarProducto(' + p.ID_PRODUCTO + ')" class="btn-primary-maquinaria" style="background:var(--maquinaria-blue, #0067b1);box-shadow:none;padding:6px 12px;font-size:12.5px;white-space:nowrap;justify-content:center;">' +
+                                '<i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:4px;">restore</i>Restaurar</button>' +
+                            // Borrado permanente: solo super.admin (HAS_ALM_MANAGE).
+                            (HAS_ALM_MANAGE ? ('<button type="button" onclick="window.almEliminarPermanenteProducto(' + p.ID_PRODUCTO + ')" class="btn-primary-maquinaria" title="Eliminar de la papelera (permanente)" style="background:#dc2626;box-shadow:none;padding:6px 12px;font-size:12.5px;white-space:nowrap;justify-content:center;">' +
+                                '<i class="material-icons" style="font-size:15px;vertical-align:-3px;margin-right:4px;">delete_forever</i>Eliminar</button>') : '') +
+                        '</div>' +
                     '</div>';
                 }).join('');
             })
@@ -3669,6 +3671,29 @@
             }
         })
         .catch(function () { unpre(); toast('Error de red al restaurar.', 'error'); });
+    };
+
+    // Borrado PERMANENTE desde la papelera (forceDelete) — solo super.admin.
+    window.almEliminarPermanenteProducto = function (id) {
+        if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para eliminar productos de la papelera.')) return;
+        almConfirm('Vas a eliminar este producto <strong>de forma permanente</strong>. No se puede deshacer.', function () {
+            pre();
+            fetch(ROUTE_PROD_ELIMINAR_PERM(id), {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
+            .then(function (res) {
+                unpre();
+                if (res.ok) {
+                    toast(res.b.message || 'Producto eliminado permanentemente.');
+                    window.almPapeleraBuscar();   // refresca la papelera (ya no aparece)
+                } else {
+                    toast((res.b && res.b.message) || 'No se pudo eliminar el producto.', 'error');
+                }
+            })
+            .catch(function () { unpre(); toast('Error de red al eliminar.', 'error'); });
+        });
     };
 
     window.almGuardarProducto = function () {

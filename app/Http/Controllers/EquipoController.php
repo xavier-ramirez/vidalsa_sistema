@@ -1977,6 +1977,31 @@ class EquipoController extends Controller
             'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
         ]);
         $equipo = $this->findAndAuthorizeEquipo($id);
+
+        // Si el equipo tiene un reporte de falla ABIERTO, su estado lo gobierna ese
+        // reporte (quedó INOPERATIVO al crearlo): no se cambia a mano desde aquí. Para
+        // cambiarlo hay que CERRAR el reporte (lo que lo devuelve a OPERATIVO).
+        // Devolvemos los datos del reporte para que el front muestre el modal de cierre.
+        $falla = \App\Models\Falla::where('ACTIVO_TIPO', 'equipo')
+            ->where('ACTIVO_ID', $equipo->ID_EQUIPO)
+            ->where('ESTADO_REPORTE', 'abierto')
+            ->latest('FECHA_EMISION')
+            ->first();
+        if ($falla) {
+            $ident = optional($equipo->documentacion)->PLACA
+                  ?: ($equipo->SERIAL_CHASIS ?: ($equipo->CODIGO_PATIO ?: trim(($equipo->MARCA ?? '') . ' ' . ($equipo->MODELO ?? ''))));
+            return response()->json([
+                'success'       => false,
+                'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
+                'falla_abierta' => [
+                    'id'     => $falla->ID_FALLA,
+                    'codigo' => $falla->CODIGO_REPORTE,
+                    'tipo'   => $falla->TIPO_REPORTE,
+                    'equipo' => $ident,
+                ],
+            ], 409);
+        }
+
         $equipo->ESTADO_OPERATIVO = $request->input('status');
         $equipo->save();
 

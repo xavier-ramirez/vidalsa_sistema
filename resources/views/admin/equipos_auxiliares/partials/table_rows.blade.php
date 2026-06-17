@@ -113,6 +113,7 @@
                     data-aux-id="{{ $aux->ID_AUXILIAR }}"
                     data-status="{{ $aux->ESTADO_OPERATIVO }}"
                     data-status-url="{{ route('equipos-auxiliares.estado', $aux->ID_AUXILIAR) }}"
+                    data-label="{{ $aux->SERIAL ?: ($aux->CODIGO_INTERNO ?: trim(($aux->MARCA ?? '').' '.($aux->MODELO ?? ''))) ?: ('Auxiliar #'.$aux->ID_AUXILIAR) }}"
                     onclick="event.stopPropagation(); window.openAuxStatusMenu(this)"
                     style="padding: 5px 8px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 11px; font-weight: 700; background: white; border: 1px solid #e2e8f0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                     <div style="display: flex; align-items: center; gap: 5px; color: {{ $currentConfig['color'] }};">

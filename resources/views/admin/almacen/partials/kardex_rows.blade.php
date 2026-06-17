@@ -67,7 +67,7 @@
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
                  queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
             <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="font-weight:700;white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
-            <td class="mv-td-destino" data-label="Destino">
+            <td class="mv-td-destino" data-label="Destino" style="font-size:12.5px;">
                 {{-- Cadena de fallback para el Destino del movimiento:
                      1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con frente).
                      2) Almacén CONTRAPARTE (caso traspasos legacy o sin frente).
