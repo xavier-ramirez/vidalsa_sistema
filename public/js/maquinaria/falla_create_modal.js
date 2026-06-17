@@ -300,7 +300,10 @@
             _revokePreview();
             _previewBlobUrl = URL.createObjectURL(blob);
             const frame = document.getElementById('flActaPreviewFrame');
-            if (frame) frame.src = _previewBlobUrl;
+            // #toolbar=0... oculta la barra nativa del visor PDF del navegador (incluido
+            // su botón de descarga), igual que la vista previa del acta de movilización.
+            // El blob "limpio" (_previewBlobUrl) se conserva para la descarga al Confirmar.
+            if (frame) frame.src = _previewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
             document.getElementById('nuevoReporteOverlay').classList.remove('active');   // oculta el form
             document.getElementById('flActaPreviewOverlay').classList.add('active');
         })
