@@ -2351,12 +2351,11 @@
         urlSearch: '{{ route("fallas.searchActivos") }}',
         urlStore:  '{{ route("fallas.store") }}',
         urlBase:   '{{ url("admin/fallas") }}',
-        openPdf:   true,
         onCreated: function () { if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(); },
         onClosed:  function () { if (window.loadEquipos) window.loadEquipos(); }
     };
 </script>
-<script src="{{ asset('js/maquinaria/falla_create_modal.js') }}"></script>
+{{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}
 
 @endsection
 @section('extra_js')

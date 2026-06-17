@@ -5,15 +5,17 @@
  *   {
  *     urlSearch: ruta de búsqueda de activos (solo se usa en modo buscador),
  *     urlStore:  ruta POST de creación de reporte,
- *     urlBase:   base de /admin/fallas (para abrir el PDF del acta),
- *     openPdf:   bool — abrir el PDF al crear un reporte extenso,
+ *     urlBase:   base de /admin/fallas (preview del acta: urlBase + '/preview'),
  *     onCreated: function(falla) — callback tras crear (recargar lista / marcar fila),
+ *     onClosed:  function() — callback tras cerrar un reporte desde la tabla (recargar),
  *   }
  *
- * Para crear desde equipos/auxiliares con el equipo YA elegido:
+ * Crear: el reporte EXTENSO pasa por una VISTA PREVIA del acta (Editar/Confirmar)
+ * antes de guardar (flPreviewActa); el CORTO se guarda directo. Para abrir el modal
+ * con el equipo YA elegido (desde equipos/auxiliares):
  *   window.flOpenForActivo(tipo, id, label, onCancel)
  *   - oculta el buscador y pre-selecciona el activo.
- *   - onCancel() se dispara si se cierra el modal SIN crear (para revertir el estado).
+ *   - onCancel() se dispara si se cierra SIN crear (para revertir el estado).
  */
 (function () {
     if (window._fallaCreateModalReady) return;
@@ -130,15 +132,15 @@
                         ? `<div style="margin-top:5px;font-size:11.5px;font-weight:600;color:#3b82f6;">${r.frente}</div>`
                         : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicación asignada</div>`;
                     const displayInfo = r.placa || r.serial || r.codigo || '';
+                    // La tarjeta sugerida identifica por serial/placa/código + frente
+                    // (sin el tipo/modelo del equipo). tipoNom solo se pasa para la
+                    // tarjeta de "seleccionado".
                     return `
                         <div class="fl-search-result"
                              onclick="window.flSelectActivo('fl', '${r.tipo}', ${r.id}, '${tipoNom.replace(/'/g, "\\'")}', '${displayInfo.replace(/'/g, "\\'")}')">
                             ${fotoHtml}
                             <div style="flex:1;min-width:0;margin-left:10px;">
-                                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                    <span style="font-weight:700;color:#1e293b;font-size:13px;">${tipoNom}</span>
-                                </div>
-                                ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:11.5px;color:#64748b;">${chips}</div>` : ''}
+                                ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:#64748b;">${chips}</div>` : ''}
                                 ${frenteHtml}
                             </div>
                         </div>`;
@@ -225,7 +227,9 @@
         .finally(() => { if (btn) btn.disabled = false; if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    window.submitNuevoReporte = function () {
+    // Guarda el reporte (POST store). opts.onSuccess(falla) corre tras crear.
+    window.submitNuevoReporte = function (opts) {
+        opts = opts || {};
         const form = document.getElementById('nuevoReporteForm');
         const fd = new FormData(form);
         if (!fd.get('activo_id')) {
@@ -246,14 +250,93 @@
                 window.closeNuevoReporteModal();
                 const cb = CFG().onCreated;
                 if (typeof cb === 'function') cb(body.falla);
-                if (CFG().openPdf && body.falla && body.falla.TIPO_REPORTE === 'extenso' && body.falla.ID_FALLA) {
-                    setTimeout(() => { window.open(CFG().urlBase + '/' + body.falla.ID_FALLA + '/pdf', '_blank'); }, 300);
-                }
+                if (typeof opts.onSuccess === 'function') opts.onSuccess(body.falla);
             } else {
                 if (window.showToast) window.showToast(body.message || 'No se pudo crear el reporte', 'error');
             }
         })
         .catch(e => { console.error(e); if (window.showToast) window.showToast('Error de red', 'error'); })
         .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
+    };
+
+    // ════════════════════════════════════════════════════════════════════
+    //  Crear: el reporte EXTENSO pasa por una VISTA PREVIA (Editar/Confirmar)
+    //  antes de guardar (igual que el acta de movilización); el reporte CORTO
+    //  no tiene acta, así que se guarda directo.
+    // ════════════════════════════════════════════════════════════════════
+    let _previewBlobUrl = null;
+    function _revokePreview() {
+        if (_previewBlobUrl) { try { URL.revokeObjectURL(_previewBlobUrl); } catch (_) {} _previewBlobUrl = null; }
+    }
+
+    window.flCrearReporte = function () {
+        const form = document.getElementById('nuevoReporteForm');
+        if (!document.getElementById('fl_activo_id').value) {
+            if (window.showToast) window.showToast('Selecciona un equipo primero.', 'error');
+            return;
+        }
+        if (!form.checkValidity()) { form.reportValidity(); return; }   // exige descripción
+        if (document.getElementById('fl_tipo_reporte').value === 'extenso') {
+            window.flPreviewActa();        // acta: previsualizar antes de guardar
+        } else {
+            window.submitNuevoReporte();   // corto: sin acta, guarda directo
+        }
+    };
+
+    // Pide el PDF de PREVIEW al backend (SIN guardar) y lo muestra en el visor.
+    window.flPreviewActa = function () {
+        const fd = new FormData(document.getElementById('nuevoReporteForm'));
+        if (window.showPreloader) window.showPreloader();
+        fetch(CFG().urlBase + '/preview', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/pdf' },
+            body: fd
+        })
+        .then(r => {
+            if (!r.ok) return r.json().then(j => { throw new Error(j.message || 'No se pudo generar la vista previa.'); });
+            return r.blob();
+        })
+        .then(blob => {
+            _revokePreview();
+            _previewBlobUrl = URL.createObjectURL(blob);
+            const frame = document.getElementById('flActaPreviewFrame');
+            if (frame) frame.src = _previewBlobUrl;
+            document.getElementById('nuevoReporteOverlay').classList.remove('active');   // oculta el form
+            document.getElementById('flActaPreviewOverlay').classList.add('active');
+        })
+        .catch(e => { if (window.showToast) window.showToast(e.message || 'Error al generar la vista previa.', 'error'); })
+        .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
+    };
+
+    // "Editar": vuelve al formulario (los datos siguen cargados).
+    window.flEditarPreviewActa = function () {
+        document.getElementById('flActaPreviewOverlay').classList.remove('active');
+        _revokePreview();
+        document.getElementById('nuevoReporteOverlay').classList.add('active');
+    };
+
+    // "Cerrar" (X): cancela todo (NO guarda) y revierte el estado si venía del desplegable.
+    window.flCerrarPreviewActa = function () {
+        document.getElementById('flActaPreviewOverlay').classList.remove('active');
+        _revokePreview();
+        const cancel = _pendingCancel; _pendingCancel = null;
+        if (cancel) cancel();
+    };
+
+    // "Confirmar": guarda el reporte y descarga el acta que se previsualizó.
+    window.flConfirmarPreviewActa = function () {
+        const blobUrl = _previewBlobUrl;
+        window.submitNuevoReporte({
+            onSuccess: function (falla) {
+                if (blobUrl) {
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = 'Reporte_Falla_' + ((falla && falla.CODIGO_REPORTE) || '') + '.pdf';
+                    document.body.appendChild(a); a.click(); a.remove();
+                }
+                document.getElementById('flActaPreviewOverlay').classList.remove('active');
+                _revokePreview();
+            }
+        });
     };
 })();

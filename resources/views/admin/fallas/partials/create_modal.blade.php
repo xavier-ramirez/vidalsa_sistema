@@ -65,7 +65,7 @@
                     class="material-icons">close</i></button>
         </div>
         <form id="nuevoReporteForm" class="fl-modal-body"
-            onsubmit="event.preventDefault(); window.submitNuevoReporte();">
+            onsubmit="event.preventDefault(); window.flCrearReporte();">
 
             {{-- Tipo de reporte --}}
             <div>
@@ -173,5 +173,33 @@
                 <i class="material-icons">send</i> Crear Reporte
             </button>
         </form>
+    </div>
+</div>
+
+{{-- Vista previa del acta ANTES de guardar (solo extenso): Editar / Confirmar.
+     Mismo patrón que la vista previa del acta de movilización. --}}
+<div id="flActaPreviewOverlay" class="fl-modal-overlay" style="z-index:10002;">
+    <div class="fl-modal" style="max-width:920px; max-height:96vh; display:flex; flex-direction:column;">
+        <div class="fl-modal-header" style="justify-content:center; position:relative; background:#f1f5f9; color:#1e293b; border-bottom:1px solid #e2e8f0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="material-icons" style="font-size:20px; color:#0284c7;">visibility</i>
+                <h3 style="margin:0; font-size:16px; font-weight:800;">Vista previa del Acta de Falla</h3>
+            </div>
+            <button type="button" onclick="window.flCerrarPreviewActa()" title="Cancelar"
+                style="position:absolute; right:14px; background:#e2e8f0; border:none; color:#475569; width:28px; height:28px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center;"><i class="material-icons" style="font-size:16px;">close</i></button>
+        </div>
+        <div style="flex:1; min-height:0; background:#475569;">
+            <iframe id="flActaPreviewFrame" src="" title="Vista previa del Acta de Falla"
+                style="width:100%; height:70vh; min-height:460px; border:none; background:#fff; display:block;"></iframe>
+        </div>
+        <div style="padding:12px 16px; display:flex; gap:10px; justify-content:center; border-top:1px solid #e2e8f0; background:white;">
+            <button type="button" onclick="window.flEditarPreviewActa()"
+                style="height:44px; padding:0 18px; display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid #e2e8f0; background:#e2e8f0; color:#475569; border-radius:10px; font-weight:700; cursor:pointer;">
+                <i class="material-icons" style="font-size:16px;">edit</i> Editar
+            </button>
+            <button type="button" onclick="window.flConfirmarPreviewActa()" class="fl-submit-btn" style="width:auto; padding:0 22px;">
+                <i class="material-icons" style="font-size:16px;">check_circle</i> Confirmar
+            </button>
+        </div>
     </div>
 </div>

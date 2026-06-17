@@ -9,6 +9,19 @@
     const cfg  = () => window.FALLAS_CFG || {};
     const csrf = () => document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
+    // Aviso moderno (modal de la app) cuando el usuario no tiene permiso para
+    // registrar fallas — en vez del alert() del navegador. Mismo patrón que equipos.
+    window.flAccesoDenegado = function () {
+        const msg = 'No tienes los permisos requeridos para registrar fallas.';
+        if (window.showModal) {
+            window.showModal({ type: 'error', title: 'Acceso Denegado', message: msg, confirmText: 'Entendido', hideCancel: true });
+        } else if (window.showToast) {
+            window.showToast(msg, 'error');
+        } else {
+            alert(msg);
+        }
+    };
+
     // â”€â”€â”€ Listado: AJAX recarga â”€â”€â”€
     window.cargarFallas = function () {
         const params = new URLSearchParams();

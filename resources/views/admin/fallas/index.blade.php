@@ -665,7 +665,7 @@
                     </div>
 
                     <button type="button"
-                        onclick="{{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'window.openNuevoReporteModal()' : 'if(window.showToast) window.showToast(\'No tienes los permisos requeridos para registrar fallas.\', \'error\'); else alert(\'Permiso denegado.\');' }}"
+                        onclick="{{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'window.openNuevoReporteModal()' : 'window.flAccesoDenegado()' }}"
                         class="falla-btn falla-btn-primary fallas-btn-new" style="height:45px;">
                         <i class="material-icons" style="font-size:18px;">add_circle</i> Reporte
                     </button>
@@ -827,10 +827,9 @@
                 urlSearch: '{{ route("fallas.searchActivos") }}',
                 urlStore: '{{ route("fallas.store") }}',
                 urlBase: '{{ url("admin/fallas") }}',
-                openPdf: true,
                 onCreated: function () { if (window.cargarFallas) window.cargarFallas(); }
             };
         </script>
-        <script src="{{ asset('js/maquinaria/falla_create_modal.js') }}"></script>
+        {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}
 
 @endsection

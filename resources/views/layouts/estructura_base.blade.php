@@ -1191,6 +1191,10 @@
             src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/fallas_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/fallas_index.js')) }}"></script>
+        {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares). Global
+             porque la SPA no re-ejecuta los <script> del contenido al navegar. --}}
+        <script
+            src="{{ asset('js/maquinaria/falla_create_modal.js') }}?v={{ @filemtime(public_path('js/maquinaria/falla_create_modal.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/usuarios_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/usuarios_index.js')) }}"></script>
         <script

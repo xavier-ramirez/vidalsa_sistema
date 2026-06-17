@@ -2028,6 +2028,28 @@ class EquipoController extends Controller
             'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
         ]);
         $equipo = \App\Models\Equipo::findOrFail($id);
+
+        // MISMA regla que la web (changeStatus): si el equipo tiene un reporte de falla
+        // ABIERTO, su estado lo gobierna ese reporte y NO se cambia a mano — hay que cerrar
+        // el reporte primero. Se responde 409 con los datos del reporte para que la APK
+        // muestre el aviso ("cierra el reporte primero") y NO reintente el outbox.
+        $falla = \App\Models\Falla::where('ACTIVO_TIPO', 'equipo')
+            ->where('ACTIVO_ID', $equipo->ID_EQUIPO)
+            ->where('ESTADO_REPORTE', 'abierto')
+            ->latest('FECHA_EMISION')
+            ->first();
+        if ($falla) {
+            return response()->json([
+                'success'       => false,
+                'message'       => 'Este equipo tiene un reporte de falla abierto. Para cambiar su estado debes cerrar el reporte.',
+                'falla_abierta' => [
+                    'id'     => $falla->ID_FALLA,
+                    'codigo' => $falla->CODIGO_REPORTE,
+                    'tipo'   => $falla->TIPO_REPORTE,
+                ],
+            ], 409);
+        }
+
         $equipo->ESTADO_OPERATIVO = $request->input('status');
         $equipo->save();
 

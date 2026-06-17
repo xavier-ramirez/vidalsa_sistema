@@ -2778,10 +2778,9 @@ window.toggleAuxAcciones = function(event) {
         urlSearch: '{{ route("fallas.searchActivos") }}',
         urlStore:  '{{ route("fallas.store") }}',
         urlBase:   '{{ url("admin/fallas") }}',
-        openPdf:   true,
         onCreated: function () { if (window.handleFallaCreatedAux) window.handleFallaCreatedAux(); },
         onClosed:  function () { if (window.cargarAuxiliares) window.cargarAuxiliares(); }
     };
 </script>
-<script src="{{ asset('js/maquinaria/falla_create_modal.js') }}"></script>
+{{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}
 @endsection

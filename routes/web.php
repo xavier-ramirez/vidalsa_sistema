@@ -201,6 +201,8 @@ Route::middleware(['auth'])->group(function () {
             // Permiso global: equipos.edit (gateado en FallaController::__construct).
             // Rutas estáticas ANTES de wildcards para evitar colisiones de segmento.
             Route::get  ('fallas/search-activos', [App\Http\Controllers\FallaController::class, 'searchActivos'])->name('fallas.searchActivos');
+            // Vista previa del acta SIN guardar (flujo Editar/Confirmar del modal).
+            Route::post ('fallas/preview',        [App\Http\Controllers\FallaController::class, 'previewPdf'])   ->name('fallas.preview');
             Route::post ('fallas',                [App\Http\Controllers\FallaController::class, 'store'])        ->name('fallas.store');
             Route::get  ('fallas/{id}/pdf',       [App\Http\Controllers\FallaController::class, 'pdf'])          ->name('fallas.pdf');
             Route::patch('fallas/{id}/close',     [App\Http\Controllers\FallaController::class, 'close'])        ->name('fallas.close');

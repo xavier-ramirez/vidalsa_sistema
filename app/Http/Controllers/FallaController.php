@@ -248,36 +248,12 @@ class FallaController extends Controller
                 return response()->json(['success' => false, 'message' => 'No se puede reportar falla en un equipo desincorporado.'], 422);
             }
 
-            $user = auth()->user();
-
-            // Snapshot del frente de trabajo (Sección 1 del acta).
-            $frente = $activo->ID_FRENTE_ACTUAL
-                ? DB::table('frentes_trabajo')->where('ID_FRENTE', $activo->ID_FRENTE_ACTUAL)->value('NOMBRE_FRENTE')
-                : null;
-
-            $falla = Falla::create([
-                'CODIGO_REPORTE'      => $this->generateCodigoReporte(),
-                'FECHA_EMISION'       => now(),
-                'TIPO_REPORTE'        => $request->tipo_reporte,
-                'ESTADO_REPORTE'      => 'abierto',
-                'ACTIVO_TIPO'         => $request->activo_tipo,
-                'ACTIVO_ID'           => $request->activo_id,
-                'ESTADO_PREVIO'       => $estadoPrevio,
-                'ESTADO_AL_CREAR'     => $estadoAlCrear,
-                'FRENTE_TRABAJO'      => $frente,
-                'KILOMETRAJE'         => $request->kilometraje,
-                'HORAS'               => $request->horas,
-                'DESCRIPCION_AVERIA'  => $request->descripcion,
-                'TIPO_MANTENIMIENTO'  => $request->tipo_mantenimiento,
-                'MECANICO_ASIGNADO'   => $request->mecanico_asignado,
-                'FECHA_RECEPCION'     => $request->fecha_recepcion,
-                'DIAGNOSTICO'         => $request->diagnostico,
-                'ACCIONES_REALIZADAS' => $request->acciones_realizadas,
-                'ID_USUARIO_REPORTA'  => $user->ID_USUARIO,
-                'NOMBRE_REPORTA'      => $user->NOMBRE_COMPLETO,
-                'CARGO_REPORTA'       => optional($user->rol)->NOMBRE_ROL ?? '',
-                'EMAIL_REPORTA'       => $user->CORREO_ELECTRONICO,
-            ]);
+            // Atributos comunes (compartidos con la vista previa); el código real se
+            // genera CON lock aquí. ESTADO_PREVIO/AL_CREAR son propios de la creación.
+            $attrs = $this->fallaAttributes($request, $activo, $this->generateCodigoReporte());
+            $attrs['ESTADO_PREVIO']   = $estadoPrevio;
+            $attrs['ESTADO_AL_CREAR'] = $estadoAlCrear;
+            $falla = Falla::create($attrs);
 
             // El equipo queda INOPERATIVO (se refleja en el módulo de equipos y sus totales).
             $activo->ESTADO_OPERATIVO = $estadoAlCrear;
@@ -296,6 +272,41 @@ class FallaController extends Controller
                 'falla'   => $falla,
             ]);
         });
+    }
+
+    /**
+     * Atributos de una Falla a partir del formulario + snapshot del frente/usuario.
+     * Lo comparten store() (los guarda) y previewPdf() (los usa en memoria, sin guardar)
+     * para no duplicar el mapeo. NO incluye ESTADO_PREVIO/AL_CREAR (propios del store).
+     */
+    private function fallaAttributes(Request $request, $activo, string $codigo): array
+    {
+        $user = auth()->user();
+        $frente = $activo->ID_FRENTE_ACTUAL
+            ? DB::table('frentes_trabajo')->where('ID_FRENTE', $activo->ID_FRENTE_ACTUAL)->value('NOMBRE_FRENTE')
+            : null;
+
+        return [
+            'CODIGO_REPORTE'      => $codigo,
+            'FECHA_EMISION'       => now(),
+            'TIPO_REPORTE'        => $request->tipo_reporte,
+            'ESTADO_REPORTE'      => 'abierto',
+            'ACTIVO_TIPO'         => $request->activo_tipo,
+            'ACTIVO_ID'           => $request->activo_id,
+            'FRENTE_TRABAJO'      => $frente,
+            'KILOMETRAJE'         => $request->kilometraje,
+            'HORAS'               => $request->horas,
+            'DESCRIPCION_AVERIA'  => $request->descripcion,
+            'TIPO_MANTENIMIENTO'  => $request->tipo_mantenimiento,
+            'MECANICO_ASIGNADO'   => $request->mecanico_asignado,
+            'FECHA_RECEPCION'     => $request->fecha_recepcion,
+            'DIAGNOSTICO'         => $request->diagnostico,
+            'ACCIONES_REALIZADAS' => $request->acciones_realizadas,
+            'ID_USUARIO_REPORTA'  => $user->ID_USUARIO,
+            'NOMBRE_REPORTA'      => $user->NOMBRE_COMPLETO,
+            'CARGO_REPORTA'       => optional($user->rol)->NOMBRE_ROL ?? '',
+            'EMAIL_REPORTA'       => $user->CORREO_ELECTRONICO,
+        ];
     }
 
     /**
@@ -519,12 +530,15 @@ class FallaController extends Controller
      * Genera RF-NNNNN secuencial. Numerador derivado del MAX actual + 1.
      * Llamar dentro de DB::transaction (lockForUpdate del MAX).
      */
-    private function generateCodigoReporte(): string
+    private function generateCodigoReporte(bool $lock = true): string
     {
-        $last = Falla::where('CODIGO_REPORTE', 'like', 'RF-%')
-            ->lockForUpdate()
-            ->orderByDesc('ID_FALLA')
-            ->value('CODIGO_REPORTE');
+        // $lock=false para la VISTA PREVIA: solo "espía" el siguiente código sin
+        // bloquear ni consumir el numerador (el real se asigna al guardar).
+        $q = Falla::where('CODIGO_REPORTE', 'like', 'RF-%');
+        if ($lock) {
+            $q->lockForUpdate();
+        }
+        $last = $q->orderByDesc('ID_FALLA')->value('CODIGO_REPORTE');
         $n = 0;
         if ($last && preg_match('/RF-(\d+)/', $last, $m)) {
             $n = (int) $m[1];
@@ -685,11 +699,47 @@ class FallaController extends Controller
             return back()->withErrors(['error' => 'Solo los reportes extensos generan acta PDF.']);
         }
 
-        $activo = $falla->activo();
+        $pdf = $this->buildActaPdf($falla, $falla->activo());
+        return $pdf->Output('Reporte_Falla_' . $falla->CODIGO_REPORTE . '.pdf', 'I');
+    }
 
-        // Clase ReporteFallaPDF (al final de este archivo): mismo logo
-        // corporativo (imagen_uno.jpg) que el acta de movilizacion, pero
-        // con header propio "REPORTE DE FALLAS" + codigo del reporte.
+    /**
+     * Vista previa del acta SIN guardar el reporte (flujo "Editar/Confirmar" del
+     * modal, igual que la vista previa del acta de movilización). Construye una
+     * Falla EN MEMORIA con los datos del formulario y devuelve el PDF inline.
+     * Solo aplica a 'extenso' (el reporte corto no tiene acta).
+     */
+    public function previewPdf(Request $request)
+    {
+        $request->validate([
+            'tipo_reporte'       => 'required|in:corto,extenso',
+            'activo_tipo'        => 'required|in:equipo,equipo_auxiliar',
+            'activo_id'          => 'required|integer',
+            'descripcion'        => 'required|string|max:5000',
+            'tipo_mantenimiento' => 'nullable|in:PREVENTIVO,CORRECTIVO',
+        ]);
+        if ($request->tipo_reporte !== 'extenso') {
+            return response()->json(['message' => 'Solo el reporte extenso genera acta PDF.'], 422);
+        }
+        $activo = $request->activo_tipo === 'equipo'
+            ? Equipo::find($request->activo_id)
+            : EquipoAuxiliar::find($request->activo_id);
+        if (!$activo) {
+            return response()->json(['message' => 'Activo no encontrado.'], 404);
+        }
+        // Falla en memoria (NO se guarda); código de muestra sin consumir el numerador.
+        $falla = new Falla($this->fallaAttributes($request, $activo, $this->generateCodigoReporte(false)));
+        $pdf = $this->buildActaPdf($falla, $activo);
+        return $pdf->Output('Vista_Previa_Reporte_Falla.pdf', 'I');
+    }
+
+    /**
+     * Construye el TCPDF del acta (cabezote + cuerpo) a partir de una Falla —
+     * GUARDADA o EN MEMORIA (vista previa). Mismo logo corporativo que el acta de
+     * movilización, con header propio "REPORTE DE FALLAS". Lo comparten pdf() y previewPdf().
+     */
+    private function buildActaPdf(Falla $falla, $activo): ReporteFallaPDF
+    {
         $pdf = new ReporteFallaPDF(
             PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false
         );
@@ -716,7 +766,7 @@ class FallaController extends Controller
         $html = view('admin.fallas.acta_falla_pdf', compact('falla', 'activo'))->render();
         $pdf->writeHTML($html, true, false, true, false, '');
 
-        return $pdf->Output('Reporte_Falla_' . $falla->CODIGO_REPORTE . '.pdf', 'I');
+        return $pdf;
     }
 }
 
