@@ -64,15 +64,15 @@
         tbody.querySelectorAll('tr[data-offline]').forEach(function (tr) {
             var ok = true;
             if (q) { var blob = (tr.getAttribute('data-buscar') || ''); if (blob.indexOf(q) < 0) ok = false; }
-            if (ok && fFrente && fFrente !== 'all' && tr.getAttribute('data-frente-id') !== fFrente) ok = false;
-            if (ok && fTipo && tr.getAttribute('data-tipo-id') !== fTipo) ok = false;
+            if (ok && fFrente && fFrente !== 'all') { var fid = tr.getAttribute('data-frente-id') || ''; if (fFrente === 'none' ? fid !== '' : fid !== fFrente) ok = false; }
+            if (ok && fTipo && fTipo !== 'all' && tr.getAttribute('data-tipo-id') !== fTipo) ok = false;
             if (ok && fEstado && tr.getAttribute('data-estado') !== fEstado) ok = false;
             if (ok && fMarca && (tr.getAttribute('data-marca') || '').indexOf(fMarca.toLowerCase()) < 0) ok = false;
             if (ok && fModelo && (tr.getAttribute('data-modelo') || '').indexOf(fModelo.toLowerCase()) < 0) ok = false;
             if (ok && fAnio && tr.getAttribute('data-anio') !== fAnio) ok = false;
             if (ok && fCat && (tr.getAttribute('data-categoria') || '').indexOf(fCat.toLowerCase()) < 0) ok = false;
             if (ok && fUbic && (tr.getAttribute('data-ubicacion') || '').indexOf(fUbic.toLowerCase()) < 0) ok = false;
-            if (ok && fConf) { var cv = tr.getAttribute('data-confirmado'); if (fConf === '1' && cv !== '1') ok = false; if (fConf === '0' && cv !== '0') ok = false; }
+            if (ok && fConf) { var cv = tr.getAttribute('data-confirmado'); var fc = fConf === 'SI' ? '1' : fConf === 'NO' ? '0' : fConf; if (fc === '1' && cv !== '1') ok = false; if (fc === '0' && cv !== '0') ok = false; }
             tr.style.display = ok ? '' : 'none';
         });
     }
@@ -336,13 +336,18 @@
             inp.dataset.offWiredEq = '1';
             inp.addEventListener('input', function () { if (OM.estaActivo()) aplicarFiltro(); });
         }
-        // Patchear loadEquipos: en modo offline delega al filtro local en vez de fetch.
         if (typeof window.loadEquipos === 'function' && !window._origLoadEquipos) {
             window._origLoadEquipos = window.loadEquipos;
             window.loadEquipos = function () {
                 if (OM.estaActivo()) { aplicarFiltro(); return Promise.resolve(); }
                 return window._origLoadEquipos.apply(null, arguments);
             };
+        }
+        if (!window._eqOffDropdownWired) {
+            window._eqOffDropdownWired = true;
+            window.addEventListener('dropdown-selection', function () {
+                if (OM.estaActivo() && getBody()) aplicarFiltro();
+            });
         }
         if (OM.estaActivo()) OM.conOfflineDB(render);
     }
