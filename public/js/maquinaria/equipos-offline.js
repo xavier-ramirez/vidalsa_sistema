@@ -327,13 +327,16 @@
     };
 
     function init() {
-        if (!getBody()) return;      // no estamos en /admin/equipos
+        if (!getBody()) return;
         OM.registrar('equipos', function () { OM.conOfflineDB(render); });
-        const inp = document.getElementById('searchInput');
+
+        var inp = document.getElementById('searchInput');
         if (inp && !inp.dataset.offWiredEq) {
             inp.dataset.offWiredEq = '1';
             inp.addEventListener('input', function () { if (OM.estaActivo()) aplicarFiltro(); });
         }
+
+        // Patch loadEquipos: intercepta la llamada AJAX y filtra local si offline.
         if (typeof window.loadEquipos === 'function') {
             if (!window._origLoadEquipos) {
                 window._origLoadEquipos = window.loadEquipos;
@@ -346,13 +349,28 @@
             };
             window.loadEquipos = window._eqOffPatchedLoad;
         }
-        if (!window._eqOffDropdownWired) {
-            window._eqOffDropdownWired = true;
-            window.addEventListener('dropdown-selection', function () {
-                if (OM.estaActivo() && getBody()) aplicarFiltro();
-            });
-        }
+
         if (OM.estaActivo()) OM.conOfflineDB(render);
+    }
+
+    // Mecanismo DIRECTO: intercepta clics en dropdown-items y el evento custom.
+    // Un solo listener global en document (delegación), no depende del patch de
+    // loadEquipos ni de que selectOption despache nada. Si el modo offline está
+    // activo y estamos en la página de equipos, filtrar tras un microtick (para
+    // que selectOption haya puesto el valor en el hidden input).
+    if (!window._eqOffClickWired) {
+        window._eqOffClickWired = true;
+
+        document.addEventListener('click', function (e) {
+            if (!OM.estaActivo() || !getBody()) return;
+            if (e.target.closest && e.target.closest('.dropdown-item')) {
+                setTimeout(aplicarFiltro, 0);
+            }
+        }, true);
+
+        window.addEventListener('dropdown-selection', function () {
+            if (OM.estaActivo() && getBody()) aplicarFiltro();
+        });
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
