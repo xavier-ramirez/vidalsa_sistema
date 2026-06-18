@@ -1298,10 +1298,6 @@
         </div>
         <div class="alm-modal-body">
 
-            <div style="background:#f8fafc;border-radius:8px;padding:10px;">
-                <div style="font-size:10.5px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;">Stock mínimo</div>
-                <div id="almDetMin" style="font-size:14px;font-weight:700;color:#334155;margin-top:2px;"></div>
-            </div>
             {{-- Aviso de stock bajo en este almacén. Misma paleta que .alm-row-bajo en la
                  tabla (#fee2e2 / #fecaca / #b91c1c) para que el usuario asocie ambos avisos.
                  Layout flex: icono a la izquierda con su propio ancho fijo, texto fluido a la
@@ -3149,7 +3145,6 @@
         m.dataset.ubicacion = ubicacion || '';
         m.dataset.saldo = (saldo == null ? '0' : String(saldo));
         m.dataset.minimo = hasMin ? String(minimo) : '';
-        el('almDetMin').textContent = hasMin ? formatNum(minimo) : 'Sin definir';
         var bajo = hasMin && parseFloat(saldo || 0) <= parseFloat(minimo);
         // 'flex' (no '' ni 'block') porque el badge se layoutea con icono a la izquierda
         // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.

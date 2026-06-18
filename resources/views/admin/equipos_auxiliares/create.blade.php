@@ -64,7 +64,7 @@
 
         @include('admin.equipos_auxiliares.partials.form_fields')
 
-        <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center;">
+        <div style="margin-top: 22px; display: flex; gap: 12px; justify-content: center;">
             <a href="{{ route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>

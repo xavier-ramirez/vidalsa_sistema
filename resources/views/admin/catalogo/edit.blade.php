@@ -3,12 +3,15 @@
 @section('title', 'Editar Modelo - Catálogo')
 
 @section('content')
-<div style="max-width: 900px; margin: 0 auto;">
-    <section class="page-title-card" style="margin: 0 auto 10px auto; text-align: center;">
+<div style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
+    {{-- Título con el MISMO markup que /admin/equipos (div flex + margin-bottom:16px,
+         .page-title/.page-title-line2): mismo tamaño y separación vertical, en móvil
+         baja a 18px por la regla global responsive. --}}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h1 class="page-title">
             <span class="page-title-line2" style="color: #000;">Edición: {{ $catalogo->MODELO }}</span>
         </h1>
-    </section>
+    </div>
 
     <div class="admin-card">
         <form id="catalogoForm" action="{{ route('catalogo.update', $catalogo->ID_ESPEC) }}" method="POST" enctype="multipart/form-data">

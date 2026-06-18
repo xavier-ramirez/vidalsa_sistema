@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\CaracteristicaModelo;
 use App\Models\Equipo;
+use App\Models\EquipoAuxiliar;
+use App\Models\TipoEquipo;
 use App\Services\GoogleDriveService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
@@ -54,71 +57,198 @@ class CaracteristicaModeloController extends Controller
         }
     }
 
+    /**
+     * Catálogo UNIFICADO: muestra VEHÍCULOS (caracteristicas_modelo) y AUXILIARES
+     * (equipos_auxiliares agrupados) en una sola grilla con el mismo estilo de tarjeta.
+     * Los filtros Tipo y Modelo van agrupados VEHÍCULOS/AUXILIARES (igual que el
+     * tipo_activo de /admin/fallas): valores tipo_eq:{id} / tipo_aux:{TIPO} y
+     * modelo_eq:{modelo} / modelo_aux:{modelo}. El filtro Año aplica a ambos.
+     */
     public function index(Request $request)
     {
-        $query = CaracteristicaModelo::query();
+        $tipoFiltro   = (string) $request->input('tipo', '');     // '' | tipo_eq:{id} | tipo_aux:{TIPO}
+        $modeloFiltro = (string) $request->input('modelo', '');   // '' | modelo_eq:{m} | modelo_aux:{m}
+        $anio         = (string) $request->input('anio', '');
 
-        // 1. Filter by Model
-        if ($request->filled('modelo') && trim($request->modelo) !== '' && $request->modelo !== 'all') {
-            $query->where('MODELO', 'like', "%{$request->modelo}%");
-        }
+        // Qué clases mostrar según el filtro Tipo/Modelo (si apunta a una clase, solo esa).
+        $verVehiculos  = ($tipoFiltro === '' || str_starts_with($tipoFiltro, 'tipo_eq:'))
+                       && !str_starts_with($modeloFiltro, 'modelo_aux:');
+        $verAuxiliares = ($tipoFiltro === '' || str_starts_with($tipoFiltro, 'tipo_aux:'))
+                       && !str_starts_with($modeloFiltro, 'modelo_eq:');
 
-        // 2. Filter by Year
-        if ($request->filled('anio') && trim($request->anio) !== '' && $request->anio !== 'all') {
-            $query->where('ANIO_ESPEC', $request->anio);
-        }
+        $items = $this->buildCatalogoItems($verVehiculos, $verAuxiliares, $tipoFiltro, $modeloFiltro, $anio);
 
-        // 3. Filter by Tipo de Equipo. El catálogo ahora guarda su TIPO en columna propia
-        //    (caracteristicas_modelo.TIPO, nombre en MAYÚSCULAS). El filtro de la UI envía el
-        //    id del tipo; lo mapeamos a su nombre para comparar contra la columna real.
-        if ($request->filled('id_tipo') && $request->id_tipo !== 'all') {
-            $tipoNombre = \App\Models\TipoEquipo::where('id', $request->id_tipo)->value('nombre');
-            if ($tipoNombre) {
-                $query->where('TIPO', strtoupper(trim($tipoNombre)));
-            }
-        }
+        $totalCount       = $items->count();
+        $countVehiculos   = $items->where('clase', 'VEHICULO')->count();
+        $countAuxiliares  = $items->where('clase', 'AUXILIAR')->count();
 
-        // Stats Calculation (Based on current filters)
-        $statsQuery = $query->clone();
-        $totalCount = $statsQuery->count();
+        // Paginación manual en bloques de 12 (el cliente los carga por scroll infinito).
+        $page    = max(1, (int) $request->input('page', 1));
+        $perPage = 24; // lotes más grandes → la mitad de peticiones al hacer scroll infinito
+        $catalogos = new LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $totalCount, $perPage, $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
-        // Group by Model (for Sidebar Stats)
-        $modelCounts = $query->clone()
-            ->select('MODELO', DB::raw('count(*) as count'))
-            ->groupBy('MODELO')
-            ->orderBy('count', 'desc')
-            ->get();
-
-        // Paginado en bloques de 12 — el cliente los carga por scroll infinito.
-        $catalogos = $query->orderBy('MODELO', 'asc')->paginate(12);
-
-        // --- Standardized Lists (Not Context-Aware to avoid confusion) ---
-        // This matches Equipo logic: Load all available options regardless of current filter
-        $availableModelos = CaracteristicaModelo::select('MODELO')->distinct()->orderBy('MODELO')->pluck('MODELO');
-        $availableAnios = CaracteristicaModelo::select('ANIO_ESPEC')->distinct()->orderBy('ANIO_ESPEC', 'desc')->pluck('ANIO_ESPEC');
-        // Tipos disponibles para el filtro: los que realmente tiene asignado algún catálogo
-        // (columna TIPO). Se devuelve id+nombre porque la UI del filtro trabaja con el id.
-        $availableTipos = \App\Models\TipoEquipo::whereIn('nombre', function ($q) {
+        // ── Listas para los filtros agrupados (todas las opciones, no auto-limitadas) ──
+        $tiposVehiculo = TipoEquipo::whereIn('nombre', function ($q) {
                 $q->select('TIPO')->from('caracteristicas_modelo')->whereNotNull('TIPO');
-            })
-            ->orderBy('nombre')
-            ->get(['id', 'nombre']);
+            })->orderBy('nombre')->get(['id', 'nombre']);
+        $tiposAux = $this->tiposAuxLabels();
+        $modelosVehiculo = CaracteristicaModelo::whereNotNull('MODELO')->where('MODELO', '!=', '')
+            ->distinct()->orderBy('MODELO')->pluck('MODELO');
+        $modelosAux = EquipoAuxiliar::whereNotNull('MODELO')->where('MODELO', '!=', '')
+            ->distinct()->orderBy('MODELO')->pluck('MODELO');
+        $aniosVehiculo = CaracteristicaModelo::whereNotNull('ANIO_ESPEC')->distinct()->pluck('ANIO_ESPEC');
+        $aniosAux      = EquipoAuxiliar::whereNotNull('ANIO')->where('ANIO', '!=', 0)->distinct()->pluck('ANIO');
+        $availableAnios = $aniosVehiculo->merge($aniosAux)->unique()->sortDesc()->values();
 
-        // JSON Response for AJAX (scroll infinito: el cliente AGREGA las
-        // tarjetas al final del grid; hasMore indica si quedan páginas).
         if ($request->wantsJson() && $request->has('ajax_load')) {
-            $tableHtml = view('admin.catalogo.partials.table_rows', compact('catalogos'))->render();
-            $statsHtml = view('admin.catalogo.partials.stats_sidebar', compact('totalCount', 'modelCounts'))->render();
-
             return response()->json([
-                'html'    => $tableHtml,
+                'html'    => view('admin.catalogo.partials.table_rows', compact('catalogos'))->render(),
                 'hasMore' => $catalogos->hasMorePages(),
                 'page'    => $catalogos->currentPage(),
-                'stats'   => $statsHtml,
             ]);
         }
 
-        return view('admin.catalogo.index', compact('catalogos', 'availableModelos', 'availableAnios', 'availableTipos', 'totalCount', 'modelCounts'));
+        return view('admin.catalogo.index', compact(
+            'catalogos', 'totalCount', 'countVehiculos', 'countAuxiliares',
+            'tiposVehiculo', 'tiposAux', 'modelosVehiculo', 'modelosAux', 'availableAnios'
+        ));
+    }
+
+    /**
+     * Construye la colección unificada de items (arrays normalizados) del catálogo.
+     * Cada item: clase, id, tipo, modelo, marca, anio, foto_url, placeholder, total, specs.
+     */
+    private function buildCatalogoItems(bool $verVehiculos, bool $verAuxiliares, string $tipoFiltro, string $modeloFiltro, string $anio)
+    {
+        $items = collect();
+
+        // ── VEHÍCULOS (caracteristicas_modelo) ──
+        if ($verVehiculos) {
+            $q = CaracteristicaModelo::query();
+            if (str_starts_with($tipoFiltro, 'tipo_eq:')) {
+                $nombre = TipoEquipo::where('id', (int) substr($tipoFiltro, 8))->value('nombre');
+                $q->where('TIPO', $nombre ? strtoupper(trim($nombre)) : '__none__');
+            }
+            if (str_starts_with($modeloFiltro, 'modelo_eq:')) {
+                $q->where('MODELO', substr($modeloFiltro, 10));
+            }
+            if ($anio !== '' && $anio !== 'all') {
+                $q->where('ANIO_ESPEC', $anio);
+            }
+            foreach ($q->orderBy('MODELO')->get() as $cm) {
+                $driveId = $cm->FOTO_REFERENCIAL
+                    ? basename(str_replace('/storage/google/', '', explode('?', $cm->FOTO_REFERENCIAL)[0]))
+                    : null;
+                $items->push([
+                    'clase'       => 'VEHICULO',
+                    'id'          => $cm->ID_ESPEC,
+                    'tipo'        => $cm->TIPO,
+                    'modelo'      => $cm->MODELO,
+                    'marca'       => null,
+                    'anio'        => $cm->ANIO_ESPEC,
+                    'foto_url'    => $driveId ? url('/storage/google/' . $driveId . '?sz=w300') : null,
+                    'placeholder' => 'precision_manufacturing',
+                    'total'       => null,
+                    'specs'       => array_filter([
+                        'Motor'        => $cm->MOTOR,
+                        'Combustible'  => $cm->COMBUSTIBLE,
+                        'Consumo'      => $cm->CONSUMO_PROMEDIO ? $cm->CONSUMO_PROMEDIO . ' L/día' : null,
+                        'Batería'      => $cm->TIPO_BATERIA,
+                        'Aceite Motor' => $cm->ACEITE_MOTOR,
+                        'Aceite Caja'  => $cm->ACEITE_CAJA,
+                        'Liga Freno'   => $cm->LIGA_FRENO,
+                        'Refrigerante' => $cm->REFRIGERANTE,
+                    ], fn ($v) => $v !== null && $v !== ''),
+                    'sort'        => '0_' . $cm->MODELO,
+                ]);
+            }
+        }
+
+        // ── AUXILIARES (equipos_auxiliares agrupados por TIPO+MARCA+MODELO+AÑO) ──
+        if ($verAuxiliares) {
+            $base = EquipoAuxiliar::query();
+            if ($user = auth()->user()) {
+                $user->aplicarScopeFrentes($base, 'ID_FRENTE_ACTUAL');
+            }
+            if (str_starts_with($tipoFiltro, 'tipo_aux:')) {
+                $base->where('TIPO', substr($tipoFiltro, 9));
+            }
+            if (str_starts_with($modeloFiltro, 'modelo_aux:')) {
+                $base->where('MODELO', substr($modeloFiltro, 11));
+            }
+            if ($anio !== '' && $anio !== 'all') {
+                $base->where('ANIO', $anio);
+            }
+
+            $grupos = (clone $base)
+                ->selectRaw("
+                    TIPO,
+                    COALESCE(NULLIF(TRIM(MARCA), ''), '—') as MARCA_KEY,
+                    COALESCE(NULLIF(TRIM(MODELO), ''), '—') as MODELO_KEY,
+                    COALESCE(ANIO, 0) as ANIO_KEY,
+                    COUNT(*) as total
+                ")
+                ->groupBy('TIPO', 'MARCA_KEY', 'MODELO_KEY', 'ANIO_KEY')
+                ->orderBy('TIPO')->orderBy('MARCA_KEY')->orderBy('MODELO_KEY')->orderBy('ANIO_KEY', 'desc')
+                ->get();
+
+            $fotos = (clone $base)
+                ->whereNotNull('FOTO')->where('FOTO', '!=', '')
+                ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, CAPACIDAD, ID_AUXILIAR')
+                ->orderByDesc('ID_AUXILIAR')->get()
+                ->reduce(function ($carry, $a) {
+                    $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->ANIO ?? 0)));
+                    if (!isset($carry[$key])) $carry[$key] = ['foto' => $a->FOTO, 'capacidad' => $a->CAPACIDAD];
+                    return $carry;
+                }, []);
+
+            $tiposMap = $this->tiposAuxLabels();
+
+            foreach ($grupos as $g) {
+                $key  = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->ANIO_KEY ?? 0)));
+                $info = $fotos[$key] ?? ['foto' => null, 'capacidad' => null];
+                $foto = $info['foto'] ?? null;
+                if ($foto && !str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
+                    $foto = '/storage/' . ltrim($foto, '/');
+                }
+                $items->push([
+                    'clase'       => 'AUXILIAR',
+                    'id'          => null,
+                    'tipo'        => $tiposMap[$g->TIPO] ?? $g->TIPO,
+                    'tipo_raw'    => $g->TIPO,
+                    'modelo'      => $g->MODELO_KEY,
+                    'marca'       => $g->MARCA_KEY !== '—' ? $g->MARCA_KEY : null,
+                    'anio'        => $g->ANIO_KEY ? (int) $g->ANIO_KEY : null,
+                    'foto_url'    => $foto,
+                    'placeholder' => 'construction',
+                    'total'       => (int) $g->total,
+                    'specs'       => array_filter([
+                        'Marca'     => $g->MARCA_KEY !== '—' ? $g->MARCA_KEY : null,
+                        'Capacidad' => $info['capacidad'],
+                    ], fn ($v) => $v !== null && $v !== ''),
+                    'sort'        => '1_' . $g->TIPO . '_' . $g->MODELO_KEY,
+                ]);
+            }
+        }
+
+        // VEHÍCULOS primero, luego AUXILIARES; dentro de cada clase, por modelo.
+        return $items->sortBy('sort')->values();
+    }
+
+    /** Mapa TIPO => etiqueta legible de auxiliares (mismo criterio que el módulo aux). */
+    private function tiposAuxLabels(): array
+    {
+        $tipos = EquipoAuxiliar::tiposLabel();
+        foreach (EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')->distinct()->orderBy('TIPO')->pluck('TIPO') as $t) {
+            if (!isset($tipos[$t])) {
+                $tipos[$t] = ucwords(mb_strtolower(str_replace('_', ' ', $t)));
+            }
+        }
+        return $tipos;
     }
 
     public function create()

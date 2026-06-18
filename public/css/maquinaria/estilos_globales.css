@@ -2314,7 +2314,11 @@ input:-webkit-autofill:active {
     }
 
     /* Fix long serials breaking the header on mobile */
-    #modal_equipo_title,
+    #modal_equipo_title {
+        font-size: 14.5px !important;
+        word-break: break-word;
+        white-space: normal;
+    }
     #modal_equipo_subtitle {
         word-break: break-word;
         white-space: normal;
@@ -3507,7 +3511,7 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     }
 
     /* ── Barra de captura en móvil ──
-       En desktop la barra se pega a la lista (borde-top none, radio solo abajo).
+       En desktop la barra va ARRIBA de la lista (radio arriba, lista radio abajo).
        En móvil la lista son tarjetas sueltas, así que la barra pasa a ser su PROPIA
        tarjeta: borde y radio completos. Y compacta: buscador full-width arriba,
        UND + cantidad + ↵ en la fila de abajo (flex-wrap ya lo gestiona). */

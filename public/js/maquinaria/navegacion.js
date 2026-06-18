@@ -329,7 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // window.location.href porque tambien fallaria — solo mostrar toast y
             // dejar al usuario en la pagina actual para que reintente cuando vuelva.
             if (!navigator.onLine || error instanceof TypeError) {
-                if (typeof window.netStatus?.showOffline === 'function' && !navigator.onLine) {
+                // Mostrar el aviso AUNQUE navigator.onLine diga "online": un TypeError aquí
+                // ("Failed to fetch") significa que el servidor no respondió (caído o sin
+                // internet real). Antes se exigía !navigator.onLine y por eso en el
+                // navegador casi nunca salía el banner.
+                if (typeof window.netStatus?.showOffline === 'function') {
                     window.netStatus.showOffline();
                 }
                 if (typeof window.showToast === 'function') {

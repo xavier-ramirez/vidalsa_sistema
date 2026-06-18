@@ -1,6 +1,6 @@
                 @forelse($users as $user)
                     <tr>
-                         <td class="table-cell-bordered" style="font-weight: 700; color: var(--maquinaria-dark-blue); padding: 8px 12px; white-space: nowrap;">
+                         <td class="table-cell-bordered" style="font-size: 14px; font-weight: 700; color: var(--maquinaria-dark-blue); padding: 8px 12px; white-space: nowrap;">
                             {{-- Tooltip estilizado (igual que el "detalle" de equipos): al
                                  pasar/enfocar la fila se muestra la fecha de creación. El CSS
                                  global `.admin-table tr:hover .tooltip-bubble` lo dispara. --}}
@@ -13,18 +13,18 @@
                             </div>
                         </td>
                         <td class="table-cell-bordered" style="color: var(--maquinaria-gray-text); font-size: 14px; padding: 8px 12px; white-space: nowrap;">{{ $user->CORREO_ELECTRONICO }}</td>
-                        <td class="table-cell-bordered" style="padding: 8px 12px; text-align: left; color: #4a5568; font-weight: 600;">
+                        <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; text-align: left; color: #4a5568; font-weight: 600;">
                             {{ $user->rol->NOMBRE_ROL ?? 'S/R' }}
                         </td>
-                        <td class="table-cell-bordered" style="padding: 8px 12px; text-align: left !important; white-space: nowrap;">
+                        <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; text-align: left !important; white-space: nowrap;">
                             <span style="color: {{ $user->NIVEL_ACCESO == 1 ? '#2c7a7b' : '#6b46c1' }}; font-weight: 700;">
                                 {{ $user->nivel_acceso_texto }}
                             </span>
                         </td>
-                        <td class="table-cell-bordered" style="padding: 8px 12px; color: var(--maquinaria-gray-text); white-space: nowrap;">
+                        <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; color: var(--maquinaria-gray-text); white-space: nowrap;">
                             {{ $user->frenteAsignado->NOMBRE_FRENTE ?? 'Global' }}
                         </td>
-                        <td class="table-cell-bordered" style="padding: 8px 12px; text-align: left !important;">
+                        <td class="table-cell-bordered" style="font-size: 14px; padding: 8px 12px; text-align: left !important;">
                             <span style="color: {{ $user->ESTATUS == 'ACTIVO' ? '#2c7a7b' : '#c53030' }}; font-weight: 700;">
                                 {{ $user->ESTATUS }}
                             </span>

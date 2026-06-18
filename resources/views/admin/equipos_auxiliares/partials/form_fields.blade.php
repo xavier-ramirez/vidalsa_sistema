@@ -2,7 +2,15 @@
      10 campos distribuidos en 2 filas x 5 columnas en PC (grid-responsive-5).
      Estilo identico a /admin/equipos/create: labels bold azul oscuro, form-input-custom, asterisco rojo. --}}
 
-<div class="grid-responsive-5">
+<style>
+    /* Compacta verticalmente SOLO el form de auxiliar (menos alto entre filas y
+       labels) sin tocar el grid global .grid-responsive-5 que usan otros módulos. */
+    .grid-responsive-5.aux-form-compact { row-gap: 12px; }
+    .aux-form-compact label[style*="margin-bottom: 8px"],
+    .aux-form-compact span[style*="margin-bottom: 8px"] { margin-bottom: 4px !important; }
+</style>
+
+<div class="grid-responsive-5 aux-form-compact">
     {{-- Fila 1: Identificacion --}}
     <div>
         @php
@@ -189,7 +197,7 @@
             </div>
         </div>
         <small style="display:block;margin-top:4px;font-size:11px;color:#94a3b8;">
-            Opcional. Máximo {{ \App\Models\EquipoAuxiliar::ANCHOR_MAX_PER_HOST }} auxiliares por equipo vinculado.
+            Opcional. Máx. {{ \App\Models\EquipoAuxiliar::ANCHOR_MAX_PER_HOST }} por equipo.
         </small>
     </div>
 </div>
@@ -205,9 +213,9 @@
     $hasProp = !empty($auxiliar->LINK_DOC_PROPIEDAD);
     $hasCert = !empty($auxiliar->LINK_CERTIFICADO);
 @endphp
-<h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; margin: 30px 0 20px 0;">Documentación Legal</h3>
+<h3 style="color: var(--maquinaria-blue); font-size: 16px; border-bottom: 2px solid #f0f2f5; padding-bottom: 8px; margin: 18px 0 12px 0;">Documentación Legal</h3>
 
-<div class="grid-responsive-5">
+<div class="grid-responsive-5 aux-form-compact">
     {{-- Documento de Propiedad (meta readonly + boton PDF, sin campo editable) --}}
     <div style="position: relative;">
         <label for="doc_propiedad_meta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Documento de Propiedad</label>

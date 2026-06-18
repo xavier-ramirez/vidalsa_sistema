@@ -250,7 +250,8 @@ class MovilizacionController extends Controller
             // equipo no se movería al frente destino.
             $equipo->ID_FRENTE_ACTUAL         = $request->ID_FRENTE_DESTINO;
             $equipo->DETALLE_UBICACION_ACTUAL = null;
-            $equipo->CONFIRMADO_EN_SITIO      = 1;
+            // Despacho → pendiente de confirmar en el frente destino (se tilda al llegar).
+            $equipo->CONFIRMADO_EN_SITIO      = 0;
             $equipo->save();
 
             DB::commit();
@@ -371,7 +372,9 @@ class MovilizacionController extends Controller
 
             \App\Models\Equipo::whereIn('ID_EQUIPO', $aMovilizar->pluck('ID_EQUIPO'))->update([
                 'ID_FRENTE_ACTUAL'         => $frente->ID_FRENTE,
-                'CONFIRMADO_EN_SITIO'      => 1,
+                // Despacho → queda PENDIENTE de confirmar en el frente destino (el usuario
+                // lo tilda físicamente al llegar). Antes se ponía 1 (auto-confirmado).
+                'CONFIRMADO_EN_SITIO'      => 0,
                 'DETALLE_UBICACION_ACTUAL' => null,
             ]);
 
@@ -1099,7 +1102,8 @@ class MovilizacionController extends Controller
             // propiedad + save(), NO update([...]) (mass-assign lo descartaría en silencio).
             $equipo->ID_FRENTE_ACTUAL         = $request->ID_FRENTE_DESTINO;
             $equipo->DETALLE_UBICACION_ACTUAL = null;
-            $equipo->CONFIRMADO_EN_SITIO      = 1;
+            // Despacho → pendiente de confirmar en el frente destino (se tilda al llegar).
+            $equipo->CONFIRMADO_EN_SITIO      = 0;
             $equipo->save();
 
             DB::commit();

@@ -224,6 +224,20 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     const oldStatus = triggerEl.dataset.status;
     if (oldStatus === newStatus) return;
 
+    // ── OFFLINE (Fase 2): delega en el módulo offline (encola + copia local +
+    // repinta). Lógica única en equipos-offline.js (window.eqOffSetEstado). ──
+    if (window.OfflineMode && window.OfflineMode.estaActivo()) {
+        // INOPERATIVO exige crear un reporte de falla (modal no disponible offline).
+        if (newStatus === 'INOPERATIVO') {
+            if (window.showToast) window.showToast('INOPERATIVO requiere crear un reporte de falla; hazlo con internet.', 'error');
+            return;
+        }
+        if (typeof window.eqOffSetEstado === 'function') {
+            window.eqOffSetEstado(Number(id), newStatus, triggerEl.dataset.label);
+        }
+        return;
+    }
+
     // INOPERATIVO se gestiona CREANDO un reporte de falla (el backend deja el
     // equipo inoperativo). Abrimos el modal "Nuevo Reporte" pre-seleccionado; si
     // se cancela, no cambia nada; al crear, handleFallaCreatedEquipo marca el estado.
@@ -266,6 +280,58 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     .catch(err => {
         revert();
         if (window.showToast) window.showToast('Error al cambiar el estatus: ' + err.message, 'error');
+    });
+};
+
+// ── Confirmación de presencia en sitio (CONFIRMADO_EN_SITIO) ──────────────────
+// Toggle desde el chip de la lista (celda del frente) o el botón del modal de
+// detalles. Update OPTIMISTA de todos los elementos del mismo equipo (chips +
+// botón del modal) + PATCH. Mismo patrón que changeStatusLite.
+function _pintarConfirmSitio(id, confirmado) {
+    document.querySelectorAll('.confirm-sitio-chip[data-equipo-id="' + id + '"]').forEach(function (el) {
+        el.dataset.confirmado = confirmado ? '1' : '0';
+        el.style.color = confirmado ? '#16a34a' : '#cbd5e0';
+        el.textContent = confirmado ? 'check_circle' : 'radio_button_unchecked';
+        el.title = confirmado ? 'Confirmado en sitio (click para quitar)' : 'Sin confirmar (click para confirmar)';
+    });
+    var mb = document.getElementById('btn_confirmar_sitio_modal');
+    if (mb && String(mb.dataset.equipoId) === String(id)) {
+        mb.dataset.confirmado = confirmado ? '1' : '0';
+        var mic = mb.querySelector('.material-icons');
+        if (mic) mic.textContent = confirmado ? 'check_circle' : 'radio_button_unchecked';
+        mb.style.color = confirmado ? '#4ade80' : 'white';
+        mb.title = confirmado ? 'Confirmado en sitio (click para quitar)' : 'Confirmar presencia en sitio';
+    }
+}
+
+window.toggleConfirmacionSitio = function (el) {
+    var id = (el && el.dataset) ? el.dataset.equipoId : null;
+    if (!id) return;
+    var actual = el.dataset.confirmado === '1';
+    var nuevo = !actual;
+    _pintarConfirmSitio(id, nuevo); // optimista
+
+    fetch('/admin/equipos/' + id + '/confirmar-sitio', {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ confirmado: nuevo ? 1 : 0 }),
+    })
+    .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+    .then(function (res) {
+        if (res.status === 200 && res.body && res.body.success) {
+            _pintarConfirmSitio(id, res.body.confirmado === 1);
+            if (window.showToast) window.showToast(res.body.confirmado === 1 ? 'Confirmado en sitio.' : 'Marcado como sin confirmar.', 'success');
+            return;
+        }
+        throw new Error((res.body && res.body.message) || 'Error desconocido');
+    })
+    .catch(function (err) {
+        _pintarConfirmSitio(id, actual); // revertir
+        if (window.showToast) window.showToast('No se pudo actualizar la confirmación: ' + err.message, 'error');
     });
 };
 
@@ -779,6 +845,8 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         categoria: getVal('input[name="categoria"]', advancedPanel || document),
         estado: getVal('input[name="estado"]', advancedPanel || document),
         gps: getVal('input[name="gps"]', advancedPanel || document),
+        color: getVal('input[name="color"]', advancedPanel || document),
+        confirmado: getVal('input[name="confirmado"]', advancedPanel || document),
         filter_propiedad: document.getElementById("chk_propiedad")?.checked
             ? "true"
             : null,
@@ -809,7 +877,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.detalle_ubicacion || filters.anio || filters.categoria || filters.estado || filters.gps || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.detalle_ubicacion || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -1401,6 +1469,14 @@ window.openBulkModal = function (event) {
         Object.keys(window.selectedEquipos).length === 0
     ) {
         alert("Por favor seleccione equipos primero.");
+        return;
+    }
+
+    // ── OFFLINE (Fase 2): el modal online crea frentes, pide ubicación y genera
+    // acta (todo server-side). Sin internet abrimos un modal SIMPLE que solo mueve
+    // a un frente EXISTENTE y encola la acción. El acta queda disponible al sincronizar.
+    if (window.OfflineMode && window.OfflineMode.estaActivo() && typeof window.abrirModalMovilizarOffline === 'function') {
+        window.abrirModalMovilizarOffline(Object.values(window.selectedEquipos));
         return;
     }
 
@@ -2686,6 +2762,12 @@ window.exportEquipos = function () {
     const estadoInput = advancedPanel
         ? (advancedPanel.querySelector('input[name="estado"]') || document.querySelector('input[name="estado"]'))
         : document.querySelector('input[name="estado"]');
+    const colorInput = advancedPanel
+        ? advancedPanel.querySelector('input[name="color"]')
+        : document.querySelector('input[name="color"]');
+    const confirmadoInput = advancedPanel
+        ? advancedPanel.querySelector('input[name="confirmado"]')
+        : document.querySelector('input[name="confirmado"]');
 
     const params = new URLSearchParams();
 
@@ -2724,6 +2806,8 @@ window.exportEquipos = function () {
     hasAnyFilter |= appendIfValid("anio", anioInput?.value);
     hasAnyFilter |= appendIfValid("categoria", categoriaInput?.value);
     hasAnyFilter |= appendIfValid("estado", estadoInput?.value);
+    hasAnyFilter |= appendIfValid("color", colorInput?.value);
+    hasAnyFilter |= appendIfValid("confirmado", confirmadoInput?.value);
 
     // Documentation Boolean Filters
     if (document.getElementById("chk_propiedad")?.checked) {

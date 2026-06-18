@@ -29,6 +29,10 @@ Route::middleware(['auth'])->group(function () {
         // snapshot(): copia de solo lectura, acotada a los almacenes visibles del usuario.
         Route::get('/offline/version',  [App\Http\Controllers\OfflineController::class, 'version'])->name('offline.version');
         Route::get('/offline/snapshot', [App\Http\Controllers\OfflineController::class, 'snapshot'])->name('offline.snapshot');
+        // Fase 2 (escritura offline): el outbox de la PWA sube aquí las acciones
+        // hechas sin internet (movilizar/estado/recepción). Gates por acción dentro
+        // del controller; ruta WEB (sesión + CSRF), no la API Sanctum del APK.
+        Route::post('/offline/sync', [App\Http\Controllers\OfflineSyncController::class, 'sync'])->name('offline.sync');
 
         Route::prefix('admin')->group(function () {
             // Ruta de perfil propio (disponible para TODOS los usuarios autenticados)
@@ -61,6 +65,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('catalogo/models-from-equipos', [App\Http\Controllers\CaracteristicaModeloController::class, 'getModelsFromEquipos'])->name('catalogo.modelsFromEquipos');
             Route::get('catalogo/years-from-equipos', [App\Http\Controllers\CaracteristicaModeloController::class, 'getYearsFromEquipos'])->name('catalogo.yearsFromEquipos');
             Route::patch('equipos/{id}/status', [App\Http\Controllers\EquipoController::class, 'changeStatus'])->name('equipos.changeStatus');
+            // Confirmar presencia física del equipo en su frente (CONFIRMADO_EN_SITIO).
+            Route::patch('equipos/{id}/confirmar-sitio', [App\Http\Controllers\EquipoController::class, 'confirmarSitio'])->name('equipos.confirmarSitio');
             Route::post('equipos/{id}/upload-doc', [App\Http\Controllers\EquipoController::class, 'uploadDoc'])->name('equipos.uploadDoc');
             // Borrar documento del equipo: destructivo (borra del Drive + BD), solo super.admin.
             Route::delete('equipos/{id}/delete-doc', [App\Http\Controllers\EquipoController::class, 'deleteDoc'])

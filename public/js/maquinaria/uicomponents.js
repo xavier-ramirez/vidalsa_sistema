@@ -617,7 +617,11 @@ window.clearAdvancedFilters = function () {
     if (window.searchTimeout) clearTimeout(window.searchTimeout);
 
     // Clear all Custom Dropdown Advanced Filters
-    const advFilters = ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter', 'categoriaAdvFilter', 'estadoAdvFilter'];
+    const advFilters = [
+        'modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter',
+        'categoriaAdvFilter', 'estadoAdvFilter', 'gpsAdvFilter',
+        'ubicacionAdvFilter', 'colorAdvFilter', 'confirmadoAdvFilter',
+    ];
     advFilters.forEach(id => {
         if (document.getElementById(id) && typeof window.clearDropdownFilter === 'function') {
             window.clearDropdownFilter(id);
@@ -837,8 +841,22 @@ window.showDetailsImproved = function (target, event) {
     const titleEl = document.getElementById("modal_equipo_title");
     if (titleEl) titleEl.style.textTransform = "uppercase";
 
+    // Botón "confirmar en sitio" del header: sincroniza id + estado del equipo abierto
+    // (lo togglea window.toggleConfirmacionSitio). Solo existe con permiso equipos.edit.
+    const confBtn = document.getElementById("btn_confirmar_sitio_modal");
+    if (confBtn) {
+        const conf = String(d.confirmado) === "1";
+        confBtn.dataset.equipoId = d.equipoId;
+        confBtn.dataset.confirmado = conf ? "1" : "0";
+        const ci = confBtn.querySelector(".material-icons");
+        if (ci) ci.textContent = conf ? "check_circle" : "radio_button_unchecked";
+        confBtn.style.color = conf ? "#4ade80" : "white";
+        confBtn.title = conf ? "Confirmado en sitio (click para quitar)" : "Confirmar presencia en sitio";
+    }
+
+    // Encabezado: solo el serial de chasis (la PLACA se quitó del header por
+    // solicitud del usuario; sigue visible en el cuerpo del modal — #d_placa).
     const subtitleParts = [];
-    if (d.placa && d.placa !== "N/A") subtitleParts.push(`Placa: ${d.placa}`);
     if (d.chasis && d.chasis !== "N/A")
         subtitleParts.push(`Serial: ${d.chasis}`);
     set("modal_equipo_subtitle", subtitleParts.join(" - "));

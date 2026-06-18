@@ -22,8 +22,21 @@
              bold 11px arriba, foto 170x105 abajo. La burbuja de DETALLE_UBICACION
              se mantiene (tooltip-bubble + .admin-table tr:hover trigger). --}}
         <td class="table-cell-custom table-cell-center" style="padding: 6px 4px; width: 150px;">
+            @php $cfd = (int) ($equipo->CONFIRMADO_EN_SITIO ?? 0); @endphp
             <div class="tooltip-wrapper" style="font-size: 13px; color: #000; margin-bottom: 5px; line-height: 1.25; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word; position: relative; cursor: default;">
-                {{ $equipo->frenteActual->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+                <span style="display:inline-flex; align-items:center; gap:3px; justify-content:center;">
+                    {{ $equipo->frenteActual->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+                    <i class="material-icons confirm-sitio-chip"
+                       data-equipo-id="{{ $equipo->ID_EQUIPO }}"
+                       data-confirmado="{{ $cfd }}"
+                       @can('equipos.edit')
+                           onclick="event.stopPropagation(); window.toggleConfirmacionSitio(this)"
+                           title="{{ $cfd ? 'Confirmado en sitio (click para quitar)' : 'Sin confirmar (click para confirmar)' }}"
+                       @else
+                           title="{{ $cfd ? 'Confirmado en sitio' : 'Sin confirmar' }}"
+                       @endcan
+                       style="font-size:14px; color:{{ $cfd ? '#16a34a' : '#cbd5e0' }};@can('equipos.edit') cursor:pointer;@endcan">{{ $cfd ? 'check_circle' : 'radio_button_unchecked' }}</i>
+                </span>
 
                 @if($equipo->frenteActual && $equipo->frenteActual->ESTATUS_FRENTE === 'FINALIZADO')
                     <div style="display:flex; align-items:center; justify-content:center; gap:3px; margin-top:3px;">
@@ -160,6 +173,7 @@
                     data-anchor-serial="{{ optional($equipo->ancladoA)->SERIAL_CHASIS ?? '' }}"
                     data-anchor-rol="{{ optional(optional($equipo->ancladoA)->tipo)->ROL_ANCLAJE ?? '' }}"
                     data-anchor-tipo-nombre="{{ optional(optional($equipo->ancladoA)->tipo)->nombre ?? 'Equipo' }}"
+                    data-confirmado="{{ (int) ($equipo->CONFIRMADO_EN_SITIO ?? 0) }}"
                     onclick="showDetailsImproved(this, event)"
                     class="btn-details-mini" title="Ver Detalles">
                     <i class="material-icons">visibility</i>

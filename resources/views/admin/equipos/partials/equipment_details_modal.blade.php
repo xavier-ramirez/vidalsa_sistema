@@ -31,6 +31,17 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </div>
                 <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                    {{-- Confirmar presencia en sitio: estado e id los setea showDetailsImproved.
+                         Mismo toggle que el chip de la lista (window.toggleConfirmacionSitio). --}}
+                    @can('equipos.edit')
+                    <button type="button" id="btn_confirmar_sitio_modal" data-equipo-id="" data-confirmado="0"
+                        onclick="window.toggleConfirmacionSitio(this)" title="Confirmar presencia en sitio"
+                        style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                        <i class="material-icons" style="font-size: 18px;">radio_button_unchecked</i>
+                    </button>
+                    @endcan
                     @can('user.edit')
                     <button type="button" id="btn_edit_equipo_detalles" title="Editar datos del equipo"
                         onclick="editEquipoFromDetails(event)"

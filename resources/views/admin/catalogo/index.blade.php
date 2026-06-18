@@ -323,24 +323,35 @@
 
     {{-- Filtros — autocomplete con onChange-submit, sin boton Aplicar --}}
     @php
-        $reqModelo = request('modelo');
+        // Filtros agrupados VEHÍCULOS/AUXILIARES (valores tipo_eq:{id}/tipo_aux:{TIPO} y
+        // modelo_eq:{m}/modelo_aux:{m}); el Año aplica a ambas clases.
+        $reqTipo   = (string) request('tipo', '');
+        $reqModelo = (string) request('modelo', '');
         $reqAnio   = request('anio');
-        $reqTipo   = request('id_tipo');
-        $modeloLabel = ($reqModelo && $reqModelo !== 'all') ? $reqModelo : '';
-        $anioLabel   = ($reqAnio   && $reqAnio   !== 'all') ? $reqAnio   : '';
-        // Buscar el nombre del tipo seleccionado para mostrarlo en el placeholder
+        $anioLabel = ($reqAnio && $reqAnio !== 'all') ? $reqAnio : '';
+
         $tipoLabel = '';
-        if ($reqTipo && $reqTipo !== 'all') {
-            $found = ($availableTipos ?? collect())->firstWhere('id', (int) $reqTipo);
-            $tipoLabel = $found ? $found->nombre : '';
+        if (str_starts_with($reqTipo, 'tipo_eq:')) {
+            $f = ($tiposVehiculo ?? collect())->firstWhere('id', (int) substr($reqTipo, 8));
+            $tipoLabel = $f ? $f->nombre : '';
+        } elseif (str_starts_with($reqTipo, 'tipo_aux:')) {
+            $k = substr($reqTipo, 9);
+            $tipoLabel = $tiposAux[$k] ?? $k;
         }
+        $modeloLabel = '';
+        if (str_starts_with($reqModelo, 'modelo_eq:'))      $modeloLabel = substr($reqModelo, 10);
+        elseif (str_starts_with($reqModelo, 'modelo_aux:')) $modeloLabel = substr($reqModelo, 11);
+
+        // Mismo estilo que los grupos VEHÍCULOS/AUXILIARES del filtro de /admin/fallas
+        // (sin fondo: solo texto gris en mayúsculas con un borde superior fino).
+        $catGrpHdr = 'padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;';
     @endphp
     <form id="catalogoFilters" method="GET" action="{{ route('catalogo.index') }}"
           onsubmit="event.preventDefault(); catSubmit();">
 
-        {{-- Tipo de Equipo --}}
-        <div class="cat-filter {{ $reqTipo && $reqTipo !== 'all' ? 'active' : '' }}">
-            <input type="hidden" id="catValTipo" name="id_tipo" value="{{ $reqTipo && $reqTipo !== 'all' ? $reqTipo : '' }}" data-filter-value>
+        {{-- Tipo (agrupado VEHÍCULOS / AUXILIARES) --}}
+        <div class="cat-filter {{ $reqTipo ? 'active' : '' }}">
+            <input type="hidden" id="catValTipo" name="tipo" value="{{ $reqTipo }}" data-filter-value>
             <div class="cat-filter-box">
                 <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
                     <i class="material-icons" style="font-size:18px;">search</i>
@@ -352,24 +363,28 @@
                        onclick="catOpenList('tipo')"
                        onblur="setTimeout(()=>catCloseList('tipo'),200)">
                 <i class="material-icons filter-clear"
-                   style="display: {{ $reqTipo && $reqTipo !== 'all' ? 'flex' : 'none' }};"
+                   style="display: {{ $reqTipo ? 'flex' : 'none' }};"
                    onmousedown="event.preventDefault(); catSelect('tipo','','');">close</i>
             </div>
             <div id="catListTipo" class="cat-list">
                 <div class="cat-opt placeholder" data-label="TODOS LOS TIPOS"
                      onmousedown="event.preventDefault(); catSelect('tipo','','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
-                @foreach(($availableTipos ?? []) as $t)
+                <div style="{{ $catGrpHdr }}">VEHÍCULOS</div>
+                @foreach(($tiposVehiculo ?? []) as $t)
                     <div class="cat-opt" data-label="{{ $t->nombre }}"
-                         onmousedown="event.preventDefault(); catSelect('tipo','{{ $t->id }}','{{ addslashes($t->nombre) }}');">
-                        {{ $t->nombre }}
-                    </div>
+                         onmousedown="event.preventDefault(); catSelect('tipo','tipo_eq:{{ $t->id }}','{{ addslashes($t->nombre) }}');">{{ $t->nombre }}</div>
+                @endforeach
+                <div style="{{ $catGrpHdr }}">AUXILIARES</div>
+                @foreach(($tiposAux ?? []) as $k => $label)
+                    <div class="cat-opt" data-label="{{ $label }}"
+                         onmousedown="event.preventDefault(); catSelect('tipo','tipo_aux:{{ $k }}','{{ addslashes($label) }}');">{{ $label }}</div>
                 @endforeach
             </div>
         </div>
 
-        {{-- Modelo --}}
-        <div class="cat-filter {{ $reqModelo && $reqModelo !== 'all' ? 'active' : '' }}">
-            <input type="hidden" id="catValModelo" name="modelo" value="{{ $reqModelo && $reqModelo !== 'all' ? $reqModelo : '' }}" data-filter-value>
+        {{-- Modelo (agrupado VEHÍCULOS / AUXILIARES) --}}
+        <div class="cat-filter {{ $reqModelo ? 'active' : '' }}">
+            <input type="hidden" id="catValModelo" name="modelo" value="{{ $reqModelo }}" data-filter-value>
             <div class="cat-filter-box">
                 <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
                     <i class="material-icons" style="font-size:18px;">search</i>
@@ -381,17 +396,19 @@
                        onclick="catOpenList('modelo')"
                        onblur="setTimeout(()=>catCloseList('modelo'),200)">
                 <i class="material-icons filter-clear"
-                   style="display: {{ $reqModelo && $reqModelo !== 'all' ? 'flex' : 'none' }};"
+                   style="display: {{ $reqModelo ? 'flex' : 'none' }};"
                    onmousedown="event.preventDefault(); catSelect('modelo','','');">close</i>
             </div>
             <div id="catListModelo" class="cat-list">
-                <div class="cat-opt placeholder" data-label="TODOS LOS MODELOS"
-                     onmousedown="event.preventDefault(); catSelect('modelo','','TODOS LOS MODELOS');">TODOS LOS MODELOS</div>
-                @foreach($availableModelos as $mod)
+                <div style="{{ $catGrpHdr }}">VEHÍCULOS</div>
+                @foreach(($modelosVehiculo ?? []) as $mod)
                     <div class="cat-opt" data-label="{{ $mod }}"
-                         onmousedown="event.preventDefault(); catSelect('modelo','{{ $mod }}','{{ addslashes($mod) }}');">
-                        {{ $mod }}
-                    </div>
+                         onmousedown="event.preventDefault(); catSelect('modelo','modelo_eq:{{ addslashes($mod) }}','{{ addslashes($mod) }}');">{{ $mod }}</div>
+                @endforeach
+                <div style="{{ $catGrpHdr }}">AUXILIARES</div>
+                @foreach(($modelosAux ?? []) as $mod)
+                    <div class="cat-opt" data-label="{{ $mod }}"
+                         onmousedown="event.preventDefault(); catSelect('modelo','modelo_aux:{{ addslashes($mod) }}','{{ addslashes($mod) }}');">{{ $mod }}</div>
                 @endforeach
             </div>
         </div>
@@ -414,8 +431,6 @@
                    onmousedown="event.preventDefault(); catSelect('anio','','');">close</i>
             </div>
             <div id="catListAnio" class="cat-list">
-                <div class="cat-opt placeholder" data-label="TODOS LOS AÑOS"
-                     onmousedown="event.preventDefault(); catSelect('anio','','TODOS LOS AÑOS');">TODOS LOS AÑOS</div>
                 @foreach($availableAnios as $a)
                     <div class="cat-opt" data-label="{{ $a }}"
                          onmousedown="event.preventDefault(); catSelect('anio','{{ $a }}','{{ $a }}');">
@@ -526,6 +541,59 @@
         catCloseList(p);
         catSubmit();
     }
+
+    // Subida de foto de un AUXILIAR (click en la foto). Lee el grupo de los data-* de la
+    // tarjeta y sube al endpoint del catálogo de auxiliares. Actualiza solo esa foto.
+    window.auxCatUploadPhoto = function (photoEl) {
+        var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
+            modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
+        if (!tipo || !marca || !modelo) {
+            if (window.showToast) window.showToast('Este modelo no tiene marca registrada; no se puede asociar la foto.', 'error');
+            return;
+        }
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
+        input.style.display = 'none';
+        input.addEventListener('change', function () {
+            if (!input.files || !input.files[0]) return;
+            var file = input.files[0];
+            if (file.size > 5 * 1024 * 1024) { if (window.showToast) window.showToast('La foto supera los 5MB.', 'error'); return; }
+            var fd = new FormData();
+            fd.append('foto', file); fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
+            if (anio) fd.append('anio', anio);
+            var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            if (typeof window.showPreloader === 'function') window.showPreloader();
+            fetch('{{ route("equipos-auxiliares.catalogo.uploadPhoto") }}', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: fd, credentials: 'same-origin'
+            })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+            .then(function (res) {
+                if (window.hidePreloader) window.hidePreloader();
+                if (res.ok && res.body.success) {
+                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada.', 'success');
+                    var nuevaUrl = res.body.foto;
+                    if (nuevaUrl) {
+                        var img = photoEl.querySelector('img');
+                        if (img) { img.src = nuevaUrl; }
+                        else {
+                            var ph = photoEl.querySelector('.placeholder'); if (ph) ph.remove();
+                            var n = document.createElement('img'); n.src = nuevaUrl; n.alt = (marca + ' ' + modelo).trim();
+                            n.onerror = function () { this.outerHTML = '<i class="material-icons placeholder">image_not_supported</i>'; };
+                            photoEl.insertBefore(n, photoEl.firstChild);
+                        }
+                    }
+                } else {
+                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo subir la foto.', 'error');
+                }
+            })
+            .catch(function () { if (window.hidePreloader) window.hidePreloader(); if (window.showToast) window.showToast('Error de red al subir la foto.', 'error'); });
+        });
+        document.body.appendChild(input); input.click();
+        setTimeout(function () { document.body.removeChild(input); }, 1000);
+    };
 
     // Subida de foto haciendo click en la foto de la tarjeta — sin abrir el formulario
     // de edición. Abre un selector de archivo, valida tamaño y sube a catalogo.uploadFoto.

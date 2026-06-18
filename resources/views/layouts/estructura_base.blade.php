@@ -100,14 +100,22 @@
         /* Banner de estado de red (#netStatusBanner): es position:fixed top:0 y, sin
            esto, quedaba ENCIMA del header flotante (top:5px) tapándolo. Cuando está
            visible (clase .net-banner-active, puesta por JS) empujamos header + contenido
-           hacia abajo su ALTURA REAL (--net-banner-h, medida por JS para soportar el
-           wrap en móvil) — así el aviso se ve completo arriba y NO tapa el header. */
+           hacia abajo su ALTURA REAL (--net-banner-h, medida por JS). */
         body.net-banner-active {
             padding-top: calc(70px + var(--net-banner-h, 0px));
         }
 
         body.net-banner-active .dashboard-header {
             top: calc(5px + var(--net-banner-h, 0px));
+        }
+
+        @media (max-width: 480px) {
+            #netStatusBanner {
+                font-size: 11.5px !important;
+                padding: 7px 10px !important;
+                gap: 6px !important;
+            }
+            #netStatusBanner .material-icons { font-size: 16px !important; }
         }
 
         .dashboard-header {
@@ -349,13 +357,32 @@
                 transform:translateY(-100%);transition:transform 0.3s ease;
                 font-family:'Inter','Segoe UI',sans-serif;">
         <i class="material-icons" id="netStatusIcon" style="font-size:18px;">wifi_off</i>
-        <span id="netStatusText">Sin conexión a internet</span>
+        <span id="netStatusText" style="white-space:nowrap;">Sin conexión a internet</span>
         {{-- Botón que OFRECE pasar a la versión offline (no se cambia solo). Solo
              aparece sin conexión y si el módulo actual tiene render offline. --}}
         <button id="netStatusAction" type="button"
                 style="display:none;margin-left:10px;background:#fff;color:#dc2626;border:none;border-radius:6px;padding:4px 12px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;">
             Trabajar sin conexión
         </button>
+    </div>
+
+    {{-- ── Bandeja de cambios sin conexión (Fase 2) ──────────────────────────────
+         Badge flotante visible cuando hay acciones en el outbox (por subir o en
+         conflicto). Click → panel con la lista; permite Reintentar / Descartar /
+         Subir ahora. Se refresca con el evento 'outbox-actualizado'. --}}
+    <div id="outboxTray" style="position:fixed;left:16px;bottom:16px;z-index:1000002;display:none;font-family:'Inter','Segoe UI',sans-serif;">
+        <button id="outboxTrayBtn" type="button" title="Cambios sin conexión pendientes de subir"
+                style="display:flex;align-items:center;gap:7px;background:#0067b1;color:#fff;border:none;border-radius:999px;padding:9px 14px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,0.22);">
+            <i class="material-icons" style="font-size:18px;">cloud_upload</i>
+            <span id="outboxTrayCount">0</span>
+        </button>
+        <div id="outboxTrayPanel" style="display:none;position:absolute;bottom:52px;left:0;width:330px;max-width:calc(100vw - 32px);max-height:60vh;overflow:auto;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,0.22);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+                <strong style="font-size:13px;color:#1e293b;">Cambios sin conexión</strong>
+                <button id="outboxTraySubir" type="button" style="background:#0067b1;color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">Subir ahora</button>
+            </div>
+            <div id="outboxTrayList"></div>
+        </div>
     </div>
 
     <!-- Permanent Header (Never reloads) -->
@@ -481,6 +508,12 @@
                         <i class="material-icons">fact_check</i> Control de Auditoría
                     </a>
                     @endcan
+                    {{-- Baja AHORA una copia de la base de datos a IndexedDB para poder
+                         trabajar SIN internet (snapshot manual → OfflineDB.sync(true)).
+                         La copia también se baja sola cada cierto tiempo; esto la fuerza. --}}
+                    <a href="#" class="nav-dropdown-link" onclick="window.descargarSnapshotOffline(event)">
+                        <i class="material-icons">cloud_download</i> Copia local
+                    </a>
                 </div>
             </div>
         </nav>
@@ -633,6 +666,10 @@
                     <i class="material-icons">fact_check</i> Control de Auditoría
                 </a>
                 @endcan
+                {{-- Descargar copia de la base de datos para trabajar SIN internet. --}}
+                <a href="#" class="mobile-nav-link" onclick="window.descargarSnapshotOffline(event)">
+                    <i class="material-icons">cloud_download</i> Copia local
+                </a>
             </div>
         </div>
 
@@ -983,11 +1020,14 @@
                 const action = document.getElementById('netStatusAction');
                 const renders = {};
                 let offlineActivo = false;
+                let sinConexion   = false; // true mientras el banner muestra estado offline
+                                           // (NO usar navigator.onLine: miente con el server caído)
 
                 function correrRenders() {
                     Object.keys(renders).forEach(function (k) { try { renders[k](); } catch (e) {} });
                 }
                 function mostrarOffline() {
+                    sinConexion = true;
                     showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
                     if (action) action.style.display = (Object.keys(renders).length && !offlineActivo) ? 'inline-block' : 'none';
                 }
@@ -998,12 +1038,12 @@
                     correrRenders();
                     // Banner ámbar con la fecha de la copia local (si OfflineDB ya cargó).
                     var pintar = function (cuando) {
-                        showBanner('Trabajando sin conexión (solo lectura)' + (cuando || ''), 'cloud_off', '#b45309', 0);
+                        showBanner('Trabajando sin conexión' + (cuando || ''), 'cloud_off', '#b45309', 0);
                     };
                     if (window.OfflineDB) {
                         window.OfflineDB.meta().then(function (m) {
                             var c = '';
-                            if (m && m.generado) { var d = new Date(m.generado); if (!isNaN(d)) c = ' · datos del ' + d.toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+                            if (m && m.generado) { var d = new Date(m.generado); if (!isNaN(d)) c = ' · ' + d.toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
                             pintar(c);
                         }).catch(function () { pintar(''); });
                     } else { pintar(''); }
@@ -1012,6 +1052,7 @@
 
                 window.addEventListener('offline', mostrarOffline);
                 window.addEventListener('online', function () {
+                    sinConexion = false;
                     offlineActivo = false;
                     if (action) action.style.display = 'none';
                     showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
@@ -1021,17 +1062,35 @@
                 // propio init sobre 'spa:contentLoaded', no aquí, para no duplicar.)
                 window.addEventListener('offline-datos-actualizados', function () { if (offlineActivo) correrRenders(); });
 
-                // Estado inicial al cargar (la app se abrió ya sin conexión)
-                if (!navigator.onLine) mostrarOffline();
+                // ── Detección de conexión REAL ──────────────────────────────────
+                // navigator.onLine NO es confiable: en el navegador suele decir "online"
+                // aunque el SERVIDOR esté caído (solo refleja la interfaz de red). Por eso
+                // sondeamos /offline/version (que el SW NUNCA cachea — ver sw.js): si el
+                // fetch falla, no hay servidor → mostramos el aviso. Esto hace que el
+                // banner salga también en /menu y en el navegador (no solo en la PWA ni
+                // solo al desconectar el wifi). En /menu solo sale el aviso informativo
+                // (sin botón) porque ese módulo no tiene vista offline registrada.
+                function comprobarConexion() {
+                    if (offlineActivo) return;                 // ya en modo offline manual: no repintar
+                    if (!navigator.onLine) { mostrarOffline(); return; }
+                    // Cualquier RESPUESTA (aunque sea 401/500) significa que el servidor
+                    // responde → estamos online. Solo el fallo de red (catch) = sin conexión.
+                    fetch('/offline/version', { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); }) // servidor OK → subir outbox
+                        .catch(function () { mostrarOffline(); });
+                }
 
-                window.netStatus = { showOffline: mostrarOffline, hide: hideBanner };
+                // Estado inicial al cargar: comprobar conexión real (no solo navigator.onLine).
+                comprobarConexion();
+
+                window.netStatus = { showOffline: mostrarOffline, hide: hideBanner, comprobar: comprobarConexion };
 
                 // API para los módulos. registrar(clave, fn): clave única por módulo.
                 // Helpers compartidos (esc, conOfflineDB) para no duplicarlos en cada módulo.
                 window.OfflineMode = {
                     registrar: function (clave, fn) {
                         renders[clave] = fn;
-                        if (!navigator.onLine && !offlineActivo && action) action.style.display = 'inline-block';
+                        if (sinConexion && !offlineActivo && action) action.style.display = 'inline-block';
                     },
                     activar: activarOffline,
                     estaActivo: function () { return offlineActivo; },
@@ -2576,8 +2635,114 @@
 
         {{-- ===== OFFLINE (Fase 1): baja la copia de datos a IndexedDB para consultar sin internet ===== --}}
         <script src="{{ asset('js/offline/offline-sync.js') }}?v={{ @filemtime(public_path('js/offline/offline-sync.js')) }}" defer></script>
+        {{-- Botón "Copia local" (menú Configuraciones): fuerza la
+             bajada del snapshot AHORA y da feedback. La lógica de descarga vive en
+             offline-sync.js (OfflineDB.sync(true)); aquí solo va la parte de UI. --}}
+        <script>
+            window.descargarSnapshotOffline = function (ev) {
+                if (ev) ev.preventDefault();
+                var toast = function (m, t) { if (window.showToast) window.showToast(m, t || 'info'); };
+                if (!navigator.onLine) {
+                    return toast('Necesitas conexión a internet para descargar la copia.', 'error');
+                }
+                if (!window.OfflineDB || typeof window.OfflineDB.sync !== 'function') {
+                    return toast('El módulo offline aún no está listo. Espera unos segundos e inténtalo de nuevo.', 'error');
+                }
+                if (window._descargandoSnapshot) {
+                    return toast('Ya hay una descarga en curso, espera un momento…', 'info');
+                }
+                window._descargandoSnapshot = true;
+                toast('Descargando copia de la base de datos…', 'info');
+                window.OfflineDB.sync(true)
+                    .then(function (ok) {
+                        if (ok) toast('Copia actualizada. Ya puedes trabajar sin internet.', 'success');
+                        else    toast('No se pudo descargar la copia. Revisa tu conexión e inténtalo de nuevo.', 'error');
+                    })
+                    .catch(function () { toast('Error al descargar la copia.', 'error'); })
+                    .finally(function () { window._descargandoSnapshot = false; });
+            };
+        </script>
         {{-- Confirma el verificador de login offline (el servidor aceptó las credenciales). --}}
         <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
+        {{-- Fase 2: motor de sincronización del outbox (sube acciones hechas sin internet). --}}
+        <script src="{{ asset('js/offline/outbox-sync.js') }}?v={{ @filemtime(public_path('js/offline/outbox-sync.js')) }}" defer></script>
+        {{-- Fase 2: bandeja de pendientes/conflictos (badge flotante #outboxTray). --}}
+        <script>
+            (function () {
+                function $(id) { return document.getElementById(id); }
+                function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+                function razon(k) { return (window.OfflineOutbox && window.OfflineOutbox.razon) ? window.OfflineOutbox.razon(k) : (k || ''); }
+
+                function refrescar() {
+                    var tray = $('outboxTray'); if (!tray || !window.OfflineDB) return;
+                    window.OfflineDB.outboxList().then(function (items) {
+                        if (!items.length) {
+                            tray.style.display = 'none';
+                            var p0 = $('outboxTrayPanel'); if (p0) p0.style.display = 'none';
+                            return;
+                        }
+                        tray.style.display = 'block';
+                        var conf = items.filter(function (i) { return i.status === 'conflict'; }).length;
+                        $('outboxTrayCount').textContent = items.length;
+                        // Ámbar si hay algún conflicto que requiere decisión del usuario.
+                        $('outboxTrayBtn').style.background = conf ? '#b45309' : '#0067b1';
+
+                        var list = $('outboxTrayList');
+                        list.innerHTML = items.map(function (it) {
+                            var esConf = it.status === 'conflict', esErr = it.status === 'error';
+                            var color = esConf ? '#b45309' : (esErr ? '#dc2626' : '#0067b1');
+                            var estado = esConf ? ('Conflicto · ' + razon(it.reason))
+                                       : esErr ? ('Error · ' + razon(it.reason))
+                                       : 'Por subir';
+                            var acciones = (esConf || esErr)
+                                ? '<div style="display:flex;gap:8px;margin-top:6px;">' +
+                                      '<button data-retry="' + esc(it.client_uuid) + '" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Reintentar</button>' +
+                                      '<button data-discard="' + esc(it.client_uuid) + '" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Descartar</button>' +
+                                  '</div>'
+                                : '';
+                            return '<div style="padding:11px 14px;border-bottom:1px solid #f1f5f9;">' +
+                                       '<div style="font-size:12.5px;font-weight:700;color:#1e293b;">' + esc(it.label || it.action) + '</div>' +
+                                       '<div style="font-size:11.5px;font-weight:700;color:' + color + ';margin-top:3px;">' + esc(estado) + '</div>' +
+                                       acciones +
+                                   '</div>';
+                        }).join('');
+                    });
+                }
+
+                document.addEventListener('click', function (e) {
+                    var t = e.target;
+                    if (t.closest && t.closest('#outboxTrayBtn')) {
+                        var p = $('outboxTrayPanel'); if (p) p.style.display = (p.style.display === 'none' ? 'block' : 'none');
+                        refrescar(); return;
+                    }
+                    if (t.closest && t.closest('#outboxTraySubir')) {
+                        if (window.OfflineOutbox) window.OfflineOutbox.drain(); return;
+                    }
+                    var rt = t.closest && t.closest('[data-retry]');
+                    if (rt) {
+                        window.OfflineDB.outboxUpdate(rt.getAttribute('data-retry'), { status: 'pending', reason: '' })
+                            .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); refrescar(); });
+                        return;
+                    }
+                    var dc = t.closest && t.closest('[data-discard]');
+                    if (dc) {
+                        // Descartar: sale del outbox y se re-baja el snapshot para corregir
+                        // cualquier cambio optimista que no llegó a aplicarse en el servidor.
+                        window.OfflineDB.outboxRemove(dc.getAttribute('data-discard'))
+                            .then(function () { if (window.OfflineDB.sync) window.OfflineDB.sync(true); refrescar(); });
+                        return;
+                    }
+                    // Click fuera del tray cierra el panel.
+                    var panel = $('outboxTrayPanel');
+                    if (panel && panel.style.display === 'block' && !(t.closest && t.closest('#outboxTray'))) panel.style.display = 'none';
+                });
+
+                window.addEventListener('outbox-actualizado', refrescar);
+                window.addEventListener('online', refrescar);
+                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refrescar);
+                else refrescar();
+            })();
+        </script>
         {{-- Render offline por módulo (GLOBAL: se (re)inicializan en cada navegación SPA vía
              su propio listener 'spa:contentLoaded'; en @section('content') NO se ejecutaban
              porque la SPA omite los <script src> ya cargados). --}}

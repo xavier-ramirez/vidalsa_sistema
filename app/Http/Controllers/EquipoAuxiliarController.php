@@ -835,92 +835,15 @@ class EquipoAuxiliarController extends Controller
      * tabla aparte: deriva todo de equipos_auxiliares (igual al concepto de
      * /admin/catalogo pero sin entidad maestro separada).
      */
+    /**
+     * El catálogo de auxiliares se FUSIONÓ con el de equipos: /admin/catalogo ahora
+     * muestra VEHÍCULOS y AUXILIARES juntos (CaracteristicaModeloController::index, que
+     * arma los items de ambas fuentes). Esta ruta redirige allí para que haya un único
+     * catálogo. La subida de foto de auxiliares sigue viva en uploadCatalogoPhoto().
+     */
     public function catalogo(Request $request)
     {
-        $base = EquipoAuxiliar::query();
-        $this->scopeFrentes($base, 'ID_FRENTE_ACTUAL');
-
-        // Filtros opcionales (search libre eliminado: el catalogo se filtra
-        // por tipo, marca y modelo — son los unicos atributos relevantes para
-        // agrupar modelos).
-        if ($request->filled('tipo') && $request->tipo !== 'all') {
-            $base->where('TIPO', $request->tipo);
-        }
-        if ($request->filled('marca') && $request->marca !== 'all') {
-            $base->where('MARCA', $request->marca);
-        }
-        if ($request->filled('modelo') && $request->modelo !== 'all') {
-            $base->where('MODELO', $request->modelo);
-        }
-
-        // Agrupar por TIPO+MARCA+MODELO+ANIO — una sola tarjeta por modelo+ano
-        // (un MODELO 2020 y el mismo MODELO 2023 son tarjetas distintas porque
-        // suelen tener fichas tecnicas diferentes). La foto se aplica a TODOS
-        // los auxiliares de ese modelo+ano. CAPACIDAD ya no es clave de
-        // agrupacion: queda como dato representativo del primer registro.
-        $grupos = (clone $base)
-            ->selectRaw("
-                TIPO,
-                COALESCE(NULLIF(TRIM(MARCA), ''), '—') as MARCA_KEY,
-                COALESCE(NULLIF(TRIM(MODELO), ''), '—') as MODELO_KEY,
-                COALESCE(ANIO, 0) as ANIO_KEY,
-                COUNT(*) as total
-            ")
-            ->groupBy('TIPO', 'MARCA_KEY', 'MODELO_KEY', 'ANIO_KEY')
-            ->orderBy('TIPO')->orderBy('MARCA_KEY')->orderBy('MODELO_KEY')->orderBy('ANIO_KEY', 'desc')
-            ->get();
-
-        // Foto representativa por grupo (modelo+ano). Tomamos la mas reciente
-        // (mayor ID) que tenga foto no nula.
-        $fotos = (clone $base)
-            ->whereNotNull('FOTO')->where('FOTO', '!=', '')
-            ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, CAPACIDAD, ID_AUXILIAR')
-            ->orderByDesc('ID_AUXILIAR')
-            ->get()
-            ->reduce(function ($carry, $a) {
-                $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->ANIO ?? 0)));
-                if (!isset($carry[$key])) $carry[$key] = ['foto' => $a->FOTO, 'capacidad' => $a->CAPACIDAD];
-                return $carry;
-            }, []);
-
-        $tipos = $this->getTiposDinamicos();
-
-        $items = $grupos->map(function ($g) use ($fotos, $tipos) {
-            $key = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->ANIO_KEY ?? 0)));
-            $info = $fotos[$key] ?? ['foto' => null, 'capacidad' => null];
-            return [
-                'tipo'        => $g->TIPO,
-                'tipo_label'  => $tipos[$g->TIPO] ?? $g->TIPO,
-                'marca'       => $g->MARCA_KEY,
-                'modelo'      => $g->MODELO_KEY,
-                'anio'        => $g->ANIO_KEY ? (int) $g->ANIO_KEY : null,
-                'capacidad'   => $info['capacidad'],
-                'total'       => (int) $g->total,
-                'foto'        => $info['foto'],
-            ];
-        });
-
-        // Listas para los filtros — se calculan SIN el filtro propio para que
-        // el dropdown muestre todas las opciones validas (no se auto-limita).
-        $listsBase = EquipoAuxiliar::query();
-        $this->scopeFrentes($listsBase, 'ID_FRENTE_ACTUAL');
-        $marcas = (clone $listsBase)
-            ->whereNotNull('MARCA')->where('MARCA', '!=', '')
-            ->distinct()->orderBy('MARCA')->pluck('MARCA');
-        $modelos = (clone $listsBase)
-            ->whereNotNull('MODELO')->where('MODELO', '!=', '')
-            ->distinct()->orderBy('MODELO')->pluck('MODELO');
-
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'items' => $items]);
-        }
-
-        return view('admin.equipos_auxiliares.catalogo', [
-            'items'   => $items,
-            'tipos'   => $tipos,
-            'marcas'  => $marcas,
-            'modelos' => $modelos,
-        ]);
+        return redirect()->route('catalogo.index');
     }
 
     /**

@@ -67,7 +67,7 @@
     /* Fila 1 de la cabecera: Nota de entrega ocupa col 1, Proveedor col 2,
        Fecha col 3, Boton col 4. */
     .ent-head-row { display: contents; }
-    /* La fila 2 de captura se movió a una BARRA pegada al fondo de la tabla
+    /* La fila 2 de captura se movió a una BARRA ARRIBA de la tabla
        (.ent-capt-bar, más abajo) — ya no vive en este grid de cabecera. */
     /* Mobile responsive (≤900px y ≤480px) movido a estilos_globales.css —
        scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
@@ -198,15 +198,13 @@
     /* El input ocupa todo el ancho del stepper (los botones ▲▼ se eliminaron). */
     .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
     /* ── Tabla de productos agregados — estilo clon de .alm-table de /admin/almacen ── */
-    /* Lista redondeada SOLO arriba: la barra de captura (.ent-capt-bar) se pega
-       debajo y cierra las esquinas inferiores, para que tabla + barra se vean como
-       una sola pieza. overflow:hidden recorta la tabla a las esquinas superiores. */
-    .ent-list-wrap { margin-top:14px; border:1px solid #e2e8f0; border-radius:12px 12px 0 0; overflow:hidden; }
-    /* ── Barra de captura = "fila activa" al fondo de la lista ── */
+    /* Barra de captura ARRIBA, tabla ABAJO. La barra cierra las esquinas
+       superiores y la tabla las inferiores para que se vean como una pieza. */
+    .ent-list-wrap { border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px; overflow:hidden; }
     .ent-capt-bar {
         display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-        padding:10px 14px; background:#f8fafc;
-        border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px;
+        padding:10px 14px; background:#f8fafc; margin-top:14px;
+        border:1px solid #e2e8f0; border-radius:12px 12px 0 0;
     }
     /* flex-wrap: en móvil el buscador toma el ancho y UND/cantidad bajan solos
        (sin @media — los <style> inline no sobreviven el hard reload del SPA). */
@@ -330,7 +328,7 @@
 
     {{-- Grid de la CABECERA del lote — una sola fila de 4 columnas:
          Nota | Proveedor | Fecha | [Botón Bandeja].
-         (La captura de productos se movió a la barra del fondo de la tabla, .ent-capt-bar.) --}}
+         (La captura de productos se movió a la barra ARRIBA de la tabla, .ent-capt-bar.) --}}
     <div class="ent-form-grid">
 
         {{-- ── FILA 1: cabecera de datos del lote ── --}}
@@ -353,29 +351,11 @@
 
     </div>{{-- /ent-form-grid --}}
 
-    {{-- Tabla de productos ya agregados — estilo clon de .alm-table del modulo
-         /admin/almacen para que el usuario reconozca el lenguaje visual. --}}
-    <div class="ent-list-wrap">
-        <table class="ent-list-table">
-            <thead>
-                <tr>
-                    <th class="col-num">Nº</th>
-                    <th class="col-codigo">Código</th>
-                    <th>Descripción del producto</th>
-                    <th class="col-cant">Cantidad</th>
-                    <th class="col-del"></th>
-                </tr>
-            </thead>
-            <tbody id="entLineasTbody"></tbody>
-        </table>
-    </div>
-
-    {{-- Barra de captura = la "fila activa" pegada al fondo de la lista. Buscás el
+    {{-- Barra de captura = la "fila activa" ARRIBA de la tabla. Buscás el
          material (con sugerencias), UND y cantidad → Enter (o el botón ↵) agrega la
-         línea ARRIBA y la barra se vacía para el siguiente. Si el material no existe,
-         ponés UND + cantidad y se crea al vuelo (mismo flujo de antes, ahora aquí).
-         Va FUERA de .ent-list-wrap (overflow:hidden) para que los dropdowns de
-         sugerencias no queden recortados; el CSS la pega visualmente a la tabla. --}}
+         línea a la tabla de abajo y la barra se vacía para el siguiente. Si el material
+         no existe, ponés UND + cantidad y se crea al vuelo. Va FUERA de .ent-list-wrap
+         (overflow:hidden) para que los dropdowns de sugerencias no queden recortados. --}}
     <div class="ent-capt-bar">
         <div class="ent-search-field">
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
@@ -401,6 +381,22 @@
         <button type="button" class="ent-capt-add-btn" onclick="window.entAgregar()" title="Agregar (Enter)">
             <i class="material-icons">subdirectory_arrow_left</i>
         </button>
+    </div>
+
+    {{-- Tabla de productos ya agregados — debajo de la barra de captura. --}}
+    <div class="ent-list-wrap">
+        <table class="ent-list-table">
+            <thead>
+                <tr>
+                    <th class="col-num">Nº</th>
+                    <th class="col-codigo">Código</th>
+                    <th>Descripción del producto</th>
+                    <th class="col-cant">Cantidad</th>
+                    <th class="col-del"></th>
+                </tr>
+            </thead>
+            <tbody id="entLineasTbody"></tbody>
+        </table>
     </div>
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>

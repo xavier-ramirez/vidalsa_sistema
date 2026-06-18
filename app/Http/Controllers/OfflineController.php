@@ -169,6 +169,7 @@ class OfflineController extends Controller
                 'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO',
                 'ESTADO_OPERATIVO', 'DETALLE_UBICACION_ACTUAL', 'SERIAL_CHASIS', 'SERIAL_DE_MOTOR',
                 'CODIGO_PATIO', 'ID_FRENTE_ACTUAL', 'id_tipo_equipo', 'ID_ESPEC',
+                'CONFIRMADO_EN_SITIO',
             ])
             ->map(static fn ($e) => [
                 'id' => (int) $e->ID_EQUIPO,
@@ -187,6 +188,8 @@ class OfflineController extends Controller
                 'frente' => MojibakeFix::fix($e->frenteActual?->NOMBRE_FRENTE),
                 'frente_finalizado' => $e->frenteActual && $e->frenteActual->ESTATUS_FRENTE === 'FINALIZADO',
                 'id_frente' => $e->ID_FRENTE_ACTUAL ? (int) $e->ID_FRENTE_ACTUAL : null,
+                'id_tipo' => $e->id_tipo_equipo ? (int) $e->id_tipo_equipo : null,
+                'confirmado' => (int) ($e->CONFIRMADO_EN_SITIO ?? 0),
             ]);
 
         // ── MOVILIZACIONES recientes (historial de equipos) ──

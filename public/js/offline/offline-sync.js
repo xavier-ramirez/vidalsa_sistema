@@ -33,8 +33,9 @@
     'use strict';
 
     const DB_NAME    = 'vidalsa_offline';
-    const DB_VERSION = 1;
-    const STORE      = 'kv'; // un solo object store clave→valor: 'meta','stock','productos',...
+    const DB_VERSION = 2; // v2: añade el store 'outbox' (Fase 2: escritura offline)
+    const STORE      = 'kv';      // object store clave→valor: 'meta','stock','productos',...
+    const OUTBOX     = 'outbox';  // cola de acciones hechas sin internet (keyPath: client_uuid)
     const TABLAS     = ['almacenes', 'stock', 'productos', 'movimientos', 'equipos', 'movilizaciones', 'frentes'];
     const CHECK_CADA_MS = 10 * 60 * 1000; // revisar si hay datos nuevos cada 10 min (online)
 
@@ -44,20 +45,33 @@
         if (dbPromise) return dbPromise;
         dbPromise = new Promise((resolve, reject) => {
             const req = indexedDB.open(DB_NAME, DB_VERSION);
-            req.onupgradeneeded = () => {
+            req.onupgradeneeded = (ev) => {
                 const db = req.result;
+                // 'kv' (v1): NO se toca al subir de versión → la copia local se conserva.
                 if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+                // 'outbox' (v2): cola de escritura offline. keyPath = client_uuid (1 registro
+                // por acción/lote). Índices para listar por estado y por orden de creación.
+                if (ev.oldVersion < 2 && !db.objectStoreNames.contains(OUTBOX)) {
+                    const os = db.createObjectStore(OUTBOX, { keyPath: 'client_uuid' });
+                    os.createIndex('status', 'status', { unique: false });
+                    os.createIndex('created', 'created', { unique: false });
+                }
             };
             req.onsuccess = () => resolve(req.result);
             req.onerror   = () => reject(req.error);
+            // Otra pestaña tiene la BD abierta en v1 y bloquea el upgrade: avisar en consola.
+            // La copia 'kv' se conserva igual; el outbox quedará disponible al cerrar esa pestaña.
+            req.onblocked = () => { if (window.console) console.warn('[offline] upgrade de IndexedDB bloqueado por otra pestaña'); };
         });
         return dbPromise;
     }
 
-    function tx(modo, fn) {
+    // tx(modo, fn, store=STORE): abre una transacción sobre el store indicado.
+    function tx(modo, fn, storeName) {
+        const nombre = storeName || STORE;
         return abrirDB().then((db) => new Promise((resolve, reject) => {
-            const t = db.transaction(STORE, modo);
-            const store = t.objectStore(STORE);
+            const t = db.transaction(nombre, modo);
+            const store = t.objectStore(nombre);
             let resultado;
             Promise.resolve(fn(store)).then((r) => { resultado = r; });
             t.oncomplete = () => resolve(resultado);
@@ -71,66 +85,120 @@
     }));
     const idbPut = (clave, valor) => tx('readwrite', (s) => { s.put(valor, clave); });
 
+    // ── OUTBOX (Fase 2): cola local de acciones de escritura sin internet ────────
+    // Registro: { client_uuid, action, payload, status, reason, created, label, optimistic }
+    //   status: 'pending' (por subir) · 'syncing' · 'conflict' · 'error'
+    const outboxPut = (item) => tx('readwrite', (s) => { s.put(item); }, OUTBOX);
+    const outboxAll = () => tx('readonly', (s) => new Promise((res, rej) => {
+        const r = s.getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
+    }), OUTBOX);
+    const outboxDel = (uuid) => tx('readwrite', (s) => { s.delete(uuid); }, OUTBOX);
+
+    function outboxList(status) {
+        return outboxAll().then((arr) => {
+            const list = status ? arr.filter((x) => x.status === status) : arr;
+            return list.sort((a, b) => (a.created || 0) - (b.created || 0)); // orden de creación
+        });
+    }
+    function outboxUpdate(uuid, patch) {
+        return outboxAll().then((arr) => {
+            const it = arr.find((x) => x.client_uuid === uuid);
+            if (!it) return false;
+            return outboxPut(Object.assign(it, patch)).then(() => true);
+        });
+    }
+
     // ── Descarga ────────────────────────────────────────────────────────────
-    function fetchJson(url) {
+    // `signal` (opcional) permite ABORTAR los fetch: si una descarga forzada
+    // (botón manual) cancela la automática que estaba en curso.
+    function fetchJson(url, signal) {
         return fetch(url, {
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             credentials: 'same-origin', // manda la cookie de sesión (la ruta es auth)
             priority: 'low',            // PRIORIDAD: que esta bajada NO le quite ancho de
                                         // banda a las búsquedas del usuario. El navegador
                                         // atiende primero las peticiones de prioridad normal.
+            signal: signal || undefined,
         }).then((r) => {
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json();
         });
     }
 
-    let descargando = false;
+    let cadena      = Promise.resolve(); // serializa las descargas: NUNCA corren dos a la vez
+    let abortActual = null;              // AbortController de la descarga en curso (para cancelarla)
 
-    async function sync(force) {
-        if (descargando) return false;
+    // Descarga real. Si `signal` se aborta (porque una forzada la canceló), los
+    // fetch lanzan AbortError y la copia anterior queda intacta.
+    async function _syncReal(force, signal) {
         if (!navigator.onLine) return false;
-        descargando = true;
-        try {
-            const meta = await idbGet('meta');
-            // Chequeo barato: ¿cambió la versión? Si no y no es forzado, no bajamos nada.
-            if (!force && meta && meta.version) {
-                try {
-                    const v = await fetchJson('/offline/version');
-                    if (v && v.version === meta.version) return false; // ya estamos al día
-                } catch (_) { /* sin red: nada que hacer */ return false; }
-            }
-
-            const snap = await fetchJson('/offline/snapshot');
-            if (!snap || !snap.version) return false;
-
-            for (const tabla of TABLAS) {
-                await idbPut(tabla, Array.isArray(snap[tabla]) ? snap[tabla] : []);
-            }
-            await idbPut('meta', {
-                version:    snap.version,
-                generado:   snap.generado || null,
-                descargado: new Date().toISOString(),
-            });
-
-            window.dispatchEvent(new CustomEvent('offline-datos-actualizados', { detail: { version: snap.version } }));
-            return true;
-        } catch (e) {
-            // Falla silenciosa: conservamos la última copia buena.
-            if (window.console) console.warn('[offline] sync falló:', e && e.message);
-            return false;
-        } finally {
-            descargando = false;
+        const meta = await idbGet('meta');
+        // Chequeo barato: ¿cambió la versión? Si no y no es forzado, no bajamos nada.
+        if (!force && meta && meta.version) {
+            try {
+                const v = await fetchJson('/offline/version', signal);
+                if (v && v.version === meta.version) return false; // ya estamos al día
+            } catch (_) { /* sin red / abortado: nada que hacer */ return false; }
         }
+
+        const snap = await fetchJson('/offline/snapshot', signal);
+        if (!snap || !snap.version) return false;
+
+        // SUSTITUYE la copia cacheada: idbPut sobrescribe cada clave (no acumula).
+        for (const tabla of TABLAS) {
+            await idbPut(tabla, Array.isArray(snap[tabla]) ? snap[tabla] : []);
+        }
+        await idbPut('meta', {
+            version:    snap.version,
+            generado:   snap.generado || null,
+            descargado: new Date().toISOString(),
+        });
+
+        window.dispatchEvent(new CustomEvent('offline-datos-actualizados', { detail: { version: snap.version } }));
+        return true;
+    }
+
+    // Orquesta las descargas:
+    //  - Serializa con `cadena` → nunca corren dos a la vez (no se pisan en IndexedDB).
+    //  - Una descarga FORZADA (botón manual) CANCELA la que esté en curso para tener
+    //    prioridad y bajar YA la copia que pide el usuario.
+    function sync(force) {
+        if (!navigator.onLine) return Promise.resolve(false);
+        if (force && abortActual) abortActual.abort(); // cede el paso a la forzada
+        const controller = (typeof AbortController === 'function') ? new AbortController() : null;
+        const corre = cadena.then(async () => {
+            abortActual = controller;
+            try {
+                return await _syncReal(force, controller ? controller.signal : undefined);
+            } catch (e) {
+                // AbortError = la cancelamos a propósito; no es un fallo real.
+                if (e && e.name !== 'AbortError' && window.console) {
+                    console.warn('[offline] sync falló:', e && e.message);
+                }
+                return false; // conservamos la última copia buena
+            } finally {
+                if (abortActual === controller) abortActual = null;
+            }
+        });
+        cadena = corre.catch(() => {}); // la cadena nunca se rompe por un fallo
+        return corre;
     }
 
     // ── API pública ───────────────────────────────────────────────────────────
     window.OfflineDB = {
         ready: abrirDB().then(() => true).catch(() => false),
         get:   (tabla) => idbGet(tabla).then((v) => v || []),
+        put:   (tabla, valor) => idbPut(tabla, valor),   // sobrescribe una tabla en 'kv' (update optimista)
         meta:  () => idbGet('meta').then((m) => m || null),
         sync:  (force) => sync(!!force),
         estaListo: () => idbGet('meta').then((m) => !!(m && m.version)),
+        // ── Outbox (Fase 2) ──
+        enqueue:      (item) => outboxPut(item),
+        outboxList:   (status) => outboxList(status),
+        outboxUpdate: (uuid, patch) => outboxUpdate(uuid, patch),
+        outboxRemove: (uuid) => outboxDel(uuid),
+        countPending:  () => outboxList('pending').then((a) => a.length),
+        countConflict: () => outboxList('conflict').then((a) => a.length),
     };
 
     // Ejecuta `fn` cuando el navegador esté OCIOSO (sin trabajo del usuario en

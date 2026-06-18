@@ -52,7 +52,7 @@ class EquipoController extends Controller
         // + formulario de edicion de ficha). changeStatus: 'equipos.edit'
         // (cambio de estatus inline, desacoplado de la edicion general).
         $this->middleware('can:user.edit')->only(['edit', 'update']);
-        $this->middleware('can:equipos.edit')->only(['changeStatus']);
+        $this->middleware('can:equipos.edit')->only(['changeStatus', 'confirmarSitio']);
         // Borrar un equipo es destructivo irreversible: solo super.admin.
         $this->middleware('can:super.admin')->only(['destroy']);
         // uploadDoc/updateMetadata: permission 'user.edit' (chequeo dentro de cada metodo).
@@ -86,12 +86,15 @@ class EquipoController extends Controller
         if ($request->filled('search_query')) {
             return true;
         }
-        foreach (['modelo', 'marca', 'detalle_ubicacion', 'anio', 'categoria', 'estado'] as $p) {
+        foreach (['modelo', 'marca', 'detalle_ubicacion', 'anio', 'categoria', 'estado', 'color'] as $p) {
             if ($request->filled($p)) {
                 return true;
             }
         }
         if (in_array(strtoupper(trim((string) $request->input('gps', ''))), ['SI', 'NO'], true)) {
+            return true;
+        }
+        if (in_array(strtoupper(trim((string) $request->input('confirmado', ''))), ['SI', 'NO'], true)) {
             return true;
         }
         foreach (['filter_propiedad', 'filter_poliza', 'filter_rotc', 'filter_racda', 'filter_adicional', 'filter_adicional_2'] as $p) {
@@ -196,6 +199,20 @@ class EquipoController extends Controller
                 $query->where(function($q) {
                     $q->whereNull('LINK_GPS')->orWhere('LINK_GPS', '=', '');
                 });
+            }
+        }
+
+        if (!in_array('color', $exclude) && $request->filled('color') && trim($request->color) !== '') {
+            $query->where('COLOR', $request->color);
+        }
+
+        // Confirmación de presencia en sitio (CONFIRMADO_EN_SITIO): SI=confirmado, NO=pendiente.
+        if (!in_array('confirmado', $exclude) && $request->filled('confirmado') && trim($request->confirmado) !== '') {
+            $val = strtoupper(trim($request->confirmado));
+            if ($val === 'SI') {
+                $query->where('CONFIRMADO_EN_SITIO', 1);
+            } elseif ($val === 'NO') {
+                $query->where('CONFIRMADO_EN_SITIO', 0);
             }
         }
 
@@ -558,6 +575,10 @@ class EquipoController extends Controller
             return Equipo::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
+        $availableColores = \Illuminate\Support\Facades\Cache::remember('equipos_colores_dropdown', 3600, function () {
+            return Equipo::distinct()->whereNotNull('COLOR')->where('COLOR', '!=', '')->orderBy('COLOR', 'asc')->pluck('COLOR');
+        });
+
         // Ubicaciones disponibles para el filtro avanzado — solo las del frente ESPECIAL seleccionado
         $availableUbicaciones = collect([]);
         if ($frenteEspecial) {
@@ -572,7 +593,7 @@ class EquipoController extends Controller
         $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all')
                        && !($request->filled('id_frente') && $request->id_frente !== 'all');
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableUbicaciones', 'jsonPayload', 'showFrentes'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableUbicaciones', 'jsonPayload', 'showFrentes'));
     }
 
     public function export(Request $request)
@@ -655,6 +676,17 @@ class EquipoController extends Controller
                 $equipos->where(function($q) {
                     $q->whereNull('LINK_GPS')->orWhere('LINK_GPS', '=', '');
                 });
+            }
+        }
+        if ($request->filled('color') && trim($request->color) !== '') {
+            $equipos->where('COLOR', $request->color);
+        }
+        if ($request->filled('confirmado') && trim($request->confirmado) !== '') {
+            $val = strtoupper(trim($request->confirmado));
+            if ($val === 'SI') {
+                $equipos->where('CONFIRMADO_EN_SITIO', 1);
+            } elseif ($val === 'NO') {
+                $equipos->where('CONFIRMADO_EN_SITIO', 0);
             }
         }
 
@@ -2010,6 +2042,27 @@ class EquipoController extends Controller
         // registrar() manual aqui generaba eventos duplicados en el historial.
 
         return response()->json(['success' => true, 'message' => 'Estatus actualizado.']);
+    }
+
+    /**
+     * Confirmar / quitar la presencia FÍSICA del equipo en su frente (CONFIRMADO_EN_SITIO).
+     * El usuario está en el frente y va tildando los que verificó "que está ahí". Lo usan
+     * el chip de la celda del frente (lista) y el botón del modal de detalles. Mismo permiso
+     * que changeStatus (equipos.edit, gateado en la ruta) y mismo scope vía findAndAuthorizeEquipo.
+     */
+    public function confirmarSitio(Request $request, $id)
+    {
+        $request->validate([
+            'confirmado' => 'required|boolean',
+        ]);
+        $equipo = $this->findAndAuthorizeEquipo($id);
+        $equipo->CONFIRMADO_EN_SITIO = $request->boolean('confirmado') ? 1 : 0;
+        $equipo->save();
+
+        return response()->json([
+            'success'    => true,
+            'confirmado' => (int) $equipo->CONFIRMADO_EN_SITIO,
+        ]);
     }
 
     /**

@@ -1,67 +1,64 @@
-@forelse($catalogos as $catalogo)
+{{-- Catálogo UNIFICADO: cada $item (array normalizado en CaracteristicaModeloController)
+     es un VEHÍCULO (caracteristicas_modelo) o un AUXILIAR (equipos_auxiliares agrupado).
+     Mismo estilo de tarjeta para ambos; un badge VEHÍCULO/AUXILIAR los distingue. --}}
+@forelse($catalogos as $item)
     @php
-        $driveFileId = $catalogo->FOTO_REFERENCIAL
-            ? basename(str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0]))
-            : null;
-
-        // Lista compacta de specs: solo se renderizan las que tienen valor.
-        // Asi cada tarjeta muestra exactamente lo que el modelo tiene
-        // registrado, sin filas vacias.
-        $specs = array_filter([
-            'Motor'        => $catalogo->MOTOR,
-            'Combustible'  => $catalogo->COMBUSTIBLE,
-            'Consumo'      => $catalogo->CONSUMO_PROMEDIO ? $catalogo->CONSUMO_PROMEDIO . ' L/día' : null,
-            'Batería'      => $catalogo->TIPO_BATERIA,
-            'Aceite Motor' => $catalogo->ACEITE_MOTOR,
-            'Aceite Caja'  => $catalogo->ACEITE_CAJA,
-            'Liga Freno'   => $catalogo->LIGA_FRENO,
-            'Refrigerante' => $catalogo->REFRIGERANTE,
-        ], fn ($v) => $v !== null && $v !== '');
+        $esVeh = $item['clase'] === 'VEHICULO';
     @endphp
     <div class="cat-card">
-        {{-- Foto representativa con badges flotantes (Tipo arriba-izquierda,
-             Año arriba-derecha) + acciones de editar/eliminar abajo-derecha.
-             Con permiso, TODA la foto es clicable para cambiarla (mismo flujo que
-             el catálogo de auxiliares); el overlay "Cambiar foto" aparece al hover.
-             Carga directa (sin lazy) — Drive thumbnail w300 es liviano y
-             evita el delay del IntersectionObserver. --}}
+        {{-- Foto + badges. Con permiso, toda la foto es clicable para cambiarla
+             (VEHÍCULO → catUploadPhoto por id; AUXILIAR → auxCatUploadPhoto por grupo). --}}
         <div class="cat-photo"
              @can('equipos.create')
                 style="cursor:pointer;"
-                onclick="catUploadPhoto('{{ $catalogo->ID_ESPEC }}')"
                 title="Click para cambiar la foto del modelo"
+                @if($esVeh)
+                    onclick="catUploadPhoto('{{ $item['id'] }}')"
+                @else
+                    data-tipo="{{ $item['tipo_raw'] ?? '' }}"
+                    data-marca="{{ $item['marca'] ?? '' }}"
+                    data-modelo="{{ $item['modelo'] }}"
+                    data-anio="{{ $item['anio'] ?? '' }}"
+                    onclick="auxCatUploadPhoto(this)"
+                @endif
              @endcan
         >
-            @if($driveFileId)
-                {{-- Sin loading=lazy a proposito: el scroll infinito ya difiere
-                     las tarjetas fuera de pantalla; lazy encima retrasaba la foto
-                     al scrollear. decoding=async no bloquea el render; opacity:0
-                     + fade-in onload evita el flash de img rota mientras carga. --}}
-                <img src="{{ url('/storage/google/' . $driveFileId . '?sz=w300') }}"
-                     alt="{{ $catalogo->MODELO }}"
+            @if($item['foto_url'])
+                <img src="{{ $item['foto_url'] }}"
+                     alt="{{ $item['modelo'] }}"
+                     loading="lazy"
                      decoding="async"
                      style="opacity:0; transition:opacity 0.25s ease;"
                      onload="this.style.opacity=1"
                      onerror="this.outerHTML='<i class=&quot;material-icons placeholder&quot;>image_not_supported</i>'">
             @else
-                <i class="material-icons placeholder">precision_manufacturing</i>
+                <i class="material-icons placeholder">{{ $item['placeholder'] }}</i>
             @endif
 
-            {{-- Tipo de equipo del catálogo (columna TIPO propia) ─ badge en la esquina
-                 superior izquierda de la foto, mismo idioma visual que cat-anio-badge. --}}
-            @if($catalogo->TIPO)
-                <div class="cat-tipo-badges">
-                    <span class="cat-tipo-badge" title="Tipo de equipo">{{ $catalogo->TIPO }}</span>
-                </div>
+            {{-- Esquina sup. izquierda: distintivo de clase + tipo. --}}
+            <div class="cat-tipo-badges">
+                <span class="cat-tipo-badge"
+                      style="background:{{ $esVeh ? 'rgba(0,103,177,0.92)' : 'rgba(194,65,12,0.92)' }};"
+                      title="{{ $esVeh ? 'Vehículo' : 'Auxiliar' }}">{{ $esVeh ? 'VEHÍCULO' : 'AUXILIAR' }}</span>
+                @if($item['tipo'])
+                    <span class="cat-tipo-badge" title="Tipo">{{ $item['tipo'] }}</span>
+                @endif
+            </div>
+
+            {{-- Esquina sup. derecha: año y (en auxiliares) cantidad de unidades. --}}
+            @if($item['anio'])
+                <span class="cat-anio-badge">
+                    <i class="material-icons" style="font-size:12px;">event</i>
+                    {{ $item['anio'] }}
+                </span>
+            @endif
+            @if(!$esVeh && !empty($item['total']))
+                <span class="cat-anio-badge" style="top:{{ $item['anio'] ? '40px' : '10px' }}; background:rgba(15,23,42,0.85);" title="Unidades registradas">
+                    <i class="material-icons" style="font-size:12px;">inventory_2</i>
+                    {{ $item['total'] }}
+                </span>
             @endif
 
-            <span class="cat-anio-badge">
-                <i class="material-icons" style="font-size:12px;">event</i>
-                {{ $catalogo->ANIO_ESPEC }}
-            </span>
-
-            {{-- Overlay "Cambiar foto" (solo hover) — afford visual del click sobre la
-                 foto. pointer-events:none en CSS: el click lo recibe .cat-photo. --}}
             @can('equipos.create')
                 <div class="cat-photo-overlay">
                     <i class="material-icons">photo_camera</i>
@@ -69,33 +66,32 @@
                 </div>
             @endcan
 
-            {{-- Acciones flotantes en la esquina inferior derecha de la foto.
-                 stopPropagation evita que el click dispare también la subida de foto
-                 del contenedor .cat-photo. --}}
-            <a href="{{ route('catalogo.edit', $catalogo->ID_ESPEC) }}"
-               class="cat-action-btn edit"
-               title="Editar Modelo"
-               onclick="event.stopPropagation();">
-                <i class="material-icons">edit</i>
-            </a>
-            @can('equipos.assign')
-                <button type="button"
-                        class="cat-action-btn del"
-                        onclick="event.stopPropagation(); confirmDeleteCatalogo('{{ $catalogo->ID_ESPEC }}', '{{ addslashes($catalogo->MODELO) }}')"
-                        title="Eliminar Modelo">
-                    <i class="material-icons">delete</i>
-                </button>
-            @endcan
+            {{-- Acciones (solo VEHÍCULO: editar/eliminar el modelo del catálogo).
+                 El <a> navega vía SPA (navigateTo) en vez de href directo para que
+                 muestre spinner + transición sin recargar la página. --}}
+            @if($esVeh)
+                <a href="{{ route('catalogo.edit', $item['id']) }}"
+                   class="cat-action-btn edit" title="Editar Modelo"
+                   onclick="event.stopPropagation(); event.preventDefault(); if(window.navigateTo) window.navigateTo(this.href); else window.location.href = this.href;">
+                    <i class="material-icons">edit</i>
+                </a>
+                @can('equipos.assign')
+                    <button type="button" class="cat-action-btn del"
+                            onclick="event.stopPropagation(); confirmDeleteCatalogo('{{ $item['id'] }}', '{{ addslashes($item['modelo']) }}')"
+                            title="Eliminar Modelo">
+                        <i class="material-icons">delete</i>
+                    </button>
+                @endcan
+            @endif
         </div>
 
-        {{-- Cuerpo: modelo + tabla compacta de todas las specs.
-             (El tipo de equipo se renderiza arriba, como banda superior de la tarjeta.) --}}
+        {{-- Cuerpo: modelo (+ marca en auxiliares) + tabla compacta de specs. --}}
         <div class="cat-body">
-            <span class="cat-modelo">{{ $catalogo->MODELO }}</span>
+            <span class="cat-modelo">{{ $item['modelo'] }}</span>
 
-            @if(!empty($specs))
+            @if(!empty($item['specs']))
                 <div class="cat-specs">
-                    @foreach($specs as $label => $value)
+                    @foreach($item['specs'] as $label => $value)
                         <div class="cat-spec-row">
                             <span class="cat-spec-label">{{ $label }}</span>
                             <span class="cat-spec-value" title="{{ $value }}">{{ $value }}</span>

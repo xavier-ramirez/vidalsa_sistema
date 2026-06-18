@@ -11,7 +11,6 @@
     }
     /* Column Spans */
     .span-2 { grid-column: span 2; }
-    .span-4 { grid-column: span 4; }
 
     .catalog-label {
         display: block;
@@ -19,27 +18,6 @@
         margin-bottom: 5px;
         color: var(--maquinaria-dark-blue, #1a202c);
         font-size: 13px;
-    }
-
-    /* Wrapper para input de archivo + preview */
-    .file-input-wrapper {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        height: 38px;
-    }
-    .file-preview-box {
-        width: 38px;
-        height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        background: white;
-        border-radius: 8px;
-        border: 1px solid #cbd5e0;
-        flex-shrink: 0;
-        transition: all 0.2s;
     }
 
     /* Autocomplete dropdown */
@@ -86,31 +64,10 @@
 </style>
 
 <div class="catalog-form-grid">
-    <!-- 1. MODELO (Wider) -->
+    {{-- TIPO de Equipo VA PRIMERO: al elegirlo, el campo Modelo sugiere los modelos
+         de ese tipo (catalogo_create.js → scopeCatalogoModelos). Igual puedes escribir
+         uno nuevo. Alimenta la sugerencia de catálogo del alta de equipos. --}}
     <div class="catalog-field-group span-2">
-        <label for="MODELO" class="catalog-label">Modelo</label>
-        <div class="custom-form-autocomplete">
-            <input type="text" id="MODELO" name="MODELO"
-                   class="form-input-custom @error('MODELO') is-invalid @enderror" 
-                   value="{{ old('MODELO', $catalogo->MODELO ?? '') }}" 
-                   placeholder="Escriba..." 
-                   required 
-                   oninput="this.value = this.value.toUpperCase(); filterFormDropdown(this)"
-                   onfocus="showFormDropdown(this)"
-                   onblur="hideFormDropdownDelayed(this)"
-                   autocomplete="off">
-            <div class="dropdown-list">
-                @foreach($modelosList ?? [] as $modelo)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $modelo }}')">{{ $modelo }}</div>
-                @endforeach
-            </div>
-        </div>
-        @error('MODELO') <span class="error-message-inline">{{ $message }}</span> @enderror
-    </div>
-
-    <!-- TIPO de Equipo: columna propia del catálogo. Alimenta la sugerencia de catálogo
-         del alta de equipos (coincidencia por TIPO + MODELO + AÑO). -->
-    <div class="catalog-field-group">
         <label for="TIPO" class="catalog-label">Tipo de Equipo</label>
         <div class="custom-form-autocomplete">
             <input type="text" id="TIPO" name="TIPO"
@@ -129,6 +86,28 @@
             </div>
         </div>
         @error('TIPO') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    <!-- MODELO — sugerido según el TIPO elegido (o escribe uno nuevo). -->
+    <div class="catalog-field-group">
+        <label for="MODELO" class="catalog-label">Modelo</label>
+        <div class="custom-form-autocomplete">
+            <input type="text" id="MODELO" name="MODELO"
+                   class="form-input-custom @error('MODELO') is-invalid @enderror"
+                   value="{{ old('MODELO', $catalogo->MODELO ?? '') }}"
+                   placeholder="Escriba o elija según el tipo..."
+                   required
+                   oninput="this.value = this.value.toUpperCase(); filterFormDropdown(this)"
+                   onfocus="showFormDropdown(this)"
+                   onblur="hideFormDropdownDelayed(this)"
+                   autocomplete="off">
+            <div class="dropdown-list">
+                @foreach($modelosList ?? [] as $modelo)
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $modelo }}')">{{ $modelo }}</div>
+                @endforeach
+            </div>
+        </div>
+        @error('MODELO') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
     <!-- 2. AÑO (Narrow) -->
@@ -158,7 +137,7 @@
          click en la foto de cada tarjeta en /admin/catalogo (mismo flujo que el
          catálogo de auxiliares). Ver catalogo.uploadFoto + catUploadPhoto(). --}}
 
-    <!-- 4. MOTOR (Wider) -->
+    <!-- 4. MOTOR -->
     <div class="catalog-field-group">
         <label for="MOTOR" class="catalog-label">Motor</label>
         <input type="text" id="MOTOR" name="MOTOR" 

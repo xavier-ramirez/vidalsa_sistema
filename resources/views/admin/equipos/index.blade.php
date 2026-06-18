@@ -30,6 +30,16 @@
            por igual a equipos y a los modulos de almacen, sin duplicar aqui. */
     }
 
+    /* Filtros avanzados (Modelo, Marca, Categoría Flota, Estado Operativo, Año, GPS):
+       letra de la lista un poco más pequeña en ESCRITORIO (el .dropdown-item global
+       es 14px). En mobile se conserva 13px con tap más alto (regla de arriba).
+       Scope #advancedFilterPanel → más específico que el global, sin !important. */
+    @media (min-width: 769px) {
+        #advancedFilterPanel .dropdown-item {
+            font-size: 12px;
+        }
+    }
+
     /* Ajustes para laptops pequeñas (resolución 1366x768 o menor) para que entren todas las columnas.
        Limitado a >768px para que NO se aplique en mobile (donde la tabla se transforma en cards verticales). */
     @media (min-width: 769px) and (max-width: 1400px) {
@@ -262,7 +272,7 @@
             <!-- Advanced Filter Trigger -->
             <div style="position: relative; flex-shrink: 0;">
                 @php
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
@@ -516,6 +526,69 @@
                                     <div class="dropdown-item-list">
                                         <div class="dropdown-item {{ request('gps') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('gpsAdvFilter', 'SI', 'Tienen GPS'); loadEquipos();">Tienen GPS</div>
                                         <div class="dropdown-item {{ request('gps') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('gpsAdvFilter', 'NO', 'No Tienen GPS'); loadEquipos();">No Tienen GPS</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Color + Confirmación en sitio (2 columnas) --}}
+                    <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <!-- Color Filter (búsqueda + opciones dinámicas, igual que Año) -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Color</span>
+                            <div class="custom-dropdown" id="colorAdvFilter" data-filter-type="color" data-default-label="Seleccionar Color..." style="font-size: 12px;">
+                                <input type="hidden" name="color" data-filter-value value="{{ request('color') }}">
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('color') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">palette</i>
+                                    </div>
+                                    <input type="text" name="filter_search_dropdown" data-filter-search
+                                        placeholder="{{ request('color') ?: 'Color...' }}"
+                                        aria-label="Filtrar Color"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
+                                        oninput="window.filterDropdownOptions(this)"
+                                        autocomplete="off">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('color') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('colorAdvFilter'); loadEquipos();">close</i>
+                                </div>
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
+                                        @if(isset($availableColores))
+                                            @foreach($availableColores as $color)
+                                                @if(trim($color) !== '')
+                                                    <div class="dropdown-item {{ request('color') == $color ? 'selected' : '' }}" data-value="{{ $color }}" onclick="selectOption('colorAdvFilter', '{{ addslashes(trim($color)) }}', '{{ addslashes(trim($color)) }}'); loadEquipos();">{{ $color }}</div>
+                                                @endif
+                                            @endforeach
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Confirmación en sitio (fijo SI/NO, igual que GPS) -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Confirmación</span>
+                            <div class="custom-dropdown" id="confirmadoAdvFilter" data-filter-type="confirmado" data-default-label="Seleccionar..." style="font-size: 12px;">
+                                <input type="hidden" name="confirmado" data-filter-value value="{{ request('confirmado') }}">
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('confirmado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">check_circle</i>
+                                    </div>
+                                    <input type="text" readonly
+                                        id="filter_display_confirmado"
+                                        name="filter_display_confirmado"
+                                        placeholder="{{ request('confirmado') === 'SI' ? 'Confirmados' : (request('confirmado') === 'NO' ? 'Sin confirmar' : 'Estatus...') }}"
+                                        aria-label="Filtrar Confirmación"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none; cursor: pointer;"
+                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('confirmado') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('confirmadoAdvFilter'); loadEquipos();">close</i>
+                                </div>
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list">
+                                        <div class="dropdown-item {{ request('confirmado') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('confirmadoAdvFilter', 'SI', 'Confirmados'); loadEquipos();">Confirmados</div>
+                                        <div class="dropdown-item {{ request('confirmado') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('confirmadoAdvFilter', 'NO', 'Sin confirmar'); loadEquipos();">Sin confirmar</div>
                                     </div>
                                 </div>
                             </div>

@@ -81,9 +81,9 @@ function catBuildUrl(page) {
         const v = (el && el.value ? el.value : '').trim();
         if (v) params.append(key, v);
     };
-    add('modelo',  'input[name="modelo"]');
-    add('anio',    'input[name="anio"]');
-    add('id_tipo', 'input[name="id_tipo"]');
+    add('modelo', 'input[name="modelo"]');
+    add('anio',   'input[name="anio"]');
+    add('tipo',   'input[name="tipo"]');
     params.append('ajax_load', '1');
     if (page && page > 1) params.append('page', String(page));
     return '/admin/catalogo?' + params.toString();

@@ -125,6 +125,42 @@
             });
     }
 
+    // Sugerencia de MODELO según el TIPO elegido. Rellena el dropdown de Modelo con
+    // los modelos de equipos de ese tipo (/admin/catalogo/models-from-equipos?tipo=...).
+    // El campo sigue siendo de escritura libre: el usuario puede teclear uno nuevo.
+    function scopeCatalogoModelos() {
+        const tipoInput = document.getElementById('TIPO');
+        const modeloInput = document.getElementById('MODELO');
+        if (!tipoInput || !modeloInput) return;
+        const container = modeloInput.closest('.custom-form-autocomplete');
+        const dropdown = container ? container.querySelector('.dropdown-list') : null;
+        if (!dropdown) return;
+
+        const tipo = (tipoInput.value || '').trim();
+        const url = '/admin/catalogo/models-from-equipos' + (tipo ? ('?tipo=' + encodeURIComponent(tipo)) : '');
+
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(models => {
+                dropdown.innerHTML = '';
+                (models || []).forEach(m => {
+                    if (!m || !String(m).trim()) return;
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.textContent = m;
+                    div.onmousedown = function () { window.selectDropdownItem(this, m); };
+                    dropdown.appendChild(div);
+                });
+                if (!dropdown.children.length) {
+                    dropdown.innerHTML = '<div class="dropdown-item" style="color:#a0aec0;font-style:italic;">Sin modelos para este tipo (puedes escribir uno nuevo)</div>';
+                }
+                // Marcar cargado para que showFormDropdown (form_logic.js) no lo pise
+                // con la lista completa de modelos.
+                dropdown.dataset.loaded = 'true';
+            })
+            .catch(() => { /* silencioso: si falla, queda la lista previa */ });
+    }
+
     // Initialize form handler
     function initCatalogoForm() {
         const form = document.getElementById('catalogoForm');
@@ -143,6 +179,14 @@
             modelInput.addEventListener('blur', function () {
                 if (window.checkCatalogMatch) window.checkCatalogMatch();
             });
+        }
+
+        // Al elegir/cambiar el TIPO, sugerir los modelos de ese tipo en el campo Modelo.
+        // (selectDropdownItem despacha 'change'; escribir + salir del campo también.)
+        const tipoInput = form.querySelector('#TIPO');
+        if (tipoInput && tipoInput.dataset.scopeBound !== 'true') {
+            tipoInput.dataset.scopeBound = 'true';
+            tipoInput.addEventListener('change', scopeCatalogoModelos);
         }
 
         // Preview de la foto referencial al elegir archivo
