@@ -303,13 +303,11 @@
             okBtn.onclick = function () {
                 if (!sel.id) return;
                 var ids = selectedList.map(function (s) { return Number(s.id); });
-                var origenes = {};
-                selectedList.forEach(function (s) { if (s.frenteId) origenes[Number(s.id)] = Number(s.frenteId); });
 
                 window.OfflineOutbox.add({
                     client_uuid: window.OfflineOutbox.uuid(),
                     action: 'movilizar',
-                    payload: { ids: ids, id_frente_destino: sel.id, origenes: origenes },
+                    payload: { ids: ids, id_frente_destino: sel.id },
                     status: 'pending', created: Date.now(),
                     label: 'Movilizar ' + ids.length + ' equipo(s) → ' + sel.nombre,
                 });
