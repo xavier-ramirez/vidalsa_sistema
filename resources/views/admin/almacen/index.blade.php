@@ -3659,8 +3659,22 @@
             unpre();
             if (res.ok) {
                 toast(res.b.message || 'Producto restaurado.');
-                window.almPapeleraBuscar();                                    // refresca la lista (el restaurado ya no aparece)
-                if (typeof window.almCargar === 'function') window.almCargar(); // refresca la tabla principal
+                window.almPapeleraBuscar();
+                if (typeof window.almCargar === 'function') window.almCargar();
+
+                if (res.b && res.b.producto && Array.isArray(window.almProductosLista)) {
+                    var p = res.b.producto;
+                    var ya = window.almProductosLista.some(function (x) { return String(x.ID_PRODUCTO) === String(p.ID_PRODUCTO); });
+                    if (!ya) {
+                        window.almProductosLista.push({
+                            ID_PRODUCTO: p.ID_PRODUCTO,
+                            CODIGO: p.CODIGO,
+                            NOMBRE: p.NOMBRE,
+                            UM: p.UM,
+                            CATEGORIA: p.CATEGORIA
+                        });
+                    }
+                }
             } else {
                 toast((res.b && res.b.message) || 'No se pudo restaurar el producto.', 'error');
             }
