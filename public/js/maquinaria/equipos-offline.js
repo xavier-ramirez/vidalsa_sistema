@@ -334,12 +334,17 @@
             inp.dataset.offWiredEq = '1';
             inp.addEventListener('input', function () { if (OM.estaActivo()) aplicarFiltro(); });
         }
-        if (typeof window.loadEquipos === 'function' && !window._origLoadEquipos) {
-            window._origLoadEquipos = window.loadEquipos;
-            window.loadEquipos = function () {
+        if (typeof window.loadEquipos === 'function') {
+            if (!window._origLoadEquipos) {
+                window._origLoadEquipos = window.loadEquipos;
+            } else if (window.loadEquipos !== window._eqOffPatchedLoad) {
+                window._origLoadEquipos = window.loadEquipos;
+            }
+            window._eqOffPatchedLoad = function () {
                 if (OM.estaActivo()) { aplicarFiltro(); return Promise.resolve(); }
                 return window._origLoadEquipos.apply(null, arguments);
             };
+            window.loadEquipos = window._eqOffPatchedLoad;
         }
         if (!window._eqOffDropdownWired) {
             window._eqOffDropdownWired = true;
