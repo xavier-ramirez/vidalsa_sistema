@@ -5,17 +5,16 @@
  * internet (movilizar, cambiar estado, recepción directa), encoladas por la UI
  * en IndexedDB vía window.OfflineDB.enqueue(...).
  *
- * Política de conflictos = "Opción 2": el servidor puede responder por ítem
- * 'synced' | 'conflict' | 'error'. Los 'synced' salen del outbox; 'conflict'
- * quedan en la bandeja para revisión manual (NO se reintentan solos); 'error'
- * (transitorio) se reintenta. La cola persiste en IndexedDB, así sobrevive
- * recargas y cierres.
+ * Política LAST-WRITE-WINS: el servidor aplica cada operación sin comparar
+ * versiones; el último cambio en llegar gana. Respuesta por ítem:
+ * 'synced' (aplicado, sale del outbox) | 'error' (se reintenta). La cola
+ * persiste en IndexedDB, así sobrevive recargas y cierres.
  *
  * API pública (window.OfflineOutbox):
  *   .add(item)   -> encola una acción y avisa a la UI (evento 'outbox-actualizado').
  *   .drain()     -> intenta subir lo pendiente AHORA (no-op si offline).
- *   .count()     -> Promise<{pending, conflict}>.
- *   .razon(key)  -> texto legible de un motivo de conflicto/error.
+ *   .count()     -> Promise<{pending, error}>.
+ *   .razon(key)  -> texto legible de un motivo de error.
  * Evento: window dispatch 'outbox-actualizado' tras encolar y tras cada drain.
  */
 (function () {
@@ -29,12 +28,10 @@
     }
     function avisar() { window.dispatchEvent(new CustomEvent('outbox-actualizado')); }
 
-    // Motivos del servidor → texto en español para la bandeja/toasts.
     var RAZONES = {
-        origen_cambiado:             'Otro usuario movió el equipo antes de sincronizar.',
         frente_destino_inexistente:  'El frente destino ya no existe.',
         equipo_no_encontrado:        'El equipo ya no existe.',
-        falla_abierta:               'El equipo tiene un reporte de falla abierto.',
+        falla_abierta:               'El equipo tiene un reporte de falla abierto; se reintentará.',
         sin_permiso:                 'No tienes permiso para esta acción.',
         payload_invalido:            'Datos inválidos.',
         datos_incompletos:           'Datos incompletos.',
@@ -48,8 +45,6 @@
         if (drenando || !navigator.onLine || !window.OfflineDB) return;
 
         var todos = await window.OfflineDB.outboxList();
-        // Se suben los 'pending' y se reintentan los 'error' transitorios. Los
-        // 'conflict' NO: requieren decisión del usuario (reintentar/descartar).
         var aSubir = todos.filter(function (it) { return it.status === 'pending' || it.status === 'error'; });
         if (!aSubir.length) return;
 
@@ -95,26 +90,24 @@
             var data = await res.json().catch(function () { return null; });
             if (!data || !Array.isArray(data.results)) return;
 
-            var huboSynced = false, nConflict = 0;
+            var huboSynced = false, nError = 0;
             for (var i = 0; i < data.results.length; i++) {
                 var r = data.results[i];
                 if (r.status === 'synced') {
                     await window.OfflineDB.outboxRemove(r.client_uuid);
                     huboSynced = true;
-                } else if (r.status === 'conflict') {
-                    await window.OfflineDB.outboxUpdate(r.client_uuid, { status: 'conflict', reason: r.reason || '' });
-                    nConflict++;
                 } else {
                     await window.OfflineDB.outboxUpdate(r.client_uuid, { status: 'error', reason: r.reason || '' });
+                    nError++;
                 }
             }
 
             if (huboSynced) {
                 toast('Cambios sin conexión sincronizados con el servidor.', 'success');
-                if (window.OfflineDB.sync) window.OfflineDB.sync(true); // re-baja snapshot fresco
+                if (window.OfflineDB.sync) window.OfflineDB.sync(true);
             }
-            if (nConflict) {
-                toast(nConflict + ' cambio(s) en conflicto. Revísalos en pendientes.', 'error');
+            if (nError) {
+                toast(nError + ' cambio(s) no se pudieron aplicar; se reintentarán.', 'error');
             }
         } finally {
             drenando = false;
@@ -137,9 +130,9 @@
         drain: drain,
         razon: function (key) { return RAZONES[key] || key || 'Motivo desconocido'; },
         count: function () {
-            if (!window.OfflineDB) return Promise.resolve({ pending: 0, conflict: 0 });
-            return Promise.all([window.OfflineDB.countPending(), window.OfflineDB.countConflict()])
-                .then(function (a) { return { pending: a[0], conflict: a[1] }; });
+            if (!window.OfflineDB) return Promise.resolve({ pending: 0, error: 0 });
+            return Promise.all([window.OfflineDB.countPending(), window.OfflineDB.countError ? window.OfflineDB.countError() : Promise.resolve(0)])
+                .then(function (a) { return { pending: a[0], error: a[1] }; });
         },
     };
 

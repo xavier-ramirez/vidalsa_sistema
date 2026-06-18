@@ -87,7 +87,7 @@
 
     // ── OUTBOX (Fase 2): cola local de acciones de escritura sin internet ────────
     // Registro: { client_uuid, action, payload, status, reason, created, label, optimistic }
-    //   status: 'pending' (por subir) · 'syncing' · 'conflict' · 'error'
+    //   status: 'pending' (por subir) · 'syncing' · 'error'
     const outboxPut = (item) => tx('readwrite', (s) => { s.put(item); }, OUTBOX);
     const outboxAll = () => tx('readonly', (s) => new Promise((res, rej) => {
         const r = s.getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
@@ -198,7 +198,7 @@
         outboxUpdate: (uuid, patch) => outboxUpdate(uuid, patch),
         outboxRemove: (uuid) => outboxDel(uuid),
         countPending:  () => outboxList('pending').then((a) => a.length),
-        countConflict: () => outboxList('conflict').then((a) => a.length),
+        countError:    () => outboxList('error').then((a) => a.length),
     };
 
     // Ejecuta `fn` cuando el navegador esté OCIOSO (sin trabajo del usuario en

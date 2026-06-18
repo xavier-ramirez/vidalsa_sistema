@@ -367,8 +367,8 @@
     </div>
 
     {{-- ── Bandeja de cambios sin conexión (Fase 2) ──────────────────────────────
-         Badge flotante visible cuando hay acciones en el outbox (por subir o en
-         conflicto). Click → panel con la lista; permite Reintentar / Descartar /
+         Badge flotante visible cuando hay acciones en el outbox (por subir o con
+         error). Click → panel con la lista; permite Reintentar / Descartar /
          Subir ahora. Se refresca con el evento 'outbox-actualizado'. --}}
     <div id="outboxTray" style="position:fixed;left:16px;bottom:16px;z-index:1000002;display:none;font-family:'Inter','Segoe UI',sans-serif;">
         <button id="outboxTrayBtn" type="button" title="Cambios sin conexión pendientes de subir"
@@ -2666,7 +2666,7 @@
         <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
         {{-- Fase 2: motor de sincronización del outbox (sube acciones hechas sin internet). --}}
         <script src="{{ asset('js/offline/outbox-sync.js') }}?v={{ @filemtime(public_path('js/offline/outbox-sync.js')) }}" defer></script>
-        {{-- Fase 2: bandeja de pendientes/conflictos (badge flotante #outboxTray). --}}
+        {{-- Fase 2: bandeja de pendientes (badge flotante #outboxTray). --}}
         <script>
             (function () {
                 function $(id) { return document.getElementById(id); }
@@ -2682,19 +2682,16 @@
                             return;
                         }
                         tray.style.display = 'block';
-                        var conf = items.filter(function (i) { return i.status === 'conflict'; }).length;
                         $('outboxTrayCount').textContent = items.length;
-                        // Ámbar si hay algún conflicto que requiere decisión del usuario.
-                        $('outboxTrayBtn').style.background = conf ? '#b45309' : '#0067b1';
+                        var hayErr = items.some(function (i) { return i.status === 'error'; });
+                        $('outboxTrayBtn').style.background = hayErr ? '#dc2626' : '#0067b1';
 
                         var list = $('outboxTrayList');
                         list.innerHTML = items.map(function (it) {
-                            var esConf = it.status === 'conflict', esErr = it.status === 'error';
-                            var color = esConf ? '#b45309' : (esErr ? '#dc2626' : '#0067b1');
-                            var estado = esConf ? ('Conflicto · ' + razon(it.reason))
-                                       : esErr ? ('Error · ' + razon(it.reason))
-                                       : 'Por subir';
-                            var acciones = (esConf || esErr)
+                            var esErr = it.status === 'error';
+                            var color = esErr ? '#dc2626' : '#0067b1';
+                            var estado = esErr ? ('Error · ' + razon(it.reason)) : 'Por subir';
+                            var acciones = esErr
                                 ? '<div style="display:flex;gap:8px;margin-top:6px;">' +
                                       '<button data-retry="' + esc(it.client_uuid) + '" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Reintentar</button>' +
                                       '<button data-discard="' + esc(it.client_uuid) + '" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Descartar</button>' +

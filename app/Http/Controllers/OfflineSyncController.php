@@ -20,11 +20,11 @@ use Illuminate\Support\Facades\Validator;
  * el modal del dashboard, que no es un módulo offline.)
  *
  * Esto NO es el flujo online (MovilizacionController::bulkStore /
- * EquipoController::changeStatus): añade IDEMPOTENCIA
- * (client_uuid del lote) y DETECCIÓN DE CONFLICTOS — "Opción 2": si el estado
- * del servidor cambió respecto a lo que el usuario vio offline, ese ítem se
- * RECHAZA (status 'conflict') y el cliente lo deja en su bandeja; los demás sí
- * se aplican. Cada operación va en su PROPIA transacción para aislar fallos.
+ * EquipoController::changeStatus): añade IDEMPOTENCIA (client_uuid del lote)
+ * y política LAST-WRITE-WINS — el servidor aplica cada operación sin comparar
+ * versiones; el último cambio en llegar gana. Lo que no se puede aplicar
+ * (equipo inexistente, frente borrado, falla abierta) se devuelve como 'error'
+ * y el cliente reintenta. Cada operación va en su PROPIA transacción.
  *
  * Comparte únicamente el primitivo atómico MovilizacionController::generateNextCodigoControl().
  * Es ruta WEB (sesión + CSRF), no la API Sanctum del APK.
@@ -80,17 +80,14 @@ class OfflineSyncController extends Controller
     {
         return ['client_uuid' => $uuid, 'status' => 'synced', 'server_ref' => $ref];
     }
-    private function conflict(string $uuid, string $reason, $ref = null): array
-    {
-        return ['client_uuid' => $uuid, 'status' => 'conflict', 'reason' => $reason, 'server_ref' => $ref];
-    }
     private function error(string $uuid, string $reason): array
     {
         return ['client_uuid' => $uuid, 'status' => 'error', 'reason' => $reason];
     }
 
     // ── MOVILIZAR (bulk a un frente EXISTENTE) ───────────────────────────────
-    // payload: { ids:[int], id_frente_destino:int, origenes:{equipoId:idFrenteVisto} }
+    // payload: { ids:[int], id_frente_destino:int }
+    // Last-write-wins: se aplica sin importar dónde esté el equipo ahora.
     private function opMovilizar(string $uuid, array $payload, $user, string $correo): array
     {
         if (!$user->can('equipos.assign')) {
@@ -101,18 +98,15 @@ class OfflineSyncController extends Controller
             'ids'               => 'required|array|min:1',
             'ids.*'             => 'integer',
             'id_frente_destino' => 'required|integer',
-            'origenes'          => 'array',
         ]);
         if ($v->fails()) {
             return $this->error($uuid, 'payload_invalido');
         }
 
-        $ids      = array_map('intval', $payload['ids']);
-        $destId   = (int) $payload['id_frente_destino'];
-        $origenes = (array) ($payload['origenes'] ?? []);
+        $ids    = array_map('intval', $payload['ids']);
+        $destId = (int) $payload['id_frente_destino'];
 
-        return DB::transaction(function () use ($uuid, $ids, $destId, $origenes, $correo) {
-            // Idempotencia: si el lote ya se aplicó (mismo client_uuid), devolver synced.
+        return DB::transaction(function () use ($uuid, $ids, $destId, $correo) {
             $existentes = Movilizacion::where('client_uuid', $uuid)->pluck('ID_MOVILIZACION');
             if ($existentes->isNotEmpty()) {
                 return $this->ok($uuid, ['movilizacion_ids' => $existentes->all(), 'duplicado' => true]);
@@ -120,7 +114,7 @@ class OfflineSyncController extends Controller
 
             $frente = FrenteTrabajo::find($destId);
             if (!$frente) {
-                return $this->conflict($uuid, 'frente_destino_inexistente');
+                return $this->error($uuid, 'frente_destino_inexistente');
             }
 
             $equipos = Equipo::whereIn('ID_EQUIPO', $ids)
@@ -132,21 +126,14 @@ class OfflineSyncController extends Controller
             foreach ($ids as $id) {
                 $eq = $equipos->get($id);
                 if (!$eq) {
-                    return $this->conflict($uuid, 'equipo_no_encontrado', ['id_equipo' => $id]);
+                    return $this->error($uuid, 'equipo_no_encontrado');
                 }
-                $actual = (int) ($eq->ID_FRENTE_ACTUAL ?? 0);
-                if ($actual === (int) $frente->ID_FRENTE) {
-                    continue; // ya está en destino → se omite (no es conflicto)
-                }
-                // Conflicto: otro usuario movió el equipo desde que el usuario lo vio offline.
-                $visto = isset($origenes[$id]) ? (int) $origenes[$id] : null;
-                if ($visto !== null && $actual !== $visto) {
-                    return $this->conflict($uuid, 'origen_cambiado', ['id_equipo' => $id]);
+                if ((int) ($eq->ID_FRENTE_ACTUAL ?? 0) === (int) $frente->ID_FRENTE) {
+                    continue;
                 }
                 $aMovilizar[] = $eq;
             }
 
-            // Todos ya estaban en destino → objetivo cumplido (no-op idempotente).
             if (empty($aMovilizar)) {
                 return $this->ok($uuid, ['movilizacion_ids' => [], 'omitidos' => count($ids)]);
             }
@@ -182,6 +169,7 @@ class OfflineSyncController extends Controller
 
     // ── CAMBIO DE ESTADO OPERATIVO ───────────────────────────────────────────
     // payload: { id_equipo:int, status:str }
+    // Last-write-wins: aplica el estado sin importar el valor actual.
     private function opEstado(string $uuid, array $payload, $user): array
     {
         if (!$user->can('equipos.edit')) {
@@ -199,21 +187,16 @@ class OfflineSyncController extends Controller
         return DB::transaction(function () use ($uuid, $payload) {
             $equipo = Equipo::lockForUpdate()->find((int) $payload['id_equipo']);
             if (!$equipo) {
-                return $this->conflict($uuid, 'equipo_no_encontrado');
+                return $this->error($uuid, 'equipo_no_encontrado');
             }
 
-            // Misma regla que changeStatus: con falla ABIERTA el estado lo gobierna el
-            // reporte → no se cambia a mano (conflicto, hay que cerrar el reporte).
             $falla = Falla::where('ACTIVO_TIPO', 'equipo')
                 ->where('ACTIVO_ID', $equipo->ID_EQUIPO)
                 ->where('ESTADO_REPORTE', 'abierto')
                 ->latest('FECHA_EMISION')
                 ->first();
             if ($falla) {
-                return $this->conflict($uuid, 'falla_abierta', [
-                    'codigo' => $falla->CODIGO_REPORTE,
-                    'tipo'   => $falla->TIPO_REPORTE,
-                ]);
+                return $this->error($uuid, 'falla_abierta');
             }
 
             $equipo->ESTADO_OPERATIVO = $payload['status'];
