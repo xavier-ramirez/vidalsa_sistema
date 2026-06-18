@@ -2086,7 +2086,7 @@ class AlmacenController extends Controller
         // Geometría por formato (mm). En 'carta' la grilla la definen cols + el nº de
         // filas que caben por alto; en los rollos es 1 etiqueta por página.
         $presets = [
-            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 3, 'cellW' => 64.0, 'cellH' => 33.9, 'mLeft' => 6.0, 'mTop' => 12.0],
+            'carta' => ['orient' => 'P', 'page' => 'A4',      'cols' => 2, 'cellW' => 95.0, 'cellH' => 30.0, 'mLeft' => 10.0, 'mTop' => 12.0],
             '50x30' => ['orient' => 'L', 'page' => [50, 30],  'cols' => 1, 'cellW' => 50.0, 'cellH' => 30.0, 'mLeft' => 0.0, 'mTop' => 0.0],
             '40x25' => ['orient' => 'L', 'page' => [40, 25],  'cols' => 1, 'cellW' => 40.0, 'cellH' => 25.0, 'mLeft' => 0.0, 'mTop' => 0.0],
         ];
