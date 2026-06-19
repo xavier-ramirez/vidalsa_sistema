@@ -104,11 +104,13 @@ self.addEventListener('fetch', (event) => {
 
     // Login (/): stale-while-revalidate — carga al instante desde cache, actualiza en fondo.
     // El CSRF token del HTML cacheado se refresca vía /refresh-csrf antes del submit.
+    // !response.redirected: si el usuario está logueado, el servidor redirige a /menu;
+    // NO debemos cachear esa respuesta bajo la clave "/" o sobreescribiríamos el login.
     if (url.pathname === '/' && (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html'))) {
         event.respondWith(
             caches.match(request).then((cached) => {
                 const networkFetch = fetch(request).then((response) => {
-                    if (response && response.status === 200) {
+                    if (response && response.status === 200 && !response.redirected) {
                         const copy = response.clone();
                         caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
                     }
