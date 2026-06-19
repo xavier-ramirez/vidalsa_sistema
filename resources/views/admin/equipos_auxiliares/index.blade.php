@@ -518,8 +518,7 @@
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#64748b;">download</i></div>
                         <span>Exportación de Data</span>
                     </a>
-                    <a href="{{ route('equipos-auxiliares.catalogo') }}"
-                       onclick="document.getElementById('auxAccionesDropdown').style.display='none';"
+                    <a href="{{ route('catalogo.index') }}"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;{{ auth()->user()?->can('super.admin') ? 'border-bottom:1px solid #f1f5f9;' : '' }}"
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                         <div style="background:#eff6ff;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">menu_book</i></div>
@@ -1228,7 +1227,11 @@
 
     // ── IntersectionObserver: dispara la siguiente carga cuando el sentinel
     // entra en viewport. Idéntico patrón a /admin/equipos. ────────────────
-    document.addEventListener('DOMContentLoaded', function () {
+    // Ejecución inmediata (NO DOMContentLoaded): los elementos ya existen
+    // porque este <script> está después de ellos en el HTML. Además, en
+    // navegación SPA DOMContentLoaded no se re-dispara.
+    (function () {
+        if (window._auxScrollObserver) { try { window._auxScrollObserver.disconnect(); } catch(_){} }
         const sentinel = document.getElementById('auxScrollSentinel');
         if (!sentinel || typeof IntersectionObserver === 'undefined') return;
         const obs = new IntersectionObserver(function (entries) {
@@ -1239,12 +1242,13 @@
             }
         }, { rootMargin: '300px 0px' });
         obs.observe(sentinel);
-    });
+        window._auxScrollObserver = obs;
+    })();
 
     // El "Consolidado" / "Distribución" del sidebar NO se calcula en el render
     // inicial (para que el módulo abra rápido). Se rellena aquí de forma
     // diferida con un fetch ligero — SIN preloader, sin tocar la tabla.
-    document.addEventListener('DOMContentLoaded', function () {
+    (function () {
         try {
             var form = document.getElementById('auxFiltersForm');
             var params = form ? new URLSearchParams(new FormData(form)) : new URLSearchParams();
@@ -1267,7 +1271,7 @@
             })
             .catch(function () { /* silencioso: si falla, el sidebar queda en "—" */ });
         } catch (e) { /* noop */ }
-    });
+    })();
 
 
 
