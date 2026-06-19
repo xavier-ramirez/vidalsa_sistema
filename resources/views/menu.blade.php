@@ -771,7 +771,7 @@
         flex-shrink: 0;
     }
     .menu-about-logo img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
-    @media (max-width: 560px) { .menu-about-logo { height: 60px; } }
+    @media (max-width: 560px) { .menu-about-logo { height: 44px; } }
     .menu-about-desc {
         margin: 0;
         font-size: 13px;
@@ -820,7 +820,10 @@
     .menu-about-right .dev-link .material-icons { font-size: 16px; }
     /* En móvil/tablet: una sola columna; la derecha pasa abajo con separador horizontal. */
     @media (max-width: 760px) {
+        .menu-about { padding: 18px 16px; }
         .menu-about-cols { flex-direction: column; gap: 16px; }
+        .menu-about-desc { font-size: 12px; line-height: 1.55; }
+        .menu-about-head { margin-bottom: 10px; }
         .menu-about-right {
             border-left: none;
             border-top: 1px dashed #e2e8f0;
@@ -1037,10 +1040,9 @@
                     </div>
                 </div>
                 <p class="menu-about-desc">
-                    Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
-                    desarrollando proyectos de vivienda, oleoductos y obras de impacto nacional. Su misión es
-                    impulsar el crecimiento del país garantizando calidad, innovación y responsabilidad social,
-                    respaldada por una flota propia de maquinaria pesada operada en todo el territorio.
+                    Empresa venezolana de infraestructura y construcción con más de 15 años desarrollando
+                    proyectos de vivienda, oleoductos y obras de impacto nacional, respaldada por flota propia
+                    de maquinaria pesada operada en todo el territorio.
                 </p>
             </div>
             {{-- Derecha: crédito del desarrollador. --}}
