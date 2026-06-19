@@ -141,10 +141,10 @@
     }
     /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del contenedor ── */
     @media (max-width: 768px) {
-        .dashboard-container { padding: 8px 10px !important; }
+        .dashboard-container { padding: 8px 6px !important; }
     }
     @media (max-width: 480px) {
-        .dashboard-container { padding: 6px 6px !important; }
+        .dashboard-container { padding: 6px 4px !important; }
         .menu-hero { border-radius: 10px; }
     }
 
@@ -834,7 +834,7 @@
     }
 </style>
 
-<div class="dashboard-container" style="padding: 10px 20px; position: relative; z-index: 1;">
+<div class="dashboard-container" style="padding: 10px 8px; position: relative; z-index: 1;">
 
     {{-- ── Hero moderno: 3 imágenes con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
