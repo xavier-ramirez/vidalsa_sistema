@@ -1040,9 +1040,10 @@
                     </div>
                 </div>
                 <p class="menu-about-desc">
-                    Empresa venezolana de infraestructura y construcción con más de 15 años desarrollando
-                    proyectos de vivienda, oleoductos y obras de impacto nacional, respaldada por flota propia
-                    de maquinaria pesada operada en todo el territorio.
+                    Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
+                    en el sector petrolero y de vivienda, ejecutando oleoductos, gasoductos, líneas de flujo
+                    y obras civiles de impacto nacional, respaldada por flota propia de maquinaria pesada
+                    operada en todo el territorio.
                 </p>
             </div>
             {{-- Derecha: crédito del desarrollador. --}}
