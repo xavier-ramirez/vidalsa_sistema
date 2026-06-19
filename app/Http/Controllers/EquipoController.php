@@ -3393,11 +3393,28 @@ class EquipoController extends Controller
             ];
         })->values();
 
+        // Confirmar en sitio los equipos que coinciden con el frente seleccionado.
+        $confirmed = 0;
+        if ($frenteIdFiltro !== null) {
+            $idsToConfirm = $results
+                ->filter(fn($r) => ($r['found'] ?? false) && ($r['in_selected_frente'] ?? false))
+                ->pluck('id')
+                ->filter()
+                ->values()
+                ->all();
+            if (!empty($idsToConfirm)) {
+                $confirmed = Equipo::whereIn('ID_EQUIPO', $idsToConfirm)
+                    ->where('CONFIRMADO_EN_SITIO', 0)
+                    ->update(['CONFIRMADO_EN_SITIO' => 1]);
+            }
+        }
+
         return response()->json([
             'total'           => $results->count(),
             'found'           => $found,
             'missing'         => $results->count() - $found,
             'in_other_frente' => $inOtherFrente,
+            'confirmed'       => $confirmed,
             'results'         => $results,
         ]);
     }

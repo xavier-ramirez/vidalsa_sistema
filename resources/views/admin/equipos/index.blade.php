@@ -1956,9 +1956,8 @@
                             $thStyleLast = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a;';
                         @endphp
                         <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
-                            <thead id="bulkLookupThead" style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
+                            <thead style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
                                 <tr>
-                                    <th id="bulkLookupThConfirm" style="{{ $thStyle }} width: 32px; text-align: center; display: none;"></th>
                                     <th style="{{ $thStyle }} width: 22%;">Buscado</th>
                                     <th style="{{ $thStyle }} width: 28%;">Equipo</th>
                                     <th style="{{ $thStyle }} width: 16%;">Estado</th>
@@ -2196,11 +2195,8 @@
         if (!tbody || !summary) return;
 
         const hayFiltroFrente = !!frenteNombre;
-        const thConfirm = document.getElementById('bulkLookupThConfirm');
-        if (thConfirm) thConfirm.style.display = hayFiltroFrente ? '' : 'none';
+        const confirmed = payload.confirmed || 0;
 
-        // Rótulo "Comparando con: <frente>": indica contra qué frente se evalúa
-        // el amarillo (equipos en otro frente). Solo si se filtró por un frente.
         const compareEl = document.getElementById('bulkLookupFrenteCompare');
         if (compareEl) {
             if (frenteNombre) {
@@ -2217,13 +2213,19 @@
         const total = payload.total || 0;
         const inOther = payload.in_other_frente || 0;
 
-        // Resumen sin contenedores de color: solo texto con el icono coloreado.
         let summaryHtml = `
             <span style="font-size: 12px; font-weight: 700; color: #334155;">Total: ${total}</span>
             <span style="font-size: 12px; font-weight: 700; color: #166534;">
                 <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: #16a34a;">check_circle</i> Encontrados: ${found}
             </span>
         `;
+        if (confirmed > 0) {
+            summaryHtml += `
+                <span style="font-size: 12px; font-weight: 700; color: #0369a1;">
+                    <i class="material-icons" style="font-size: 13px; vertical-align: -2px; color: #0284c7;">verified</i> Confirmados en sitio: ${confirmed}
+                </span>
+            `;
+        }
         if (inOther > 0) {
             summaryHtml += `
                 <span style="font-size: 12px; font-weight: 700; color: #854d0e;">
@@ -2238,20 +2240,17 @@
         `;
         summary.innerHTML = summaryHtml;
 
-        // La leyenda del amarillo solo aparece si hubo equipos en otro frente.
+        if (confirmed > 0 && window.showToast) {
+            window.showToast(confirmed + ' equipo(s) confirmado(s) en sitio.', 'success');
+        }
+
         if (yellowLegend) yellowLegend.style.display = inOther > 0 ? 'block' : 'none';
 
         lastMissingTerms = [];
-        // 3 estilos de fila segun resultado:
-        //   - rojo: no encontrado (NF)
-        //   - amarillo: encontrado pero in_selected_frente === false
-        //   - blanco: encontrado y en el frente (o sin filtro)
         const cellBase    = "padding: 6px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; word-break: break-word;";
         const cellMissing = "padding: 6px 10px; border-bottom: 1px solid #fee2e2; color: #b91c1c; word-break: break-word;";
         const cellOther   = "padding: 6px 10px; border-bottom: 1px solid #fde68a; color: #854d0e; word-break: break-word;";
 
-        // Estado operativo: SOLO texto coloreado (sin contenedor/badge), con el
-        // mismo lenguaje de color que el resto de la app.
         const estadoTexto = function (estado) {
             const e = (estado || 'N/A').toUpperCase();
             let col = '#475569';
@@ -2262,21 +2261,15 @@
             return '<span style="font-size:11px; font-weight:700; color:' + col + '; white-space:nowrap;">' + escapeHtml(e) + '</span>';
         };
 
-        const confirmCell = function (style, confirmed) {
-            if (!hayFiltroFrente) return '';
-            if (confirmed) return '<td style="' + style + ' text-align:center; width:32px;"><i class="material-icons" style="font-size:18px; color:#16a34a;">check_circle</i></td>';
-            return '<td style="' + style + ' text-align:center; width:32px;"></td>';
-        };
-        const colspanBase = 3;
+        const checkIcon = '<i class="material-icons" style="font-size:14px; color:#16a34a; vertical-align:-2px; margin-right:4px;">check_circle</i>';
 
         const rowsHtml = results.map(r => {
             if (!r.found) {
                 lastMissingTerms.push(r.term);
                 return `
                     <tr style="background: #fef2f2;">
-                        ${confirmCell(cellMissing, false)}
                         <td data-label="Buscado" style="${cellMissing}">${escapeHtml(r.term)}</td>
-                        <td colspan="${colspanBase}" style="${cellMissing} font-style: italic;">
+                        <td colspan="3" style="${cellMissing} font-style: italic;">
                             <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
                             No encontrado en la base de datos
                         </td>
@@ -2287,10 +2280,10 @@
             const frente = r.frente_nombre === 'SIN ASIGNAR'
                 ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
                 : escapeHtml(r.frente_nombre);
+            const buscadoPrefix = (hayFiltroFrente && r.in_selected_frente) ? checkIcon : '';
             if (r.in_selected_frente === false) {
                 return `
                     <tr style="background: #fef9c3;">
-                        ${confirmCell(cellOther, false)}
                         <td data-label="Buscado" style="${cellOther}">${escapeHtml(r.term)}</td>
                         <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
                         <td data-label="Estado" style="${cellOther}">${estadoTexto(r.estado)}</td>
@@ -2300,8 +2293,7 @@
             }
             return `
                 <tr style="background: white;">
-                    ${confirmCell(cellBase, true)}
-                    <td data-label="Buscado" style="${cellBase}">${escapeHtml(r.term)}</td>
+                    <td data-label="Buscado" style="${cellBase}">${buscadoPrefix}${escapeHtml(r.term)}</td>
                     <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
                     <td data-label="Estado" style="${cellBase}">${estadoTexto(r.estado)}</td>
                     <td data-label="Frente" style="${cellBase} text-align: center;">${frente}</td>
@@ -2309,8 +2301,7 @@
             `;
         }).join('');
 
-        const totalCols = hayFiltroFrente ? 5 : 4;
-        tbody.innerHTML = rowsHtml || '<tr><td colspan="' + totalCols + '" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
+        tbody.innerHTML = rowsHtml || '<tr><td colspan="4" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
 
         document.getElementById('bulkLookupInputPhase').style.display = 'none';
         // display:'' (no inline) → el CSS decide: block en escritorio, flex en
