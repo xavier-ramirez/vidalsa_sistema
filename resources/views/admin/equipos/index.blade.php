@@ -1956,8 +1956,9 @@
                             $thStyleLast = 'text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #0f172a;';
                         @endphp
                         <table style="width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed;">
-                            <thead style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
+                            <thead id="bulkLookupThead" style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
                                 <tr>
+                                    <th id="bulkLookupThConfirm" style="{{ $thStyle }} width: 32px; text-align: center; display: none;"></th>
                                     <th style="{{ $thStyle }} width: 22%;">Buscado</th>
                                     <th style="{{ $thStyle }} width: 28%;">Equipo</th>
                                     <th style="{{ $thStyle }} width: 16%;">Estado</th>
@@ -2194,6 +2195,10 @@
         const yellowLegend = document.getElementById('bulkLookupYellowLegend');
         if (!tbody || !summary) return;
 
+        const hayFiltroFrente = !!frenteNombre;
+        const thConfirm = document.getElementById('bulkLookupThConfirm');
+        if (thConfirm) thConfirm.style.display = hayFiltroFrente ? '' : 'none';
+
         // Rótulo "Comparando con: <frente>": indica contra qué frente se evalúa
         // el amarillo (equipos en otro frente). Solo si se filtró por un frente.
         const compareEl = document.getElementById('bulkLookupFrenteCompare');
@@ -2257,13 +2262,21 @@
             return '<span style="font-size:11px; font-weight:700; color:' + col + '; white-space:nowrap;">' + escapeHtml(e) + '</span>';
         };
 
+        const confirmCell = function (style, confirmed) {
+            if (!hayFiltroFrente) return '';
+            if (confirmed) return '<td style="' + style + ' text-align:center; width:32px;"><i class="material-icons" style="font-size:18px; color:#16a34a;">check_circle</i></td>';
+            return '<td style="' + style + ' text-align:center; width:32px;"></td>';
+        };
+        const colspanBase = hayFiltroFrente ? 4 : 3;
+
         const rowsHtml = results.map(r => {
             if (!r.found) {
                 lastMissingTerms.push(r.term);
                 return `
                     <tr style="background: #fef2f2;">
+                        ${confirmCell(cellMissing, false)}
                         <td data-label="Buscado" style="${cellMissing}">${escapeHtml(r.term)}</td>
-                        <td colspan="3" style="${cellMissing} font-style: italic;">
+                        <td colspan="${colspanBase}" style="${cellMissing} font-style: italic;">
                             <i class="material-icons" style="font-size: 13px; vertical-align: -2px;">error_outline</i>
                             No encontrado en la base de datos
                         </td>
@@ -2274,11 +2287,10 @@
             const frente = r.frente_nombre === 'SIN ASIGNAR'
                 ? '<span style="font-style: italic;">SIN ASIGNAR</span>'
                 : escapeHtml(r.frente_nombre);
-            // r.in_selected_frente === false → otro frente → amarillo.
-            // r.in_selected_frente === true  → mismo frente o sin filtro → blanco.
             if (r.in_selected_frente === false) {
                 return `
                     <tr style="background: #fef9c3;">
+                        ${confirmCell(cellOther, false)}
                         <td data-label="Buscado" style="${cellOther}">${escapeHtml(r.term)}</td>
                         <td data-label="Equipo" style="${cellOther}">${escapeHtml(equipoInfo)}</td>
                         <td data-label="Estado" style="${cellOther}">${estadoTexto(r.estado)}</td>
@@ -2288,6 +2300,7 @@
             }
             return `
                 <tr style="background: white;">
+                    ${confirmCell(cellBase, true)}
                     <td data-label="Buscado" style="${cellBase}">${escapeHtml(r.term)}</td>
                     <td data-label="Equipo" style="${cellBase}">${escapeHtml(equipoInfo)}</td>
                     <td data-label="Estado" style="${cellBase}">${estadoTexto(r.estado)}</td>
@@ -2296,7 +2309,8 @@
             `;
         }).join('');
 
-        tbody.innerHTML = rowsHtml || '<tr><td colspan="4" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
+        const totalCols = hayFiltroFrente ? 5 : 4;
+        tbody.innerHTML = rowsHtml || '<tr><td colspan="' + totalCols + '" style="padding: 14px; text-align: center; color: #94a3b8;">Sin resultados</td></tr>';
 
         document.getElementById('bulkLookupInputPhase').style.display = 'none';
         // display:'' (no inline) → el CSS decide: block en escritorio, flex en
