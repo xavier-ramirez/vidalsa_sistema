@@ -207,6 +207,11 @@
         });
     }
 </script>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(function(){});
+}
+</script>
 {{-- Login OFFLINE: botón "Entrar sin conexión" + verificación por hash local. --}}
 <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 </html>
