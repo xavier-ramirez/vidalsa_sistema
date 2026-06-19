@@ -2267,7 +2267,7 @@
             if (confirmed) return '<td style="' + style + ' text-align:center; width:32px;"><i class="material-icons" style="font-size:18px; color:#16a34a;">check_circle</i></td>';
             return '<td style="' + style + ' text-align:center; width:32px;"></td>';
         };
-        const colspanBase = hayFiltroFrente ? 4 : 3;
+        const colspanBase = 3;
 
         const rowsHtml = results.map(r => {
             if (!r.found) {
