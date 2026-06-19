@@ -3305,7 +3305,7 @@ class EquipoController extends Controller
             ->values();
 
         if ($terms->isEmpty()) {
-            return response()->json(['results' => [], 'total' => 0, 'found' => 0, 'missing' => 0]);
+            return response()->json(['results' => [], 'total' => 0, 'found' => 0, 'missing' => 0, 'confirmed' => 0]);
         }
 
         $termsArr = $terms->all();
