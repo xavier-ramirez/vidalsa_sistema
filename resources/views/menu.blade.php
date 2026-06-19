@@ -139,12 +139,15 @@
         .menu-hero-content { padding: 20px; }
         .menu-hero-title { font-size: 22px; }
     }
-    /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del contenedor ── */
+    /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del viewport
+         y del contenedor (mismo patron que equipos/almacen/movilizaciones). ── */
     @media (max-width: 768px) {
-        .dashboard-container { padding: 8px 6px !important; }
+        .main-viewport { padding: 8px 6px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+        .dashboard-container { padding: 6px 2px !important; }
     }
     @media (max-width: 480px) {
-        .dashboard-container { padding: 4px 3px !important; }
+        .main-viewport { padding: 6px 3px !important; }
+        .dashboard-container { padding: 2px 0 !important; }
         .menu-hero { border-radius: 10px; }
     }
 
@@ -179,7 +182,12 @@
     .cards-wrapper .salud-card { padding: 16px 18px; gap: 18px; }
     .cards-wrapper .alertas-card { padding: 14px 16px; }
     @media (max-width: 1100px) {
-        .cards-wrapper { grid-template-columns: 1fr; gap: 12px; }
+        .cards-wrapper { grid-template-columns: 1fr; gap: 10px; }
+    }
+    @media (max-width: 480px) {
+        .cards-wrapper { gap: 8px; }
+        .cards-wrapper .salud-card { padding: 8px 6px; }
+        .cards-wrapper .alertas-card { padding: 8px 8px; }
     }
 
     /* ── Modal Alertas Documentos (reemplaza el panel desplegable) ── */
@@ -711,6 +719,11 @@
         text-overflow: ellipsis;
     }
 
+    @media (max-width: 480px) {
+        .dashboard-catalogo-section { margin-top: 14px; }
+        .cat-mini-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        .cat-mini-body { padding: 6px 8px; }
+    }
     /* ── En PC con pantallas menos anchas: número FIJO de columnas por breakpoint
        y se ocultan las tarjetas que no caben para que TODO quepa en UNA sola fila
        (en lugar de envolver a una segunda línea). En mobile (<720px) se mantiene
@@ -831,6 +844,11 @@
             padding-top: 16px;
             justify-content: flex-start;
         }
+    }
+    @media (max-width: 480px) {
+        .menu-about { padding: 12px 8px; margin-top: 14px; border-radius: 12px; }
+        .menu-about-cols { gap: 12px; }
+        .menu-about-right { padding-top: 12px; gap: 8px; }
     }
 </style>
 
