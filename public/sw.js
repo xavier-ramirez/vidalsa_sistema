@@ -21,7 +21,14 @@ const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 
 const PRECACHE_URLS = [
     '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/icons/icon-512.png',
+    '/css/fonts.css',
+    '/css/maquinaria/inicio_sesion.css',
+    '/images/maquinaria/logo.webp',
+    '/js/offline/offline-auth.js',
+    '/fonts/Nunito-Regular.ttf',
+    '/fonts/Nunito-Bold.ttf',
+    '/fonts/Nunito-SemiBold.ttf'
 ];
 
 self.addEventListener('install', (event) => {
@@ -80,6 +87,24 @@ self.addEventListener('fetch', (event) => {
         url.pathname === '/favicon.ico';
 
     if (isStaticAsset) {
+        event.respondWith(
+            caches.match(request).then((cached) => {
+                const networkFetch = fetch(request).then((response) => {
+                    if (response && response.status === 200) {
+                        const copy = response.clone();
+                        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+                    }
+                    return response;
+                }).catch(() => cached);
+                return cached || networkFetch;
+            })
+        );
+        return;
+    }
+
+    // Login (/): stale-while-revalidate — carga al instante desde cache, actualiza en fondo.
+    // El CSRF token del HTML cacheado se refresca vía /refresh-csrf antes del submit.
+    if (url.pathname === '/' && (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html'))) {
         event.respondWith(
             caches.match(request).then((cached) => {
                 const networkFetch = fetch(request).then((response) => {

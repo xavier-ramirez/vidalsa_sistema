@@ -64,7 +64,7 @@
         <!-- Maquinaria en la parte inferior derecha -->
         <div class="machinery-fixed-bottom">
             <div class="machinery-wrapper">
-                <img src="{{ asset('images/maquinaria_login_new.webp') }}" alt="Maquinaria Vidalsa">
+                <img src="{{ asset('images/maquinaria_login_new.webp') }}" alt="Maquinaria Vidalsa" loading="lazy">
             </div>
         </div>
 
@@ -143,16 +143,13 @@
         }
     }
     document.addEventListener('DOMContentLoaded', () => {
-        // Auto-Refresh to prevent 419 Page Expired (CSRF Token Mismatch)
-        // Refreshes every 20 minutes to keep the token fresh
-        setInterval(() => {
-            window.location.reload();
-        }, 1000 * 60 * 20);
+        var preloader = document.getElementById('loginPreloader');
+        if (preloader) preloader.classList.add('fade-out');
+
+        setInterval(() => { window.location.reload(); }, 1000 * 60 * 20);
 
         const loginFormElement = document.getElementById('loginForm');
-        if (loginFormElement) {
-            loginFormElement.reset(); // Vaciar campos al cargar la página
-        }
+        if (loginFormElement) loginFormElement.reset();
 
         const inputs = document.querySelectorAll('.custom-input');
         const checkValue = (input) => {
@@ -165,12 +162,6 @@
             input.addEventListener('change', () => checkValue(input));
         });
         setTimeout(() => inputs.forEach(input => checkValue(input)), 300);
-    });
-    const pageLoadTime = Date.now();
-
-    window.addEventListener('load', function() {
-        const preloader = document.getElementById('loginPreloader');
-        setTimeout(() => { if (preloader) preloader.classList.add('fade-out'); }, 500);
     });
 
     const loginForm = document.querySelector('form');
