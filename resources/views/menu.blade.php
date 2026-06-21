@@ -764,12 +764,6 @@
         box-shadow: 0 4px 18px -6px rgba(15, 23, 42, 0.10);
         overflow: hidden;
     }
-    /* Barra de acento superior (toque corporativo dinámico) */
-    .menu-about::before {
-        content: "";
-        position: absolute; top: 0; left: 0; right: 0; height: 4px;
-        background: linear-gradient(90deg, var(--maquinaria-dark-blue, #00004d), var(--maquinaria-blue, #0067b1));
-    }
     .menu-about-head {
         display: flex;
         align-items: center;
@@ -1059,7 +1053,7 @@
                 </div>
                 <p class="menu-about-desc">
                     Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
-                    en el sector petrolero y de vivienda, ejecutando oleoductos, gasoductos, líneas de flujo
+                    en el sector petrolero y de vivienda, ejecutando oleoductos, líneas de flujo
                     y obras civiles de impacto nacional, respaldada por flota propia de maquinaria pesada
                     operada en todo el territorio.
                 </p>
