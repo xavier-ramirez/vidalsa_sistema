@@ -99,6 +99,8 @@ class LoginController extends Controller
                     return redirect()->route('password.change');
                 }
 
+                $request->session()->flash('webauthn_prompt', true);
+
                 return redirect()->route('menu');
             }
 

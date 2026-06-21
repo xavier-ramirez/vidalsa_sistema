@@ -2746,6 +2746,57 @@
         <script src="{{ asset('js/maquinaria/almacen-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/equipos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/movilizaciones-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones-offline.js')) }}" defer></script>
+
+        {{-- ── WebAuthn: prompt de registro biométrico tras login con contraseña ── --}}
+        @if(session('webauthn_prompt'))
+        <script src="{{ asset('js/webauthn.js') }}?v={{ @filemtime(public_path('js/webauthn.js')) }}"></script>
+        <div id="webauthnModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25);">
+                <div style="width:56px;height:56px;margin:0 auto 16px;background:linear-gradient(135deg,#059669,#047857);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.51 3.75-3.3 3.09-1.63 6.81-1.63 9.91 0 1.5.79 2.76 1.9 3.75 3.3.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.27-3.39-2.98-2.8-1.47-6.16-1.47-8.97 0-1.34.71-2.48 1.72-3.38 2.98-.1.14-.25.21-.44.21zm.01 6.9c-.09 0-.18-.02-.25-.08-.24-.14-.32-.44-.18-.68C4.16 14 5.56 12.62 7.3 11.74c3.52-1.78 7.86-1.78 11.38 0 1.73.88 3.14 2.26 4.22 4.12.14.23.06.54-.18.68-.23.14-.54.06-.68-.18-.96-1.68-2.23-2.9-3.77-3.68-3.19-1.61-7.13-1.61-10.31 0-1.55.78-2.82 2-3.78 3.68-.1.16-.26.24-.43.24zM12 21c-.28 0-.5-.22-.5-.5v-1c0-.28.22-.5.5-.5s.5.22.5.5v1c0 .28-.22.5-.5.5z"/></svg>
+                </div>
+                <h3 style="margin:0 0 8px;font-size:18px;font-weight:800;color:#111;">Acceso rápido con huella</h3>
+                <p style="margin:0 0 20px;font-size:13.5px;color:#555;line-height:1.45;">¿Desea activar el inicio de sesión con huella digital para este dispositivo? La próxima vez podrá entrar sin escribir su contraseña.</p>
+                <div style="display:flex;gap:10px;">
+                    <button id="webauthnDismiss" style="flex:1;padding:11px;border:1.5px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-weight:700;font-size:13.5px;cursor:pointer;">Ahora no</button>
+                    <button id="webauthnAccept" style="flex:1;padding:11px;border:none;border-radius:8px;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;box-shadow:0 2px 8px rgba(5,150,105,.3);">Activar huella</button>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            if (typeof VidalsaWebAuthn === 'undefined' || !VidalsaWebAuthn.soportado()) return;
+            VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
+                if (!ok) return;
+                var modal = document.getElementById('webauthnModal');
+                if (!modal) return;
+                modal.style.display = 'flex';
+
+                document.getElementById('webauthnDismiss').addEventListener('click', function() {
+                    modal.style.display = 'none';
+                });
+
+                document.getElementById('webauthnAccept').addEventListener('click', function() {
+                    var btn = this;
+                    btn.disabled = true;
+                    btn.textContent = 'Registrando...';
+                    VidalsaWebAuthn.registrar().then(function(ok) {
+                        modal.style.display = 'none';
+                        if (ok) {
+                            var toast = document.createElement('div');
+                            toast.textContent = 'Huella registrada correctamente';
+                            toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,.2);';
+                            document.body.appendChild(toast);
+                            setTimeout(function() { toast.remove(); }, 3500);
+                        }
+                    }).catch(function() {
+                        modal.style.display = 'none';
+                    });
+                });
+            });
+        })();
+        </script>
+        @endif
 </body>
 
 </html>

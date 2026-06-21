@@ -12,10 +12,20 @@ Route::get('/refresh-csrf', [App\Http\Controllers\SystemController::class, 'refr
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 Route::redirect('/home', '/menu');
 
+// ── WebAuthn (huella / biometría) ──────────────────────────────────────
+// Login-options y login son públicos (el usuario aún no está autenticado);
+// la seguridad la da el challenge criptográfico, no el CSRF.
+Route::post('/webauthn/login-options', [App\Http\Controllers\Auth\WebAuthnController::class, 'loginOptions'])->name('webauthn.loginOptions');
+Route::post('/webauthn/login',         [App\Http\Controllers\Auth\WebAuthnController::class, 'login'])->name('webauthn.login');
+
 Route::middleware(['auth'])->group(function () {
     // Password Change Routes (Excluded from password check loop)
     Route::get('/admin/cambiar-clave', [App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])->name('password.change');
     Route::post('/admin/cambiar-clave', [App\Http\Controllers\Auth\ChangePasswordController::class, 'update'])->name('password.update');
+
+    // WebAuthn registro (requiere auth: el usuario ya inició sesión con contraseña)
+    Route::post('/webauthn/register-options', [App\Http\Controllers\Auth\WebAuthnController::class, 'registerOptions'])->name('webauthn.registerOptions');
+    Route::post('/webauthn/register',         [App\Http\Controllers\Auth\WebAuthnController::class, 'register'])->name('webauthn.register');
 
     Route::middleware(['password.change.check'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');

@@ -26,6 +26,7 @@ const PRECACHE_URLS = [
     '/css/maquinaria/inicio_sesion.css',
     '/images/maquinaria/logo.webp',
     '/js/offline/offline-auth.js',
+    '/js/webauthn.js',
     '/fonts/Nunito-Regular.ttf',
     '/fonts/Nunito-Bold.ttf',
     '/fonts/Nunito-SemiBold.ttf'
@@ -64,6 +65,7 @@ self.addEventListener('fetch', (event) => {
     // cachean (network-first) para que los módulos carguen offline; los datos viejos
     // del HTML cacheado los reemplaza el JS leyendo de IndexedDB.
     if (
+        url.pathname.startsWith('/webauthn/') ||
         url.pathname.startsWith('/api/') ||
         url.pathname.startsWith('/offline/') ||
         url.pathname.startsWith('/storage/') ||
