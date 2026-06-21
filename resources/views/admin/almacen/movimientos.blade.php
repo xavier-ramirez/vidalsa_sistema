@@ -267,10 +267,10 @@
             grid-template-areas:
                 "producto cantidad"
                 "producto fecha"
-                "ref      ref"
-                "destino  destino" !important;
+                "destino  destino"
+                "ref      ref" !important;
             column-gap: 10px !important;
-            row-gap: 4px !important;
+            row-gap: 3px !important;
             background: #fff !important;
             border: 1px solid #e2e8f0 !important;
             border-left: 3px solid var(--mov-color, #94a3b8) !important;
@@ -393,40 +393,43 @@
             grid-area: ref !important;
             display: flex !important;
             align-items: center !important;
-            gap: 6px !important;
-            font-size: 11px !important;
-            color: #475569 !important;
+            gap: 4px !important;
+            font-size: 10px !important;
+            color: #64748b !important;
             font-weight: 500 !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            padding: 0 !important;
             position: static !important;
-            background: transparent !important;
+            background: #f8fafc !important;
             transform: none !important;
             box-shadow: none !important;
             z-index: auto !important;
             min-width: 0 !important;
             max-width: none !important;
+            padding: 3px 12px 5px 12px !important;
+            margin: 0 -12px 0 -10px !important;
+            border-radius: 0 0 8px 8px !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref::after {
             content: none !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
-            background: #eff6ff !important;
+            background: transparent !important;
             color: #0067b1 !important;
-            padding: 3px 8px !important;
-            border-radius: 6px !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
             font-family: monospace !important;
-            font-size: 11px !important;
+            font-size: 10px !important;
             font-weight: 700 !important;
-            text-decoration: none !important;
+            text-decoration: underline !important;
+            text-decoration-color: rgba(0,103,177,0.3) !important;
             white-space: nowrap !important;
-            border: 1px solid #bfdbfe !important;
+            border: none !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
-            font-size: 10.5px !important;
-            color: #64748b !important;
+            font-size: 10px !important;
+            color: #94a3b8 !important;
             margin: 0 !important;
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -453,9 +456,9 @@
             font-weight: 600 !important;
             color: #475569 !important;
             background: #f8fafc !important;
-            border-radius: 0 0 8px 8px !important;
-            padding: 5px 12px !important;
-            margin: 6px -12px 0 -10px !important;
+            border-radius: 0 !important;
+            padding: 4px 12px 2px 12px !important;
+            margin: 4px -12px 0 -10px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -718,8 +721,8 @@
                          debajo de la fecha en cada fila). Se eliminó la columna Tipo. --}}
                     <th style="width:120px;">Fecha</th>
                     <th>Descripción del producto</th>
-                    <th style="width:130px;">Cantidad</th>
-                    <th style="width:75px;">Stock</th>
+                    <th style="width:110px;">Cantidad</th>
+                    <th style="width:55px;">Stock</th>
                     <th style="width:215px;">Destino</th>
                     <th style="width:150px;">Referencia</th>
                 </tr>

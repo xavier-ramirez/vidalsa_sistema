@@ -1409,8 +1409,8 @@ nav[role="navigation"] {
         color: #475569 !important;
         background: #f8fafc !important;
         border-radius: 0 0 8px 8px !important;
-        padding: 5px 10px !important;
-        margin: 4px -10px 0 -10px !important;
+        padding: 5px 12px !important;
+        margin: 4px -12px 0 -12px !important;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

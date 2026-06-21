@@ -46,7 +46,9 @@
     /* Top productos: más alto para que entren las 20 barras legibles. */
     .cdash-canvas-wrap.tall { height:520px; }
     .cdash-empty { color:#94a3b8; font-size:13px; text-align:center; padding:40px 0; }
-    .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; }
+    .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:10px; }
+    .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
+    @keyframes cdashSpin { 100% { transform:rotate(360deg); } }
     @media (max-width: 760px) {
         .cdash-kpis { grid-template-columns:1fr; }
         .cdash-grid { grid-template-columns:1fr; }
@@ -88,7 +90,7 @@
                 </div>
             </div>
 
-            <div id="cdashLoading" class="cdash-loading">Cargando datos de consumo…</div>
+            <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-kpis">
                     <div class="cdash-kpi"><div class="k-val" id="cdashKpiUnidades">0</div><div class="k-lbl">Unidades consumidas</div></div>
@@ -139,8 +141,9 @@
 
     // Lee los filtros PROPIOS del modal y pide los datos. Independiente del módulo.
     window._cdashFetch = function () {
-        document.getElementById('cdashLoading').style.display = 'block';
-        document.getElementById('cdashLoading').textContent = 'Cargando datos de consumo…';
+        var ldEl = document.getElementById('cdashLoading');
+        ldEl.style.display = 'flex';
+        ldEl.innerHTML = '<i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span>';
         document.getElementById('cdashContent').style.display = 'none';
         document.getElementById('cdashEmpty').style.display = 'none';
 
@@ -169,7 +172,8 @@
             .then(function (r) { return r.json(); })
             .then(function (data) { window._cdashRender(data); })
             .catch(function () {
-                document.getElementById('cdashLoading').textContent = 'No se pudo cargar el dashboard.';
+                var ldErr = document.getElementById('cdashLoading');
+                ldErr.innerHTML = '<i class="material-icons" style="font-size:28px;color:#ef4444;">error_outline</i><span>No se pudo cargar el dashboard.</span>';
             });
     };
 
@@ -206,8 +210,9 @@
             if (window._cdashCharts[key]) { window._cdashCharts[key].destroy(); window._cdashCharts[key] = null; }
         });
 
-        var AZUL = '#0067b1', AZUL_SOFT = 'rgba(0,103,177,0.85)';
         var fmt = window.cdashFmt;
+        var mesColores = ['#0067b1','#0ea5e9','#0891b2','#0d9488','#059669','#16a34a','#65a30d','#ca8a04','#ea580c','#dc2626','#e11d48','#9333ea'];
+        var topColores = ['#0067b1','#0ea5e9','#22c55e','#16a34a','#0d9488','#0891b2','#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#14b8a6','#06b6d4','#3b82f6','#6d28d9'];
 
         // ── 1) Consumo por mes (barras) ──────────────────────────────────────
         var mes = data.por_mes || [];
@@ -216,7 +221,7 @@
             data: {
                 labels: mes.map(function (x) { return x.mes; }),
                 datasets: [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
-                    backgroundColor: AZUL_SOFT, borderRadius: 6, maxBarThickness: 46 }]
+                    backgroundColor: mes.map(function (_, i) { return mesColores[i % mesColores.length]; }), borderRadius: 6, maxBarThickness: 46 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
@@ -232,7 +237,7 @@
             data: {
                 labels: top.map(function (x) { return x.nombre; }),
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
-                    backgroundColor: AZUL_SOFT, borderRadius: 5 }]
+                    backgroundColor: top.map(function (_, i) { return topColores[i % topColores.length]; }), borderRadius: 5 }]
             },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
