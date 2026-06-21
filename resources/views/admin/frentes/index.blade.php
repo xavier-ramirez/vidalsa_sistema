@@ -3,15 +3,11 @@
 @section('title', 'Gestión de Frentes')
 
 @section('content')
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+<section class="page-title-card" style="text-align:left;margin:0 0 16px 0;padding:0;">
     <h1 class="page-title">
         <span class="page-title-line2" style="color: #000;">Gestión de Frentes de Trabajo</span>
     </h1>
-    <a href="{{ route('frentes.create') }}" class="btn-primary-maquinaria" style="height:45px; padding:0 15px; display:flex; align-items:center; gap:8px; flex-shrink:0;">
-        <i class="material-icons">add_circle</i>
-        <span>Nuevo Frente</span>
-    </a>
-</div>
+</section>
 
 <!-- Stats Cards -->
 <div class="dashboard-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 20px;">
@@ -40,23 +36,32 @@
 
 <!-- Search & Data Table -->
 <div class="admin-card">
-    <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 class="admin-card-title" style="font-size: 16px; font-weight: 700; color: #1e293b; margin: 0;">
-            Listado General
-        </h2>
-        
-        <!-- Search Form -->
-        <form action="{{ route('frentes.index') }}" method="GET" style="display: flex; align-items: center; background: #f8fafc; padding: 5px 10px; border-radius: 8px; border: 1px solid #cbd5e0;">
-            <i class="material-icons" style="font-size: 18px; color: #94a3b8;">search</i>
-            <input type="text" name="search" value="{{ request('search') }}" 
-                placeholder="Buscar frente..." 
-                style="border: none; background: transparent; padding: 5px; outline: none; font-size: 13px; width: 200px; color: #475569;">
-            @if(request('search'))
-                <a href="{{ route('frentes.index') }}" title="Limpiar búsqueda">
-                    <i class="material-icons" style="font-size: 16px; color: #ef4444; cursor: pointer;">close</i>
-                </a>
-            @endif
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
+        <form action="{{ route('frentes.index') }}" method="GET" style="flex:1 1 280px;min-width:0;">
+            <div class="search-wrapper" style="width:100%;border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }};background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};height:45px;">
+                <i class="material-icons search-icon">search</i>
+                <input type="text" name="search" value="{{ request('search') }}"
+                    placeholder="Buscar frente..."
+                    class="search-input-field"
+                    style="height:100%;"
+                    autocomplete="off">
+                @if(request('search'))
+                    <a href="{{ route('frentes.index') }}" title="Limpiar búsqueda" style="display:flex;align-items:center;padding:0 8px;">
+                        <i class="material-icons" style="font-size:18px;color:#64748b;">close</i>
+                    </a>
+                @endif
+            </div>
         </form>
+        @if(isset($sinEquipos) && $sinEquipos > 0)
+        <button type="button" onclick="window.location.href='{{ route('frentes.index', ['sin_equipos' => 1]) }}'" class="btn-primary-maquinaria" style="height:45px;padding:0 15px;display:flex;align-items:center;gap:8px;background:{{ request('sin_equipos') ? '#fee2e2' : '#fff' }};border:1px solid {{ request('sin_equipos') ? '#ef4444' : '#cbd5e0' }};color:{{ request('sin_equipos') ? '#ef4444' : '#64748b' }};box-shadow:none;">
+            <i class="material-icons" style="font-size:18px;">domain_disabled</i>
+            <span>Sin equipos</span>
+        </button>
+        @endif
+        <a href="{{ route('frentes.create') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 15px;display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;">
+            <i class="material-icons">add_circle</i>
+            <span>Nuevo Frente</span>
+        </a>
     </div>
 
     <div class="table-responsive">
@@ -136,4 +141,14 @@
         {{ $frentes->links() }}
     </div>
 </div>
+
+<style>
+@media (max-width: 768px) {
+    .page-title-card { margin-bottom: 10px !important; }
+    .dashboard-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
+    .stat-card { padding: 10px !important; }
+    .stat-card div:last-child div:first-child { font-size: 11px !important; }
+    .stat-card div:last-child div:last-child { font-size: 20px !important; }
+}
+</style>
 @endsection

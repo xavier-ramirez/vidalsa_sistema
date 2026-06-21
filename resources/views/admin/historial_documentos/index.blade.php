@@ -242,6 +242,9 @@
             font-size: 12px;
             color: #64748b;
         }
+        .table-historial-mobile tbody td:nth-child(2) .badge-autor i {
+            display: none;
+        }
         /* Fila 3 der: botón PDF */
         .table-historial-mobile tbody td:nth-child(5) {
             grid-area: pdf;

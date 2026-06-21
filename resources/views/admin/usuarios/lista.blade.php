@@ -160,29 +160,37 @@
         .usuarios-side { width: 300px; flex: 0 0 300px; }
         .usr-filter-row {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 10px;
             align-items: stretch;
         }
         .usr-filter-row > .filter-item.responsive-filter-item {
-            flex: 1 1 200px !important;
+            flex: 1 1 0 !important;
             max-width: none !important;
-            min-width: 180px;
+            min-width: 0;
         }
         @media (min-width: 769px) {
             .usr-filter-row > .filter-item.responsive-filter-item:nth-child(1) {
-                flex: 1.2 1 240px !important;
+                flex: 2.5 1 0 !important;
             }
             .usr-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
-                flex: 0.9 1 200px !important;
-                max-width: 260px !important;
+                flex: 1.5 1 0 !important;
             }
             .usr-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
-                flex: 0.7 1 160px !important;
-                max-width: 220px !important;
+                flex: 1.5 1 0 !important;
             }
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
+        }
+        @media (max-width: 768px) {
+            .usr-filter-row {
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+            }
+            .usr-filter-row > .filter-item.responsive-filter-item {
+                flex: 1 1 100% !important;
+                min-width: 0 !important;
+            }
         }
         @media (max-width: 1024px) {
             .usuarios-layout { flex-direction: column; }
