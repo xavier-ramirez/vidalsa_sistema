@@ -190,10 +190,7 @@
         text-overflow: ellipsis;
         max-width: 100%;
     }
-    /* Mobile: el boton "Nuevo" del catalogo se va al final de la fila de
-       filtros y ocupa el ancho completo. Breakpoint subido a 768px para que
-       en telefonos medianos (~601-768px) tampoco se vea "muy finito".
-       height:48px + font 14px para mejor area de tap. */
+    /* Mobile: filtros y botón ocupan el ancho completo en columna. */
     @media (max-width: 768px) {
         #catalogoFilters {
             flex-direction: column;
@@ -201,8 +198,7 @@
             width: 100%;
             box-sizing: border-box;
         }
-        #catalogoFilters .cat-filter,
-        #catalogoFilters > a.btn-primary-maquinaria {
+        #catalogoFilters .cat-filter {
             max-width: none !important;
             min-width: 0 !important;
             width: 100% !important;
@@ -210,12 +206,13 @@
             box-sizing: border-box !important;
         }
         #catalogoFilters > a.btn-primary-maquinaria {
+            max-width: none !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
             justify-content: center;
             order: 99;
-            height: 48px !important;
-            padding: 0 14px !important;
-            font-size: 14px !important;
-            font-weight: 700 !important;
+            height: 45px !important;
+            padding: 0 15px !important;
         }
     }
 
@@ -350,7 +347,7 @@
           onsubmit="event.preventDefault(); catSubmit();">
 
         {{-- Tipo (agrupado VEHÍCULOS / AUXILIARES) --}}
-        <div class="cat-filter {{ $reqTipo ? 'active' : '' }}">
+        <div class="cat-filter {{ $reqTipo ? 'active' : '' }}" style="flex: 1.4 1 260px; max-width: 360px;">
             <input type="hidden" id="catValTipo" name="tipo" value="{{ $reqTipo }}" data-filter-value>
             <div class="cat-filter-box">
                 <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
@@ -442,7 +439,7 @@
 
         {{-- Boton Nuevo: visible siempre, valida permiso al click --}}
         <a href="{{ route('catalogo.create') }}" class="btn-primary-maquinaria"
-           style="height:45px; display:inline-flex; align-items:center; padding:0 15px; text-decoration:none; gap:8px; flex:0 0 auto;"
+           style="height:45px; display:inline-flex; align-items:center; padding:0 28px; text-decoration:none; gap:8px; flex:0 0 auto; min-width:180px; justify-content:center;"
            @cannot('equipos.create')
                onclick="event.preventDefault(); if(window.showToast) window.showToast('No tienes permiso para registrar nuevos modelos.', 'error');"
            @endcannot>

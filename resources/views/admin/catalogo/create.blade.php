@@ -3,7 +3,21 @@
 @section('title', 'Nuevo Modelo - Catálogo')
 
 @section('content')
-<div style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
+<style>
+    @media (max-width: 768px) {
+        .cat-create-wrapper {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+        body:has(.cat-create-wrapper) .main-viewport {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+    }
+</style>
+<div class="cat-create-wrapper" style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
     {{-- Título con el MISMO markup que /admin/equipos y que el edit del catálogo
          (div flex + margin-bottom:16px): mismo tamaño y separación vertical. --}}
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">

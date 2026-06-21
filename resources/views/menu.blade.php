@@ -28,39 +28,21 @@
     .menu-hero-stripes {
         position: absolute;
         inset: 0;
-        display: flex;
-        gap: 6px;
         background: #0b1c30;
         z-index: 0;
-    }
-    .menu-hero-stripes > div {
-        flex: 1 1 0;
-        height: 100%;
-        overflow: hidden;
     }
     .menu-hero-stripes img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), filter 0.5s ease;
-        /* Previene badges flotantes tipo "Visual Search" que ponen algunos browsers/extensiones */
         pointer-events: none;
         user-select: none;
         -webkit-user-drag: none;
     }
-    .menu-hero-stripes > div:hover img {
+    .menu-hero-stripes:hover img {
         transform: scale(1.08);
         filter: brightness(1.1);
-    }
-    /* Panel con clip especial: mantiene el desplazamiento horizontal para
-       ocultar la marca de agua de Gemini IA en la esquina inferior derecha.
-       Baseline definido en CSS (NO inline) para que el :hover lo pueda
-       override sin guerra de especificidad. */
-    .menu-hero-stripes > div.menu-hero-stripe-clip img {
-        transform: scale(1.08) translateX(8%);
-    }
-    .menu-hero-stripes > div.menu-hero-stripe-clip:hover img {
-        transform: scale(1.13) translateX(8%);
     }
     .menu-hero-overlay {
         position: absolute;
@@ -138,8 +120,6 @@
         .menu-hero { height: 200px; border-radius: 12px; }
         .menu-hero-content { padding: 20px; }
         .menu-hero-title { font-size: 22px; }
-        .menu-hero-stripes > div.menu-hero-stripe-clip img { transform: scale(1.08); }
-        .menu-hero-stripes > div.menu-hero-stripe-clip:hover img { transform: scale(1.13); }
     }
     /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del viewport
          y del contenedor (mismo patron que equipos/almacen/movilizaciones). ── */
@@ -846,13 +826,11 @@
 
 <div class="dashboard-container" style="padding: 10px 20px; position: relative; z-index: 1;">
 
-    {{-- ── Hero moderno: 3 imágenes con overlay oscuro y título blanco ── --}}
+    {{-- ── Hero: imagen de fondo con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
         <div class="menu-hero-stripes">
             @php $heroImg = asset('images/maquinaria_login_new.webp'); @endphp
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div class="menu-hero-stripe-clip"><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: right top;"></div>
+            <img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;">
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">

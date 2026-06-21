@@ -1,182 +1,23 @@
 @media (max-width: 768px) {
 
-    /* --- PAGE LAYOUT: Force 1 column on mobile --- */
-    .page-layout-grid {
+    /* Catálogo: grid 1 columna, padding lateral 5px */
+    body:has(.cat-grid) .page-layout-grid {
         grid-template-columns: 1fr !important;
         gap: 10px !important;
-        /* Reduced gap from 20px */
         width: 100% !important;
         margin: 0 !important;
         padding: 0 5px !important;
-        /* Minimal outer padding */
     }
 
-    /* Reduce card padding on mobile to give more horizontal space */
-    .admin-card {
-        padding: 5px !important;
+    /* Card padding cómodo para filtros y botón */
+    body:has(.cat-grid) .admin-card {
+        padding: 10px !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }
 
-    /* HIDE SIDEBAR ON MOBILE */
-    .counter-sidebar {
+    /* Ocultar sidebar de stats en mobile */
+    body:has(.cat-grid) .counter-sidebar {
         display: none !important;
-    }
-
-    /* --- FIXED FILTERS: Target the real container, not display: contents form --- */
-    .filter-toolbar-container {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 8px !important;
-        margin-bottom: 10px !important;
-    }
-
-    /* NOTE: #catalogoFiltersForm uses display: contents, 
-       so it's styled via parent .filter-toolbar-container */
-
-    .filter-item {
-        min-width: 100% !important;
-        flex: 1 1 100% !important;
-        max-width: 100% !important;
-        /* Force full width */
-    }
-
-    .custom-dropdown .dropdown-trigger {
-        width: 100% !important;
-        /* Ensure trigger fills the item */
-    }
-
-    /* Fix New Model Button */
-    .action-buttons-container {
-        width: 100% !important;
-        margin-top: 5px !important;
-        padding: 0 !important;
-    }
-
-    .action-buttons-container .btn-primary-maquinaria {
-        width: 100% !important;
-        justify-content: center;
-    }
-
-    /* --- TABLE TO CARD TRANSFORMATION (CSS GRID) --- */
-    /* Mismas estéticas y estructura que la página de Equipos */
-
-    /* Hide Table Header */
-    .admin-table.catalog-specific-table thead {
-        display: none !important;
-    }
-
-    /* FORCE TABLE WIDTH RESET FOR MOBILE */
-    .admin-table.catalog-specific-table,
-    .admin-table.catalog-specific-table tbody {
-        width: 100% !important;
-        min-width: 0 !important;
-        display: block !important;
-        margin-top: 5px !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Card Container (TR) - Identico a Equipos */
-    .admin-table.catalog-specific-table tr {
-        display: grid !important;
-        grid-template-columns: 100px 1fr !important;
-        grid-template-rows: auto auto !important;
-        gap: 0 10px !important;
-        
-        background: white;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        padding: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid #cbd5e1 !important;
-        position: relative;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Reseteo de celdas - Identico a Equipos */
-    .admin-table.catalog-specific-table td {
-        display: block !important;
-        padding: 0 !important;
-        border: none !important;
-        width: 100% !important;
-        position: relative;
-        box-sizing: border-box !important;
-    }
-
-    .admin-table.catalog-specific-table td::before {
-        content: none !important;
-        display: none !important;
-    }
-
-    /* 1. PHOTO (Columna Izquierda, Ocupa multiples filas) */
-    .admin-table.catalog-specific-table td:nth-child(1) {
-        grid-column: 1 / 2 !important;
-        grid-row: 1 / 5 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        padding-right: 5px !important;
-        background: transparent !important; /* Elimina fondo gris */
-    }
-
-    .table-image-wrapper {
-        width: 100px !important;
-        height: 100px !important;
-        margin-bottom: 5px !important;
-        object-fit: contain;
-    }
-
-    /* 2. MODELO / AÑO / (Nuevos on mobile: MOTOR/COMB) */
-    .admin-table.catalog-specific-table td:nth-child(2) {
-        grid-column: 2 / -1 !important;
-        grid-row: 1 / 2 !important;
-        align-self: center !important;
-        padding-bottom: 2px !important;
-        border-bottom: 1px solid #f1f5f9 !important;
-        margin-bottom: 4px !important;
-    }
-
-    .admin-table.catalog-specific-table td:nth-child(2) .desktop-only-flex {
-        display: none !important;
-    }
-
-    .admin-table.catalog-specific-table td:nth-child(2) .mobile-only-grid {
-        display: grid !important;
-    }
-
-
-    /* ── 3. y 4. Ocultar en Mobile según requerimiento ── */
-    .admin-table.catalog-specific-table td:nth-child(3),
-    .admin-table.catalog-specific-table td:nth-child(4) {
-        display: none !important;
-        height: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        opacity: 0 !important;
-        border: none !important;
-    }
-
-    /* 5. ACTIONS (Abajo, Ancho completo o Alineado a Derecha) */
-    .admin-table.catalog-specific-table td:last-child {
-        grid-column: 2 / -1 !important;
-        grid-row: 2 / 3 !important;
-        padding-top: 5px !important;
-        margin-top: 5px !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-
-    .admin-table.catalog-specific-table td:last-child > div {
-        width: 100% !important;
-    }
-
-    .admin-table.catalog-specific-table td:last-child .btn-details-mini {
-        height: 38px !important; /* Touch target consistente como en equipos */
-        border-radius: 8px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
     }
 }

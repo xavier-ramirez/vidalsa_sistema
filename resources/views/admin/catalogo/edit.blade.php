@@ -3,12 +3,24 @@
 @section('title', 'Editar Modelo - Catálogo')
 
 @section('content')
-<div style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
-    {{-- Título con el MISMO markup que /admin/equipos (div flex + margin-bottom:16px,
-         .page-title/.page-title-line2): mismo tamaño y separación vertical, en móvil
-         baja a 18px por la regla global responsive. --}}
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h1 class="page-title">
+<style>
+    @media (max-width: 768px) {
+        .cat-create-wrapper {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+        body:has(.cat-create-wrapper) .main-viewport {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+    }
+</style>
+<div class="cat-create-wrapper" style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
+    {{-- Título centrado (.page-title/.page-title-line2) --}}
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px;">
+        <h1 class="page-title" style="text-align: center;">
             <span class="page-title-line2" style="color: #000;">Edición: {{ $catalogo->MODELO }}</span>
         </h1>
     </div>

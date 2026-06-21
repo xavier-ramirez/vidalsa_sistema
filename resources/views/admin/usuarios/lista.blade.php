@@ -45,7 +45,7 @@
         </div>
 
         <!-- Frente Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 2 1 340px; max-width: 420px;">
             <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente_filter" data-default-label="Filtrar Frente..." style="width: 100%;">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ request('id_frente') }}">
                 

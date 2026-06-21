@@ -83,13 +83,17 @@
                 padding: 15px !important;
             }
 
-            /* Centrar el titulo solo en mobile */
-            .graficos-header {
-                justify-content: center !important;
+            /* Filtros mobile: Frente solo en su fila, Tipo + btn avanzados en la misma fila */
+            .graficos-filter-frente {
+                flex: 1 1 100% !important;
+                min-width: 100% !important;
             }
-            .graficos-title-wrapper {
-                text-align: center;
-                width: 100%;
+            .graficos-filter-tipo {
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+            }
+            .graficos-filter-adv {
+                flex: 0 0 auto !important;
             }
         }
         /* Ranking "Total de Consumo por Frente" - compactar en pantallas chicas */
@@ -256,19 +260,16 @@
     </style>
 
     {{-- HEADER --}}
-    <div class="graficos-layout graficos-header"
-        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
-        <div class="graficos-title-wrapper">
-            <h1 class="page-title" style="margin:0;">
-                <span class="page-title-line2" style="color:#000;">Análisis de Consumibles</span>
-            </h1>
-        </div>
+    <div class="graficos-layout" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h1 class="page-title" style="margin:0;">
+            <span class="page-title-line2" style="color:#000;">Análisis de Consumibles</span>
+        </h1>
     </div>
 
     <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 20px 25px; margin-bottom: 20px;">
         {{-- FILTROS --}}
-        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-            <div style="flex: 1; min-width: 180px;">
+        <div class="graficos-filters-row" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <div class="graficos-filter-frente" style="flex: 1; min-width: 180px;">
                 <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente"
                     data-default-label="Todos los frentes">
                     <input type="hidden" id="fFrente" data-filter-value value="">
@@ -305,7 +306,7 @@
                 </div>
             </div>
 
-            <div style="flex: 1; min-width: 140px;">
+            <div class="graficos-filter-tipo" style="flex: 1; min-width: 140px;">
                 <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="tipo" data-default-label="Gasoil">
                     <input type="hidden" id="fTipo" data-filter-value value="GASOIL">
 
@@ -338,7 +339,7 @@
                 </div>
             </div>
 
-            <div style="position: relative;">
+            <div class="graficos-filter-adv" style="position: relative;">
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
                     style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: white; border: 1px solid #cbd5e0; color: #64748b; box-shadow: none;"
                     onclick="window.toggleAdvancedFilterGraficos(event)">
@@ -355,14 +356,12 @@
                     <div style="margin-bottom: 15px;">
                         <span
                             style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Período (por mes)</span>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            {{-- Dos meses: filtra UN mes (mismo valor en ambos, o solo uno) o un
-                                 PERÍODO de varios meses (meses distintos). Se traducen a día en getParams. --}}
+                        <div style="display:flex; gap:6px; align-items:center;">
                             <input type="month" id="fMesDesde" class="native-date" onchange="window.cargarDatos()" title="Mes inicial (desde)"
-                                style="width: 100%; box-sizing: border-box; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
+                                style="flex:1; min-width:0; box-sizing: border-box; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 8px; font-size:11px; color: #1e293b; cursor: pointer;"
                                 onclick="try{this.showPicker()}catch(e){}">
                             <input type="month" id="fMesHasta" class="native-date" onchange="window.cargarDatos()" title="Mes final (hasta)"
-                                style="width: 100%; box-sizing: border-box; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
+                                style="flex:1; min-width:0; box-sizing: border-box; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 8px; font-size:11px; color: #1e293b; cursor: pointer;"
                                 onclick="try{this.showPicker()}catch(e){}">
                         </div>
                     </div>

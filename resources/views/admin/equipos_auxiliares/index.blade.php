@@ -195,12 +195,10 @@
     }
 </style>
 
-<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-    <div>
-        <h1 class="page-title" style="margin-bottom: 2px;">
-            <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
-        </h1>
-    </div>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h1 class="page-title">
+        <span class="page-title-line2" style="color: #000;">Equipos Auxiliares</span>
+    </h1>
 </div>
 
 <div class="page-layout-grid">

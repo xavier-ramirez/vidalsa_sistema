@@ -1281,19 +1281,23 @@ nav[role="navigation"] {
         overflow: visible !important;
     }
 
-    /* Usuarios: tarjeta contenedora más ancha (padding lateral 8px) y con el MISMO
-       aire arriba que el módulo equipos: padding-top 16px + el margin-bottom 20px del
-       page-title-card = 36px de separación título→contenido, igual que equipos (que
-       da 16px de margin del título + 20px de padding del card = 36px). El bottom queda
-       en 10px (compacto). Scopeado para no tocar otros módulos. */
+    /* Usuarios: tarjeta contenedora transparente — padding-top:0 porque
+       .usuarios-main ya aporta su propio padding (16px). La separación total
+       título→contenido blanco queda igual que equipos (20px margin + 16px = 36px). */
     .admin-card:has(.table-usuarios-mobile) {
-        padding: 16px 8px 10px 8px !important;
+        padding: 0 8px 10px 8px !important;
         /* Full-width en móvil (como equipos): la tarjeta usaba width:95% inline, que la
            dejaba más angosta y desalineada respecto al título (.page-title-card ya es
            100% por la regla general). Igualamos a todo el ancho del main-viewport. */
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
+    }
+
+    /* Catálogo: margin-bottom reducido a 10px (+ admin-card padding-top 10px
+       de catalogo.css = 20px total). */
+    body:has(.cat-grid) .page-title-card {
+        margin-bottom: 10px !important;
     }
 
     /* Usuarios: main-viewport a 8px laterales (como los módulos con .page-layout-grid:

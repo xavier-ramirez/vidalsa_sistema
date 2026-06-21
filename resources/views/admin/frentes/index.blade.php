@@ -3,18 +3,15 @@
 @section('title', 'Gestión de Frentes')
 
 @section('content')
-<section class="page-title-card">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
     <h1 class="page-title">
-        <span class="page-title-icon"><i class="material-icons-outlined">domain</i></span>
-        <span class="page-title-line2">Gestión de Frentes de Trabajo</span>
+        <span class="page-title-line2" style="color: #000;">Gestión de Frentes de Trabajo</span>
     </h1>
-    <div class="page-title-actions">
-        <a href="{{ route('frentes.create') }}" class="btn-primary-maquinaria">
-            <i class="material-icons">add_circle</i>
-            <span>Nuevo Frente</span>
-        </a>
-    </div>
-</section>
+    <a href="{{ route('frentes.create') }}" class="btn-primary-maquinaria" style="height:45px; padding:0 15px; display:flex; align-items:center; gap:8px; flex-shrink:0;">
+        <i class="material-icons">add_circle</i>
+        <span>Nuevo Frente</span>
+    </a>
+</div>
 
 <!-- Stats Cards -->
 <div class="dashboard-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 20px;">
