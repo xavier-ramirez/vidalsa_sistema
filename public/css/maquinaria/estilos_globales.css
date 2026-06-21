@@ -1347,13 +1347,12 @@ nav[role="navigation"] {
             "correo  acciones"
             "datos   datos";
         column-gap: 8px;
-        row-gap: 0;
+        row-gap: 2px;
         background: #fff;
         border: 1px solid #e2e8f0;
-        border-left: 3px solid #0067b1;
         border-radius: 10px;
         box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        padding: 8px 10px 0 10px;
+        padding: 10px 12px 0 12px;
         overflow: hidden;
     }
     .table-usuarios-mobile tr:not(:has(td:nth-child(2))) {

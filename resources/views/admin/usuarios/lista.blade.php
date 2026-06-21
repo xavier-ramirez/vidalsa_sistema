@@ -182,6 +182,11 @@
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
         }
+        @media (max-width: 1024px) {
+            .usuarios-layout { flex-direction: column; }
+            .usuarios-side { width: 100%; flex-basis: auto; }
+            .usr-filter-row { flex-wrap: wrap; }
+        }
         @media (max-width: 768px) {
             .usr-filter-row {
                 flex-direction: row !important;
@@ -191,10 +196,6 @@
                 flex: 1 1 100% !important;
                 min-width: 0 !important;
             }
-        }
-        @media (max-width: 1024px) {
-            .usuarios-layout { flex-direction: column; }
-            .usuarios-side { width: 100%; flex-basis: auto; }
         }
     </style>
     <!-- Unified Responsive Table -->

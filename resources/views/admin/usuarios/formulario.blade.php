@@ -3,7 +3,7 @@
 @section('title', isset($user) ? 'Editar Usuario' : 'Nuevo Usuario')
 
 @section('content')
-<section class="page-title-card" style="text-align: center; margin: 0 auto 10px auto;">
+<section class="page-title-card" style="text-align: center; margin: 0 auto 16px auto; padding: 0;">
     <h1 class="page-title">
         <span class="page-title-line2" style="color: #000;">{{ isset($user) ? 'Edición de Usuario' : 'Registro de Usuario' }}</span>
     </h1>
