@@ -693,13 +693,6 @@
         text-transform: uppercase;
         word-break: break-word;
     }
-    .cat-mini-specs {
-        font-size: 10px;
-        color: #64748b;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
 
     @media (max-width: 719px) {
         .cat-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1002,10 +995,7 @@
                                 <div class="cat-mini-body">
                                     {{-- Muestra el TIPO (principal) y la MARCA (secundario). Si el
                                          catálogo aún no tiene TIPO, cae al MODELO como respaldo. --}}
-                                    <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}</span>
-                                    @if($catalogo->marca_calculada)
-                                        <span class="cat-mini-specs">{{ $catalogo->marca_calculada }}</span>
-                                    @endif
+                                    <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}@if($catalogo->marca_calculada) · {{ $catalogo->marca_calculada }}@endif</span>
                                 </div>
                             </a>
                         @endforeach
