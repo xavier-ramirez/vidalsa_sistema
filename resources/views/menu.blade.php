@@ -51,6 +51,12 @@
         transform: scale(1.08);
         filter: brightness(1.1);
     }
+    .menu-hero-stripes > div:last-child img {
+        transform: scale(1.08) translateX(8%);
+    }
+    .menu-hero-stripes > div:last-child:hover img {
+        transform: scale(1.13) translateX(8%);
+    }
     .menu-hero-overlay {
         position: absolute;
         inset: 0;
