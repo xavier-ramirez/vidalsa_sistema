@@ -2752,8 +2752,8 @@
         <script src="{{ asset('js/webauthn.js') }}?v={{ @filemtime(public_path('js/webauthn.js')) }}"></script>
         <div id="webauthnModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
             <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25);">
-                <div style="width:56px;height:56px;margin:0 auto 16px;background:#00004d;border-radius:50%;display:flex;align-items:center;justify-content:center;">
-                    <i class="material-icons" style="font-size:30px;color:#fff;">fingerprint</i>
+                <div style="width:64px;height:64px;margin:0 auto 16px;background:#00004d;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                    <i class="material-icons" style="font-size:36px;color:#fff;">fingerprint</i>
                 </div>
                 <h3 style="margin:0 0 8px;font-size:18px;font-weight:800;color:#111;">Activar acceso con huella</h3>
                 <p style="margin:0 0 20px;font-size:13.5px;color:#555;line-height:1.45;">La próxima vez podrá entrar sin contraseña.</p>
@@ -2767,6 +2767,7 @@
         (function() {
             if (typeof VidalsaWebAuthn === 'undefined' || !VidalsaWebAuthn.soportado()) return;
             if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
+            if (VidalsaWebAuthn.tieneCredenciales()) return;
             VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
                 if (!ok) return;
                 var modal = document.getElementById('webauthnModal');
