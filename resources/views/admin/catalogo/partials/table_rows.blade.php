@@ -85,9 +85,8 @@
             @endif
         </div>
 
-        {{-- Cuerpo: modelo (+ marca en auxiliares) + tabla compacta de specs. --}}
         <div class="cat-body">
-            <span class="cat-modelo">{{ $item['modelo'] }}</span>
+            <span class="cat-modelo">@if($item['tipo']){{ $item['tipo'] }} · @endif{{ $item['modelo'] }}</span>
 
             @if(!empty($item['specs']))
                 <div class="cat-specs">

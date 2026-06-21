@@ -110,10 +110,10 @@
     .cat-photo-overlay .material-icons { font-size: 26px; }
     .cat-photo:hover .cat-photo-overlay { opacity: 1; }
     .cat-body {
-        padding: 11px 12px 12px;
+        padding: 8px 12px 10px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 4px;
     }
     .cat-modelo {
         font-size: 14px;
