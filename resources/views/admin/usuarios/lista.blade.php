@@ -225,8 +225,8 @@
 
     <!-- Pagination -->
 
-    <div id="usuariosPagination" style="margin-top: 25px;">
-        {{ $users->links() }}
+    <div id="usuariosPagination" style="margin-top: 15px;">
+        {{ $users->links('vendor.pagination.custom-sliding') }}
     </div>
     </div>{{-- /usuarios-main --}}
 
