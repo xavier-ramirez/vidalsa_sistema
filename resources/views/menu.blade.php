@@ -28,8 +28,15 @@
     .menu-hero-stripes {
         position: absolute;
         inset: 0;
+        display: flex;
+        gap: 6px;
         background: #0b1c30;
         z-index: 0;
+    }
+    .menu-hero-stripes > div {
+        flex: 1 1 0;
+        height: 100%;
+        overflow: hidden;
     }
     .menu-hero-stripes img {
         width: 100%;
@@ -40,7 +47,7 @@
         user-select: none;
         -webkit-user-drag: none;
     }
-    .menu-hero-stripes:hover img {
+    .menu-hero-stripes > div:hover img {
         transform: scale(1.08);
         filter: brightness(1.1);
     }
@@ -823,7 +830,9 @@
     <section class="menu-hero">
         <div class="menu-hero-stripes">
             @php $heroImg = asset('images/maquinaria_login_new.webp'); @endphp
-            <img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;">
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: right top;"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">
