@@ -134,6 +134,10 @@ const VidalsaWebAuthn = (() => {
             });
             options = await res.json();
             if (!res.ok) {
+                if (res.status === 419) {
+                    window.location.reload();
+                    return;
+                }
                 if (res.status === 404) {
                     localStorage.removeItem(STORAGE_KEY);
                     throw new Error('NO_CREDENTIALS');
@@ -176,6 +180,7 @@ const VidalsaWebAuthn = (() => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
+        if (res.status === 419) { window.location.reload(); return; }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error de autenticación');
         return data;

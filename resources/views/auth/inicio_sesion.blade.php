@@ -227,7 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var btnBio = document.getElementById('btnBiometricLogin');
     if (!btnBio) return;
     if (typeof VidalsaWebAuthn === 'undefined' || !VidalsaWebAuthn.soportado() || !VidalsaWebAuthn.tieneCredenciales()) return;
-    if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
 
     VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
         if (ok) btnBio.style.display = 'flex';

@@ -14,37 +14,35 @@
         body {
             font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
-            padding: 24px; color: #fff;
-            background: linear-gradient(135deg, #00004d 0%, #0a2a6b 55%, #0067b1 100%);
+            padding: 24px; color: #1e293b;
+            background: #fff;
         }
         .err-card {
             width: 100%; max-width: 460px; text-align: center;
-            background: rgba(255,255,255,0.06);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 22px;
-            padding: 42px 34px; box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+            background: #fff;
+            border: 1px solid #e2e8f0; border-radius: 22px;
+            padding: 42px 34px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
         }
         .err-logo { height: 56px; margin-bottom: 24px; object-fit: contain; }
         .err-code {
             font-size: 68px; font-weight: 800; line-height: 1; letter-spacing: -2px;
-            background: linear-gradient(180deg, #ffffff, #bcd6f0);
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            color: #00337a;
         }
-        .err-title { font-size: 21px; font-weight: 700; margin: 12px 0 8px; }
-        .err-msg { font-size: 14px; line-height: 1.6; opacity: 0.82; margin-bottom: 28px; }
+        .err-title { font-size: 21px; font-weight: 700; margin: 12px 0 8px; color: #0f172a; }
+        .err-msg { font-size: 14px; line-height: 1.6; color: #64748b; margin-bottom: 28px; }
         .err-btn {
             display: inline-flex; align-items: center; gap: 8px;
-            background: #fff; color: #00337a; font-weight: 800; font-size: 14px;
+            background: #00337a; color: #fff; font-weight: 800; font-size: 14px;
             text-decoration: none; padding: 13px 24px; border-radius: 11px;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .err-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,0.28); }
-        .err-foot { margin-top: 22px; font-size: 11.5px; opacity: 0.5; letter-spacing: 0.3px; }
+        .err-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,51,122,0.25); }
+        .err-foot { margin-top: 22px; font-size: 11.5px; color: #94a3b8; letter-spacing: 0.3px; }
     </style>
 </head>
 <body>
     <div class="err-card">
-        {{-- onerror: si el logo no carga, simplemente se oculta (no rompe la página). --}}
         <img class="err-logo" src="{{ asset('images/maquinaria/logo.webp') }}"
              alt="Constructora Vidalsa" onerror="this.style.display='none'">
         <div class="err-code">@yield('code')</div>
