@@ -4,7 +4,7 @@
 
 @section('content')
 <div>
-<section class="page-title-card" style="text-align: left; width: 100%; max-width: none; margin: 0 0 10px 0;">
+<section class="page-title-card" style="text-align: left; width: 100%; max-width: none; margin: 0 0 16px 0;">
     <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
         <span class="page-title-line2" style="color: #000; margin: 0;">Gestión de Usuarios</span>
         <span id="user-count-badge" style="background: rgba(0, 103, 177, 0.08); color: #0067b1; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(0, 103, 177, 0.15); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; gap: 6px;">
@@ -21,9 +21,9 @@
          y el panel de Usuarios Activos en su propia tarjeta a la derecha. --}}
     <div class="usuarios-layout">
     <div class="usuarios-main">
-    <div class="filter-toolbar-container" style="margin-bottom: 14px;">
+    <div class="filter-toolbar-container" style="margin-bottom: 6px;">
         <!-- Search Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative; flex: 4 1 420px;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search') ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
                     <i class="material-icons search-icon">search</i>
@@ -45,7 +45,7 @@
         </div>
 
         <!-- Frente Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 2 1 340px; max-width: 420px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 3.2 1 400px; max-width: 540px;">
             <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente_filter" data-default-label="Filtrar Frente..." style="width: 100%;">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ request('id_frente') }}">
                 

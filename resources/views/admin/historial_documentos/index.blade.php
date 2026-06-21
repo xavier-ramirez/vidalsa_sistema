@@ -44,12 +44,6 @@
         color: #0f172a;
     }
 
-    /* Historial — layout custom de la barra de filtros.
-       PC: filtros se reparten el ancho disponible (flex:1 1 0 + min 240px),
-           botones papelera tight al final, juntos.
-       Mobile: filtros uno bajo otro full-width, botones papelera abajo
-           lado a lado al 50/50. */
-    #historialDocumentosTable, .filter-toolbar-container { /* placeholder */ }
     .hd-filter-row {
         display: flex;
         flex-wrap: wrap;
@@ -61,6 +55,26 @@
         max-width: none !important;
         min-width: 180px;
     }
+    @media (min-width: 769px) {
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(1) {
+            flex: 1.2 1 240px !important;
+        }
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
+            flex: 0.9 1 200px !important;
+            max-width: 260px !important;
+        }
+        .hd-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
+            flex: 0.7 1 160px !important;
+            max-width: 220px !important;
+        }
+        #historialDocumentosTable {
+            border-spacing: 0 5px !important;
+        }
+        #historialDocumentosTable td {
+            padding-top: 7px !important;
+            padding-bottom: 7px !important;
+        }
+    }
     .hd-adv-filter-wrap {
         position: relative;
         flex: 0 0 auto;
@@ -71,53 +85,56 @@
         flex: 0 0 auto;
         width: auto;
     }
-    /* Mobile: el sidebar (IPs Bloqueadas, Usuarios Activos, Total) cae al
-       fondo en una sola columna. Antes el grid 1fr 280px lo dejaba apretado
-       fuera de pantalla y "IPs Bloqueadas" no era accesible. */
-
-    /* El botón toggle ya no se usa porque el panel siempre estará visible */
-    .hd-mobile-security-toggle {
-        display: none !important;
-    }
-
     @media (max-width: 900px) {
-        /* Stack the grid into 1 column on mobile */
         .hd-layout-grid {
             grid-template-columns: 1fr !important;
         }
-        /* La sidebar fluye naturalmente hacia abajo */
         .historial-sidebar {
             width: 100% !important;
             max-width: 100% !important;
             margin-top: 20px;
         }
+        .hd-total-card {
+            display: none !important;
+        }
+        .hd-collapsible-header {
+            cursor: pointer;
+        }
+        .hd-collapsible-header .hd-chevron {
+            display: inline-flex !important;
+            transition: transform 0.25s;
+        }
+        .hd-collapsible-body {
+            display: none;
+            overflow: hidden;
+        }
+        .hd-collapsible-body.hd-open {
+            display: block;
+        }
+        .hd-chevron.hd-open {
+            transform: rotate(180deg);
+        }
     }
 
     @media (max-width: 768px) {
-        /* Mobile: forzamos row-wrap (override del .filter-toolbar-container
-           global que pone column). Asi podemos tener el boton de filtros
-           avanzados al lado del filtro Tipo Documento (3er filtro). */
         .hd-filter-row {
             flex-direction: row !important;
             flex-wrap: wrap !important;
             align-items: stretch !important;
+            gap: 8px !important;
         }
-        /* searchCorreo (1ro) y searchEquipo (2do): full width cada uno */
         .hd-filter-row > .filter-item.responsive-filter-item:nth-child(1),
         .hd-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
             flex: 1 1 100% !important;
             min-width: 0 !important;
         }
-        /* tipoDoc (3er filtro): toma todo el ancho menos el del boton avanzado */
         .hd-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
-            flex: 1 1 calc(100% - 53px) !important;
+            flex: 1 1 0 !important;
             min-width: 0 !important;
         }
-        /* Boton "Filtros Avanzados" lado a lado con tipoDoc */
         .hd-adv-filter-wrap {
             flex: 0 0 45px !important;
         }
-        /* Papelera buttons full width compartido 50/50 */
         .hd-papelera-group {
             display: flex;
             flex: 1 1 100%;
@@ -127,19 +144,12 @@
             flex: 1 1 0 !important;
             width: 100% !important;
         }
-        /* Tabla historial sin min-width para evitar scroll horizontal */
         #historialDocumentosTable {
             min-width: 0 !important;
         }
 
-        /* ── Tabla → stack de cards en móvil ──
-           Card layout:
-             Linea 1: fecha+hora (izq) + autor (der)
-             Linea 2: tipo equipo + serial
-             Linea 3: accion / tipo doc
-             Boton PDF: columna derecha flotante */
-        .table-historial-mobile,
-        .table-historial-mobile tbody {
+        /* ── Tabla → cards en móvil ── */
+        .table-historial-mobile {
             display: block;
             width: 100%;
         }
@@ -149,23 +159,25 @@
         .table-historial-mobile tbody {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
+            width: 100%;
         }
         .table-historial-mobile tbody tr {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
+            grid-template-columns: 1fr auto;
             grid-template-rows: auto auto auto;
             grid-template-areas:
-                "date   author  pdf"
-                "equipo equipo  pdf"
-                "doc    doc     pdf";
+                "doc    date"
+                "equipo equipo"
+                "author pdf";
             column-gap: 10px;
-            row-gap: 6px;
+            row-gap: 8px;
             background: #fff;
             border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-            padding: 12px 14px !important;
+            border-left: 3px solid #0067b1;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            padding: 12px 14px 12px 12px !important;
             align-items: center;
         }
         .table-historial-mobile tbody td {
@@ -174,51 +186,68 @@
             text-align: left;
             border-radius: 0 !important;
             min-width: 0;
+            background: transparent !important;
         }
-        /* Linea 1 izquierda: fecha + hora apiladas */
+        /* Fila 1 izq: acción (badge) */
+        .table-historial-mobile tbody td:nth-child(3) {
+            grid-area: doc;
+        }
+        .table-historial-mobile tbody td:nth-child(3) .badge-doc {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        /* Fila 1 der: fecha + hora */
         .table-historial-mobile tbody td:nth-child(1) {
             grid-area: date;
-            font-size: 12.5px;
-            color: #475569;
+            justify-self: end;
+            font-size: 11.5px;
+            color: #94a3b8;
             line-height: 1.25;
         }
-        /* Linea 1 derecha: autor (correo / usuario) */
+        .table-historial-mobile tbody td:nth-child(1) > div {
+            align-items: flex-end !important;
+        }
+        /* Fila 2: equipo (protagonista) */
+        .table-historial-mobile tbody td:nth-child(4) {
+            grid-area: equipo;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.3;
+            border-top: 1px solid #f1f5f9;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 6px 0 !important;
+        }
+        /* Fila 3 izq: autor */
         .table-historial-mobile tbody td:nth-child(2) {
             grid-area: author;
-            justify-self: end;
             font-size: 12px;
             color: #64748b;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 55vw;
+            max-width: 65vw;
+            align-self: center;
         }
-        /* Linea 2: tipo equipo + serial */
-        .table-historial-mobile tbody td:nth-child(4) {
-            grid-area: equipo;
-            font-size: 13.5px;
-            font-weight: 600;
-            color: #1e293b;
-            line-height: 1.3;
-        }
-        /* Linea 3: accion editada (tipo doc) */
-        .table-historial-mobile tbody td:nth-child(3) {
-            grid-area: doc;
+        .table-historial-mobile tbody td:nth-child(2) .badge-autor {
+            background: transparent;
+            padding: 0;
             font-size: 12px;
-            color: #475569;
+            color: #64748b;
         }
-        /* Boton PDF: columna derecha, todas las filas */
+        /* Fila 3 der: botón PDF */
         .table-historial-mobile tbody td:nth-child(5) {
             grid-area: pdf;
+            justify-self: end;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: transparent !important;
         }
     }
 </style>
 
-<section class="page-title-card" style="text-align: left; margin: 0 auto 10px auto; width: 98%; max-width: 1600px;">
+<section class="page-title-card" style="text-align: left; margin: 0 auto 16px auto; width: 98%; max-width: 1600px;">
     <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
         <span class="page-title-line2" style="color: #000; margin: 0;">Auditoría de Documentos</span>
     </h1>
@@ -231,13 +260,13 @@
         <div class="admin-card">
             <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 5px;">
                 <!-- Search Correo -->
-                <div class="filter-item aligned-filter responsive-filter-item">
-                    <form style="width: 100%; position: relative;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
-                        <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
+                <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
+                    <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
+                        <div class="search-wrapper" style="width: 100%; border-color: {{ request('search_correo') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search_correo') ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchCorreo" name="search_correo"
                                 value="{{ request('search_correo') }}"
-                                placeholder="Buscar por nombre o correo del autor..."
+                                placeholder="Buscar nombre o correo..."
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
@@ -246,10 +275,7 @@
                                 onkeyup="window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo')">
                             <i id="btn_clear_searchCorreo" class="material-icons clear-icon" style="display: {{ request('search_correo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchCorreo', 'searchCorreo');">close</i>
                         </div>
-                        {{-- Autocompletado de autores (nombre + correo): dropdown PROPIO con tope
-                             de altura + scroll. Antes era un <datalist> nativo que el navegador
-                             desplegaba a pantalla completa (no se puede limitar por CSS). --}}
-                        <div id="hdCorreosSuggest" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:50; margin-top:4px; max-height:220px; overflow-y:auto; background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);"></div>
+                        <div id="hdCorreosSuggest" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:1000; margin-top:6px; max-height:280px; overflow-y:auto; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 6px 16px rgba(0,0,0,0.08); padding:5px;"></div>
                     </form>
                 </div>
 
@@ -260,7 +286,7 @@
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchEquipo" name="search_equipo"
                                 value="{{ request('search_equipo') }}"
-                                placeholder="Buscar por placa o serial..."
+                                placeholder="Buscar placa o serial..."
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"
@@ -297,7 +323,7 @@
                                 placeholder="{{ $tipoActivo ? $reqTipoLabel : 'Filtrar Acción...' }}"
                                 style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; color: #4a5568;"
                                 onkeyup="window.filterDropdownOptions(this)"
-                                onfocus="this.closest('.custom-dropdown').classList.add('active')"
+                                onfocus="this.closest('.custom-dropdown').classList.add('active'); var p=document.getElementById('hdAdvancedFilterPanel'); if(p) p.style.display='none';"
                                 autocomplete="off">
 
                             <div style="display: flex; align-items: center; padding-right: 10px;">
@@ -340,7 +366,7 @@
                 @endphp
                 <div class="hd-adv-filter-wrap">
                     <button type="button" id="btnHdAdvancedFilter"
-                        onclick="event.stopPropagation(); var p=document.getElementById('hdAdvancedFilterPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none';"
+                        onclick="event.stopPropagation(); var dd=document.getElementById('tipoDocFilterSelect'); if(dd) dd.classList.remove('active'); var p=document.getElementById('hdAdvancedFilterPanel'); p.style.display = (p.style.display==='none'||!p.style.display) ? 'block' : 'none';"
                         title="Filtros Avanzados (fechas)"
                         style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: {{ $hasAdvHd ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAdvHd ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAdvHd ? '#ef4444' : '#64748b' }}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
                         <i class="material-icons">filter_list</i>
@@ -438,34 +464,11 @@
         </div>
     </div>
 
-    @if(auth()->check() && auth()->user()->can('super.admin'))
-    {{-- ─── Botón toggle Seguridad (solo visible en móvil) ─── --}}
-    <div class="hd-mobile-security-toggle" id="hdSecurityToggleRow">
-        <button type="button" id="hdSecurityToggleBtn" onclick="window.hdToggleSecurityPanel()"
-            style="width:100%; background:white; border:1px solid #e2e8f0; border-radius:12px; padding:11px 16px;
-                   display:flex; align-items:center; justify-content:space-between;
-                   font-size:13px; font-weight:700; color:#1e293b; cursor:pointer;
-                   box-shadow:0 1px 3px rgba(0,0,0,0.06); transition:background 0.2s;">
-            <span style="display:flex; align-items:center; gap:8px;">
-                <i class="material-icons" style="font-size:18px; color:#6d28d9;">admin_panel_settings</i>
-                Panel de Seguridad
-                @php $bipsCountBtn = isset($blockedIps) ? $blockedIps->count() : 0; @endphp
-                @if($bipsCountBtn > 0)
-                <span style="background:#fee2e2; color:#ef4444; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700;">{{ $bipsCountBtn }} IPs</span>
-                @else
-                <span style="background:#dcfce7; color:#15803d; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700;">Sin bloqueos</span>
-                @endif
-            </span>
-            <i class="material-icons" id="hdSecurityChevron" style="font-size:20px; color:#94a3b8; transition:transform 0.25s;">expand_more</i>
-        </button>
-    </div>
-    @endif
-
     <!-- Right Sidebar -->
     <div class="counter-sidebar historial-sidebar" id="historialSidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10;">
 
         <!-- Total Card -->
-        <div style="background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+        <div class="hd-total-card" style="background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
             <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">history</i>
             <div style="position: relative; z-index: 2;">
                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; margin-bottom: 5px;">Total Auditoría</div>
@@ -485,63 +488,69 @@
         @php $bipsCount = isset($blockedIps) ? $blockedIps->count() : 0; @endphp
         @if($bipsCount === 0)
         <div style="background: white; border-radius: 12px; padding: 14px 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="material-icons" style="color: #16a34a; font-size: 18px;">verified_user</i>
                     <h3 style="margin: 0; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
                 </div>
-                <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700;">0</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="background: #dcfce7; color: #15803d; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700;">0</span>
+                    <i class="material-icons hd-chevron" style="display: none; font-size: 20px; color: #94a3b8;">expand_more</i>
+                </div>
             </div>
-            <p style="margin: 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 4px 0;">Sin IPs bloqueadas (umbral: 10 intentos fallidos).</p>
+            <div class="hd-collapsible-body">
+                <p style="margin: 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px 0 0;">Sin IPs bloqueadas (umbral: 10 intentos fallidos).</p>
+            </div>
         </div>
         @else
         <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: relative; z-index: 20;" id="blocked-ips-container">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="material-icons" style="color: #ef4444; font-size: 20px;">gpp_bad</i>
                     <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase;">IPs Bloqueadas</h3>
                 </div>
-                <span class="badge" style="background: #fee2e2; color: #ef4444; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $blockedIps->count() }}</span>
-            </div>
-
-            {{-- ─── Filtro de búsqueda de IPs ────────────────────────────── --}}
-            <div style="position: relative; margin-bottom: 10px;">
-                <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
-                <input
-                    type="text"
-                    id="ip-filter-input"
-                    placeholder="Filtrar por IP..."
-                    autocomplete="off"
-                    oninput="window.filterBlockedIps(this.value)"
-                    style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #334155; background: #f8fafc; outline: none; transition: border-color 0.2s;"
-                    onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'"
-                    onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"
-                >
-            </div>
-            {{-- Mensaje sin resultados --}}
-            <div id="ip-filter-empty" style="display: none; text-align: center; font-size: 12px; color: #94a3b8; padding: 8px 0;">Sin coincidencias</div>
-            
-            <div id="blocked-ips-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
-                @foreach($blockedIps as $ip)
-                <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->DIRECCION_IP }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
-                        <span style="font-size: 11px; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
-                    </div>
-                    @can('super.admin')
-                    <button 
-                            class="btn-unlock-ip"
-                            data-ip-id="{{ $ip->ID_BLOQUEO }}"
-                            data-ip-address="{{ $ip->DIRECCION_IP }}"
-                            style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30; margin-left: 10px;" 
-                            onmouseover="this.style.background='#fee2e2'" 
-                            onmouseout="this.style.background='transparent'" 
-                            title="Desbloquear IP">
-                        <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
-                    </button>
-                    @endcan
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="badge" style="background: #fee2e2; color: #ef4444; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $blockedIps->count() }}</span>
+                    <i class="material-icons hd-chevron" style="display: none; font-size: 20px; color: #94a3b8;">expand_more</i>
                 </div>
-                @endforeach
+            </div>
+            <div class="hd-collapsible-body" style="margin-top: 10px;">
+                <div style="position: relative; margin-bottom: 10px;">
+                    <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
+                    <input
+                        type="text"
+                        id="ip-filter-input"
+                        placeholder="Filtrar por IP..."
+                        autocomplete="off"
+                        oninput="window.filterBlockedIps(this.value)"
+                        style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #334155; background: #f8fafc; outline: none; transition: border-color 0.2s;"
+                        onfocus="this.style.borderColor='#ef4444'; this.style.background='#fff'"
+                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc'"
+                    >
+                </div>
+                <div id="ip-filter-empty" style="display: none; text-align: center; font-size: 12px; color: #94a3b8; padding: 8px 0;">Sin coincidencias</div>
+                <div id="blocked-ips-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                    @foreach($blockedIps as $ip)
+                    <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->DIRECCION_IP }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
+                            <span style="font-size: 11px; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
+                        </div>
+                        @can('super.admin')
+                        <button
+                                class="btn-unlock-ip"
+                                data-ip-id="{{ $ip->ID_BLOQUEO }}"
+                                data-ip-address="{{ $ip->DIRECCION_IP }}"
+                                style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30; margin-left: 10px;"
+                                onmouseover="this.style.background='#fee2e2'"
+                                onmouseout="this.style.background='transparent'"
+                                title="Desbloquear IP">
+                            <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
+                        </button>
+                        @endcan
+                    </div>
+                    @endforeach
+                </div>
             </div>
         </div>
         @endif {{-- bipsCount > 0 --}}
@@ -549,34 +558,39 @@
 
         {{-- ─── Usuarios Activos (sesiones últimos 30 min) ─── --}}
         @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
-        <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06); margin-top: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06); margin-top: 10px;">
+            <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="material-icons" style="color: #10b981; font-size: 22px;">radio_button_checked</i>
                     <h3 style="margin: 0; font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">Usuarios Activos</h3>
                 </div>
-                <span style="background: #dcfce7; color: #15803d; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;">{{ $activeUsers->count() }}</span>
-            </div>
-            @if($activeUsers->count() === 0)
-                <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8; text-align: center; padding: 20px 0;">Nadie conectado en los últimos 30 min.</p>
-            @else
-                <div style="display: flex; flex-direction: column; gap: 8px; min-height: 280px; max-height: 400px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
-                    @foreach($activeUsers as $u)
-                        @php
-                            $minsAgo = max(0, (int) floor((now()->timestamp - $u->last_activity) / 60));
-                            $ago = $minsAgo === 0 ? 'ahora' : ($minsAgo === 1 ? 'hace 1 min' : 'hace ' . $minsAgo . ' min');
-                            $nombreCorto = $u->NOMBRE_COMPLETO ?: strtok($u->CORREO_ELECTRONICO, '@');
-                        @endphp
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 9px 12px; border-radius: 8px; border: 1px solid #dcfce7;" title="{{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
-                            <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
-                                <span style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0;"></span>
-                                <span style="font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nombreCorto }}</span>
-                            </div>
-                            <span style="font-size: 11px; color: #64748b; white-space: nowrap; margin-left: 8px; background: #e2e8f0; padding: 2px 7px; border-radius: 6px; font-weight: 600;">{{ $ago }}</span>
-                        </div>
-                    @endforeach
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="background: #dcfce7; color: #15803d; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;">{{ $activeUsers->count() }}</span>
+                    <i class="material-icons hd-chevron" style="display: none; font-size: 20px; color: #94a3b8;">expand_more</i>
                 </div>
-            @endif
+            </div>
+            <div class="hd-collapsible-body" style="margin-top: 14px;">
+                @if($activeUsers->count() === 0)
+                    <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center; padding: 20px 0;">Nadie conectado en los últimos 30 min.</p>
+                @else
+                    <div style="display: flex; flex-direction: column; gap: 8px; min-height: 280px; max-height: 400px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
+                        @foreach($activeUsers as $u)
+                            @php
+                                $minsAgo = max(0, (int) floor((now()->timestamp - $u->last_activity) / 60));
+                                $ago = $minsAgo === 0 ? 'ahora' : ($minsAgo === 1 ? 'hace 1 min' : 'hace ' . $minsAgo . ' min');
+                                $nombreCorto = $u->NOMBRE_COMPLETO ?: strtok($u->CORREO_ELECTRONICO, '@');
+                            @endphp
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; padding: 9px 12px; border-radius: 8px; border: 1px solid #dcfce7;" title="{{ $u->CORREO_ELECTRONICO }} | IP: {{ $u->ip_address ?? 'N/A' }}">
+                                <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                                    <span style="width: 9px; height: 9px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.25); flex-shrink: 0;"></span>
+                                    <span style="font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $nombreCorto }}</span>
+                                </div>
+                                <span style="font-size: 11px; color: #64748b; white-space: nowrap; margin-left: 8px; background: #e2e8f0; padding: 2px 7px; border-radius: 6px; font-weight: 600;">{{ $ago }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         </div>
         @endif
     </div>
@@ -605,25 +619,42 @@
         transition: background 0.15s;
     }
 
-    /* Corrección para que la selección mantenga el borde redondeado de los TDs */
-    #historialDocumentosTable tr.selected-row-maquinaria {
-        background-color: transparent !important;
-        border-left: none !important;
+    /* Desktop: selección clásica (fondo azul en td, borde izquierdo) */
+    @media (min-width: 769px) {
+        #historialDocumentosTable tr.selected-row-maquinaria {
+            background-color: transparent !important;
+            border-left: none !important;
+        }
+        #historialDocumentosTable tr.selected-row-maquinaria td {
+            background-color: #e1effa !important;
+            color: #0067b1 !important;
+            border-top-color: #93c5fd !important;
+            border-bottom-color: #93c5fd !important;
+            transition: all 0.2s ease;
+        }
+        #historialDocumentosTable tr.selected-row-maquinaria td:first-child {
+            border-left: 4px solid #0067b1 !important;
+        }
+        #historialDocumentosTable tr.selected-row-maquinaria td:last-child {
+            border-right-color: #93c5fd !important;
+        }
     }
-    #historialDocumentosTable tr.selected-row-maquinaria td {
-        background-color: #e1effa !important;
-        color: #0067b1 !important;
-        border-top-color: #93c5fd !important;
-        border-bottom-color: #93c5fd !important;
-        transition: all 0.2s ease;
-    }
-    #historialDocumentosTable tr.selected-row-maquinaria td:first-child {
-        border-left: 4px solid #0067b1 !important;
-        border-top-color: #93c5fd !important;
-        border-bottom-color: #93c5fd !important;
-    }
-    #historialDocumentosTable tr.selected-row-maquinaria td:last-child {
-        border-right-color: #93c5fd !important;
+    /* Móvil: card completa celeste (mismo patrón que equipos) */
+    @media (max-width: 768px) {
+        #historialDocumentosTable tr.selected-row-maquinaria {
+            border: 2px solid var(--maquinaria-blue, #0067b1) !important;
+            background-color: #f0f9ff !important;
+            box-shadow: 0 4px 12px rgba(0, 103, 177, 0.15) !important;
+        }
+        #historialDocumentosTable tr.selected-row-maquinaria td {
+            background-color: transparent !important;
+            border-color: transparent !important;
+            color: inherit !important;
+        }
+        #historialDocumentosTable tr.selected-row-maquinaria td:nth-child(4) {
+            border-top: 1px solid #bfdbfe !important;
+            border-bottom: 1px solid #bfdbfe !important;
+        }
     }
 
     /* "Ver solo seleccionados" activo: resalta solo el NÚMERO del contador en un
@@ -830,15 +861,10 @@
 </script>
 @endcan
 
-{{-- Autocompletado del filtro "Buscar por nombre o correo del autor": dropdown propio
-     con tope de altura + scroll (reemplaza el <datalist> nativo que se desplegaba a
-     pantalla completa). Sugiere por nombre Y correo. FUERA del @can: este filtro es
-     para TODOS los usuarios. --}}
 <script>
 (function () {
     if (window.__hdCorreoAutoInit) return;
     window.__hdCorreoAutoInit = true;
-    // Lista de autores {nombre, correo}: se puede ubicar por NOMBRE o por CORREO.
     var AUTORES = @json($autoresSugeridos ?? []);
     var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
 
@@ -854,16 +880,15 @@
         }).slice(0, 50);
         if (!m.length) { box.style.display = 'none'; return; }
         box.innerHTML = m.map(function (a) {
-            // data-val = correo (único por usuario): al elegir, filtra por esa persona.
-            // Se muestra "Nombre — correo"; si el usuario no tiene nombre, solo el correo.
             var nombre = a.nombre || '';
-            var label  = nombre
-                ? (esc(nombre) + ' <span style="color:#94a3b8;">— ' + esc(a.correo) + '</span>')
-                : esc(a.correo);
+            var inner = nombre
+                ? '<span style="font-size:14px;font-weight:600;color:#1e3a5f;">' + esc(nombre) + '</span>'
+                  + '<span style="font-size:12px;color:#64748b;">' + esc(a.correo) + '</span>'
+                : '<span style="font-size:14px;font-weight:600;color:#1e3a5f;">' + esc(a.correo) + '</span>';
             return '<div class="hd-correo-item" data-val="' + esc(a.correo) + '"'
-                 + ' onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'"'
-                 + ' style="padding:9px 14px;font-size:13px;color:#334155;cursor:pointer;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#fff;">'
-                 + label + '</div>';
+                 + ' onmouseover="this.style.background=\'#f0f4f8\'" onmouseout="this.style.background=\'transparent\'"'
+                 + ' style="padding:9px 14px;border-radius:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px;background:transparent;">'
+                 + inner + '</div>';
         }).join('');
         box.style.display = 'block';
     };
@@ -884,6 +909,16 @@
         if (box && e.target !== inp && !box.contains(e.target)) box.style.display = 'none';
     });
 })();
+</script>
+
+<script>
+window.hdToggleCollapse = function (header) {
+    var body = header.parentElement.querySelector('.hd-collapsible-body');
+    var chevron = header.querySelector('.hd-chevron');
+    if (!body) return;
+    body.classList.toggle('hd-open');
+    if (chevron) chevron.classList.toggle('hd-open');
+};
 </script>
 
 @endsection
