@@ -171,13 +171,13 @@
         }
         @media (min-width: 769px) {
             .usr-filter-row > .filter-item.responsive-filter-item:nth-child(1) {
-                flex: 2.5 1 0 !important;
+                flex: 3 1 0 !important;
             }
             .usr-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
-                flex: 1.5 1 0 !important;
+                flex: 2.5 1 0 !important;
             }
             .usr-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
-                flex: 1.5 1 0 !important;
+                flex: 2.5 1 0 !important;
             }
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
@@ -305,6 +305,10 @@
             width: 100% !important;
             justify-content: center !important;
         }
+        .usuarios-side > div { padding: 12px !important; }
+        .usuarios-side > div > div:first-child { margin-bottom: 6px !important; }
+        .usuarios-side .custom-scrollbar-container { gap: 5px !important; max-height: 300px !important; }
+        .usuarios-side .custom-scrollbar-container > div { padding: 6px 10px !important; }
     }
 </style>
 
