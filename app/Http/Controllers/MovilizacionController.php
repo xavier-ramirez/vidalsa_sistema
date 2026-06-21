@@ -114,9 +114,16 @@ class MovilizacionController extends Controller
         $applyFrenteFilter($query);
 
         if ($request->filled('id_tipo') && $request->id_tipo !== 'all') {
-            $query->whereHas('equipo', function ($q) use ($request) {
-                $q->where('id_tipo_equipo', $request->id_tipo);
-            });
+            $tipoVal = (string) $request->id_tipo;
+            if (str_starts_with($tipoVal, 'tipo_eq:')) {
+                $query->whereNotNull('movilizacion_historial.ID_EQUIPO')
+                      ->whereHas('equipo', fn ($q) => $q->where('id_tipo_equipo', (int) substr($tipoVal, 8)));
+            } elseif (str_starts_with($tipoVal, 'tipo_aux:')) {
+                $query->whereNotNull('movilizacion_historial.ID_AUXILIAR')
+                      ->whereHas('auxiliar', fn ($q) => $q->where('TIPO', substr($tipoVal, 9)));
+            } else {
+                $query->whereHas('equipo', fn ($q) => $q->where('id_tipo_equipo', $tipoVal));
+            }
         }
 
         // Date range filter
@@ -136,6 +143,8 @@ class MovilizacionController extends Controller
         // porque se necesita poder buscar movilizaciones de frentes antiguos.
         $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
         $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
+        $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
 
         if ($request->wantsJson()) {
             $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
@@ -149,7 +158,7 @@ class MovilizacionController extends Controller
             ]);
         }
 
-        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos'));
+        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos', 'tiposAux'));
     }
 
     public function create()

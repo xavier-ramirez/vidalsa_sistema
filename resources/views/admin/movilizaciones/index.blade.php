@@ -83,33 +83,52 @@
                 <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="id_tipo" data-default-label="Filtrar Tipo...">
                     <input type="hidden" name="id_tipo" data-filter-value value="{{ request('id_tipo') }}" form="search-form">
                     
-                    @php 
-                        $currentTipo = $allTipos->firstWhere('id', request('id_tipo'));
+                    @php
+                        $reqTipoMov = (string) request('id_tipo', '');
+                        $tipoMovLabel = '';
+                        if (str_starts_with($reqTipoMov, 'tipo_eq:')) {
+                            $f = $allTipos->firstWhere('id', (int) substr($reqTipoMov, 8));
+                            $tipoMovLabel = $f ? $f->nombre : '';
+                        } elseif (str_starts_with($reqTipoMov, 'tipo_aux:')) {
+                            $tipoMovLabel = substr($reqTipoMov, 9);
+                        } elseif ($reqTipoMov && $reqTipoMov !== 'all') {
+                            $f = $allTipos->firstWhere('id', $reqTipoMov);
+                            $tipoMovLabel = $f ? $f->nombre : '';
+                        }
                     @endphp
 
-                    <div class="dropdown-trigger {{ request('id_tipo') ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px;">
+                    <div class="dropdown-trigger {{ $tipoMovLabel ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px;">
                         <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
                             <i class="material-icons" style="font-size: 18px;">search</i>
                         </div>
                         <input type="text" name="filter_search_dropdown" data-filter-search
-                            placeholder="{{ $currentTipo ? $currentTipo->nombre : 'Filtrar Tipo...' }}" 
-                             aria-label="Filtrar Tipo"
+                            placeholder="{{ $tipoMovLabel ?: 'Filtrar Tipo...' }}"
+                            aria-label="Filtrar Tipo"
                             style="flex: 1; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none; min-width: 0;"
                             oninput="window.filterDropdownOptions(this)"
                             autocomplete="off">
-                        <i class="material-icons" data-clear-btn style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ request('id_tipo') ? 'block' : 'none' }}; cursor:pointer;" onclick="event.stopPropagation(); clearDropdownFilter('tipoFilterSelect');">close</i>
+                        <i class="material-icons" data-clear-btn style="padding: 0 5px; color: var(--maquinaria-gray-text); font-size: 18px; display: {{ $tipoMovLabel ? 'block' : 'none' }}; cursor:pointer;" onclick="event.stopPropagation(); clearDropdownFilter('tipoFilterSelect');">close</i>
                     </div>
 
                     <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                        <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
-                            <div class="dropdown-item {{ !request('id_tipo') || request('id_tipo') == 'all' ? 'selected' : '' }}" data-value="all" onclick="selectOption('tipoFilterSelect', 'all', 'TODOS LOS TIPOS');">
+                        <div class="dropdown-item-list" style="max-height: 300px; overflow-y: auto;">
+                            <div class="dropdown-item {{ !$tipoMovLabel ? 'selected' : '' }}" data-value="all" onclick="selectOption('tipoFilterSelect', 'all', 'TODOS LOS TIPOS');">
                                 TODOS LOS TIPOS
                             </div>
+                            <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÍCULOS</div>
                             @foreach($allTipos as $tipo)
-                                <div class="dropdown-item {{ request('id_tipo') == $tipo->id ? 'selected' : '' }}" data-value="{{ $tipo->id }}" onclick="selectOption('tipoFilterSelect', '{{ $tipo->id }}', '{{ addslashes($tipo->nombre) }}');">
+                                <div class="dropdown-item {{ $reqTipoMov === 'tipo_eq:'.$tipo->id ? 'selected' : '' }}" data-value="tipo_eq:{{ $tipo->id }}" onclick="selectOption('tipoFilterSelect', 'tipo_eq:{{ $tipo->id }}', '{{ addslashes($tipo->nombre) }}');">
                                     {{ $tipo->nombre }}
                                 </div>
                             @endforeach
+                            @if(isset($tiposAux) && $tiposAux->count())
+                            <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">AUXILIARES</div>
+                            @foreach($tiposAux as $ta)
+                                <div class="dropdown-item {{ $reqTipoMov === 'tipo_aux:'.$ta ? 'selected' : '' }}" data-value="tipo_aux:{{ $ta }}" onclick="selectOption('tipoFilterSelect', 'tipo_aux:{{ addslashes($ta) }}', '{{ addslashes($ta) }}');">
+                                    {{ $ta }}
+                                </div>
+                            @endforeach
+                            @endif
                         </div>
                     </div>
                 </div>
