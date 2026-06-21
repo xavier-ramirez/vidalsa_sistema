@@ -1351,7 +1351,7 @@ nav[role="navigation"] {
     .table-usuarios-mobile tr td {
         display: block;
         border: none !important;
-        padding: 3px 15px;
+        padding: 2px 12px;
         text-align: right;
         position: relative;
         border-radius: 0 !important;
@@ -1384,9 +1384,9 @@ nav[role="navigation"] {
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        gap: 15px;
-        padding: 2px 15px;
-        font-size: 13px;
+        gap: 8px;
+        padding: 1px 12px;
+        font-size: 12px;
         text-align: left;
         border-bottom: 1px solid #f7fafc !important;
         white-space: normal;
@@ -1394,14 +1394,13 @@ nav[role="navigation"] {
         text-overflow: clip;
     }
 
-    /* Condition for Estado (6) to remove border before actions */
     .table-usuarios-mobile tr td:nth-child(6) {
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        gap: 15px;
-        padding: 2px 15px 3px 15px;
-        font-size: 13px;
+        gap: 8px;
+        padding: 1px 12px 2px 12px;
+        font-size: 12px;
         text-align: left;
         border-bottom: none !important;
         white-space: normal;
@@ -1413,36 +1412,35 @@ nav[role="navigation"] {
 
     .table-usuarios-mobile tr td:nth-child(3)::before {
         content: "Rol:";
-        color: #718096;
+        color: #94a3b8;
         font-weight: 600;
-        font-size: 13px;
-        min-width: 55px;
+        font-size: 11px;
+        min-width: 48px;
     }
 
     .table-usuarios-mobile tr td:nth-child(4)::before {
         content: "Acceso:";
-        color: #718096;
+        color: #94a3b8;
         font-weight: 600;
-        font-size: 13px;
-        min-width: 65px;
+        font-size: 11px;
+        min-width: 48px;
     }
 
     .table-usuarios-mobile tr td:nth-child(5)::before {
         content: "Frente:";
-        color: #718096;
+        color: #94a3b8;
         font-weight: 600;
-        font-size: 13px;
-        min-width: 55px;
+        font-size: 11px;
+        min-width: 48px;
     }
 
     .table-usuarios-mobile tr td:nth-child(6)::before {
         content: "Estado:";
-        color: #718096;
+        color: #94a3b8;
         font-weight: 600;
-        font-size: 13px;
-        min-width: 60px;
+        font-size: 11px;
+        min-width: 48px;
         flex-shrink: 0;
-        /* Ensure label doesn't shrink */
     }
 
     /* Actions (Cell 7) - Footer en flujo normal (antes era position:absolute con
@@ -1450,39 +1448,33 @@ nav[role="navigation"] {
        overflow:hidden de la tarjeta recorta las esquinas inferiores del footer. */
     .table-usuarios-mobile tr td:nth-child(7) {
         border-top: 1px solid #edf2f7 !important;
-        padding: 5px 15px;
+        padding: 4px 12px;
         box-sizing: border-box;
         background: #fbfcfd;
     }
 
     .table-usuarios-mobile tr td:nth-child(7) div {
         display: flex;
-        width: 100%;
-        gap: 10px;
+        width: auto;
+        gap: 8px;
+        justify-content: flex-end;
     }
 
     .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria {
-        flex: 1;
-        width: auto;
-        height: auto;
-        padding: 8px;
+        flex: 0 0 auto;
+        width: 32px;
+        height: 32px;
+        padding: 0;
         border-radius: 8px;
-        font-size: 13px;
-        display: flex;
+        font-size: 0;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 5px;
     }
 
-    /* Add labels to buttons for mobile */
-    .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria[title="Editar"]::after {
-        content: "Editar";
-        font-weight: 600;
-    }
-
+    .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria[title="Editar"]::after,
     .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria[title="Eliminar"]::after {
-        content: "Eliminar";
-        font-weight: 600;
+        content: none;
     }
 
     .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria i {

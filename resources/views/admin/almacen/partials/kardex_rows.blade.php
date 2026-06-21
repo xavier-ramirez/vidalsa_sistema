@@ -27,7 +27,7 @@
                 ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
                 : 'Usuario no registrado';
         @endphp
-        <tr class="alm-mov-row">
+        <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}">
             {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y la pill
                  de tipo debajo. En mobile la pill se oculta (.mv-tipo-inline) igual que
                  antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}

@@ -22,6 +22,7 @@
     $tipos = [
         'ENTRADAS' => ['label' => 'Entradas', 'sub' => ''],
         'SALIDAS'  => ['label' => 'Salidas', 'sub' => ''],
+        'AJUSTE'   => ['label' => 'Auditoría', 'sub' => ''],
     ];
     $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
     // $hayAdv pinta el boton Filtros Avanzados en rojo si HAY filtros aplicados
@@ -250,7 +251,7 @@
         .alm-mov-table tbody {
             display: flex !important;
             flex-direction: column !important;
-            gap: 10px !important;
+            gap: 8px !important;
             width: 100% !important;
         }
 
@@ -272,26 +273,20 @@
                 "destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 4px !important;
-            background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%) !important;
-            /* Borde mas marcado (#cbd5e1) — mismo tono que las tarjetas de
-               /admin/equipos para que los modulos se vean consistentes. */
-            border: 1px solid #cbd5e1 !important;
-            border-radius: 12px !important;
-            box-shadow:
-                0 1px 3px rgba(15,23,42,0.04),
-                0 4px 12px rgba(15,23,42,0.06) !important;
+            background: #fff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-left: 3px solid var(--mov-color, #94a3b8) !important;
+            border-radius: 10px !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
             margin: 0 !important;
-            padding: 12px 14px !important;
+            padding: 10px 12px 0 10px !important;
             overflow: hidden !important;
             position: relative !important;
-            transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease !important;
+            transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
             cursor: pointer !important;
         }
         .alm-mov-table tr.alm-mov-row:active {
-            box-shadow:
-                0 2px 6px rgba(15,23,42,0.06),
-                0 8px 20px rgba(15,23,42,0.12) !important;
-            transform: translateY(-1px) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
         }
         /* Tarjeta SELECCIONADA — mismo patron de UX de /admin/equipos: borde
            azul, fondo azul tenue, shadow tintada. Al seleccionar, revelamos
@@ -301,6 +296,7 @@
            (sino quedaria el tinte verde/rojo/etc encima del fondo azul de seleccion). */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
             border: 1px solid var(--maquinaria-blue, #0067b1) !important;
+            border-left: 3px solid var(--maquinaria-blue, #0067b1) !important;
             background: #f0f9ff !important;
             box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
         }
@@ -477,16 +473,15 @@
            de la tarjeta. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
-            /* Frente destino alineado a la izquierda dentro de la banda. */
             justify-content: flex-start !important;
             justify-self: stretch !important;
-            font-size: 11px !important;
-            font-weight: 700 !important;
-            color: #0f172a !important;
-            background: #f1f5f9 !important;
-            border-radius: 0 0 9px 9px !important;
-            padding: 7px 14px !important;
-            margin: 8px -14px -12px -14px !important;
+            font-size: 10.5px !important;
+            font-weight: 600 !important;
+            color: #475569 !important;
+            background: #f8fafc !important;
+            border-radius: 0 0 8px 8px !important;
+            padding: 5px 12px !important;
+            margin: 6px -12px 0 -10px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
@@ -529,8 +524,8 @@
        body:has(.alm-mov-table) limita el override a este modulo. */
     @media (min-width: 1025px) {
         body:has(.alm-mov-table) .page-layout-grid {
-            grid-template-columns: minmax(0, 1fr) 320px;
-            gap: 28px;
+            grid-template-columns: minmax(0, 1fr) 370px;
+            gap: 24px;
         }
     }
 </style>
@@ -628,10 +623,10 @@
                   <div style="min-width:0;">{{-- col Nota de entrega: filtra por N° de Nota de Entrega (salidas) o por
                             la referencia del proveedor (entradas) — backend: NUMERO_NOTA / REFERENCIA.
                             min-width:0 igual que Tipo: evita el desborde del grid. --}}
-                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Nota de entrega</span>
+                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Referencia</span>
                     <div style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
                         <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
-                        <input type="text" id="almMovNota" autocomplete="off" placeholder="N° NE / ref. proveedor" value="{{ $reqNota }}"
+                        <input type="text" id="almMovNota" autocomplete="off" placeholder="N° nota o referencia..." value="{{ $reqNota }}"
                                oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none';"
                                onkeyup="if(event.key==='Enter') window.loadMovimientos();" onchange="window.loadMovimientos()"
                                style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;">

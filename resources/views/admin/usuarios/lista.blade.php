@@ -4,7 +4,7 @@
 
 @section('content')
 <div>
-<section class="page-title-card" style="text-align: left; width: 100%; max-width: none; margin: 0 0 16px 0;">
+<section class="page-title-card" style="text-align: left; width: 100%; max-width: none; margin: 0 0 16px 0; padding: 0;">
     <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
         <span class="page-title-line2" style="color: #000; margin: 0;">Gestión de Usuarios</span>
         <span id="user-count-badge" style="background: rgba(0, 103, 177, 0.08); color: #0067b1; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(0, 103, 177, 0.15); display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; gap: 6px;">
@@ -13,8 +13,6 @@
         </span>
     </h1>
 </section>
-
-
 
 <div class="admin-card" style="width: 100%; max-width: none; margin: 0; background: transparent; border: none; box-shadow: none; padding: 0;">
     {{-- Layout: tarjeta principal (filtros + tabla, como en /admin/equipos) a la izquierda
@@ -45,7 +43,7 @@
         </div>
 
         <!-- Frente Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 3.2 1 400px; max-width: 540px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 3.6 1 420px; max-width: 560px;">
             <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente_filter" data-default-label="Filtrar Frente..." style="width: 100%;">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ request('id_frente') }}">
                 
@@ -90,7 +88,7 @@
         </div>
 
         <!-- Rol Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 2.6 1 360px; max-width: 460px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 3.8 1 420px; max-width: 560px;">
             <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
                 <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
 
@@ -162,6 +160,10 @@
             padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
         }
         .usuarios-side { width: 300px; flex: 0 0 300px; }
+        @media (min-width: 769px) {
+            .table-usuarios-mobile { border-spacing: 0 5px !important; }
+            .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
+        }
         @media (max-width: 1024px) {
             .usuarios-layout { flex-direction: column; }
             .usuarios-side { width: 100%; flex-basis: auto; }
@@ -205,10 +207,10 @@
     @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
     <aside class="usuarios-side">
         <div style="background: white; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="material-icons" style="color: #10b981; font-size: 22px;">radio_button_checked</i>
-                    <h3 style="margin: 0; font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">Usuarios Activos</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="color: #10b981; font-size: 18px;">radio_button_checked</i>
+                    <h3 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">Usuarios Activos</h3>
                 </div>
                 <span style="background: #dcfce7; color: #15803d; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;">{{ $activeUsers->count() }}</span>
             </div>
@@ -261,6 +263,10 @@
 
 <style>
     @media (max-width: 768px) {
+        body:has(.table-usuarios-mobile) .page-title-card {
+            margin-bottom: 10px !important;
+            padding: 0 !important;
+        }
         .usuarios-action-btns {
             flex: 1 1 100% !important;
             width: 100% !important;

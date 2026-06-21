@@ -247,7 +247,7 @@
     }
 </style>
 
-<section class="page-title-card" style="text-align: left; margin: 0 auto 16px auto; width: 98%; max-width: 1600px;">
+<section class="page-title-card" style="text-align: left; margin: 0 auto 16px auto; padding: 0; width: 98%; max-width: 1600px;">
     <h1 class="page-title" style="display: flex; align-items: center; gap: 12px; font-size: 24px;">
         <span class="page-title-line2" style="color: #000; margin: 0;">Auditoría de Documentos</span>
     </h1>
