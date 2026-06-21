@@ -20,7 +20,7 @@
                         $auxDriveId = $auxFoto ? basename(str_replace('/storage/google/', '', explode('?', $auxFoto)[0])) : null;
                     @endphp
                     @if($auxDriveId)
-                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
+                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #fff;">
                             <img src="{{ url('/storage/google/' . $auxDriveId . '?sz=w120') }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
                         </div>
                     @else
@@ -35,7 +35,7 @@
                     </div>
                 @else
                     @if($equipoFoto)
-                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #f8fafc;">
+                        <div style="width: 68px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #fff;">
                             <img src="{{ route('drive.file', ['path' => str_replace('/storage/google/', '', $equipoFoto)]) }}" alt="Foto" style="width: 100%; height: 100%; object-fit: contain;">
                         </div>
                     @else
@@ -47,7 +47,6 @@
                         <span style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">{{ $mov->equipo->tipo->nombre ?? 'N/A' }}</span>
                         <div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> {{ $mov->equipo->SERIAL_CHASIS ?? 'S/S' }}</div>
                         <div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> {{ $mov->equipo->documentacion->PLACA ?? 'S/P' }}</div>
-                        <div class="mv-id-field" style="color: #2d3748; font-size: 13px; font-weight: 600;"><strong>ID:</strong> {{ $mov->equipo->CODIGO_PATIO ?? 'N/D' }}</div>
                     </div>
                 @endif
             </div>
