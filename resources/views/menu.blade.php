@@ -142,12 +142,12 @@
     /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del viewport
          y del contenedor (mismo patron que equipos/almacen/movilizaciones). ── */
     @media (max-width: 768px) {
-        .main-viewport { padding: 8px 6px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
-        .dashboard-container { padding: 6px 2px !important; }
+        .main-viewport { padding: 8px 12px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+        .dashboard-container { padding: 6px 6px !important; }
     }
     @media (max-width: 480px) {
-        .main-viewport { padding: 6px 3px !important; }
-        .dashboard-container { padding: 2px 0 !important; }
+        .main-viewport { padding: 6px 10px !important; }
+        .dashboard-container { padding: 4px 4px !important; }
         .menu-hero { border-radius: 10px; }
     }
 

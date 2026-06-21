@@ -45,7 +45,7 @@ class WebAuthnController extends Controller
             'authenticatorSelection' => [
                 'authenticatorAttachment' => 'platform',
                 'userVerification'        => 'required',
-                'residentKey'             => 'preferred',
+                'residentKey'             => 'discouraged',
             ],
             'attestation' => 'none',
         ]);
