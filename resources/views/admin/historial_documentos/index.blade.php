@@ -92,8 +92,10 @@
         .historial-sidebar {
             width: 100% !important;
             max-width: 100% !important;
-            margin-top: 20px;
+            margin-top: 10px;
         }
+        .historial-sidebar > div { margin-top: 0 !important; }
+        .historial-sidebar > div + div { margin-top: 8px !important; }
         .hd-total-card {
             display: none !important;
         }
@@ -174,11 +176,15 @@
             row-gap: 8px;
             background: #fff;
             border: 1px solid #e2e8f0;
-            border-left: 3px solid #0067b1;
             border-radius: 10px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-            padding: 12px 14px 12px 12px !important;
+            padding: 12px 14px !important;
             align-items: center;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .table-historial-mobile tbody tr.hd-row-selected {
+            border-color: #0067b1;
+            background: #f0f9ff;
         }
         .table-historial-mobile tbody td {
             border: none !important;
@@ -919,6 +925,14 @@ window.hdToggleCollapse = function (header) {
     body.classList.toggle('hd-open');
     if (chevron) chevron.classList.toggle('hd-open');
 };
+document.addEventListener('click', function (e) {
+    var tr = e.target.closest('.table-historial-mobile tbody tr');
+    if (!tr) return;
+    document.querySelectorAll('.table-historial-mobile tbody tr.hd-row-selected').forEach(function (o) {
+        if (o !== tr) o.classList.remove('hd-row-selected');
+    });
+    tr.classList.toggle('hd-row-selected');
+});
 </script>
 
 @endsection
