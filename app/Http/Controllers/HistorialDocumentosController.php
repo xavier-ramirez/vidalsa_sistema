@@ -322,6 +322,40 @@ class HistorialDocumentosController extends Controller
             \Illuminate\Support\Facades\Log::warning('audit log read failed: ' . $e->getMessage());
         }
 
+        // Eventos de AUDITORIA del CATÁLOGO (ediciones de modelos, subida de foto).
+        try {
+            $catAuditQuery = \App\Models\CatalogoAuditLog::with(['usuario', 'modelo'])
+                ->orderByDesc('created_at');
+
+            if ($fechaDesdeSql) $catAuditQuery->where('created_at', '>=', $fechaDesdeSql);
+            if ($fechaHastaSql) $catAuditQuery->where('created_at', '<=', $fechaHastaSql);
+
+            $catAuditLogs = $catAuditQuery->limit(5000)->get();
+            foreach ($catAuditLogs as $log) {
+                $catTipoLabel = [
+                    'edit'         => 'Edición de Modelo',
+                    'upload_foto'  => 'Foto de Modelo',
+                ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
+
+                $modeloNombre = $log->MODELO ?? ($log->modelo ? $log->modelo->MODELO : 'Modelo Eliminado');
+                $anioStr = $log->ANIO_ESPEC ? ' ' . $log->ANIO_ESPEC : '';
+
+                $events->push((object)[
+                    'doc_key'       => 'catalogo_' . $log->ACCION,
+                    'tipo'          => $catTipoLabel,
+                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
+                    'fecha'         => $log->created_at,
+                    'link'          => null,
+                    'equipo_nombre' => 'Catálogo: ' . $modeloNombre . $anioStr,
+                    'equipo_id'     => 'Modelo: ' . $modeloNombre,
+                    'equipo_db_id'  => null,
+                ]);
+            }
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Illuminate\Support\Facades\Log::warning('catalogo audit log read failed: ' . $e->getMessage());
+        }
+
         // ── DEDUPLICACION legacy ↔ audit log ──────────────────────────────────
         // Cada subida de documento genera DOS eventos:
         //   1) "Título de Propiedad" desde el flag PROPIEDAD_FECHA_SUBIDA (loop docs).

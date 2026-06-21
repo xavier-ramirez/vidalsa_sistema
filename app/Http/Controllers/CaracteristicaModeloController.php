@@ -510,6 +510,14 @@ class CaracteristicaModeloController extends Controller
             // Re-evaluar auto-link: equipos del modelo sin foto heredan la nueva imagen.
             $this->autoLinkEquiposToCatalogo($catalogo, $catalogo->MODELO, $catalogo->ANIO_ESPEC, 'update');
 
+            \App\Models\CatalogoAuditLog::registrar(
+                $catalogo->ID_ESPEC,
+                'upload_foto',
+                $catalogo->MODELO,
+                $catalogo->ANIO_ESPEC !== null ? (int) $catalogo->ANIO_ESPEC : null,
+                ['foto' => ['antes' => $oldFileId ? '/storage/google/' . $oldFileId : null, 'despues' => $nuevaUrl]]
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Foto del modelo actualizada correctamente.',

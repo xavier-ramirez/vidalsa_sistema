@@ -1345,6 +1345,7 @@ nav[role="navigation"] {
         grid-template-areas:
             "nombre  acciones"
             "correo  acciones"
+            "nivel   acciones"
             "datos   datos";
         column-gap: 8px;
         row-gap: 2px;
@@ -1352,7 +1353,7 @@ nav[role="navigation"] {
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        padding: 10px 12px 0 12px;
+        padding: 12px 12px 0 12px;
         overflow: hidden;
     }
     .table-usuarios-mobile tr:not(:has(td:nth-child(2))) {
@@ -1415,7 +1416,21 @@ nav[role="navigation"] {
         text-overflow: ellipsis;
     }
 
-    .table-usuarios-mobile tr td:nth-child(4),
+    .table-usuarios-mobile tr td:nth-child(4) {
+        grid-area: nivel;
+        display: flex !important;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px !important;
+        color: #64748b !important;
+        padding-top: 2px !important;
+    }
+    .table-usuarios-mobile tr td:nth-child(4)::before {
+        content: "Acceso:";
+        color: #94a3b8;
+        font-weight: 600;
+        font-size: 10.5px;
+    }
     .table-usuarios-mobile tr td:nth-child(5),
     .table-usuarios-mobile tr td:nth-child(6) {
         display: none !important;
@@ -1461,7 +1476,6 @@ nav[role="navigation"] {
     .table-usuarios-mobile tr td:nth-child(3)::before {
         content: none;
     }
-    .table-usuarios-mobile tr td:nth-child(4)::before,
     .table-usuarios-mobile tr td:nth-child(5)::before,
     .table-usuarios-mobile tr td:nth-child(6)::before {
         content: none;
@@ -2797,11 +2811,6 @@ input:-webkit-autofill:active {
         border-radius: 8px !important;
         overflow: hidden !important;
         background: #f1f5f9 !important;
-    }
-
-    #movilizacionesTable td.mv-td-equipo .mv-id-field {
-        display: none !important;
-        /* Esconde ID interno */
     }
 
     /* ── 2. TRAYECTO (Fila 2 de la tarjeta) ── */
