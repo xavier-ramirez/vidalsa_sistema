@@ -700,6 +700,13 @@
         text-transform: uppercase;
         word-break: break-word;
     }
+    .cat-mini-specs {
+        font-size: 10px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
     @media (max-width: 719px) {
         .cat-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -832,7 +839,7 @@
             @php $heroImg = asset('images/maquinaria_login_new.webp'); @endphp
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
             <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: right top;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: 85% 20%;"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">
@@ -1004,7 +1011,10 @@
                                 <div class="cat-mini-body">
                                     {{-- Muestra el TIPO (principal) y la MARCA (secundario). Si el
                                          catálogo aún no tiene TIPO, cae al MODELO como respaldo. --}}
-                                    <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}@if($catalogo->marca_calculada) · {{ $catalogo->marca_calculada }}@endif</span>
+                                    <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}</span>
+                                    @if($catalogo->marca_calculada)
+                                        <span class="cat-mini-specs">{{ $catalogo->marca_calculada }}</span>
+                                    @endif
                                 </div>
                             </a>
                         @endforeach
