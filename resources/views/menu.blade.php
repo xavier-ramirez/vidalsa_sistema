@@ -127,6 +127,9 @@
         .menu-hero { height: 200px; border-radius: 12px; }
         .menu-hero-content { padding: 20px; }
         .menu-hero-title { font-size: 22px; }
+        .menu-hero-stripes { display: block; gap: 0; }
+        .menu-hero-stripes > div { display: none; }
+        .menu-hero-stripes > div:nth-child(2) { display: block; height: 100%; }
     }
     /* ── Aprovecha mas ancho horizontal en mobile: reducir padding del viewport
          y del contenedor (mismo patron que equipos/almacen/movilizaciones). ── */
