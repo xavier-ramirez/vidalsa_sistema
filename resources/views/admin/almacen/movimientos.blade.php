@@ -389,76 +389,52 @@
             display: none !important;
         }
 
-        /* Ref (N° Nota + REFERENCIA + Proveedor + Observaciones): se renderiza como
-           BURBUJA FLOTANTE al estilo del tooltip-bubble de /admin/equipos. Oculta por default;
-           al seleccionar la tarjeta (mv-row-selected) aparece arriba del centro
-           de la tarjeta con un trianguito apuntando hacia abajo. NO ocupa grid
-           area (position:absolute la saca del flujo del grid). */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            display: none !important;
-            position: absolute !important;
-            bottom: calc(100% + 8px) !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            background: #1e293b !important;
-            color: #fff !important;
-            padding: 8px 12px !important;
-            border-radius: 8px !important;
-            font-size: 11px !important;
-            font-weight: 500 !important;
-            white-space: normal !important;
-            max-width: 240px !important;
-            min-width: 120px !important;
-            box-shadow: 0 4px 12px -1px rgba(0,0,0,0.18) !important;
-            z-index: 50 !important;
-            line-height: 1.35 !important;
-            text-align: center !important;
-            flex-direction: column !important;
+            grid-area: ref !important;
+            display: flex !important;
             align-items: center !important;
-            gap: 4px !important;
-            grid-area: unset !important;
-            pointer-events: auto !important;
-        }
-        /* Trianguito hacia abajo (apunta a la tarjeta) */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #1e293b transparent transparent transparent;
-        }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
-            display: flex !important;
-        }
-        /* NUMERO_NOTA dentro de la burbuja: monospace, blanco, sin chip bg
-           (la burbuja entera ya es el contenedor visual). */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
-            background: transparent !important;
-            color: #fff !important;
-            padding: 0 !important;
-            font-family: monospace !important;
-            font-size: 12px !important;
-            font-weight: 700 !important;
-            text-decoration: underline !important;
-            text-decoration-color: rgba(255,255,255,0.4) !important;
+            gap: 6px !important;
+            font-size: 11px !important;
+            color: #475569 !important;
+            font-weight: 500 !important;
             white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            padding: 0 !important;
+            position: static !important;
+            background: transparent !important;
+            transform: none !important;
+            box-shadow: none !important;
+            z-index: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
         }
-        /* Sub-líneas (REFERENCIA, Proveedor, Observaciones): texto chico bajo el N° de nota */
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after {
+            content: none !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
+            background: #eff6ff !important;
+            color: #0067b1 !important;
+            padding: 3px 8px !important;
+            border-radius: 6px !important;
+            font-family: monospace !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+            border: 1px solid #bfdbfe !important;
+        }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
-            font-size: 10px !important;
-            color: rgba(255,255,255,0.75) !important;
+            font-size: 10.5px !important;
+            color: #64748b !important;
             margin: 0 !important;
-            white-space: normal !important;
-            font-style: italic !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-style: normal !important;
         }
-        /* La observación inline (.mv-notas-inline) se oculta en desktop, pero en la
-           tarjeta móvil (sin hover) debe volver a verse dentro de la burbuja Ref. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline {
-            display: flex !important;
-            justify-content: center !important;
+            display: none !important;
         }
 
         /* Destino: spans las 2 columnas (fila 3 sola). Se renderiza como una
