@@ -363,6 +363,10 @@
                                 <div class="dropdown-item {{ $reqTipo === 'cat_uploads' ? 'selected' : '' }}" data-value="cat_uploads" onclick="selectOption('tipoDocFilterSelect', 'cat_uploads', 'Subida de documento'); window.loadHistorialDocumentos();">Subida de documento</div>
                                 <div class="dropdown-item {{ $reqTipo === 'cat_borrados' ? 'selected' : '' }}" data-value="cat_borrados" onclick="selectOption('tipoDocFilterSelect', 'cat_borrados', 'Borrado de documento'); window.loadHistorialDocumentos();">Borrado de documento</div>
                                 <div class="dropdown-item {{ $reqTipo === 'cat_metadatos' ? 'selected' : '' }}" data-value="cat_metadatos" onclick="selectOption('tipoDocFilterSelect', 'cat_metadatos', 'Edición de metadatos'); window.loadHistorialDocumentos();">Edición de metadatos</div>
+
+                                <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">CATÁLOGO DE MODELOS</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Edición de Modelo' ? 'selected' : '' }}" data-value="Edición de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Edición de Modelo', 'Edición de Modelo'); window.loadHistorialDocumentos();">Edición de Modelo</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Foto de Modelo' ? 'selected' : '' }}" data-value="Foto de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Foto de Modelo', 'Foto de Modelo'); window.loadHistorialDocumentos();">Foto de Modelo</div>
                             </div>
                         </div>
                     </div>

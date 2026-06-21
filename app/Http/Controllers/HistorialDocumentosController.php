@@ -333,6 +333,7 @@ class HistorialDocumentosController extends Controller
             $catAuditLogs = $catAuditQuery->limit(5000)->get();
             foreach ($catAuditLogs as $log) {
                 $catTipoLabel = [
+                    'create'       => 'Registro de Modelo',
                     'edit'         => 'Edición de Modelo',
                     'upload_foto'  => 'Foto de Modelo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));

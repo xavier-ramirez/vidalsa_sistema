@@ -263,10 +263,11 @@
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
             grid-template-columns: 1fr auto !important;
-            grid-template-rows: auto auto auto !important;
+            grid-template-rows: auto auto auto auto !important;
             grid-template-areas:
                 "producto cantidad"
                 "producto fecha"
+                "ref      ref"
                 "destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 4px !important;
