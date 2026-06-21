@@ -1047,7 +1047,7 @@
                     </div>
                 </div>
                 <p class="menu-about-desc">
-                    Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
+                    Empresa venezolana de construcción con más de 15 años de experiencia
                     en el sector petrolero y de vivienda, ejecutando oleoductos, líneas de flujo
                     y obras civiles de impacto nacional.
                 </p>
