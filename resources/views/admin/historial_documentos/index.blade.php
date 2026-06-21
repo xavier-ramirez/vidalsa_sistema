@@ -368,6 +368,7 @@
                                 <div class="dropdown-item {{ $reqTipo === 'Registro de Modelo' ? 'selected' : '' }}" data-value="Registro de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Modelo', 'Registro de Modelo'); window.loadHistorialDocumentos();">Registro de Modelo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Edición de Modelo' ? 'selected' : '' }}" data-value="Edición de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Edición de Modelo', 'Edición de Modelo'); window.loadHistorialDocumentos();">Edición de Modelo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Foto de Modelo' ? 'selected' : '' }}" data-value="Foto de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Foto de Modelo', 'Foto de Modelo'); window.loadHistorialDocumentos();">Foto de Modelo</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Eliminación de Modelo' ? 'selected' : '' }}" data-value="Eliminación de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Modelo', 'Eliminación de Modelo'); window.loadHistorialDocumentos();">Eliminación de Modelo</div>
                             </div>
                         </div>
                     </div>

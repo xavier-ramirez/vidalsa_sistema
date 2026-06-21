@@ -252,23 +252,16 @@
             width: 100% !important;
         }
 
-        /* Tarjeta UNIFORME — fondo blanco roto (#fbfcfe) con gradient leve hacia
-           blanco puro, borde simetrico 1px en los 4 lados (color en el declare
-           de `border` mas abajo) y sombra ambiental difusa. SIN acento izquierdo
-           (cliente pidio quitar la barra gris inset 3px que llevaba antes).
-
-           overflow:hidden importante: la banda gris del destino (mv-td-destino)
-           usa margins negativos para extenderse hasta los bordes internos; sin
-           overflow:hidden esos margins se "salian" del card. */
+        /* Tarjeta: borde izquierdo coloreado por tipo (--mov-color).
+           overflow:hidden: la banda del destino usa margins negativos. */
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
             grid-template-columns: 1fr auto !important;
-            grid-template-rows: auto auto auto auto !important;
+            grid-template-rows: auto auto auto !important;
             grid-template-areas:
                 "producto cantidad"
                 "producto fecha"
-                "destino  destino"
-                "ref      ref" !important;
+                "destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 3px !important;
             background: #fff !important;
@@ -286,12 +279,7 @@
         .alm-mov-table tr.alm-mov-row:active {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
         }
-        /* Tarjeta SELECCIONADA — mismo patron de UX de /admin/equipos: borde
-           azul, fondo azul tenue, shadow tintada. Al seleccionar, revelamos
-           el chip NE-AAAA-NNNN que estaba oculto por defecto.
-           IMPORTANTE: usamos `background:` (shorthand) en vez de `background-color`
-           para que el linear-gradient del data-tipo se borre al seleccionar
-           (sino quedaria el tinte verde/rojo/etc encima del fondo azul de seleccion). */
+        /* Seleccionada: azul + muestra burbuja ref */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
             border: 1px solid var(--maquinaria-blue, #0067b1) !important;
             border-left: 3px solid var(--maquinaria-blue, #0067b1) !important;
@@ -390,74 +378,78 @@
         }
 
         .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            grid-area: ref !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 4px !important;
-            font-size: 10px !important;
-            color: #64748b !important;
+            display: none !important;
+            grid-area: unset !important;
+            position: absolute !important;
+            bottom: calc(100% + 6px) !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            background: #1e293b !important;
+            color: #fff !important;
+            padding: 8px 14px !important;
+            border-radius: 10px !important;
+            font-size: 11px !important;
             font-weight: 500 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            position: static !important;
-            background: #f8fafc !important;
-            transform: none !important;
-            box-shadow: none !important;
-            z-index: auto !important;
-            min-width: 0 !important;
-            max-width: none !important;
-            padding: 3px 12px 5px 12px !important;
-            margin: 0 -12px 0 -10px !important;
-            border-radius: 0 0 8px 8px !important;
+            white-space: normal !important;
+            max-width: 260px !important;
+            min-width: 100px !important;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2) !important;
+            z-index: 50 !important;
+            line-height: 1.4 !important;
+            text-align: center !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 6px !important;
+            pointer-events: auto !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref::after {
-            content: none !important;
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
+            display: flex !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
-            background: transparent !important;
-            color: #0067b1 !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
+            background: rgba(255,255,255,0.15) !important;
+            color: #fff !important;
+            padding: 4px 10px !important;
+            border-radius: 6px !important;
             font-family: monospace !important;
-            font-size: 10px !important;
+            font-size: 11px !important;
             font-weight: 700 !important;
-            text-decoration: underline !important;
-            text-decoration-color: rgba(0,103,177,0.3) !important;
+            text-decoration: none !important;
             white-space: nowrap !important;
-            border: none !important;
+            border: 1px solid rgba(255,255,255,0.25) !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref div {
             font-size: 10px !important;
-            color: #94a3b8 !important;
+            color: rgba(255,255,255,0.7) !important;
             margin: 0 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            font-style: normal !important;
+            white-space: normal !important;
+            font-style: italic !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline {
-            display: none !important;
+            display: flex !important;
+            justify-content: center !important;
         }
 
-        /* Destino: spans las 2 columnas (fila 3 sola). Se renderiza como una
-           BANDA gris full-width pegada al pie de la tarjeta — el fondo gris
-           cubre TODA la zona del frente destino (no solo un chip centrado),
-           pedido del cliente 2026-05-19. Los margins negativos extienden el
-           td hasta los bordes internos de la card (compensan el padding
-           12px 14px del .alm-mov-row). Border-radius solo en esquinas
-           inferiores para que la banda se vea integrada con el border-radius
-           de la tarjeta. */
+        /* Destino: banda gris inferior full-width */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
-            justify-content: flex-start !important;
+            justify-content: center !important;
             justify-self: stretch !important;
             font-size: 10.5px !important;
-            font-weight: 600 !important;
-            color: #475569 !important;
+            font-weight: 700 !important;
+            color: #0067b1 !important;
             background: #f8fafc !important;
-            border-radius: 0 !important;
-            padding: 4px 12px 2px 12px !important;
+            border-radius: 0 0 8px 8px !important;
+            padding: 5px 12px !important;
             margin: 4px -12px 0 -10px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -469,7 +461,7 @@
             content: "location_on";
             font-family: 'Material Icons';
             font-size: 13px;
-            color: #64748b;
+            color: #0067b1;
             font-weight: normal;
             flex-shrink: 0;
         }

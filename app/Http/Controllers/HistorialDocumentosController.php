@@ -323,6 +323,8 @@ class HistorialDocumentosController extends Controller
         }
 
         // Eventos de AUDITORIA del CATÁLOGO (ediciones de modelos, subida de foto).
+        // Se omiten cuando hay filtro search_equipo activo (catálogo no tiene equipo).
+        if ($searchEquipoSql === '') {
         try {
             $catAuditQuery = \App\Models\CatalogoAuditLog::with(['usuario', 'modelo'])
                 ->orderByDesc('created_at');
@@ -336,6 +338,7 @@ class HistorialDocumentosController extends Controller
                     'create'       => 'Registro de Modelo',
                     'edit'         => 'Edición de Modelo',
                     'upload_foto'  => 'Foto de Modelo',
+                    'delete'       => 'Eliminación de Modelo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
                 $modeloNombre = $log->MODELO ?? ($log->modelo ? $log->modelo->MODELO : 'Modelo Eliminado');
@@ -356,6 +359,7 @@ class HistorialDocumentosController extends Controller
         } catch (\Illuminate\Database\QueryException $e) {
             \Illuminate\Support\Facades\Log::warning('catalogo audit log read failed: ' . $e->getMessage());
         }
+        } // fin if searchEquipoSql === ''
 
         // ── DEDUPLICACION legacy ↔ audit log ──────────────────────────────────
         // Cada subida de documento genera DOS eventos:
