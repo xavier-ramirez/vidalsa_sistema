@@ -15,10 +15,7 @@
     $reqDesde    = request('desde');
     $reqHasta    = request('hasta');
     $reqNota     = request('nota');
-    // Filtro Tipo SIMPLIFICADO: solo Entradas / Salidas. Son CLAVES DE GRUPO (no TIPO
-    // exactos): el backend pliega los traspasos (y las auditorías por signo) dentro de
-    // cada grupo — "Entradas" = ENTRADA + TRASPASO_ENTRADA + ajuste que subió el stock;
-    // "Salidas" = SALIDA + TRASPASO_SALIDA + ajuste que lo bajó. Ver AlmacenController@movimientos.
+    // Filtro Tipo: Entradas (grupo), Salidas (grupo), Auditoría (tipo exacto AJUSTE).
     $tipos = [
         'ENTRADAS' => ['label' => 'Entradas', 'sub' => ''],
         'SALIDAS'  => ['label' => 'Salidas', 'sub' => ''],
