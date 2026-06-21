@@ -346,8 +346,9 @@ input:-webkit-autofill:active {
 
 .login-alert span {
     color: var(--maquinaria-red);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .button-login-container {
