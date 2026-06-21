@@ -19,9 +19,9 @@
          y el panel de Usuarios Activos en su propia tarjeta a la derecha. --}}
     <div class="usuarios-layout">
     <div class="usuarios-main">
-    <div class="filter-toolbar-container" style="margin-bottom: 6px;">
+    <div class="filter-toolbar-container usr-filter-row" style="margin-bottom: 6px;">
         <!-- Search Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative; flex: 5 1 500px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search') ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
                     <i class="material-icons search-icon">search</i>
@@ -43,7 +43,7 @@
         </div>
 
         <!-- Frente Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 3.6 1 420px; max-width: 560px;">
+        <div class="filter-item aligned-filter responsive-filter-item">
             <div class="custom-dropdown" id="frenteFilterSelect" data-filter-type="frente_filter" data-default-label="Filtrar Frente..." style="width: 100%;">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ request('id_frente') }}">
                 

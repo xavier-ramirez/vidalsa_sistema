@@ -1013,7 +1013,7 @@
                                          catálogo aún no tiene TIPO, cae al MODELO como respaldo. --}}
                                     <span class="cat-mini-modelo">{{ $catalogo->TIPO ?: $catalogo->MODELO }}</span>
                                     @if($catalogo->marca_calculada)
-                                        <span class="cat-mini-specs">{{ $catalogo->marca_calculada }}</span>
+                                        <span class="cat-mini-specs">{{ $catalogo->marca_calculada }}@if($catalogo->MODELO && $catalogo->TIPO) · {{ $catalogo->MODELO }}@endif</span>
                                     @endif
                                 </div>
                             </a>
