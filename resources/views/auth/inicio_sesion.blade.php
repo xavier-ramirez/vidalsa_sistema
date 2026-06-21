@@ -232,7 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     var bioLabel = btnBio.querySelector('span');
-    var bioCircle = btnBio.querySelector('div');
 
     btnBio.addEventListener('click', function() {
         btnBio.style.pointerEvents = 'none';
