@@ -340,7 +340,6 @@
     <!-- Global Preloader (Bars animation) - Para carga inicial y navegación SPA -->
     <div id="preloader" class="preloader">
         <div class="preloader-content">
-            <img class="preloader-logo" src="{{ asset('images/maquinaria/logo.webp') }}" alt="Logo Vidalsa">
             <div class="spinner-circle"></div>
         </div>
     </div>
