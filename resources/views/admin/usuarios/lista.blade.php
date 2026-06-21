@@ -21,7 +21,7 @@
     <div class="usuarios-main">
     <div class="filter-toolbar-container" style="margin-bottom: 6px;">
         <!-- Search Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative; flex: 4 1 420px;">
+        <div class="filter-item aligned-filter responsive-filter-item" style="position: relative; flex: 5 1 500px;">
             <form id="search-form" style="width: 100%;" onsubmit="event.preventDefault();">
                 <div class="search-wrapper" style="width: 100%; border-color: {{ request('search') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search') ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
                     <i class="material-icons search-icon">search</i>
@@ -135,7 +135,7 @@
 
 
         <!-- Action Buttons -->
-        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto;">
+        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto; margin-left: auto;">
             <!-- Limpiar Roles Button -->
             <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
                 <i class="material-icons" style="font-size:20px;">delete_sweep</i>
