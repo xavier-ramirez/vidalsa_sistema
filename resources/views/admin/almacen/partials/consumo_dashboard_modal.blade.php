@@ -24,12 +24,20 @@
     .cdash-filtros { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-bottom:16px; }
     .cdash-filtros .f-group { display:flex; flex-direction:column; gap:3px; min-width:0; }
     .cdash-filtros label { font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
-    .cdash-filtros input, .cdash-filtros select { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; }
-    .cdash-filtros select { min-width:160px; cursor:pointer; }
-    .cdash-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:18px; }
-    .cdash-kpi { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; min-width:0; }
-    .cdash-kpi .k-val { font-size:24px; font-weight:800; color:#0f172a; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cdash-kpi .k-lbl { font-size:11.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+    .cdash-filtros input[type="month"] { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; }
+    .cdash-cat-wrap { position:relative; min-width:180px; }
+    .cdash-cat-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; cursor:pointer; }
+    .cdash-cat-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
+    .cdash-cat-box input { flex:1; border:none; background:transparent; outline:none; padding:0 8px; font-size:13px; color:#0f172a; min-width:0; cursor:pointer; }
+    .cdash-cat-box i.clr { padding:0 6px; color:#64748b; font-size:16px; cursor:pointer; }
+    .cdash-cat-list { display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 22px rgba(0,0,0,.12); max-height:220px; overflow-y:auto; padding:4px; z-index:20; }
+    .cdash-cat-list.open { display:block; }
+    .cdash-cat-item { padding:7px 10px; border-radius:6px; font-size:13px; font-weight:600; color:#1e293b; cursor:pointer; }
+    .cdash-cat-item:hover { background:#f0f4f8; }
+    .cdash-kpis { display:flex; gap:10px; margin-bottom:16px; }
+    .cdash-kpi { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; min-width:0; flex:1; }
+    .cdash-kpi .k-val { font-size:20px; font-weight:800; color:#0f172a; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cdash-kpi .k-lbl { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
     .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .cdash-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; min-width:0; }
     .cdash-card.full { grid-column:1 / -1; }
@@ -64,10 +72,19 @@
                     <input type="month" id="cdashHasta" onchange="window._cdashFetch()">
                 </div>
                 <div class="f-group">
-                    <label for="cdashCategoria">Categoría</label>
-                    <select id="cdashCategoria" onchange="window._cdashFetch()">
-                        <option value="">Todas las categorías</option>
-                    </select>
+                    <label>Categoría</label>
+                    <div class="cdash-cat-wrap">
+                        <input type="hidden" id="cdashCategoria" value="">
+                        <div class="cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatToggle()">
+                            <i class="material-icons" style="padding:0 6px;color:#64748b;font-size:16px;">search</i>
+                            <input type="text" id="cdashCatInput" placeholder="Todas las categorías" autocomplete="off"
+                                   oninput="window._cdashCatFilter(this.value)"
+                                   onfocus="window._cdashCatOpen()"
+                                   onblur="setTimeout(function(){window._cdashCatClose()},180)">
+                            <i class="material-icons clr" id="cdashCatClear" style="display:none;" onmousedown="event.preventDefault();window._cdashCatSelect('','Todas las categorías');">close</i>
+                        </div>
+                        <div class="cdash-cat-list" id="cdashCatList"></div>
+                    </div>
                 </div>
             </div>
 
@@ -162,20 +179,10 @@
             return;
         }
 
-        // Poblar el selector de categorías UNA sola vez (preservando la selección actual).
         if (!window._cdashCatsCargadas && Array.isArray(data.categorias)) {
-            var sel = document.getElementById('cdashCategoria');
-            if (sel) {
-                var actual = sel.value;
-                var opts = '<option value="">Todas las categorías</option>';
-                data.categorias.forEach(function (c) {
-                    var cv = String(c).replace(/"/g, '&quot;');
-                    opts += '<option value="' + cv + '">' + cv + '</option>';
-                });
-                sel.innerHTML = opts;
-                sel.value = actual; // conserva lo elegido si re-render
-                window._cdashCatsCargadas = true;
-            }
+            window._cdashCatsData = data.categorias;
+            window._cdashCatsCargadas = true;
+            window._cdashCatRenderList();
         }
 
         var k = data.kpis || {};
@@ -251,5 +258,31 @@
                            tooltip: { callbacks: { label: function (c) { return c.label + ': ' + fmt(c.parsed); } } } }
             }
         });
+    };
+
+    window._cdashCatsData = window._cdashCatsData || [];
+    window._cdashCatRenderList = function (filter) {
+        var list = document.getElementById('cdashCatList'); if (!list) return;
+        var q = (filter || '').toLowerCase();
+        var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'\',\'Todas las categorías\');">Todas las categorías</div>';
+        window._cdashCatsData.forEach(function (c) {
+            var s = String(c);
+            if (q && s.toLowerCase().indexOf(q) === -1) return;
+            var safe = s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            html += '<div class="cdash-cat-item" onmousedown="event.preventDefault();window._cdashCatSelect(\'' + safe + '\',\'' + safe + '\');">' + s + '</div>';
+        });
+        list.innerHTML = html;
+    };
+    window._cdashCatToggle = function () { var l = document.getElementById('cdashCatList'); if (l) { l.classList.toggle('open'); if (l.classList.contains('open')) window._cdashCatRenderList(); } };
+    window._cdashCatOpen = function () { var l = document.getElementById('cdashCatList'); if (l) { l.classList.add('open'); window._cdashCatRenderList(); } };
+    window._cdashCatClose = function () { var l = document.getElementById('cdashCatList'); if (l) l.classList.remove('open'); };
+    window._cdashCatFilter = function (v) { window._cdashCatRenderList(v); var l = document.getElementById('cdashCatList'); if (l) l.classList.add('open'); };
+    window._cdashCatSelect = function (val, label) {
+        var h = document.getElementById('cdashCategoria'); if (h) h.value = val;
+        var inp = document.getElementById('cdashCatInput'); if (inp) { inp.value = ''; inp.placeholder = label || 'Todas las categorías'; }
+        var box = document.getElementById('cdashCatBox'); if (box) box.classList.toggle('active', !!val);
+        var clr = document.getElementById('cdashCatClear'); if (clr) clr.style.display = val ? 'block' : 'none';
+        window._cdashCatClose();
+        window._cdashFetch();
     };
 </script>
