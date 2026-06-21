@@ -774,13 +774,13 @@
         margin-bottom: 14px;
     }
     .menu-about-logo {
-        height: 78px;
+        height: 48px;
         display: inline-flex;
         align-items: center;
         flex-shrink: 0;
     }
     .menu-about-logo img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
-    @media (max-width: 560px) { .menu-about-logo { height: 44px; } }
+    @media (max-width: 560px) { .menu-about-logo { height: 36px; } }
     .menu-about-desc {
         margin: 0;
         font-size: 13px;
