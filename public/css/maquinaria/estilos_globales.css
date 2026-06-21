@@ -1339,131 +1339,109 @@ nav[role="navigation"] {
         gap: 6px;
     }
 
-    .table-usuarios-mobile tr {
-        display: block;
+    .table-usuarios-mobile tr:has(td:nth-child(2)) {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "nombre  acciones"
+            "correo  acciones"
+            "datos   datos";
+        column-gap: 8px;
+        row-gap: 0;
         background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         border: 1px solid #e2e8f0;
+        border-left: 3px solid #0067b1;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 8px 10px 0 10px;
         overflow: hidden;
     }
-
-    .table-usuarios-mobile tr td {
+    .table-usuarios-mobile tr:not(:has(td:nth-child(2))) {
         display: block;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+    .table-usuarios-mobile tr:not(:has(td:nth-child(2))) td {
+        display: block !important;
+        text-align: center !important;
         border: none !important;
-        padding: 2px 12px;
-        text-align: right;
-        position: relative;
+        padding: 36px 16px !important;
+    }
+
+    .table-usuarios-mobile tr:has(td:nth-child(2)) td {
+        border: none !important;
+        padding: 0 !important;
+        margin: 0;
+        background: transparent !important;
         border-radius: 0 !important;
+        min-width: 0;
     }
 
-    /* Specific Cell Styling to match "Mobile Card" design */
-
-    /* Name (Cell 1) */
     .table-usuarios-mobile tr td:nth-child(1) {
+        grid-area: nombre;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
         text-align: left;
-        padding-top: 5px;
-        padding-bottom: 0;
-        font-size: 13px;
+        align-self: end;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    /* Email (Cell 2) - No border to keep together with Rol */
     .table-usuarios-mobile tr td:nth-child(2) {
+        grid-area: correo;
+        font-size: 11.5px !important;
+        color: #64748b !important;
         text-align: left;
-        color: #718096 !important;
-        font-size: 12px;
-        padding-bottom: 3px;
-        border-bottom: none !important;
-        margin-bottom: 1px;
+        padding-bottom: 4px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    /* Data Cells (Rol, Access, Frente, Estado) */
-    .table-usuarios-mobile tr td:nth-child(3),
+    .table-usuarios-mobile tr td:nth-child(3) {
+        grid-area: datos;
+        display: inline-flex !important;
+        font-size: 10.5px !important;
+        font-weight: 600;
+        color: #475569 !important;
+        background: #f8fafc !important;
+        border-radius: 0 0 8px 8px !important;
+        padding: 5px 10px !important;
+        margin: 4px -10px 0 -10px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .table-usuarios-mobile tr td:nth-child(4),
-    .table-usuarios-mobile tr td:nth-child(5) {
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-        gap: 8px;
-        padding: 1px 12px;
-        font-size: 12px;
-        text-align: left;
-        border-bottom: 1px solid #f7fafc !important;
-        white-space: normal;
-        overflow: visible;
-        text-overflow: clip;
-    }
-
+    .table-usuarios-mobile tr td:nth-child(5),
     .table-usuarios-mobile tr td:nth-child(6) {
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-        gap: 8px;
-        padding: 1px 12px 2px 12px;
-        font-size: 12px;
-        text-align: left;
-        border-bottom: none !important;
-        white-space: normal;
-        overflow: visible;
-        text-overflow: clip;
-        position: static !important;
-        width: 100% !important;
+        display: none !important;
     }
 
-    .table-usuarios-mobile tr td:nth-child(3)::before {
-        content: "Rol:";
-        color: #94a3b8;
-        font-weight: 600;
-        font-size: 11px;
-        min-width: 48px;
-    }
-
-    .table-usuarios-mobile tr td:nth-child(4)::before {
-        content: "Acceso:";
-        color: #94a3b8;
-        font-weight: 600;
-        font-size: 11px;
-        min-width: 48px;
-    }
-
-    .table-usuarios-mobile tr td:nth-child(5)::before {
-        content: "Frente:";
-        color: #94a3b8;
-        font-weight: 600;
-        font-size: 11px;
-        min-width: 48px;
-    }
-
-    .table-usuarios-mobile tr td:nth-child(6)::before {
-        content: "Estado:";
-        color: #94a3b8;
-        font-weight: 600;
-        font-size: 11px;
-        min-width: 48px;
-        flex-shrink: 0;
-    }
-
-    /* Actions (Cell 7) - Footer en flujo normal (antes era position:absolute con
-       45px reservados arriba — se solapaba si los botones medían más de 45px). El
-       overflow:hidden de la tarjeta recorta las esquinas inferiores del footer. */
     .table-usuarios-mobile tr td:nth-child(7) {
-        border-top: 1px solid #edf2f7 !important;
-        padding: 4px 12px;
-        box-sizing: border-box;
-        background: #fbfcfd;
+        grid-area: acciones;
+        display: flex !important;
+        align-items: center;
+        justify-content: flex-end;
+        align-self: center;
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
     }
 
     .table-usuarios-mobile tr td:nth-child(7) div {
         display: flex;
-        width: auto;
-        gap: 8px;
-        justify-content: flex-end;
+        gap: 6px;
     }
 
     .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria {
         flex: 0 0 auto;
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
         padding: 0;
         border-radius: 8px;
         font-size: 0;
@@ -1478,7 +1456,16 @@ nav[role="navigation"] {
     }
 
     .table-usuarios-mobile tr td:nth-child(7) .btn-action-maquinaria i {
-        font-size: 16px;
+        font-size: 15px;
+    }
+
+    .table-usuarios-mobile tr td:nth-child(3)::before {
+        content: none;
+    }
+    .table-usuarios-mobile tr td:nth-child(4)::before,
+    .table-usuarios-mobile tr td:nth-child(5)::before,
+    .table-usuarios-mobile tr td:nth-child(6)::before {
+        content: none;
     }
 }
 

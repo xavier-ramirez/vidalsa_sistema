@@ -88,7 +88,7 @@
         </div>
 
         <!-- Rol Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item" style="flex: 3.8 1 420px; max-width: 560px;">
+        <div class="filter-item aligned-filter responsive-filter-item">
             <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
                 <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
 
@@ -132,10 +132,8 @@
             </div>
         </div>
 
-
-
         <!-- Action Buttons -->
-        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto; margin-left: auto;">
+        <div class="filter-item aligned-filter responsive-btn-item usuarios-action-btns" style="display: flex; gap: 10px; flex: 0 0 auto;">
             <!-- Limpiar Roles Button -->
             <button type="button" onclick="window.checkUnusedRoles()" title="Limpiar roles inactivos" style="height: 45px; width: 45px; padding: 0; border-radius: 12px; background: white; border: 1px solid #fed7aa; color: #c2410c; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='white'">
                 <i class="material-icons" style="font-size:20px;">delete_sweep</i>
@@ -160,7 +158,29 @@
             padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
         }
         .usuarios-side { width: 300px; flex: 0 0 300px; }
+        .usr-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: stretch;
+        }
+        .usr-filter-row > .filter-item.responsive-filter-item {
+            flex: 1 1 200px !important;
+            max-width: none !important;
+            min-width: 180px;
+        }
         @media (min-width: 769px) {
+            .usr-filter-row > .filter-item.responsive-filter-item:nth-child(1) {
+                flex: 1.2 1 240px !important;
+            }
+            .usr-filter-row > .filter-item.responsive-filter-item:nth-child(2) {
+                flex: 0.9 1 200px !important;
+                max-width: 260px !important;
+            }
+            .usr-filter-row > .filter-item.responsive-filter-item:nth-child(3) {
+                flex: 0.7 1 160px !important;
+                max-width: 220px !important;
+            }
             .table-usuarios-mobile { border-spacing: 0 5px !important; }
             .table-usuarios-mobile td { padding-top: 7px !important; padding-bottom: 7px !important; }
         }
