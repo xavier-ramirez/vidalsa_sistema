@@ -767,10 +767,9 @@
     .menu-about-head {
         display: flex;
         align-items: center;
+        justify-content: center;
         margin-bottom: 14px;
     }
-    /* Logo grande de la empresa: se muestra directo (el propio logo lleva el nombre,
-       así no hace falta repetir título ni subtítulo). Alto fijo, ancho automático. */
     .menu-about-logo {
         height: 78px;
         display: inline-flex;
@@ -780,41 +779,35 @@
     .menu-about-logo img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
     @media (max-width: 560px) { .menu-about-logo { height: 44px; } }
     .menu-about-desc {
-        margin: 0;
+        margin: 0 0 18px 0;
         font-size: 13px;
         line-height: 1.65;
         color: #475569;
+        text-align: center;
     }
-    /* Dos columnas: izquierda = empresa (logo + descripción); derecha = crédito del
-       desarrollador (copyright + contacto), separada por una línea vertical. */
-    .menu-about-cols {
-        display: flex;
-        align-items: stretch;
-        gap: 26px;
+    .menu-about-divider {
+        border: none;
+        border-top: 1px dashed #e2e8f0;
+        margin: 0 0 16px 0;
     }
-    .menu-about-left { flex: 1 1 58%; min-width: 0; }
-    .menu-about-right {
-        flex: 1 1 42%;
-        min-width: 0;
-        border-left: 1px solid #e2e8f0;
-        padding-left: 26px;
+    .menu-about-credits {
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        align-items: center;
         gap: 12px;
     }
     .menu-about-collab { margin-top: 4px; }
     .menu-about-collab .collab-title { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
-    .menu-about-right .dev {
+    .menu-about-credits .dev {
         font-weight: 700;
         color: #64748b;
         font-size: 12.5px;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         gap: 8px;
     }
-    .menu-about-right .dev-link {
+    .menu-about-credits .dev-link {
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -823,26 +816,16 @@
         font-weight: 600;
         transition: color 0.15s;
     }
-    .menu-about-right .dev-link:hover { color: #0067b1; }
-    .menu-about-right .dev-link .material-icons { font-size: 16px; }
-    /* En móvil/tablet: una sola columna; la derecha pasa abajo con separador horizontal. */
+    .menu-about-credits .dev-link:hover { color: #0067b1; }
+    .menu-about-credits .dev-link .material-icons { font-size: 16px; }
     @media (max-width: 760px) {
         .menu-about { padding: 18px 16px; }
-        .menu-about-cols { flex-direction: column; gap: 16px; }
         .menu-about-desc { font-size: 12px; line-height: 1.55; }
         .menu-about-head { margin-bottom: 10px; }
-        .menu-about-right {
-            border-left: none;
-            border-top: 1px dashed #e2e8f0;
-            padding-left: 0;
-            padding-top: 16px;
-            justify-content: flex-start;
-        }
     }
     @media (max-width: 480px) {
         .menu-about { padding: 12px 8px; margin-top: 14px; border-radius: 12px; }
-        .menu-about-cols { gap: 12px; }
-        .menu-about-right { padding-top: 12px; gap: 8px; }
+        .menu-about-credits { gap: 8px; }
     }
 </style>
 
@@ -1042,31 +1025,25 @@
     {{-- ── Pie informativo: breve descripción de la empresa + crédito de desarrollo.
          Datos tomados del sitio oficial https://www.vidalsa27.com (sobre-nosotros). --}}
     <footer class="menu-about">
-        <div class="menu-about-cols">
-            {{-- Izquierda: identidad de la empresa (logo + descripción). --}}
-            <div class="menu-about-left">
-                <div class="menu-about-head">
-                    <div class="menu-about-logo">
-                        <img src="{{ asset('images/maquinaria/logo.webp') }}" alt="Constructora Vidalsa 27, C.A."
-                             onerror="this.onerror=null;this.src='{{ asset('images/maquinaria/logo.png') }}';">
-                    </div>
-                </div>
-                <p class="menu-about-desc">
-                    Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
-                    en el sector petrolero y de vivienda, ejecutando oleoductos, líneas de flujo
-                    y obras civiles de impacto nacional, respaldada por flota propia de maquinaria pesada
-                    operada en todo el territorio.
-                </p>
+        <div class="menu-about-head">
+            <div class="menu-about-logo">
+                <img src="{{ asset('images/maquinaria/logo.webp') }}" alt="Constructora Vidalsa 27, C.A."
+                     onerror="this.onerror=null;this.src='{{ asset('images/maquinaria/logo.png') }}';">
             </div>
-            {{-- Derecha: crédito del desarrollador. --}}
-            <div class="menu-about-right">
-                <span class="dev">
+        </div>
+        <p class="menu-about-desc">
+            Empresa venezolana de infraestructura y construcción con más de 15 años de experiencia
+            en el sector petrolero y de vivienda, ejecutando oleoductos, líneas de flujo
+            y obras civiles de impacto nacional.
+        </p>
+        <hr class="menu-about-divider">
+        <div class="menu-about-credits">
+            <span class="dev">
                 <span>Sistema desarrollado</span>
                 <a href="mailto:fsanchez@cvidalsa27.com" class="dev-link" title="Enviar correo">
                     <i class="material-icons">badge</i>Fernando Sánchez · fsanchez@cvidalsa27.com
                 </a>
             </span>
-            {{-- Colaboradores que apoyaron poblando/gestionando los datos (no el desarrollo del sistema). --}}
             <span class="dev menu-about-collab">
                 <span class="collab-title">Levantamiento y gestión de información</span>
                 <a href="mailto:azerpa@cvidalsa27.com" class="dev-link" title="Escribir a Alejandro Zerpa">
@@ -1076,8 +1053,7 @@
                     <i class="material-icons">badge</i>Benny Romero · bromero@cvidalsa27.com
                 </a>
             </span>
-            </div>{{-- /menu-about-right --}}
-        </div>{{-- /menu-about-cols --}}
+        </div>
     </footer>
 </div>
 
