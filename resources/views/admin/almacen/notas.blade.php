@@ -177,7 +177,7 @@
         /* Destino: banda gris al pie (mismo patrón que movimientos) */
         .alm-not-table tbody td:nth-child(4) {
             grid-area:destino;
-            font-size:11px; font-weight:700; color:#0f172a;
+            font-size:10.5px; font-weight:700; color:#3730a3;
             background:#f1f5f9 !important;
             border-radius:0 0 10px 10px !important;
             padding:7px 14px !important;
