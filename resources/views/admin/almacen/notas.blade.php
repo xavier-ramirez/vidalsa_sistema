@@ -14,10 +14,10 @@
     $reqCat     = request('categoria');
     $hayAdv     = $reqDesde || $reqHasta || ($reqCat && $reqCat !== 'all') || $reqTipo;
     $almSel     = $reqAlmacen ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
-    // En esta vista sólo aplican los tipos con Nota de Entrega + PDF.
     $tipos = [
-        'SALIDA'          => ['label' => 'Salidas', 'sub' => ''],
-        'TRASPASO_SALIDA' => ['label' => 'Traspasos (salen)', 'sub' => ''],
+        'ENTRADAS'  => ['label' => 'Entradas', 'sub' => ''],
+        'SALIDAS'   => ['label' => 'Salidas', 'sub' => ''],
+        'AUDITORIA' => ['label' => 'Auditoría', 'sub' => ''],
     ];
     $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
     $frenteSel    = ($reqFrente && $reqFrente !== 'all') ? ($frentesLista ?? collect())->firstWhere('ID_FRENTE', (int) $reqFrente) : null;
@@ -130,7 +130,6 @@
         padding:3px 9px; border-radius:999px; font-size:12px; font-weight:700; line-height:1;
     }
     .anf-tipo-salida   { background:#fee2e2; color:#dc2626; }
-    .anf-tipo-traspaso { background:#ffedd5; color:#ea580c; }
     .anf-empty { padding:50px 20px; text-align:center; color:#94a3b8; }
     .anf-empty i { font-size:46px; color:#cbd5e0; display:block; margin:0 auto 8px; }
 
@@ -358,10 +357,12 @@
                             <span class="anf-code">{{ $n->NUMERO_NOTA }}</span>
                         </td>
                         <td>
-                            @if($tipoNum === 'SALIDA')
+                            @if(in_array($tipoNum, ['SALIDA', 'TRASPASO_SALIDA']))
                                 <span class="anf-tipo-pill anf-tipo-salida"><i class="material-icons" style="font-size:14px;">remove</i> Salida</span>
+                            @elseif(in_array($tipoNum, ['ENTRADA', 'TRASPASO_ENTRADA']))
+                                <span class="anf-tipo-pill" style="background:#dcfce7;color:#16a34a;"><i class="material-icons" style="font-size:14px;">add</i> Entrada</span>
                             @else
-                                <span class="anf-tipo-pill anf-tipo-traspaso"><i class="material-icons" style="font-size:14px;">north_east</i> Traspaso</span>
+                                <span class="anf-tipo-pill" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:14px;">tune</i> Auditoría</span>
                             @endif
                         </td>
                         <td style="text-align:left;">
@@ -371,7 +372,7 @@
                             @endif
                         </td>
                         <td style="text-align:left;">
-                            @if($contra && $tipoNum === 'TRASPASO_SALIDA')
+                            @if($contra)
                                 <strong>{{ $contra->NOMBRE }}</strong>
                                 @if($fre)
                                     <div style="font-size:11px;color:#64748b;">{{ $fre->NOMBRE_FRENTE }}</div>
