@@ -10,12 +10,8 @@
         $horasDesdeEnvio = $t->FECHA_ENVIO ? now()->diffInHours($t->FECHA_ENVIO) : null;
     @endphp
     <tr data-id="{{ $t->ID_TRASPASO }}">
-        {{-- Nº principal: NE si viene de nota de entrega, TR si es traspaso directo --}}
         <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">
-            <div>{{ $neNumero }}</div>
-            @if($esNE)
-                <div style="font-size:10.5px;font-weight:600;color:#94a3b8;font-family:monospace;">{{ $t->NUMERO }}</div>
-            @endif
+            {{ $neNumero }}
         </td>
         <td style="font-size:12.5px;">
             <div style="font-weight:700;color:#1e293b;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</div>

@@ -154,12 +154,25 @@
 }
 
 @media (max-width: 768px) {
+    body:has(.frentes-card) .main-viewport {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        box-sizing: border-box !important;
+    }
     .page-title-card { margin-bottom: 10px !important; }
     .dashboard-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
     .stat-card { padding: 10px !important; }
     .stat-card div:last-child div:first-child { font-size: 11px !important; }
     .stat-card div:last-child div:last-child { font-size: 20px !important; }
-    .frentes-card { padding: 22px 18px !important; }
+    .frentes-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 15px 12px !important;
+        border-radius: 12px !important;
+        box-sizing: border-box !important;
+    }
 }
 </style>
 @endsection

@@ -50,11 +50,11 @@ class Traspaso extends Model
      * Formato: [LABEL_HUMANO, COLOR_FONDO_HEX, COLOR_TEXTO_HEX]
      */
     public const ESTADOS_META = [
-        self::ESTADO_BORRADOR         => ['Borrador',  '#f1f5f9', '#64748b'],
-        self::ESTADO_ENVIADO          => ['Enviado',   '#fef3c7', '#b45309'],
-        self::ESTADO_RECIBIDO         => ['Recibido',  '#dcfce7', '#15803d'],
-        self::ESTADO_RECIBIDO_PARCIAL => ['Parcial',   '#fee2e2', '#b91c1c'],
-        self::ESTADO_CANCELADO        => ['Cancelado', '#e2e8f0', '#475569'],
+        self::ESTADO_BORRADOR         => ['Borrador',           '#f1f5f9', '#64748b'],
+        self::ESTADO_ENVIADO          => ['En tránsito',        '#fef3c7', '#b45309'],
+        self::ESTADO_RECIBIDO         => ['Confirmada',         '#dcfce7', '#15803d'],
+        self::ESTADO_RECIBIDO_PARCIAL => ['Confirmada parcial', '#fee2e2', '#b91c1c'],
+        self::ESTADO_CANCELADO        => ['Cancelada',          '#e2e8f0', '#475569'],
     ];
 
     /** Fallback cuando el ESTADO no figura en ESTADOS_META (defensivo, igual que TIPO_META_DEFAULT). */

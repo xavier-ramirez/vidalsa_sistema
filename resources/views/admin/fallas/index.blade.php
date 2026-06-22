@@ -127,10 +127,10 @@
             background: white;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 14px 16px;
+            padding: 10px 14px;
             display: grid;
-            grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1.2fr) auto;
-            gap: 14px;
+            grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.2fr) auto;
+            gap: 10px;
             align-items: center;
             transition: box-shadow 0.15s;
         }
@@ -155,8 +155,8 @@
 
         .falla-foto {
             position: relative;
-            width: 170px;
-            height: 105px;
+            width: 150px;
+            height: 90px;
             border-radius: 8px;
             background: #ffffff;
             border: 1px solid #e2e8f0;
@@ -263,6 +263,17 @@
             text-decoration: none;
         }
 
+        .falla-btn-icon {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            justify-content: center;
+            font-size: 0;
+        }
+        .falla-btn-icon .material-icons {
+            font-size: 17px;
+        }
+
         .falla-btn:hover {
             background: #f8fafc;
         }
@@ -279,7 +290,6 @@
 
         /* Borrado duro (super.admin): discreto, icono solo, rojo al hover. */
         .falla-btn-danger {
-            padding: 0 8px;
             color: #94a3b8;
             border-color: #e2e8f0;
         }

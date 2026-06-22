@@ -6,6 +6,7 @@ use App\Models\Almacen;
 use App\Models\AlmacenStock;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
+use App\Models\Traspaso;
 use App\Services\InventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -243,9 +244,18 @@ class AlmacenController extends Controller
             ->groupBy('ID_ALMACEN')
             ->map(fn ($rows) => $rows->pluck('ID_PRODUCTO')->values());
 
-        // NOTA: $traspasosPorRecibir (banner amarillo + badge del nav menu) NO se calcula aquí —
-        // lo provee el View Composer registrado en AppServiceProvider para 'layouts.estructura_base',
-        // así el badge aparece desde CUALQUIER página del sistema.
+        // NOTA: $traspasosPorRecibir (badge del nav menu) lo provee el View Composer en
+        // AppServiceProvider. Aquí cargamos el DETALLE de las notas pendientes para el
+        // widget del dashboard (NE, origen, fecha, nº productos).
+        $notasPendientes = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
+            ->whereIn('ID_ALMACEN_DESTINO', $almacenes->pluck('ID_ALMACEN'))
+            ->with([
+                'almacenOrigen:ID_ALMACEN,NOMBRE',
+                'lineas:ID_LINEA,ID_TRASPASO',
+            ])
+            ->orderByDesc('FECHA_ENVIO')
+            ->take(5)
+            ->get(['ID_TRASPASO', 'NUMERO', 'REFERENCIA', 'ID_ALMACEN_ORIGEN', 'FECHA_ENVIO']);
 
         return view('admin.almacen.index', [
             'almacenes'          => $almacenes,
@@ -263,6 +273,7 @@ class AlmacenController extends Controller
             'stats'              => $this->statsInventario($idAlmacenSel, $request),
             'distribucion'       => collect(),
             'unidadesMedida'     => $unidadesMedida,
+            'notasPendientes'    => $notasPendientes,
         ]);
     }
 
@@ -507,7 +518,8 @@ class AlmacenController extends Controller
         $q = AlmacenStock::query()
             ->join('almacenes', 'almacenes.ID_ALMACEN', '=', 'almacen_stock.ID_ALMACEN')
             ->where('almacen_stock.ID_PRODUCTO', $idProducto)
-            ->whereIn('almacen_stock.ID_ALMACEN', $visibles);
+            ->whereIn('almacen_stock.ID_ALMACEN', $visibles)
+            ->where('almacen_stock.CANTIDAD', '>', 0);
         if ($idAlmacenActual !== null) {
             $q->where('almacen_stock.ID_ALMACEN', '!=', $idAlmacenActual);
         }

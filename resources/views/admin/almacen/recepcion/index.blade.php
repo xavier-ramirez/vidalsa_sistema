@@ -422,7 +422,7 @@
                      muestra cada columna. Acompañan el lenguaje visual de la app sin
                      ocupar espacio extra de filas guía. --}}
                 <tr>
-                    <th title=”Número de la Nota de Entrega (NE-YYYY-NNNN) o del traspaso (TR-YYYY-NNNN).”>Nº Nota</th>
+                    <th title=”Número de la Nota de Entrega (NE-YYYY-NNNN).”>Nº Nota</th>
                     <th title=”Arriba (negrita) el almacén que ENVÍA; abajo con flecha el almacén que RECIBE.”>Origen / Destino</th>
                     <th style=”text-align:center;” title=”Enviado (esperando confirmación) · Recibido · Parcial (incompleto) · Cancelado.”>Estado</th>
                     <th title=”Productos incluidos en la nota: código y descripción de cada línea.”>Materiales</th>
@@ -720,7 +720,7 @@
                 var pg = el('trPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
-            .catch(function () { body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los traspasos.</td></tr>'; })
+            .catch(function () { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
 

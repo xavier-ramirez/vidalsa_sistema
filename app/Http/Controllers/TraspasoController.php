@@ -79,10 +79,9 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // "Recepción" abre el formulario de entrada directa (almacen.recepcion.nueva)
-        // para TODOS los usuarios — GLOBAL y LOCAL — es la pantalla de recepción por
-        // defecto. La bandeja de traspasos pendientes se llega aparte: con el botón
-        // "Bandeja de Entrada" (recepcion?force=1) o aplicando filtros.
+        // "Notas de Entrega" abre la bandeja directamente (force=1 en los links del menú).
+        // Si llegan SIN force y SIN filtros, redirige al formulario de entrada directa
+        // (recepcion/nueva) — legacy path para Recepción ODC.
         //
         // Solo redirigimos cuando NO es AJAX (los filtros/paginación piden JSON a la
         // misma URL y deben quedarse aquí) y solo en la primera carga sin parámetros

@@ -589,23 +589,53 @@
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:80vh;min-width:0;width:100%;padding:14px;">
 
-    {{-- ── Banner: notas de entrega por confirmar (módulo Notas de Entrega) ──
-         ?force=1 lleva a la BANDEJA de notas pendientes (el sentido del banner);
-         sin el force, TraspasoController@index lo redirige a recepcion/nueva. --}}
-    @if(($traspasosPorRecibir ?? 0) > 0)
-        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
-           style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:12px;text-decoration:none;color:#92400e;">
-            <span style="display:flex;align-items:center;gap:10px;">
-                <i class="material-icons" style="font-size:22px;color:#b45309;">notifications_active</i>
-                <span style="font-size:13.5px;font-weight:700;">
-                    Tienes <strong style="font-size:15px;">{{ $traspasosPorRecibir }}</strong>
-                    {{ $traspasosPorRecibir === 1 ? 'nota de entrega pendiente' : 'notas de entrega pendientes' }} por confirmar
+    {{-- ── Widget: notas de entrega pendientes por confirmar ── --}}
+    @if(($notasPendientes ?? collect())->isNotEmpty())
+        <div style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:1px solid #f59e0b;border-radius:12px;padding:14px 16px;margin-bottom:12px;color:#92400e;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
+                <span style="display:flex;align-items:center;gap:10px;">
+                    <i class="material-icons" style="font-size:22px;color:#b45309;">notifications_active</i>
+                    <span style="font-size:13.5px;font-weight:700;">
+                        <strong style="font-size:15px;">{{ $traspasosPorRecibir ?? $notasPendientes->count() }}</strong>
+                        {{ ($traspasosPorRecibir ?? $notasPendientes->count()) === 1 ? 'nota de entrega pendiente' : 'notas de entrega pendientes' }} por confirmar
+                    </span>
                 </span>
-            </span>
-            <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">
-                Ver notas <i class="material-icons" style="font-size:18px;">arrow_forward</i>
-            </span>
-        </a>
+                <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#92400e;text-decoration:none;">
+                    Ver todas <i class="material-icons" style="font-size:18px;">arrow_forward</i>
+                </a>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                @foreach($notasPendientes as $np)
+                    @php
+                        $neNum = $np->REFERENCIA ?: $np->NUMERO;
+                        $horasNp = $np->FECHA_ENVIO ? now()->diffInHours($np->FECHA_ENVIO) : null;
+                    @endphp
+                    <a href="{{ route('almacen.recepcion.show', $np->ID_TRASPASO) }}"
+                       style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.7);border:1px solid #fbbf24;border-radius:8px;padding:8px 12px;text-decoration:none;color:#92400e;transition:background .15s;"
+                       onmouseenter="this.style.background='rgba(255,255,255,0.95)'" onmouseleave="this.style.background='rgba(255,255,255,0.7)'">
+                        <span style="font-family:monospace;font-weight:800;font-size:13px;white-space:nowrap;color:#78350f;">{{ $neNum }}</span>
+                        <span style="flex:1;font-size:12.5px;font-weight:600;color:#92400e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            {{ optional($np->almacenOrigen)->NOMBRE ?? '—' }}
+                        </span>
+                        <span style="font-size:11.5px;color:#b45309;white-space:nowrap;">
+                            {{ $np->FECHA_ENVIO?->format('d/m') }}
+                        </span>
+                        <span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap;">
+                            {{ $np->lineas->count() }} {{ $np->lineas->count() === 1 ? 'prod' : 'prods' }}
+                        </span>
+                        @if($horasNp !== null)
+                            @if($horasNp < 24)
+                                <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex:0 0 8px;" title="Hace menos de 24h"></span>
+                            @elseif($horasNp < 72)
+                                <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex:0 0 8px;" title="Hace {{ intdiv($horasNp, 24) }} día(s)"></span>
+                            @else
+                                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex:0 0 8px;" title="Hace {{ intdiv($horasNp, 24) }} días"></span>
+                            @endif
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
     @endif
 
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}

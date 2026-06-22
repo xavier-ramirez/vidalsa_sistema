@@ -15,9 +15,6 @@
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
             <h1 class="page-title" style="margin:0;">
                 <span class="page-title-line2" style="color:#000;font-family:monospace;">{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}</span>
-                @if($traspaso->REFERENCIA)
-                    <span style="font-size:12px;font-weight:600;color:#94a3b8;font-family:monospace;margin-left:8px;">{{ $traspaso->NUMERO }}</span>
-                @endif
             </h1>
             <span style="background:{{ $e[1] }};color:{{ $e[2] }};padding:5px 14px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">{{ $e[0] }}</span>
         </div>
@@ -53,41 +50,31 @@
     {{-- ── Info general ── --}}
     <div class="info-grid">
         <div class="info-cell">
-            <div class="lbl">Origen</div>
+            <div class="lbl">Salió de</div>
             <div class="val">{{ optional($traspaso->almacenOrigen)->NOMBRE }}</div>
         </div>
         <div class="info-cell">
-            <div class="lbl">Destino</div>
+            <div class="lbl">Para almacén</div>
             <div class="val">{{ optional($traspaso->almacenDestino)->NOMBRE }}</div>
         </div>
         <div class="info-cell">
-            <div class="lbl">Frente Destino</div>
+            <div class="lbl">Frente</div>
             <div class="val">{{ optional($traspaso->frenteDestino)->NOMBRE_FRENTE ?: '—' }}</div>
         </div>
         <div class="info-cell">
-            <div class="lbl">Creado por</div>
-            <div class="val">{{ optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}<br>
-                <span style="font-weight:400;font-size:12px;color:#64748b;">{{ $traspaso->created_at?->format('d-M-Y H:i') }}</span>
+            <div class="lbl">Despachado por</div>
+            <div class="val">{{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}<br>
+                <span style="font-weight:400;font-size:12px;color:#64748b;">{{ $traspaso->FECHA_ENVIO?->format('d-M-Y H:i') ?: $traspaso->created_at?->format('d-M-Y H:i') }}</span>
             </div>
         </div>
         <div class="info-cell">
-            <div class="lbl">Enviado por</div>
-            <div class="val">{{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: '—' }}<br>
-                <span style="font-weight:400;font-size:12px;color:#64748b;">{{ $traspaso->FECHA_ENVIO?->format('d-M-Y H:i') ?: '—' }}</span>
-            </div>
-        </div>
-        <div class="info-cell">
-            <div class="lbl">Recibido por</div>
+            <div class="lbl">Confirmado por</div>
             <div class="val">{{ optional($traspaso->usuarioRecepcion)->NOMBRE_COMPLETO ?: '—' }}<br>
                 <span style="font-weight:400;font-size:12px;color:#64748b;">{{ $traspaso->FECHA_RECEPCION?->format('d-M-Y H:i') ?: '—' }}</span>
             </div>
         </div>
         <div class="info-cell">
-            <div class="lbl">Referencia</div>
-            <div class="val">{{ $traspaso->REFERENCIA ?: '—' }}</div>
-        </div>
-        <div class="info-cell">
-            <div class="lbl">Motivo</div>
+            <div class="lbl">Motivo / Observaciones</div>
             <div class="val">{{ $traspaso->MOTIVO ?: '—' }}</div>
         </div>
     </div>
@@ -172,7 +159,7 @@
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
         @if($puedeRecibir)
             <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
-                    onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar envío</button>
+                    onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">Cancelar nota</button>
             <button type="button" class="btn-primary-maquinaria" style="background:#065f46;border:none;height:42px;padding:0 18px;display:flex;align-items:center;gap:8px;color:#fff;"
                     onclick="window.trConfirmarTodoOk()">
                 <i class="material-icons" style="font-size:18px;">done_all</i> Confirmar todo OK
@@ -273,19 +260,19 @@
             });
         });
         if (lineas.length === 0) { toast('No hay líneas para recibir.', 'error'); return; }
-        if (!confirm('Vas a confirmar la recepción de ' + lineas.length + ' línea(s). ¿Continuar?')) return;
+        if (!confirm('Vas a confirmar la nota de entrega (' + lineas.length + ' material' + (lineas.length > 1 ? 'es' : '') + '). ¿Continuar?')) return;
         post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
             setTimeout(function () { window.location.reload(); }, 700);
         });
     };
 
     window.trEnviar = function () {
-        if (!confirm('Vas a marcar el traspaso como ENVIADO. El stock se restará del origen. ¿Continuar?')) return;
+        if (!confirm('Vas a despachar esta nota. El stock se restará del origen. ¿Continuar?')) return;
         post(BASE + '/' + ID_T + '/enviar', {}, function () { setTimeout(function () { window.location.reload(); }, 700); });
     };
 
     window.trCancelar = function (numero) {
-        if (!confirm('¿Cancelar ' + numero + '? Si ya estaba enviado, se revertirá el stock al origen.')) return;
+        if (!confirm('¿Cancelar ' + numero + '? Si ya estaba en tránsito, se revertirá el stock al origen.')) return;
         // ?force=1: tras cancelar volvemos a la BANDEJA (no a recepcion/nueva).
         post(BASE + '/' + ID_T + '/cancelar', {}, function () { setTimeout(function () { window.location = @json(route('almacen.recepcion.index', ['force' => 1])); }, 700); });
     };

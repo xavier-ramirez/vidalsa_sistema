@@ -73,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
         Equipo::observe(EquipoObserver::class);
 
         // View Composer: inyecta $traspasosPorRecibir en el layout base para que el badge
-        // del menú "Almacén → Recepción de Materiales" se vea desde CUALQUIER página
+        // del menú "Almacén → Notas de Entrega" se vea desde CUALQUIER página
         // (no solo desde /admin/almacen donde el controller lo calculaba).
         // Defensa: si la tabla `traspasos` aún no existe (migrate pendiente) o el usuario
         // no está autenticado, $traspasosPorRecibir queda en 0 y el badge no aparece.

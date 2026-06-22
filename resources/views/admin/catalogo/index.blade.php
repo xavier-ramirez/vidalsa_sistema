@@ -501,25 +501,6 @@
         display: flex; justify-content: space-between; align-items: center;
         flex-shrink: 0;
     }
-    .crop-modal-ratios {
-        display: flex; gap: 6px; padding: 8px 16px;
-        background: #1e293b; border-bottom: 1px solid #334155;
-        justify-content: center; flex-shrink: 0; flex-wrap: wrap;
-    }
-    .crop-ratio-btn {
-        display: flex; align-items: center; gap: 5px;
-        padding: 6px 12px; border-radius: 8px;
-        background: #334155; border: 1px solid #475569;
-        color: #94a3b8; font-size: 11px; font-weight: 700;
-        cursor: pointer; transition: all 0.15s;
-    }
-    .crop-ratio-btn:active { transform: scale(0.95); }
-    .crop-ratio-btn.active {
-        background: #0067b1; border-color: #0067b1; color: #fff;
-    }
-    .crop-ratio-icon {
-        display: inline-block; border: 2px solid currentColor; border-radius: 2px;
-    }
     .crop-modal-body {
         flex: 1; overflow: hidden; background: #0f172a;
         min-height: 250px; max-height: 55vh; position: relative;
@@ -566,20 +547,6 @@
             </div>
             <button type="button" onclick="window._closeCropModal()" style="background:transparent; border:none; color:#fff; cursor:pointer; padding:4px;">
                 <i class="material-icons" style="font-size:20px;">close</i>
-            </button>
-        </div>
-        <div class="crop-modal-ratios">
-            <button type="button" class="crop-ratio-btn active" onclick="window._setCropRatio(this, 4/3)">
-                <span class="crop-ratio-icon" style="width:16px;height:12px;"></span> 4:3
-            </button>
-            <button type="button" class="crop-ratio-btn" onclick="window._setCropRatio(this, 3/4)">
-                <span class="crop-ratio-icon" style="width:12px;height:16px;"></span> 3:4
-            </button>
-            <button type="button" class="crop-ratio-btn" onclick="window._setCropRatio(this, 16/9)">
-                <span class="crop-ratio-icon" style="width:18px;height:10px;"></span> 16:9
-            </button>
-            <button type="button" class="crop-ratio-btn" onclick="window._setCropRatio(this, NaN)">
-                <span class="crop-ratio-icon" style="width:14px;height:14px;border-style:dashed;"></span> Libre
             </button>
         </div>
         <div class="crop-modal-body"></div>
@@ -676,14 +643,6 @@
     window._cropPending = null;
     window._cropperInstance = null;
 
-    window._setCropRatio = function (btn, ratio) {
-        document.querySelectorAll('.crop-ratio-btn').forEach(function (b) { b.classList.remove('active'); });
-        btn.classList.add('active');
-        if (window._cropperInstance) {
-            window._cropperInstance.setAspectRatio(ratio);
-        }
-    };
-
     window._openCropModal = function (file, onConfirm) {
         var modal = document.getElementById('cropModal');
         var body  = document.querySelector('.crop-modal-body');
@@ -692,9 +651,6 @@
         if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
         window._cropPending = onConfirm;
         body.innerHTML = '';
-
-        var btns = modal.querySelectorAll('.crop-ratio-btn');
-        btns.forEach(function (b, i) { b.classList.toggle('active', i === 0); });
 
         modal.style.display = 'flex';
 
@@ -709,7 +665,7 @@
                 var tryInit = function () {
                     if (typeof Cropper !== 'undefined') {
                         window._cropperInstance = new Cropper(img, {
-                            aspectRatio: 4 / 3,
+                            aspectRatio: NaN,
                             viewMode: 1,
                             autoCropArea: 0.9,
                             responsive: true,

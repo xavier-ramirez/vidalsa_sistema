@@ -67,18 +67,12 @@
             </div>
 
             {{-- Línea 3: serial · placa · mecánico (el frente va sobre la foto) --}}
-            <div class="falla-info" style="display:flex; flex-wrap:wrap; align-items:center; gap:3px 14px;">
+            <div class="falla-info" style="display:flex; flex-wrap:wrap; align-items:center; gap:3px 12px;">
                 @if($serial)
-                    <span style="display:inline-flex; align-items:center; gap:3px;">
-                        <i class="material-icons" style="font-size:12px;">fingerprint</i>
-                        <strong>{{ $serial }}</strong>
-                    </span>
+                    <span><strong style="color:#64748b;">S:</strong> <strong style="color:#1e293b; text-transform:uppercase;">{{ $serial }}</strong></span>
                 @endif
                 @if($placa)
-                    <span style="display:inline-flex; align-items:center; gap:3px;">
-                        <i class="material-icons" style="font-size:12px;">featured_play_list</i>
-                        <strong>{{ $placa }}</strong>
-                    </span>
+                    <span><strong style="color:#64748b;">P:</strong> <strong style="color:var(--maquinaria-blue, #0067b1); text-transform:uppercase;">{{ $placa }}</strong></span>
                 @endif
                 @if($f->MECANICO_ASIGNADO)
                     <span style="display:inline-flex; align-items:center; gap:3px;">
@@ -113,21 +107,21 @@
         </div>
 
         {{-- Acciones --}}
-        <div class="falla-actions" style="flex-direction: column; align-items: flex-end; gap:8px;">
+        <div class="falla-actions" style="flex-direction: column; align-items: flex-end; gap:6px;">
             <div class="falla-reporto-desktop" style="font-size:11.5px; color:#64748b; text-align:right; line-height:1.2;">
                 Reportó:<br>
                 <span style="color:#1e293b; font-weight:700;">{{ $f->NOMBRE_REPORTA ?: '—' }}</span>
             </div>
-            <div class="falla-btn-stack" style="display:flex; flex-direction:column; gap:6px; align-items:stretch;">
+            <div class="falla-btn-stack" style="display:flex; gap:4px; align-items:center;">
                 @if($f->TIPO_REPORTE === 'extenso')
-                    <button type="button" class="falla-btn" title="Ver PDF" style="justify-content:center;"
+                    <button type="button" class="falla-btn falla-btn-icon" title="Ver PDF"
                         onclick="window.openPdfPreview('{{ route('fallas.pdf', $f->ID_FALLA) }}', 'falla', 'Reporte {{ $f->CODIGO_REPORTE }}', 0, '', true, 'falla')">
-                        <i class="material-icons" style="font-size:16px;">picture_as_pdf</i> PDF
+                        <i class="material-icons">picture_as_pdf</i>
                     </button>
                 @endif
                 @if($f->ESTADO_REPORTE === 'abierto')
                     @can('equipos.edit')
-                        <button type="button" class="falla-btn" title="Cerrar reporte" style="justify-content:center;"
+                        <button type="button" class="falla-btn falla-btn-icon" title="Cerrar reporte"
                             data-id="{{ $f->ID_FALLA }}"
                             data-codigo="{{ $f->CODIGO_REPORTE }}"
                             data-equipo="{{ $idCierre }}"
@@ -137,17 +131,16 @@
                             data-diagnostico="{{ $f->DIAGNOSTICO }}"
                             data-acciones="{{ $f->ACCIONES_REALIZADAS }}"
                             onclick="window.cerrarFalla(this)">
-                            <i class="material-icons" style="font-size:16px;">check_circle</i> Cerrar
+                            <i class="material-icons" style="color:#10b981;">check_circle</i>
                         </button>
                     @endcan
                 @endif
-                {{-- Borrado DURO del reporte: discreto, SOLO super.admin (irreversible). --}}
                 @can('super.admin')
-                    <button type="button" class="falla-btn falla-btn-danger" title="Eliminar reporte (definitivo)" style="justify-content:center;"
+                    <button type="button" class="falla-btn falla-btn-icon falla-btn-danger" title="Eliminar reporte (definitivo)"
                         data-id="{{ $f->ID_FALLA }}"
                         data-ref="{{ ($f->TIPO_REPORTE === 'extenso' && $f->CODIGO_REPORTE) ? $f->CODIGO_REPORTE : ($idCierre ?: ('#'.$f->ID_FALLA)) }}"
                         onclick="window.eliminarFalla(this)">
-                        <i class="material-icons" style="font-size:16px;">delete_forever</i>
+                        <i class="material-icons">delete_forever</i>
                     </button>
                 @endcan
             </div>
