@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Registrar entrada directa')
+@section('title', 'Entrada directa (ODC)')
 
 @section('content')
 {{-- ────────────────────────────────────────────────────────────────
@@ -25,101 +25,69 @@
      ──────────────────────────────────────────────────────────────── --}}
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    {{-- Layout calcado de /admin/almacen: titulo + separador vertical + pill del
-         almacen destino (derivado del frente del usuario). El campo "Nota de
-         entrega" vive en la fila de datos (.ent-head-row) al lado del Proveedor
-         para mantener el header limpio. --}}
-    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-        <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Registrar entrada directa</span>
-        </h1>
-        {{-- Separador vertical (se oculta en mobile). --}}
+    {{-- Fila 1: Título + pill del almacén destino --}}
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="flex:0 0 auto;">
+            <h1 class="page-title" style="margin:0;">
+                <span class="page-title-line2" style="color:#000;">Recepción de materiales</span>
+            </h1>
+        </div>
         <span aria-hidden="true" class="ent-header-sep" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-        {{-- Bloque "Almacén": solo el pill con el nombre del almacen destino (read-only;
-             se deriva del frente del usuario en TraspasoController@nuevaEntrada). Sin
-             mini-label de texto, para que se vea IGUAL que el selector de almacen de
-             /admin/almacen, /movimientos y /recepcion (que tampoco lo llevan). --}}
         <div class="ent-header-block" style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <div class="ent-dest-pill" title="Almacén destino del usuario (derivado del frente asignado)">
+            <div class="ent-dest-pill" title="Almacén destino">
                 <span class="ic"><i class="material-icons">warehouse</i></span>
-                <span class="name">{{ $almacenDestino->NOMBRE }}{{ $almacenDestino->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}</span>
+                <span class="name">{{ $almacenDestino->NOMBRE }}@if($almacenDestino->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
             </div>
         </div>
+    </div>
+    {{-- Fila 2: Tabs de navegación (coherente con la bandeja) --}}
+    <div class="ent-tabs" style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
+        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+           style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;"
+           onmouseenter="this.style.color='#0067b1'" onmouseleave="this.style.color='#64748b'">
+            <i class="material-icons" style="font-size:16px;">inbox</i> Bandeja de entrada
+        </a>
+        <span style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;">
+            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada directa<span class="ent-txt-full"> (ODC)</span>
+        </span>
     </div>
 </section>
 
 <style>
-    /* Cards y secciones */
-    .ent-card     { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
+    /* ── Entrada directa (ODC) — layout single-column estilo WMS ── */
+    .ent-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
 
-    /* ── Grid de la CABECERA del lote: una sola fila, 4 columnas alineadas:
-       [Nota 1fr] [Proveedor 1fr] [Fecha 130px] [Bandeja 100px]. Nota y Proveedor
-       son minmax(0,1fr): mismo ancho, comprimen hasta 0 sin desbordar el card blanco.
-       (La captura de productos ya no vive acá — ver .ent-head-row / .ent-capt-bar.)
-       Mobile responsive movido a estilos_globales.css. */
+    /* Cabecera del lote: N° Doc | Proveedor | Fecha | Acciones en una sola fila. */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 130px 100px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 150px auto;
         gap: 10px;
-        align-items: center;
+        align-items: end; /* las acciones (Cancelar/Registrar) quedan alineadas con la fila de inputs */
         min-width: 0;
     }
-    /* Fila 1 de la cabecera: Nota de entrega ocupa col 1, Proveedor col 2,
-       Fecha col 3, Boton col 4. */
-    .ent-head-row { display: contents; }
-    /* La fila 2 de captura se movió a una BARRA ARRIBA de la tabla
-       (.ent-capt-bar, más abajo) — ya no vive en este grid de cabecera. */
-    /* Mobile responsive (≤900px y ≤480px) movido a estilos_globales.css —
-       scopeado con body:has(.ent-layout). NO poner @media aqui adentro porque
-       el SPA puede no aplicar consistentemente <style> inline en hard reload. */
+    .ent-field-group { display:flex; flex-direction:column; gap:4px; }
+    /* Acciones del lote, en la cabecera al lado de Fecha (antes vivían en un pie .ent-footer). */
+    .ent-actions-group { display:flex; align-items:center; gap:10px; }
+    .ent-field-label { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
+    /* Mobile responsive (≤900px y ≤480px) en estilos_globales.css scopeado con body:has(.ent-layout). */
 
-    /* ── Boton "Bandeja" ──
-       Ocupa la columna 4 (100px). box-sizing:border-box para que width:100% +
-       padding NO desborde la columna. font-size y font-weight viven SOLO en
-       estilos_globales.css (body:has(.ent-layout) .ent-envios-btn) — fuente
-       unica de verdad y a prueba de SPA; no se duplican aqui. */
-    .ent-envios-btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        box-sizing: border-box;
-        width: 100%; height: 40px; padding: 0 14px;
-        border-radius: 10px;
-        text-decoration: none;
-        background: var(--maquinaria-blue,#0067b1); color: #fff;
-        white-space: nowrap;
-        box-shadow: 0 4px 6px -1px rgba(0,103,177,0.18);
-        transition: background .15s, transform .1s;
-    }
-    .ent-envios-btn:hover { background: #005391; transform: scale(1.02); }
-    .ent-envios-btn:active { transform: scale(0.98); }
-    /* Pill del almacen destino (read-only): vive en el page-title-card al lado
-       del mini-label "Almacén". Estilizado para verse VISUALMENTE EQUIVALENTE a los
-       dropdowns "Almacén" del header en /admin/almacen, /movimientos y /recepcion
-       — mismo ancho min:200px, mismo radius:10px, mismo height:40px, mismo icono
-       warehouse en azul al inicio. La unica diferencia funcional es que es read-only
-       (no abre dropdown — el almacen se deriva del frente del usuario). */
+    /* Pill del almacen destino en el page-title-card */
     .ent-dest-pill {
         display:inline-flex; align-items:center;
-        height:40px; min-width:260px;
-        padding:0;
+        height:40px; min-width:260px; padding:0;
         background:#f8fafc; border:1px solid #cbd5e0; border-radius:10px;
         white-space:nowrap; overflow:hidden;
     }
     .ent-dest-pill .ic { padding:0 10px; display:flex; align-items:center; color:#0067b1; }
     .ent-dest-pill .ic .material-icons { font-size:18px; transform:none !important; }
     .ent-dest-pill .name { padding:0 12px 0 4px; font-size:13.5px; color:#0f172a; font-weight:700; overflow:hidden; text-overflow:ellipsis; }
-    .ent-input    { width:100%; min-width:0; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px; font-size:13.5px; background:#fbfcfd; outline:none; box-sizing:border-box; color:#0f172a; }
-    .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); background:#fff; }
-    .ent-input::placeholder { color:#64748b; opacity:1; }
+
+    .ent-input { width:100%; min-width:0; height:38px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; background:#fff; outline:none; box-sizing:border-box; color:#0f172a; }
+    .ent-input:focus { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.10); }
+    .ent-input::placeholder { color:#94a3b8; opacity:1; }
     select.ent-input { cursor:pointer; }
 
-    /* Los dropdowns (position:absolute) se anclan a .ent-search-field y .ent-um-wrap
-       (position:relative). En la barra de captura van FUERA de .ent-list-wrap para
-       que el overflow:hidden de la lista no los recorte. */
-    /* Campo de UM — text input con autocomplete (mismo patron que el modal "Nuevo
-       producto" de /admin/almacen). NO es un select con lista cerrada — el usuario
-       puede escribir cualquier UM nueva (KG, ROLLO, M, M2, BARRIL, etc.) y queda
-       guardada al crear el producto. El autocomplete sugiere las UMs YA registradas
-       en el catalogo (window.entUnidadesMedida) para favorecer reutilizacion. */
+    /* UM autocomplete */
     .ent-um-wrap { position:relative; }
     .ent-um-input {
         width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px;
@@ -127,8 +95,6 @@
         background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
     .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
-    /* Dropdown de sugerencias del campo UM — mismo estilo que .ent-suggest pero mas
-       compacto (solo lista UMs cortas). */
     .ent-um-suggest {
         position:absolute; top:calc(100% + 4px); left:0; right:0;
         background:#fff; border:1px solid #e2e8f0; border-radius:10px;
@@ -141,19 +107,11 @@
     .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
     .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
 
-    /* Wrapper del buscador: altura fija 40px (= altura de .ent-input, UM y
-       stepper) y position:relative para anclar tanto el badge de seleccion
-       como las sugerencias en absolute. */
+    /* Buscador de producto */
     .ent-search-field { position:relative; height:40px; }
-    /* box-sizing:border-box: los 50px de padding (38px izq + 12px der) quedan DENTRO
-       del width:100%, sin desbordar el contenedor flex ni empujar al stepper. */
     .ent-search-input { width:100%; box-sizing:border-box; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
     .ent-search-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
-    /* Badge de producto seleccionado: SE SUPERPONE al input via position:absolute
-       (inset:0 = cubre todo el .ent-search-field). Antes era inline-flex normal y
-       el input quedaba visible "atras" del badge en algunos browsers — con absolute
-       el badge tapa por completo el area del buscador. z-index>input para garantizarlo. */
     .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
     .ent-selected-badge .cod { font-family:monospace; font-size:11.5px; font-weight:800; }
@@ -165,49 +123,28 @@
         background:#fff; border:1px solid #e2e8f0; border-radius:10px;
         box-shadow:0 12px 24px -8px rgba(15,23,42,0.20);
         max-height:300px; overflow-y:auto; padding:4px;
-        /* z-index alto: debe quedar ENCIMA del stepper y de cualquier otro
-           elemento — el valor 60 anterior no era suficiente cuando el padre
-           tenia position:relative (creaba nuevo stacking context). */
         z-index:9000; display:none;
     }
     .ent-suggest.open { display:block; }
-    /* Sugerencias del dropdown: CODIGO + NOMBRE LADO A LADO (no apilados verticalmente).
-       El codigo va fijo a la izquierda (no se encoge) y el nombre absorbe el resto
-       truncando con ellipsis si es largo — patron de autocompletes profesionales.
-       AMBOS van en el MISMO color (#0f172a / slate-900) — pedido del cliente para
-       que la lista no se vea "bicolor" (codigo azul + descripcion gris). El codigo
-       sigue diferenciandose visualmente por la FUENTE monospace + peso/tamano,
-       sin necesidad de un tono distinto. */
     .ent-suggest-item { display:flex; flex-direction:row; align-items:baseline; gap:8px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background .12s; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
     .ent-suggest-item .nom { font-size:13px; font-weight:600; color:#0f172a; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    /* UM al final de la sugerencia: diferencia presentaciones del mismo material
-       (mismo nombre, distinta UM). Texto atenuado alineado a la derecha, SIN caja —
-       precedido de un separador fino "·" para no competir con el codigo ni el nombre. */
     .ent-suggest-item .um { flex:0 0 auto; font-size:11px; font-weight:800; color:var(--maquinaria-blue,#0067b1); text-transform:uppercase; letter-spacing:.3px; }
     .ent-suggest-item .um::before { content:'·'; margin-right:6px; color:#cbd5e0; font-weight:400; }
     .ent-suggest-empty { padding:10px 12px; font-size:12.5px; color:#94a3b8; font-style:italic; }
 
-    /* Stepper de cantidad — clon del .alm-cant-stepper de /admin/almacen (variante
-       "is-active"). En el modulo origen tiene height:30px porque vive dentro de una
-       celda de tabla apretada; aqui sube a 40px para igualar la altura de .ent-input,
-       el campo UM y el buscador — quedan visualmente alineados. Border-radius 10px
-       para coincidir con los otros campos. */
+    /* Stepper de cantidad */
     .ent-cant-stepper { display:inline-flex; align-items:stretch; border:1px solid #cbd5e0; border-radius:10px; overflow:hidden; background:#fff; height:40px; }
     .ent-cant-stepper:focus-within { border-color:var(--maquinaria-blue,#0067b1); box-shadow:0 0 0 2px rgba(0,103,177,0.18); }
-    /* El input ocupa todo el ancho del stepper (los botones ▲▼ se eliminaron). */
     .ent-cant-input { flex:1 1 0; min-width:0; width:auto; height:100%; border:none; background:transparent; text-align:center; font-size:13.5px; font-weight:400; color:#0f172a; outline:none; padding:0; }
-    /* ── Tabla de productos agregados — estilo clon de .alm-table de /admin/almacen ── */
-    /* Barra de captura ARRIBA, tabla ABAJO. La barra cierra las esquinas
-       superiores y la tabla las inferiores para que se vean como una pieza. */
+
+    /* Barra de captura + tabla como pieza unificada */
     .ent-list-wrap { border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px; overflow:hidden; }
     .ent-capt-bar {
         display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-        padding:10px 14px; background:#f8fafc; margin-top:14px;
+        padding:10px 14px; background:#f1f5f9;
         border:1px solid #e2e8f0; border-radius:12px 12px 0 0;
     }
-    /* flex-wrap: en móvil el buscador toma el ancho y UND/cantidad bajan solos
-       (sin @media — los <style> inline no sobreviven el hard reload del SPA). */
     .ent-capt-bar .ent-search-field { flex:1 1 200px; }
     .ent-capt-bar .ent-um-wrap      { flex:0 1 150px; }
     .ent-capt-bar .ent-cant-stepper { flex:0 1 130px; }
@@ -220,6 +157,8 @@
     .ent-capt-add-btn:hover { background:#005391; }
     .ent-capt-add-btn:active { transform:scale(0.96); }
     .ent-capt-add-btn .material-icons { font-size:20px; }
+
+    /* Tabla de líneas */
     .ent-list-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .ent-list-table thead tr { background:#1e293b; }
     .ent-list-table thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
@@ -229,8 +168,6 @@
     .ent-list-table thead th.col-cant   { text-align:center; width:170px; }
     .ent-list-table thead th.col-del    { width:60px; text-align:center; }
     .ent-list-table tbody .col-num      { text-align:center; font-weight:700; color:#64748b; font-size:13px; }
-    /* Codigo del producto en la tabla: negro (no azul). Se mantiene monospace +
-       letter-spacing para que los codigos auto-generados (numericos, 000042) se lean alineados. */
     .ent-list-table tbody .col-codigo   { font-family:monospace; font-size:12.5px; font-weight:800; color:#0f172a; letter-spacing:.3px; white-space:nowrap; }
     .ent-list-table tbody td { padding:11px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .ent-list-table tbody td:last-child { border-right:none; }
@@ -242,124 +179,75 @@
     .ent-row-del-btn { background:none; border:none; cursor:pointer; color:#dc2626; padding:4px; border-radius:6px; transition:background .12s; }
     .ent-row-del-btn:hover { background:#fee2e2; }
 
-    /* Responsive mobile (≤768px) — movido a estilos_globales.css scopeado con
-       body:has(.ent-layout). Incluye: viewport padding, card/sidebar padding,
-       page-title-card column layout, mobile CARD layout para .ent-list-table
-       (cada <tr> se convierte en tarjeta 2x2). NO poner @media aqui — el SPA
-       descarta los <style> inline al hacer hard reload (ver comentario en
-       estilos_globales.css:2298). */
+    /* Responsive mobile — en estilos_globales.css scopeado con body:has(.ent-layout). */
 
-    /* ── Layout 2-columnas: card principal (izq) + sidebar "Resumen de Recepción" (der) ──
-       Inspirado en stitch design — la columna derecha aprovecha el espacio horizontal sobrante
-       y mueve las acciones (Registrar / Cancelar) fuera del flujo de captura. En desktop el
-       sidebar queda STICKY pegado debajo del nav (top:90px) para que el usuario lo vea
-       siempre mientras carga lineas. */
-    .ent-layout {
-        display:grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        gap:18px;
-        align-items: flex-start;
-    }
-    .ent-sidebar {
-        background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px;
-        box-shadow:0 4px 12px rgba(15,23,42,0.04);
-        position:sticky; top:90px;
-        display:flex; flex-direction:column; gap:14px;
-    }
-    /* Mobile responsive (≤1024px): .ent-layout se apila a 1fr y .ent-sidebar
-       pierde el sticky — movido a estilos_globales.css. */
-    .ent-sb-title {
-        margin:0; padding-bottom:10px;
-        font-size:16px; font-weight:700; color:#0f172a;
-        border-bottom:1px solid #e2e8f0;
-    }
-    /* Bloque "Observaciones" — textarea a 100% del ancho del sidebar para alinear
-       exactamente con los botones (Registrar / Cancelar). Sin caja gris envolvente
-       ni label: el placeholder define el propósito del campo. */
-    .ent-sb-obs-input {
-        width:100%; box-sizing:border-box;
-        border:1px solid #cbd5e0; border-radius:10px;
-        padding:8px 12px; font-size:13px;
-        background:#fff; outline:none; resize:vertical; min-height:40px;
-        font-family:inherit; color:#0f172a; line-height:1.4;
-    }
-    .ent-sb-obs-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
+    /* Layout single-column */
+    .ent-layout { max-width:100%; }
 
-    .ent-sb-actions { display:flex; flex-direction:column; gap:8px; }
-    /* Ambos botones del sidebar comparten dimensiones (height + font-size +
-       radius) para que se vean equilibrados verticalmente. La jerarquia
-       Primary/Secondary se transmite por color, peso y sombra — no por
-       tamano. */
-    .ent-sb-btn-primary,
-    .ent-sb-btn-secondary {
-        height:44px; width:100%;
-        border-radius:10px;
-        font-size:14px; font-weight:700; cursor:pointer;
-        display:flex; align-items:center; justify-content:center; gap:6px;
-    }
-    .ent-sb-btn-primary {
+    .ent-btn-submit {
+        height:38px; padding:0 20px; border-radius:10px; border:none; cursor:pointer;
         background:var(--maquinaria-blue,#0067b1); color:#fff;
-        border:none;
+        font-size:13.5px; font-weight:700; letter-spacing:.2px;
+        display:flex; align-items:center; gap:6px;
         transition:background .15s, transform .1s;
         box-shadow:0 4px 8px -2px rgba(0,103,177,0.3);
     }
-    .ent-sb-btn-primary:hover { background:#005391; }
-    .ent-sb-btn-primary:active { transform:scale(0.98); }
-    .ent-sb-btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
-    .ent-sb-btn-secondary {
-        background:#fff; color:#475569;
-        border:1px solid #cbd5e0;
+    .ent-btn-submit:hover { background:#005391; }
+    .ent-btn-submit:active { transform:scale(0.98); }
+    .ent-btn-submit:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+    .ent-btn-cancel {
+        height:38px; padding:0 16px; border-radius:10px; cursor:pointer;
+        background:#fff; color:#64748b; border:1px solid #cbd5e0;
+        font-size:13.5px; font-weight:600;
+        display:flex; align-items:center; gap:6px;
         transition:background .15s, color .15s, border-color .15s;
     }
-    .ent-sb-btn-secondary:hover { background:#fee2e2; color:#dc2626; border-color:#fca5a5; }
+    .ent-btn-cancel:hover { background:#fee2e2; color:#dc2626; border-color:#fca5a5; }
+
 </style>
 
-{{-- Layout 2-columnas: card principal (cabecera + captura + tabla) a la izquierda y
-     sidebar "Resumen de Recepción" a la derecha. En <1024px se apila. La card de la
-     izquierda mantiene la estructura UNICA anterior (Datos + captura + tabla); el
-     boton "Registrar entrada" se movio al sidebar (junto con "Cancelar operacion"
-     y la textarea de Observaciones). --}}
 <div class="ent-layout">
 <div class="ent-card">
-    {{-- Almacén destino: derivado del frente del usuario (TraspasoController@nuevaEntrada);
-         se muestra como pill en el page-title-card (arriba), aqui solo guardamos el id
-         en un <input hidden> para que el submit lo envie al backend. --}}
     <input type="hidden" id="entAlmacen" value="{{ $almacenDestino->ID_ALMACEN }}">
 
-    {{-- Grid de la CABECERA del lote — una sola fila de 4 columnas:
-         Nota | Proveedor | Fecha | [Botón Bandeja].
-         (La captura de productos se movió a la barra ARRIBA de la tabla, .ent-capt-bar.) --}}
+    {{-- Cabecera del lote: N° Doc | Proveedor | Fecha | Acciones — todo en una fila.
+         Los 4 bloques son hijos DIRECTOS del grid (sin wrapper display:contents, que
+         en algunos navegadores no colapsaba y apilaba los campos). --}}
     <div class="ent-form-grid">
-
-        {{-- ── FILA 1: cabecera de datos del lote ── --}}
-        <div class="ent-head-row">
-            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Nota de entrega (opcional)" autocomplete="off">
-            <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Proveedor (opcional)" autocomplete="off">
-            {{-- Wrapper de fecha: clic en CUALQUIER parte abre el picker. --}}
-            <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
-                 onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }"
-                 title="Fecha (default hoy)">
-                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13.5px;outline:none;color:#0f172a;cursor:pointer;">
-            </div>
-            {{-- Boton Bandeja de Entrada --}}
-            <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
-               class="ent-envios-btn"
-               aria-label="Ver bandeja de entrada — envíos pendientes">
-                <span>Bandeja</span>
-            </a>
+        <div class="ent-field-group">
+            <label class="ent-field-label" for="entNotaEntrega">N° Documento / OC</label>
+            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="OC-2026-045, Factura, etc." autocomplete="off">
         </div>
+        <div class="ent-field-group">
+            <label class="ent-field-label" for="entProveedor">Proveedor</label>
+            <input type="text" id="entProveedor" class="ent-input" maxlength="200" placeholder="Razón social o nombre" autocomplete="off">
+        </div>
+        <div class="ent-field-group">
+            <label class="ent-field-label" for="entFecha">Fecha</label>
+            <div class="ent-input" style="display:flex;align-items:center;cursor:pointer;"
+                 onclick="var i=document.getElementById('entFecha'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;outline:none;color:#0f172a;cursor:pointer;">
+            </div>
+        </div>
+        {{-- Acciones del lote: en la cabecera, al lado de Fecha (antes en el pie). --}}
+        <div class="ent-actions-group">
+            <button type="button" class="ent-btn-cancel" onclick="window.entCancelar()">
+                Cancelar
+            </button>
+            <button type="button" class="ent-btn-submit" id="entSubmit" onclick="window.entGuardar()">
+                <i class="material-icons" style="font-size:18px;">check_circle</i> Registrar<span class="ent-txt-full"> entrada</span>
+            </button>
+        </div>
+    </div>
 
-    </div>{{-- /ent-form-grid --}}
-
-    {{-- Barra de captura = la "fila activa" ARRIBA de la tabla. Buscás el
-         material (con sugerencias), UND y cantidad → Enter (o el botón ↵) agrega la
-         línea a la tabla de abajo y la barra se vacía para el siguiente. Si el material
-         no existe, ponés UND + cantidad y se crea al vuelo. Va FUERA de .ent-list-wrap
-         (overflow:hidden) para que los dropdowns de sugerencias no queden recortados. --}}
+    {{-- Sección de captura: título + barra + tabla --}}
+    <div style="display:flex;align-items:center;margin-top:20px;margin-bottom:0;">
+        <span style="font-size:13px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.5px;">Líneas de entrada</span>
+    </div>
     <div class="ent-capt-bar">
         <div class="ent-search-field">
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
-                   placeholder="Buscar por código (serial) o descripción…"
+                   placeholder="Buscar por código o descripción…"
                    oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
             <div id="entSelectedBadge" class="ent-selected-badge">
                 <span class="cod" id="entSelectedCod"></span>
@@ -368,29 +256,28 @@
             </div>
             <div id="entSuggest" class="ent-suggest"></div>
         </div>
-        <div class="ent-um-wrap" title="Unidad de medida (UND, KG, L, M, etc.)">
+        <div class="ent-um-wrap" title="Unidad de medida">
             <input type="text" id="entUm" class="ent-um-input" value="UND"
                    maxlength="20" autocomplete="off" aria-label="Unidad de medida" placeholder="UND"
                    oninput="window.entUmSuggest()" onfocus="window.entUmSuggest(true)" onkeydown="window.entUmKey(event)">
             <div id="entUmSuggest" class="ent-um-suggest"></div>
         </div>
-        <div class="ent-cant-stepper" title="Cantidad a ingresar (Enter agrega la línea)">
-            <input type="text" inputmode="decimal" id="entCant" class="ent-cant-input"
+        <div class="ent-cant-stepper" title="Cantidad (Enter agrega)">
+            <input type="text" inputmode="decimal" enterkeyhint="done" id="entCant" class="ent-cant-input"
                    placeholder="Cant." autocomplete="off" onkeydown="window.entCantKey(event)">
         </div>
-        <button type="button" class="ent-capt-add-btn" onclick="window.entAgregar()" title="Agregar (Enter)">
-            <i class="material-icons">subdirectory_arrow_left</i>
+        <button type="button" class="ent-capt-add-btn" onclick="window.entAgregar()" title="Agregar línea">
+            <i class="material-icons">add</i>
         </button>
     </div>
 
-    {{-- Tabla de productos ya agregados — debajo de la barra de captura. --}}
     <div class="ent-list-wrap">
         <table class="ent-list-table">
             <thead>
                 <tr>
                     <th class="col-num">Nº</th>
                     <th class="col-codigo">Código</th>
-                    <th>Descripción del producto</th>
+                    <th>Descripción</th>
                     <th class="col-cant">Cantidad</th>
                     <th class="col-del"></th>
                 </tr>
@@ -400,41 +287,8 @@
     </div>
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
-
 </div>
-
-{{-- ── Sidebar "Resumen de Recepción" ────────────────────────────────────
-     En desktop ≥1024px aparece a la derecha de la tabla (sticky para que las
-     acciones queden siempre visibles mientras el usuario captura lineas).
-     En mobile baja debajo de la card. NO incluye:
-       · Botón "Escanear" (la captura es manual con autocomplete).
-       · Sugerencia "Ctrl+F" (la tabla es chica, el atajo no aporta). --}}
-<aside class="ent-sidebar">
-    <h2 class="ent-sb-title">Resumen de Recepción</h2>
-
-    {{-- Observaciones: texto libre que viaja SOLO en el campo `notas` →
-         MovimientoInventario.NOTAS, para consulta posterior desde el kardex. La
-         "Nota de entrega" NO va aquí: tiene su propio campo `referencia` (REFERENCIA)
-         y el Proveedor el suyo (`motivo` → MOTIVO). El wrap (.ent-sb-obs) es solo un
-         agrupamiento lógico sin estilos — junta label+textarea para que el flex
-         gap del sidebar (14px) las trate como una unidad y NO meta 14px entre
-         label y textarea. Sin background ni padding lateral: la textarea queda
-         al 100% del sidebar y alinea con los botones de abajo. --}}
-    <div class="ent-sb-obs">
-        <textarea id="entObservaciones" class="ent-sb-obs-input" rows="2"
-                  maxlength="500" placeholder="Añadir comentarios internos..."></textarea>
-    </div>
-
-    <div class="ent-sb-actions">
-        <button type="button" class="ent-sb-btn-primary" id="entSubmit" onclick="window.entGuardar()">
-            <i class="material-icons">check_circle</i> Registrar entrada
-        </button>
-        <button type="button" class="ent-sb-btn-secondary" onclick="window.entCancelar()">
-            <i class="material-icons">cancel</i> Cancelar operación
-        </button>
-    </div>
-</aside>
-</div>{{-- /ent-layout --}}
+</div>
 
 <script>
 (function () {
@@ -933,7 +787,6 @@
             fecha:      v('entFecha') || null,
             referencia: v('entNotaEntrega')   || null,   // Nota de entrega (doc. del proveedor)
             motivo:     v('entProveedor')     || null,   // Proveedor (a quién devolver)
-            notas:      v('entObservaciones') || null,   // Observaciones del lote
             lineas:     entLineas.map(function (l) {
                 return { id_producto: l.id_producto, cantidad: l.cantidad };
             }),
@@ -1000,8 +853,8 @@
         // la auto-apertura del dropdown de sugerencias al refocar el buscador.
         window.entClearSelected(true);
         var c = el('entCant'); if (c) c.value = '';
-        // Reset de la cabecera del lote + observaciones.
-        ['entNotaEntrega', 'entProveedor', 'entObservaciones'].forEach(function (id) {
+        // Reset de la cabecera del lote.
+        ['entNotaEntrega', 'entProveedor'].forEach(function (id) {
             var e = el(id); if (e) e.value = '';
         });
         var fch = el('entFecha'); if (fch) fch.value = new Date().toISOString().slice(0, 10);

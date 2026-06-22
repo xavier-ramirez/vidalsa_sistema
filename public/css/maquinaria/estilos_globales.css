@@ -3334,38 +3334,30 @@ input:-webkit-autofill:active {
    no afectar otras paginas.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Boton "Bandeja" — font-size definido AQUI (no solo en el <style> inline del
-   blade) para que SIEMPRE aplique, incluso si el SPA no procesa el <style>
-   inline en una navegacion (ahi el texto heredaria ~16px del body). 14px para
-   igualar a los demas botones del modulo (.ent-sb-btn-* del sidebar). */
-body:has(.ent-layout) .ent-envios-btn { font-size: 14px; font-weight: 700; }
-body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
-
-@media (max-width: 1024px) {
-    /* Bajo 1024px el layout 2-col se apila — la tabla ya consume todo el ancho
-       y comprimir el sidebar mas dejaria los botones pequenos. El sidebar
-       pierde su sticky (queda en flujo normal). */
-    /* minmax(0, 1fr) (no 1fr plano): evita que un hijo ancho expanda la columna
-       y desborde la tarjeta blanca hacia la derecha (margen izq > der). */
-    body:has(.ent-layout) .ent-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-    body:has(.ent-layout) .ent-sidebar { position: static; top: auto; }
+/* Badge compacto "P" para diferenciar almacenes PROYECTO de GENERAL. */
+.alm-tipo-p {
+    display:inline-block; font-size:8px; font-weight:800; line-height:1;
+    background:#fef3c7; color:#b45309;
+    padding:1px 3px; border-radius:3px;
+    text-transform:uppercase; vertical-align:middle;
+    margin-left:3px;
 }
 
 @media (max-width: 900px) {
-    /* Cabecera (Nota|Proveedor|Fecha|Bandeja): 4 cols → 2 cols. .ent-head-row es
-       display:contents — el grid vive en .ent-form-grid. minmax(0,1fr) (no 1fr) por
-       el fix anti-desborde: con base 0 las columnas siempre caben. (La captura ya
-       no está acá: se movió a .ent-capt-bar, que maneja su propio responsive con flex-wrap.) */
+    /* Cabecera (Nota|Proveedor|Fecha|Acciones): 4 cols → Nota|Proveedor en 2 cols, y
+       Fecha + Acciones cada una a todo el ancho en su propia fila. Los 4 bloques son
+       hijos directos de .ent-form-grid. minmax(0,1fr) (no 1fr) por el fix anti-desborde:
+       con base 0 las columnas siempre caben. (La captura ya no está acá: se movió a
+       .ent-capt-bar, que maneja su propio responsive con flex-wrap.) */
     body:has(.ent-layout) .ent-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    /* Boton bandeja: ancho fijo moderado. Desde 900px el grid es de 2 columnas
-       — width:100% ocuparia media fila (enorme en tablet) y fit-content lo
-       dejaba diminuto en telefono. 130px = tamaño parejo y tappable en ambos;
-       max-width:100% lo protege en pantallas muy chicas. Alineado a la derecha. */
-    body:has(.ent-layout) .ent-envios-btn {
-        width: 130px !important;
-        max-width: 100% !important;
-        justify-self: end !important;
-    }
+    body:has(.ent-layout) .ent-form-grid > :nth-child(3),
+    body:has(.ent-layout) .ent-form-grid > :nth-child(4) { grid-column: 1 / -1; }
+    /* Acciones a todo el ancho con botones 50/50. justify-content:center para que
+       el texto quede centrado en cada botón (Cancelar / Registrar) al ocupar todo
+       el ancho — sin esto el flex los deja pegados a la izquierda. */
+    body:has(.ent-layout) .ent-actions-group { align-self: stretch; }
+    body:has(.ent-layout) .ent-actions-group .ent-btn-submit,
+    body:has(.ent-layout) .ent-actions-group .ent-btn-cancel { flex: 1 1 0; justify-content: center; }
 }
 
 @media (max-width: 768px) {
@@ -3386,11 +3378,8 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
         box-sizing: border-box !important;
         gap: 10px !important;
     }
-    /* Card y sidebar: full-width, padding chico, border-box — los anchos
-       internos coinciden y la textarea/botones del sidebar alinean con la
-       card de arriba. */
-    body:has(.ent-layout) .ent-card,
-    body:has(.ent-layout) .ent-sidebar {
+    /* Card: full-width, padding chico */
+    body:has(.ent-layout) .ent-card {
         width: 100% !important; max-width: 100% !important;
         margin: 0 !important; box-sizing: border-box !important;
         padding: 8px !important;
@@ -3398,14 +3387,21 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     /* Margen entre el page-title-card y la primera card: el global pone 20px,
        en este modulo es excesivo (no hay titulo visible, solo la pill almacen). */
     body:has(.ent-layout) .page-title-card { margin-bottom: 10px !important; }
-    /* Sidebar: gap mas compacto 14→10 en mobile (cliente: "comprime bien las
-       cosas") — el gap del .ent-layout se consolido en su regla de arriba. */
-    body:has(.ent-layout) .ent-sidebar { gap: 10px !important; }
     /* page-title-card: titulo OCULTO, separador OCULTO, layout apilado para
        que el bloque del Almacen ocupe todo el ancho. */
     body:has(.ent-layout) .page-title-card .page-title { display: none !important; }
     body:has(.ent-layout) .page-title-card .ent-header-sep { display: none !important; }
     body:has(.ent-layout) .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+    /* Fila 2 = tabs de navegación: NO apilar (la regla de arriba pone column a
+       TODOS los > div del page-title-card). Las dos pestañas van lado a lado,
+       cada una al 50%, centradas y SIN icono para ganar espacio en el teléfono. */
+    body:has(.ent-layout) .page-title-card > div.ent-tabs { flex-direction: row !important; align-items: stretch !important; gap: 0 !important; }
+    body:has(.ent-layout) .ent-tabs > a,
+    body:has(.ent-layout) .ent-tabs > span { flex: 1 1 0 !important; justify-content: center !important; padding-left: 6px !important; padding-right: 6px !important; }
+    body:has(.ent-layout) .ent-tabs .material-icons { display: none !important; }
+    /* Texto opcional que se OCULTA en teléfono para acortar etiquetas:
+       "Registrar entrada" → "Registrar" y "Entrada directa (ODC)" → "Entrada directa". */
+    body:has(.ent-layout) .ent-txt-full { display: none !important; }
     /* ent-header-block: pill blanca del almacen destino. Centramos el grupo
        horizontalmente (justify-content:center) — antes quedaba flush-left por
        el default flex-start, y como la pill no siempre se estira al 100% del
@@ -3535,35 +3531,30 @@ body:has(.ent-layout) .ent-envios-btn span { font-size: inherit; }
     body:has(.ent-layout) .ent-capt-bar .ent-um-input      { height: 36px !important; font-size: 12px !important; padding: 0 7px !important; }
     body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper  { flex: 0 0 100px !important; height: 36px !important; }
     body:has(.ent-layout) .ent-capt-bar .ent-cant-input    { font-size: 13px !important; }
+    /* Botón "+" en teléfono: solo se ve en iOS (regla html.is-ios), pero lo
+       dimensionamos a 36px para que combine con la fila (UM/cantidad). En Android/PC
+       está display:none, así que estas medidas no afectan ahí. */
     body:has(.ent-layout) .ent-capt-add-btn { flex: 0 0 36px !important; width: 36px !important; height: 36px !important; border-radius: 8px !important; }
     body:has(.ent-layout) .ent-capt-add-btn .material-icons { font-size: 18px !important; }
 }
 
 @media (max-width: 480px) {
-    /* Pantallas muy chicas (telefono): Nota y Proveedor ocupan su propia fila
-       full-width; Fecha y Bandeja van JUNTAS en la ultima fila, una al lado de la
-       otra (50/50), cada una llenando su mitad. (La captura ya no está en este grid:
-       vive en .ent-capt-bar, con su propio responsive.) */
-    body:has(.ent-layout) .ent-head-row > :nth-child(1),
-    body:has(.ent-layout) .ent-head-row > :nth-child(2) {
+    /* Pantallas muy chicas (telefono): cada campo de la cabecera a todo el ancho,
+       apilado. Nota y Proveedor full-width aquí; Fecha y Acciones ya van full-width
+       desde el breakpoint ≤900. (La captura no está en este grid: vive en
+       .ent-capt-bar, con su propio responsive.) */
+    body:has(.ent-layout) .ent-form-grid > :nth-child(1),
+    body:has(.ent-layout) .ent-form-grid > :nth-child(2) {
         grid-column: 1 / -1;
-    }
-    /* Bandeja: llena su mitad (en vez del boton fijo de 130px alineado a la
-       derecha de la regla ≤900px) para quedar pareja con la Fecha de al lado. */
-    body:has(.ent-layout) .ent-envios-btn {
-        width: 100% !important;
-        max-width: none !important;
-        justify-self: stretch !important;
     }
 }
 
-/* ── Recepción "Nueva entrada": botón "Agregar línea" (subdirectory_arrow_left) ──
-   En PC la línea se agrega con Enter (entCantKey/entUmKey → entAgregar), así que el
-   botón se OCULTA; en móvil (≤900px, sin Enter cómodo) se MUESTRA. Va aquí (global,
-   con cache-busting ?v=filemtime) y no en el <style> inline de la vista porque ese
-   no es fiable tras navegación SPA. El !important gana sobre el display:flex inline;
-   el orden importa: la base oculta, la regla @media (más abajo) la muestra en móvil. */
+/* ── Recepción "Nueva entrada": botón "Agregar línea" (+) ──
+   En PC (teclado físico) y Android (la tecla ✓/Enter del teclado numérico, con
+   enterkeyhint="done") la línea se agrega con Enter → el botón "+" se OCULTA por
+   redundante. En iOS el teclado decimal NO trae tecla Enter, así que ahí el botón
+   SÍ se muestra (regla html.is-ios de abajo; la clase la pone el layout). Va aquí
+   (global, con cache-busting ?v=filemtime) y no en el <style> inline de la vista
+   porque ese no es fiable tras navegación SPA. */
 .ent-capt-add-btn { display: none !important; }
-@media (max-width: 900px) {
-    .ent-capt-add-btn { display: flex !important; }
-}
+html.is-ios .ent-capt-add-btn { display: flex !important; }

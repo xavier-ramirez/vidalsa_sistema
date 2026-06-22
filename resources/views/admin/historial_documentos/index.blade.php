@@ -7,14 +7,15 @@
     .badge-doc {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         background: #ebf8ff;
         color: #2b6cb0;
-        padding: 4px 10px;
+        padding: 3px 9px;
         border-radius: 6px;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 600;
     }
+    .badge-doc .material-icons { font-size: 13px; }
     .badge-autor {
         display: inline-flex;
         align-items: center;
@@ -199,7 +200,7 @@
             grid-area: doc;
         }
         .table-historial-mobile tbody td:nth-child(3) .badge-doc {
-            font-size: 11px;
+            font-size: 10px;
             padding: 3px 8px;
             border-radius: 6px;
         }

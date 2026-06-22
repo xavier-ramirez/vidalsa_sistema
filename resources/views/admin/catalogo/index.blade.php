@@ -85,6 +85,8 @@
     .cat-action-btn.edit:hover  { background: #0067b1; color: #fff; }
     .cat-action-btn.del   { color: #ef4444; bottom: 6px; right: 6px; }
     .cat-action-btn.del:hover   { background: #ef4444; color: #fff; }
+    .cat-action-btn.cat-del-photo { color: #ef4444; bottom: 6px; left: 6px; z-index: 4; }
+    .cat-action-btn.cat-del-photo:hover { background: #ef4444; color: #fff; }
     /* Overlay "Cambiar foto": cubre la foto y aparece al hover. pointer-events:none
        para que el click llegue al .cat-photo (que tiene el onclick de subida). Los
        botones de acción van por encima (z-index:3). */
@@ -773,6 +775,78 @@
                 },
                 function (msg) { if (window.showToast) window.showToast(msg, 'error'); }
             );
+        });
+    };
+
+    // ── Borrar foto VEHÍCULO (solo super.admin) ──
+    window.catDeletePhoto = function (id, photoEl) {
+        if (!confirm('¿Eliminar la foto de este modelo?')) return;
+        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        fetch('{{ url("admin/catalogo") }}/' + id + '/photo', {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (res.ok && res.body.success) {
+                if (window.showToast) window.showToast(res.body.message || 'Foto eliminada.', 'success');
+                if (photoEl) {
+                    var img = photoEl.querySelector('img');
+                    if (img) img.outerHTML = '<i class="material-icons placeholder">precision_manufacturing</i>';
+                    var delBtn = photoEl.querySelector('.cat-del-photo');
+                    if (delBtn) delBtn.remove();
+                }
+            } else {
+                if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
+            }
+        })
+        .catch(function () {
+            if (window.hidePreloader) window.hidePreloader();
+            if (window.showToast) window.showToast('Error de red al eliminar la foto.', 'error');
+        });
+    };
+
+    // ── Borrar foto AUXILIAR (solo super.admin) ──
+    window.auxCatDeletePhoto = function (photoEl) {
+        if (!confirm('¿Eliminar la foto de este modelo auxiliar?')) return;
+        var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
+            modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
+        if (!tipo || !marca || !modelo) {
+            if (window.showToast) window.showToast('No se pudo identificar el modelo.', 'error');
+            return;
+        }
+        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        var fd = new FormData();
+        fd.append('_method', 'DELETE');
+        fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
+        if (anio) fd.append('anio', anio);
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        fetch('{{ route("equipos-auxiliares.catalogo.deletePhoto") }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: fd, credentials: 'same-origin'
+        })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (res.ok && res.body.success) {
+                if (window.showToast) window.showToast(res.body.message || 'Foto eliminada.', 'success');
+                if (photoEl) {
+                    var img = photoEl.querySelector('img');
+                    if (img) img.outerHTML = '<i class="material-icons placeholder">construction</i>';
+                    var delBtn = photoEl.querySelector('.cat-del-photo');
+                    if (delBtn) delBtn.remove();
+                }
+            } else {
+                if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
+            }
+        })
+        .catch(function () {
+            if (window.hidePreloader) window.hidePreloader();
+            if (window.showToast) window.showToast('Error de red al eliminar la foto.', 'error');
         });
     };
 

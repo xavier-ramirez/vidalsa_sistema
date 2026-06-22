@@ -1044,12 +1044,19 @@ class AlmacenController extends Controller
                 ->pluck('NUMERO_NOTA')
             : collect();
 
+        $frentesMovimientos = Almacen::usuarioEsGlobal($request->user())
+            ? \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+                ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+            : \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+                ->whereHas('almacenes', fn ($q) => $q->whereIn('almacenes.ID_ALMACEN', $visiblesIds))
+                ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
+
         return view('admin.almacen.movimientos', [
             'movimientos'     => $paginator,
             'total'           => $paginator->total(),
             'almacenes'       => $almacenes,
             'idAlmacenActivo' => $idAlmacenActivo,
-            'frentesLista'    => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
+            'frentesLista'    => $frentesMovimientos,
             // Lista de productos activos para el autocomplete del filtro de búsqueda.
             // CATEGORIA incluida para avisar en el buscador si un material es de otra categoría.
             'productosLista'  => ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']),
@@ -1171,17 +1178,30 @@ class AlmacenController extends Controller
             ? (int) $request->input('id_almacen')
             : null;
 
+        $frentesNotas = Almacen::usuarioEsGlobal($request->user())
+            ? \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+                ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+            : \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+                ->whereHas('almacenes', fn ($q) => $q->whereIn('almacenes.ID_ALMACEN', $visiblesIds))
+                ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html'       => view('admin.almacen.partials.notas_rows', ['notas' => $paginator, 'almById' => $almById, 'freById' => $freById])->render(),
+                'pagination' => $paginator->links('vendor.pagination.custom-sliding')->toHtml(),
+                'total'      => $paginator->total(),
+            ]);
+        }
+
         return view('admin.almacen.notas', [
             'notas'           => $paginator,
             'total'           => $paginator->total(),
             'almacenes'       => $almacenes,
             'idAlmacenActivo' => $idAlmacenActivo,
-            'frentesLista'    => \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']),
+            'frentesLista'    => $frentesNotas,
             'categorias'      => $categorias,
             'almById'         => $almById,
             'freById'         => $freById,
-            // Ranking de consumo (mismo cálculo y filtros que /admin/almacen/movimientos).
-            // Aplica al sidebar y respeta id_almacen / id_frente / desde / hasta / search / categoria.
             'consumo'         => $this->consumoRanking($request),
         ]);
     }

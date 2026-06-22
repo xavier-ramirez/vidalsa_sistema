@@ -180,7 +180,13 @@ const VidalsaWebAuthn = (() => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         });
-        if (res.status === 419) { window.location.reload(); return; }
+        // 419 (CSRF/sesión) y 422 (challenge expirado: la sesión perdió el desafío
+        // entre login-options y login, p.ej. tras los 20 min de SESSION_LIFETIME)
+        // son fallos TRANSITORIOS de sesión, no errores del usuario. En vez de
+        // mostrar un mensaje amarillo de "token/challenge vencido", recargamos para
+        // que el siguiente toque genere un challenge fresco. Los errores reales
+        // (401/403/429) sí caen abajo y se muestran.
+        if (res.status === 419 || res.status === 422) { window.location.reload(); return; }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error de autenticación');
         return data;

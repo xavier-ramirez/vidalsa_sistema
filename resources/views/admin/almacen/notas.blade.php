@@ -57,7 +57,7 @@
                             @foreach(($almacenes ?? collect()) as $a)
                                 <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                      onclick="selectOption('almNotFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
+                                    {{ $a->NOMBRE }}@if($a->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif
                                 </div>
                             @endforeach
                         </div>
@@ -354,79 +354,12 @@
                 </tr>
             </thead>
             <tbody id="almNotTableBody">
-                @forelse($notas as $n)
-                    @php
-                        $tipoNum = $n->TIPO;
-                        $alm     = isset($almById) && isset($n->ID_ALMACEN) ? ($almById[$n->ID_ALMACEN] ?? null) : null;
-                        $fre     = isset($freById) && isset($n->ID_FRENTE) ? ($freById[$n->ID_FRENTE] ?? null) : null;
-                        $contra  = isset($almById) && isset($n->ID_ALMACEN_CONTRAPARTE) ? ($almById[$n->ID_ALMACEN_CONTRAPARTE] ?? null) : null;
-                        $pdfUrl  = route('almacen.nota-entrega', ['numero' => $n->NUMERO_NOTA]);
-                    @endphp
-                    {{-- Fila SIN onclick: el unico disparador del PDF es el boton de la
-                         columna PDF. Antes habia un row-click que abria el modal del PDF
-                         con cualquier toque accidental — eliminado para evitar aperturas
-                         no deseadas. --}}
-                    <tr>
-                        <td style="white-space:nowrap;">
-                            <div>{{ \Illuminate\Support\Carbon::parse($n->FECHA)->format('d/m/Y') }}</div>
-                            <div style="margin-top:3px;">
-                                @if(in_array($tipoNum, ['SALIDA', 'TRASPASO_SALIDA']))
-                                    <span style="font-size:12px;font-weight:700;color:#dc2626;">Salida</span>
-                                @elseif(in_array($tipoNum, ['ENTRADA', 'TRASPASO_ENTRADA']))
-                                    <span style="font-size:12px;font-weight:700;color:#16a34a;">Entrada</span>
-                                @else
-                                    <span style="font-size:12px;font-weight:700;color:#475569;">Auditoría</span>
-                                @endif
-                            </div>
-                        </td>
-                        <td>
-                            <span style="font-weight:700;color:#334155;font-size:13px;">{{ $n->NUMERO_NOTA }}</span>
-                        </td>
-                        <td>
-                            {{ $alm?->NOMBRE ?? '—' }}
-                            @if($alm)
-                                <div style="font-size:11px;color:#94a3b8;font-weight:500;">{{ $alm->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}</div>
-                            @endif
-                        </td>
-                        <td>
-                            @if($contra)
-                                {{ $contra->NOMBRE }}
-                                @if($fre)
-                                    <div style="font-size:11px;color:#94a3b8;font-weight:500;">{{ $fre->NOMBRE_FRENTE }}</div>
-                                @endif
-                            @elseif($fre)
-                                {{ $fre->NOMBRE_FRENTE }}
-                            @else
-                                <span style="color:#94a3b8;">—</span>
-                            @endif
-                        </td>
-                        <td>
-                            {{-- Mismo botón que /admin/equipos > modal Detalles (ver doc Propiedad/Póliza/etc):
-                                 cuadrado 30×30 con gradiente azul + icono "description" blanco. Abre el
-                                 visor in-page (#pdfPreviewModal) — no pestaña nueva. --}}
-                            <button type="button" class="anf-pdf-btn"
-                               onclick="window.openPdfPreview('{{ $pdfUrl }}', 'nota_entrega', 'Nota {{ $n->NUMERO_NOTA }}', 0, '', true, 'almacen');"
-                               title="Ver Nota {{ $n->NUMERO_NOTA }} (PDF)">
-                                <i class="material-icons">description</i>
-                            </button>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="anf-empty">
-                            <i class="material-icons">description</i>
-                            No hay Notas de Entrega que coincidan con los filtros.
-                            <div style="font-size:12px;color:#94a3b8;margin-top:6px;">
-                                Las notas se generan automáticamente al registrar una Salida o un Traspaso desde <a href="{{ route('almacen.index') }}" style="color:#0067b1;">Almacén</a>.
-                            </div>
-                        </td>
-                    </tr>
-                @endforelse
+                @include('admin.almacen.partials.notas_rows', ['notas' => $notas, 'almById' => $almById, 'freById' => $freById])
             </tbody>
         </table>
     </div>
 
-    <div style="margin-top:14px;">
+    <div id="almNotPagination" style="margin-top:14px;">
         {{ $notas->links('vendor.pagination.custom-sliding') }}
     </div>
 
@@ -440,7 +373,7 @@
         <div style="position:relative;z-index:2;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;opacity:0.9;margin-bottom:5px;">Total Notas</div>
             <div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">{{ $total }}</span>
+                <span id="almNotTotalCount" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">{{ $total }}</span>
                 <span style="font-size:12px;opacity:0.85;font-weight:500;">notas (según filtros)</span>
             </div>
         </div>
@@ -465,24 +398,62 @@
     function el(id) { return document.getElementById(id); }
     function hv(name) { var e = document.querySelector('input[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
-    // Reload de la vista respetando los filtros activos. No es AJAX — recarga la URL.
-    window.loadNotas = function () {
-        var p = new URLSearchParams();
-        var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
-        var tipo = hv('tipo'); if (tipo && tipo !== 'all') p.set('tipo', tipo);
-        var fr = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
-        var cat = hv('categoria'); if (cat && cat !== 'all') p.set('categoria', cat);
-        var s = el('almNotSearch'); if (s && s.value.trim()) p.set('search', s.value.trim());
-        var d = el('almNotDesde'); if (d && d.value) p.set('desde', d.value);
-        var h = el('almNotHasta'); if (h && h.value) p.set('hasta', h.value);
-        var url = @json(route('almacen.notas'));
-        var qs = p.toString();
-        window.location.href = url + (qs ? ('?' + qs) : '');
+    window.loadNotas = async function (pageUrl) {
+        var body = el('almNotTableBody');
+        if (!body) return;
+
+        if (window.showPreloader) window.showPreloader();
+        body.style.opacity = '0.5';
+
+        try {
+            var p = new URLSearchParams();
+            var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
+            var tipo = hv('tipo'); if (tipo && tipo !== 'all') p.set('tipo', tipo);
+            var fr = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
+            var cat = hv('categoria'); if (cat && cat !== 'all') p.set('categoria', cat);
+            var s = el('almNotSearch'); if (s && s.value.trim()) p.set('search', s.value.trim());
+            var d = el('almNotDesde'); if (d && d.value) p.set('desde', d.value);
+            var h = el('almNotHasta'); if (h && h.value) p.set('hasta', h.value);
+
+            if (pageUrl && typeof pageUrl === 'string') {
+                try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (_) {}
+            }
+
+            var baseUrl = @json(route('almacen.notas'));
+            var qs = p.toString();
+            var finalUrl = baseUrl + (qs ? ('?' + qs) : '');
+
+            var resp = await fetch(finalUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } });
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var data = await resp.json();
+
+            body.innerHTML = data.html || '';
+            body.style.opacity = '1';
+
+            var pag = document.getElementById('almNotPagination');
+            if (pag) pag.innerHTML = data.pagination || '';
+
+            var cnt = document.getElementById('almNotTotalCount');
+            if (cnt && data.total !== undefined) cnt.textContent = data.total;
+
+            if (window.history && window.history.pushState) {
+                window.history.pushState(null, '', finalUrl);
+            }
+
+            var sb = el('almNotSearchClear');
+            if (sb) sb.style.display = (s && s.value.trim()) ? 'block' : 'none';
+            var box = s ? s.closest('.anf-search-box') : null;
+            if (box) { if (s.value.trim()) box.classList.add('active'); else box.classList.remove('active'); }
+        } catch (e) {
+            console.error('[loadNotas]', e);
+            if (body) body.style.opacity = '1';
+        } finally {
+            if (window.hidePreloader) window.hidePreloader();
+        }
     };
 
-    // Selección en cualquier custom-dropdown de la barra de filtros → recarga la URL.
-    // Mismo patrón que /admin/almacen/movimientos: uicomponents.js emite el evento
-    // 'dropdown-selection' al seleccionar/limpiar — sin polling ni mutation observers.
+    // Selección en cualquier custom-dropdown → recarga via AJAX.
+    // uicomponents.js emite 'dropdown-selection' al seleccionar/limpiar.
     var _almNotReady = false;
     setTimeout(function () { _almNotReady = true; }, 500);
     window.addEventListener('dropdown-selection', function (e) {
@@ -500,16 +471,11 @@
         var p = el('almNotFechasPanel'); if (!p) return;
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
-    // "Limpiar Todo" del panel avanzados: borra desde, hasta y categoria de la
-    // URL y recarga. NO usamos clearDropdownFilter() para la categoria porque
-    // emite el evento 'dropdown-selection' que dispara nuestro listener -> race
-    // con el loadNotas() final. En vez de eso vaciamos el hidden a mano y
-    // construimos la URL nueva directamente, sin pasar por hv() para el campo
-    // categoria (asi garantizamos que no quede colgado en la query string).
+    // "Limpiar Todo" del panel avanzados: borra tipo, categoria, desde y hasta.
+    // Usa clearDropdownFilter para resetear la UI visual de los dropdowns pero
+    // desactiva el guard _almNotReady para no disparar loadNotas por cada clear.
     window.almNotLimpiarFechas = function (ev) {
         if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-
-        // Vaciar campos en el DOM (por si el redirect falla — quedan limpios visualmente).
         var d = el('almNotDesde'), h = el('almNotHasta');
         if (d) d.value = '';
         if (h) h.value = '';
@@ -517,19 +483,13 @@
         var hc = el('almNotHastaClear'); if (hc) hc.style.display = 'none';
         var db = el('almNotDesdeBox'); if (db) db.style.background = 'white';
         var hb = el('almNotHastaBox'); if (hb) hb.style.background = 'white';
-        var ch = document.querySelector('input[name="categoria"][data-filter-value]');
-        if (ch) ch.value = '';
-
-        // Construir la URL conservando SOLO los filtros que NO estan en avanzados
-        // (almacen, frente, tipo, search). De avanzados (desde, hasta, categoria) NADA.
-        var p = new URLSearchParams();
-        var alm  = hv('id_almacen');  if (alm)                       p.set('id_almacen', alm);
-        var tipo = hv('tipo');        if (tipo && tipo !== 'all')    p.set('tipo', tipo);
-        var fr   = hv('id_frente');   if (fr && fr !== 'all')        p.set('id_frente', fr);
-        var s    = el('almNotSearch');if (s && s.value.trim())       p.set('search', s.value.trim());
-        var url  = @json(route('almacen.notas'));
-        var qs   = p.toString();
-        window.location.href = url + (qs ? ('?' + qs) : '');
+        _almNotReady = false;
+        if (typeof clearDropdownFilter === 'function') {
+            clearDropdownFilter('almNotFiltroTipo');
+            clearDropdownFilter('almNotFiltroCat');
+        }
+        _almNotReady = true;
+        window.loadNotas();
     };
     document.addEventListener('click', function (e) {
         var p = el('almNotFechasPanel'); var b = el('btnAdvancedFilterNot');
@@ -556,8 +516,11 @@
         };
     }
 
-    // Nota: el visor in-page del PDF se invoca directamente desde el boton de la
-    // columna PDF (window.openPdfPreview(...)). No hay row-click ni helper extra.
+    // Paginación AJAX
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('#almNotPagination a.page-link');
+        if (link) { e.preventDefault(); e.stopImmediatePropagation(); window.loadNotas(link.href); }
+    });
 })();
 </script>
 @endsection

@@ -35,7 +35,7 @@
                 {{-- Fecha del movimiento (FECHA, solo dia) + HORA real de registro (created_at,
                      que sí guarda la hora — FECHA es tipo date y siempre va en 00:00). --}}
                 <div>{{ optional($m->FECHA)->format('d/m/Y') }} <span class="mv-hora" style="color:inherit;font-weight:500;font-size:11.5px;">{{ optional($m->created_at)->format('h:i A') }}</span></div>
-                <span class="mv-tipo-inline" style="display:inline-flex;align-items:center;gap:4px;background:{{ $meta[2] }};color:{{ $meta[1] }};font-weight:700;font-size:11px;padding:2px 8px;border-radius:999px;margin-top:3px;">
+                <span class="mv-tipo-inline" style="display:inline-flex;align-items:center;gap:3px;color:{{ $meta[1] }};font-weight:700;font-size:11px;margin-top:3px;">
                     <i class="material-icons" style="font-size:13px;">{{ $meta[3] }}</i>{{ $meta[0] }}
                 </span>
             </td>
@@ -66,7 +66,7 @@
             <td class="mv-td-cantidad" data-label="Cantidad" style="font-weight:800;color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};white-space:nowrap;">{{ $signo }}{{ $fmt($mag) }} <span style="color:#64748b;font-weight:600;font-size:10.5px;">{{ $m->producto?->UM }}</span></td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
                  queda como tooltip de la celda para ver el delta sin saturar la tabla. --}}
-            <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="font-weight:700;white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
+            <td class="mv-td-stock" data-label="Stock" title="Antes: {{ $fmt($m->CANTIDAD_ANTERIOR) }} → Después: {{ $fmt($m->CANTIDAD_RESULTANTE) }}" style="white-space:nowrap;">{{ $fmt($m->CANTIDAD_RESULTANTE) }}</td>
             <td class="mv-td-destino" data-label="Destino" style="font-size:12.5px;">
                 {{-- Cadena de fallback para el Destino del movimiento:
                      1) FRENTE asignado (lo elige el operario en SALIDA / TRASPASO / ENTRADA con frente).

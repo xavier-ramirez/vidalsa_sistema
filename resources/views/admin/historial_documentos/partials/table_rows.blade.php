@@ -14,7 +14,7 @@
         </td>
         <td>
             <span class="badge-doc">
-                <i class="material-icons" style="font-size: 16px;">description</i>
+                <i class="material-icons">description</i>
                 {{ $event->tipo }}
             </span>
         </td>

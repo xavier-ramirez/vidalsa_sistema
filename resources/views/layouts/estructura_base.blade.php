@@ -333,6 +333,20 @@
         };
     </script>
 
+    <script>
+        // Marca <html> con .is-ios en dispositivos Apple táctiles (iPhone/iPad). El CSS
+        // lo usa para MOSTRAR el botón "+" de "Nueva entrada (ODC)" SOLO en iOS, cuyo
+        // teclado decimal no trae tecla Enter. En Android/PC la línea se agrega con Enter
+        // y el botón va oculto. Corre una vez al cargar y persiste entre navegaciones SPA
+        // (documentElement no se reemplaza).
+        (function () {
+            var ua = navigator.userAgent || '';
+            var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            if (isIOS) document.documentElement.classList.add('is-ios');
+        })();
+    </script>
+
     @yield('extra_css')
 </head>
 
@@ -432,7 +446,7 @@
                 </div>
             </div>
 
-            {{-- Almacén Dropdown: Inventario + Notas de Entrega (con badge si hay envíos pendientes) + Kardex --}}
+            {{-- Almacén Dropdown: Inventario + Recepción (con badge si hay envíos pendientes) + Kardex --}}
             <div class="nav-dropdown">
                 <a href="#"
                     class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
@@ -445,11 +459,11 @@
                         class="nav-dropdown-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                         <i class="material-icons">inventory_2</i> Inventario
                     </a>
-                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+                    <a href="{{ route('almacen.recepcion.index') }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                         style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
                         <span style="display:flex;align-items:center;gap:8px;">
-                            <i class="material-icons">move_to_inbox</i> Notas de Entrega
+                            <i class="material-icons">move_to_inbox</i> Recepción
                         </span>
                         @php $__nav_traspasosPorRecibir = $traspasosPorRecibir ?? 0; @endphp
                         @if($__nav_traspasosPorRecibir > 0)
@@ -609,11 +623,11 @@
                     class="mobile-nav-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                     <i class="material-icons">inventory_2</i> Inventario
                 </a>
-                <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+                <a href="{{ route('almacen.recepcion.index') }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                     style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
                     <span style="display:flex;align-items:center;gap:10px;">
-                        <i class="material-icons">move_to_inbox</i> Notas de Entrega
+                        <i class="material-icons">move_to_inbox</i> Recepción
                     </span>
                     @php $__nav_traspasosPorRecibir_m = $traspasosPorRecibir ?? 0; @endphp
                     @if($__nav_traspasosPorRecibir_m > 0)

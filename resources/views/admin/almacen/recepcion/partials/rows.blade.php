@@ -5,25 +5,23 @@
     @php
         $e = \App\Models\Traspaso::ESTADOS_META[$t->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
         $neNumero = $t->REFERENCIA ?: $t->NUMERO;
-        $esNE = (bool) $t->REFERENCIA;
         // Antigüedad desde el envío para indicador visual
         $horasDesdeEnvio = $t->FECHA_ENVIO ? now()->diffInHours($t->FECHA_ENVIO) : null;
     @endphp
     <tr data-id="{{ $t->ID_TRASPASO }}">
-        <td style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">
+        <td style="font-family:monospace;font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;letter-spacing:.3px;">
             {{ $neNumero }}
         </td>
-        <td style="font-size:12.5px;">
-            <div style="font-weight:700;color:#1e293b;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}</div>
-            <div style="color:#64748b;display:flex;align-items:center;gap:4px;margin-top:2px;">
-                <i class="material-icons" style="font-size:13px;">arrow_downward</i>
-                {{ optional($t->almacenDestino)->NOMBRE ?: '—' }}
+        <td style="font-size:12px;">
+            <div style="font-weight:700;color:#1e293b;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}@if(optional($t->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</div>
+            <div style="color:#64748b;display:flex;align-items:center;gap:3px;margin-top:1px;">
+                <i class="material-icons" style="font-size:12px;color:#94a3b8;">south</i>
+                <span style="font-weight:600;">{{ optional($t->almacenDestino)->NOMBRE ?: '—' }}@if(optional($t->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
             </div>
         </td>
         <td style="text-align:center;">
             <span class="estado-pill" style="background:{{ $e[1] }};color:{{ $e[2] }};">{{ $e[0] }}</span>
         </td>
-        {{-- Líneas: lista CODIGO + descripción de cada producto del traspaso. --}}
         <td class="tr-lineas-cell">
             <div class="tr-lineas-box">
                 @forelse($t->lineas as $linea)
@@ -36,17 +34,17 @@
                 @endforelse
             </div>
         </td>
-        <td style="font-size:12.5px;color:#475569;white-space:nowrap;">
+        <td style="font-size:12px;color:#475569;white-space:nowrap;">
             @if($t->FECHA_ENVIO)
                 {{ $t->FECHA_ENVIO->format('d-M-Y H:i') }}
                 @if($t->esEnviado() && $horasDesdeEnvio !== null)
-                    <div style="margin-top:2px;">
+                    <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
                         @if($horasDesdeEnvio < 24)
-                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;vertical-align:middle;" title="Hace menos de 24h"></span>
+                            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;" title="Hace menos de 24h"></span>
                         @elseif($horasDesdeEnvio < 72)
-                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;vertical-align:middle;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} día(s)"></span>
+                            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} día(s)"></span>
                         @else
-                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;vertical-align:middle;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} días"></span>
+                            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} días"></span>
                         @endif
                         <span style="font-size:10.5px;color:#94a3b8;">{{ $t->FECHA_ENVIO->diffForHumans() }}</span>
                     </div>
@@ -55,7 +53,7 @@
                 —
             @endif
         </td>
-        <td style="font-size:12.5px;color:#475569;white-space:nowrap;">
+        <td style="font-size:12px;color:#475569;white-space:nowrap;">
             {{ $t->FECHA_RECEPCION ? $t->FECHA_RECEPCION->format('d-M-Y H:i') : '—' }}
         </td>
     </tr>

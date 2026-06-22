@@ -63,6 +63,21 @@
                 </div>
             @endcan
 
+            @can('super.admin')
+                @if($item['foto_url'])
+                    <button type="button" class="cat-action-btn cat-del-photo"
+                            onclick="event.stopPropagation();
+                                @if($esVeh)
+                                    catDeletePhoto('{{ $item['id'] }}', this.closest('.cat-photo'));
+                                @else
+                                    auxCatDeletePhoto(this.closest('.cat-photo'));
+                                @endif"
+                            title="Eliminar foto">
+                        <i class="material-icons">no_photography</i>
+                    </button>
+                @endif
+            @endcan
+
             {{-- Acciones (solo VEHÍCULO: editar/eliminar el modelo del catálogo).
                  El <a> navega vía SPA (navigateTo) en vez de href directo para que
                  muestre spinner + transición sin recargar la página. --}}
@@ -72,7 +87,7 @@
                    onclick="event.stopPropagation(); event.preventDefault(); if(window.navigateTo) window.navigateTo(this.href); else window.location.href = this.href;">
                     <i class="material-icons">edit</i>
                 </a>
-                @can('equipos.assign')
+                @can('super.admin')
                     <button type="button" class="cat-action-btn del"
                             onclick="event.stopPropagation(); confirmDeleteCatalogo('{{ $item['id'] }}', '{{ addslashes($item['modelo']) }}')"
                             title="Eliminar Modelo">

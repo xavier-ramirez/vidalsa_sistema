@@ -136,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
             // Subida de foto desde la tarjeta del catálogo (sin abrir el form de edición).
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
             Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->name('catalogo.uploadFoto');
+            Route::delete('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'deleteFoto'])->middleware('can:super.admin')->name('catalogo.deleteFoto');
             Route::resource('catalogo', App\Http\Controllers\CaracteristicaModeloController::class);
 
             // ── Consumibles ──────────────────────────────────────────────────
@@ -178,6 +179,7 @@ Route::middleware(['auth'])->group(function () {
             // Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD (vista de solo lectura)
             Route::get   ('equipos-auxiliares/catalogo',       [App\Http\Controllers\EquipoAuxiliarController::class, 'catalogo'])->name('equipos-auxiliares.catalogo');
             Route::post  ('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadCatalogoPhoto'])->middleware('can:equipos.create')->name('equipos-auxiliares.catalogo.uploadPhoto');
+            Route::delete('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'deleteCatalogoPhoto'])->middleware('can:super.admin')->name('equipos-auxiliares.catalogo.deletePhoto');
             Route::post  ('equipos-auxiliares/bulk-delete',    [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos-auxiliares.bulkDelete');
             Route::get   ('equipos-auxiliares/papelera',       [App\Http\Controllers\EquipoAuxiliarController::class, 'papelera'])->middleware('can:user.delete')->name('equipos-auxiliares.papelera');
             Route::patch ('equipos-auxiliares/{id}/restore',   [App\Http\Controllers\EquipoAuxiliarController::class, 'restoreAuxiliar'])->middleware('can:user.delete')->name('equipos-auxiliares.restore');

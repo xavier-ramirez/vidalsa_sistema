@@ -26,7 +26,7 @@ class CaracteristicaModeloController extends Controller
     {
         $this->middleware('auth');
         $this->middleware('can:equipos.create')->only(['store', 'update', 'uploadFoto']);
-        $this->middleware('can:super.admin')->only(['destroy']);
+        $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto']);
     }
 
     /** Reglas de validación compartidas por store y update. */
@@ -530,6 +530,49 @@ class CaracteristicaModeloController extends Controller
                 'success' => false,
                 'message' => 'No se pudo actualizar la foto: ' . $e->getMessage(),
             ], 500);
+        }
+    }
+
+    public function deleteFoto(Request $request, $id)
+    {
+        $catalogo = CaracteristicaModelo::findOrFail($id);
+
+        if (!$catalogo->FOTO_REFERENCIAL) {
+            return response()->json(['success' => false, 'message' => 'Este modelo no tiene foto.'], 422);
+        }
+
+        $fileId = str_replace('/storage/google/', '', explode('?', $catalogo->FOTO_REFERENCIAL)[0]);
+
+        try {
+            DB::transaction(function () use ($catalogo) {
+                $catalogo->update(['FOTO_REFERENCIAL' => null]);
+            });
+
+            \App\Models\CatalogoAuditLog::registrar(
+                $catalogo->ID_ESPEC,
+                'delete_foto',
+                $catalogo->MODELO,
+                $catalogo->ANIO_ESPEC !== null ? (int) $catalogo->ANIO_ESPEC : null,
+                ['foto' => ['antes' => '/storage/google/' . $fileId, 'despues' => null]]
+            );
+
+            // Drive + caché: diferido para que la respuesta sea inmediata.
+            if ($fileId) {
+                defer(function () use ($fileId) {
+                    try {
+                        GoogleDriveService::getInstance()->deleteFile($fileId);
+                        \Illuminate\Support\Facades\Storage::disk('local')->delete('google_cache/' . $fileId);
+                        \Illuminate\Support\Facades\Cache::forget('gdrive_meta_' . $fileId);
+                    } catch (\Exception $e) {
+                        Log::warning("Drive delete failed for catalog photo: {$fileId} - " . $e->getMessage());
+                    }
+                });
+            }
+
+            return response()->json(['success' => true, 'message' => 'Foto eliminada correctamente.']);
+        } catch (\Throwable $e) {
+            Log::error('Error eliminando foto de catálogo ID ' . $id . ': ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'No se pudo eliminar la foto.'], 500);
         }
     }
 

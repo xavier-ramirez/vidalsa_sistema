@@ -1,22 +1,25 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Notas de Entrega')
+@section('title', 'Recepción de materiales')
 
 @section('content')
 @php
-    $reqEstado     = request('estado');
+    // Estado activo del filtro. Por defecto (sin parámetro) la bandeja muestra solo
+    // "En tránsito" (ENVIADO) = pendientes de confirmar. Debe coincidir con el default
+    // del TraspasoController@index para que el <select> refleje lo que realmente se ve.
+    $reqEstado     = request('estado', \App\Models\Traspaso::ESTADO_ENVIADO);
     // `idAlmacenDestinoActivo` lo provee el controller incluyendo el default-merge por frente
     // del usuario. Es la fuente de verdad — no usamos request('id_almacen_destino') porque
     // el merge del controller no siempre llega al helper global al renderizar el Blade.
     $reqDestino    = $idAlmacenDestinoActivo ?? null;
     $reqSearch     = request('search');           // por NUMERO de nota de entrega
-    $reqSearchProd = request('search_producto');  // por CODIGO/NOMBRE de producto en las lineas
 
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
     // $hayAdv = ¿hay algún filtro activo del PANEL Avanzado? El "Almacén destino" vive en
     // el header — su estado se refleja en su propio control, no en el botón embudo.
-    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado && $reqEstado !== 'all');
+    // "En tránsito" (ENVIADO) es el default de la bandeja → NO cuenta como filtro activo.
+    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO);
 
     // Metadata visual de los estados — definida en \App\Models\Traspaso::ESTADOS_META.
     $badgesEstado = \App\Models\Traspaso::ESTADOS_META;
@@ -33,65 +36,73 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-        <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Notas de Entrega</span>
-        </h1>
-        {{-- Separador vertical sutil + selector de almacén destino. Mismo idioma visual
-             que /admin/almacen y /admin/almacen/movimientos para que el usuario reconozca
-             inmediatamente que "esta es la recepción DE este almacén". --}}
+    {{-- Fila 1: Título + selector de almacén --}}
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="flex:0 0 auto;">
+            <h1 class="page-title" style="margin:0;">
+                <span class="page-title-line2" style="color:#000;">Recepción de materiales</span>
+            </h1>
+        </div>
         <span aria-hidden="true" style="display:inline-block;width:1px;height:34px;background:#cbd5e0;flex:0 0 auto;"></span>
-        <div style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
-            <div style="width:320px;min-width:200px;max-width:100%;">
-                <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
-                    <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
-                    <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
-                        <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
-                        <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                               placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes destino' }}"
-                               style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
-                               oninput="window.filterDropdownOptions(this)">
-                        {{-- X = "ver todos los almacenes destino". Mandamos 'all' explícito (NO
-                             clearDropdownFilter que pondría '') para evitar que el controller
-                             re-aplique el default por frente. --}}
-                        <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="event.stopPropagation(); selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">close</i>
-                    </div>
-                    <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                        <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                            <div class="dropdown-item {{ !$destSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">TODOS LOS ALMACENES DESTINO</div>
-                            @foreach(($almacenes ?? collect()) as $a)
-                                <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
-                                     onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
-                                </div>
-                            @endforeach
-                        </div>
+        <div style="flex:1 1 260px;max-width:360px;">
+            <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino" data-default-label="Todos">
+                <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
+                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
+                    <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
+                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                           placeholder="{{ $destSel ? $destSel->NOMBRE : 'Todos los almacenes' }}"
+                           style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
+                           oninput="window.filterDropdownOptions(this)">
+                    <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $destSel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                       onclick="event.stopPropagation(); selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">close</i>
+                </div>
+                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                        <div class="dropdown-item {{ !$destSel ? 'selected' : '' }}" data-value="all" onclick="selectOption('trDestHeaderDropdown','all','TODOS LOS ALMACENES DESTINO');">TODOS LOS ALMACENES</div>
+                        @foreach(($almacenes ?? collect()) as $a)
+                            <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
+                                 onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
+                                {{ $a->NOMBRE }}@if($a->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif
+                            </div>
+                        @endforeach
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    {{-- Fila 2: Tabs de navegación --}}
+    <div style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
+        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+           style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;text-decoration:none;transition:all .15s;">
+            <i class="material-icons" style="font-size:16px;">inbox</i> Bandeja de entrada
+        </a>
+        @can('almacen.movimiento')
+        <a href="{{ route('almacen.recepcion.nueva') }}"
+           style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;"
+           onmouseenter="this.style.color='#0067b1'" onmouseleave="this.style.color='#64748b'">
+            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada directa (ODC)
+        </a>
+        @endcan
+    </div>
 </section>
 
 <style>
-    #trFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    /* ── Bandeja de recepción — estilo WMS profesional ── */
+
+    /* Toolbar de filtros */
+    #trFilters {
+        display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+        padding:10px 14px; margin-bottom:12px;
+        background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+    }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
-    /* Filtro de N° de nota: ancho fijo y compacto (es un código corto tipo TR-2026-0001,
-       no necesita una caja larga). Tiene su propia lista de sugerencias debajo. */
-    #trFilters .tr-search-num  { flex:0 0 240px; max-width:240px; min-width:180px; position:relative; }
-    /* Filtro "Buscar producto" por CODIGO/NOMBRE — busca en las LINEAS de los traspasos
-       pendientes (no en el stock). Aparece la nota completa si CUALQUIERA de sus lineas
-       matchea, asi el usuario destino puede ubicar la entrada sin recordar el TR-####.
-       Ancho extra (vs los otros 2 filtros) — el cliente lo pidio mas ancho para
-       escribir terminos completos sin que se vea apretado. */
-    #trFilters .tr-search-prod { flex:1 1 380px; max-width:520px; min-width:240px; position:relative; }
-    .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
+    #trFilters .tr-search-num  { flex:1 1 280px; max-width:400px; min-width:200px; position:relative; }
+    .tr-search-box { display:flex; align-items:center; height:40px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
-    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
-    /* Dropdown de sugerencias del N° de nota — calcado del patrón .alm-suggest
-       del inventario para consistencia visual entre los dos buscadores. */
+    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:8px 5px; font-size:13px; min-width:0; color:#0f172a; }
+
+    /* Dropdown de sugerencias */
     .tr-suggest {
         position:absolute; top:calc(100% + 4px); left:0; right:0;
         background:#fff; border:1px solid #e2e8f0; border-radius:10px;
@@ -111,31 +122,118 @@
     }
     .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
-    /* Variante "producto": el CÓDIGO va PRIMERO y la descripción después, ambos con la
-       MISMA letra (sin negrita ni monospace — el código hereda el estilo del item). La
-       descripción ocupa el resto y se envuelve, para ver la mayor parte en pantallas chicas. */
-    .tr-suggest-item.tr-suggest-prod { font-family:inherit; font-size:13px; font-weight:600; display:flex; align-items:flex-start; gap:8px; }
-    .tr-suggest-item.tr-suggest-prod .tr-prod-cod { flex:0 0 auto; white-space:nowrap; }
-    .tr-suggest-item.tr-suggest-prod .tr-prod-nom { flex:1 1 auto; min-width:0; }
-    /* Tabla con el mismo estilo que /admin/equipos y /admin/almacen (.table-row-header style) */
+
+    /* Tabla */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .tr-table thead tr { background:#1e293b; }
-    .tr-table thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .tr-table thead th { text-align:left; color:#fff; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
     .tr-table thead th:last-child { border-right:none; }
-    .tr-table tbody td { padding:12px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
+    .tr-table tbody td { padding:11px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
     .tr-table tbody td:last-child { border-right:none; }
     .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
+    .tr-table tbody tr:nth-child(even) td { background:#fafbfc; }
+    .tr-table tbody tr:nth-child(even):hover td { background:#e0f2fe; }
     .estado-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; }
+    .pill-linea { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px; }
 
-    /* ── Columna "Líneas": lista CODIGO + descripción de cada producto del traspaso ──
-       El <div> interno lleva width fija + scroll: una descripción larga no ensancha
-       la columna y un traspaso con muchas líneas no alarga la fila desmesuradamente
-       (el <td> por sí solo no respeta max-height/overflow). */
+    /* ── Modal detalle/recepción ── */
+    .dtm-overlay {
+        display:none; position:fixed; inset:0; z-index:99999;
+        background:rgba(0,0,0,0.55); backdrop-filter:blur(3px);
+        align-items:center; justify-content:center; padding:10px;
+    }
+    .dtm-overlay.open { display:flex; }
+    .dtm-box {
+        background:#fff; border-radius:16px; width:100%; max-width:700px;
+        max-height:90vh; display:flex; flex-direction:column; overflow:hidden;
+        box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
+        animation: dtmIn .2s ease-out;
+    }
+    @keyframes dtmIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    .dtm-header { padding:16px 20px 12px; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
+    .dtm-title-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .dtm-numero { font-family:monospace; font-size:17px; font-weight:800; color:#0f172a; }
+    .dtm-close {
+        margin-left:auto; background:transparent; border:none; cursor:pointer;
+        color:#64748b; padding:4px; border-radius:6px; transition:background .15s;
+    }
+    .dtm-close:hover { background:#f1f5f9; color:#0f172a; }
+    .dtm-meta { display:flex; flex-wrap:wrap; gap:0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+    .dtm-meta-item { flex:1 1 140px; padding:6px 10px; border-right:1px solid #e2e8f0; }
+    .dtm-meta-item:last-child { border-right:none; }
+    .dtm-meta-label { display:block; font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; }
+    .dtm-meta-value { font-size:12.5px; font-weight:600; color:#1e293b; }
+    .dtm-sub { font-size:11px; color:#94a3b8; font-weight:400; }
+
+    .dtm-body { flex:1; overflow-y:auto; padding:14px 20px; }
+    .dtm-notas { display:flex; align-items:flex-start; gap:6px; padding:8px 10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; font-size:12.5px; color:#92400e; margin-bottom:10px; }
+    .dtm-banner { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:12.5px; font-weight:600; color:#1e40af; margin-bottom:10px; }
+    .dtm-banner i { font-size:18px; }
+    .dtm-lineas-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .dtm-lineas-header span:first-child { font-size:12px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
+    .dtm-lineas-count { font-size:11px; font-weight:800; color:#0067b1; background:#e1effa; padding:2px 8px; border-radius:999px; }
+    .dtm-lineas-wrap { display:flex; flex-direction:column; gap:8px; }
+
+    .dtm-linea {
+        background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+        padding:10px 12px; display:flex; flex-direction:column; gap:6px;
+    }
+    .dtm-linea-prod { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+    .dtm-linea-cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; white-space:nowrap; }
+    .dtm-linea-nom { font-size:13px; font-weight:600; color:#475569; }
+    .dtm-linea-um { font-size:10.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; }
+    .dtm-linea-cant-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .dtm-linea-enviado, .dtm-linea-recibido, .dtm-linea-diff { display:flex; flex-direction:column; gap:1px; }
+    .dtm-cant-label { font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; }
+    .dtm-cant-value { font-size:14px; font-weight:700; font-family:monospace; color:#0f172a; }
+    .dtm-rec-input {
+        width:90px; height:32px; border:1px solid #93c5fd; border-radius:6px;
+        padding:0 6px; font-size:13px; font-weight:700; background:#eff6ff;
+        outline:none; color:#1e3a5f; text-align:right; font-family:monospace;
+    }
+    .dtm-rec-input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
+    .dtm-diff-value { font-size:13px; font-weight:700; font-family:monospace; color:#64748b; }
+    .dtm-linea-danado { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#b45309; cursor:pointer; }
+    .dtm-linea-danado input { margin:0; accent-color:#b45309; }
+
+    .dtm-footer {
+        display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+        padding:12px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
+        background:#f8fafc;
+    }
+    .dt-btn {
+        height:40px; padding:0 16px; border-radius:10px; cursor:pointer;
+        font-size:13px; font-weight:700; letter-spacing:.2px;
+        display:inline-flex; align-items:center; gap:5px;
+        transition:background .15s, transform .1s;
+    }
+    .dt-btn i { font-size:17px; }
+    .dt-btn-cancel { background:#fff; color:#dc2626; border:1px solid #fca5a5; }
+    .dt-btn-cancel:hover { background:#fee2e2; border-color:#dc2626; }
+    .dt-btn-confirm-all { background:#065f46; color:#fff; border:none; }
+    .dt-btn-confirm-all:hover { background:#064e3b; }
+    .dt-btn-primary { background:#16a34a; color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(22,163,74,0.3); }
+    .dt-btn-primary:hover { background:#15803d; }
+    .dt-btn-primary:active, .dt-btn-confirm-all:active { transform:scale(0.98); }
+    .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
+    .dt-btn-blue:hover { background:#005391; }
+
+    @media (max-width: 768px) {
+        .dtm-overlay { padding:0; align-items:flex-end; }
+        .dtm-box { max-width:100%; max-height:95vh; border-radius:16px 16px 0 0; }
+        .dtm-meta-item { flex:1 1 45%; }
+        .dtm-footer { flex-direction:column; }
+        .dtm-footer .dt-btn { width:100%; justify-content:center; }
+        .dtm-linea-cant-row { gap:8px; }
+        .dtm-rec-input { width:70px; }
+    }
+
+    /* Columna de materiales */
     .tr-lineas-cell { vertical-align:top; }
-    .tr-lineas-box  { width:300px; max-height:150px; overflow-y:auto; font-size:12.5px; }
+    .tr-lineas-box  { width:280px; max-height:120px; overflow-y:auto; font-size:12px; scrollbar-width:thin; }
     .tr-linea-item  { display:flex; gap:6px; align-items:baseline; }
-    .tr-linea-item + .tr-linea-item { margin-top:4px; padding-top:4px; border-top:1px dashed #eef2f6; }
-    .tr-linea-cod   { font-family:monospace; font-weight:800; color:#0f172a; white-space:nowrap; flex:0 0 auto; }
+    .tr-linea-item + .tr-linea-item { margin-top:3px; padding-top:3px; border-top:1px dashed #eef2f6; }
+    .tr-linea-cod   { font-family:monospace; font-weight:800; color:#0f172a; white-space:nowrap; flex:0 0 auto; font-size:11.5px; }
     .tr-linea-desc  { color:#475569; font-weight:600; min-width:0; }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
@@ -169,18 +267,11 @@
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
         .page-title-card > div > div > div[style*="width:320px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
-        /* Filtros en mobile: el N° de nota va en su fila; Buscar producto comparte
-           fila con el boton de Filtros Avanzados; Recepcion ODC abajo. */
+        /* Filtros en mobile: el N° de nota comparte fila con el boton de Filtros Avanzados. */
         #trFilters { gap: 8px !important; }
-        /* Buscar N° de nota — fila propia full-width */
-        #trFilters > .tr-search-num { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        /* Buscar producto — comparte fila con el boton Filtros Avanzados, que
-           conserva su tamaño natural 45x45 por su flex:0 0 auto inline. */
-        #trFilters > .tr-search-prod { flex: 1 1 0 !important; max-width: none !important; min-width: 0 !important; }
-        /* Boton azul "Recepcion ODC" (la <a>): fila propia full-width, centrado.
-           Si el usuario no tiene `almacen.movimiento` el directive Blade oculta
-           la `<a>` y no pasa nada. */
-        #trFilters > a { flex: 1 1 100% !important; width: 100% !important; margin-left: 0 !important; justify-content: center !important; }
+        /* Buscar N° de nota — ocupa el resto de la fila junto al boton Filtros Avanzados (40x40). */
+        #trFilters > .tr-search-num { flex: 1 1 0 !important; max-width: none !important; min-width: 0 !important; }
+        /* (El botón "Recepción ODC" ya no vive en #trFilters — se movió a los tabs del header.) */
         /* Panel Filtros Avanzados desplegado: su centrado en mobile vive ahora en
            estilos_globales.css (regla unica para todos los modulos). */
 
@@ -196,8 +287,9 @@
              └───────────────────────────────────┘
            El acento izquierdo se hace con box-shadow:inset (no border-left:3px)
            para mantener simetria horizontal — mismo fix aplicado en /movimientos.
-           "Recibido" oculto: en esta bandeja ESTADO=ENVIADO y esa columna siempre
-           queda vacia. ══════════════════════════════════════════════ */
+           "Fecha recibido" no se muestra en la tarjeta mobile por espacio (en el
+           default "En tránsito" va vacia; si se filtra Confirmadas el dato se ve en
+           el desktop). ══════════════════════════════════════════════ */
         .tr-table { display: block !important; min-width: 0 !important; background: transparent !important; border: none !important; }
         .tr-table thead { display: none !important; }
         .tr-table tbody { display: flex !important; flex-direction: column !important; gap: 10px !important; width: 100% !important; }
@@ -292,7 +384,8 @@
             border-top: 1px dashed #e2e8f0 !important;
             grid-area: meta !important;
         }
-        /* td:6 = Fecha recibido — oculta en mobile (siempre vacia en bandeja ENVIADO). */
+        /* td:6 = Fecha recibido — oculta en mobile por espacio (vacia en el default
+           "En tránsito"; visible en desktop al filtrar Confirmadas). */
         .tr-table tbody tr[data-id] td:nth-child(6) { display: none !important; }
 
         /* Iconito sutil antes de la fecha de envío. La celda Líneas ya no es un
@@ -311,7 +404,7 @@
     }
 </style>
 
-<div class="admin-card" style="margin:0;min-height:70vh;padding:14px;">
+<div class="admin-card" style="margin:0;min-height:70vh;padding:16px;">
 
     {{-- ── Filtros (search por N° de nota + filtros avanzados estilo equipos) ──
          trSearch → por NUMERO de la nota de entrega (TR-2026-…) con autocomplete
@@ -330,29 +423,12 @@
             <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
 
-        {{-- Filtro "Buscar producto" (por CODIGO o NOMBRE).
-             A diferencia del buscador de /admin/almacen (que busca en el STOCK del
-             almacen actual), ESTE busca en las LINEAS de los traspasos PENDIENTES
-             por confirmar. Util cuando el usuario destino sabe qué material está
-             esperando pero no recuerda el N° de la nota (TR-YYYY-NNNN). El backend
-             hace whereHas('lineas.producto', ...) con LIKE tokenizado. --}}
-        <div class="tr-item tr-search-prod">
-            <div class="tr-search-box {{ $reqSearchProd ? 'active' : '' }}">
-                <i class="material-icons lupa">inventory_2</i>
-                <input type="text" id="trSearchProd" autocomplete="off" placeholder="Buscar por descripción o código" value="{{ $reqSearchProd }}"
-                       oninput="window.trSearchProdInput()"
-                       onkeydown="window.trSearchProdEnter(event)"
-                       onblur="setTimeout(function(){ var s=document.getElementById('trSearchProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
-            </div>
-            <div id="trSearchProdSuggest" class="tr-suggest"></div>
-        </div>
-
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" class="btn-primary-maquinaria" title="Filtros Avanzados"
-                    style="height:45px;width:45px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px;
+                    style="height:40px;width:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;
                            background:{{ $hayAdv ? '#fee2e2' : '#fff' }};border:1px solid {{ $hayAdv ? '#ef4444' : '#cbd5e0' }};color:{{ $hayAdv ? '#ef4444' : '#64748b' }};box-shadow:none;"
                     onclick="window.trToggleAdv(event)">
-                <i class="material-icons">filter_list</i>
+                <i class="material-icons" style="font-size:20px;">tune</i>
             </button>
             <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:360px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100;margin-top:10px;padding:14px;">
                 <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
@@ -366,11 +442,13 @@
                 <div style="display:flex;flex-direction:column;gap:10px;">
                     <div>
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Estado</span>
-                        <select id="trEstado" onchange="window.trLoad()" style="width:100%;height:36px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;background:{{ ($reqEstado && $reqEstado !== 'all') ? '#e1effa' : '#fff' }};font-size:13px;color:#0f172a;outline:none;cursor:pointer;">
-                            <option value="all">Todos los estados</option>
+                        {{-- Azul = filtro distinto del default (pendientes). "En tránsito"
+                             es el estado por defecto, así que se ve en blanco (reposo). --}}
+                        <select id="trEstado" onchange="window.trLoad()" style="width:100%;height:36px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;background:{{ $reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO ? '#e1effa' : '#fff' }};font-size:13px;color:#0f172a;outline:none;cursor:pointer;">
                             @foreach($badgesEstado as $k => $b)
                                 <option value="{{ $k }}" {{ $reqEstado === $k ? 'selected' : '' }}>{{ $b[0] }}</option>
                             @endforeach
+                            <option value="all" {{ $reqEstado === 'all' ? 'selected' : '' }}>Todas (historial)</option>
                         </select>
                     </div>
                     {{-- "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown). --}}
@@ -398,36 +476,19 @@
             </div>
         </div>
 
-        @can('almacen.movimiento')
-        {{-- "Recepción ODC" abre la pagina dedicada de Registrar entrada directa
-             (antes era un modal #entModal en esta misma vista — ahora es pantalla
-             propia con autocomplete de producto por codigo o descripcion). --}}
-        {{-- font-size:13px explicito: .btn-primary-maquinaria no define font-size,
-             asi el texto heredaba ~16px del body y se veia mas grande que los
-             filtros vecinos (13-14px). Va en el style inline del <a> para que
-             aplique siempre (atributo del elemento, a prueba de SPA). --}}
-        <a href="{{ route('almacen.recepcion.nueva') }}" class="btn-primary-maquinaria"
-           style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;border-radius:12px;box-shadow:none;margin-left:auto;text-decoration:none;font-size:13px;"
-           title="Ingresar productos directamente mediante una Orden de Compra">
-            <i class="material-icons" style="font-size:16px;">local_shipping</i><span style="font-weight:700;">Recepción ODC</span>
-        </a>
-        @endcan
     </div>
 
     {{-- ── Tabla ── --}}
-    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:12px;">
+    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
         <table class="tr-table">
             <thead>
-                {{-- Tooltips en cada <th>: hover sobre el header explica al usuario que
-                     muestra cada columna. Acompañan el lenguaje visual de la app sin
-                     ocupar espacio extra de filas guía. --}}
                 <tr>
-                    <th title=”Número de la Nota de Entrega (NE-YYYY-NNNN).”>Nº Nota</th>
-                    <th title=”Arriba (negrita) el almacén que ENVÍA; abajo con flecha el almacén que RECIBE.”>Origen / Destino</th>
-                    <th style=”text-align:center;” title=”Enviado (esperando confirmación) · Recibido · Parcial (incompleto) · Cancelado.”>Estado</th>
-                    <th title=”Productos incluidos en la nota: código y descripción de cada línea.”>Materiales</th>
-                    <th title=”Fecha y hora en que se despachó. Indicador de antigüedad: verde < 24h, amarillo 1-3 días, rojo > 3 días.”>Enviado</th>
-                    <th title=”Fecha y hora en que el destino confirmó la recepción.”>Confirmado</th>
+                    <th title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
+                    <th title="Arriba el almacén que ENVÍA; abajo el que RECIBE.">Origen / Destino</th>
+                    <th style="text-align:center;" title="Estado actual de la nota.">Estado</th>
+                    <th title="Productos incluidos en la nota.">Materiales</th>
+                    <th title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
+                    <th title="Fecha de confirmación de recepción.">Confirmado</th>
                 </tr>
             </thead>
             <tbody id="trTableBody">
@@ -437,6 +498,11 @@
     </div>
 
     <div style="margin-top:14px;" id="trPagination">{{ $traspasos->links('vendor.pagination.custom-sliding') }}</div>
+</div>
+
+{{-- ── Modal detalle/recepción ── --}}
+<div class="dtm-overlay" id="trDetalleOverlay" onclick="if(event.target===this) window.trCloseModal();">
+    <div class="dtm-box" id="trDetalleBox"></div>
 </div>
 
 <script>
@@ -449,12 +515,6 @@
     // el controller en cada render; 300 más recientes — suficiente para el
     // autocomplete sin pedir un endpoint extra.
     var TR_NUMEROS = @json($numerosNotas ?? []);
-
-    // Catalogo de productos para alimentar el autocomplete del filtro "Buscar
-    // producto". El usuario clickea una sugerencia y la tabla muestra SOLO las
-    // notas pendientes cuyas lineas incluyen ese producto. Tambien soporta tipear
-    // texto libre y presionar Enter — busca por CODIGO/NOMBRE en las lineas.
-    var TR_PRODUCTOS = @json($productosLista ?? []);
 
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
@@ -510,169 +570,15 @@
         window.trLoad();
     };
 
-    // ── Autocomplete del filtro "Buscar producto" — buscador "estilo Google" ──
-    //   Mismo criterio que el filtro Descripcion de /admin/almacen: normaliza
-    //   (lower + sin acentos), tokeniza, descarta stopwords y numeros sueltos
-    //   cortos, tolera errores de tipeo (distancia de edicion) y RANKEA los
-    //   resultados por relevancia en vez de exigir match exacto de todos los
-    //   tokens. Hasta 10 sugerencias; clic elige el texto y dispara trLoad.
-    function trNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
-    var TR_STOPWORDS = { de:1, del:1, la:1, el:1, los:1, las:1, un:1, una:1,
-                         unos:1, unas:1, y:1, e:1, o:1, u:1, a:1, en:1, con:1,
-                         para:1, por:1 };
-    function trLeven(a, b, max) {
-        var la = a.length, lb = b.length;
-        if (la === 0) return lb;
-        if (lb === 0) return la;
-        if (Math.abs(la - lb) > max) return max + 1;
-        var prev = [], cur = [], i, j;
-        for (j = 0; j <= lb; j++) prev[j] = j;
-        for (i = 1; i <= la; i++) {
-            cur[0] = i;
-            var best = i;
-            for (j = 1; j <= lb; j++) {
-                var cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
-                if (cur[j] < best) best = cur[j];
-            }
-            if (best > max) return max + 1;
-            for (j = 0; j <= lb; j++) prev[j] = cur[j];
-        }
-        return prev[lb];
-    }
-    function trTokenizar(raw) {
-        var crudos = trNorm(raw || '').split(/\s+/).filter(Boolean);
-        var sig = crudos.filter(function (t) {
-            return !TR_STOPWORDS[t];
-        });
-        return sig.length ? sig : crudos;
-    }
-    function trScoreToken(palabras, hayFull, token) {
-        var esNum = /^\d+$/.test(token);
-        var idx = hayFull.indexOf(token);
-        if (idx > -1) {
-            var s = 12;
-            if (idx === 0) s += 12;
-            else if (hayFull.charAt(idx - 1) === ' ') s += 9;
-            if (esNum) s += 8;
-            for (var wi = 0; wi < palabras.length; wi++) {
-                if (palabras[wi] === token) { s += 10; break; }
-            }
-            return { score: s, hit: true };
-        }
-        if (esNum) return { score: 0, hit: false };
-        var tol = token.length <= 2 ? 1 : (token.length <= 5 ? 2 : 3);
-        var mejor = tol + 1;
-        for (var i = 0; i < palabras.length; i++) {
-            var w = palabras[i];
-            if (!w) continue;
-            var d = trLeven(token, w, tol);
-            if (d < mejor) mejor = d;
-            if (w.length > token.length) {
-                var dp = trLeven(token, w.substr(0, token.length), tol);
-                if (dp < mejor) mejor = dp;
-            }
-            if (mejor === 0) break;
-        }
-        if (mejor <= tol) return { score: 8 - mejor * 2, hit: true };
-        return { score: 0, hit: false };
-    }
-    window.trSearchProdInput = function () {
-        var input = el('trSearchProd');
-        var box   = el('trSearchProdSuggest');
-        if (!input || !box) return;
-        var rawTerm = String(input.value || '').trim();
-
-        if (rawTerm === '') {
-            box.classList.remove('open');
-            clearTimeout(window._trSTP);
-            window._trSTP = setTimeout(window.trLoad, 400);
-            return;
-        }
-
-        var tokens = trTokenizar(rawTerm);
-        var matches = [];
-        if (tokens.length === 0) {
-            for (var i = 0; i < TR_PRODUCTOS.length && matches.length < 17; i++) {
-                matches.push(TR_PRODUCTOS[i]);
-            }
-        } else {
-            // Scoring: cada producto suma el score de cada token (substring
-            // fuerte / fuzzy debil). Candidato si matchea >= la mitad de los
-            // tokens. Bonus por todos los tokens, frase completa, nombre corto.
-            var rawNorm = trNorm(rawTerm).replace(/\s+/g, ' ');
-            var minTokens = Math.ceil(tokens.length / 2);
-            var scored = [];
-            for (var j = 0; j < TR_PRODUCTOS.length; j++) {
-                var p = TR_PRODUCTOS[j];
-                var nom = trNorm(p.NOMBRE || '');
-                var hayFull = trNorm((p.CODIGO || '') + ' ' + (p.NOMBRE || ''));
-                var palabras = hayFull.split(/\s+/).filter(Boolean);
-                var total = 0, matched = 0;
-                for (var k = 0; k < tokens.length; k++) {
-                    var r = trScoreToken(palabras, hayFull, tokens[k]);
-                    if (r.hit) { matched++; total += r.score; }
-                }
-                if (matched < minTokens) continue;
-                if (matched === tokens.length) total += 35;
-                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 40;
-                var consec = 0;
-                for (var ci = 0; ci < tokens.length - 1; ci++) {
-                    if (hayFull.indexOf(tokens[ci] + ' ' + tokens[ci + 1]) > -1) consec++;
-                }
-                total += consec * 12;
-                total += Math.max(0, 25 - nom.length * 0.2);
-                scored.push({ p: p, score: total });
-            }
-            scored.sort(function (a, b) {
-                if (b.score !== a.score) return b.score - a.score;
-                return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
-            });
-            for (var s = 0; s < scored.length && matches.length < 17; s++) matches.push(scored[s].p);
-        }
-
-        if (matches.length === 0) {
-            box.innerHTML = '<div class="tr-suggest-empty">Sin coincidencias en el catálogo.</div>';
-        } else {
-            box.innerHTML = matches.map(function (p) {
-                var nom = String(p.NOMBRE || '').replace(/[<>&"']/g, '');
-                var cod = String(p.CODIGO || '').replace(/[<>&"']/g, '');
-                return '<div class="tr-suggest-item tr-suggest-prod" onclick="window.trSearchProdPick(\'' + nom.replace(/'/g, "\\'") + '\')">'
-                     +   '<span class="tr-prod-cod">' + cod + '</span>'
-                     +   '<span class="tr-prod-nom">' + nom + '</span>'
-                     + '</div>';
-            }).join('');
-        }
-        box.classList.add('open');
-    };
-
-    // Enter aplica el filtro de producto (recarga la tabla). Mientras se escribe
-    // SOLO se refrescan las sugerencias — mismo criterio que el filtro "Buscar"
-    // de /admin/almacen (no recarga la tabla en cada tecla).
-    window.trSearchProdEnter = function (ev) {
-        if (ev && ev.key !== 'Enter') return;
-        if (ev) ev.preventDefault();
-        var box = el('trSearchProdSuggest'); if (box) box.classList.remove('open');
-        clearTimeout(window._trSTP);
-        window.trLoad();
-    };
-
-    window.trSearchProdPick = function (texto) {
-        var input = el('trSearchProd'); if (!input) return;
-        input.value = texto;
-        var box = el('trSearchProdSuggest'); if (box) box.classList.remove('open');
-        clearTimeout(window._trSTP);
-        window.trLoad();
-    };
-
     function params(pageUrl) {
-        // El backend filtra siempre a "por recibir" (ENVIADO en almacenes visibles).
-        // Aquí solo mandamos los filtros del UI (search/estado/destino/fechas).
+        // El backend muestra por defecto solo "En tránsito" (pendientes). Aquí mandamos
+        // los filtros del UI (search/estado/destino/fechas). El estado SIEMPRE se envía
+        // —incluido 'all' (Todas/historial) y 'ENVIADO'— para que el backend sepa
+        // exactamente qué se pidió y no caiga en el default cuando el usuario eligió otro.
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
-        if (v('trSearchProd'))                             p.set('search_producto', v('trSearchProd'));
 
-        if (v('trEstado')  && v('trEstado')  !== 'all')    p.set('estado', v('trEstado'));
+        if (v('trEstado'))                                 p.set('estado', v('trEstado'));
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
         // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
         // Pasar `all` explícito para que el controller NO re-aplique el default
@@ -691,7 +597,8 @@
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
-        var hasEst = sel('trEstado')  && sel('trEstado')  !== 'all';
+        // "En tránsito" (ENVIADO) es el estado por defecto → NO cuenta como filtro activo.
+        var hasEst = sel('trEstado')  && sel('trEstado')  !== '{{ \App\Models\Traspaso::ESTADO_ENVIADO }}';
         var hasDes = !!sel('trDesde');
         var hasHas = !!sel('trHasta');
         paint('trEstado',   hasEst);
@@ -724,11 +631,152 @@
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // Click en fila → ir al detalle
+    // Click en fila → abrir modal de detalle
     document.addEventListener('click', function (e) {
         var row = e.target.closest('#trTableBody tr[data-id]');
-        if (row) window.location = @json(url('/admin/almacen/recepcion')) + '/' + row.dataset.id;
+        if (row) window.trOpenModal(row.dataset.id);
     });
+
+    // ── Modal de detalle/recepción ──────────────────────────────────
+    var DETALLE_URL = @json(url('/admin/almacen/recepcion'));
+    var _trModalId  = null;
+
+    window.trOpenModal = function (id) {
+        _trModalId = id;
+        var overlay = el('trDetalleOverlay');
+        var box     = el('trDetalleBox');
+        if (!overlay || !box) return;
+        box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:60px;"><i class="material-icons" style="font-size:32px;color:#94a3b8;animation:spin 1s linear infinite;">autorenew</i></div>';
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+
+        fetch(DETALLE_URL + '/' + id, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (data) {
+                box.innerHTML = data.html || '';
+                _trModalId = data.id || id;
+                trInitDiffCalc();
+            })
+            .catch(function () {
+                box.innerHTML = '<div style="padding:40px;text-align:center;color:#dc2626;font-weight:600;">No se pudo cargar el detalle.</div>';
+            });
+    };
+
+    window.trCloseModal = function () {
+        var overlay = el('trDetalleOverlay');
+        if (overlay) overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        _trModalId = null;
+    };
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.trCloseModal();
+    });
+
+    function trInitDiffCalc() {
+        var box = el('trDetalleBox');
+        if (!box) return;
+        box.querySelectorAll('.dtm-linea').forEach(function (card) {
+            var input = card.querySelector('.dtm-rec-input');
+            var diffEl = card.querySelector('.dtm-diff-value');
+            if (!input || !diffEl) return;
+            var enviada = parseFloat(card.dataset.enviada) || 0;
+            input.addEventListener('input', function () {
+                var rec = parseFloat(input.value) || 0;
+                var d = rec - enviada;
+                diffEl.textContent = d > 0 ? '+' + d.toFixed(3).replace(/\.?0+$/, '') : d.toFixed(3).replace(/\.?0+$/, '');
+                diffEl.style.color = d < 0 ? '#dc2626' : (d > 0 ? '#1d4ed8' : '#64748b');
+            });
+        });
+    }
+
+    function trCollectLineas() {
+        var box = el('trDetalleBox');
+        if (!box) return [];
+        var lineas = [];
+        box.querySelectorAll('.dtm-linea').forEach(function (card) {
+            var inp = card.querySelector('.dtm-rec-input');
+            var danado = card.querySelector('.dtm-rec-danado');
+            var obj = {
+                id_linea:          parseInt(card.dataset.idLinea),
+                cantidad_recibida: inp ? parseFloat(inp.value) || 0 : null,
+            };
+            if (danado && danado.checked) obj.estado = 'DANADO';
+            lineas.push(obj);
+        });
+        return lineas;
+    }
+
+    function trModalPost(url, payload, successMsg) {
+        if (window.showPreloader) window.showPreloader();
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify(payload),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            if (res.ok) {
+                if (window.showToast) window.showToast(successMsg || res.data.message || 'Operación exitosa', 'success');
+                window.trCloseModal();
+                window.trLoad();
+            } else {
+                if (window.showToast) window.showToast(res.data.message || 'Error en la operación', 'error');
+            }
+        })
+        .catch(function () {
+            if (window.showToast) window.showToast('Error de conexión', 'error');
+        })
+        .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+    }
+
+    window.trModalTodoOk = function () {
+        if (!_trModalId) return;
+        var box = el('trDetalleBox');
+        if (box) {
+            box.querySelectorAll('.dtm-rec-input').forEach(function (inp) {
+                var card = inp.closest('.dtm-linea');
+                if (card) inp.value = card.dataset.enviada || inp.value;
+                inp.dispatchEvent(new Event('input'));
+            });
+            box.querySelectorAll('.dtm-rec-danado').forEach(function (cb) { cb.checked = false; });
+        }
+    };
+
+    window.trModalConfirmar = function () {
+        if (!_trModalId) return;
+        var lineas = trCollectLineas();
+        if (!lineas.length) return;
+        trModalPost(
+            DETALLE_URL + '/' + _trModalId + '/recibir',
+            { lineas: lineas },
+            'Recepción confirmada'
+        );
+    };
+
+    window.trModalCancelar = function (neNumero) {
+        if (!_trModalId) return;
+        if (!confirm('¿Cancelar la nota ' + (neNumero || _trModalId) + '? Esta acción no se puede deshacer.')) return;
+        trModalPost(
+            DETALLE_URL + '/' + _trModalId + '/cancelar',
+            {},
+            'Nota cancelada'
+        );
+    };
+
+    window.trModalEnviar = function () {
+        if (!_trModalId) return;
+        trModalPost(
+            DETALLE_URL + '/' + _trModalId + '/enviar',
+            {},
+            'Nota enviada'
+        );
+    };
 
     // Paginación AJAX
     document.addEventListener('click', function (e) {
@@ -746,7 +794,9 @@
     // El "Almacén destino" vive en el dropdown del header y se limpia con su propia X
     // (clearDropdownFilter) — no se toca aquí para no sorprender al usuario.
     window.trClearAdv = function () {
-        var est = el('trEstado'); if (est) est.value = 'all';
+        // Limpiar = volver al default de la bandeja (pendientes "En tránsito"),
+        // NO a 'all' (que mostraría también confirmadas/canceladas del historial).
+        var est = el('trEstado'); if (est) est.value = '{{ \App\Models\Traspaso::ESTADO_ENVIADO }}';
         ['trDesde','trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         window.trLoad();
     };

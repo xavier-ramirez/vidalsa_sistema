@@ -11,94 +11,180 @@
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            <h1 class="page-title" style="margin:0;">
-                <span class="page-title-line2" style="color:#000;font-family:monospace;">{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}</span>
-            </h1>
-            <span style="background:{{ $e[1] }};color:{{ $e[2] }};padding:5px 14px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">{{ $e[0] }}</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;text-decoration:none;transition:background .15s;" title="Volver a la bandeja">
+                <i class="material-icons" style="font-size:18px;">arrow_back</i>
+            </a>
+            <div>
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;">Nota de entrega</div>
+                <h1 class="page-title" style="margin:0;">
+                    <span class="page-title-line2" style="color:#000;font-family:monospace;font-size:20px;">{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}</span>
+                </h1>
+            </div>
+            <span style="background:{{ $e[1] }};color:{{ $e[2] }};padding:4px 12px;border-radius:999px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;">{{ $e[0] }}</span>
         </div>
-        {{-- ?force=1: "Volver" debe ir a la BANDEJA (de donde se vino), no rebotar
-             a recepcion/nueva por el redirect de TraspasoController@index. --}}
-        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="btn-primary-maquinaria" style="height:45px;padding:0 16px;display:flex;align-items:center;gap:8px;text-decoration:none;background:#e2e8f0;color:#475569;box-shadow:none;">
-            <i class="material-icons" style="font-size:18px;">arrow_back</i><span class="desktop-text">Volver</span>
-        </a>
     </div>
 </section>
 
 <style>
-    .info-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:18px; }
-    @media (max-width: 900px) { .info-grid { grid-template-columns:1fr 1fr; } }
-    @media (max-width: 480px) { .info-grid { grid-template-columns:1fr; } }
-    .info-cell { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
-    .info-cell .lbl { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px; }
-    .info-cell .val { font-size:14px; font-weight:600; color:#1e293b; word-break:break-word; }
-    /* Tabla de líneas: mismo estilo que /admin/equipos y demás tablas del módulo (thead oscuro, body negro). */
+    /* ── Detalle de nota — layout WMS profesional ── */
+
+    /* Metadata: barra compacta con key-values inline */
+    .dt-meta {
+        display:flex; flex-wrap:wrap; gap:0;
+        background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+        overflow:hidden; margin-bottom:16px;
+    }
+    .dt-meta-item {
+        flex:1 1 180px; min-width:0;
+        padding:10px 14px;
+        border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;
+    }
+    .dt-meta-item:last-child { border-right:none; }
+    .dt-meta-label { display:block; font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+    .dt-meta-value { font-size:13.5px; font-weight:600; color:#1e293b; word-break:break-word; }
+    .dt-meta-value .sub { font-weight:400; font-size:12px; color:#64748b; }
+
+    /* Banner de confirmación pendiente */
+    .dt-confirm-banner {
+        display:flex; align-items:center; gap:10px;
+        padding:10px 16px; margin-bottom:14px;
+        background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px;
+        font-size:13px; font-weight:600; color:#1e40af;
+    }
+    .dt-confirm-banner i { font-size:20px; }
+
+    /* Tabla de líneas */
     .lineas-detalle { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .lineas-detalle thead tr { background:#1e293b; }
-    .lineas-detalle thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 15px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .lineas-detalle thead th { text-align:left; color:#fff; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
     .lineas-detalle thead th:last-child { border-right:none; }
-    .lineas-detalle tbody td { padding:12px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
+    .lineas-detalle tbody td { padding:10px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .lineas-detalle tbody td:last-child { border-right:none; }
     .lineas-detalle tbody tr:hover td { background:#f8fafc; }
-    .lineas-detalle input[type="number"], .lineas-detalle input[type="text"] { width:100%; height:34px; border:1px solid #cbd5e0; border-radius:6px; padding:0 8px; font-size:13px; background:#fff; outline:none; color:#000; }
+    .lineas-detalle input[type="number"] {
+        width:100%; height:36px; border:1px solid #93c5fd; border-radius:6px;
+        padding:0 8px; font-size:13.5px; font-weight:700; background:#eff6ff;
+        outline:none; color:#1e3a5f; text-align:right;
+    }
+    .lineas-detalle input[type="number"]:focus { border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,0.15); background:#fff; }
     .pill-linea { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px; }
+
+    /* Notas amarillas */
+    .dt-notas-box {
+        background:#fffbeb; border:1px solid #fef3c7; border-radius:8px;
+        padding:10px 14px; margin-bottom:14px;
+    }
+
+    /* Footer de acciones */
+    .dt-footer {
+        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        margin-top:16px; padding:14px 16px;
+        background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+    }
+    .dt-btn {
+        height:42px; padding:0 20px; border-radius:10px; cursor:pointer;
+        font-size:13.5px; font-weight:700; letter-spacing:.2px;
+        display:inline-flex; align-items:center; gap:6px;
+        transition:background .15s, transform .1s;
+    }
+    .dt-btn i { font-size:18px; }
+    .dt-btn-cancel {
+        background:#fff; color:#dc2626; border:1px solid #fca5a5;
+    }
+    .dt-btn-cancel:hover { background:#fee2e2; border-color:#dc2626; }
+    .dt-btn-confirm-all {
+        background:#065f46; color:#fff; border:none;
+    }
+    .dt-btn-confirm-all:hover { background:#064e3b; }
+    .dt-btn-primary {
+        background:#16a34a; color:#fff; border:none;
+        box-shadow:0 4px 8px -2px rgba(22,163,74,0.3);
+    }
+    .dt-btn-primary:hover { background:#15803d; }
+    .dt-btn-primary:active, .dt-btn-confirm-all:active { transform:scale(0.98); }
+    .dt-btn-blue {
+        background:var(--maquinaria-blue,#0067b1); color:#fff; border:none;
+        box-shadow:0 4px 8px -2px rgba(0,103,177,0.3);
+    }
+    .dt-btn-blue:hover { background:#005391; }
+
+    @media (max-width: 900px) {
+        .dt-meta-item { flex:1 1 45%; }
+    }
+    @media (max-width: 480px) {
+        .dt-meta-item { flex:1 1 100%; border-right:none; }
+        .dt-footer { flex-direction:column; }
+        .dt-footer .dt-btn { width:100%; justify-content:center; }
+    }
 </style>
 
-<div class="admin-card" style="margin:0;padding:20px;">
+<div class="admin-card" style="margin:0;padding:18px;">
 
-    {{-- ── Info general ── --}}
-    <div class="info-grid">
-        <div class="info-cell">
-            <div class="lbl">Salió de</div>
-            <div class="val">{{ optional($traspaso->almacenOrigen)->NOMBRE }}</div>
+    {{-- ── Metadata compacta ── --}}
+    <div class="dt-meta">
+        <div class="dt-meta-item">
+            <span class="dt-meta-label">Origen</span>
+            <span class="dt-meta-value">{{ optional($traspaso->almacenOrigen)->NOMBRE }}@if(optional($traspaso->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
         </div>
-        <div class="info-cell">
-            <div class="lbl">Para almacén</div>
-            <div class="val">{{ optional($traspaso->almacenDestino)->NOMBRE }}</div>
+        <div class="dt-meta-item">
+            <span class="dt-meta-label">Destino</span>
+            <span class="dt-meta-value">{{ optional($traspaso->almacenDestino)->NOMBRE }}@if(optional($traspaso->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
         </div>
-        <div class="info-cell">
-            <div class="lbl">Frente</div>
-            <div class="val">{{ optional($traspaso->frenteDestino)->NOMBRE_FRENTE ?: '—' }}</div>
+        <div class="dt-meta-item">
+            <span class="dt-meta-label">Frente</span>
+            <span class="dt-meta-value">{{ optional($traspaso->frenteDestino)->NOMBRE_FRENTE ?: '—' }}</span>
         </div>
-        <div class="info-cell">
-            <div class="lbl">Despachado por</div>
-            <div class="val">{{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}<br>
-                <span style="font-weight:400;font-size:12px;color:#64748b;">{{ $traspaso->FECHA_ENVIO?->format('d-M-Y H:i') ?: $traspaso->created_at?->format('d-M-Y H:i') }}</span>
-            </div>
+        <div class="dt-meta-item">
+            <span class="dt-meta-label">Despachado por</span>
+            <span class="dt-meta-value">
+                {{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}
+                <span class="sub">{{ $traspaso->FECHA_ENVIO?->format('d-M-Y H:i') ?: $traspaso->created_at?->format('d-M-Y H:i') }}</span>
+            </span>
         </div>
-        <div class="info-cell">
-            <div class="lbl">Confirmado por</div>
-            <div class="val">{{ optional($traspaso->usuarioRecepcion)->NOMBRE_COMPLETO ?: '—' }}<br>
-                <span style="font-weight:400;font-size:12px;color:#64748b;">{{ $traspaso->FECHA_RECEPCION?->format('d-M-Y H:i') ?: '—' }}</span>
-            </div>
+        <div class="dt-meta-item">
+            <span class="dt-meta-label">Confirmado por</span>
+            <span class="dt-meta-value">
+                {{ optional($traspaso->usuarioRecepcion)->NOMBRE_COMPLETO ?: '—' }}
+                <span class="sub">{{ $traspaso->FECHA_RECEPCION?->format('d-M-Y H:i') ?: '—' }}</span>
+            </span>
         </div>
-        <div class="info-cell">
-            <div class="lbl">Motivo / Observaciones</div>
-            <div class="val">{{ $traspaso->MOTIVO ?: '—' }}</div>
+        <div class="dt-meta-item">
+            <span class="dt-meta-label">Motivo</span>
+            <span class="dt-meta-value">{{ $traspaso->MOTIVO ?: '—' }}</span>
         </div>
     </div>
 
     @if($traspaso->NOTAS)
-        <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:8px;padding:10px 14px;margin-bottom:18px;">
-            <div style="font-size:11px;font-weight:700;color:#b45309;text-transform:uppercase;margin-bottom:4px;">Notas</div>
-            <div style="font-size:13.5px;color:#92400e;white-space:pre-wrap;">{{ $traspaso->NOTAS }}</div>
+        <div class="dt-notas-box">
+            <div style="font-size:10.5px;font-weight:700;color:#b45309;text-transform:uppercase;margin-bottom:3px;">Notas</div>
+            <div style="font-size:13px;color:#92400e;white-space:pre-wrap;">{{ $traspaso->NOTAS }}</div>
+        </div>
+    @endif
+
+    @if($puedeRecibir)
+        <div class="dt-confirm-banner">
+            <i class="material-icons">pending_actions</i>
+            Pendiente de confirmación — revisa las cantidades y confirma la recepción.
         </div>
     @endif
 
     {{-- ── Líneas ── --}}
-    <h3 style="margin:0 0 8px 0;font-size:14px;font-weight:800;color:#334155;">Productos del envío</h3>
-    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:13px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.5px;">Materiales</span>
+        <span style="font-size:12px;font-weight:800;color:#0067b1;background:#e1effa;padding:2px 10px;border-radius:999px;">{{ $traspaso->lineas->count() }} líneas</span>
+    </div>
+    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:0;">
         <table class="lineas-detalle">
             <thead>
                 <tr>
-                    <th style="width:36%;">Descripción del producto</th>
-                    <th style="width:14%;text-align:right;">Enviado</th>
+                    <th style="width:44%;">Producto</th>
+                    <th style="width:16%;text-align:right;">Enviado</th>
                     @if($puedeRecibir || $traspaso->esRecibido() || $traspaso->esCancelado())
-                        <th style="width:14%;text-align:right;">{{ $puedeRecibir ? 'Recibido (editable)' : 'Recibido' }}</th>
-                        <th style="width:12%;text-align:right;">Diferencia</th>
-                        <th style="width:10%;text-align:center;">Estado</th>
-                        <th style="width:14%;">Notas</th>
+                        <th style="width:16%;text-align:right;">Recibido</th>
+                        <th style="width:12%;text-align:right;">Dif.</th>
+                        <th style="width:12%;text-align:center;">Estado</th>
                     @endif
                 </tr>
             </thead>
@@ -106,48 +192,39 @@
                 @foreach($traspaso->lineas as $linea)
                     @php
                         $diff = $linea->diferencia;
-                        $estilosLinea = [
-                            'PENDIENTE' => ['Pendiente','#f1f5f9','#64748b'],
-                            'OK'        => ['OK',       '#dcfce7','#15803d'],
-                            'FALTANTE'  => ['Faltante', '#fee2e2','#b91c1c'],
-                            'SOBRANTE'  => ['Sobrante', '#dbeafe','#1d4ed8'],
-                            'DANADO'    => ['Dañado',   '#fef3c7','#b45309'],
-                        ];
-                        $el = $estilosLinea[$linea->ESTADO_LINEA] ?? ['—','#f1f5f9','#64748b'];
+                        // Metadata visual del estado de línea — single source of truth en el modelo.
+                        $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
                     @endphp
                     <tr data-id-linea="{{ $linea->ID_LINEA }}">
                         <td>
-                            {{-- Codigo y descripcion lado a lado (mismo renglon). El codigo
-                                 va en monospace negrita; al lado la descripcion + UM. --}}
-                            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-                                <span style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">{{ optional($linea->producto)->CODIGO }}</span>
-                                <span style="color:#475569;font-size:13px;">{{ optional($linea->producto)->NOMBRE }} <span style="color:#94a3b8;">({{ optional($linea->producto)->UM }})</span></span>
+                            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+                                <span style="font-family:monospace;font-weight:800;font-size:12px;color:#0f172a;white-space:nowrap;letter-spacing:.3px;">{{ optional($linea->producto)->CODIGO }}</span>
+                                <span style="color:#475569;font-size:13px;font-weight:600;">{{ optional($linea->producto)->NOMBRE }}</span>
+                                <span style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;">{{ optional($linea->producto)->UM }}</span>
                             </div>
                         </td>
-                        <td style="text-align:right;font-weight:700;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',') }}</td>
+                        <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:#0f172a;">{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',') }}</td>
                         @if($puedeRecibir)
                             <td style="text-align:right;">
-                                <input type="number" min="0" step="0.001" class="rec-cantidad" style="text-align:right;"
+                                <input type="number" min="0" step="0.001" class="rec-cantidad"
                                        value="{{ rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ''), '0'), '.') }}">
                             </td>
-                            <td class="rec-diff" style="text-align:right;color:#64748b;font-weight:700;">0</td>
+                            <td class="rec-diff" style="text-align:right;color:#64748b;font-weight:700;font-family:monospace;font-size:13px;">0</td>
                             <td style="text-align:center;">
                                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#b45309;cursor:pointer;">
-                                    <input type="checkbox" class="rec-danado" style="margin:0;">Dañado
+                                    <input type="checkbox" class="rec-danado" style="margin:0;accent-color:#b45309;">Dañado
                                 </label>
                             </td>
-                            <td><input type="text" class="rec-notas" placeholder="Observaciones…" maxlength="1000"></td>
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
-                            <td style="text-align:right;font-weight:700;color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
+                            <td style="text-align:right;font-weight:700;font-family:monospace;font-size:13.5px;color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
                                 {{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}
                             </td>
-                            <td style="text-align:right;color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};font-weight:700;">
+                            <td style="text-align:right;font-family:monospace;font-size:13px;color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};font-weight:700;">
                                 {{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}
                             </td>
                             <td style="text-align:center;">
                                 <span class="pill-linea" style="background:{{ $el[1] }};color:{{ $el[2] }};">{{ $el[0] }}</span>
                             </td>
-                            <td style="font-size:12.5px;color:#64748b;">{{ $linea->NOTAS_LINEA ?: '—' }}</td>
                         @endif
                     </tr>
                 @endforeach
@@ -155,36 +232,38 @@
         </table>
     </div>
 
-    {{-- ── Acciones según estado ── --}}
-    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+    {{-- ── Acciones ── --}}
+    @if($puedeRecibir || $puedeEnviar || ($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin')))
+    <div class="dt-footer">
         @if($puedeRecibir)
-            <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
-                    onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">Cancelar nota</button>
-            <button type="button" class="btn-primary-maquinaria" style="background:#065f46;border:none;height:42px;padding:0 18px;display:flex;align-items:center;gap:8px;color:#fff;"
-                    onclick="window.trConfirmarTodoOk()">
-                <i class="material-icons" style="font-size:18px;">done_all</i> Confirmar todo OK
+            <button type="button" class="dt-btn dt-btn-cancel"
+                    onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">
+                <i class="material-icons">block</i> Cancelar nota
             </button>
-            <button type="button" id="btnRecibir" class="btn-primary-maquinaria" style="background:#16a34a;border:none;height:42px;padding:0 22px;display:flex;align-items:center;gap:8px;color:#fff;"
+            <div style="flex:1;"></div>
+            <button type="button" class="dt-btn dt-btn-confirm-all"
+                    onclick="window.trConfirmarTodoOk()">
+                <i class="material-icons">done_all</i> Todo OK
+            </button>
+            <button type="button" id="btnRecibir" class="dt-btn dt-btn-primary"
                     onclick="window.trConfirmarRecepcion()">
-                <i class="material-icons" style="font-size:18px;">check_circle</i> Confirmar recepción
+                <i class="material-icons">check_circle</i> Confirmar recepción
             </button>
         @elseif($puedeEnviar)
-            {{-- puedeEnviar exige esBorrador() + almacen.movimiento, lo que implica puedeCancelar
-                 (no es final). Por eso el botón de cancelar va siempre que se ofrece "Enviar ahora". --}}
-            <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
+            <button type="button" class="dt-btn dt-btn-cancel"
                     onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar borrador</button>
-            {{-- Edición de borrador (PATCH /admin/almacen/recepcion/{id}) está disponible vía API
-                 pero sin UI dedicada: el flujo normal envía con enviar_ahora=true desde el
-                 inventario. Aquí solo se ofrece cancelar el borrador o enviarlo tal cual. --}}
-            <button type="button" class="btn-primary-maquinaria" style="height:42px;padding:0 18px;display:flex;align-items:center;gap:6px;"
+            <div style="flex:1;"></div>
+            <button type="button" class="dt-btn dt-btn-blue"
                     onclick="window.trEnviar()">
-                <i class="material-icons" style="font-size:18px;">local_shipping</i> Enviar ahora
+                <i class="material-icons">local_shipping</i> Enviar ahora
             </button>
         @elseif($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin'))
-            <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
+            <div style="flex:1;"></div>
+            <button type="button" class="dt-btn dt-btn-cancel"
                     onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar y revertir</button>
         @endif
     </div>
+    @endif
 </div>
 
 <script>
@@ -236,7 +315,6 @@
                 id_linea:          parseInt(tr.dataset.idLinea, 10),
                 cantidad_recibida: enviada,
                 estado:            null,
-                notas:             null,
             });
         });
         if (lineas.length === 0) { toast('No hay líneas para recibir.', 'error'); return; }
@@ -251,12 +329,10 @@
         document.querySelectorAll('tr[data-id-linea]').forEach(function (tr) {
             var inp     = tr.querySelector('.rec-cantidad'); if (!inp) return;
             var danado  = tr.querySelector('.rec-danado');
-            var notas   = tr.querySelector('.rec-notas');
             lineas.push({
                 id_linea:          parseInt(tr.dataset.idLinea, 10),
                 cantidad_recibida: parseFloat(inp.value) || 0,
                 estado:            (danado && danado.checked) ? 'DANADO' : null,
-                notas:             notas ? notas.value.trim() : null,
             });
         });
         if (lineas.length === 0) { toast('No hay líneas para recibir.', 'error'); return; }

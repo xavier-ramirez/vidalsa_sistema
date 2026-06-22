@@ -966,6 +966,63 @@ class EquipoAuxiliarController extends Controller
         ]);
     }
 
+    public function deleteCatalogoPhoto(Request $request)
+    {
+        $validated = $request->validate([
+            'tipo'   => 'required|string|max:60',
+            'marca'  => 'required|string|max:80',
+            'modelo' => 'required|string|max:80',
+            'anio'   => 'nullable|integer',
+        ]);
+
+        $tipoKey   = $validated['tipo'];
+        $marcaKey  = mb_strtoupper(trim($validated['marca']));
+        $modeloKey = mb_strtoupper(trim($validated['modelo']));
+        $anio      = $validated['anio'] ?? null;
+
+        $groupQ = EquipoAuxiliar::query()
+            ->where('TIPO', $tipoKey)
+            ->whereRaw("UPPER(COALESCE(NULLIF(TRIM(MARCA), ''), '—')) = ?", [$marcaKey])
+            ->whereRaw("UPPER(COALESCE(NULLIF(TRIM(MODELO), ''), '—')) = ?", [$modeloKey]);
+        if ($anio !== null) {
+            $groupQ->where('ANIO', $anio);
+        } else {
+            $groupQ->whereNull('ANIO');
+        }
+        $this->scopeFrentes($groupQ, 'ID_FRENTE_ACTUAL');
+
+        $oldDriveIds = (clone $groupQ)
+            ->whereNotNull('FOTO')->where('FOTO', '!=', '')
+            ->pluck('FOTO')->unique()
+            ->map(function ($url) { return basename(str_replace('/storage/google/', '', explode('?', $url)[0])); })
+            ->filter()->values()->all();
+
+        if (empty($oldDriveIds)) {
+            return response()->json(['success' => false, 'message' => 'Este modelo no tiene foto.'], 422);
+        }
+
+        $updated = $groupQ->update(['FOTO' => null]);
+
+        \App\Models\CatalogoAuditLog::registrar(
+            null,
+            'delete_foto_aux',
+            $modeloKey,
+            $anio ? (int) $anio : null,
+            ['tipo' => $tipoKey, 'marca' => $marcaKey, 'unidades' => $updated]
+        );
+
+        // Drive: diferido para que la respuesta sea inmediata.
+        defer(function () use ($oldDriveIds) {
+            foreach ($oldDriveIds as $oldId) {
+                try {
+                    \App\Services\GoogleDriveService::getInstance()->deleteFile($oldId);
+                } catch (\Throwable $e) { /* silent */ }
+            }
+        });
+
+        return response()->json(['success' => true, 'message' => "Foto eliminada de {$updated} unidad(es)."]);
+    }
+
     // convertToWebp() viene del trait ConvertsImageToWebp (use al inicio de la clase).
 
     /**

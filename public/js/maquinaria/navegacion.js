@@ -251,10 +251,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Igual que los scripts, pero para HOJAS DE ESTILO (<link rel="stylesheet">):
-            // la SPA NO re-evalúa los <link> al navegar, así que un cambio CSS-only (z-index
-            // del PDF, menú, etc.) no se veía en PCs cacheadas hasta un F5 manual. Si cambió
-            // el ?v de algún CSS propio, forzamos recarga completa para tomarlo.
+            // HOJAS DE ESTILO (<link rel="stylesheet">): la SPA NO re-evalúa los <link>
+            // al navegar, así que un cambio CSS-only (z-index del PDF, menú, etc.) no se
+            // veía hasta un F5 manual. A DIFERENCIA de los <script> —que requieren recarga
+            // completa para re-evaluar su lógica— una hoja de estilo nueva se aplica EN
+            // CALIENTE cambiando el href del <link> existente: se toma el CSS actualizado
+            // SIN recargar la página, manteniendo la navegación SPA fluida (antes esto
+            // forzaba un window.location.href y se percibía como "se recargó toda la
+            // página" al editar el CSS y navegar a otro módulo).
             if (!versionChanged) {
                 const newLinks     = Array.from(doc.querySelectorAll('link[rel="stylesheet"][href]'));
                 const currentLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'));
@@ -264,9 +268,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const basePath = nl.href.split('?')[0];
                     const matchingCurrent = currentLinks.find(cl => cl.href.split('?')[0] === basePath);
                     if (matchingCurrent && matchingCurrent.href !== nl.href) {
-                        versionChanged = true;
-                        console.log(`Nueva versión de CSS detectada para: ${basePath}. Requiriendo recarga completa.`);
-                        break;
+                        matchingCurrent.href = nl.href; // hot-swap: aplica el nuevo CSS sin recargar
+                        console.log(`Nueva versión de CSS aplicada en caliente: ${basePath}`);
                     }
                 }
             }

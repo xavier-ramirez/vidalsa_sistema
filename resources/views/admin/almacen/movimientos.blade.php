@@ -62,7 +62,7 @@
                             @foreach(($almacenes ?? collect()) as $a)
                                 <div class="dropdown-item {{ $almSel && $almSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                      onclick="selectOption('almMovFiltroAlmacen','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
-                                    {{ $a->NOMBRE }}{{ $a->TIPO === 'GENERAL' ? '' : ' (Proyecto)' }}
+                                    {{ $a->NOMBRE }}@if($a->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif
                                 </div>
                             @endforeach
                         </div>
@@ -147,7 +147,9 @@
         transition:opacity .15s ease, background .15s ease, color .15s ease;
     }
     .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-undo { opacity:.5; }
-    .alm-mov-undo:hover { opacity:1; background:#fee2e2; color:#dc2626; }
+    .alm-mov-undo:hover,
+    .alm-mov-undo:focus-visible { opacity:1; background:#fee2e2; color:#dc2626; }
+    .alm-mov-undo:focus { opacity:.7; outline:none; }
     .alm-mov-undo:disabled { cursor:default; opacity:.5; }
     /* Botón "eliminar SOLO del historial" — mismo patrón casi-invisible que el de
        deshacer, pero anclado a su IZQUIERDA (right:26px) y en tono ámbar al hover
@@ -162,7 +164,9 @@
         transition:opacity .15s ease, background .15s ease, color .15s ease;
     }
     .alm-mov-table tbody tr.alm-mov-row:hover .alm-mov-purge { opacity:.5; }
-    .alm-mov-purge:hover { opacity:1; background:#fef3c7; color:#d97706; }
+    .alm-mov-purge:hover,
+    .alm-mov-purge:focus-visible { opacity:1; background:#fef3c7; color:#d97706; }
+    .alm-mov-purge:focus { opacity:.7; outline:none; }
     .alm-mov-purge:disabled { cursor:default; opacity:.5; }
     /* Observación del lote (NOTAS): en desktop NO va inline en la columna Ref —
        aparece en la burbuja de hover de la fila (junto al usuario que registró).

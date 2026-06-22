@@ -79,20 +79,20 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // "Notas de Entrega" abre la bandeja directamente (force=1 en los links del menú).
-        // Si llegan SIN force y SIN filtros, redirige al formulario de entrada directa
-        // (recepcion/nueva) — legacy path para Recepción ODC.
+        // Destino por defecto según tipo de usuario:
+        //   GLOBAL → Recepción ODC (formulario de entrada directa por orden de compra).
+        //            El almacén general no recibe por bandeja de notas de entrega.
+        //   LOCAL  → Bandeja de notas de entrega (su módulo principal de recepción).
+        //            Confirman lo que el almacén general les envió.
         //
-        // Solo redirigimos cuando NO es AJAX (los filtros/paginación piden JSON a la
-        // misma URL y deben quedarse aquí) y solo en la primera carga sin parámetros
-        // explícitos — si el usuario navegó a la bandeja a propósito (con filtros o
-        // ?force=1) no interceptamos. El guard de arriba garantiza que llegamos aquí
-        // con almacenes visibles, así que nuevaEntrada no rebotará hacia atrás.
+        // ?force=1 o filtros explícitos → siempre muestran la bandeja (ambos tipos).
+        // AJAX (paginación/filtros) → se queda aquí.
         if (
             $user !== null
             && ! $request->wantsJson()
             && ! $request->boolean('force')
             && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta'])
+            && Almacen::usuarioEsGlobal($user)
         ) {
             return redirect()->route('almacen.recepcion.nueva');
         }
@@ -117,8 +117,8 @@ class TraspasoController extends Controller
             }
         }
 
-        // SIEMPRE: estado ENVIADO en almacenes destino visibles para el usuario.
-        // (la columna ID_ALMACEN_DESTINO ya cubre la visibilidad de quien debe recibir).
+        // Bandeja = inbox de recepción. La columna ID_ALMACEN_DESTINO ya cubre la
+        // visibilidad de quién debe recibir.
         $q = Traspaso::query()
             ->with([
                 'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO',
@@ -128,11 +128,20 @@ class TraspasoController extends Controller
                 // solo se mostraba el conteo via withCount('lineas')).
                 'lineas.producto:ID_PRODUCTO,CODIGO,NOMBRE',
             ])
-            ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
             ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
 
-        // Filtros adicionales.
-        if ($request->filled('estado') && $request->input('estado') !== 'all') {
+        // Filtro de estado. POR DEFECTO (sin parámetro) la bandeja muestra SOLO las
+        // notas "En tránsito" (ENVIADO) = pendientes de confirmar; las ya confirmadas
+        // o canceladas salen de la vista. El usuario puede pedir explícitamente otro
+        // estado, o "Todos" (all) para ver el historial completo de sus almacenes.
+        //
+        // OJO: antes el WHERE base fijaba ESTADO=ENVIADO y ADEMÁS se aplicaba este
+        // filtro encima → al elegir cualquier estado distinto de ENVIADO la consulta
+        // quedaba ESTADO=ENVIADO AND ESTADO=X = 0 resultados. Ese era el bug: el filtro
+        // solo "funcionaba" para En tránsito y devolvía vacío para los demás estados.
+        if (!$request->filled('estado')) {
+            $q->where('ESTADO', Traspaso::ESTADO_ENVIADO);
+        } elseif ($request->input('estado') !== 'all') {
             $q->where('ESTADO', $request->string('estado'));
         }
         if ($request->filled('id_almacen_origen') && $request->input('id_almacen_origen') !== 'all') {
@@ -145,46 +154,6 @@ class TraspasoController extends Controller
             $s = '%' . trim((string) $request->input('search')) . '%';
             $q->where(fn ($w) => $w->where('NUMERO', 'like', $s)->orWhere('REFERENCIA', 'like', $s));
         }
-        // Filtro por descripcion/codigo de producto: busca traspasos cuyas LINEAS contengan
-        // un producto que matchee. Util para que el usuario destino encuentre una nota
-        // pendiente buscando "DEXTRAN", "CABLE 4AWG" o un codigo de producto, sin tener
-        // que acordarse del numero TR-YYYY-NNNN. Tokenizado AND igual que /admin/almacen para
-        // que "CABLE 4" matchee "CABLE 4AWG" sin importar el orden.
-        if ($request->filled('search_producto')) {
-            $term = trim((string) $request->input('search_producto'));
-            // Tokeniza, descarta stopwords (de/la/y…) y números sueltos de 1-2
-            // dígitos, AND entre tokens significativos y singular por token >3
-            // letras terminado en 'S' — consistente con el filtro Descripción de
-            // /admin/almacen. El fuzzy + ranking real vive en el autocomplete JS.
-            $stop = ['de','del','la','el','los','las','un','una','unos','unas',
-                     'y','e','o','u','a','en','con','para','por'];
-            $tokens = array_values(array_filter(
-                preg_split('/\s+/', mb_strtolower($term)),
-                function ($t) use ($stop) {
-                    return $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t);
-                }
-            ));
-            if (empty($tokens)) {
-                $tokens = [mb_strtolower($term)];
-            }
-            if (!empty($tokens)) {
-                $q->whereHas('lineas.producto', function ($pq) use ($tokens) {
-                    foreach ($tokens as $tok) {
-                        $variantes = [$tok];
-                        if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
-                            $variantes[] = mb_substr($tok, 0, -1);
-                        }
-                        $pq->where(function ($s) use ($variantes) {
-                            foreach ($variantes as $v) {
-                                $s->orWhere('productos_inventario.CODIGO', 'like', "%{$v}%")
-                                  ->orWhere('productos_inventario.NOMBRE', 'like', "%{$v}%");
-                            }
-                        });
-                    }
-                });
-            }
-        }
-
         if ($request->filled('desde')) {
             // OJO: el orWhere DEBE ir agrupado en un where(function) — si no, el OR queda
             // al nivel superior y se escapa de los filtros AND de estado/visibilidad
@@ -236,19 +205,11 @@ class TraspasoController extends Controller
         $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
             ? (int) $request->input('id_almacen_destino')
             : null;
-        // Catalogo de productos para alimentar el autocomplete del filtro
-        // "Buscar producto" (busca en las lineas de los traspasos pendientes).
-        // Solo CODIGO/NOMBRE — no necesitamos UM ni CATEGORIA en el dropdown.
-        $productosLista = ProductoInventario::activos()
-            ->orderBy('NOMBRE')
-            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE']);
-
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
             'almacenes'              => $almacenes,
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'numerosNotas'           => $numerosNotas,
-            'productosLista'         => $productosLista,
         ]);
     }
 
@@ -408,6 +369,16 @@ class TraspasoController extends Controller
         $puedeRecibir = $traspaso->esEnviado()
             && $request->user()?->can('almacen.movimiento')
             && $traspaso->almacenDestino?->visiblePara($request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html' => view('admin.almacen.recepcion.partials.detalle_modal', [
+                    'traspaso'     => $traspaso,
+                    'puedeRecibir' => (bool) $puedeRecibir,
+                ])->render(),
+                'id' => $traspaso->ID_TRASPASO,
+            ]);
+        }
 
         return view('admin.almacen.recepcion.detalle', [
             'traspaso'     => $traspaso,
