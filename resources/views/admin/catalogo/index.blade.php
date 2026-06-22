@@ -482,8 +482,7 @@
 
 </div> {{-- /page-layout-grid --}}
 
-{{-- Modal de recorte de foto (Cropper.js) --}}
-<link rel="stylesheet" href="{{ asset('css/cropper.min.css') }}">
+{{-- Modal de recorte de foto (Cropper.js — cargado dinámicamente para SPA) --}}
 <style>
     .crop-modal-overlay {
         display: none; position: fixed; inset: 0; z-index: 99999;
@@ -556,7 +555,21 @@
         </div>
     </div>
 </div>
-<script src="{{ asset('js/cropper.min.js') }}"></script>
+<script>
+(function() {
+    if (typeof Cropper !== 'undefined') return;
+    if (document.querySelector('script[src*="cropper.min.js"]')) return;
+    var s = document.createElement('script');
+    s.src = '{{ asset("js/cropper.min.js") }}';
+    document.head.appendChild(s);
+    if (!document.querySelector('link[href*="cropper.min.css"]')) {
+        var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = '{{ asset("css/cropper.min.css") }}';
+        document.head.appendChild(l);
+    }
+})();
+</script>
 
 <script>
     function catSubmit() {
@@ -759,20 +772,23 @@
     };
 
     // ── Subida VEHÍCULO ──
-    window.catUploadPhoto = function (id) {
+    window.catUploadPhoto = function (id, photoEl) {
         _pickFileAndCrop(function (croppedFile) {
             var fd = new FormData();
             fd.append('foto', croppedFile);
             _uploadBlob('{{ url("admin/catalogo") }}/' + id + '/photo', fd,
                 function (body) {
-                    var msg = body.message || 'Foto actualizada correctamente.';
-                    if (typeof window.loadCatalogo === 'function') {
-                        if (typeof window.showPreloader === 'function') window.showPreloader();
-                        window.loadCatalogo();
-                        setTimeout(function () { if (window.showToast) window.showToast(msg, 'success'); }, 800);
-                    } else {
-                        if (window.showToast) window.showToast(msg, 'success');
-                        setTimeout(function () { window.location.reload(); }, 1000);
+                    if (window.showToast) window.showToast(body.message || 'Foto actualizada correctamente.', 'success');
+                    if (body.foto && photoEl) {
+                        var img = photoEl.querySelector('img');
+                        if (img) { img.src = body.foto; }
+                        else {
+                            var ph = photoEl.querySelector('.placeholder'); if (ph) ph.remove();
+                            var n = document.createElement('img'); n.src = body.foto; n.alt = '';
+                            n.style.cssText = 'opacity:1; width:100%; height:100%; object-fit:contain; background:#f8fafc;';
+                            n.onerror = function () { this.outerHTML = '<i class="material-icons placeholder">image_not_supported</i>'; };
+                            photoEl.insertBefore(n, photoEl.firstChild);
+                        }
                     }
                 },
                 function (msg) { if (window.showToast) window.showToast(msg, 'error'); }

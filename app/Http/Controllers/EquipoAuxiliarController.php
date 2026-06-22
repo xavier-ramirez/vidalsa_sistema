@@ -950,6 +950,14 @@ class EquipoAuxiliarController extends Controller
             if ($tempWebpPath && file_exists($tempWebpPath)) @unlink($tempWebpPath);
         }
 
+        \App\Models\CatalogoAuditLog::registrar(
+            null,
+            'upload_foto_aux',
+            $modeloKey,
+            $anio ? (int) $anio : null,
+            ['tipo' => $tipoKey, 'marca' => $marcaKey, 'unidades' => $updated]
+        );
+
         return response()->json([
             'success' => true,
             'message' => "Foto actualizada para {$updated} unidad(es).",

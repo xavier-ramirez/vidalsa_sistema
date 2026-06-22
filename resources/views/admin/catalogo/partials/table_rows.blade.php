@@ -13,7 +13,7 @@
                 style="cursor:pointer;"
                 title="Click para cambiar la foto del modelo"
                 @if($esVeh)
-                    onclick="catUploadPhoto('{{ $item['id'] }}')"
+                    onclick="catUploadPhoto('{{ $item['id'] }}', this)"
                 @else
                     data-tipo="{{ $item['tipo_raw'] ?? '' }}"
                     data-marca="{{ $item['marca'] ?? '' }}"

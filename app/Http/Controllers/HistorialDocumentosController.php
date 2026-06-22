@@ -335,14 +335,20 @@ class HistorialDocumentosController extends Controller
             $catAuditLogs = $catAuditQuery->limit(5000)->get();
             foreach ($catAuditLogs as $log) {
                 $catTipoLabel = [
-                    'create'       => 'Registro de Modelo',
-                    'edit'         => 'Edición de Modelo',
-                    'upload_foto'  => 'Foto de Modelo',
-                    'delete'       => 'Eliminación de Modelo',
+                    'create'          => 'Registro de Modelo',
+                    'edit'            => 'Edición de Modelo',
+                    'upload_foto'     => 'Foto de Modelo',
+                    'upload_foto_aux' => 'Foto de Auxiliar',
+                    'delete'          => 'Eliminación de Modelo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
+                $cambios = is_array($log->CAMBIOS) ? $log->CAMBIOS : (is_string($log->CAMBIOS) ? json_decode($log->CAMBIOS, true) : []);
                 $modeloNombre = $log->MODELO ?? ($log->modelo ? $log->modelo->MODELO : 'Modelo Eliminado');
-                $anioStr = $log->ANIO_ESPEC ? ' ' . $log->ANIO_ESPEC : '';
+                $tipoEquipo = $cambios['tipo'] ?? ($log->modelo ? $log->modelo->TIPO : null);
+                $anioVal = $log->ANIO_ESPEC;
+
+                $parts = array_filter([$tipoEquipo, $modeloNombre, $anioVal], fn($v) => $v !== null && $v !== '');
+                $equipoLabel = implode(' · ', $parts) ?: 'Modelo Eliminado';
 
                 $events->push((object)[
                     'doc_key'       => 'catalogo_' . $log->ACCION,
@@ -351,8 +357,8 @@ class HistorialDocumentosController extends Controller
                     'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
                     'fecha'         => $log->created_at,
                     'link'          => null,
-                    'equipo_nombre' => 'Catálogo: ' . $modeloNombre . $anioStr,
-                    'equipo_id'     => $anioStr ? 'Año: ' . trim($anioStr) : '',
+                    'equipo_nombre' => $equipoLabel,
+                    'equipo_id'     => $equipoLabel,
                     'equipo_db_id'  => null,
                 ]);
             }
