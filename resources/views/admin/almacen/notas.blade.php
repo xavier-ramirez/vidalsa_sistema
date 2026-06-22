@@ -70,7 +70,7 @@
 
 <style>
     #almNotFilters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
-    #almNotFilters .anf-item { flex:1 1 200px; min-width:170px; max-width:300px; }
+    #almNotFilters .anf-item { flex:1.5 1 280px; min-width:200px; max-width:420px; }
     #almNotFilters .anf-search { flex:2 1 280px; max-width:none; }
     #almNotFilters .custom-dropdown { width:100%; }
     #almNotFiltroAlmacen .dropdown-trigger.filter-active {
@@ -92,7 +92,7 @@
         white-space:nowrap;
     }
     .alm-not-table tbody td {
-        padding:12px 12px; color:#000; font-size:14px;
+        padding:12px 12px; color:#334155; font-size:13px; font-weight:600;
         text-align:center; vertical-align:middle;
         border-bottom:1px solid #e2e8f0;
     }
@@ -359,19 +359,19 @@
                             <span style="font-weight:700;color:#334155;font-size:13px;">{{ $n->NUMERO_NOTA }}</span>
                         </td>
                         <td style="text-align:left;">
-                            <strong>{{ $alm?->NOMBRE ?? '—' }}</strong>
+                            {{ $alm?->NOMBRE ?? '—' }}
                             @if($alm)
-                                <div style="font-size:11px;color:#64748b;">{{ $alm->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}</div>
+                                <div style="font-size:11px;color:#94a3b8;font-weight:500;">{{ $alm->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}</div>
                             @endif
                         </td>
                         <td style="text-align:left;">
                             @if($contra)
-                                <strong>{{ $contra->NOMBRE }}</strong>
+                                {{ $contra->NOMBRE }}
                                 @if($fre)
-                                    <div style="font-size:11px;color:#64748b;">{{ $fre->NOMBRE_FRENTE }}</div>
+                                    <div style="font-size:11px;color:#94a3b8;font-weight:500;">{{ $fre->NOMBRE_FRENTE }}</div>
                                 @endif
                             @elseif($fre)
-                                <strong>{{ $fre->NOMBRE_FRENTE }}</strong>
+                                {{ $fre->NOMBRE_FRENTE }}
                             @else
                                 <span style="color:#94a3b8;">—</span>
                             @endif
