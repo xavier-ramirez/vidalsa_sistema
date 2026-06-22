@@ -120,10 +120,6 @@
     /* Cuando la fila esta en hover, el fondo azul claro de la celda no debe
        contagiar al boton azul oscuro (mantiene su gradient propio). */
     .alm-not-table tbody tr:hover .anf-pdf-btn { background:linear-gradient(135deg,#1e3a5f,#2563eb); }
-    .alm-not-table .anf-code {
-        font-family:monospace; font-weight:800; color:#0c4a6e;
-        background:#e0f2fe; border-radius:6px; padding:4px 10px; display:inline-block; letter-spacing:0.5px;
-    }
     .anf-tipo-pill {
         display:inline-flex; align-items:center; gap:5px;
         padding:3px 9px; border-radius:999px; font-size:12px; font-weight:700; line-height:1;
@@ -153,7 +149,7 @@
             grid-template-columns:1fr auto;
             grid-template-areas:
                 "nota   pdf"
-                "tipo   fecha"
+                "fecha  fecha"
                 "origen destino";
             gap:6px 10px;
             background:#fff !important; border:1px solid #e2e8f0 !important;
@@ -161,16 +157,14 @@
             box-shadow:0 1px 4px rgba(0,0,0,0.05);
         }
         .alm-not-table tbody td { border:none !important; padding:0 !important; text-align:left !important; }
-        .alm-not-table tbody td:nth-child(1) { grid-area:fecha; font-size:11px; color:#94a3b8; align-self:center; justify-self:end; }
-        .alm-not-table tbody td:nth-child(2) { grid-area:nota; }
-        .alm-not-table tbody td:nth-child(2) .anf-code { font-size:12px; padding:3px 8px; }
-        .alm-not-table tbody td:nth-child(3) { grid-area:tipo; }
-        .alm-not-table tbody td:nth-child(3) .anf-tipo-pill { font-size:11px; padding:2px 8px; }
-        .alm-not-table tbody td:nth-child(4) { grid-area:origen; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; }
+        .alm-not-table tbody td:nth-child(1) { grid-area:fecha; font-size:11px; color:#64748b; }
+        .alm-not-table tbody td:nth-child(1) .anf-tipo-pill { font-size:10px; padding:1px 6px; }
+        .alm-not-table tbody td:nth-child(2) { grid-area:nota; font-size:12px; font-weight:700; color:#334155; align-self:center; }
+        .alm-not-table tbody td:nth-child(3) { grid-area:origen; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; }
+        .alm-not-table tbody td:nth-child(3) strong { font-size:12px; }
+        .alm-not-table tbody td:nth-child(4) { grid-area:destino; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; justify-self:end; text-align:right !important; }
         .alm-not-table tbody td:nth-child(4) strong { font-size:12px; }
-        .alm-not-table tbody td:nth-child(5) { grid-area:destino; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; justify-self:end; text-align:right !important; }
-        .alm-not-table tbody td:nth-child(5) strong { font-size:12px; }
-        .alm-not-table tbody td:nth-child(6) { grid-area:pdf; justify-self:end; align-self:start; }
+        .alm-not-table tbody td:nth-child(5) { grid-area:pdf; justify-self:end; align-self:start; }
         .alm-not-table tbody tr:hover td { background:transparent !important; }
         div[style*="overflow-x:auto"] { border:none !important; border-radius:0 !important; overflow:visible !important; }
     }
@@ -328,9 +322,8 @@
         <table class="alm-not-table">
             <thead>
                 <tr>
-                    <th style="width:110px;">Fecha</th>
+                    <th style="width:130px;">Fecha</th>
                     <th style="width:170px;">N° de Nota</th>
-                    <th style="width:140px;">Tipo</th>
                     <th>Almacén origen</th>
                     <th>Proyecto destino</th>
                     <th style="width:70px;">PDF</th>
@@ -351,19 +344,19 @@
                          no deseadas. --}}
                     <tr>
                         <td style="white-space:nowrap;">
-                            {{ \Illuminate\Support\Carbon::parse($n->FECHA)->format('d/m/Y') }}
+                            <div>{{ \Illuminate\Support\Carbon::parse($n->FECHA)->format('d/m/Y') }}</div>
+                            <div style="margin-top:3px;">
+                                @if(in_array($tipoNum, ['SALIDA', 'TRASPASO_SALIDA']))
+                                    <span class="anf-tipo-pill anf-tipo-salida"><i class="material-icons" style="font-size:13px;">remove</i> Salida</span>
+                                @elseif(in_array($tipoNum, ['ENTRADA', 'TRASPASO_ENTRADA']))
+                                    <span class="anf-tipo-pill" style="background:#dcfce7;color:#16a34a;"><i class="material-icons" style="font-size:13px;">add</i> Entrada</span>
+                                @else
+                                    <span class="anf-tipo-pill" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:13px;">tune</i> Auditoría</span>
+                                @endif
+                            </div>
                         </td>
                         <td>
-                            <span class="anf-code">{{ $n->NUMERO_NOTA }}</span>
-                        </td>
-                        <td>
-                            @if(in_array($tipoNum, ['SALIDA', 'TRASPASO_SALIDA']))
-                                <span class="anf-tipo-pill anf-tipo-salida"><i class="material-icons" style="font-size:14px;">remove</i> Salida</span>
-                            @elseif(in_array($tipoNum, ['ENTRADA', 'TRASPASO_ENTRADA']))
-                                <span class="anf-tipo-pill" style="background:#dcfce7;color:#16a34a;"><i class="material-icons" style="font-size:14px;">add</i> Entrada</span>
-                            @else
-                                <span class="anf-tipo-pill" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:14px;">tune</i> Auditoría</span>
-                            @endif
+                            <span style="font-weight:700;color:#334155;font-size:13px;">{{ $n->NUMERO_NOTA }}</span>
                         </td>
                         <td style="text-align:left;">
                             <strong>{{ $alm?->NOMBRE ?? '—' }}</strong>
