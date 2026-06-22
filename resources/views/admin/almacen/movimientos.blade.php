@@ -413,7 +413,7 @@
             border-color: #1e293b transparent transparent transparent;
         }
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
-            display: flex !important;
+            display: none !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a {
             background: rgba(255,255,255,0.15) !important;
@@ -446,7 +446,7 @@
             justify-self: stretch !important;
             font-size: 10.5px !important;
             font-weight: 700 !important;
-            color: #0067b1 !important;
+            color: #3730a3 !important;
             background: #f8fafc !important;
             border-radius: 0 0 8px 8px !important;
             padding: 5px 12px !important;
@@ -461,7 +461,7 @@
             content: "location_on";
             font-family: 'Material Icons';
             font-size: 13px;
-            color: #0067b1;
+            color: #3730a3;
             font-weight: normal;
             flex-shrink: 0;
         }
@@ -994,7 +994,14 @@
         document.querySelectorAll('#almMovTableBody tr.alm-mov-row.mv-row-selected').forEach(function (other) {
             if (other !== tr) other.classList.remove('mv-row-selected');
         });
+        var wasSelected = tr.classList.contains('mv-row-selected');
         tr.classList.toggle('mv-row-selected');
+        if (!wasSelected && window.innerWidth <= 768) {
+            var pdfLink = tr.querySelector('.mv-nota-link[data-pdf-url]');
+            if (pdfLink && typeof window.openPdfPreview === 'function') {
+                window.openPdfPreview(pdfLink.dataset.pdfUrl, 'nota_entrega', pdfLink.dataset.pdfTitle || 'Nota de Entrega', 0, '', true, 'almacen');
+            }
+        }
     });
 
     // Panel de fechas

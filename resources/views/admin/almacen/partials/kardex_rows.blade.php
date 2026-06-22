@@ -99,6 +99,9 @@
                          (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
                          en pestaña nueva si el layout no provee la función. --}}
                     <a href="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                       class="mv-nota-link"
+                       data-pdf-url="{{ route('almacen.nota-entrega', ['numero' => $m->NUMERO_NOTA]) }}"
+                       data-pdf-title="Nota {{ $m->NUMERO_NOTA }}"
                        onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
                        style="color:#334155;text-decoration:none;font-weight:700;font-family:monospace;font-size:12px;"

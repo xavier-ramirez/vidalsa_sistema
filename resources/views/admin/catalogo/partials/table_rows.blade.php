@@ -35,14 +35,11 @@
                 <i class="material-icons placeholder">{{ $item['placeholder'] }}</i>
             @endif
 
-            {{-- Esquina sup. izquierda: distintivo de clase + tipo. --}}
+            {{-- Esquina sup. izquierda: distintivo VEHÍCULO / AUXILIAR. --}}
             <div class="cat-tipo-badges">
                 <span class="cat-tipo-badge"
                       style="background:{{ $esVeh ? 'rgba(0,103,177,0.92)' : 'rgba(194,65,12,0.92)' }};"
                       title="{{ $esVeh ? 'Vehículo' : 'Auxiliar' }}">{{ $esVeh ? 'VEHÍCULO' : 'AUXILIAR' }}</span>
-                @if($item['tipo'])
-                    <span class="cat-tipo-badge" title="Tipo">{{ $item['tipo'] }}</span>
-                @endif
             </div>
 
             {{-- Esquina sup. derecha: año y (en auxiliares) cantidad de unidades. --}}
