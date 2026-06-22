@@ -116,10 +116,8 @@
                     <div class="button-login-container">
                         <button type="submit" id="btnOnlineLogin" class="btn-maquinaria-primary">Iniciar sesión</button>
                     </div>
-                    <div id="btnBiometricLogin" style="display:none;flex-direction:column;align-items:center;gap:6px;margin-top:16px;cursor:pointer;">
-                        <div style="width:46px;height:46px;border-radius:50%;background:#00004d;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,77,.3);transition:transform 0.15s ease,box-shadow 0.15s ease;">
-                            <i class="material-icons" style="font-size:36px;color:#fff;">fingerprint</i>
-                        </div>
+                    <div id="btnBiometricLogin" style="display:none;flex-direction:column;align-items:center;gap:4px;margin-top:16px;cursor:pointer;">
+                        <i class="material-icons" style="font-size:48px;color:#00004d;transition:transform 0.15s ease;">fingerprint</i>
                         <span id="bioLabel" style="font-size:11px;font-weight:600;color:#6e7781;letter-spacing:0.2px;">Identificación biométrica</span>
                     </div>
                     {{-- Botón de acceso OFFLINE: solo aparece sin internet y si ya iniciaste
