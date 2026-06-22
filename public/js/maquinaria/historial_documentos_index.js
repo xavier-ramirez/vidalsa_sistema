@@ -230,6 +230,8 @@ if (!window._hdRowClickRegistered) {
         const tr = e.target.closest('.hd-selectable-row');
         if (!tr) return;
 
+        if (tr.classList.contains('hd-has-cambios')) return;
+
         const id = tr.dataset.hdId;
         if (!id) return;
 

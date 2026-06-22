@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Recepción')
+@section('title', 'Notas de Entrega')
 
 @section('content')
 @php
@@ -35,7 +35,7 @@
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
     <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
         <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Recepción</span>
+            <span class="page-title-line2" style="color:#000;">Notas de Entrega</span>
         </h1>
         {{-- Separador vertical sutil + selector de almacén destino. Mismo idioma visual
              que /admin/almacen y /admin/almacen/movimientos para que el usuario reconozca
@@ -320,7 +320,7 @@
         <div class="tr-item tr-search-num">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota (TR-…)" value="{{ $reqSearch }}"
+                <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota (NE-… o TR-…)" value="{{ $reqSearch }}"
                        oninput="window.trSearchInput()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trSearchSuggest'); if(s) s.classList.remove('open'); }, 150);">
             </div>
@@ -422,12 +422,12 @@
                      muestra cada columna. Acompañan el lenguaje visual de la app sin
                      ocupar espacio extra de filas guía. --}}
                 <tr>
-                    <th title="Número correlativo del traspaso (TR-YYYY-NNNN) — único por año. Es la “factura interna” del envío entre almacenes.">Nº</th>
-                    <th title="Arriba (negrita) el almacén que ENVÍA; abajo con flecha ↓ el almacén que RECIBE.">Origen → Destino</th>
-                    <th style="text-align:center;" title="Borrador · Enviado (esperando confirmación) · Recibido · Parcial (incompleto) · Cancelado.">Estado</th>
-                    <th title="Productos del traspaso: código y descripción de cada línea.">Líneas</th>
-                    <th title="Fecha y hora en que el origen despachó el traspaso. “—” si todavía es borrador.">Enviado</th>
-                    <th title="Fecha y hora en que el destino confirmó la recepción. “—” si todavía no llegó o no se confirmó.">Recibido</th>
+                    <th title=”Número de la Nota de Entrega (NE-YYYY-NNNN) o del traspaso (TR-YYYY-NNNN).”>Nº Nota</th>
+                    <th title=”Arriba (negrita) el almacén que ENVÍA; abajo con flecha el almacén que RECIBE.”>Origen / Destino</th>
+                    <th style=”text-align:center;” title=”Enviado (esperando confirmación) · Recibido · Parcial (incompleto) · Cancelado.”>Estado</th>
+                    <th title=”Productos incluidos en la nota: código y descripción de cada línea.”>Materiales</th>
+                    <th title=”Fecha y hora en que se despachó. Indicador de antigüedad: verde < 24h, amarillo 1-3 días, rojo > 3 días.”>Enviado</th>
+                    <th title=”Fecha y hora en que el destino confirmó la recepción.”>Confirmado</th>
                 </tr>
             </thead>
             <tbody id="trTableBody">

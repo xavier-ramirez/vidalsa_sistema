@@ -589,8 +589,8 @@
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:80vh;min-width:0;width:100%;padding:14px;">
 
-    {{-- ── Banner: envíos por recibir (módulo Recepción) ──
-         ?force=1 lleva a la BANDEJA de traspasos pendientes (el sentido del banner);
+    {{-- ── Banner: notas de entrega por confirmar (módulo Notas de Entrega) ──
+         ?force=1 lleva a la BANDEJA de notas pendientes (el sentido del banner);
          sin el force, TraspasoController@index lo redirige a recepcion/nueva. --}}
     @if(($traspasosPorRecibir ?? 0) > 0)
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
@@ -599,11 +599,11 @@
                 <i class="material-icons" style="font-size:22px;color:#b45309;">notifications_active</i>
                 <span style="font-size:13.5px;font-weight:700;">
                     Tienes <strong style="font-size:15px;">{{ $traspasosPorRecibir }}</strong>
-                    {{ $traspasosPorRecibir === 1 ? 'envío pendiente' : 'envíos pendientes' }} por recibir en tus almacenes
+                    {{ $traspasosPorRecibir === 1 ? 'nota de entrega pendiente' : 'notas de entrega pendientes' }} por confirmar
                 </span>
             </span>
             <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">
-                Revisar <i class="material-icons" style="font-size:18px;">arrow_forward</i>
+                Ver notas <i class="material-icons" style="font-size:18px;">arrow_forward</i>
             </span>
         </a>
     @endif
@@ -4315,6 +4315,24 @@
         }, 300);
     });
 })();
+</script>
+
+<script>
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.defaultPrevented) return;
+    var tag = e.target.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return;
+    var modal = e.target.closest('.alm-modal-overlay');
+    if (!modal || !modal.classList.contains('open')) return;
+    var id = modal.id;
+    if (id === 'almAjusteModal' && typeof window.almGuardarAjuste === 'function') {
+        e.preventDefault(); window.almGuardarAjuste();
+    } else if (id === 'almMinimoModal' && typeof window.almGuardarMinimo === 'function') {
+        e.preventDefault(); window.almGuardarMinimo();
+    } else if (id === 'almProductoModal' && typeof window.almGuardarProducto === 'function') {
+        e.preventDefault(); window.almGuardarProducto();
+    }
+});
 </script>
 
 {{-- Modal "Dashboard de Consumo" (menú Acciones). Vista parcial compartida con

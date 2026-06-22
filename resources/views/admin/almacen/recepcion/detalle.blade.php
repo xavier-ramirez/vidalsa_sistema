@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', $traspaso->NUMERO)
+@section('title', ($traspaso->REFERENCIA ?: $traspaso->NUMERO) . ' — Nota de Entrega')
 
 @section('content')
 @php
@@ -14,7 +14,10 @@
     <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
             <h1 class="page-title" style="margin:0;">
-                <span class="page-title-line2" style="color:#000;font-family:monospace;">{{ $traspaso->NUMERO }}</span>
+                <span class="page-title-line2" style="color:#000;font-family:monospace;">{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}</span>
+                @if($traspaso->REFERENCIA)
+                    <span style="font-size:12px;font-weight:600;color:#94a3b8;font-family:monospace;margin-left:8px;">{{ $traspaso->NUMERO }}</span>
+                @endif
             </h1>
             <span style="background:{{ $e[1] }};color:{{ $e[2] }};padding:5px 14px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">{{ $e[0] }}</span>
         </div>
@@ -170,6 +173,10 @@
         @if($puedeRecibir)
             <button type="button" class="btn-primary-maquinaria" style="background:#fff;color:#dc2626;border:1px solid #dc2626;box-shadow:none;height:42px;padding:0 18px;"
                     onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar envío</button>
+            <button type="button" class="btn-primary-maquinaria" style="background:#065f46;border:none;height:42px;padding:0 18px;display:flex;align-items:center;gap:8px;color:#fff;"
+                    onclick="window.trConfirmarTodoOk()">
+                <i class="material-icons" style="font-size:18px;">done_all</i> Confirmar todo OK
+            </button>
             <button type="button" id="btnRecibir" class="btn-primary-maquinaria" style="background:#16a34a;border:none;height:42px;padding:0 22px;display:flex;align-items:center;gap:8px;color:#fff;"
                     onclick="window.trConfirmarRecepcion()">
                 <i class="material-icons" style="font-size:18px;">check_circle</i> Confirmar recepción
@@ -233,6 +240,24 @@
         inp.addEventListener('input', recalc);
         recalc();
     });
+
+    window.trConfirmarTodoOk = function () {
+        var lineas = [];
+        document.querySelectorAll('tr[data-id-linea]').forEach(function (tr) {
+            var enviada = parseFloat(tr.children[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
+            lineas.push({
+                id_linea:          parseInt(tr.dataset.idLinea, 10),
+                cantidad_recibida: enviada,
+                estado:            null,
+                notas:             null,
+            });
+        });
+        if (lineas.length === 0) { toast('No hay líneas para recibir.', 'error'); return; }
+        if (!confirm('¿Confirmar que TODOS los materiales (' + lineas.length + ' línea' + (lineas.length > 1 ? 's' : '') + ') llegaron completos y en buen estado?')) return;
+        post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
+            setTimeout(function () { window.location.reload(); }, 700);
+        });
+    };
 
     window.trConfirmarRecepcion = function () {
         var lineas = [];

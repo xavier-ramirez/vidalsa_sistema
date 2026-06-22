@@ -432,7 +432,7 @@
                 </div>
             </div>
 
-            {{-- Almacén Dropdown: Inventario + Recepción (con badge si hay envíos pendientes) + Kardex --}}
+            {{-- Almacén Dropdown: Inventario + Notas de Entrega (con badge si hay envíos pendientes) + Kardex --}}
             <div class="nav-dropdown">
                 <a href="#"
                     class="nav-link {{ request()->is('admin/almacen*') ? 'active' : '' }}"
@@ -445,15 +445,11 @@
                         class="nav-dropdown-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                         <i class="material-icons">inventory_2</i> Inventario
                     </a>
-                    {{-- "Recepcion de Materiales": al abrirla, TraspasoController::index
-                         redirige a recepcion/nueva (formulario de entrada directa) para
-                         TODOS los usuarios. La bandeja de traspasos se llega con el boton
-                         "Bandeja de Entrada" de esa pantalla. El layout queda estatico. --}}
-                    <a href="{{ route('almacen.recepcion.index') }}"
+                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                         style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
                         <span style="display:flex;align-items:center;gap:8px;">
-                            <i class="material-icons">move_to_inbox</i> Recepción
+                            <i class="material-icons">move_to_inbox</i> Notas de Entrega
                         </span>
                         @php $__nav_traspasosPorRecibir = $traspasosPorRecibir ?? 0; @endphp
                         @if($__nav_traspasosPorRecibir > 0)
@@ -613,11 +609,11 @@
                     class="mobile-nav-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                     <i class="material-icons">inventory_2</i> Inventario
                 </a>
-                <a href="{{ route('almacen.recepcion.index') }}"
+                <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                     style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
                     <span style="display:flex;align-items:center;gap:10px;">
-                        <i class="material-icons">move_to_inbox</i> Recepción
+                        <i class="material-icons">move_to_inbox</i> Notas de Entrega
                     </span>
                     @php $__nav_traspasosPorRecibir_m = $traspasosPorRecibir ?? 0; @endphp
                     @if($__nav_traspasosPorRecibir_m > 0)

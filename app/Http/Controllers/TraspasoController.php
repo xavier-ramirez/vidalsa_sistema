@@ -143,7 +143,8 @@ class TraspasoController extends Controller
             $q->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
         }
         if ($request->filled('search')) {
-            $q->where('NUMERO', 'like', '%' . trim((string) $request->input('search')) . '%');
+            $s = '%' . trim((string) $request->input('search')) . '%';
+            $q->where(fn ($w) => $w->where('NUMERO', 'like', $s)->orWhere('REFERENCIA', 'like', $s));
         }
         // Filtro por descripcion/codigo de producto: busca traspasos cuyas LINEAS contengan
         // un producto que matchee. Util para que el usuario destino encuentre una nota
@@ -222,7 +223,10 @@ class TraspasoController extends Controller
             })
             ->orderByDesc('ID_TRASPASO')
             ->take(300)
-            ->pluck('NUMERO');
+            ->get(['NUMERO', 'REFERENCIA'])
+            ->flatMap(fn ($t) => array_filter([$t->REFERENCIA, $t->NUMERO]))
+            ->unique()
+            ->values();
 
         // NOTA: el badge "[N] por recibir" del menú principal lo provee el View Composer
         // global registrado en AppServiceProvider (en `layouts.estructura_base`), no esta

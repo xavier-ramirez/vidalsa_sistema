@@ -253,6 +253,25 @@
             align-items: center;
             justify-content: center;
         }
+
+        /* ── Overlay de cambios encima de la tarjeta ── */
+        .table-historial-mobile tbody tr.hd-has-cambios {
+            position: relative;
+            overflow: visible;
+        }
+        .table-historial-mobile .hd-cambios-detail {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin: 0 !important;
+            z-index: 10;
+            min-height: 100%;
+        }
+        .table-historial-mobile .hd-cambios-detail > div {
+            border-radius: 10px !important;
+            min-height: 100%;
+        }
     }
 </style>
 
@@ -945,7 +964,7 @@ window.hdToggleCollapse = function (header) {
 };
 document.addEventListener('click', function (e) {
     var tr = e.target.closest('.table-historial-mobile tbody tr');
-    if (!tr) return;
+    if (!tr || tr.classList.contains('hd-has-cambios')) return;
     document.querySelectorAll('.table-historial-mobile tbody tr.hd-row-selected').forEach(function (o) {
         if (o !== tr) o.classList.remove('hd-row-selected');
     });

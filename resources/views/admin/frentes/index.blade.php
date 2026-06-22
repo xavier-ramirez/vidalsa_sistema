@@ -35,29 +35,31 @@
 </div>
 
 <!-- Search & Data Table -->
-<div class="admin-card">
+<div class="admin-card frentes-card">
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
-        <form action="{{ route('frentes.index') }}" method="GET" style="flex:1 1 280px;min-width:0;">
-            <div class="search-wrapper" style="width:100%;border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }};background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};height:45px;">
-                <i class="material-icons search-icon">search</i>
-                <input type="text" name="search" value="{{ request('search') }}"
-                    placeholder="Buscar frente..."
-                    class="search-input-field"
-                    style="height:100%;"
-                    autocomplete="off">
-                @if(request('search'))
-                    <a href="{{ route('frentes.index') }}" title="Limpiar búsqueda" style="display:flex;align-items:center;padding:0 8px;">
-                        <i class="material-icons" style="font-size:18px;color:#64748b;">close</i>
-                    </a>
-                @endif
-            </div>
-        </form>
-        @if(isset($sinEquipos) && $sinEquipos > 0)
-        <button type="button" onclick="window.location.href='{{ route('frentes.index', ['sin_equipos' => 1]) }}'" class="btn-primary-maquinaria" style="height:45px;padding:0 15px;display:flex;align-items:center;gap:8px;background:{{ request('sin_equipos') ? '#fee2e2' : '#fff' }};border:1px solid {{ request('sin_equipos') ? '#ef4444' : '#cbd5e0' }};color:{{ request('sin_equipos') ? '#ef4444' : '#64748b' }};box-shadow:none;">
-            <i class="material-icons" style="font-size:18px;">domain_disabled</i>
-            <span>Sin equipos</span>
-        </button>
-        @endif
+        <div class="frentes-search-row">
+            <form action="{{ route('frentes.index') }}" method="GET" style="flex:1 1 0;min-width:0;">
+                <div class="search-wrapper" style="width:100%;border-color:{{ request('search') ? '#0067b1' : '#cbd5e0' }};background:{{ request('search') ? '#e1effa' : '#fbfcfd' }};height:45px;">
+                    <i class="material-icons search-icon">search</i>
+                    <input type="text" name="search" value="{{ request('search') }}"
+                        placeholder="Buscar frente..."
+                        class="search-input-field"
+                        style="height:100%;"
+                        autocomplete="off">
+                    @if(request('search'))
+                        <a href="{{ route('frentes.index') }}" title="Limpiar búsqueda" style="display:flex;align-items:center;padding:0 8px;">
+                            <i class="material-icons" style="font-size:18px;color:#64748b;">close</i>
+                        </a>
+                    @endif
+                </div>
+            </form>
+            @if(isset($sinEquipos) && $sinEquipos > 0)
+            <button type="button" onclick="window.location.href='{{ route('frentes.index', ['sin_equipos' => 1]) }}'" class="btn-primary-maquinaria" style="height:45px;padding:0 12px;display:flex;align-items:center;gap:6px;background:{{ request('sin_equipos') ? '#fee2e2' : '#fff' }};border:1px solid {{ request('sin_equipos') ? '#ef4444' : '#cbd5e0' }};color:{{ request('sin_equipos') ? '#ef4444' : '#64748b' }};box-shadow:none;white-space:nowrap;flex-shrink:0;">
+                <i class="material-icons" style="font-size:18px;">domain_disabled</i>
+                <span>Sin equipos</span>
+            </button>
+            @endif
+        </div>
         <a href="{{ route('frentes.create') }}" class="btn-primary-maquinaria" style="height:45px;padding:0 15px;display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;">
             <i class="material-icons">add_circle</i>
             <span>Nuevo Frente</span>
@@ -143,12 +145,21 @@
 </div>
 
 <style>
+.frentes-search-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 @media (max-width: 768px) {
     .page-title-card { margin-bottom: 10px !important; }
     .dashboard-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
     .stat-card { padding: 10px !important; }
     .stat-card div:last-child div:first-child { font-size: 11px !important; }
     .stat-card div:last-child div:last-child { font-size: 20px !important; }
+    .frentes-card { padding: 22px 18px !important; }
 }
 </style>
 @endsection
