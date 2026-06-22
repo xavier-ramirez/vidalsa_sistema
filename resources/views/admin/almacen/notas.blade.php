@@ -138,6 +138,7 @@
     @media (max-width: 768px) {
         .page-title-card .page-title { display:none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display:none !important; }
+        .counter-sidebar { display:none !important; }
         .page-title-card > div { flex-direction:column !important; align-items:stretch !important; gap:10px !important; }
         .page-title-card > div > div { width:100% !important; flex:1 1 100% !important; }
         .page-title-card > div > div > div[style*="width:280px"] { width:100% !important; min-width:0 !important; max-width:100% !important; }
@@ -160,10 +161,8 @@
         .alm-not-table tbody td:nth-child(1) { grid-area:fecha; font-size:11px; color:#64748b; }
         .alm-not-table tbody td:nth-child(1) .anf-tipo-pill { font-size:10px; padding:1px 6px; }
         .alm-not-table tbody td:nth-child(2) { grid-area:nota; font-size:12px; font-weight:700; color:#334155; align-self:center; }
-        .alm-not-table tbody td:nth-child(3) { grid-area:origen; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; }
-        .alm-not-table tbody td:nth-child(3) strong { font-size:12px; }
-        .alm-not-table tbody td:nth-child(4) { grid-area:destino; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; justify-self:end; text-align:right !important; }
-        .alm-not-table tbody td:nth-child(4) strong { font-size:12px; }
+        .alm-not-table tbody td:nth-child(3) { grid-area:origen; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; text-align:center !important; }
+        .alm-not-table tbody td:nth-child(4) { grid-area:destino; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; text-align:center !important; }
         .alm-not-table tbody td:nth-child(5) { grid-area:pdf; justify-self:end; align-self:start; }
         .alm-not-table tbody tr:hover td { background:transparent !important; }
         div[style*="overflow-x:auto"] { border:none !important; border-radius:0 !important; overflow:visible !important; }
@@ -304,12 +303,11 @@
             </div>
         </div>
 
-        {{-- Botón "Ver por producto" — vuelve al kardex original con los filtros conservados. --}}
         <div style="margin-left:auto;flex:0 0 auto;">
             <a href="{{ route('almacen.movimientos', $backParams) }}"
                class="btn-primary-maquinaria"
-               style="padding:0 15px;height:45px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;background:#fff;color:#0067b1;border:1px solid #cbd5e0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.06);">
-                <i class="material-icons" style="font-size:18px;">view_list</i>
+               style="padding:0 15px;height:45px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
+               onclick="event.preventDefault(); if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                 <span>Ver por producto</span>
             </a>
         </div>
