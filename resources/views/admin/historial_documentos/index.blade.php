@@ -12,7 +12,7 @@
         color: #2b6cb0;
         padding: 4px 10px;
         border-radius: 6px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
     }
     .badge-autor {

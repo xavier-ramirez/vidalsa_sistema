@@ -20,7 +20,7 @@
         </td>
         <td>
             <div style="font-weight: 600; color: #334155; line-height: 1.3;">{{ $event->equipo_nombre }}</div>
-            <div style="font-size: 12px; color: #94a3b8;">{{ $event->equipo_id }}</div>
+            @if($event->equipo_id)<div style="font-size: 12px; color: #475569; font-weight: 600;">{{ $event->equipo_id }}</div>@endif
         </td>
         <td style="text-align: center;">
             @if($event->link)
