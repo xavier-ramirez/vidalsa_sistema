@@ -26,8 +26,9 @@
                     @foreach($event->cambios as $campo => $val)
                         @php
                             $label = str_replace('_', ' ', $campo);
-                            $antes = is_array($val) && isset($val['antes']) ? ($val['antes'] ?? '—') : null;
-                            $despues = is_array($val) && isset($val['despues']) ? ($val['despues'] ?? '—') : $val;
+                            $esDiff = is_array($val) && array_key_exists('antes', $val);
+                            $antes = $esDiff ? ($val['antes'] !== null && $val['antes'] !== '' ? $val['antes'] : '(vacío)') : null;
+                            $despues = $esDiff ? ($val['despues'] !== null && $val['despues'] !== '' ? $val['despues'] : '(vacío)') : $val;
                         @endphp
                         <div style="display:flex;gap:4px;flex-wrap:wrap;padding:2px 0;border-bottom:1px solid #f1f5f9;">
                             <span style="font-weight:700;color:#64748b;text-transform:uppercase;font-size:10px;min-width:90px;">{{ $label }}:</span>
