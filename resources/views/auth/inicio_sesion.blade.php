@@ -247,9 +247,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         VidalsaWebAuthn.autenticar()
             .then(function(data) {
-                if (data.success && data.redirect) {
+                if (data && data.success && data.redirect) {
                     window.location.href = data.redirect;
+                    return;
                 }
+                if (preloader) preloader.classList.add('fade-out');
+                btnBio.style.pointerEvents = '';
+                btnBio.style.opacity = '';
+                if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
             })
             .catch(function(err) {
                 if (preloader) preloader.classList.add('fade-out');
