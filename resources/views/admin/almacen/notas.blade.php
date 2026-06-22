@@ -78,6 +78,9 @@
     }
     .anf-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .anf-search-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
+    @media (min-width: 1025px) {
+        body:has(.alm-not-table) .page-layout-grid { grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; }
+    }
     .anf-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
     .anf-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; }
     .anf-search-box i.clr { padding:0 10px; color:#64748b; font-size:18px; cursor:pointer; }
@@ -229,7 +232,7 @@
         <div class="anf-item anf-search">
             <div class="anf-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                <input type="text" id="almNotSearch" autocomplete="off" placeholder="Buscar N° de Nota, RQ, contrato…" value="{{ $reqSearch }}"
+                <input type="text" id="almNotSearch" autocomplete="off" placeholder="Nota de entrega…" value="{{ $reqSearch }}"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.loadNotas();}">
                 <i class="material-icons clr" id="almNotSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};"
                    onclick="document.getElementById('almNotSearch').value=''; this.style.display='none'; window.loadNotas();">close</i>
