@@ -140,6 +140,41 @@
         .anf-stat-pill { display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
         .anf-stat-pill i { font-size:16px; color:#0369a1; }
     }
+    @media (max-width: 768px) {
+        .page-title-card .page-title { display:none !important; }
+        .page-title-card > div > span[aria-hidden="true"] { display:none !important; }
+        .page-title-card > div { flex-direction:column !important; align-items:stretch !important; gap:10px !important; }
+        .page-title-card > div > div { width:100% !important; flex:1 1 100% !important; }
+        .page-title-card > div > div > div[style*="width:280px"] { width:100% !important; min-width:0 !important; max-width:100% !important; }
+        .alm-not-table thead { display:none !important; }
+        .alm-not-table { display:block !important; border:none !important; }
+        .alm-not-table tbody { display:flex !important; flex-direction:column !important; gap:10px !important; }
+        .alm-not-table tbody tr {
+            display:grid !important;
+            grid-template-columns:1fr auto;
+            grid-template-areas:
+                "nota   pdf"
+                "tipo   fecha"
+                "origen destino";
+            gap:6px 10px;
+            background:#fff !important; border:1px solid #e2e8f0 !important;
+            border-radius:10px !important; padding:12px 14px !important;
+            box-shadow:0 1px 4px rgba(0,0,0,0.05);
+        }
+        .alm-not-table tbody td { border:none !important; padding:0 !important; text-align:left !important; }
+        .alm-not-table tbody td:nth-child(1) { grid-area:fecha; font-size:11px; color:#94a3b8; align-self:center; justify-self:end; }
+        .alm-not-table tbody td:nth-child(2) { grid-area:nota; }
+        .alm-not-table tbody td:nth-child(2) .anf-code { font-size:12px; padding:3px 8px; }
+        .alm-not-table tbody td:nth-child(3) { grid-area:tipo; }
+        .alm-not-table tbody td:nth-child(3) .anf-tipo-pill { font-size:11px; padding:2px 8px; }
+        .alm-not-table tbody td:nth-child(4) { grid-area:origen; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; }
+        .alm-not-table tbody td:nth-child(4) strong { font-size:12px; }
+        .alm-not-table tbody td:nth-child(5) { grid-area:destino; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; justify-self:end; text-align:right !important; }
+        .alm-not-table tbody td:nth-child(5) strong { font-size:12px; }
+        .alm-not-table tbody td:nth-child(6) { grid-area:pdf; justify-self:end; align-self:start; }
+        .alm-not-table tbody tr:hover td { background:transparent !important; }
+        div[style*="overflow-x:auto"] { border:none !important; border-radius:0 !important; overflow:visible !important; }
+    }
 </style>
 
 <div class="page-layout-grid">
@@ -434,7 +469,10 @@
     // Selección en cualquier custom-dropdown de la barra de filtros → recarga la URL.
     // Mismo patrón que /admin/almacen/movimientos: uicomponents.js emite el evento
     // 'dropdown-selection' al seleccionar/limpiar — sin polling ni mutation observers.
+    var _almNotReady = false;
+    setTimeout(function () { _almNotReady = true; }, 500);
     window.addEventListener('dropdown-selection', function (e) {
+        if (!_almNotReady) return;
         if (!document.getElementById('almNotTableBody')) return;
         var id = e.detail && e.detail.dropdownId;
         if (id === 'almNotFiltroAlmacen' || id === 'almNotFiltroFrente' || id === 'almNotFiltroTipo' || id === 'almNotFiltroCat') {
