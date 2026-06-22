@@ -139,9 +139,13 @@
         .page-title-card .page-title { display:none !important; }
         .page-title-card > div > span[aria-hidden="true"] { display:none !important; }
         .counter-sidebar { display:none !important; }
+        .anf-stat-pill { display:none !important; }
         .page-title-card > div { flex-direction:column !important; align-items:stretch !important; gap:10px !important; }
         .page-title-card > div > div { width:100% !important; flex:1 1 100% !important; }
         .page-title-card > div > div > div[style*="width:280px"] { width:100% !important; min-width:0 !important; max-width:100% !important; }
+        #almNotFilters { gap:8px !important; }
+        #almNotFilters .anf-item { flex:1 1 100% !important; max-width:none !important; }
+        #almNotFilters .anf-search { flex:1 1 0 !important; min-width:0 !important; max-width:none !important; }
         .alm-not-table thead { display:none !important; }
         .alm-not-table { display:block !important; border:none !important; }
         .alm-not-table tbody { display:flex !important; flex-direction:column !important; gap:10px !important; }
