@@ -352,7 +352,7 @@ class HistorialDocumentosController extends Controller
                     'fecha'         => $log->created_at,
                     'link'          => null,
                     'equipo_nombre' => 'Catálogo: ' . $modeloNombre . $anioStr,
-                    'equipo_id'     => 'Modelo: ' . $modeloNombre,
+                    'equipo_id'     => $anioStr ? 'Año: ' . trim($anioStr) : '',
                     'equipo_db_id'  => null,
                 ]);
             }
