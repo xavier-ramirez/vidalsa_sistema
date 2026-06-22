@@ -24,15 +24,19 @@ class EquipoObserver
         try {
             $changes = $equipo->getChanges();
             unset($changes['updated_at'], $changes['created_at']);
-            if (!empty($changes)) {
-                $original = $equipo->getOriginal();
-                $diff = [];
-                foreach ($changes as $field => $newValue) {
-                    $diff[$field] = [
-                        'antes'   => $original[$field] ?? null,
-                        'despues' => $newValue,
-                    ];
-                }
+            if (empty($changes)) return;
+
+            $original = $equipo->getOriginal();
+            $diff = [];
+            foreach ($changes as $field => $newValue) {
+                $oldValue = $original[$field] ?? null;
+                if ((string) $oldValue === (string) $newValue) continue;
+                $diff[$field] = [
+                    'antes'   => $oldValue,
+                    'despues' => $newValue,
+                ];
+            }
+            if (!empty($diff)) {
                 \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'edit', $diff);
             }
         } catch (\Throwable $e) {

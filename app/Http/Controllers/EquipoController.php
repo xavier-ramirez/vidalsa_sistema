@@ -2628,11 +2628,13 @@ class EquipoController extends Controller
         if (!empty($equipoDiff ?? [])) {
             $logPayload = array_merge($logPayload, $equipoDiff);
         }
-        \App\Models\EquipoAuditLog::registrar(
-            $equipo->ID_EQUIPO,
-            'metadata_' . $type,
-            $logPayload
-        );
+        if (!empty($logPayload)) {
+            \App\Models\EquipoAuditLog::registrar(
+                $equipo->ID_EQUIPO,
+                'metadata_' . $type,
+                $logPayload
+            );
+        }
 
         // Clear Dashboard Cache to update alerts immediately
         if (auth()->check()) {
