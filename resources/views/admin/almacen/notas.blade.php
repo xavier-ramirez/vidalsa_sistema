@@ -135,7 +135,8 @@
 
     .anf-stat-pill { display:none; }
     @media (max-width: 900px) {
-        #almNotFilters .anf-item, #almNotFilters .anf-search { max-width:none; flex:1 1 100%; }
+        #almNotFilters .anf-item { max-width:none; flex:1 1 100%; }
+        #almNotFilters .anf-search { max-width:none; flex:1 1 0; min-width:0; }
         .anf-stat-pill { display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; color:#334155; margin-bottom:8px; }
         .anf-stat-pill i { font-size:16px; color:#0369a1; }
     }
@@ -183,18 +184,7 @@
 
     {{-- ── Filtros ── --}}
     <div id="almNotFilters">
-        {{-- Buscar N° de Nota / RQ / Contrato / Solicitante --}}
-        <div class="anf-item anf-search">
-            <div class="anf-search-box {{ $reqSearch ? 'active' : '' }}">
-                <i class="material-icons lupa">search</i>
-                <input type="text" id="almNotSearch" autocomplete="off" placeholder="Buscar por N° de Nota, RQ, contrato o solicitante…" value="{{ $reqSearch }}"
-                       onkeydown="if(event.key==='Enter'){event.preventDefault();window.loadNotas();}">
-                <i class="material-icons clr" id="almNotSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};"
-                   onclick="document.getElementById('almNotSearch').value=''; this.style.display='none'; window.loadNotas();">close</i>
-            </div>
-        </div>
-
-        {{-- Frente --}}
+        {{-- 1. Frente --}}
         <div class="anf-item">
             <div class="custom-dropdown" id="almNotFiltroFrente" data-filter-type="id_frente" data-default-label="Todos los frentes">
                 <input type="hidden" name="id_frente" data-filter-value value="{{ $reqFrente && $reqFrente !== 'all' ? $reqFrente : '' }}">
@@ -219,7 +209,18 @@
             </div>
         </div>
 
-        {{-- Filtros Avanzados — Tipo + rango Desde/Hasta --}}
+        {{-- 2. Buscar N° de Nota --}}
+        <div class="anf-item anf-search">
+            <div class="anf-search-box {{ $reqSearch ? 'active' : '' }}">
+                <i class="material-icons lupa">search</i>
+                <input type="text" id="almNotSearch" autocomplete="off" placeholder="Buscar N° de Nota, RQ, contrato…" value="{{ $reqSearch }}"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();window.loadNotas();}">
+                <i class="material-icons clr" id="almNotSearchClear" style="display:{{ $reqSearch ? 'block' : 'none' }};"
+                   onclick="document.getElementById('almNotSearch').value=''; this.style.display='none'; window.loadNotas();">close</i>
+            </div>
+        </div>
+
+        {{-- 3. Filtros Avanzados (al lado del buscador) --}}
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" id="btnAdvancedFilterNot" class="btn-primary-maquinaria anf-adv-btn" title="Filtros Avanzados"
                     style="background:{{ $hayAdv ? '#fee2e2' : '#fff' }};border:1px solid {{ $hayAdv ? '#ef4444' : '#cbd5e0' }};color:{{ $hayAdv ? '#ef4444' : '#64748b' }};box-shadow:none;"
