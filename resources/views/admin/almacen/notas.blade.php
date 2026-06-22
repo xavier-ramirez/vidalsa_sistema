@@ -141,8 +141,8 @@
         #almNotFilters { gap:8px !important; }
         #almNotFilters .anf-item { flex:1 1 100% !important; max-width:none !important; }
         #almNotFilters .anf-search { flex:1 1 0 !important; min-width:0 !important; max-width:none !important; }
-        #almNotFilters > div:last-child { flex:1 1 100% !important; margin-left:0 !important; width:100% !important; }
-        #almNotFilters > div:last-child > a { width:100% !important; justify-content:center !important; }
+        .anf-btn-ver { flex:1 1 100% !important; margin-left:0 !important; width:100% !important; }
+        .anf-btn-ver > a { width:100% !important; justify-content:center !important; box-sizing:border-box !important; }
         .alm-not-table thead { display:none !important; }
         .alm-not-table { display:block !important; border:none !important; }
         .alm-not-table tbody { display:flex !important; flex-direction:column !important; gap:10px !important; }
@@ -327,7 +327,7 @@
             </div>
         </div>
 
-        <div style="margin-left:auto;flex:0 0 auto;">
+        <div class="anf-btn-ver" style="margin-left:auto;flex:0 0 auto;">
             <a href="{{ route('almacen.movimientos', $backParams) }}"
                class="btn-primary-maquinaria"
                style="padding:0 15px;height:45px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);"
