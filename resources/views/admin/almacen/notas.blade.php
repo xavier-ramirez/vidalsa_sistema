@@ -248,17 +248,18 @@
                     Filtros Avanzados
                     <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.almNotLimpiarFechas(event)">Limpiar Todo</span>
                 </h4>
-                <div style="margin-bottom:10px;">
-                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Tipo</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start;">
+                  <div style="min-width:0;">
+                    <span style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Tipo</span>
                     <div class="custom-dropdown" id="almNotFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
                         <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
-                        <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid #cbd5e0;border-radius:8px;height:36px;">
-                            <span style="padding:0 8px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
+                        <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid #cbd5e0;border-radius:8px;height:32px;">
+                            <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:14px;transform:none !important;">search</i></span>
                             <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                                   placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
-                                   style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;"
+                                   placeholder="{{ $tipoSelLabel ?: 'Todos' }}"
+                                   style="flex:1;border:none;background:transparent;padding:0 4px;font-size:12px;color:#0f172a;outline:none;min-width:0;"
                                    oninput="window.filterDropdownOptions(this)">
-                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                            <i class="material-icons" data-clear-btn style="padding:0 6px;color:#64748b;font-size:16px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
                                onclick="event.stopPropagation(); clearDropdownFilter('almNotFiltroTipo');">close</i>
                         </div>
                         <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -269,48 +270,18 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
-                        <div id="almNotDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
-                             onclick="var i=document.getElementById('almNotDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
-                            <input type="date" id="almNotDesde" value="{{ $reqDesde }}" onchange="window.loadNotas()"
-                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
-                            <i class="material-icons" id="almNotDesdeClear"
-                               style="display:{{ $reqDesde ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
-                               onclick="event.stopPropagation(); var i=document.getElementById('almNotDesde'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almNotDesdeBox').style.background='white'; window.loadNotas();">close</i>
-                        </div>
-                    </div>
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
-                        <div id="almNotHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
-                             onclick="var i=document.getElementById('almNotHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
-                            <input type="date" id="almNotHasta" value="{{ $reqHasta }}" onchange="window.loadNotas()"
-                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
-                            <i class="material-icons" id="almNotHastaClear"
-                               style="display:{{ $reqHasta ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
-                               onclick="event.stopPropagation(); var i=document.getElementById('almNotHasta'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almNotHastaBox').style.background='white'; window.loadNotas();">close</i>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Filtro de Categoría — vive en avanzados (como pediste). Usa el custom-dropdown
-                     estándar de la app + evento 'dropdown-selection' que ya escuchamos en JS para
-                     recargar. La lista viene del helper categoriasDistintas() del controller. --}}
-                <div style="margin-top:10px;">
-                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Categoría</span>
+                  </div>
+                  <div style="min-width:0;">
+                    <span style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Categoría</span>
                     <div class="custom-dropdown" id="almNotFiltroCat" data-filter-type="categoria" data-default-label="Todas las categorías">
                         <input type="hidden" name="categoria" data-filter-value value="{{ $catSel ?: '' }}">
-                        <div class="dropdown-trigger {{ $catSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $catSel ? '#e1effa' : 'white' }};overflow:hidden;border:1px solid #e2e8f0;border-radius:6px;height:32px;">
-                            <span style="padding:0 8px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:14px;transform:none !important;">label</i></span>
+                        <div class="dropdown-trigger {{ $catSel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $catSel ? '#e1effa' : 'white' }};overflow:hidden;border:1px solid #e2e8f0;border-radius:8px;height:32px;">
+                            <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:14px;transform:none !important;">search</i></span>
                             <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                                   placeholder="{{ $catSel ?: 'Todas las categorías' }}"
-                                   style="flex:1;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;min-width:0;color:#334155;"
+                                   placeholder="{{ $catSel ?: 'Todas' }}"
+                                   style="flex:1;border:none;background:transparent;padding:0 4px;font-size:12px;outline:none;min-width:0;color:#334155;"
                                    oninput="window.filterDropdownOptions(this)">
-                            <i class="material-icons" data-clear-btn style="padding:0 6px;color:var(--maquinaria-gray-text);font-size:14px;display:{{ $catSel ? 'inline-flex' : 'none' }};cursor:pointer;transform:none !important;"
+                            <i class="material-icons" data-clear-btn style="padding:0 6px;color:#64748b;font-size:14px;display:{{ $catSel ? 'inline-flex' : 'none' }};cursor:pointer;transform:none !important;"
                                onclick="event.stopPropagation(); clearDropdownFilter('almNotFiltroCat');">close</i>
                         </div>
                         <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -323,7 +294,35 @@
                             </div>
                         </div>
                     </div>
+                  </div>
                 </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div>
+                        <span style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Desde</span>
+                        <div id="almNotDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
+                             onclick="var i=document.getElementById('almNotDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
+                            <input type="date" id="almNotDesde" value="{{ $reqDesde }}" onchange="window.loadNotas()"
+                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
+                            <i class="material-icons" id="almNotDesdeClear"
+                               style="display:{{ $reqDesde ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
+                               onclick="event.stopPropagation(); var i=document.getElementById('almNotDesde'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almNotDesdeBox').style.background='white'; window.loadNotas();">close</i>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Hasta</span>
+                        <div id="almNotHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : 'white' }};border:1px solid #e2e8f0;border-radius:6px;height:32px;padding:0 6px;cursor:pointer;"
+                             onclick="var i=document.getElementById('almNotHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                            <i class="material-icons" style="font-size:16px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
+                            <input type="date" id="almNotHasta" value="{{ $reqHasta }}" onchange="window.loadNotas()"
+                                   style="flex:1;min-width:0;border:none;background:transparent;padding:6px 2px;font-size:12px;outline:none;color:#334155;cursor:pointer;">
+                            <i class="material-icons" id="almNotHastaClear"
+                               style="display:{{ $reqHasta ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
+                               onclick="event.stopPropagation(); var i=document.getElementById('almNotHasta'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almNotHastaBox').style.background='white'; window.loadNotas();">close</i>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
