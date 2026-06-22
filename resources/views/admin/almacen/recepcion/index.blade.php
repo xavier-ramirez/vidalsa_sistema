@@ -96,9 +96,13 @@
         position:absolute; top:calc(100% + 4px); left:0; right:0;
         background:#fff; border:1px solid #e2e8f0; border-radius:10px;
         box-shadow:0 8px 18px rgba(15,23,42,0.10);
-        max-height:240px; overflow-y:auto; padding:4px;
+        max-height:260px; overflow-y:auto; padding:4px;
         z-index:60; display:none;
+        scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent;
     }
+    .tr-suggest::-webkit-scrollbar { width:5px; }
+    .tr-suggest::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+    .tr-suggest::-webkit-scrollbar-track { background:transparent; }
     .tr-suggest.open { display:block; }
     .tr-suggest-item {
         padding:8px 12px; border-radius:6px; cursor:pointer;
