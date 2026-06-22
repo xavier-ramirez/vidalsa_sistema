@@ -2031,15 +2031,9 @@
         // vistosNom: dedupe por nombre normalizado — una sola entrada por descripcion.
         var vistosNom = {};
         if (tokens.length === 0) {
-            // Sin termino → TODAS las descripciones DISTINTAS del catalogo (orden del backend).
-            // La lista hace scroll (.alm-suggest max-height:260px); el usuario quiere ver el
-            // catalogo completo de una vez al abrir el filtro, no solo las primeras.
-            for (var i = 0; i < lista.length; i++) {
+            for (var i = 0; i < lista.length && matches.length < 15; i++) {
                 var kI = almNorm(lista[i].NOMBRE || '');
                 if (vistosNom[kI]) continue;
-                // Con categoría activa, SOLO descripciones cuyo grupo tiene alguna presentación
-                // en esa categoría (mismo criterio que la tabla: search AND categoria). Sin
-                // categoría activa, catActivaNorm == '' → no filtra (muestra todo).
                 if (catActivaNorm && !(gruposNombre[kI] && gruposNombre[kI].enCat)) continue;
                 vistosNom[kI] = true;
                 matches.push(lista[i]);
@@ -2079,10 +2073,9 @@
                 return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
             });
             // TODAS las descripciones DISTINTAS que matchean, mejor-scoreadas primero (dedupe por nombre).
-            for (var s = 0; s < scored.length; s++) {
+            for (var s = 0; s < scored.length && matches.length < 15; s++) {
                 var kS = almNorm(scored[s].p.NOMBRE || '');
                 if (vistosNom[kS]) continue;
-                // Con categoría activa, SOLO descripciones de esa categoría (ver nota arriba).
                 if (catActivaNorm && !(gruposNombre[kS] && gruposNombre[kS].enCat)) continue;
                 vistosNom[kS] = true;
                 matches.push(scored[s].p);
