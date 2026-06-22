@@ -202,6 +202,7 @@ class HistorialDocumentosController extends Controller
                     'equipo_nombre'=> $eName,
                     'equipo_id'    => $eId,
                     'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null,
+                    'cambios'      => [],
                 ]);
             }
         }
@@ -243,11 +244,12 @@ class HistorialDocumentosController extends Controller
                 'tipo'         => 'Registro de Vehículo',
                 'autor'        => $equipo->creador ? $equipo->creador->CORREO_ELECTRONICO : 'Usuario Desconocido',
                 'autor_nombre' => $equipo->creador ? ($equipo->creador->NOMBRE_COMPLETO ?? '') : '',
-                'fecha'        => $equipo->created_at, // Eloquent castea created_at a Carbon automaticamente
+                'fecha'        => $equipo->created_at,
                 'link'         => null,
                 'equipo_nombre'=> ($equipo->tipo->nombre ?? 'Equipo') . ' ' . $equipo->MARCA . ' ' . $equipo->MODELO,
                 'equipo_id'    => $this->buildEquipoId($equipo),
                 'equipo_db_id' => $equipo->ID_EQUIPO,
+                'cambios'      => [],
             ]);
         }
 
@@ -305,16 +307,19 @@ class HistorialDocumentosController extends Controller
                     'delete'               => 'Eliminación de Equipo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
+                $cambiosRaw = is_array($log->CAMBIOS) ? $log->CAMBIOS : (is_string($log->CAMBIOS) ? json_decode($log->CAMBIOS, true) : []);
+
                 $events->push((object)[
                     'doc_key'       => $log->ACCION,
                     'tipo'          => $tipoLabel,
                     'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
                     'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
-                    'fecha'         => $log->created_at, // EquipoAuditLog castea created_at a Carbon
+                    'fecha'         => $log->created_at,
                     'link'          => null,
                     'equipo_nombre' => $eName,
                     'equipo_id'     => $eId,
                     'equipo_db_id'  => $eq ? $eq->ID_EQUIPO : null,
+                    'cambios'       => $cambiosRaw,
                 ]);
             }
         } catch (\Illuminate\Database\QueryException $e) {
@@ -360,6 +365,7 @@ class HistorialDocumentosController extends Controller
                     'equipo_nombre' => $equipoLabel,
                     'equipo_id'     => '',
                     'equipo_db_id'  => null,
+                    'cambios'       => $cambios,
                 ]);
             }
         } catch (\Illuminate\Database\QueryException $e) {

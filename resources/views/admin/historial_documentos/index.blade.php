@@ -943,6 +943,16 @@ document.addEventListener('click', function (e) {
     });
     tr.classList.toggle('hd-row-selected');
 });
+document.addEventListener('click', function (e) {
+    var row = e.target.closest('.hd-selectable-row');
+    if (!row) return;
+    var detail = row.querySelector('.hd-cambios-detail');
+    if (!detail) return;
+    document.querySelectorAll('.hd-cambios-detail').forEach(function (d) {
+        if (d !== detail) d.style.display = 'none';
+    });
+    detail.style.display = detail.style.display === 'block' ? 'none' : 'block';
+});
 </script>
 
 @endsection
