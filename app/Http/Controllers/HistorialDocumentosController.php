@@ -358,7 +358,7 @@ class HistorialDocumentosController extends Controller
                     'fecha'         => $log->created_at,
                     'link'          => null,
                     'equipo_nombre' => $equipoLabel,
-                    'equipo_id'     => $equipoLabel,
+                    'equipo_id'     => '',
                     'equipo_db_id'  => null,
                 ]);
             }

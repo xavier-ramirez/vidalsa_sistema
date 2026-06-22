@@ -532,6 +532,11 @@
         .crop-modal-footer { padding: 10px 12px; }
         .crop-btn { flex: 1; justify-content: center; padding: 12px 10px; }
     }
+    .cropper-line { background-color: #fff !important; opacity: 1 !important; }
+    .cropper-line.line-n, .cropper-line.line-s { height: 3px !important; }
+    .cropper-line.line-w, .cropper-line.line-e { width: 3px !important; }
+    .cropper-point { background-color: #fff !important; opacity: 1 !important; width: 10px !important; height: 10px !important; }
+    .cropper-dashed { border-color: rgba(255,255,255,0.5) !important; }
 </style>
 <div id="cropModal" class="crop-modal-overlay">
     <div class="crop-modal-box">
