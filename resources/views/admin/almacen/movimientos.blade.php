@@ -673,7 +673,7 @@
                     <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
                         style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;border:none;background:transparent;color:#475569;font-size:13px;font-weight:700;cursor:pointer;text-align:left;transition:background 0.15s;text-decoration:none;"
                         onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'"
-                        onclick="document.getElementById('splitDropdownMenuMovInv').style.display='none';">
+                        onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                         <div style="background:#dcfce7;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#16a34a;">description</i></div>
                         <span>Bitácora por Nota (PDF)</span>
                     </a>

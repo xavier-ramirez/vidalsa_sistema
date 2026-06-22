@@ -12,7 +12,7 @@
     $reqDesde   = request('desde');
     $reqHasta   = request('hasta');
     $reqCat     = request('categoria');
-    $hayAdv     = $reqDesde || $reqHasta || ($reqCat && $reqCat !== 'all');
+    $hayAdv     = $reqDesde || $reqHasta || ($reqCat && $reqCat !== 'all') || $reqTipo;
     $almSel     = $reqAlmacen ? ($almacenes ?? collect())->firstWhere('ID_ALMACEN', (int) $reqAlmacen) : null;
     // En esta vista sólo aplican los tipos con Nota de Entrega + PDF.
     $tipos = [
@@ -220,33 +220,7 @@
             </div>
         </div>
 
-        {{-- Tipo (sólo SALIDA / TRASPASO_SALIDA en esta vista) --}}
-        <div class="anf-item">
-            <div class="custom-dropdown" id="almNotFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
-                <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
-                <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:12px;height:45px;">
-                    <span style="padding:0 10px;display:flex;align-items:center;color:var(--maquinaria-gray-text);"><i class="material-icons" style="font-size:18px;transform:none !important;">search</i></span>
-                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
-                           style="flex:1;border:none;background:transparent;padding:10px 5px;font-size:14px;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    <i class="material-icons" data-clear-btn style="padding:0 5px;color:var(--maquinaria-gray-text);font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                       onclick="event.stopPropagation(); clearDropdownFilter('almNotFiltroTipo');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                        <div class="dropdown-item {{ !$tipoSelLabel ? 'selected' : '' }}" data-value="all" onclick="selectOption('almNotFiltroTipo','all','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
-                        @foreach($tipos as $k => $t)
-                            <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}" onclick="selectOption('almNotFiltroTipo','{{ $k }}','{{ addslashes($t['label']) }}');">
-                                <div>{{ $t['label'] }}</div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Filtros Avanzados — rango Desde/Hasta --}}
+        {{-- Filtros Avanzados — Tipo + rango Desde/Hasta --}}
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" id="btnAdvancedFilterNot" class="btn-primary-maquinaria anf-adv-btn" title="Filtros Avanzados"
                     style="background:{{ $hayAdv ? '#fee2e2' : '#fff' }};border:1px solid {{ $hayAdv ? '#ef4444' : '#cbd5e0' }};color:{{ $hayAdv ? '#ef4444' : '#64748b' }};box-shadow:none;"
@@ -258,6 +232,28 @@
                     Filtros Avanzados
                     <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.almNotLimpiarFechas(event)">Limpiar Todo</span>
                 </h4>
+                <div style="margin-bottom:10px;">
+                    <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Tipo</span>
+                    <div class="custom-dropdown" id="almNotFiltroTipo" data-filter-type="tipo" data-default-label="Todos los tipos">
+                        <input type="hidden" name="tipo" data-filter-value value="{{ $reqTipo && isset($tipos[$reqTipo]) ? $reqTipo : '' }}">
+                        <div class="dropdown-trigger {{ $tipoSelLabel ? 'filter-active' : '' }}" style="padding:0;display:flex;align-items:center;background:{{ $tipoSelLabel ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid #cbd5e0;border-radius:8px;height:36px;">
+                            <span style="padding:0 8px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
+                            <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                                   placeholder="{{ $tipoSelLabel ?: 'Todos los tipos' }}"
+                                   style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;"
+                                   oninput="window.filterDropdownOptions(this)">
+                            <i class="material-icons" data-clear-btn style="padding:0 8px;color:#64748b;font-size:18px;display:{{ $tipoSelLabel ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
+                               onclick="event.stopPropagation(); clearDropdownFilter('almNotFiltroTipo');">close</i>
+                        </div>
+                        <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                            <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                                @foreach($tipos as $k => $t)
+                                    <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}" onclick="selectOption('almNotFiltroTipo','{{ $k }}','{{ addslashes($t['label']) }}');">{{ $t['label'] }}</div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                     <div>
                         <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
