@@ -116,7 +116,7 @@
         gap: 4px;
     }
     .cat-modelo {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 800;
         color: #1e293b;
         line-height: 1.2;
@@ -765,11 +765,15 @@
             fd.append('foto', croppedFile);
             _uploadBlob('{{ url("admin/catalogo") }}/' + id + '/photo', fd,
                 function (body) {
-                    if (window.showToast) window.showToast(body.message || 'Foto actualizada correctamente.', 'success');
-                    setTimeout(function () {
-                        if (typeof window.loadCatalogo === 'function') { window.loadCatalogo(); }
-                        else { window.location.reload(); }
-                    }, 1200);
+                    var msg = body.message || 'Foto actualizada correctamente.';
+                    if (typeof window.loadCatalogo === 'function') {
+                        if (typeof window.showPreloader === 'function') window.showPreloader();
+                        window.loadCatalogo();
+                        setTimeout(function () { if (window.showToast) window.showToast(msg, 'success'); }, 800);
+                    } else {
+                        if (window.showToast) window.showToast(msg, 'success');
+                        setTimeout(function () { window.location.reload(); }, 1000);
+                    }
                 },
                 function (msg) { if (window.showToast) window.showToast(msg, 'error'); }
             );
