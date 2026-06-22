@@ -120,11 +120,6 @@
     /* Cuando la fila esta en hover, el fondo azul claro de la celda no debe
        contagiar al boton azul oscuro (mantiene su gradient propio). */
     .alm-not-table tbody tr:hover .anf-pdf-btn { background:linear-gradient(135deg,#1e3a5f,#2563eb); }
-    .anf-tipo-pill {
-        display:inline-flex; align-items:center; gap:5px;
-        padding:3px 9px; border-radius:999px; font-size:12px; font-weight:700; line-height:1;
-    }
-    .anf-tipo-salida   { background:#fee2e2; color:#dc2626; }
     .anf-empty { padding:50px 20px; text-align:center; color:#94a3b8; }
     .anf-empty i { font-size:46px; color:#cbd5e0; display:block; margin:0 auto 8px; }
 
@@ -168,7 +163,6 @@
             grid-area:fecha; font-size:10.5px; color:#94a3b8; font-weight:500;
             display:flex !important; flex-direction:column; align-items:flex-end; justify-content:center; gap:3px;
         }
-        .alm-not-table tbody td:nth-child(1) .anf-tipo-pill { font-size:9px; padding:1px 6px; }
         /* N° Nota */
         .alm-not-table tbody td:nth-child(2) {
             grid-area:nota; font-size:12px; font-weight:700; color:#0f172a; align-self:center;
@@ -351,7 +345,7 @@
                     <th style="width:130px;">Fecha</th>
                     <th style="width:170px;">N° de Nota</th>
                     <th>Almacén origen</th>
-                    <th>Proyecto destino</th>
+                    <th>Frente</th>
                     <th style="width:70px;">PDF</th>
                 </tr>
             </thead>
@@ -373,11 +367,11 @@
                             <div>{{ \Illuminate\Support\Carbon::parse($n->FECHA)->format('d/m/Y') }}</div>
                             <div style="margin-top:3px;">
                                 @if(in_array($tipoNum, ['SALIDA', 'TRASPASO_SALIDA']))
-                                    <span class="anf-tipo-pill anf-tipo-salida"><i class="material-icons" style="font-size:13px;">remove</i> Salida</span>
+                                    <span style="font-size:12px;font-weight:700;color:#dc2626;">Salida</span>
                                 @elseif(in_array($tipoNum, ['ENTRADA', 'TRASPASO_ENTRADA']))
-                                    <span class="anf-tipo-pill" style="background:#dcfce7;color:#16a34a;"><i class="material-icons" style="font-size:13px;">add</i> Entrada</span>
+                                    <span style="font-size:12px;font-weight:700;color:#16a34a;">Entrada</span>
                                 @else
-                                    <span class="anf-tipo-pill" style="background:#f1f5f9;color:#475569;"><i class="material-icons" style="font-size:13px;">tune</i> Auditoría</span>
+                                    <span style="font-size:12px;font-weight:700;color:#475569;">Auditoría</span>
                                 @endif
                             </div>
                         </td>
