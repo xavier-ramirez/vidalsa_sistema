@@ -266,7 +266,6 @@
             row-gap: 3px !important;
             background: #fff !important;
             border: 1px solid #e2e8f0 !important;
-            border-left: 3px solid var(--mov-color, #94a3b8) !important;
             border-radius: 10px !important;
             box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
             margin: 0 !important;
@@ -281,8 +280,7 @@
         }
         /* Seleccionada: azul + muestra burbuja ref */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
-            border: 1px solid var(--maquinaria-blue, #0067b1) !important;
-            border-left: 3px solid var(--maquinaria-blue, #0067b1) !important;
+            border: 2px solid var(--maquinaria-blue, #0067b1) !important;
             background: #f0f9ff !important;
             box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
         }

@@ -1773,23 +1773,10 @@
                     };
 
                     if (url && url.length > 5) {
-                        const isMobileDevice = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                         const fallback = document.getElementById('pdfMobileFallback');
-
-                        if (isMobileDevice) {
-                            // Mostrar pantalla nativa de descarga en vez de GDocs
-                            iframe.style.display = 'none';
-                            if (fallback) fallback.style.display = 'flex';
-
-                            // Quitar el spinner porque no cargaremos iframe
-                            clearTimeout(loaderTimeout);
-                            if (loader) loader.style.display = 'none';
-                            if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                        } else {
-                            if (fallback) fallback.style.display = 'none';
-                            iframe.style.display = 'block';
-                            iframe.src = url + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
-                        }
+                        if (fallback) fallback.style.display = 'none';
+                        iframe.style.display = 'block';
+                        iframe.src = url + '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
                     } else {
                         const fallback = document.getElementById('pdfMobileFallback');
                         if (fallback) fallback.style.display = 'none';
