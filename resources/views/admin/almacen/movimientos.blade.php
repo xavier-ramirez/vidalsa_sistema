@@ -868,7 +868,7 @@
             return { score: s, hit: true };
         }
         if (esNum) return { score: 0, hit: false };
-        var tol = token.length <= 3 ? 1 : (token.length <= 6 ? 2 : 3);
+        var tol = token.length <= 2 ? 1 : (token.length <= 5 ? 2 : 3);
         var mejor = tol + 1;
         for (var i = 0; i < palabras.length; i++) {
             var w = palabras[i];
