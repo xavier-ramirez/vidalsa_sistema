@@ -83,7 +83,10 @@
         </div>
 
         <div class="cat-body">
-            <span class="cat-modelo">@if($item['tipo']){{ $item['tipo'] }} · @endif{{ $item['modelo'] }}</span>
+            @php
+                $showTipoPrefix = $item['tipo'] && !str_starts_with(mb_strtoupper($item['modelo']), mb_strtoupper($item['tipo']));
+            @endphp
+            <span class="cat-modelo">@if($showTipoPrefix){{ $item['tipo'] }} · @endif{{ $item['modelo'] }}</span>
 
             @if(!empty($item['specs']))
                 <div class="cat-specs">

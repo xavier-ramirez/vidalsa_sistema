@@ -339,43 +339,48 @@
         if (str_starts_with($reqModelo, 'modelo_eq:'))      $modeloLabel = substr($reqModelo, 10);
         elseif (str_starts_with($reqModelo, 'modelo_aux:')) $modeloLabel = substr($reqModelo, 11);
 
-        // Mismo estilo que los grupos VEHÍCULOS/AUXILIARES del filtro de /admin/fallas
-        // (sin fondo: solo texto gris en mayúsculas con un borde superior fino).
+        // Header de grupo para los filtros Modelo/Año (texto gris + borde fino).
         $catGrpHdr = 'padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;';
     @endphp
     <form id="catalogoFilters" method="GET" action="{{ route('catalogo.index') }}"
           onsubmit="event.preventDefault(); catSubmit();">
 
-        {{-- Tipo (agrupado VEHÍCULOS / AUXILIARES) --}}
+        {{-- Tipo (agrupado VEHÍCULOS / AUXILIARES) — mismo diseño que /admin/movilizaciones --}}
         <div class="cat-filter {{ $reqTipo ? 'active' : '' }}" style="flex: 1.4 1 260px; max-width: 360px;">
-            <input type="hidden" id="catValTipo" name="tipo" value="{{ $reqTipo }}" data-filter-value>
-            <div class="cat-filter-box">
-                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                    <i class="material-icons" style="font-size:18px;">search</i>
+            <div class="custom-dropdown" id="catTipoDropdown" data-filter-type="cat_tipo" data-default-label="Filtrar Tipo...">
+                <input type="hidden" id="catValTipo" name="tipo" value="{{ $reqTipo }}" data-filter-value>
+                <div class="dropdown-trigger {{ $reqTipo ? 'filter-active' : '' }}" style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:12px; height:45px;">
+                    <div style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #64748b);">
+                        <i class="material-icons" style="font-size:18px;">search</i>
+                    </div>
+                    <input type="text" name="filter_search_dropdown" data-filter-search
+                           placeholder="{{ $tipoLabel ?: 'Filtrar Tipo...' }}"
+                           style="flex:1; border:none; background:transparent; padding:10px 5px; font-size:14px; outline:none; min-width:0;"
+                           oninput="window.filterDropdownOptions(this)"
+                           autocomplete="off">
+                    <i class="material-icons" data-clear-btn
+                       style="padding:0 5px; color:var(--maquinaria-gray-text, #64748b); font-size:18px; display:{{ $reqTipo ? 'block' : 'none' }}; cursor:pointer;"
+                       onclick="event.stopPropagation(); clearDropdownFilter('catTipoDropdown'); catSelect('tipo','','');">close</i>
                 </div>
-                <input type="text" id="catTxtTipo" name="filter_search_dropdown_t" placeholder="{{ $tipoLabel ?: 'Filtrar Tipo...' }}"
-                       autocomplete="off"
-                       oninput="catFilterList('tipo', this.value)"
-                       onfocus="catOpenList('tipo')"
-                       onclick="catOpenList('tipo')"
-                       onblur="setTimeout(()=>catCloseList('tipo'),200)">
-                <i class="material-icons filter-clear"
-                   style="display: {{ $reqTipo ? 'flex' : 'none' }};"
-                   onmousedown="event.preventDefault(); catSelect('tipo','','');">close</i>
-            </div>
-            <div id="catListTipo" class="cat-list">
-                <div class="cat-opt placeholder" data-label="TODOS LOS TIPOS"
-                     onmousedown="event.preventDefault(); catSelect('tipo','','TODOS LOS TIPOS');">TODOS LOS TIPOS</div>
-                <div style="{{ $catGrpHdr }}">VEHÍCULOS</div>
-                @foreach(($tiposVehiculo ?? []) as $t)
-                    <div class="cat-opt" data-label="{{ $t->nombre }}"
-                         onmousedown="event.preventDefault(); catSelect('tipo','tipo_eq:{{ $t->id }}','{{ addslashes($t->nombre) }}');">{{ $t->nombre }}</div>
-                @endforeach
-                <div style="{{ $catGrpHdr }}">AUXILIARES</div>
-                @foreach(($tiposAux ?? []) as $k => $label)
-                    <div class="cat-opt" data-label="{{ $label }}"
-                         onmousedown="event.preventDefault(); catSelect('tipo','tipo_aux:{{ $k }}','{{ addslashes($label) }}');">{{ $label }}</div>
-                @endforeach
+                <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible;">
+                    <div class="dropdown-item-list" style="max-height:300px; overflow-y:auto;">
+                        <div class="dropdown-item {{ !$reqTipo ? 'selected' : '' }}" data-value="" onclick="selectOption('catTipoDropdown','','TODOS LOS TIPOS'); catSelect('tipo','','');">
+                            TODOS LOS TIPOS
+                        </div>
+                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÍCULOS</div>
+                        @foreach(($tiposVehiculo ?? []) as $t)
+                            <div class="dropdown-item {{ $reqTipo === 'tipo_eq:'.$t->id ? 'selected' : '' }}" data-value="tipo_eq:{{ $t->id }}" onclick="selectOption('catTipoDropdown','tipo_eq:{{ $t->id }}','{{ addslashes($t->nombre) }}'); catSelect('tipo','tipo_eq:{{ $t->id }}','{{ addslashes($t->nombre) }}');">
+                                {{ $t->nombre }}
+                            </div>
+                        @endforeach
+                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">AUXILIARES</div>
+                        @foreach(($tiposAux ?? []) as $k => $label)
+                            <div class="dropdown-item {{ $reqTipo === 'tipo_aux:'.$k ? 'selected' : '' }}" data-value="tipo_aux:{{ $k }}" onclick="selectOption('catTipoDropdown','tipo_aux:{{ $k }}','{{ addslashes($label) }}'); catSelect('tipo','tipo_aux:{{ $k }}','{{ addslashes($label) }}');">
+                                {{ $label }}
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -477,6 +482,82 @@
 
 </div> {{-- /page-layout-grid --}}
 
+{{-- Modal de recorte de foto (Cropper.js) --}}
+<link rel="stylesheet" href="{{ asset('css/cropper.min.css') }}">
+<style>
+    .crop-modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 99999;
+        background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+        align-items: center; justify-content: center;
+        padding: 10px;
+    }
+    .crop-modal-box {
+        background: #fff; border-radius: 14px;
+        width: 100%; max-width: 600px; max-height: 90vh;
+        display: flex; flex-direction: column; overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+    }
+    .crop-modal-header {
+        background: #1e293b; padding: 12px 16px; color: #fff;
+        display: flex; justify-content: space-between; align-items: center;
+        flex-shrink: 0;
+    }
+    .crop-modal-body {
+        flex: 1; overflow: hidden; background: #0f172a;
+        min-height: 250px; max-height: 55vh; position: relative;
+    }
+    .crop-modal-body img { display: block; max-width: 100%; }
+    .crop-modal-footer {
+        padding: 12px 16px; display: flex; justify-content: center;
+        gap: 10px; border-top: 1px solid #e2e8f0; flex-shrink: 0;
+    }
+    .crop-btn {
+        padding: 10px 24px; border-radius: 10px; font-size: 14px;
+        font-weight: 700; cursor: pointer; display: flex;
+        align-items: center; gap: 6px; transition: opacity 0.2s;
+    }
+    .crop-btn:active { opacity: 0.8; }
+    .crop-btn-cancel {
+        border: 1px solid #cbd5e0; background: #fff; color: #475569;
+    }
+    .crop-btn-confirm {
+        border: none; background: #0067b1; color: #fff;
+    }
+    @media (max-width: 768px) {
+        .crop-modal-overlay { padding: 0; align-items: flex-end; }
+        .crop-modal-box {
+            max-width: 100%; max-height: 100vh; height: 100vh;
+            border-radius: 0;
+        }
+        .crop-modal-body { min-height: 0; max-height: none; flex: 1; }
+        .crop-modal-footer { padding: 10px 12px; }
+        .crop-btn { flex: 1; justify-content: center; padding: 12px 10px; }
+    }
+</style>
+<div id="cropModal" class="crop-modal-overlay">
+    <div class="crop-modal-box">
+        <div class="crop-modal-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="material-icons" style="font-size:18px; color:#38bdf8;">crop</i>
+                <span style="font-size:14px; font-weight:700;">Recortar Foto</span>
+            </div>
+            <button type="button" onclick="window._closeCropModal()" style="background:transparent; border:none; color:#fff; cursor:pointer; padding:4px;">
+                <i class="material-icons" style="font-size:20px;">close</i>
+            </button>
+        </div>
+        <div class="crop-modal-body"></div>
+        <div class="crop-modal-footer">
+            <button type="button" onclick="window._closeCropModal()" class="crop-btn crop-btn-cancel">
+                <i class="material-icons" style="font-size:16px;">close</i> Cancelar
+            </button>
+            <button type="button" onclick="window._confirmCrop()" class="crop-btn crop-btn-confirm">
+                <i class="material-icons" style="font-size:16px;">check</i> Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/cropper.min.js') }}"></script>
+
 <script>
     function catSubmit() {
         if (typeof window.loadCatalogo === 'function') {
@@ -539,8 +620,109 @@
         catSubmit();
     }
 
-    // Subida de foto de un AUXILIAR (click en la foto). Lee el grupo de los data-* de la
-    // tarjeta y sube al endpoint del catálogo de auxiliares. Actualiza solo esa foto.
+    // ── Cropper: modal compartido para recortar la foto antes de subirla ──
+    // _cropPending guarda el callback que se ejecuta al confirmar el recorte.
+    window._cropPending = null;
+    window._cropperInstance = null;
+
+    window._openCropModal = function (file, onConfirm) {
+        var modal = document.getElementById('cropModal');
+        var body  = document.querySelector('.crop-modal-body');
+        if (!modal || !body) return onConfirm(file);
+
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
+            window._cropPending = onConfirm;
+
+            body.innerHTML = '<img id="cropImage" src="' + e.target.result + '" style="display:block; max-width:100%; opacity:0;">';
+            modal.style.display = 'flex';
+
+            var img = document.getElementById('cropImage');
+            var initCropper = function () {
+                if (typeof Cropper === 'undefined') return;
+                img.style.opacity = '1';
+                window._cropperInstance = new Cropper(img, {
+                    aspectRatio: 4 / 3,
+                    viewMode: 1,
+                    autoCropArea: 0.9,
+                    responsive: true,
+                    background: false,
+                    dragMode: 'move',
+                    toggleDragModeOnDblclick: false,
+                });
+            };
+
+            if (img.complete && img.naturalWidth > 0) {
+                setTimeout(initCropper, 100);
+            } else {
+                img.onload = function () { setTimeout(initCropper, 100); };
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window._confirmCrop = function () {
+        if (!window._cropperInstance || !window._cropPending) return;
+        var canvas = window._cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 900, imageSmoothingQuality: 'high' });
+        canvas.toBlob(function (blob) {
+            if (!blob) { if (window.showToast) window.showToast('Error al recortar la imagen.', 'error'); return; }
+            var croppedFile = new File([blob], 'foto_recortada.webp', { type: 'image/webp' });
+            window._cropPending(croppedFile);
+            window._closeCropModal();
+        }, 'image/webp', 0.88);
+    };
+
+    window._closeCropModal = function () {
+        var modal = document.getElementById('cropModal');
+        if (modal) modal.style.display = 'none';
+        if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
+        window._cropPending = null;
+        var body = document.querySelector('.crop-modal-body');
+        if (body) body.innerHTML = '';
+    };
+
+    // ── Helpers de subida (post-recorte) ──
+    function _pickFileAndCrop(onCropped) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
+        input.style.display = 'none';
+        input.addEventListener('change', function () {
+            if (!input.files || !input.files[0]) return;
+            var file = input.files[0];
+            if (file.size > 10 * 1024 * 1024) {
+                if (window.showToast) window.showToast('La foto supera los 10 MB.', 'error');
+                return;
+            }
+            window._openCropModal(file, onCropped);
+        });
+        document.body.appendChild(input);
+        input.click();
+        setTimeout(function () { if (input.parentNode) document.body.removeChild(input); }, 1000);
+    }
+
+    function _uploadBlob(url, fd, onSuccess, onError) {
+        var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body: fd, credentials: 'same-origin'
+        })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (res.ok && res.body.success) { onSuccess(res.body); }
+            else { onError((res.body && res.body.message) || 'No se pudo subir la foto.'); }
+        })
+        .catch(function () {
+            if (window.hidePreloader) window.hidePreloader();
+            onError('Error de red al subir la foto.');
+        });
+    }
+
+    // ── Subida AUXILIAR ──
     window.auxCatUploadPhoto = function (photoEl) {
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
             modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
@@ -548,100 +730,45 @@
             if (window.showToast) window.showToast('Este modelo no tiene marca registrada; no se puede asociar la foto.', 'error');
             return;
         }
-        var input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
-        input.style.display = 'none';
-        input.addEventListener('change', function () {
-            if (!input.files || !input.files[0]) return;
-            var file = input.files[0];
-            if (file.size > 5 * 1024 * 1024) { if (window.showToast) window.showToast('La foto supera los 5MB.', 'error'); return; }
+        _pickFileAndCrop(function (croppedFile) {
             var fd = new FormData();
-            fd.append('foto', file); fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
+            fd.append('foto', croppedFile); fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
             if (anio) fd.append('anio', anio);
-            var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-            if (typeof window.showPreloader === 'function') window.showPreloader();
-            fetch('{{ route("equipos-auxiliares.catalogo.uploadPhoto") }}', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: fd, credentials: 'same-origin'
-            })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-            .then(function (res) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada.', 'success');
-                    var nuevaUrl = res.body.foto;
-                    if (nuevaUrl) {
+            _uploadBlob('{{ route("equipos-auxiliares.catalogo.uploadPhoto") }}', fd,
+                function (body) {
+                    if (window.showToast) window.showToast(body.message || 'Foto actualizada.', 'success');
+                    if (body.foto) {
                         var img = photoEl.querySelector('img');
-                        if (img) { img.src = nuevaUrl; }
+                        if (img) { img.src = body.foto; }
                         else {
                             var ph = photoEl.querySelector('.placeholder'); if (ph) ph.remove();
-                            var n = document.createElement('img'); n.src = nuevaUrl; n.alt = (marca + ' ' + modelo).trim();
+                            var n = document.createElement('img'); n.src = body.foto; n.alt = (marca + ' ' + modelo).trim();
                             n.onerror = function () { this.outerHTML = '<i class="material-icons placeholder">image_not_supported</i>'; };
                             photoEl.insertBefore(n, photoEl.firstChild);
                         }
                     }
-                } else {
-                    if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo subir la foto.', 'error');
-                }
-            })
-            .catch(function () { if (window.hidePreloader) window.hidePreloader(); if (window.showToast) window.showToast('Error de red al subir la foto.', 'error'); });
+                },
+                function (msg) { if (window.showToast) window.showToast(msg, 'error'); }
+            );
         });
-        document.body.appendChild(input); input.click();
-        setTimeout(function () { document.body.removeChild(input); }, 1000);
     };
 
-    // Subida de foto haciendo click en la foto de la tarjeta — sin abrir el formulario
-    // de edición. Abre un selector de archivo, valida tamaño y sube a catalogo.uploadFoto.
-    // UX: spinner → toast → refresco del grid por AJAX (loadCatalogo, sin recargar la página).
+    // ── Subida VEHÍCULO ──
     window.catUploadPhoto = function (id) {
-        var input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/jpeg,image/jpg,image/png,image/webp';
-        input.style.display = 'none';
-        input.addEventListener('change', function () {
-            if (!input.files || !input.files[0]) return;
-            var file = input.files[0];
-            if (file.size > 5 * 1024 * 1024) {
-                if (window.showToast) window.showToast('La foto supera los 5MB.', 'error');
-                return;
-            }
+        _pickFileAndCrop(function (croppedFile) {
             var fd = new FormData();
-            fd.append('foto', file);
-            var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            if (typeof window.showPreloader === 'function') window.showPreloader();
-            fetch('{{ url('admin/catalogo') }}/' + id + '/photo', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                body: fd,
-                credentials: 'same-origin'
-            })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
-            .then(function (res) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (res.ok && res.body.success) {
-                    if (window.showToast) window.showToast(res.body.message || 'Foto actualizada correctamente.', 'success');
-                    // Refrescar el grid (preserva filtros) para mostrar la foto nueva del
-                    // modelo y de cualquier equipo que la herede vía auto-link.
+            fd.append('foto', croppedFile);
+            _uploadBlob('{{ url("admin/catalogo") }}/' + id + '/photo', fd,
+                function (body) {
+                    if (window.showToast) window.showToast(body.message || 'Foto actualizada correctamente.', 'success');
                     setTimeout(function () {
                         if (typeof window.loadCatalogo === 'function') { window.loadCatalogo(); }
                         else { window.location.reload(); }
                     }, 1200);
-                } else {
-                    var msg = (res.body && res.body.message) || 'No se pudo subir la foto.';
-                    if (window.showToast) window.showToast(msg, 'error');
-                }
-            })
-            .catch(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                if (window.showToast) window.showToast('Error de red al subir la foto.', 'error');
-            });
+                },
+                function (msg) { if (window.showToast) window.showToast(msg, 'error'); }
+            );
         });
-        document.body.appendChild(input);
-        input.click();
-        setTimeout(function () { if (input.parentNode) document.body.removeChild(input); }, 1000);
     };
 </script>
 @endsection

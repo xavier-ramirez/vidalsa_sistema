@@ -433,7 +433,7 @@
            sus valores se reusan inline en otras celdas via data-* + pseudo. */
         .alm-table tr.alm-row td.alm-td-codigo,
         .alm-table tr.alm-row td.alm-td-cat,
-        .alm-table tr.alm-row td.alm-td-um { display: none !important; }
+        .alm-table tr.alm-row td.alm-td-um { display: none !important; position: absolute !important; width: 0 !important; height: 0 !important; overflow: hidden !important; }
 
         /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
            El ::before pone "00042 " como prefijo, heredando font/color/weight
@@ -441,6 +441,7 @@
            El cliente lo pidio: "todo en el mismo texto, sin separar". */
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
+            display: block !important;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
             padding: 9px 14px !important;
             font-size: 12px !important;
@@ -930,9 +931,6 @@
                     style="display:none;width:100%;padding:11px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
                 <i class="material-icons" style="font-size:19px;vertical-align:-4px;margin-right:6px;">photo_camera</i>Activar cámara
             </button>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.almEscanearCerrar()">Cerrar</button>
         </div>
     </div>
 </div>
