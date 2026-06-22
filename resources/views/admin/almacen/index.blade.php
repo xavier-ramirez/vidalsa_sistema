@@ -1920,26 +1920,26 @@
     function almTokenizar(raw) {
         var crudos = almNorm(raw || '').split(/\s+/).filter(Boolean);
         var sig = crudos.filter(function (t) {
-            return !ALM_STOPWORDS[t] && !/^\d{1,2}$/.test(t);
+            return !ALM_STOPWORDS[t];
         });
         return sig.length ? sig : crudos;
     }
 
-    // Puntua UN token contra un producto. `palabras` = palabras del texto
-    // (CODIGO+NOMBRE) normalizado; `hayFull` = ese texto completo.
-    // Retorna {score, hit}. Substring directo pesa mas que un match fuzzy.
     function almScoreToken(palabras, hayFull, token) {
+        var esNum = /^\d+$/.test(token);
         var idx = hayFull.indexOf(token);
         if (idx > -1) {
             var s = 12;
-            if (idx === 0) s += 12;                          // arranca el texto
-            else if (hayFull.charAt(idx - 1) === ' ') s += 7; // inicio de palabra
+            if (idx === 0) s += 12;
+            else if (hayFull.charAt(idx - 1) === ' ') s += 9;
+            if (esNum) s += 8;
+            for (var wi = 0; wi < palabras.length; wi++) {
+                if (palabras[wi] === token) { s += 10; break; }
+            }
             return { score: s, hit: true };
         }
-        // Fuzzy: tolera 1 typo en tokens cortos, 2 en largos. Compara contra
-        // cada palabra completa Y contra su prefijo del largo del token (captura
-        // typos mientras todavia se esta escribiendo la palabra).
-        var tol = token.length <= 4 ? 1 : 2;
+        if (esNum) return { score: 0, hit: false };
+        var tol = token.length <= 3 ? 1 : (token.length <= 6 ? 2 : 3);
         var mejor = tol + 1;
         for (var i = 0; i < palabras.length; i++) {
             var w = palabras[i];
@@ -1952,7 +1952,7 @@
             }
             if (mejor === 0) break;
         }
-        if (mejor <= tol) return { score: 7 - mejor * 2, hit: true }; // 1 typo→5, 2→3
+        if (mejor <= tol) return { score: 8 - mejor * 2, hit: true };
         return { score: 0, hit: false };
     }
 
@@ -2060,9 +2060,14 @@
                     if (r.hit) { matched++; total += r.score; }
                 }
                 if (matched < minTokens) continue;
-                if (matched === tokens.length) total += 25;          // todos los tokens
-                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 30; // frase exacta
-                total += Math.max(0, 20 - nom.length * 0.15);          // nombre corto
+                if (matched === tokens.length) total += 35;
+                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 40;
+                var consec = 0;
+                for (var ci = 0; ci < tokens.length - 1; ci++) {
+                    if (hayFull.indexOf(tokens[ci] + ' ' + tokens[ci + 1]) > -1) consec++;
+                }
+                total += consec * 12;
+                total += Math.max(0, 25 - nom.length * 0.2);
                 scored.push({ p: p, score: total });
             }
             scored.sort(function (a, b) {
