@@ -893,7 +893,7 @@
         var lista = window.almMovProductosLista || [];
         var matches = [];
         if (tokens.length === 0) {
-            for (var i = 0; i < lista.length && matches.length < 15; i++) matches.push(lista[i]);
+            for (var i = 0; i < lista.length && matches.length < 17; i++) matches.push(lista[i]);
         } else {
             // Scoring: por cada producto sumamos el score de cada token (substring
             // fuerte / fuzzy debil). Candidato si matchea >= la mitad de los tokens.
@@ -926,7 +926,7 @@
                 if (b.score !== a.score) return b.score - a.score;
                 return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
             });
-            for (var sx = 0; sx < scored.length && sx < 15; sx++) matches.push(scored[sx].p);
+            for (var sx = 0; sx < scored.length && sx < 17; sx++) matches.push(scored[sx].p);
         }
         var html = '';
         if (!matches.length) {

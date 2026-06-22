@@ -2031,7 +2031,7 @@
         // vistosNom: dedupe por nombre normalizado — una sola entrada por descripcion.
         var vistosNom = {};
         if (tokens.length === 0) {
-            for (var i = 0; i < lista.length && matches.length < 15; i++) {
+            for (var i = 0; i < lista.length && matches.length < 17; i++) {
                 var kI = almNorm(lista[i].NOMBRE || '');
                 if (vistosNom[kI]) continue;
                 if (catActivaNorm && !(gruposNombre[kI] && gruposNombre[kI].enCat)) continue;
@@ -2073,7 +2073,7 @@
                 return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
             });
             // TODAS las descripciones DISTINTAS que matchean, mejor-scoreadas primero (dedupe por nombre).
-            for (var s = 0; s < scored.length && matches.length < 15; s++) {
+            for (var s = 0; s < scored.length && matches.length < 17; s++) {
                 var kS = almNorm(scored[s].p.NOMBRE || '');
                 if (vistosNom[kS]) continue;
                 if (catActivaNorm && !(gruposNombre[kS] && gruposNombre[kS].enCat)) continue;
