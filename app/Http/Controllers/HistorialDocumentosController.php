@@ -480,7 +480,7 @@ class HistorialDocumentosController extends Controller
         $total = $events->count();
 
         // 5. Paginate manually mapping 20 by 20
-        $perPage = 20;
+        $perPage = 15;
         $page = $request->input('page', 1);
         
         $paginatedEvents = new \Illuminate\Pagination\LengthAwarePaginator(
