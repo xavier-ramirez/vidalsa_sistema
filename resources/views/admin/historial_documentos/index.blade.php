@@ -634,6 +634,14 @@
         background: #f8fafc !important;
         transition: background 0.15s;
     }
+    #historialDocumentosTable .hd-has-cambios { cursor: pointer; }
+    #historialDocumentosTable .hd-has-cambios.hd-detail-open td {
+        background: #eff6ff !important;
+        border-color: #93c5fd !important;
+    }
+    #historialDocumentosTable .hd-has-cambios.hd-detail-open td:first-child {
+        border-left: 4px solid #0067b1 !important;
+    }
 
     /* Desktop: selección clásica (fondo azul en td, borde izquierdo) */
     @media (min-width: 769px) {
@@ -944,14 +952,18 @@ document.addEventListener('click', function (e) {
     tr.classList.toggle('hd-row-selected');
 });
 document.addEventListener('click', function (e) {
-    var row = e.target.closest('.hd-selectable-row');
+    if (e.target.closest('.btn-view-pdf')) return;
+    var row = e.target.closest('.hd-has-cambios');
     if (!row) return;
     var detail = row.querySelector('.hd-cambios-detail');
     if (!detail) return;
-    document.querySelectorAll('.hd-cambios-detail').forEach(function (d) {
-        if (d !== detail) d.style.display = 'none';
-    });
-    detail.style.display = detail.style.display === 'block' ? 'none' : 'block';
+    var isOpen = detail.style.display === 'block';
+    document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
+    document.querySelectorAll('.hd-detail-open').forEach(function (r) { r.classList.remove('hd-detail-open'); });
+    if (!isOpen) {
+        detail.style.display = 'block';
+        row.classList.add('hd-detail-open');
+    }
 });
 </script>
 
