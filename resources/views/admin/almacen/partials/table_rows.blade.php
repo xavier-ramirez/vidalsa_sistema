@@ -53,7 +53,7 @@
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}">
-            <td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
+            <td class="alm-td-codigo" style="font-family:monospace;font-weight:600;color:#1e293b;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
                  `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php.
