@@ -141,6 +141,8 @@
         #almNotFilters { gap:8px !important; }
         #almNotFilters .anf-item { flex:1 1 100% !important; max-width:none !important; }
         #almNotFilters .anf-search { flex:1 1 0 !important; min-width:0 !important; max-width:none !important; }
+        #almNotFilters > div:last-child { flex:1 1 100% !important; margin-left:0 !important; width:100% !important; }
+        #almNotFilters > div:last-child > a { width:100% !important; justify-content:center !important; }
         .alm-not-table thead { display:none !important; }
         .alm-not-table { display:block !important; border:none !important; }
         .alm-not-table tbody { display:flex !important; flex-direction:column !important; gap:10px !important; }
