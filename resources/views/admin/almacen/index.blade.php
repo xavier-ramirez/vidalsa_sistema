@@ -217,7 +217,11 @@
         position:absolute; top:calc(100% + 5px); left:0; right:0; background:#fff;
         border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
         z-index:1000; max-height:260px; overflow-y:auto; padding:5px; display:none;
+        scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent;
     }
+    .alm-suggest::-webkit-scrollbar { width:5px; }
+    .alm-suggest::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+    .alm-suggest::-webkit-scrollbar-track { background:transparent; }
     .alm-suggest.open { display:block; animation:slideDown 0.18s ease-out; }
     .alm-suggest-item { display:flex; flex-direction:column; gap:2px; padding:10px 15px; border-radius:8px; cursor:default; transition:background 0.2s; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); }
     .alm-suggest-item:hover, .alm-suggest-item.active { background:#f0f4f8; }
