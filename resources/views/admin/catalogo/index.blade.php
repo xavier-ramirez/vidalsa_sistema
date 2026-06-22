@@ -630,34 +630,39 @@
         var body  = document.querySelector('.crop-modal-body');
         if (!modal || !body) return onConfirm(file);
 
+        if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
+        window._cropPending = onConfirm;
+        body.innerHTML = '';
+
+        modal.style.display = 'flex';
+
         var reader = new FileReader();
         reader.onload = function (e) {
-            if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
-            window._cropPending = onConfirm;
+            var img = document.createElement('img');
+            img.style.cssText = 'display:block; max-width:100%;';
+            body.appendChild(img);
 
-            body.innerHTML = '<img id="cropImage" src="' + e.target.result + '" style="display:block; max-width:100%; opacity:0;">';
-            modal.style.display = 'flex';
-
-            var img = document.getElementById('cropImage');
-            var initCropper = function () {
-                if (typeof Cropper === 'undefined') return;
-                img.style.opacity = '1';
-                window._cropperInstance = new Cropper(img, {
-                    aspectRatio: 4 / 3,
-                    viewMode: 1,
-                    autoCropArea: 0.9,
-                    responsive: true,
-                    background: false,
-                    dragMode: 'move',
-                    toggleDragModeOnDblclick: false,
-                });
+            img.onload = function () {
+                var tries = 0;
+                var tryInit = function () {
+                    if (typeof Cropper !== 'undefined') {
+                        window._cropperInstance = new Cropper(img, {
+                            aspectRatio: 4 / 3,
+                            viewMode: 1,
+                            autoCropArea: 0.9,
+                            responsive: true,
+                            background: false,
+                            dragMode: 'move',
+                            toggleDragModeOnDblclick: false,
+                        });
+                    } else if (tries < 30) {
+                        tries++;
+                        setTimeout(tryInit, 100);
+                    }
+                };
+                setTimeout(tryInit, 150);
             };
-
-            if (img.complete && img.naturalWidth > 0) {
-                setTimeout(initCropper, 100);
-            } else {
-                img.onload = function () { setTimeout(initCropper, 100); };
-            }
+            img.src = e.target.result;
         };
         reader.readAsDataURL(file);
     };

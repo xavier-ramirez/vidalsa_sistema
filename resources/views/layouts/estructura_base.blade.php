@@ -1773,15 +1773,6 @@
                     };
 
                     if (url && url.length > 5) {
-                        const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                        if (isMobile) {
-                            clearTimeout(loaderTimeout);
-                            if (loader) loader.style.display = 'none';
-                            if (typeof window.hidePreloader === 'function') window.hidePreloader();
-                            if (modal) modal.classList.remove('active');
-                            window.open(url, '_blank');
-                            return;
-                        }
                         const fallback = document.getElementById('pdfMobileFallback');
                         if (fallback) fallback.style.display = 'none';
                         iframe.style.display = 'block';
