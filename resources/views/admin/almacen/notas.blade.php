@@ -151,24 +151,48 @@
         .alm-not-table tbody { display:flex !important; flex-direction:column !important; gap:10px !important; }
         .alm-not-table tbody tr {
             display:grid !important;
-            grid-template-columns:1fr auto;
+            grid-template-columns:1fr auto auto;
+            grid-template-rows:auto auto;
             grid-template-areas:
-                "nota   pdf"
-                "fecha  fecha"
-                "origen destino";
-            gap:6px 10px;
-            background:#fff !important; border:1px solid #e2e8f0 !important;
-            border-radius:10px !important; padding:12px 14px !important;
+                "nota   fecha  pdf"
+                "destino destino destino";
+            column-gap:8px; row-gap:0;
+            background:#fff !important; border:1px solid #cbd5e1 !important;
+            border-radius:12px !important; padding:10px 14px 0 14px !important;
             box-shadow:0 1px 4px rgba(0,0,0,0.05);
+            overflow:hidden !important;
         }
         .alm-not-table tbody td { border:none !important; padding:0 !important; text-align:left !important; }
-        .alm-not-table tbody td:nth-child(1) { grid-area:fecha; font-size:11px; color:#64748b; }
-        .alm-not-table tbody td:nth-child(1) .anf-tipo-pill { font-size:10px; padding:1px 6px; }
-        .alm-not-table tbody td:nth-child(2) { grid-area:nota; font-size:12px; font-weight:700; color:#334155; align-self:center; }
-        .alm-not-table tbody td:nth-child(3) { grid-area:origen; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; text-align:center !important; }
-        .alm-not-table tbody td:nth-child(4) { grid-area:destino; font-size:12px; color:#334155; border-top:1px solid #f1f5f9; padding-top:6px !important; text-align:center !important; }
-        .alm-not-table tbody td:nth-child(5) { grid-area:pdf; justify-self:end; align-self:start; }
+        /* Fecha + tipo pill */
+        .alm-not-table tbody td:nth-child(1) {
+            grid-area:fecha; font-size:10.5px; color:#94a3b8; font-weight:500;
+            display:flex !important; flex-direction:column; align-items:flex-end; justify-content:center; gap:3px;
+        }
+        .alm-not-table tbody td:nth-child(1) .anf-tipo-pill { font-size:9px; padding:1px 6px; }
+        /* N° Nota */
+        .alm-not-table tbody td:nth-child(2) {
+            grid-area:nota; font-size:12px; font-weight:700; color:#0f172a; align-self:center;
+        }
+        /* Origen (oculto en móvil — la info está en el destino) */
+        .alm-not-table tbody td:nth-child(3) { display:none !important; }
+        /* Destino: banda gris al pie (mismo patrón que movimientos) */
+        .alm-not-table tbody td:nth-child(4) {
+            grid-area:destino;
+            font-size:11px; font-weight:700; color:#0f172a;
+            background:#f1f5f9 !important;
+            border-radius:0 0 10px 10px !important;
+            padding:7px 14px !important;
+            margin:8px -14px 0 -14px !important;
+            display:flex !important; align-items:center; gap:4px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        .alm-not-table tbody td:nth-child(4)::before {
+            content:"location_on"; font-family:'Material Icons'; font-size:13px; color:#64748b; font-weight:normal; flex-shrink:0;
+        }
+        /* PDF */
+        .alm-not-table tbody td:nth-child(5) { grid-area:pdf; justify-self:end; align-self:center; }
         .alm-not-table tbody tr:hover td { background:transparent !important; }
+        .alm-not-table tbody tr:hover td:nth-child(4) { background:#f1f5f9 !important; }
         div[style*="overflow-x:auto"] { border:none !important; border-radius:0 !important; overflow:visible !important; }
     }
 </style>
