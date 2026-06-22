@@ -360,13 +360,13 @@
                         <td>
                             <span style="font-weight:700;color:#334155;font-size:13px;">{{ $n->NUMERO_NOTA }}</span>
                         </td>
-                        <td style="text-align:left;">
+                        <td>
                             {{ $alm?->NOMBRE ?? '—' }}
                             @if($alm)
                                 <div style="font-size:11px;color:#94a3b8;font-weight:500;">{{ $alm->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}</div>
                             @endif
                         </td>
-                        <td style="text-align:left;">
+                        <td>
                             @if($contra)
                                 {{ $contra->NOMBRE }}
                                 @if($fre)
