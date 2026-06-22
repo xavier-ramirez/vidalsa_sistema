@@ -16,10 +16,6 @@
 
     $reqDesde      = request('desde');
     $reqHasta      = request('hasta');
-    // $hayAdv = ¿hay algún filtro activo del PANEL Avanzado? El "Almacén destino" vive en
-    // el header — su estado se refleja en su propio control, no en el botón embudo.
-    // "En tránsito" (ENVIADO) es el default de la bandeja → NO cuenta como filtro activo.
-    $hayAdv        = $reqDesde || $reqHasta || ($reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO);
 
     // Metadata visual de los estados — definida en \App\Models\Traspaso::ESTADOS_META.
     $badgesEstado = \App\Models\Traspaso::ESTADOS_META;
@@ -101,6 +97,15 @@
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
     .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:8px 5px; font-size:13px; min-width:0; color:#0f172a; }
+    /* Filtros en línea (Estado / Desde / Hasta) — misma altura (40px) que el buscador. */
+    #trFilters .tr-filter-estado { flex:0 1 180px; min-width:150px; max-width:220px; }
+    #trFilters .tr-filter-fecha  { flex:0 1 170px; min-width:140px; max-width:200px; }
+    .tr-filter-input { width:100%; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; outline:none; box-sizing:border-box; }
+    .tr-filter-input:focus { border-color:#0067b1; }
+    .tr-date-box { display:flex; align-items:center; gap:5px; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; cursor:pointer; box-sizing:border-box; }
+    .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
+    .tr-date-box .tr-date-label { font-size:12px; font-weight:600; color:#64748b; pointer-events:none; white-space:nowrap; }
+    .tr-date-box input[type=date] { flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:12px; outline:none; color:#0f172a; cursor:pointer; }
 
     /* Dropdown de sugerencias */
     .tr-suggest {
@@ -122,6 +127,35 @@
     }
     .tr-suggest-item:hover, .tr-suggest-item.active { background:#e1effa; color:#0067b1; }
     .tr-suggest-empty { padding:10px 12px; font-size:12px; color:#94a3b8; font-style:italic; }
+
+    /* ── Layout: la tabla (.admin-card) y el panel de resumen, cada uno en SU PROPIO
+         contenedor, lado a lado. ── */
+    .tr-layout { display:flex; gap:16px; align-items:flex-start; }
+    /* Panel estilo "Consolidado de Inventario" (/admin/almacen): tarjeta con gradiente
+       azul y texto blanco, un número héroe (Por revisar) + dos sub-métricas
+       (Recientes / Urgentes) en cajas semitransparentes de color. */
+    .tr-stats { flex:0 0 230px; position:relative; overflow:hidden; align-self:flex-start;
+        background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%); border-radius:12px;
+        padding:15px; color:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
+    .tr-stats-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
+    .tr-stats-title { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; opacity:0.8; margin-bottom:10px; }
+    .tr-stats-title i { font-size:14px; }
+    .tr-stats-row { display:flex; align-items:center; gap:8px; }
+    .tr-stats-hero { display:flex; flex-direction:column; align-items:center; background:rgba(255,255,255,0.15); padding:8px 6px; border-radius:10px; min-width:72px; }
+    .tr-stats-hero-num { font-size:34px; font-weight:800; line-height:1; }
+    .tr-stats-hero-lbl { font-size:11px; opacity:0.85; font-weight:700; margin-top:2px; text-transform:uppercase; letter-spacing:.3px; }
+    .tr-stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:4px; flex:1; }
+    .tr-stats-sub { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 2px; border-radius:8px; text-align:center; }
+    .tr-stats-sub i { font-size:18px; margin-bottom:2px; }
+    .tr-stats-sub strong { font-weight:800; font-size:16px; color:#fff; }
+    .tr-stats-sub span { font-size:10px; opacity:0.9; font-weight:700; text-transform:uppercase; line-height:1.1; }
+    .tr-sub-rec { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.25); }
+    .tr-sub-urg { background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.3); }
+    /* Mobile: el panel (tarjeta con gradiente) sube ARRIBA de la tabla, full-width. */
+    @media (max-width: 768px) {
+        .tr-layout { flex-direction:column; }
+        .tr-stats { order:-1; flex:0 0 auto; width:100%; box-sizing:border-box; }
+    }
 
     /* Tabla */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
@@ -172,29 +206,37 @@
     .dtm-lineas-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
     .dtm-lineas-header span:first-child { font-size:12px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
     .dtm-lineas-count { font-size:11px; font-weight:800; color:#0067b1; background:#e1effa; padding:2px 8px; border-radius:999px; }
-    .dtm-lineas-wrap { display:flex; flex-direction:column; gap:8px; }
-
-    .dtm-linea {
-        background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
-        padding:10px 12px; display:flex; flex-direction:column; gap:6px;
+    /* Materiales = TABLA real (<table>): encabezado + filas con columnas alineadas y
+       valores centrados — se ve como una tabla, consistente con el modal. */
+    .dtm-table-wrap { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+    .dtm-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .dtm-table thead th {
+        text-align:center; font-size:9px; font-weight:700; color:#94a3b8;
+        text-transform:uppercase; letter-spacing:.3px; padding:7px 8px;
+        background:#f8fafc; border-bottom:1px solid #e2e8f0; white-space:nowrap;
     }
-    .dtm-linea-prod { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
-    .dtm-linea-cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; white-space:nowrap; }
-    .dtm-linea-nom { font-size:13px; font-weight:600; color:#475569; }
-    .dtm-linea-um { font-size:10.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; }
-    .dtm-linea-cant-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-    .dtm-linea-enviado, .dtm-linea-recibido, .dtm-linea-diff { display:flex; flex-direction:column; gap:1px; }
-    .dtm-cant-label { font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; }
-    .dtm-cant-value { font-size:14px; font-weight:700; font-family:monospace; color:#0f172a; }
+    .dtm-table thead th:first-child { text-align:left; }
+    .dtm-table tbody td {
+        padding:6px 8px; border-bottom:1px solid #eef2f6;
+        text-align:center; vertical-align:middle; border-right:1px solid #f1f5f9;
+    }
+    .dtm-table tbody td:last-child { border-right:none; }
+    .dtm-table tbody tr:last-child td { border-bottom:none; }
+    .dtm-table tbody tr:hover td { background:#f8fafc; }
+    .dtm-td-prod { text-align:left !important; min-width:0; }
+    .dtm-td-prod .dtm-linea-cod, .dtm-td-prod .dtm-linea-nom, .dtm-td-prod .dtm-linea-um { display:inline; }
+    .dtm-linea-cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; }
+    .dtm-linea-nom { font-size:12.5px; font-weight:600; color:#334155; margin-left:4px; }
+    .dtm-linea-um { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-left:4px; }
+    .dtm-col-num { font-family:monospace; font-weight:700; font-size:13.5px; color:#0f172a; white-space:nowrap; }
     .dtm-rec-input {
-        width:90px; height:32px; border:1px solid #93c5fd; border-radius:6px;
-        padding:0 6px; font-size:13px; font-weight:700; background:#eff6ff;
-        outline:none; color:#1e3a5f; text-align:right; font-family:monospace;
+        width:72px; max-width:100%; height:30px; border:1px solid #93c5fd; border-radius:6px;
+        padding:0 4px; font-size:13px; font-weight:700; background:#eff6ff;
+        outline:none; color:#1e3a5f; text-align:center; font-family:monospace;
     }
     .dtm-rec-input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
     .dtm-diff-value { font-size:13px; font-weight:700; font-family:monospace; color:#64748b; }
-    .dtm-linea-danado { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#b45309; cursor:pointer; }
-    .dtm-linea-danado input { margin:0; accent-color:#b45309; }
+    .dtm-rec-danado { width:17px; height:17px; margin:0; accent-color:#b45309; cursor:pointer; }
 
     .dtm-footer {
         display:flex; align-items:center; gap:8px; flex-wrap:wrap;
@@ -224,23 +266,18 @@
         .dtm-meta-item { flex:1 1 45%; }
         .dtm-footer { flex-direction:column; }
         .dtm-footer .dt-btn { width:100%; justify-content:center; }
-        .dtm-linea-cant-row { gap:8px; }
-        .dtm-rec-input { width:70px; }
+        /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono. */
+        .dtm-table { font-size:12px; }
+        .dtm-table thead th, .dtm-table tbody td { padding:5px 4px; }
+        .dtm-col-num, .dtm-diff-value { font-size:12px; }
+        .dtm-linea-nom { font-size:11.5px; }
+        .dtm-rec-input { width:54px; height:28px; font-size:12px; }
     }
 
-    /* Columna de materiales */
-    .tr-lineas-cell { vertical-align:top; }
-    .tr-lineas-box  { width:280px; max-height:120px; overflow-y:auto; font-size:12px; scrollbar-width:thin; }
-    .tr-linea-item  { display:flex; gap:6px; align-items:baseline; }
-    .tr-linea-item + .tr-linea-item { margin-top:3px; padding-top:3px; border-top:1px dashed #eef2f6; }
-    .tr-linea-cod   { font-family:monospace; font-weight:800; color:#0f172a; white-space:nowrap; flex:0 0 auto; font-size:11.5px; }
-    .tr-linea-desc  { color:#475569; font-weight:600; min-width:0; }
-
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
-       Cada hijo de #trFilters toma su propia fila full-width (mismo flujo que
-       el modulo Inventario). Titulo oculto, selector de almacen destino full-
-       width como header efectivo, boton Filtros Avanzados full-width (no
-       icono chiquito perdido), boton "Recepcion ODC" full-width al final. */
+       Titulo oculto, selector de almacen destino full-width como header
+       efectivo, y los filtros en línea (buscador / Estado / Desde-Hasta)
+       se reacomodan a lo ancho del telefono. */
     @media (max-width: 768px) {
         /* Viewport principal: por default .main-viewport tiene padding:20px y
            width:98% (estilos_globales.css:92). En /admin/almacen el global lo
@@ -265,15 +302,13 @@
         /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
-        .page-title-card > div > div > div[style*="width:320px"] { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
 
-        /* Filtros en mobile: el N° de nota comparte fila con el boton de Filtros Avanzados. */
+        /* Filtros en mobile: buscador y Estado a fila completa; Desde/Hasta lado a
+           lado; el botón Limpiar (40x40) cierra la fila de fechas. */
         #trFilters { gap: 8px !important; }
-        /* Buscar N° de nota — ocupa el resto de la fila junto al boton Filtros Avanzados (40x40). */
-        #trFilters > .tr-search-num { flex: 1 1 0 !important; max-width: none !important; min-width: 0 !important; }
-        /* (El botón "Recepción ODC" ya no vive en #trFilters — se movió a los tabs del header.) */
-        /* Panel Filtros Avanzados desplegado: su centrado en mobile vive ahora en
-           estilos_globales.css (regla unica para todos los modulos). */
+        #trFilters > .tr-search-num    { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
+        #trFilters > .tr-filter-estado { flex: 1 1 100% !important; max-width: none !important; }
+        #trFilters > .tr-filter-fecha  { flex: 1 1 0 !important; min-width: 0 !important; }
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Recepción (bandeja)
@@ -314,7 +349,6 @@
             grid-template-areas:
                 "numero  estado"
                 "ruta    ruta"
-                "lineas  lineas"
                 "meta    meta" !important;
             row-gap: 8px !important;
             column-gap: 10px !important;
@@ -361,19 +395,8 @@
             grid-area: estado !important;
             text-align: right !important; align-self: center !important;
         }
-        /* td:4 = Líneas (lista CODIGO + descripción de productos) — fila propia,
-           full-width dentro de la tarjeta. */
+        /* td:4 = Fecha envío — fila "meta" propia. */
         .tr-table tbody tr[data-id] td:nth-child(4) {
-            display: block !important;
-            grid-area: lineas !important;
-            padding-top: 8px !important;
-            border-top: 1px dashed #e2e8f0 !important;
-        }
-        .tr-table tbody tr[data-id] td:nth-child(4) .tr-lineas-box {
-            width: 100% !important;
-        }
-        /* td:5 = Fecha envío — fila "meta" propia. */
-        .tr-table tbody tr[data-id] td:nth-child(5) {
             display: inline-flex !important;
             align-items: center !important;
             gap: 4px !important;
@@ -384,13 +407,9 @@
             border-top: 1px dashed #e2e8f0 !important;
             grid-area: meta !important;
         }
-        /* td:6 = Fecha recibido — oculta en mobile por espacio (vacia en el default
-           "En tránsito"; visible en desktop al filtrar Confirmadas). */
-        .tr-table tbody tr[data-id] td:nth-child(6) { display: none !important; }
 
-        /* Iconito sutil antes de la fecha de envío. La celda Líneas ya no es un
-           valor simple sino una lista de productos, por eso no lleva icono. */
-        .tr-table tbody tr[data-id] td:nth-child(5)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
+        /* Iconito sutil antes de la fecha de envío. */
+        .tr-table tbody tr[data-id] td:nth-child(4)::before { content: 'event'; font-family: 'Material Icons'; font-size: 13px; color: #94a3b8; }
 
         /* Empty state: el <tr> SIN data-id (rama vacia del forelse) queda como bloque centrado sin tarjeta. */
         .tr-table tbody tr:not([data-id]) {
@@ -404,7 +423,9 @@
     }
 </style>
 
-<div class="admin-card" style="margin:0;min-height:70vh;padding:16px;">
+{{-- Layout: la tabla y el panel de resumen, cada uno en SU PROPIO contenedor. --}}
+<div class="tr-layout">
+<div class="admin-card" style="margin:0;min-height:70vh;padding:16px;flex:1 1 0;min-width:0;">
 
     {{-- ── Filtros (search por N° de nota + filtros avanzados estilo equipos) ──
          trSearch → por NUMERO de la nota de entrega (TR-2026-…) con autocomplete
@@ -423,82 +444,85 @@
             <div id="trSearchSuggest" class="tr-suggest"></div>
         </div>
 
-        <div style="position:relative;flex:0 0 auto;">
-            <button type="button" class="btn-primary-maquinaria" title="Filtros Avanzados"
-                    style="height:40px;width:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;
-                           background:{{ $hayAdv ? '#fee2e2' : '#fff' }};border:1px solid {{ $hayAdv ? '#ef4444' : '#cbd5e0' }};color:{{ $hayAdv ? '#ef4444' : '#64748b' }};box-shadow:none;"
-                    onclick="window.trToggleAdv(event)">
-                <i class="material-icons" style="font-size:20px;">tune</i>
-            </button>
-            <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:360px;max-width:calc(100vw - 20px);background:#e2e8f0;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100;margin-top:10px;padding:14px;">
-                <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
-                    Filtros Avanzados
-                    <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.trClearAdv()">Limpiar Todo</span>
-                </h4>
-                {{-- Estilo unificado con el resto de filtros de la app (mismo border/radius/altura
-                     que los <select> del panel de /admin/almacen/movimientos). Las cajas de
-                     fecha envuelven el input para que el clic en CUALQUIER parte abra el picker
-                     nativo via showPicker() — sin tener que apuntar al iconito chiquito. --}}
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div>
-                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Estado</span>
-                        {{-- Azul = filtro distinto del default (pendientes). "En tránsito"
-                             es el estado por defecto, así que se ve en blanco (reposo). --}}
-                        <select id="trEstado" onchange="window.trLoad()" style="width:100%;height:36px;border:1px solid #cbd5e0;border-radius:8px;padding:0 10px;background:{{ $reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO ? '#e1effa' : '#fff' }};font-size:13px;color:#0f172a;outline:none;cursor:pointer;">
-                            @foreach($badgesEstado as $k => $b)
-                                <option value="{{ $k }}" {{ $reqEstado === $k ? 'selected' : '' }}>{{ $b[0] }}</option>
-                            @endforeach
-                            <option value="all" {{ $reqEstado === 'all' ? 'selected' : '' }}>Todas (historial)</option>
-                        </select>
+        {{-- Filtros en línea, al lado del buscador (antes vivían en un panel "Filtros
+             Avanzados" desplegable). Mismo border/radius/altura (40px) que el buscador.
+             Azul = filtro activo: en Estado, "En tránsito" es el default → se ve blanco. --}}
+        <div class="tr-item tr-filter-estado">
+            <select id="trEstado" onchange="window.trLoad()" class="tr-filter-input"
+                    title="Estado de la nota"
+                    style="cursor:pointer;background:{{ $reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO ? '#e1effa' : '#fff' }};">
+                @foreach($badgesEstado as $k => $b)
+                    <option value="{{ $k }}" {{ $reqEstado === $k ? 'selected' : '' }}>{{ $b[0] }}</option>
+                @endforeach
+                <option value="all" {{ $reqEstado === 'all' ? 'selected' : '' }}>Todas (historial)</option>
+            </select>
+        </div>
+        {{-- Las cajas de fecha envuelven el input para que el clic en CUALQUIER parte
+             abra el picker nativo via showPicker() — sin apuntar al iconito chiquito. --}}
+        <div class="tr-item tr-filter-fecha">
+            <div id="trDesdeBox" class="tr-date-box" style="background:{{ $reqDesde ? '#e1effa' : '#fff' }};"
+                 onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                <i class="material-icons">event</i>
+                <span class="tr-date-label">Desde</span>
+                <input type="date" id="trDesde" value="{{ $reqDesde }}" onchange="window.trLoad()">
+            </div>
+        </div>
+        <div class="tr-item tr-filter-fecha">
+            <div id="trHastaBox" class="tr-date-box" style="background:{{ $reqHasta ? '#e1effa' : '#fff' }};"
+                 onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                <i class="material-icons">event</i>
+                <span class="tr-date-label">Hasta</span>
+                <input type="date" id="trHasta" value="{{ $reqHasta }}" onchange="window.trLoad()">
+            </div>
+        </div>
+    </div>
+
+    {{-- ── Tabla ── --}}
+            <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
+                <table class="tr-table">
+                    <thead>
+                        <tr>
+                            <th title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
+                            <th title="Arriba el almacén que ENVÍA; abajo el que RECIBE.">Origen / Destino</th>
+                            <th style="text-align:center;" title="Estado actual de la nota.">Estado</th>
+                            <th title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trTableBody">
+                        @include('admin.almacen.recepcion.partials.rows', ['traspasos' => $traspasos])
+                    </tbody>
+                </table>
+            </div>
+    <div style="margin-top:14px;" id="trPagination">{{ $traspasos->links('vendor.pagination.custom-sliding') }}</div>
+</div>{{-- /.admin-card (contenedor de la tabla) --}}
+
+    {{-- Panel de resumen — SU PROPIO contenedor (tarjeta con gradiente), hermano de la
+         tabla. KPIs estables de la bandeja (no dependen de los filtros). --}}
+    <aside class="tr-stats" aria-label="Resumen de la bandeja">
+            <i class="material-icons tr-stats-bgicon">inbox</i>
+            <div style="position:relative;z-index:2;">
+                <div class="tr-stats-title"><i class="material-icons">inbox</i> Resumen de la bandeja</div>
+                <div class="tr-stats-row">
+                    <div class="tr-stats-hero" title="Notas pendientes de confirmar">
+                        <span class="tr-stats-hero-num">{{ $bandejaStats['por_revisar'] ?? 0 }}</span>
+                        <span class="tr-stats-hero-lbl">Por revisar</span>
                     </div>
-                    {{-- "Almacén destino" se controla desde el dropdown del header (#trDestHeaderDropdown). --}}
-                    {{-- Desde / Hasta lado a lado — el panel tiene 360px, cada campo
-                         queda con ~155px que sobra para el input nativo de fecha. --}}
-                    <div style="display:flex;gap:8px;">
-                        <div style="flex:1;min-width:0;">
-                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
-                            <div id="trDesdeBox" style="display:flex;align-items:center;background:{{ $reqDesde ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 8px;cursor:pointer;"
-                                 onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                                <i class="material-icons" style="font-size:15px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
-                                <input type="date" id="trDesde" value="{{ $reqDesde }}" onchange="window.trLoad()" style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#0f172a;cursor:pointer;">
-                            </div>
+                    <div class="tr-stats-grid">
+                        <div class="tr-stats-sub tr-sub-rec" title="Llegadas en las últimas 24 h">
+                            <i class="material-icons" style="color:#22c55e;">bolt</i>
+                            <strong>{{ $bandejaStats['recientes'] ?? 0 }}</strong>
+                            <span>Recientes 24h</span>
                         </div>
-                        <div style="flex:1;min-width:0;">
-                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
-                            <div id="trHastaBox" style="display:flex;align-items:center;background:{{ $reqHasta ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 8px;cursor:pointer;"
-                                 onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                                <i class="material-icons" style="font-size:15px;color:#94a3b8;margin-right:4px;pointer-events:none;">event</i>
-                                <input type="date" id="trHasta" value="{{ $reqHasta }}" onchange="window.trLoad()" style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#0f172a;cursor:pointer;">
-                            </div>
+                        <div class="tr-stats-sub tr-sub-urg" title="Esperando más de 3 días">
+                            <i class="material-icons" style="color:#f59e0b;">priority_high</i>
+                            <strong>{{ $bandejaStats['urgentes'] ?? 0 }}</strong>
+                            <span>Urgentes +3d</span>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-
-    </div>
-
-    {{-- ── Tabla ── --}}
-    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
-        <table class="tr-table">
-            <thead>
-                <tr>
-                    <th title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
-                    <th title="Arriba el almacén que ENVÍA; abajo el que RECIBE.">Origen / Destino</th>
-                    <th style="text-align:center;" title="Estado actual de la nota.">Estado</th>
-                    <th title="Productos incluidos en la nota.">Materiales</th>
-                    <th title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
-                    <th title="Fecha de confirmación de recepción.">Confirmado</th>
-                </tr>
-            </thead>
-            <tbody id="trTableBody">
-                @include('admin.almacen.recepcion.partials.rows', ['traspasos' => $traspasos])
-            </tbody>
-        </table>
-    </div>
-
-    <div style="margin-top:14px;" id="trPagination">{{ $traspasos->links('vendor.pagination.custom-sliding') }}</div>
-</div>
+        </aside>
+</div>{{-- /.tr-layout --}}
 
 {{-- ── Modal detalle/recepción ── --}}
 <div class="dtm-overlay" id="trDetalleOverlay" onclick="if(event.target===this) window.trCloseModal();">
@@ -591,27 +615,16 @@
         return p;
     }
 
-    // Refresca el tinte azul de cada filtro segun si tiene valor activo, y el rojo
-    // del boton "Filtros Avanzados" si alguno del panel esta activo. Se llama en
-    // trLoad y trClearAdv para mantener UI = estado tras cualquier cambio.
+    // Refresca el tinte azul de cada filtro en línea (Estado / Desde / Hasta) según si
+    // tiene un valor activo. Se llama en trLoad para mantener UI = estado.
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
         // "En tránsito" (ENVIADO) es el estado por defecto → NO cuenta como filtro activo.
         var hasEst = sel('trEstado')  && sel('trEstado')  !== '{{ \App\Models\Traspaso::ESTADO_ENVIADO }}';
-        var hasDes = !!sel('trDesde');
-        var hasHas = !!sel('trHasta');
         paint('trEstado',   hasEst);
-        paint('trDesdeBox', hasDes);
-        paint('trHastaBox', hasHas);
-        // Boton de embudo: rojo si HAY filtros DEL PANEL aplicados (Estado / Desde / Hasta).
-        var btn = document.querySelector('[onclick*="trToggleAdv"]');
-        if (btn) {
-            var any = hasEst || hasDes || hasHas;
-            btn.style.background  = any ? '#fee2e2' : '#fff';
-            btn.style.borderColor = any ? '#ef4444' : '#cbd5e0';
-            btn.style.color       = any ? '#ef4444' : '#64748b';
-        }
+        paint('trDesdeBox', !!sel('trDesde'));
+        paint('trHastaBox', !!sel('trHasta'));
     }
 
     window.trLoad = function (pageUrl) {
@@ -627,7 +640,7 @@
                 var pg = el('trPagination'); if (pg) pg.innerHTML = data.pagination || '';
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
-            .catch(function () { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
+            .catch(function () { body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
 
@@ -784,33 +797,11 @@
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.trLoad(a.href); }
     }, true);
 
-    // Panel de filtros avanzados
-    window.trToggleAdv = function (ev) {
-        if (ev) ev.stopPropagation();
-        var p = el('trAdvPanel'); if (!p) return;
-        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
-    };
-    // Limpia SOLO los filtros del panel avanzado (Estado / Desde / Hasta).
-    // El "Almacén destino" vive en el dropdown del header y se limpia con su propia X
-    // (clearDropdownFilter) — no se toca aquí para no sorprender al usuario.
-    window.trClearAdv = function () {
-        // Limpiar = volver al default de la bandeja (pendientes "En tránsito"),
-        // NO a 'all' (que mostraría también confirmadas/canceladas del historial).
-        var est = el('trEstado'); if (est) est.value = '{{ \App\Models\Traspaso::ESTADO_ENVIADO }}';
-        ['trDesde','trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
-        window.trLoad();
-    };
-
     // Los custom-dropdowns disparan 'dropdown-selection' cuando el usuario elige una
     // opcion. Recargamos la tabla cuando cambia el almacen destino (header).
     window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
         if (id === 'trDestHeaderDropdown') window.trLoad();
-    });
-
-    document.addEventListener('click', function (e) {
-        var p = el('trAdvPanel');
-        if (p && p.style.display === 'block' && !e.target.closest('#trAdvPanel') && !e.target.closest('[onclick*="trToggleAdv"]')) p.style.display = 'none';
     });
 })();
 </script>

@@ -15,7 +15,9 @@
     const OM = window.OfflineMode;
     if (!OM) return;                 // sin controlador offline no hay nada que hacer
     const esc = OM.esc;
-    const COLS = 7;
+    // 6 columnas: Código · Descripción · Categoría · Stock (con unidad) · Salida · Detalles.
+    // (La columna "UND" se fusionó en Stock — debe coincidir con el thead y $cols del partial.)
+    const COLS = 6;
 
     function getBody() { return document.getElementById('almTableBody'); }
 
@@ -73,9 +75,8 @@
                 '<tr class="alm-row ' + (bajo ? 'alm-row-bajo' : '') + '" data-offline="1" data-buscar="' + esc(buscar) + '">' +
                 '<td class="alm-td-codigo" style="font-family:monospace;font-weight:700;color:#0f172a;white-space:nowrap;">' + esc(p.codigo) + '</td>' +
                 '<td class="alm-td-nombre" data-codigo="' + esc(p.codigo) + '" style="font-weight:600;color:#1e293b;">' + esc(p.nombre) + '</td>' +
-                '<td class="alm-td-um" style="text-align:center;color:#475569;">' + esc(p.um) + '</td>' +
                 '<td class="alm-td-cat" style="color:#475569;">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
-                '<td class="alm-td-stock" data-um="' + esc(p.um) + '" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">' + fmt(saldo) +
+                '<td class="alm-td-stock" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">' + fmt(saldo) + '<span class="alm-stock-um">' + esc(p.um) + '</span>' +
                     (bajo ? ' <i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>' : '') +
                 '</td>' +
                 '<td class="alm-td-cant" style="text-align:center;color:#cbd5e0;">—</td>' +

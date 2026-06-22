@@ -164,7 +164,14 @@ class TraspasoService
                         'fecha'             => $fecha,
                         'id_frente'         => $traspasoLock->ID_FRENTE_DESTINO,
                         'id_usuario'        => $opUser ?: null,
-                        'referencia'        => $traspasoLock->REFERENCIA ?: $traspasoLock->NUMERO,
+                        // La REFERENCIA del movimiento NO debe duplicar la Nota de Entrega: si el
+                        // envío trae numero_nota (NE-YYYY-NNNN), ese número ya viaja en NUMERO_NOTA.
+                        // Antes se copiaba traspaso.REFERENCIA (que en el flujo de salida ES el mismo
+                        // NE) → el kardex mostraba el NE dos veces. Solo usamos una referencia propia
+                        // si DIFIERE del NE; sin NE (flujo legacy) caemos al NUMERO del traspaso.
+                        'referencia'        => ($traspasoLock->REFERENCIA && $traspasoLock->REFERENCIA !== ($notaOpts['numero_nota'] ?? null))
+                            ? $traspasoLock->REFERENCIA
+                            : (($notaOpts['numero_nota'] ?? null) ? null : $traspasoLock->NUMERO),
                         'motivo'            => $traspasoLock->MOTIVO ?: ('Envío ' . $traspasoLock->NUMERO),
                         'permitir_negativo' => $permitirNegativo,
                     ], $notaOpts),

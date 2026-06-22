@@ -256,28 +256,28 @@
 </div>
 
 <!-- Catalog Linking Widget (Appears when model + year match catalog) -->
-<div id="catalog_link_widget" style="display: none; margin: 30px 0; padding: 20px; background: linear-gradient(135deg, #ebf8ff 0%, #f0f9ff 100%); border: 2px solid #0284c7; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-        <div style="background: #0284c7; padding: 10px; border-radius: 50%; display: flex;">
-            <i class="material-icons" style="color: white; font-size: 28px;">inventory_2</i>
+<div id="catalog_link_widget" style="display: none; margin: 16px 0; padding: 12px 14px; background: linear-gradient(135deg, #ebf8ff 0%, #f0f9ff 100%); border: 1px solid #0284c7; border-radius: 12px; box-shadow: 0 2px 4px -1px rgba(0,0,0,0.08);">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <div style="background: #0284c7; padding: 6px; border-radius: 50%; display: flex;">
+            <i class="material-icons" style="color: white; font-size: 18px;">inventory_2</i>
         </div>
         <div style="flex: 1;">
-            <h4 style="margin: 0; color: #0c4a6e; font-size: 16px; font-weight: 800;">¡Encontramos este modelo en el Catálogo!</h4>
-            <p style="margin: 5px 0 0 0; color: #075985; font-size: 14px;">Vincular las especificaciones técnicas si coinciden con las del equipo a registrar.</p>
+            <h4 style="margin: 0; color: #0c4a6e; font-size: 13.5px; font-weight: 800;">¡Encontramos este modelo en el Catálogo!</h4>
+            <p style="margin: 2px 0 0 0; color: #075985; font-size: 12px;">Vincular las especificaciones técnicas si coinciden con las del equipo a registrar.</p>
         </div>
     </div>
-    
-    <div id="catalog_preview" style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #bae6fd;">
+
+    <div id="catalog_preview" style="background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #bae6fd;">
         <!-- Catalog data will be inserted here by JavaScript -->
     </div>
-    
-    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-        <button type="button" onclick="ignoreCatalogSuggestion()" style="background: white; color: #64748b; border: 1px solid #cbd5e0; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: 0.2s;">
-            <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 5px;">close</i>
+
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button type="button" onclick="ignoreCatalogSuggestion()" style="background: white; color: #64748b; border: 1px solid #cbd5e0; padding: 7px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; transition: 0.2s;">
+            <i class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">close</i>
             Ignorar
         </button>
-        <button type="button" onclick="linkToCatalog()" style="background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; transition: 0.2s; box-shadow: 0 2px 4px rgba(2,132,199,0.2);">
-            <i class="material-icons" style="font-size: 18px; vertical-align: middle; margin-right: 5px;">link</i>
+        <button type="button" onclick="linkToCatalog()" style="background: #0284c7; color: white; border: none; padding: 7px 16px; border-radius: 8px; font-weight: 700; font-size: 13px; transition: 0.2s; box-shadow: 0 2px 4px rgba(2,132,199,0.2);">
+            <i class="material-icons" style="font-size: 16px; vertical-align: middle; margin-right: 4px;">link</i>
             Vincular
         </button>
     </div>

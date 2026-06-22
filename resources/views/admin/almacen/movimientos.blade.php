@@ -422,7 +422,6 @@
             color: #fff !important;
             padding: 4px 10px !important;
             border-radius: 6px !important;
-            font-family: monospace !important;
             font-size: 11px !important;
             font-weight: 700 !important;
             text-decoration: none !important;
@@ -815,7 +814,7 @@
                 var sc = el('almMovSearchClear'); if (sc && si) sc.style.display = si.value.trim() ? 'block' : 'none';
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
-            .catch(function () { body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
+            .catch(function () { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
 
@@ -1187,7 +1186,7 @@
 #eliminarNotaSuggest.open { display:block; }
 .eliminar-nota-sug-item {
     padding:7px 10px; border-radius:6px; cursor:pointer;
-    font-family:monospace; font-size:12.5px; font-weight:700;
+    font-size:12.5px; font-weight:700;
     color:#0f172a; letter-spacing:0.5px;
 }
 .eliminar-nota-sug-item:hover { background:#fee2e2; color:#b91c1c; }

@@ -1,5 +1,6 @@
 {{-- Filas de la tabla de notas de entrega / traspasos. $traspasos = paginator de
-     Traspaso con almacenes y lineas.producto (CODIGO/NOMBRE) cargados via eager loading. --}}
+     Traspaso con almacenes cargados via eager loading. El detalle de materiales NO
+     se lista aquí: se revisa al abrir la nota (modal de detalle/recepción). --}}
 
 @forelse($traspasos as $t)
     @php
@@ -22,21 +23,9 @@
         <td style="text-align:center;">
             <span class="estado-pill" style="background:{{ $e[1] }};color:{{ $e[2] }};">{{ $e[0] }}</span>
         </td>
-        <td class="tr-lineas-cell">
-            <div class="tr-lineas-box">
-                @forelse($t->lineas as $linea)
-                    <div class="tr-linea-item">
-                        <span class="tr-linea-cod">{{ optional($linea->producto)->CODIGO ?: '—' }}</span>
-                        <span class="tr-linea-desc">{{ optional($linea->producto)->NOMBRE ?: 'Producto no disponible' }}</span>
-                    </div>
-                @empty
-                    <span style="color:#94a3b8;">—</span>
-                @endforelse
-            </div>
-        </td>
         <td style="font-size:12px;color:#475569;white-space:nowrap;">
             @if($t->FECHA_ENVIO)
-                {{ $t->FECHA_ENVIO->format('d-M-Y H:i') }}
+                {{ $t->FECHA_ENVIO->format('d/m/Y h:i A') }}
                 @if($t->esEnviado() && $horasDesdeEnvio !== null)
                     <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
                         @if($horasDesdeEnvio < 24)
@@ -46,20 +35,17 @@
                         @else
                             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;" title="Hace {{ intdiv($horasDesdeEnvio, 24) }} días"></span>
                         @endif
-                        <span style="font-size:10.5px;color:#94a3b8;">{{ $t->FECHA_ENVIO->diffForHumans() }}</span>
+                        <span style="font-size:10.5px;color:#94a3b8;">{{ $t->FECHA_ENVIO->locale('es')->diffForHumans() }}</span>
                     </div>
                 @endif
             @else
                 —
             @endif
         </td>
-        <td style="font-size:12px;color:#475569;white-space:nowrap;">
-            {{ $t->FECHA_RECEPCION ? $t->FECHA_RECEPCION->format('d-M-Y H:i') : '—' }}
-        </td>
     </tr>
 @empty
     <tr>
-        <td colspan="6" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:14px;">
+        <td colspan="4" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:14px;">
             <i class="material-icons" style="font-size:46px;color:#cbd5e0;display:block;margin:0 auto 10px;">inbox</i>
             No hay notas de entrega que coincidan con tu vista actual.
         </td>

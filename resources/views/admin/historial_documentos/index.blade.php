@@ -44,6 +44,32 @@
         background: #e2e8f0;
         color: #0f172a;
     }
+    /* Botón eliminar registro (solo super.admin). Pequeño y OCULTO por defecto:
+       aparece al pasar el mouse o enfocar (teclado) la fila. En móvil (sin hover)
+       se fuerza visible más abajo. */
+    .btn-hd-del {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        background: #fff;
+        border: 1px solid #fca5a5;
+        color: #dc2626;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity .15s, background .2s, border-color .2s;
+    }
+    .btn-hd-del:hover {
+        background: #fee2e2;
+        border-color: #dc2626;
+    }
+    /* Revelar al hover / focus de la fila (desktop, donde hay hover). */
+    #historialDocumentosTable tbody tr:hover .btn-hd-del,
+    #historialDocumentosTable tbody tr:focus-within .btn-hd-del {
+        opacity: 1;
+    }
 
     .hd-filter-row {
         display: flex;
@@ -120,6 +146,9 @@
     }
 
     @media (max-width: 768px) {
+        /* En móvil (touch, sin hover) el botón eliminar queda SIEMPRE visible —
+           si no, no habría forma de revelarlo. */
+        .btn-hd-del { opacity: 1 !important; }
         .hd-filter-row {
             flex-direction: row !important;
             flex-wrap: wrap !important;
@@ -682,6 +711,29 @@
         #historialDocumentosTable tr.selected-row-maquinaria td:last-child {
             border-right-color: #93c5fd !important;
         }
+
+        /* ── Cambios editados: BURBUJA FLOTANTE en PC ──
+           Antes el detalle se expandía inline y empujaba/agrandaba el registro.
+           Ahora flota como popover anclado a la celda del equipo (4ª col): no
+           altera la estructura de la fila — flota sobre el contenido. */
+        /* El contenedor usa overflow-x:auto (que segun el spec recorta tambien en
+           vertical) y cliparia la burbuja en las ultimas filas. En desktop la tabla
+           cabe sin scroll horizontal, asi que liberamos el overflow para que flote. */
+        .custom-scrollbar-container { overflow: visible; }
+        #historialDocumentosTable .hd-has-cambios td:nth-child(4) { position: relative; }
+        #historialDocumentosTable .hd-cambios-detail {
+            position: absolute;
+            top: calc(100% - 2px);
+            left: 0;
+            z-index: 200;
+            width: 340px;
+            max-width: 460px;
+            margin-top: 0 !important;
+        }
+        #historialDocumentosTable .hd-cambios-detail > div {
+            max-height: 320px;
+            overflow-y: auto;
+        }
     }
     /* Móvil: card completa celeste (mismo patrón que equipos) */
     @media (max-width: 768px) {
@@ -963,28 +1015,81 @@ window.hdToggleCollapse = function (header) {
     body.classList.toggle('hd-open');
     if (chevron) chevron.classList.toggle('hd-open');
 };
-document.addEventListener('click', function (e) {
-    var tr = e.target.closest('.table-historial-mobile tbody tr');
-    if (!tr || tr.classList.contains('hd-has-cambios')) return;
-    document.querySelectorAll('.table-historial-mobile tbody tr.hd-row-selected').forEach(function (o) {
-        if (o !== tr) o.classList.remove('hd-row-selected');
-    });
-    tr.classList.toggle('hd-row-selected');
-});
-document.addEventListener('click', function (e) {
-    if (e.target.closest('.btn-view-pdf')) return;
-    var row = e.target.closest('.hd-has-cambios');
-    if (!row) return;
-    var detail = row.querySelector('.hd-cambios-detail');
-    if (!detail) return;
-    var isOpen = detail.style.display === 'block';
-    document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
-    document.querySelectorAll('.hd-detail-open').forEach(function (r) { r.classList.remove('hd-detail-open'); });
-    if (!isOpen) {
-        detail.style.display = 'block';
-        row.classList.add('hd-detail-open');
+
+// ── Eliminar registro del historial (solo super.admin) ──
+// Solo las filas de AUDITORÍA (equipo_audit / catalogo_audit) se borran de verdad.
+// 'doc' (subida de documento) y 'equipo_creacion' (creación de vehículo) se avisan
+// SIN pegarle al servidor: borrarlos afectaría datos reales. El backend también los
+// bloquea por si acaso (defensa en profundidad).
+window.hdDeleteRegistro = function (source, id, btn) {
+    if (!source) return;
+
+    if (source === 'doc' || source === 'equipo_creacion') {
+        var aviso = source === 'doc'
+            ? 'Esta fila es una subida de documento real. Para quitarlo, bórralo desde el documento del equipo, no desde el historial.'
+            : 'Esta fila es la creación de un vehículo. Para eliminarlo usa el módulo de Equipos.';
+        if (window.showToast) window.showToast(aviso, 'error'); else alert(aviso);
+        return;
     }
-});
+
+    if (!confirm('¿Eliminar este registro del historial? Esta acción no se puede deshacer.')) return;
+
+    var tr = btn.closest('tr');
+    if (window.showPreloader) window.showPreloader();
+    fetch(@json(route('historial-documentos.deleteRegistro')), {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify({ source: source, id: id }),
+    })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (res) {
+        if (res.ok && res.data.success) {
+            if (tr) { tr.style.transition = 'opacity .2s'; tr.style.opacity = '0'; setTimeout(function () { tr.remove(); }, 200); }
+            if (window.showToast) window.showToast(res.data.message || 'Registro eliminado.', 'success');
+        } else {
+            if (window.showToast) window.showToast(res.data.message || 'No se pudo eliminar.', 'error');
+        }
+    })
+    .catch(function () { if (window.showToast) window.showToast('Error de conexión.', 'error'); })
+    .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+};
+// Los listeners van DELEGADOS en `document`, así funcionan con las filas cargadas por
+// AJAX (filtros/paginación) sin re-bindear. Guard anti-doble-registro: este bloque
+// inline se re-ejecuta en cada navegación SPA; sin el guard se acumulaban N copias del
+// handler y, como el de la burbuja hace toggle (abrir/cerrar), al dispararse 2+ veces
+// en un solo clic la burbuja se abría y se cerraba al instante → parecía no responder
+// hasta recargar la página (F5). Con el guard se registra UNA sola vez.
+if (!window._hdInlineClickRegistered) {
+    window._hdInlineClickRegistered = true;
+
+    document.addEventListener('click', function (e) {
+        var tr = e.target.closest('.table-historial-mobile tbody tr');
+        if (!tr || tr.classList.contains('hd-has-cambios')) return;
+        document.querySelectorAll('.table-historial-mobile tbody tr.hd-row-selected').forEach(function (o) {
+            if (o !== tr) o.classList.remove('hd-row-selected');
+        });
+        tr.classList.toggle('hd-row-selected');
+    });
+    document.addEventListener('click', function (e) {
+        // Cualquier botón de la fila (Ver PDF / Eliminar) NO debe abrir/cerrar la burbuja.
+        if (e.target.closest('button')) return;
+        var row = e.target.closest('.hd-has-cambios');
+        if (!row) return;
+        var detail = row.querySelector('.hd-cambios-detail');
+        if (!detail) return;
+        var isOpen = detail.style.display === 'block';
+        document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
+        document.querySelectorAll('.hd-detail-open').forEach(function (r) { r.classList.remove('hd-detail-open'); });
+        if (!isOpen) {
+            detail.style.display = 'block';
+            row.classList.add('hd-detail-open');
+        }
+    });
+}
 </script>
 
 @endsection

@@ -23,9 +23,10 @@
     /* Barra de filtros PROPIA del dashboard (no depende de los filtros del módulo). */
     .cdash-filtros { display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-bottom:16px; }
     .cdash-filtros .f-group { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .cdash-filtros .f-group-cat { flex:1 1 260px; }   /* Categoría: crece y queda ancha */
     .cdash-filtros label { font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
-    .cdash-filtros input[type="month"] { height:36px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; }
-    .cdash-cat-wrap { position:relative; min-width:180px; }
+    .cdash-filtros input[type="month"] { height:36px; width:160px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
+    .cdash-cat-wrap { position:relative; width:100%; min-width:200px; }
     .cdash-cat-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; cursor:pointer; }
     .cdash-cat-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
     .cdash-cat-box input { flex:1; border:none; background:transparent; outline:none; padding:0 8px; font-size:13px; color:#0f172a; min-width:0; cursor:pointer; }
@@ -50,9 +51,11 @@
     .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
     @keyframes cdashSpin { 100% { transform:rotate(360deg); } }
     @media (max-width: 760px) {
-        .cdash-kpis { grid-template-columns:1fr; }
+        .cdash-kpis { flex-direction:column; }
         .cdash-grid { grid-template-columns:1fr; }
-        .cdash-filtros .f-group, .cdash-filtros select, .cdash-filtros input { flex:1 1 100%; }
+        /* Cada filtro a fila completa; los inputs de mes ocupan todo el ancho. */
+        .cdash-filtros .f-group { flex:1 1 100%; }
+        .cdash-filtros input[type="month"] { width:100%; }
     }
 </style>
 
@@ -67,13 +70,15 @@
             <div class="cdash-filtros">
                 <div class="f-group">
                     <label for="cdashDesde">Desde (mes)</label>
-                    <input type="month" id="cdashDesde" onchange="window._cdashFetch()">
+                    <input type="month" id="cdashDesde" onchange="window._cdashFetch()"
+                           onclick="try{ this.showPicker(); }catch(e){}">
                 </div>
                 <div class="f-group">
                     <label for="cdashHasta">Hasta (mes)</label>
-                    <input type="month" id="cdashHasta" onchange="window._cdashFetch()">
+                    <input type="month" id="cdashHasta" onchange="window._cdashFetch()"
+                           onclick="try{ this.showPicker(); }catch(e){}">
                 </div>
-                <div class="f-group">
+                <div class="f-group f-group-cat">
                     <label>Categoría</label>
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashCategoria" value="">

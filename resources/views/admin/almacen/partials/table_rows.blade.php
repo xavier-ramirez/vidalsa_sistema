@@ -2,10 +2,12 @@
 @php
     $rows    = $productos ?? collect();
     $inicial = $inicial ?? false;
-    // 7 columnas SIEMPRE: la columna "Cantidad" se muestra a TODOS. El permiso
-    // almacen.movimiento NO oculta la captura de cantidad — solo bloquea ABRIR
-    // el modal de salida y ejecutarla (ver almSelAccion y el backend).
-    $cols    = 7;
+    // 6 columnas SIEMPRE: Código · Descripción · Categoría · Stock (con unidad) ·
+    // Salida · Detalles. La columna "Salida/Cantidad" se muestra a TODOS; el permiso
+    // almacen.movimiento NO oculta la captura — solo bloquea ABRIR la salida y
+    // ejecutarla (ver almSelAccion y el backend). La unidad (UM) ya no tiene columna
+    // propia: vive junto al número en la celda de Stock.
+    $cols    = 6;
 @endphp
 
 @if(!$almacen)
@@ -53,7 +55,7 @@
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}">
-            <td class="alm-td-codigo" style="font-family:monospace;font-weight:600;color:#1e293b;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
+            <td class="alm-td-codigo" style="font-weight:600;color:#1e293b;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
                  `.alm-row:hover .tooltip-bubble` que agregué en index.blade.php.
@@ -70,15 +72,12 @@
                     </div>
                 @endif
             </td>
-            <td class="alm-td-um" style="text-align:center;color:#475569;">{{ $p->UM }}</td>
-            <td class="alm-td-cat" style="color:#475569;">{{ $p->CATEGORIA ?: '—' }}</td>
+            <td class="alm-td-cat" style="font-weight:600;color:#1e293b;">{{ $p->CATEGORIA ?: '—' }}</td>
             {{-- El color del texto siempre es negro (#0f172a). El stock bajo se indica con
-                 el fondo rojo de la fila (.alm-row-bajo) y el icono ⚠ amarillo. --}}
-            {{-- data-um lo lee la regla mobile ::after para mostrar la unidad
-                 ("UND", "C/U", etc.) inline al lado del numero — en mobile la
-                 columna UM se oculta y la unidad vive dentro del td de stock. --}}
-            <td class="alm-td-stock" data-um="{{ $p->UM }}" style="text-align:center;font-weight:800;font-size:15px;color:#0f172a;">
-                {{ rtrim(rtrim(number_format($saldo, 3, ',', '.'), '0'), ',') ?: '0' }}
+                 el fondo rojo de la fila (.alm-row-bajo) y el icono ⚠ amarillo. La unidad
+                 (UM) se muestra junto al número — ya no hay columna "UND" aparte. --}}
+            <td class="alm-td-stock" style="text-align:center;color:#0f172a;">
+                {{ rtrim(rtrim(number_format($saldo, 3, ',', '.'), '0'), ',') ?: '0' }}<span class="alm-stock-um">{{ $p->UM }}</span>
                 @if($bajo)<i class="material-icons" style="font-size:14px;color:#f59e0b;vertical-align:middle;" title="Stock en o por debajo del mínimo">warning</i>@endif
             </td>
             {{-- Cantidad de salida por fila: stepper con input a la izquierda y dos botones

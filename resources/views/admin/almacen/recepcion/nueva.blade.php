@@ -114,7 +114,7 @@
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
     .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
-    .ent-selected-badge .cod { font-family:monospace; font-size:11.5px; font-weight:800; }
+    .ent-selected-badge .cod { font-size:11.5px; font-weight:800; }
     .ent-selected-badge .clear { cursor:pointer; color:#475569; margin-left:auto; font-size:18px; }
     .ent-selected-badge .clear:hover { color:#dc2626; }
 
@@ -168,11 +168,11 @@
     .ent-list-table thead th.col-cant   { text-align:center; width:170px; }
     .ent-list-table thead th.col-del    { width:60px; text-align:center; }
     .ent-list-table tbody .col-num      { text-align:center; font-weight:700; color:#64748b; font-size:13px; }
-    .ent-list-table tbody .col-codigo   { font-family:monospace; font-size:12.5px; font-weight:800; color:#0f172a; letter-spacing:.3px; white-space:nowrap; }
+    .ent-list-table tbody .col-codigo   { font-size:12.5px; font-weight:800; color:#0f172a; letter-spacing:.3px; white-space:nowrap; }
     .ent-list-table tbody td { padding:11px 15px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .ent-list-table tbody td:last-child { border-right:none; }
     .ent-list-table tbody tr:hover td { background:#e0f2fe; }
-    .ent-list-table tbody .col-cant { text-align:center; font-weight:700; font-family:monospace; font-size:13.5px; }
+    .ent-list-table tbody .col-cant { text-align:center; font-weight:700; font-size:13.5px; }
     .ent-list-table tbody .col-del  { text-align:center; }
     .ent-list-nom { font-size:13.5px; font-weight:600; color:#0f172a; display:block; }
     .ent-list-meta { font-size:11px; color:#94a3b8; }
@@ -235,7 +235,7 @@
                 Cancelar
             </button>
             <button type="button" class="ent-btn-submit" id="entSubmit" onclick="window.entGuardar()">
-                <i class="material-icons" style="font-size:18px;">check_circle</i> Registrar<span class="ent-txt-full"> entrada</span>
+                <i class="material-icons" style="font-size:18px;">check_circle</i> Entrada
             </button>
         </div>
     </div>
@@ -589,7 +589,7 @@
         // NO usamos el preloader de pantalla completa aca: crear el producto al vuelo es
         // una operacion inline rapida (agregar una linea), y el overlay full-screen se
         // veia como una "recarga" de pagina. El preloader queda reservado para el submit
-        // final (entGuardar / boton "Registrar entrada"). El guard entCreandoProducto ya
+        // final (entGuardar / boton "Entrada"). El guard entCreandoProducto ya
         // evita el doble-POST mientras la creacion esta en curso.
         entCreandoProducto = true;
         // IMPORTANTE: mandamos id_almacen aunque NO haya cantidad inicial — el backend
@@ -843,7 +843,7 @@
     //
     // Vacia la tabla de lineas, la barra de captura (buscador/UM/cantidad), la
     // cabecera (nota/proveedor/fecha) y las observaciones. Lo reusan "Cancelar
-    // operacion" y el EXITO de "Registrar entrada": en ambos casos el modulo NO
+    // operacion" y el EXITO de "Entrada": en ambos casos el modulo NO
     // navega ni recarga, solo deja el formulario en blanco para la siguiente
     // captura. No muestra notificacion — cada quien muestra la suya.
     function entLimpiarTodo() {

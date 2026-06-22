@@ -203,6 +203,10 @@ class HistorialDocumentosController extends Controller
                     'equipo_id'    => $eId,
                     'equipo_db_id' => $doc->equipo ? $doc->equipo->ID_EQUIPO : null,
                     'cambios'      => [],
+                    // NO es registro propio: el "evento" es una bandera en `documentacion`.
+                    // deleteRegistro lo BLOQUEA (borrarlo quitaría el documento real).
+                    'del_source'   => 'doc',
+                    'del_id'       => null,
                 ]);
             }
         }
@@ -250,6 +254,9 @@ class HistorialDocumentosController extends Controller
                 'equipo_id'    => $this->buildEquipoId($equipo),
                 'equipo_db_id' => $equipo->ID_EQUIPO,
                 'cambios'      => [],
+                // NO es registro propio: borrarlo sería borrar el VEHÍCULO. deleteRegistro lo BLOQUEA.
+                'del_source'   => 'equipo_creacion',
+                'del_id'       => $equipo->ID_EQUIPO,
             ]);
         }
 
@@ -320,6 +327,10 @@ class HistorialDocumentosController extends Controller
                     'equipo_id'     => $eId,
                     'equipo_db_id'  => $eq ? $eq->ID_EQUIPO : null,
                     'cambios'       => $cambiosRaw,
+                    // Borrado de registro (solo super.admin, ver deleteRegistro): esta fila
+                    // SÍ es un registro propio (equipo_audit_log) → se puede borrar.
+                    'del_source'    => 'equipo_audit',
+                    'del_id'        => $log->ID_LOG,
                 ]);
             }
         } catch (\Illuminate\Database\QueryException $e) {
@@ -366,6 +377,9 @@ class HistorialDocumentosController extends Controller
                     'equipo_id'     => '',
                     'equipo_db_id'  => null,
                     'cambios'       => $cambios,
+                    // Registro propio (catalogo_audit_log) → borrable.
+                    'del_source'    => 'catalogo_audit',
+                    'del_id'        => $log->ID_LOG,
                 ]);
             }
         } catch (\Illuminate\Database\QueryException $e) {
@@ -479,7 +493,7 @@ class HistorialDocumentosController extends Controller
 
         $total = $events->count();
 
-        // 5. Paginate manually mapping 20 by 20
+        // 5. Paginación manual (LengthAwarePaginator) sobre la colección de eventos.
         $perPage = 15;
         $page = $request->input('page', 1);
         
@@ -559,6 +573,57 @@ class HistorialDocumentosController extends Controller
                 'success' => false,
                 'message' => 'Error al desbloquear la IP.'
             ], 500);
+        }
+    }
+
+    /**
+     * Eliminar un registro del historial (solo super.admin — gateado en routes/web.php).
+     *
+     * El historial mezcla 4 orígenes (ver index). SOLO los de AUDITORÍA son registros
+     * propios borrables:
+     *   - equipo_audit   → fila de `equipo_audit_log`.
+     *   - catalogo_audit → fila de `catalogo_audit_log`.
+     * Los otros dos se BLOQUEAN a propósito (borrarlos tocaría datos reales):
+     *   - doc            → es una bandera en `documentacion`; borrarlo quitaría el documento.
+     *   - equipo_creacion→ es el created_at del equipo; borrarlo sería borrar el vehículo.
+     */
+    public function deleteRegistro(Request $request)
+    {
+        $data = $request->validate([
+            'source' => 'required|string|in:equipo_audit,catalogo_audit,doc,equipo_creacion',
+            'id'     => 'nullable',
+        ]);
+
+        // Casos bloqueados: el botón aparece en todas las filas, pero estos no se borran
+        // para no afectar datos reales (documento / vehículo). Mensaje claro al usuario.
+        if ($data['source'] === 'doc') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esta fila es una subida de documento real. Para quitarlo, bórralo desde el documento del equipo, no desde el historial.',
+            ], 422);
+        }
+        if ($data['source'] === 'equipo_creacion') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esta fila es el registro de creación de un vehículo. Para eliminarlo usa el módulo de Equipos.',
+            ], 422);
+        }
+
+        try {
+            $modelo = $data['source'] === 'equipo_audit'
+                ? \App\Models\EquipoAuditLog::query()
+                : \App\Models\CatalogoAuditLog::query();
+
+            $borrados = $modelo->where('ID_LOG', $data['id'])->delete();
+
+            if (!$borrados) {
+                return response()->json(['success' => false, 'message' => 'El registro ya no existe.'], 404);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Registro eliminado del historial.']);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('deleteRegistro failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'No se pudo eliminar el registro.'], 500);
         }
     }
 }

@@ -97,6 +97,8 @@
         0%   { background:#f87171; }
         100% { background:transparent; }
     }
+    /* Unidad (UM) junto al número en la celda de Stock — reemplaza la columna "UND". */
+    .alm-stock-um { margin-left:5px; font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; }
 
     /* Contador "inventory_2 N" clickable — toggle del filtro "Solo seleccionados". */
     .alm-bulk-counter { cursor:pointer; user-select:none; transition:transform 0.12s; }
@@ -380,9 +382,9 @@
              como prefijo del nombre sin separadores especiales.
            - alm-td-codigo OCULTO (su valor se reusa via attr data-codigo).
            - alm-td-cat OCULTO (peticion previa del cliente).
-           - alm-td-um OCULTO (su valor se inyecta inline en stock via ::after
-             leyendo data-um — antes vivia en una celda aparte).
-           - Stock row: ::before "STOCK" label + texto valor + ::after unidad,
+           - La unidad (UM) vive inline en la celda de Stock (span .alm-stock-um),
+             tanto en desktop como en mobile — ya no hay columna "UND" aparte.
+           - Stock row: ::before "STOCK" label + valor + unidad (span),
              todo flex en la misma linea. A la derecha: stepper y boton ver.
            ═══════════════════════════════════════════════════════════ */
 
@@ -433,11 +435,13 @@
         }
         .alm-table tr.alm-row td .tooltip-bubble { display: none !important; }
 
-        /* Codigo, categoria y UM SE OCULTAN como celdas propias en mobile —
-           sus valores se reusan inline en otras celdas via data-* + pseudo. */
+        /* Codigo y categoria SE OCULTAN como celdas propias en mobile — el codigo se
+           reusa como prefijo del nombre (::before via data-codigo) y la categoria el
+           cliente pidio quitarla. OJO: este display:none debe ir en SU PROPIA regla;
+           antes estaba comma-unido a .alm-td-nombre de abajo y, en vez de ocultarse,
+           heredaban display:block + gradiente + grid-area:nombre (se encimaban). */
         .alm-table tr.alm-row td.alm-td-codigo,
-        .alm-table tr.alm-row td.alm-td-cat,
-        .alm-table tr.alm-row td.alm-td-um { display: none !important; position: absolute !important; width: 0 !important; height: 0 !important; overflow: hidden !important; }
+        .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
 
         /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
            El ::before pone "00042 " como prefijo, heredando font/color/weight
@@ -480,13 +484,6 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             white-space: nowrap;
-        }
-        .alm-table tr.alm-row td.alm-td-stock::after {
-            content: " " attr(data-um);
-            font-size: 11px;
-            font-weight: 700;
-            color: #475569;
-            text-transform: uppercase;
         }
 
         /* Stepper de cantidad: en la misma fila que stock, alineado a la derecha
@@ -589,53 +586,23 @@
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:80vh;min-width:0;width:100%;padding:14px;">
 
-    {{-- ── Widget: notas de entrega pendientes por confirmar ── --}}
-    @if(($notasPendientes ?? collect())->isNotEmpty())
-        <div style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:1px solid #f59e0b;border-radius:12px;padding:14px 16px;margin-bottom:12px;color:#92400e;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
-                <span style="display:flex;align-items:center;gap:10px;">
-                    <i class="material-icons" style="font-size:22px;color:#b45309;">notifications_active</i>
-                    <span style="font-size:13.5px;font-weight:700;">
-                        <strong style="font-size:15px;">{{ $traspasosPorRecibir ?? $notasPendientes->count() }}</strong>
-                        {{ ($traspasosPorRecibir ?? $notasPendientes->count()) === 1 ? 'nota de entrega pendiente' : 'notas de entrega pendientes' }} por confirmar
-                    </span>
-                </span>
-                <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#92400e;text-decoration:none;">
-                    Ver todas <i class="material-icons" style="font-size:18px;">arrow_forward</i>
-                </a>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-                @foreach($notasPendientes as $np)
-                    @php
-                        $neNum = $np->REFERENCIA ?: $np->NUMERO;
-                        $horasNp = $np->FECHA_ENVIO ? now()->diffInHours($np->FECHA_ENVIO) : null;
-                    @endphp
-                    <a href="{{ route('almacen.recepcion.show', $np->ID_TRASPASO) }}"
-                       style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.7);border:1px solid #fbbf24;border-radius:8px;padding:8px 12px;text-decoration:none;color:#92400e;transition:background .15s;"
-                       onmouseenter="this.style.background='rgba(255,255,255,0.95)'" onmouseleave="this.style.background='rgba(255,255,255,0.7)'">
-                        <span style="font-family:monospace;font-weight:800;font-size:13px;white-space:nowrap;color:#78350f;">{{ $neNum }}</span>
-                        <span style="flex:1;font-size:12.5px;font-weight:600;color:#92400e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            {{ optional($np->almacenOrigen)->NOMBRE ?? '—' }}
-                        </span>
-                        <span style="font-size:11.5px;color:#b45309;white-space:nowrap;">
-                            {{ $np->FECHA_ENVIO?->format('d/m') }}
-                        </span>
-                        <span style="font-size:11px;font-weight:700;color:#b45309;white-space:nowrap;">
-                            {{ $np->lineas->count() }} {{ $np->lineas->count() === 1 ? 'prod' : 'prods' }}
-                        </span>
-                        @if($horasNp !== null)
-                            @if($horasNp < 24)
-                                <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex:0 0 8px;" title="Hace menos de 24h"></span>
-                            @elseif($horasNp < 72)
-                                <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex:0 0 8px;" title="Hace {{ intdiv($horasNp, 24) }} día(s)"></span>
-                            @else
-                                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex:0 0 8px;" title="Hace {{ intdiv($horasNp, 24) }} días"></span>
-                            @endif
-                        @endif
-                    </a>
-                @endforeach
-            </div>
-        </div>
+    {{-- ── Banner: total de notas de entrega pendientes por confirmar ──
+         Una sola línea con el conteo (sin listar cada nota); toda la tarjeta es un link
+         que lleva a la bandeja de recepción. --}}
+    @if(($notasPendientes ?? 0) > 0)
+        @php $nPend = $notasPendientes; @endphp
+        <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+           style="display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border:1px solid #ef4444;border-radius:10px;padding:9px 14px;margin-bottom:10px;color:#991b1b;text-decoration:none;transition:box-shadow .15s;"
+           onmouseenter="this.style.boxShadow='0 2px 8px rgba(239,68,68,0.25)'" onmouseleave="this.style.boxShadow='none'">
+            <i class="material-icons" style="font-size:20px;color:#dc2626;flex:0 0 auto;">notifications_active</i>
+            <span style="flex:1;font-size:13px;font-weight:700;min-width:0;">
+                <strong style="font-size:15px;">{{ $nPend }}</strong>
+                {{ $nPend === 1 ? 'nota de entrega pendiente' : 'notas de entrega pendientes' }} por confirmar en la bandeja
+            </span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;flex:0 0 auto;">
+                Ver todas <i class="material-icons" style="font-size:18px;">arrow_forward</i>
+            </span>
+        </a>
     @endif
 
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
@@ -747,11 +714,10 @@
                 <tr>
                     <th style="width:68px;padding:10px 8px;">Código</th>
                     <th>Descripción del producto</th>
-                    <th style="text-align:center;width:52px;">UND</th>
                     <th>Categoría</th>
                     <th style="text-align:center;">Stock</th>
                     {{-- Salida: SIEMPRE visible — el cuerpo (partials/table_rows)
-                         renderiza esta columna para todos (7 columnas fijas); el permiso
+                         renderiza esta columna para todos (6 columnas fijas); el permiso
                          almacen.movimiento solo bloquea ABRIR la salida, no la captura.
                          Gatearla aquí desajustaba el thead respecto al tbody. El input se
                          habilita solo cuando la fila está seleccionada. --}}

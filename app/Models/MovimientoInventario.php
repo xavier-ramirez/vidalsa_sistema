@@ -36,12 +36,16 @@ class MovimientoInventario extends Model
      * Formato: [LABEL_HUMANO, COLOR_TEXTO_HEX, COLOR_FONDO_HEX, MATERIAL_ICON]
      */
     public const TIPO_META = [
-        self::TIPO_ENTRADA          => ['Entrada',           '#16a34a', '#dcfce7', 'add'],
-        self::TIPO_TRASPASO_ENTRADA => ['Traspaso (entra)',  '#0891b2', '#cffafe', 'south_west'],
-        self::TIPO_SALIDA           => ['Salida',            '#dc2626', '#fee2e2', 'remove'],
-        self::TIPO_TRASPASO_SALIDA  => ['Traspaso (sale)',   '#ea580c', '#ffedd5', 'north_east'],
+        self::TIPO_ENTRADA          => ['Entrada',  '#16a34a', '#dcfce7', 'add'],
+        // Traspaso entre almacenes: se muestra como Entrada/Salida normal (mismo label y
+        // color que su contraparte pura) — para el usuario una salida a otro almacén ES
+        // una salida. El ícono direccional (south_west/north_east) y la columna de
+        // contraparte/frente indican que fue un movimiento entre almacenes.
+        self::TIPO_TRASPASO_ENTRADA => ['Entrada',  '#16a34a', '#dcfce7', 'south_west'],
+        self::TIPO_SALIDA           => ['Salida',   '#dc2626', '#fee2e2', 'remove'],
+        self::TIPO_TRASPASO_SALIDA  => ['Salida',   '#dc2626', '#fee2e2', 'north_east'],
         // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
-        self::TIPO_AJUSTE           => ['Auditoría',         '#0067b1', '#e1effa', 'fact_check'],
+        self::TIPO_AJUSTE           => ['Auditoría','#0067b1', '#e1effa', 'fact_check'],
     ];
 
     /** Fallback usado cuando el TIPO no figura en la tabla (defensivo). */

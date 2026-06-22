@@ -1400,6 +1400,14 @@ class EquipoController extends Controller
                 $equipo->save();
             }
 
+            // Un equipo recién creado NO debe tener documentación. Si ya existe una fila con
+            // este ID_EQUIPO (PK de `documentacion`), es HUÉRFANA: de un equipo borrado cuyo ID
+            // se reutilizó (el AUTO_INCREMENT de `equipos` quedó por debajo del máximo de
+            // `documentacion`, p.ej. tras un restore de BD). La eliminamos SIEMPRE aquí —pase o
+            // no documentación en el request— para no chocar con la PK al crearla ni heredar
+            // datos viejos. `documentacion` no usa SoftDeletes y nada depende de ella → seguro.
+            Documentacion::where('ID_EQUIPO', $equipo->ID_EQUIPO)->delete();
+
             // --- DOCUMENTATION & PHOTOS UPLOAD (SYNCHRONOUS DIRECT TO DRIVE) ---
             $driveService = \App\Services\GoogleDriveService::getInstance();
             $folderId = $driveService->getRootFolderId();
@@ -2654,10 +2662,7 @@ class EquipoController extends Controller
         $year = trim($request->input('year', ''));
         $tipo = strtoupper(trim($request->input('tipo', '')));
 
-        Log::info("SEARCH CATALOG MATCH: Model='$model', Year='$year', Tipo='$tipo'");
-
         if (!$model || !$year) {
-            Log::info("SEARCH CATALOG: Missing params");
             return response()->json(['found' => false]);
         }
 

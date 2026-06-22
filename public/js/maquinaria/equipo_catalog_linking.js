@@ -191,21 +191,21 @@
             style.textContent = `
                 .catalog-grid {
                     display: grid;
-                    gap: 10px 15px;
-                    font-size: 13px;
+                    gap: 7px 12px;
+                    font-size: 12.5px;
                 }
                 /* Desktop: 4 Columns */
                 @media (min-width: 768px) {
                     .catalog-grid { grid-template-columns: repeat(4, 1fr); }
-                     .catalog-flex-container { display: flex; gap: 15px; align-items: flex-start; }
-                     .catalog-photo-wrapper { width: 120px; flex-shrink: 0; }
+                     .catalog-flex-container { display: flex; gap: 12px; align-items: flex-start; }
+                     .catalog-photo-wrapper { width: 90px; flex-shrink: 0; }
                 }
                 /* Mobile: 2 Columns */
                 @media (max-width: 767px) {
                      .catalog-grid { grid-template-columns: repeat(2, 1fr); }
-                     .catalog-flex-container { display: flex; flex-direction: column; gap: 15px; }
-                     .catalog-photo-wrapper { width: 100%; display: flex; justify-content: center; margin-bottom: 10px; }
-                     .catalog-photo-wrapper img, .catalog-photo-wrapper div { width: 100% !important; max-width: 200px; height: auto !important; }
+                     .catalog-flex-container { display: flex; flex-direction: column; gap: 10px; }
+                     .catalog-photo-wrapper { width: 100%; display: flex; justify-content: center; margin-bottom: 6px; }
+                     .catalog-photo-wrapper img, .catalog-photo-wrapper div { width: 100% !important; max-width: 160px; height: auto !important; }
                 }
             `;
             document.head.appendChild(style);
@@ -218,14 +218,14 @@
         if (data.FOTO_REFERENCIAL) {
             html += `
                 <div class="catalog-photo-wrapper">
-                    <img src="${data.FOTO_REFERENCIAL}" style="width: 100%; height: 100px; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;">
+                    <img src="${data.FOTO_REFERENCIAL}" style="width: 100%; height: 78px; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;">
                 </div>`;
         } else {
             // Placeholder if no photo
             html += `
                 <div class="catalog-photo-wrapper">
-                    <div style="width: 120px; height: 100px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #cbd5e0;">
-                        <i class="material-icons" style="font-size: 40px;">image</i>
+                    <div style="width: 90px; height: 78px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #cbd5e0;">
+                        <i class="material-icons" style="font-size: 32px;">image</i>
                     </div>
                 </div>`;
         }
@@ -234,35 +234,35 @@
         html += `
             <div style="flex: 1;" class="catalog-grid">
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Motor</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Motor</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.MOTOR || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Combustible</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Combustible</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.COMBUSTIBLE || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Consumo</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Consumo</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.CONSUMO_PROMEDIO || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Batería</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Batería</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.TIPO_BATERIA || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Aceite Motor</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Aceite Motor</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.ACEITE_MOTOR || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Aceite Caja</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Aceite Caja</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.ACEITE_CAJA || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Liga Freno</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Liga Freno</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.LIGA_FRENO || '--'}</span>
                 </div>
                 <div>
-                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase;">Refrigerante</span>
+                    <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Refrigerante</span>
                     <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.REFRIGERANTE || '--'}</span>
                 </div>
             </div>
@@ -273,26 +273,13 @@
         preview.innerHTML = html;
         widget.style.display = 'block';
 
-        // Update Text & Buttons (User Requested Customizations)
-        const titleEl = widget.querySelector('h4') || widget.querySelector('.widget-title');
-        const descEl = widget.querySelector('p') || widget.querySelector('.widget-desc');
-        const linkBtn = document.getElementById('btn_link_catalog');
-        const ignoreBtn = document.getElementById('btn_ignore_catalog');
-
-        if (descEl) {
-            descEl.textContent = 'Vincular las especificaciones técnicas si coinciden con las del equipo a registrar';
-            descEl.style.fontSize = '14px';
-        }
-
-        if (linkBtn) {
-            linkBtn.innerHTML = '<i class="material-icons">link</i> Vincular';
-            linkBtn.style.fontSize = '13px';
-        }
-
-        if (ignoreBtn) {
-            ignoreBtn.innerHTML = '<i class="material-icons">close</i> Ignorar';
-            ignoreBtn.style.fontSize = '13px';
-        }
+        // Título: alterna entre "¡Encontramos…!" y "✅ Vinculado". El texto de la
+        // descripción y los botones (Vincular/Ignorar) ya viven en el blade con su tamaño
+        // definido — NO se tocan desde aquí. (Antes este bloque referenciaba ids
+        // 'btn_link_catalog'/'btn_ignore_catalog' y .widget-desc que NO existen en el
+        // markup → código muerto; y forzaba la descripción a 14px, deshaciendo la
+        // compactación de la tarjeta.)
+        const titleEl = widget.querySelector('h4');
 
         // Update visual state
         if (isLinked) {

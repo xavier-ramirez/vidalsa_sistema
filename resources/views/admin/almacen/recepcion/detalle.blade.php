@@ -140,14 +140,14 @@
             <span class="dt-meta-label">Despachado por</span>
             <span class="dt-meta-value">
                 {{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}
-                <span class="sub">{{ $traspaso->FECHA_ENVIO?->format('d-M-Y H:i') ?: $traspaso->created_at?->format('d-M-Y H:i') }}</span>
+                <span class="sub">{{ $traspaso->FECHA_ENVIO?->format('d/m/Y h:i A') ?: $traspaso->created_at?->format('d/m/Y h:i A') }}</span>
             </span>
         </div>
         <div class="dt-meta-item">
             <span class="dt-meta-label">Confirmado por</span>
             <span class="dt-meta-value">
                 {{ optional($traspaso->usuarioRecepcion)->NOMBRE_COMPLETO ?: '—' }}
-                <span class="sub">{{ $traspaso->FECHA_RECEPCION?->format('d-M-Y H:i') ?: '—' }}</span>
+                <span class="sub">{{ $traspaso->FECHA_RECEPCION?->format('d/m/Y h:i A') ?: '—' }}</span>
             </span>
         </div>
         <div class="dt-meta-item">
@@ -295,7 +295,10 @@
 
     // ── Recepción: cálculo de diferencia en vivo ──
     document.querySelectorAll('.rec-cantidad').forEach(function (inp) {
-        var enviada = parseFloat(inp.closest('tr').children[1].textContent.replace(/,/g, '')) || 0;
+        // El "Enviado" se renderiza en formato latino (1.234,5): los puntos son miles y la
+        // coma el decimal. Hay que quitar los puntos y pasar la coma a punto ANTES de
+        // parseFloat — si no, "1.234,5" se parsea como 1.2345 (mismo criterio que trConfirmarTodoOk).
+        var enviada = parseFloat(inp.closest('tr').children[1].textContent.replace(/\./g, '').replace(',', '.')) || 0;
         var diffCell = inp.closest('tr').querySelector('.rec-diff');
         function recalc() {
             var rec = parseFloat(inp.value) || 0;

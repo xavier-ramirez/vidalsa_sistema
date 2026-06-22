@@ -52,20 +52,20 @@
                                         : ($ambosBool ? $humanize($rawDespues) : $rawDespues);
                                 @endphp
                                 <div style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
-                                    <div style="font-weight:700;color:#94a3b8;text-transform:uppercase;font-size:10px;margin-bottom:4px;letter-spacing:0.5px;">{{ $label }}</div>
+                                    <div style="font-weight:700;color:#cbd5e1;text-transform:uppercase;font-size:10px;margin-bottom:4px;letter-spacing:0.5px;">{{ $label }}</div>
                                     @if($antes !== null)
                                         <div style="display:flex;flex-direction:column;gap:3px;">
                                             <div style="display:flex;align-items:center;gap:6px;">
-                                                <span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;">ANTES</span>
-                                                <span style="color:#fca5a5;text-decoration:line-through;font-size:12px;word-break:break-word;">{{ $antes }}</span>
+                                                <span style="background:#475569;color:#e2e8f0;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;">ANTES</span>
+                                                <span style="color:#94a3b8;text-decoration:line-through;font-size:12px;word-break:break-word;">{{ $antes }}</span>
                                             </div>
                                             <div style="display:flex;align-items:center;gap:6px;">
-                                                <span style="background:#14532d;color:#86efac;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;">NUEVO</span>
-                                                <span style="color:#86efac;font-weight:700;font-size:12px;word-break:break-word;">{{ $despues }}</span>
+                                                <span style="background:#0067b1;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;">NUEVO</span>
+                                                <span style="color:#ffffff;font-weight:700;font-size:12px;word-break:break-word;">{{ $despues }}</span>
                                             </div>
                                         </div>
                                     @else
-                                        <span style="color:#e2e8f0;font-size:12px;word-break:break-word;">{{ $despues }}</span>
+                                        <span style="color:#ffffff;font-size:12px;word-break:break-word;">{{ $despues }}</span>
                                     @endif
                                 </div>
                             @endforeach
@@ -75,13 +75,22 @@
             @endif
         </td>
         <td style="text-align: center;">
-            @if($event->link)
-                <button type="button" class="btn-view-pdf" onclick="openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Visualizar Documento">
-                    <i class="material-icons" style="font-size: 20px;">picture_as_pdf</i>
-                </button>
-            @else
-                <span style="color: #cbd5e1; font-size: 12px;">N/A</span>
-            @endif
+            <div style="display:inline-flex;align-items:center;gap:6px;justify-content:center;">
+                @if($event->link)
+                    <button type="button" class="btn-view-pdf" onclick="openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Visualizar Documento">
+                        <i class="material-icons" style="font-size: 20px;">picture_as_pdf</i>
+                    </button>
+                @endif
+                @can('super.admin')
+                    {{-- Eliminar registro del historial. Solo los de AUDITORÍA se borran de verdad;
+                         doc/vehículo el backend (deleteRegistro) los bloquea con un mensaje. --}}
+                    <button type="button" class="btn-hd-del"
+                            onclick="window.hdDeleteRegistro('{{ $event->del_source ?? '' }}', '{{ $event->del_id ?? '' }}', this)"
+                            title="Eliminar registro del historial">
+                        <i class="material-icons" style="font-size: 16px;">delete</i>
+                    </button>
+                @endcan
+            </div>
         </td>
     </tr>
 @empty

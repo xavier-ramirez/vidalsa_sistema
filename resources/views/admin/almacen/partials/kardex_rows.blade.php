@@ -104,13 +104,14 @@
                        data-pdf-title="Nota {{ $m->NUMERO_NOTA }}"
                        onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
-                       style="color:#334155;text-decoration:none;font-weight:700;font-family:monospace;font-size:12px;"
+                       style="color:#334155;text-decoration:none;font-weight:700;font-size:12px;"
                        title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
                 @endif
-                @if($m->REFERENCIA)
+                @if($m->REFERENCIA && $m->REFERENCIA !== $m->NUMERO_NOTA)
                     {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: en negrita igual que
                          la Nota de Entrega de las SALIDAS (NUMERO_NOTA), para que se vea con la
-                         misma prominencia en ambos tipos de movimiento. --}}
+                         misma prominencia en ambos tipos de movimiento. Se OMITE si coincide con
+                         NUMERO_NOTA (en traspasos ambos traían el mismo NE → salía duplicado). --}}
                     <div style="font-size:12px;color:#334155;font-weight:700;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
                 @endif
                 @if($esEntradaDirecta && $m->MOTIVO)

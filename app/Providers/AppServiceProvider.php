@@ -82,6 +82,10 @@ class AppServiceProvider extends ServiceProvider
             try {
                 $user = auth()->user();
                 if ($user && Schema::hasTable('traspasos')) {
+                    // El badge cuenta las MISMAS notas que muestra la bandeja de Recepción
+                    // (TraspasoController::index): ENVIADO en los almacenes VISIBLES del
+                    // usuario. Así el número del badge siempre coincide con lo que ve en la
+                    // bandeja. (Para un GLOBAL/admin "visibles" = todos los que puede abrir.)
                     $almacenesVisibles = \App\Models\Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
                     $count = \App\Models\Traspaso::query()
                         ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)

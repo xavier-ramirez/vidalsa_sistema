@@ -244,18 +244,14 @@ class AlmacenController extends Controller
             ->groupBy('ID_ALMACEN')
             ->map(fn ($rows) => $rows->pluck('ID_PRODUCTO')->values());
 
-        // NOTA: $traspasosPorRecibir (badge del nav menu) lo provee el View Composer en
-        // AppServiceProvider. Aquí cargamos el DETALLE de las notas pendientes para el
-        // widget del dashboard (NE, origen, fecha, nº productos).
+        // CONTEO de notas de entrega pendientes de confirmar (ENVIADO en los almacenes
+        // VISIBLES) — alimenta el banner rojo "N por confirmar" que enlaza a la bandeja.
+        // Es solo el total (el banner ya NO lista cada nota), así que un count() basta:
+        // sin cargar filas/relaciones ni cap de take(). Mismos almacenes que la bandeja y
+        // el badge del nav, para que los tres cuenten lo mismo.
         $notasPendientes = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
             ->whereIn('ID_ALMACEN_DESTINO', $almacenes->pluck('ID_ALMACEN'))
-            ->with([
-                'almacenOrigen:ID_ALMACEN,NOMBRE',
-                'lineas:ID_LINEA,ID_TRASPASO',
-            ])
-            ->orderByDesc('FECHA_ENVIO')
-            ->take(5)
-            ->get(['ID_TRASPASO', 'NUMERO', 'REFERENCIA', 'ID_ALMACEN_ORIGEN', 'FECHA_ENVIO']);
+            ->count();
 
         return view('admin.almacen.index', [
             'almacenes'          => $almacenes,

@@ -123,10 +123,8 @@ class TraspasoController extends Controller
             ->with([
                 'almacenOrigen:ID_ALMACEN,NOMBRE,TIPO',
                 'almacenDestino:ID_ALMACEN,NOMBRE,TIPO',
-                // lineas.producto alimenta la columna "Líneas" de la bandeja, que
-                // lista CODIGO + descripcion de cada producto del traspaso (antes
-                // solo se mostraba el conteo via withCount('lineas')).
-                'lineas.producto:ID_PRODUCTO,CODIGO,NOMBRE',
+                // El detalle de materiales NO se lista en la bandeja (se ve al abrir la
+                // nota), así que no se hace eager-load de lineas.producto aquí.
             ])
             ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
 
@@ -205,11 +203,30 @@ class TraspasoController extends Controller
         $idAlmacenDestinoActivo = ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all')
             ? (int) $request->input('id_almacen_destino')
             : null;
+
+        // KPIs del panel lateral: resumen de notas POR REVISAR (ENVIADO) en los almacenes
+        // visibles del usuario. Es un resumen ESTABLE de "tu bandeja" — NO depende de los
+        // filtros de la tabla (estado/fechas/búsqueda), por eso se calcula aparte.
+        //   · por_revisar = total pendientes de confirmar.
+        //   · urgentes    = esperando > 3 días (mismo umbral del punto rojo de la tabla).
+        //   · recientes   = llegadas en las últimas 24 h (punto verde).
+        // COALESCE(FECHA_ENVIO, created_at): si no hubo envío explícito usamos la creación.
+        // Las 3 claves DEBEN existir: la vista (panel "Resumen de la bandeja") las pinta como
+        // héroe (por_revisar) + 2 sub-métricas (recientes / urgentes).
+        $pendBase = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
+            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
+        $bandejaStats = [
+            'por_revisar' => (clone $pendBase)->count(),
+            'urgentes'    => (clone $pendBase)->whereRaw('COALESCE(FECHA_ENVIO, created_at) <= ?', [now()->subDays(3)])->count(),
+            'recientes'   => (clone $pendBase)->whereRaw('COALESCE(FECHA_ENVIO, created_at) >= ?', [now()->subDay()])->count(),
+        ];
+
         return view('admin.almacen.recepcion.index', [
             'traspasos'              => $paginator,
             'almacenes'              => $almacenes,
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'numerosNotas'           => $numerosNotas,
+            'bandejaStats'           => $bandejaStats,
         ]);
     }
 

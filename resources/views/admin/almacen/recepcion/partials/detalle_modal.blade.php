@@ -33,9 +33,21 @@
             <span class="dtm-meta-label">Despachado</span>
             <span class="dtm-meta-value">
                 {{ optional($traspaso->usuarioEnvio)->NOMBRE_COMPLETO ?: optional($traspaso->usuarioCreo)->NOMBRE_COMPLETO ?: '—' }}
-                <span class="dtm-sub">{{ $traspaso->FECHA_ENVIO?->format('d-M-Y H:i') }}</span>
+                <span class="dtm-sub">{{ $traspaso->FECHA_ENVIO?->format('d/m/Y h:i A') }}</span>
             </span>
         </div>
+        {{-- Quién confirmó la recepción (ID_USUARIO_RECEPCION) + cuándo. Solo cuando ya
+             está confirmada (RECIBIDO / RECIBIDO_PARCIAL). El dato ya queda registrado en
+             el traspaso y en el movimiento TRASPASO_ENTRADA del kardex. --}}
+        @if($traspaso->esRecibido())
+        <div class="dtm-meta-item">
+            <span class="dtm-meta-label">Confirmado por</span>
+            <span class="dtm-meta-value">
+                {{ optional($traspaso->usuarioRecepcion)->NOMBRE_COMPLETO ?: '—' }}
+                <span class="dtm-sub">{{ $traspaso->FECHA_RECEPCION?->format('d/m/Y h:i A') }}</span>
+            </span>
+        </div>
+        @endif
     </div>
 </div>
 
@@ -59,57 +71,51 @@
         <span class="dtm-lineas-count">{{ $traspaso->lineas->count() }} líneas</span>
     </div>
 
-    <div class="dtm-lineas-wrap">
-        @foreach($traspaso->lineas as $linea)
-            @php
-                $diff = $linea->diferencia;
-                // Metadata visual del estado de línea — single source of truth en el modelo.
-                $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
-                $cantEnvFmt = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',');
-                $cantEnvRaw = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ''), '0'), '.');
-            @endphp
-            <div class="dtm-linea" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}">
-                <div class="dtm-linea-prod">
-                    <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
-                    <span class="dtm-linea-nom">{{ optional($linea->producto)->NOMBRE }}</span>
-                    <span class="dtm-linea-um">{{ optional($linea->producto)->UM }}</span>
-                </div>
-                <div class="dtm-linea-cant-row">
-                    <div class="dtm-linea-enviado">
-                        <span class="dtm-cant-label">Enviado</span>
-                        <span class="dtm-cant-value">{{ $cantEnvFmt }}</span>
-                    </div>
-                    @if($puedeRecibir)
-                        <div class="dtm-linea-recibido">
-                            <span class="dtm-cant-label">Recibido</span>
-                            <input type="number" min="0" step="0.001" class="dtm-rec-input" value="{{ $cantEnvRaw }}">
-                        </div>
-                        <div class="dtm-linea-diff">
-                            <span class="dtm-cant-label">Dif.</span>
-                            <span class="dtm-diff-value">0</span>
-                        </div>
-                        <label class="dtm-linea-danado">
-                            <input type="checkbox" class="dtm-rec-danado">
-                            <span>Dañado</span>
-                        </label>
-                    @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
-                        <div class="dtm-linea-recibido">
-                            <span class="dtm-cant-label">Recibido</span>
-                            <span class="dtm-cant-value" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">
-                                {{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}
-                            </span>
-                        </div>
-                        <div class="dtm-linea-diff">
-                            <span class="dtm-cant-label">Dif.</span>
-                            <span class="dtm-diff-value" style="color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};">
-                                {{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}
-                            </span>
-                        </div>
-                        <span class="pill-linea" style="background:{{ $el[1] }};color:{{ $el[2] }};">{{ $el[0] }}</span>
-                    @endif
-                </div>
-            </div>
-        @endforeach
+    <div class="dtm-table-wrap">
+        <table class="dtm-table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Enviado</th>
+                    <th>Recibido</th>
+                    <th>Dif.</th>
+                    <th>{{ $puedeRecibir ? 'Dañado' : 'Estado' }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($traspaso->lineas as $linea)
+                    @php
+                        $diff = $linea->diferencia;
+                        // Metadata visual del estado de línea — single source of truth en el modelo.
+                        $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
+                        $cantEnvFmt = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',');
+                        $cantEnvRaw = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ''), '0'), '.');
+                    @endphp
+                    {{-- La clase .dtm-linea + data-* se conservan en el <tr>: el JS los usa. --}}
+                    <tr class="dtm-linea" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}">
+                        <td class="dtm-td-prod">
+                            <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
+                            <span class="dtm-linea-nom">{{ optional($linea->producto)->NOMBRE }}</span>
+                            <span class="dtm-linea-um">{{ optional($linea->producto)->UM }}</span>
+                        </td>
+                        <td class="dtm-col-num">{{ $cantEnvFmt }}</td>
+                        @if($puedeRecibir)
+                            <td><input type="number" min="0" step="0.001" class="dtm-rec-input" value="{{ $cantEnvRaw }}"></td>
+                            <td><span class="dtm-diff-value">0</span></td>
+                            <td><input type="checkbox" class="dtm-rec-danado" title="Marcar como dañado"></td>
+                        @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
+                            <td class="dtm-col-num" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}</td>
+                            <td><span class="dtm-diff-value" style="color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};">{{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}</span></td>
+                            <td><span class="pill-linea" style="background:{{ $el[1] }};color:{{ $el[2] }};">{{ $el[0] }}</span></td>
+                        @else
+                            <td>—</td>
+                            <td>—</td>
+                            <td>—</td>
+                        @endif
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
 </div>
 
