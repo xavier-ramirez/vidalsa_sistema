@@ -9,6 +9,13 @@ Route::get('/login', [App\Http\Controllers\SystemController::class, 'loginRedire
 // Lightweight route to refresh CSRF token (Handshake)
 Route::get('/refresh-csrf', [App\Http\Controllers\SystemController::class, 'refreshCsrf']);
 
+// Previsualizar las páginas de error con su diseño branded (404/403/405/419/500/503).
+// Solo renderiza la vista; no dispara el error real. Útil para revisar el diseño.
+Route::get('/preview/error/{code}', function (string $code) {
+    abort_unless(in_array($code, ['403', '404', '405', '419', '500', '503'], true), 404);
+    return response()->view("errors.{$code}", [], (int) $code);
+})->name('preview.error');
+
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 Route::redirect('/home', '/menu');
 

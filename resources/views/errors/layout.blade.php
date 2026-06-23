@@ -15,22 +15,24 @@
             font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
             padding: 24px; color: #1e293b;
-            background: #fff;
+            /* Fondo apenas tintado para que la sombra de la tarjeta blanca resalte. */
+            background: #f4f7fb;
         }
         .err-card {
-            width: 100%; max-width: 460px; text-align: center;
+            width: 100%; max-width: 410px; text-align: center;
             background: #fff;
-            border: 1px solid #e2e8f0; border-radius: 22px;
-            padding: 42px 34px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+            border: 1px solid #eef2f7; border-radius: 24px;
+            padding: 44px 36px 36px;
+            /* Más profundidad: sombra ámplia azulada + uno cercano para apoyo. */
+            box-shadow: 0 26px 60px rgba(0,51,122,0.16), 0 8px 20px rgba(15,23,42,0.07);
         }
-        .err-logo { height: 56px; margin-bottom: 24px; object-fit: contain; }
+        .err-logo { height: 52px; margin-bottom: 22px; object-fit: contain; }
         .err-code {
-            font-size: 68px; font-weight: 800; line-height: 1; letter-spacing: -2px;
+            font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -3px;
             color: #00337a;
         }
-        .err-title { font-size: 21px; font-weight: 700; margin: 12px 0 8px; color: #0f172a; }
-        .err-msg { font-size: 14px; line-height: 1.6; color: #64748b; margin-bottom: 28px; }
+        .err-title { font-size: 21px; font-weight: 700; margin: 14px 0 6px; color: #0f172a; }
+        .err-msg { font-size: 14px; line-height: 1.55; color: #64748b; margin-bottom: 26px; }
         .err-btn {
             display: inline-flex; align-items: center; gap: 8px;
             background: #00337a; color: #fff; font-weight: 800; font-size: 14px;

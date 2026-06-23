@@ -1,5 +1,5 @@
 @extends('errors.layout')
 @section('code', '419')
 @section('title', 'Tu sesión expiró')
-@section('message', 'Por seguridad, tu sesión caducó por inactividad. Ingresá de nuevo para continuar.')
+@section('message', 'Por seguridad, ingresá de nuevo para continuar.')
 @section('cta', 'Volver a ingresar')
