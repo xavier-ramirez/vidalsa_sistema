@@ -2270,7 +2270,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
                 avisoSinResp +
                 '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
                     grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place') +
-                    grpInput('ed-zona', 'Lugar / zona (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
+                    grpInput('ed-zona', 'Lugar / zona de origen (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
                     grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
                     grpInput('ed-destubic', 'Ubicación del destino', actaState.destination_ubicacion, 'location_on', 'Ej: CALLE / SECTOR') +
                 '</div>' +
@@ -2326,7 +2326,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         // imprime en el encabezado y junto al frente de destino. Se resalta en rojo el
         // contenedor del primer campo vacío (el borde vive en el wrapper, no en el input).
         var reqCampos = [
-            { sel: '#ed-zona',    vacio: !actaState.origin_zona,          msg: 'El lugar / zona (ciudad) es obligatorio.' },
+            { sel: '#ed-zona',    vacio: !actaState.origin_zona,          msg: 'El lugar / zona de origen (ciudad) es obligatorio.' },
             { sel: '#ed-destubic', vacio: !actaState.destination_ubicacion, msg: 'La ubicación del destino es obligatoria.' }
         ];
         var faltante = null;
