@@ -414,7 +414,7 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">home</i>Inicio
             </a>
 
-            {{-- Flota Dropdown: agrupa Vehiculo + Equipos Auxiliares + Reporte de Fallas + Consumibles + Historial Mov --}}
+            {{-- Flota Dropdown: agrupa Vehiculo + Equipos Auxiliares + Reporte de Fallas + Consumibles + Historial --}}
             <div class="nav-dropdown">
                 <a href="#"
                     class="nav-link {{ (request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) || request()->is('admin/equipos-auxiliares*') || request()->is('admin/fallas*') || request()->is('admin/consumibles*') || request()->is('admin/movilizaciones*')) ? 'active' : '' }}"
@@ -441,7 +441,7 @@
                     </a>
                     <a href="{{ route('movilizaciones.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
-                        <i class="material-icons">local_shipping</i> Historial Mov
+                        <i class="material-icons">local_shipping</i> Historial
                     </a>
                 </div>
             </div>
@@ -595,7 +595,7 @@
             <i class="material-icons">home</i> Inicio
         </a>
 
-        {{-- Flota: grupo colapsable con Vehiculo + Activos Auxiliares + Reporte de Fallas + Consumibles + Historial Mov --}}
+        {{-- Flota: grupo colapsable con Vehiculo + Activos Auxiliares + Reporte de Fallas + Consumibles + Historial --}}
         <div class="mobile-nav-group" id="mobileFlotaGroup">
             <div class="mobile-nav-group-title">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -623,7 +623,7 @@
                 </a>
                 <a href="{{ route('movilizaciones.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
-                    <i class="material-icons">local_shipping</i> Historial Mov
+                    <i class="material-icons">local_shipping</i> Historial
                 </a>
             </div>
         </div>
