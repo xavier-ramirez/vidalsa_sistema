@@ -17,10 +17,15 @@
                 onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
             <span class="desktop-text">Limpiar</span>
         </button>
+        {{-- "Anclar" (anclar un auxiliar a un equipo host): SOLO en el modulo standalone
+             de auxiliares. En la vista embebida de /admin/equipos no se ofrece anclaje para
+             auxiliares (solo Asignar/movilizar y Detalle). Se gatea con $embeddedInEquipos. --}}
+        @if(!($embeddedInEquipos ?? false))
         <button type="button" onclick="window.openAuxAnclarBulkModal()" class="btn-bulk-action" style="background: #10b981;">
             <i class="material-icons" style="font-size: 18px;">anchor</i>
             <span class="desktop-text">Anclar</span>
         </button>
+        @endif
         <button type="button" onclick="window.openAuxUbicacionBulkModal()" class="btn-bulk-action" style="background: #64748b;">
             <i class="material-icons" style="font-size: 18px;">description</i>
             <span class="desktop-text">Detalle</span>
