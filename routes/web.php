@@ -16,6 +16,19 @@ Route::get('/preview/error/{code}', function (string $code) {
     return response()->view("errors.{$code}", [], (int) $code);
 })->name('preview.error');
 
+// Service Worker con CACHE_VERSION dinámico: cada deploy cambia el filemtime del
+// sw.js → nuevo nombre de cache → activate purga los caches viejos automáticamente.
+// Sin esto __CACHE_VERSION__ queda literal y los caches nunca se invalidan.
+Route::get('/sw.js', function () {
+    $path    = public_path('sw.js');
+    $version = (string) filemtime($path);
+    $content = str_replace('__CACHE_VERSION__', $version, file_get_contents($path));
+    return response($content, 200)
+        ->header('Content-Type', 'application/javascript')
+        ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        ->header('Service-Worker-Allowed', '/');
+});
+
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 Route::redirect('/home', '/menu');
 
