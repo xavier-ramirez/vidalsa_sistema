@@ -1573,24 +1573,41 @@
                     filename = cleanLabel + '.pdf';
                 }
 
-                // Direct download link
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.setAttribute('data-no-spa', 'true');
-                a.style.display = 'none';
-
-                document.body.appendChild(a);
-                a.click();
-
-                // Restore button after short delay
-                setTimeout(() => {
-                    document.body.removeChild(a);
+                const restoreBtn = function () {
                     if (downloadBtn) {
                         downloadBtn.disabled = false;
                         downloadBtn.innerHTML = '<span class="material-icons" style="font-size: 16px;">download</span><span class="btn-label">Descargar</span>';
                     }
-                }, 800);
+                };
+
+                // Descarga con un <a download> apuntando a una URL (blob o directa).
+                const downloadViaAnchor = function (href, revoke) {
+                    const a = document.createElement('a');
+                    a.href = href;
+                    a.download = filename;
+                    a.setAttribute('data-no-spa', 'true');
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    // Quitar el <a> y restaurar el botón rápido; pero si era un blob, NO lo
+                    // revocamos aún: si el navegador muestra "Guardar como", la descarga no
+                    // inicia hasta que el usuario confirme — revocar antes la cancelaría.
+                    setTimeout(function () {
+                        if (a.parentNode) a.parentNode.removeChild(a);
+                        restoreBtn();
+                    }, 800);
+                    if (revoke) setTimeout(function () { URL.revokeObjectURL(href); }, 60000);
+                };
+
+                // Estrategia robusta: traemos el PDF con fetch y lo descargamos como BLOB.
+                // Así SIEMPRE se DESCARGA (guarda el archivo) y NO se ABRE en el visor, aunque
+                // el navegador ignore el atributo `download` (lo ignora cuando la URL no es del
+                // mismo origen — p.ej. si redirige a Drive). Mismo enfoque que printPdfFromPreview.
+                // Si el fetch falla (CORS, red), caemos al enlace directo (comportamiento previo).
+                fetch(url, { credentials: 'include', cache: 'force-cache' })
+                    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+                    .then(function (blob) { downloadViaAnchor(URL.createObjectURL(blob), true); })
+                    .catch(function () { downloadViaAnchor(url, false); });
             };
 
             // Imprime el PDF que esta en el visor sin descargarlo. Estrategia:
