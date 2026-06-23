@@ -13,8 +13,7 @@ window.borrarDirecto = function(id, url, btn) {
         btn.style.opacity = '0.5';
     }
 
-    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    var csrfToken = csrfMeta ? csrfMeta.content : '';
+    var csrfToken = window.getCsrf();
 
     fetch(url, {
         method: 'DELETE',
@@ -58,8 +57,6 @@ if (typeof window.ModuleManager !== 'undefined') {
             var appRoot = document.getElementById('consumiblesAppRoot');
             if (!appRoot) return;
 
-            window.CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-
             // ── Match automático ──────────────────────────────────────
             window.ejecutarMatch = function() {
                 var btn        = document.getElementById('btnMatch');
@@ -70,7 +67,7 @@ if (typeof window.ModuleManager !== 'undefined') {
 
                 fetch(routeMatch, {
                     method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': window.CSRF, 'Accept': 'application/json' }
+                    headers: { 'X-CSRF-TOKEN': window.getCsrf(), 'Accept': 'application/json' }
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
@@ -128,7 +125,7 @@ if (typeof window.ModuleManager !== 'undefined') {
 
                 fetch('/admin/consumibles/' + id + '/identificador', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
                     body: JSON.stringify({ identificador: nuevo })
                 })
                 .then(function(r) { return r.json(); })
@@ -197,7 +194,7 @@ if (typeof window.ModuleManager !== 'undefined') {
 
                 fetch('/admin/consumibles/' + id + '/frente', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.CSRF },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': window.getCsrf() },
                     body: JSON.stringify({ id_frente: idFrente })
                 })
                 .then(function(r) { return r.json(); })

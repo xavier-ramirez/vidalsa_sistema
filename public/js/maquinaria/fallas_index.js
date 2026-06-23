@@ -7,7 +7,7 @@
     window._fallasReady = true;
 
     const cfg  = () => window.FALLAS_CFG || {};
-    const csrf = () => document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const csrf = window.getCsrf; // helper central (dom_helpers.js)
 
     // Aviso moderno (modal de la app) cuando el usuario no tiene permiso para
     // registrar fallas — en vez del alert() del navegador. Mismo patrón que equipos.

@@ -55,7 +55,6 @@ class SubirPdfMasivo extends Command
         for ($i = 1; $i <= $cantidad; $i++) {
             try {
                 $filename  = "{$prefijo}_{$i}_" . time() . ".pdf";
-                $stream    = fopen($archivo, 'r');
 
                 // Crear un objeto similar a UploadedFile para el servicio
                 $tmpFile = new \Illuminate\Http\UploadedFile(

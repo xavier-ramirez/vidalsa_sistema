@@ -33,7 +33,7 @@ window.__renderFrenteChips = function (selectId, spanId, inputId, emptyPlacehold
         if (input) input.placeholder = emptyPlaceholder;
         return;
     }
-    const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const esc = window.escapeHtml; // helper central (dom_helpers.js)
     span.innerHTML = Array.from(checks).map(c => {
         const name = c.closest('label').querySelector('span').textContent.trim();
         return '<span style="display:inline-flex;align-items:center;background:' + chipBg + ';color:' + chipColor + ';font-weight:600;padding:2px 10px;border-radius:999px;font-size:12.5px;line-height:1.6;">' + esc(name) + '</span>';
@@ -313,11 +313,8 @@ function initFormItems() {
 
     // UNIVERSAL GUARD: Prevent multiple initializations
     if (form && form.dataset.logicInitialized === 'true') {
-        console.log('⏭️ Form already initialized, skipping');
         return;
     }
-
-    console.log('✅ Initializing form items...');
 
     // 1. Initialize Dropdowns (Pre-fill years if model exists)
     const modelInput = document.getElementById('MODELO') || document.getElementById('modelo');
@@ -747,7 +744,7 @@ window.addEventListener('spa:contentLoaded', function () {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                'X-CSRF-TOKEN': window.getCsrf()
             }
         })
             .then(async response => {

@@ -17,7 +17,7 @@ window.confirmDeleteCatalogo = function (id, modelName) {
                 const response = await fetch(`/admin/catalogo/${id}`, {
                     method: 'DELETE',
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'X-CSRF-TOKEN': window.getCsrf(),
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json'
                     }

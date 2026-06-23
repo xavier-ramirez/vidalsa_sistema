@@ -1,4 +1,6 @@
-@extends('layouts.app')
+@extends('layouts.estructura_base')
+
+@section('title', 'Registrar Movilización')
 
 @section('content')
 <div class="admin-container">

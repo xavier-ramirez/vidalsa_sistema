@@ -145,6 +145,13 @@
                 fetch('/refresh-csrf', { method: 'GET', cache: 'no-store' })
                     .then(response => {
                         if (response.ok) {
+                            // 200 con token de invitado = la sesión ya cayó en el backend
+                            // (ruta pública). Reflejamos el cierre en vez de seguir como si nada.
+                            if (response.headers.get('X-Auth-Status') === 'guest') {
+                                console.warn('⚠️ Ping: sesión ya expirada en el backend');
+                                sessionAlreadyExpired();
+                                return;
+                            }
                             return response.text().then(token => {
                                 if (token && token.length > 10) {
                                     const meta = document.querySelector('meta[name="csrf-token"]');
@@ -216,6 +223,13 @@
                     .then(async response => {
                         clearTimeout(timeoutId);
                         if (response.ok) {
+                            // La ruta es pública: aunque devuelva 200, si la sesión del
+                            // backend YA expiró el token es de invitado. No falseamos la
+                            // renovación → cerramos sesión de verdad (outcome claro).
+                            if (response.headers.get('X-Auth-Status') === 'guest') {
+                                sessionAlreadyExpired();
+                                return;
+                            }
                             const token = await response.text();
                             if (token && token.length > 10) {
                                 const meta = document.querySelector('meta[name="csrf-token"]');
@@ -227,6 +241,8 @@
                             updateExpirationTime();
                             startServerPing();
                             hideWarning();
+                            // Feedback explícito: el usuario ve que la sesión SÍ se mantuvo.
+                            if (window.showToast) window.showToast('Sesión renovada', 'success');
                         } else {
                             throw new Error('Server ' + response.status);
                         }
@@ -255,6 +271,18 @@
                         }
                     });
             };
+
+            // ── Sesión ya caída en el backend ───────────────────────────
+            // La diferencia con performLogout: aquí la sesión del servidor YA no existe,
+            // así que un POST /logout con el CSRF viejo daría 419. Vamos directo al login
+            // por GET — outcome claro (el usuario aterriza en la pantalla de inicio de
+            // sesión) y sin pantalla de error intermedia.
+            function sessionAlreadyExpired() {
+                clearInterval(checkInterval);
+                clearInterval(serverPingInterval);
+                hideWarning();
+                window.location.href = '/';
+            }
 
             // ── Logout automático al expirar ────────────────────────────
             function performLogout() {

@@ -402,7 +402,7 @@ class DashboardController extends Controller
         try {
             // Get current user info
             $user = auth()->user();
-            $nombreUsuario = $user->NOMBRE_USUARIO ?? 'Sistema';
+            $nombreUsuario = $user->NOMBRE_COMPLETO ?? 'Sistema';
             $nombreFrente = $user->frenteAsignado ? $user->frenteAsignado->NOMBRE_FRENTE : 'Sin Frente Asignado';
             $fechaEmision = \Carbon\Carbon::now()->locale('es')->isoFormat('DD [de] MMMM [de] YYYY - HH:mm');
 

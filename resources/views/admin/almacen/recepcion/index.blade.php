@@ -94,17 +94,16 @@
     }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
     #trFilters .tr-search-num  { flex:1 1 280px; max-width:400px; min-width:200px; position:relative; }
-    .tr-search-box { display:flex; align-items:center; height:40px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; }
+    /* Toolbar alineado al estándar de /admin/almacen/movimientos: cajas de 45px,
+       radio 12px, fondo suave #fbfcfd y letra 14px (antes 40px/8px/13px se veía
+       más apretado que el resto de los módulos). Azul #e1effa cuando hay filtro. */
+    .tr-search-box { display:flex; align-items:center; height:45px; border:1px solid #cbd5e0; border-radius:12px; background:#fbfcfd; overflow:hidden; }
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
-    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:8px 5px; font-size:13px; min-width:0; color:#0f172a; }
-    /* Filtro Estado (custom-dropdown) — misma altura (40px) que el buscador. */
+    .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:10px 5px; font-size:14px; min-width:0; color:#0f172a; }
+    /* Filtro Estado (custom-dropdown) — misma altura (45px) y letra (14px global) que
+       el buscador y el resto de filtros de la app. */
     #trFilters .tr-filter-estado { flex:0 1 180px; min-width:150px; max-width:220px; }
-    /* Misma LETRA que los demás filtros del toolbar (13px): el global .dropdown-item es
-       14px y hacía que el texto del Estado (trigger + opciones) se viera más grande que el
-       buscador. Lo bajamos a 13px solo para este dropdown. */
-    #trEstadoDropdown .dropdown-trigger input,
-    #trEstadoDropdown .dropdown-item { font-size:13px; }
     /* Cajas de fecha (Desde/Hasta), ahora dentro del panel "Filtros avanzados". */
     .tr-date-box { display:flex; align-items:center; gap:5px; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; cursor:pointer; box-sizing:border-box; }
     .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
@@ -176,9 +175,11 @@
     /* Tabla */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .tr-table thead tr { background:#1e293b; }
-    .tr-table thead th { text-align:center; color:#fff; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    /* Divisores verticales entre columnas (mismo patrón que el módulo de equipos):
+       encabezado #334155, cuerpo claro #e2e8f0. */
+    .tr-table thead th { text-align:center; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
     .tr-table thead th:last-child { border-right:none; }
-    .tr-table tbody td { padding:11px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; vertical-align:middle; }
+    .tr-table tbody td { padding:12px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; vertical-align:middle; }
     .tr-table tbody td:last-child { border-right:none; }
     .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
     .tr-table tbody tr:nth-child(even) td { background:#fafbfc; }
@@ -194,7 +195,7 @@
     }
     .dtm-overlay.open { display:flex; }
     .dtm-box {
-        background:#fff; border-radius:16px; width:100%; max-width:680px;
+        background:#fff; border-radius:16px; width:100%; max-width:760px;
         max-height:95vh; min-height:60vh; display:flex; flex-direction:column; overflow:hidden;
         box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
         animation: dtmIn .2s ease-out;
@@ -222,9 +223,11 @@
 
     .dtm-body { flex:1; overflow-y:auto; padding:14px 20px; }
     .dtm-notas { display:flex; align-items:flex-start; gap:6px; padding:8px 10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; font-size:12.5px; color:#92400e; margin-bottom:10px; }
-    .dtm-lineas-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .dtm-lineas-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
     .dtm-lineas-header span:first-child { font-size:12px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
-    .dtm-lineas-count { font-size:11px; font-weight:800; color:#0067b1; background:#e1effa; padding:2px 8px; border-radius:999px; }
+    /* Hint "Toca los que llegaron" (solo en recepción activa): gris, discreto, a la derecha. */
+    .dtm-rec-hint { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#94a3b8; font-style:italic; }
+    .dtm-rec-hint .material-icons { font-size:14px; }
     /* Materiales = TABLA real (<table>): encabezado + filas con columnas alineadas y
        valores centrados — se ve como una tabla, consistente con el modal. */
     .dtm-table-wrap { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
@@ -252,14 +255,26 @@
     .dtm-col-num { font-weight:600; font-size:13px; color:#0f172a; white-space:nowrap; }
     /* Columna "#": numeración de filas, gris y discreta. */
     .dtm-col-idx { font-size:13px; font-weight:700; color:#94a3b8; width:1%; white-space:nowrap; }
-    /* Recibido = checkbox por fila (marcado = recibido completo). Verde como "OK". */
-    .dtm-rec-check { width:19px; height:19px; margin:0; accent-color:#16a34a; cursor:pointer; }
+    /* Recibido = check (llegó) + input de cantidad. El check marca recibido; la cantidad
+       sale del input contiguo, que arranca deshabilitado con lo enviado y se habilita al
+       marcar para registrar que llegó OTRA cantidad (parcial). */
+    /* Recepción activa: la fila se marca "recibida" tocándola (sin checkbox). Cursor
+       de mano + hover suave; al marcar, toda la fila se resalta en azul y la cantidad
+       recibida se resalta también. Sin marcar = cantidad en gris (no recibido aún). */
+    .dtm-linea-rec { cursor:pointer; }
+    .dtm-linea-rec .dtm-rec-cant { color:#94a3b8; }
+    .dtm-linea-rec.recibida td { background:#e1effa; }
+    .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
+    .dtm-linea-rec.recibida .dtm-rec-cant { color:#0067b1; font-weight:800; }
+    /* Check verde de "tildado": oculto por defecto, aparece al marcar la fila (.recibida). */
+    .dtm-rec-cant .dtm-rec-ico { display:none; font-size:16px; vertical-align:middle; margin-right:3px; color:#16a34a; }
+    .dtm-linea-rec.recibida .dtm-rec-ico { display:inline; }
     .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
 
     .dtm-footer {
         display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
         padding:14px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
-        background:#f8fafc;
+        background:#fff;
     }
     .dt-btn {
         height:44px; padding:0 22px; border-radius:10px; cursor:pointer;
@@ -268,13 +283,12 @@
         transition:background .15s, transform .1s;
     }
     .dt-btn i { font-size:18px; }
-    .dt-btn-cancel { background:#fff; color:#dc2626; border:1px solid #fca5a5; }
-    .dt-btn-cancel:hover { background:#fee2e2; border-color:#dc2626; }
-    .dt-btn-primary { background:#16a34a; color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(22,163,74,0.3); }
-    .dt-btn-primary:hover { background:#15803d; }
-    .dt-btn-primary:active { transform:scale(0.98); }
+    /* Cancelar = botón blanco neutro (secundario); Aceptar = azul global (primario). */
+    .dt-btn-cancel { background:#fff; color:#334155; border:1px solid #cbd5e0; }
+    .dt-btn-cancel:hover { background:#f1f5f9; border-color:#94a3b8; }
     .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
     .dt-btn-blue:hover { background:#005391; }
+    .dt-btn-blue:active { transform:scale(0.98); }
 
     @media (max-width: 768px) {
         .dtm-overlay { padding:0; align-items:flex-end; }
@@ -396,10 +410,12 @@
             font-size: 12.5px !important;
             /* En la TARJETA móvil el contenido va a la izquierda (el centrado es solo
                para la tabla de escritorio). El Estado (td:3) se realínea a la derecha
-               más abajo; el Origen/Destino vuelve a flex-start. */
+               más abajo; el trayecto Origen → Destino se mantiene centrado. */
             text-align: left !important;
         }
-        .tr-table tbody tr[data-id] .tr-ruta-dest { justify-content: flex-start !important; }
+        /* Trayecto Origen → Destino: centrado dentro de la tarjeta móvil (su contenedor
+           interno ya usa justify-content:center; lo reforzamos sobre el <td>). */
+        .tr-table tbody tr[data-id] .tr-ruta-dest { text-align: center !important; }
 
         /* td:1 = Nº TR-... (esquina sup-izq, monospace destacado) */
         .tr-table tbody tr[data-id] td:nth-child(1) {
@@ -460,7 +476,14 @@
                 <i class="material-icons lupa">search</i>
                 <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por número de nota de entrega" value="{{ $reqSearch }}"
                        oninput="window.trSearchInput()"
+                       onfocus="window.trSearchSuggest()"
+                       onkeydown="window.trSearchEnter(event)"
                        onblur="setTimeout(function(){ var s=document.getElementById('trSearchSuggest'); if(s) s.classList.remove('open'); }, 150);">
+                {{-- X = vaciar el filtro (mismo patrón que el buscador del módulo Inventario).
+                     Visible solo cuando hay texto. --}}
+                <i class="material-icons" id="trSearchClear" title="Limpiar filtro"
+                   style="display:{{ $reqSearch ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:pointer;"
+                   onclick="window.trSearchClear()">close</i>
             </div>
             {{-- Sugerencias en vivo: lista los N° de nota visibles al usuario que coinciden
                  con lo que está escribiendo. Cargar la lista en el render evita un endpoint
@@ -469,8 +492,8 @@
         </div>
 
         {{-- Filtros en línea, al lado del buscador (antes vivían en un panel "Filtros
-             Avanzados" desplegable). Mismo border/radius/altura (40px) que el buscador.
-             Azul = filtro activo: en Estado, "En tránsito" es el default → se ve blanco. --}}
+             Avanzados" desplegable). Mismo border/radius/altura (45px) que el buscador.
+             Azul = filtro activo: en Estado, "En tránsito" es el default → se ve neutro. --}}
         {{-- Filtro Estado con el mismo custom-dropdown que el resto de la app (igual que
              "Almacén destino" del header). El <select> nativo se reemplazó para unificar
              el estilo. Azul = filtro activo (cualquier estado distinto del default "En
@@ -485,10 +508,14 @@
         <div class="tr-item tr-filter-estado">
             <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado" data-default-label="Estado">
                 <input type="hidden" name="estado" data-filter-value value="{{ $reqEstado }}">
-                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $estadoActivo ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid {{ $estadoActivo ? '#0067b1' : '#cbd5e0' }};border-radius:8px;height:40px;">
+                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $estadoActivo ? '#e1effa' : '#fbfcfd' }};overflow:hidden;border:1px solid {{ $estadoActivo ? '#0067b1' : '#cbd5e0' }};border-radius:12px;height:45px;">
+                    {{-- Letra normal (14px / peso 400), igual que el filtro "Nota de entrega"
+                         (.tr-search-box input) y que los filtros del módulo Inventario
+                         (.alm-filter input). Antes era peso 600 → el estado elegido se veía
+                         en negrita y desentonaba con el resto (pedido del cliente). --}}
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
                            placeholder="{{ $reqEstadoLabel }}"
-                           style="flex:1;border:none;background:transparent;padding:8px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                           style="flex:1;border:none;background:transparent;padding:8px 10px;font-size:14px;font-weight:400;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
                            oninput="window.filterDropdownOptions(this)">
                     {{-- X = quitar el filtro de estado → vuelve al default (dropdown en blanco;
                          la bandeja muestra "En tránsito"). El selectOption global la muestra
@@ -522,7 +549,7 @@
         @php $fechasActivas = $reqDesde || $reqHasta; @endphp
         <div style="position:relative;flex:0 0 auto;">
             <button type="button" id="trAdvBtn" class="btn-primary-maquinaria"
-                    style="height:40px;width:40px;min-width:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;background:{{ $fechasActivas ? '#fee2e2' : '#fff' }};border:1px solid {{ $fechasActivas ? '#ef4444' : '#cbd5e0' }};color:{{ $fechasActivas ? '#ef4444' : '#64748b' }};box-shadow:none;"
+                    style="height:45px;width:45px;min-width:45px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px;background:{{ $fechasActivas ? '#fee2e2' : '#fbfcfd' }};border:1px solid {{ $fechasActivas ? '#ef4444' : '#cbd5e0' }};color:{{ $fechasActivas ? '#ef4444' : '#64748b' }};box-shadow:none;"
                     onclick="window.trToggleAdvanced(event)" title="Filtros avanzados">
                 <i class="material-icons" style="font-size:20px;">filter_list</i>
             </button>
@@ -563,7 +590,7 @@
                                  ancho NATURAL (nowrap, sin width:1%) para que tengan algo de aire;
                                  "Origen / Destino" absorbe el resto, pero sin acaparar tanto. --}}
                             <th style="width:1%;white-space:nowrap;" title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
-                            <th title="Arriba el almacén que ENVÍA; abajo el que RECIBE.">Origen / Destino</th>
+                            <th title="A la izquierda el almacén que ENVÍA; a la derecha el que RECIBE.">Origen / Destino</th>
                             <th style="white-space:nowrap;text-align:center;" title="Estado actual de la nota.">Estado</th>
                             <th style="white-space:nowrap;" title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
                         </tr>
@@ -619,6 +646,16 @@
     if (!document.getElementById('trTableBody')) return;
     var ROUTE = @json(route('almacen.recepcion.index'));
 
+    // SPA-safe: la navegación SPA (navegacion.js) RE-EJECUTA este <script> inline en cada
+    // visita a la página. Las funciones window.* se redefinen sin problema, PERO los
+    // listeners en document/window se DUPLICARÍAN en cada navegación → acciones como
+    // classList.toggle correrían 2 veces (la fila se marca y desmarca = "no pasa nada hasta
+    // recargar"). Por eso registramos los listeners GLOBALES una sola vez por pestaña
+    // (guardia _trBindGlobal); siguen llamando a las window.* más recientes, así no quedan
+    // obsoletos. Las funciones siguen redefiniéndose en cada corrida (operan sobre el DOM vivo).
+    var _trBindGlobal = !window.__trRecepcionGlobalBound;
+    window.__trRecepcionGlobalBound = true;
+
     // Lista de N° de nota visibles para el usuario (TR-YYYY-NNNN). Cargada desde
     // el controller en cada render; 300 más recientes — suficiente para el
     // autocomplete sin pedir un endpoint extra.
@@ -637,29 +674,24 @@
     function hv(name) { var e = document.querySelector('input[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
     // ── Autocomplete del filtro "N° de nota" ──────────────────────────────
-    // Filtra la lista pre-cargada por prefijo + substring (case-insensitive) y
-    // muestra hasta 8 sugerencias debajo del input. Clic en una → completa el
-    // valor y dispara trLoad. Se cierra al perder foco (con un timeout pequeño
-    // para que el click en la sugerencia llegue primero).
-    window.trSearchInput = function () {
+    // Mismo comportamiento que los buscadores de Inventario / Equipos: las sugerencias
+    // se calculan en el cliente (lista TR_NUMEROS ya cargada) → instantáneas. La tabla
+    // NO se filtra al escribir; se filtra cuando el usuario:
+    //   (a) elige una sugerencia de la lista [trSearchPick],
+    //   (b) pulsa Enter [trSearchEnter], o
+    //   (c) limpia con la X [trSearchClear].
+
+    // Muestra/actualiza la lista de sugerencias al instante. Al hacer FOCO con el campo
+    // vacío muestra las más recientes (como las listas rápidas de Equipos); con texto,
+    // filtra por substring. No toca la tabla.
+    window.trSearchSuggest = function () {
         var input = el('trSearch');
         var box   = el('trSearchSuggest');
         if (!input || !box) return;
-        window.trResetKpi(); // buscar por nota sale del modo KPI
         var q = String(input.value || '').trim().toUpperCase();
-
-        // Si el campo está vacío cerramos el panel de sugerencias y recargamos la tabla (para quitar el filtro).
-        if (q === '') {
-            box.classList.remove('open');
-            clearTimeout(window._trST);
-            window._trST = setTimeout(window.trLoad, 400);
-            return;
-        }
-
-        // Filtrar: substring case-insensitive (indexOf); máximo 8.
-        var matches = TR_NUMEROS.filter(function (n) {
-            return String(n).toUpperCase().indexOf(q) !== -1;
-        }).slice(0, 8);
+        var matches = (q === '')
+            ? TR_NUMEROS.slice(0, 8)
+            : TR_NUMEROS.filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; }).slice(0, 8);
 
         if (matches.length === 0) {
             box.innerHTML = '<div class="tr-suggest-empty">Sin coincidencias</div>';
@@ -670,16 +702,50 @@
             }).join('');
         }
         box.classList.add('open');
+    };
 
-        // Re-arma el debounce de trLoad solo si hay texto (>= 1 car.).
-        clearTimeout(window._trST);
-        window._trST = setTimeout(window.trLoad, 400);
+    // Sincroniza la X y el tinte azul (.active) del buscador según haya texto.
+    function trSearchToggleClear() {
+        var input = el('trSearch'); if (!input) return;
+        var has = !!input.value.trim();
+        var x = el('trSearchClear'); if (x) x.style.display = has ? 'flex' : 'none';
+        var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
+    }
+
+    // Escribir: sale del modo KPI, refresca la X y las sugerencias. NO recarga la tabla.
+    window.trSearchInput = function () {
+        window.trResetKpi();
+        trSearchToggleClear();
+        window.trSearchSuggest();
     };
 
     window.trSearchPick = function (numero) {
         var input = el('trSearch'); if (!input) return;
         input.value = numero;
         var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
+        trSearchToggleClear();
+        clearTimeout(window._trST);
+        window.trLoad();
+    };
+
+    // Enter en el buscador → filtra por el texto tal cual (similitudes vía LIKE del
+    // backend), sin tener que elegir una sugerencia. Igual que el módulo Inventario.
+    window.trSearchEnter = function (ev) {
+        if (ev && ev.key !== 'Enter') return;
+        if (ev) ev.preventDefault();
+        var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
+        clearTimeout(window._trST);
+        window.trLoad();
+    };
+
+    // X = vaciar el filtro y recargar sin filtro (mismo patrón que almBuscarLimpiar del
+    // módulo Inventario).
+    window.trSearchClear = function () {
+        var input = el('trSearch'); if (!input) return;
+        input.value = '';
+        var box = el('trSearchSuggest'); if (box) box.classList.remove('open');
+        trSearchToggleClear();
+        window.trResetKpi();
         clearTimeout(window._trST);
         window.trLoad();
     };
@@ -729,6 +795,10 @@
             .then(function (data) {
                 if (data.html !== undefined) body.innerHTML = data.html;
                 var pg = el('trPagination'); if (pg) pg.innerHTML = data.pagination || '';
+                // Refrescar las sugerencias del buscador con las del almacén/filtros actuales
+                // (el backend las recalcula y las manda en cada respuesta). Sin esto, al
+                // cambiar el "Almacén destino" seguían apareciendo notas del almacén anterior.
+                if (Array.isArray(data.numerosNotas)) TR_NUMEROS = data.numerosNotas;
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
             .catch(function () { body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
@@ -736,7 +806,7 @@
     };
 
     // Click en fila → abrir modal de detalle
-    document.addEventListener('click', function (e) {
+    if (_trBindGlobal) document.addEventListener('click', function (e) {
         var row = e.target.closest('#trTableBody tr[data-id]');
         if (row) window.trOpenModal(row.dataset.id);
     });
@@ -771,13 +841,13 @@
     };
 
     window.trCloseModal = function () {
-        // Auto-guardado PARCIAL al cerrar: si el modal es una recepción activa (tiene
-        // checkboxes), hay AL MENOS una fila marcada y no se confirmó/canceló ya con un
-        // botón (_trModalSubmitted), al cerrar se guarda lo marcado (las no marcadas
-        // quedan como faltante → el backend la marca "Confirmada parcial"). Si no hay
-        // nada marcado, cerrar NO guarda nada (evita confirmaciones accidentales).
+        // Auto-guardado PARCIAL al cerrar: si el modal es una recepción activa, hay AL
+        // MENOS una fila marcada (.recibida) y no se confirmó/canceló ya con un botón
+        // (_trModalSubmitted), al cerrar se guarda lo marcado (las no marcadas quedan como
+        // faltante → el backend la marca "Confirmada parcial"). Si no hay nada marcado,
+        // cerrar NO guarda nada (evita confirmaciones accidentales).
         var box = el('trDetalleBox');
-        if (!_trModalSubmitted && box && box.querySelector('.dtm-rec-check:checked')) {
+        if (!_trModalSubmitted && box && box.querySelector('.dtm-linea-rec.recibida')) {
             window.trModalConfirmar(); // postea (marca _trModalSubmitted) y al terminar reentra aquí para cerrar
             return;
         }
@@ -788,26 +858,44 @@
         _trModalSubmitted = false;
     };
 
-    document.addEventListener('keydown', function (e) {
+    if (_trBindGlobal) document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') window.trCloseModal();
     });
 
-    // Lee el estado de los checkboxes: marcado = recibido COMPLETO (cantidad enviada),
-    // sin marcar = no recibido (0 → el backend lo registra como faltante).
+    // Fila marcada (.recibida) = recibida por la cantidad enviada (data-enviada). Sin
+    // marcar = no recibida (0 → el backend lo registra como faltante).
     function trCollectLineas() {
         var box = el('trDetalleBox');
         if (!box) return [];
         var lineas = [];
-        box.querySelectorAll('.dtm-linea').forEach(function (card) {
-            var chk = card.querySelector('.dtm-rec-check');
+        box.querySelectorAll('.dtm-linea-rec').forEach(function (card) {
             var enviada = parseFloat(card.dataset.enviada) || 0;
             lineas.push({
                 id_linea:          parseInt(card.dataset.idLinea),
-                cantidad_recibida: (chk && chk.checked) ? enviada : 0,
+                cantidad_recibida: card.classList.contains('recibida') ? enviada : 0,
             });
         });
         return lineas;
     }
+
+    // Tocar una fila de la recepción activa la marca/desmarca como recibida (azul).
+    // Delegado en #trDetalleBox porque el contenido del modal se carga por AJAX.
+    if (_trBindGlobal) document.addEventListener('click', function (e) {
+        var row = e.target.closest('#trDetalleBox .dtm-linea-rec');
+        if (row) { row.classList.toggle('recibida'); window.trUpdateConfirmBtn(); }
+    });
+
+    // Botón "Confirmar (N)": aparece SOLO cuando hay filas tildadas (.recibida) y muestra
+    // el conteo. El botón "Confirmar todo" está siempre visible (un toque). Window-function
+    // porque el listener global (bind único) la llama.
+    window.trUpdateConfirmBtn = function () {
+        var box = el('trDetalleBox'); if (!box) return;
+        var btnSel = box.querySelector('#trConfirmSelBtn'); if (!btnSel) return;
+        var n = box.querySelectorAll('.dtm-linea-rec.recibida').length;
+        btnSel.style.display = n > 0 ? '' : 'none';
+        var c = btnSel.querySelector('.tr-confirm-sel-count');
+        if (c) c.textContent = n;
+    };
 
     function trModalPost(url, payload, successMsg) {
         if (window.showPreloader) window.showPreloader();
@@ -837,12 +925,21 @@
         .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
-    // Botón "Confirmar todo": marca TODAS las filas como recibidas y confirma
-    // (caso común "llegó todo"). Para parcial, el usuario marca solo algunas y cierra.
+    // "Confirmar todo" (un solo toque): marca TODAS las filas y confirma — caso común
+    // "llegó todo", sin tener que tildar una por una.
     window.trModalConfirmarTodo = function () {
         if (!_trModalId) return;
         var box = el('trDetalleBox');
-        if (box) box.querySelectorAll('.dtm-rec-check').forEach(function (c) { c.checked = true; });
+        if (box) box.querySelectorAll('.dtm-linea-rec').forEach(function (r) { r.classList.add('recibida'); });
+        window.trModalConfirmar();
+    };
+
+    // "Confirmar (N)": confirma SOLO las filas tildadas (.recibida); el resto queda como
+    // faltante → el backend marca la nota "Confirmada parcial".
+    window.trModalConfirmarSeleccionados = function () {
+        if (!_trModalId) return;
+        var box = el('trDetalleBox');
+        if (!box || box.querySelectorAll('.dtm-linea-rec.recibida').length === 0) return;
         window.trModalConfirmar();
     };
 
@@ -880,14 +977,14 @@
     };
 
     // Paginación AJAX
-    document.addEventListener('click', function (e) {
+    if (_trBindGlobal) document.addEventListener('click', function (e) {
         var a = e.target.closest('#trPagination a.page-link') || e.target.closest('#trPagination a');
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.trLoad(a.href); }
     }, true);
 
     // Los custom-dropdowns disparan 'dropdown-selection' cuando el usuario elige una
     // opcion. Recargamos la tabla al cambiar el almacen destino (header) o el Estado.
-    window.addEventListener('dropdown-selection', function (e) {
+    if (_trBindGlobal) window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
         // Cambiar Estado/Almacén a mano sale del modo KPI (trKpiFilter fija el Estado
         // sin emitir este evento, así que no se auto-resetea solo).
@@ -924,7 +1021,7 @@
         var hidden = document.querySelector('#trEstadoDropdown input[name="estado"][data-filter-value]');
         if (hidden) hidden.value = '';
         var trigger = document.querySelector('#trEstadoDropdown .dropdown-trigger');
-        if (trigger) { trigger.style.background = '#fff'; trigger.style.borderColor = '#cbd5e0'; }
+        if (trigger) { trigger.style.background = '#fbfcfd'; trigger.style.borderColor = '#cbd5e0'; }
         var search = document.querySelector('#trEstadoDropdown input[data-filter-search]');
         if (search) { search.value = ''; search.placeholder = 'Estado'; }
         var clearX = document.querySelector('#trEstadoDropdown [data-clear-btn]');
@@ -951,7 +1048,7 @@
         trPaintKpi();
     })();
     // Cerrar el panel al hacer clic fuera (ni en el panel ni en su botón).
-    document.addEventListener('click', function (e) {
+    if (_trBindGlobal) document.addEventListener('click', function (e) {
         var p = el('trAdvPanel');
         if (p && p.style.display === 'block' && !e.target.closest('#trAdvPanel') && !e.target.closest('#trAdvBtn')) {
             p.style.display = 'none';

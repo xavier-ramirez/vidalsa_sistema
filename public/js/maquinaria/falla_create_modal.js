@@ -22,7 +22,7 @@
     window._fallaCreateModalReady = true;
 
     const CFG  = () => window.FALLA_MODAL_CFG || {};
-    const csrf = () => document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const csrf = window.getCsrf; // helper central (dom_helpers.js)
 
     // Callback de cancelación pendiente (solo cuando se abre pre-seleccionado).
     let _pendingCancel = null;

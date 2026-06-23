@@ -38,23 +38,4 @@ class SuministroOrigen extends Model
         return $this->hasMany(Consumible::class, 'ID_SUMINISTRO', 'ID_SUMINISTRO');
     }
 
-    // ── Accesors útiles ─────────────────────────────────────────
-
-    /**
-     * Calcula cuánto se ha despachado de este suministro.
-     */
-    public function getCantidadDespachada(): float
-    {
-        return (float) $this->consumibles()
-            ->where('ESTADO_EQUIPO', 'CONFIRMADO')
-            ->sum('CANTIDAD');
-    }
-
-    /**
-     * Saldo: cuánto queda sin despachar.
-     */
-    public function getSaldo(): float
-    {
-        return (float) $this->CANTIDAD_TOTAL - $this->getCantidadDespachada();
-    }
 }

@@ -39,7 +39,7 @@
                     if ($qty === '' || $qty === '-') { $qty = '0'; }
                     $bajo = $row->CANTIDAD_MINIMA !== null && (float) $row->CANTIDAD <= (float) $row->CANTIDAD_MINIMA;
                 @endphp
-                <li onclick="window.location.href='{{ route('almacen.index', ['id_almacen' => $row->ID_ALMACEN, 'id_producto' => request('id_producto')]) }}'"
+                <li onclick="window.almVerProductoEnAlmacen('{{ $row->ID_ALMACEN }}', '{{ addslashes($row->NOMBRE) }}', '{{ request('id_producto') }}')"
                     title="Ver este producto en {{ $row->NOMBRE }}"
                     style="padding:7px 9px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:background 0.15s;border:1px solid transparent;"
                     onmouseover="this.style.background='#f8fafc';this.style.borderColor='#e2e8f0';"

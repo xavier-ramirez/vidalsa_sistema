@@ -7,7 +7,6 @@ use App\Models\Role;
 use App\Models\FrenteTrabajo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {

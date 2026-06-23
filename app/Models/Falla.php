@@ -75,14 +75,4 @@ class Falla extends Model
             'CORRECTIVO' => 'Correctivo',
         ];
     }
-
-    /** Clase de activo para el check Maquinaria/Vehiculo/Otro (Seccion 2). */
-    public static function clasesActivo(): array
-    {
-        return [
-            'MAQUINARIA' => 'Maquinaria',
-            'VEHICULO'   => 'Vehículo',
-            'OTRO'       => 'Otro',
-        ];
-    }
 }

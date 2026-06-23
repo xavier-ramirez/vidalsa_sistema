@@ -11,7 +11,8 @@
 
      Flujo de captura:
        1) Cabecera con datos del lote (almacen derivado + nota de entrega + proveedor
-          + fecha; observaciones van en el sidebar "Resumen de Recepción").
+          + fecha). El panel lateral "Resumen de la entrada" muestra los totales
+          (líneas + unidades) y las acciones (Registrar / Cancelar).
        2) Fila de captura: [Buscar serial/descripcion] [Cantidad] (stepper ▲▼).
           - Si el producto EXISTE: aparece como sugerencia → Enter elige el primero →
             (la UM se prefija con la del catalogo pero queda EDITABLE) → escribir
@@ -36,7 +37,7 @@
         <div class="ent-header-block" style="display:flex;align-items:center;gap:10px;flex:0 1 auto;">
             <div class="ent-dest-pill" title="Almacén destino">
                 <span class="ic"><i class="material-icons">warehouse</i></span>
-                <span class="name">{{ $almacenDestino->NOMBRE }}@if($almacenDestino->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+                <span class="name">{{ $almacenDestino->NOMBRE }}</span>
             </div>
         </div>
     </div>
@@ -54,20 +55,22 @@
 </section>
 
 <style>
-    /* ── Entrada por ODC — layout single-column estilo WMS ── */
+    /* ── Entrada por ODC — layout 2 columnas (form + tabla | resumen) estilo WMS ── */
     .ent-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
 
-    /* Cabecera del lote: N° Doc | Proveedor | Fecha | Acciones en una sola fila. */
+    /* Encabezado de sección ("Líneas de entrada"): solo texto (sin icono). */
+    .ent-section-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
+
+    /* Cabecera del lote: N° Doc | Proveedor | Fecha. Las acciones (Cancelar / Registrar)
+       viven en el panel "Resumen de la entrada" de la derecha (estilo checkout). */
     .ent-form-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 150px auto;
-        gap: 10px;
-        align-items: end; /* las acciones (Cancelar/Registrar) quedan alineadas con la fila de inputs */
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 160px;
+        gap: 12px;
+        align-items: end;
         min-width: 0;
     }
     .ent-field-group { display:flex; flex-direction:column; gap:4px; }
-    /* Acciones del lote, en la cabecera al lado de Fecha (antes vivían en un pie .ent-footer). */
-    .ent-actions-group { display:flex; align-items:center; gap:10px; }
     .ent-field-label { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
     /* Mobile responsive (≤900px y ≤480px) en estilos_globales.css scopeado con body:has(.ent-layout). */
 
@@ -112,9 +115,11 @@
     .ent-search-input { width:100%; box-sizing:border-box; height:40px; border:1px solid #cbd5e0; border-radius:10px; padding:0 12px 0 38px; font-size:13.5px; background:#fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>') no-repeat 12px center; outline:none; color:#0f172a; }
     .ent-search-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
-    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
+    /* Mismo estilo de letra que el nombre de la tabla de líneas (.ent-list-nom):
+       13.5px / 600 / #0f172a, sin negritas. El código (.cod) hereda este estilo
+       — sin override propio — para que todo el badge se vea uniforme. */
+    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 12px; background:#fff; border:1px solid #cbd5e0; border-radius:10px; color:#0f172a; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
-    .ent-selected-badge .cod { font-size:11.5px; font-weight:800; }
     .ent-selected-badge .clear { cursor:pointer; color:#475569; margin-left:auto; font-size:18px; }
     .ent-selected-badge .clear:hover { color:#dc2626; }
 
@@ -181,42 +186,49 @@
 
     /* Responsive mobile — en estilos_globales.css scopeado con body:has(.ent-layout). */
 
-    /* Layout single-column */
-    .ent-layout { max-width:100%; }
+    /* ── Layout 2 columnas: formulario + tabla (izq) · resumen (der) ──
+       Mismo patrón que la bandeja de recepción (.tr-layout + aside.tr-stats). */
+    .ent-layout { display:flex; gap:14px; align-items:flex-start; max-width:100%; }
+    .ent-main { flex:1 1 0; min-width:0; }
 
-    .ent-btn-submit {
-        height:38px; padding:0 20px; border-radius:10px; border:none; cursor:pointer;
-        background:var(--maquinaria-blue,#0067b1); color:#fff;
-        font-size:13.5px; font-weight:700; letter-spacing:.2px;
-        display:flex; align-items:center; gap:6px;
-        transition:background .15s, transform .1s;
-        box-shadow:0 4px 8px -2px rgba(0,103,177,0.3);
+    /* Panel "Resumen de la entrada" — tarjeta BLANCA (mismo look que .ent-card y que el
+       resto de la app). Sticky para seguir visible al capturar muchas líneas. */
+    .ent-summary {
+        flex:0 0 300px; align-self:flex-start; position:sticky; top:14px;
+        background:#fff; border:1px solid #e2e8f0;
+        border-radius:14px; padding:18px; color:#0f172a;
+        box-shadow:0 4px 12px rgba(15,23,42,0.04);
+        display:flex; flex-direction:column; gap:14px;
     }
-    .ent-btn-submit:hover { background:#005391; }
-    .ent-btn-submit:active { transform:scale(0.98); }
-    .ent-btn-submit:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
-    .ent-btn-cancel {
-        height:38px; padding:0 16px; border-radius:10px; cursor:pointer;
-        background:#fff; color:#64748b; border:1px solid #cbd5e0;
-        font-size:13.5px; font-weight:600;
-        display:flex; align-items:center; gap:6px;
-        transition:background .15s, color .15s, border-color .15s;
-    }
-    .ent-btn-cancel:hover { background:#fee2e2; color:#dc2626; border-color:#fca5a5; }
+    /* Misma tipografía que .ent-section-title (texto slate), pero este SÍ lleva icono azul. */
+    .ent-summary-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
+    .ent-summary-title .material-icons { font-size:17px; color:var(--maquinaria-blue,#0067b1); }
+    /* 2 métricas vivas (se recalculan al agregar/quitar líneas). */
+    .ent-summary-metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .ent-summary-metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 8px; text-align:center; }
+    .ent-summary-metric strong { display:block; font-size:26px; font-weight:800; line-height:1; color:#0f172a; }
+    .ent-summary-metric span { display:block; margin-top:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#64748b; }
+    /* Acciones del lote: usan los botones globales del formulario (btn-primary-maquinaria
+       azul + btn-secondary blanco con borde azul, igual que /admin/usuarios/edit), pero a
+       todo el ancho del panel y apilados. */
+    .ent-summary-actions { display:flex; flex-direction:column; gap:10px; }
+    /* Botones más bajos que el global (12px 24px): aquí van apilados y a todo el ancho. */
+    .ent-summary-actions .btn-primary-maquinaria { width:100%; justify-content:center; cursor:pointer; padding:8px 18px; }
 
 </style>
 
 <div class="ent-layout">
+<div class="ent-main">
 <div class="ent-card">
     <input type="hidden" id="entAlmacen" value="{{ $almacenDestino->ID_ALMACEN }}">
 
-    {{-- Cabecera del lote: N° Doc | Proveedor | Fecha | Acciones — todo en una fila.
-         Los 4 bloques son hijos DIRECTOS del grid (sin wrapper display:contents, que
-         en algunos navegadores no colapsaba y apilaba los campos). --}}
+    {{-- Cabecera del lote: N° Doc | Proveedor | Fecha. Los 3 bloques son hijos
+         DIRECTOS del grid. Las acciones (Cancelar / Registrar) viven ahora en el
+         panel "Resumen de la entrada" de la derecha. --}}
     <div class="ent-form-grid">
         <div class="ent-field-group">
-            <label class="ent-field-label" for="entNotaEntrega">N° Documento / OC</label>
-            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="OC-2026-045, Factura, etc." autocomplete="off">
+            <label class="ent-field-label" for="entNotaEntrega">Nota de entrega</label>
+            <input type="text" id="entNotaEntrega" class="ent-input" maxlength="100" placeholder="Opcional" autocomplete="off">
         </div>
         <div class="ent-field-group">
             <label class="ent-field-label" for="entProveedor">Proveedor</label>
@@ -229,20 +241,11 @@
                 <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;outline:none;color:#0f172a;cursor:pointer;">
             </div>
         </div>
-        {{-- Acciones del lote: en la cabecera, al lado de Fecha (antes en el pie). --}}
-        <div class="ent-actions-group">
-            <button type="button" class="ent-btn-cancel" onclick="window.entCancelar()">
-                Cancelar
-            </button>
-            <button type="button" class="ent-btn-submit" id="entSubmit" onclick="window.entGuardar()">
-                <i class="material-icons" style="font-size:18px;">check_circle</i> Entrada
-            </button>
-        </div>
     </div>
 
     {{-- Sección de captura: título + barra + tabla --}}
-    <div style="display:flex;align-items:center;margin-top:20px;margin-bottom:0;">
-        <span style="font-size:13px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.5px;">Líneas de entrada</span>
+    <div class="ent-section-title" style="margin-top:20px;margin-bottom:0;">
+        Líneas de entrada
     </div>
     <div class="ent-capt-bar">
         <div class="ent-search-field">
@@ -287,8 +290,28 @@
     </div>
 
     <div id="entError" style="display:none;margin-top:12px;padding:10px 14px;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#b91c1c;font-size:13.5px;font-weight:600;"></div>
-</div>
-</div>
+</div>{{-- /.ent-card --}}
+</div>{{-- /.ent-main --}}
+
+{{-- Panel "Resumen de la entrada" — cálculos vivos (líneas + unidades) y las acciones
+     del lote (Registrar / Cancelar), estilo checkout. Mismo lenguaje visual que el
+     panel "Resumen de la bandeja" de la recepción. --}}
+<aside class="ent-summary" aria-label="Resumen de la entrada">
+    <div class="ent-summary-title"><i class="material-icons">fact_check</i> Resumen de la entrada</div>
+    <div class="ent-summary-metrics">
+        <div class="ent-summary-metric"><strong id="entSumLineas">0</strong><span>Líneas</span></div>
+        <div class="ent-summary-metric"><strong id="entSumUnidades">0</strong><span>Unidades</span></div>
+    </div>
+    <div class="ent-summary-actions">
+        <button type="button" class="btn-primary-maquinaria" id="entSubmit" onclick="window.entGuardar()">
+            <i class="material-icons">check_circle</i> Registrar entrada
+        </button>
+        <button type="button" class="btn-primary-maquinaria btn-secondary" onclick="window.entCancelar()">
+            Cancelar
+        </button>
+    </div>
+</aside>
+</div>{{-- /.ent-layout --}}
 
 <script>
 (function () {
@@ -321,9 +344,9 @@
         if (msg) { e.style.display = 'block'; e.textContent = msg; }
         else     { e.style.display = 'none';  e.textContent = ''; }
     }
-    // Normalizacion para que la busqueda sea tolerante a tildes y mayusculas.
-    var _DIACRITICS_RE = new RegExp('[\\u0300-\\u036f]', 'g');
-    function norm(s) { return String(s || '').normalize('NFD').replace(_DIACRITICS_RE, '').toLowerCase(); }
+    // Normalizacion (tildes + mayusculas): delega en el modulo compartido FuzzySearch
+    // (public/js/maquinaria/fuzzy_search.js, cargado global en el layout base).
+    function norm(s) { return window.FuzzySearch.norm(s); }
 
     // ── Estado ────────────────────────────────────────────────────────────
     // entLineas: array de {id_producto, codigo, nombre, um, cantidad}. Lo que
@@ -345,6 +368,7 @@
     // Cantidad). Sin esto el `onfocus="entSuggest()"` reabriria la lista de
     // sugerencias inmediatamente, confundiendo el flujo del usuario.
     var entSkipNextSuggest = false;
+
     window.entSuggest = function () {
         if (entSkipNextSuggest) { entSkipNextSuggest = false; var b0 = el('entSuggest'); if (b0) b0.classList.remove('open'); return; }
         var inp = el('entSearch'); if (!inp) return;
@@ -352,17 +376,13 @@
         // Si ya hay un producto seleccionado, no mostrar sugerencias — el usuario
         // primero debe quitar la seleccion (X del badge) para volver a buscar.
         if (entSelected) { box.classList.remove('open'); return; }
-        var term = norm(inp.value.trim());
-        var matches = [];
-        for (var i = 0; i < PRODUCTOS.length; i++) {
-            var p = PRODUCTOS[i];
-            var ok = term === '' ||
-                     norm(p.CODIGO).indexOf(term) !== -1 ||
-                     norm(p.NOMBRE).indexOf(term) !== -1;
-            if (!ok) continue;
-            matches.push(p);
-            if (matches.length >= 12) break;
-        }
+        var rawTerm = inp.value.trim();
+        // Ranking robusto compartido (window.FuzzySearch, layout base). NO se deduplica
+        // por nombre: cada presentación (misma descripción, distinta UM) es un producto
+        // válido aparte que el usuario debe poder elegir. Límite 12.
+        var matches = window.FuzzySearch.rank(PRODUCTOS, rawTerm, function (p) {
+            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || ''), label: p.NOMBRE || '' };
+        }).slice(0, 12);
         if (matches.length === 0) {
             // Sin coincidencias → invitar a registrar el producto nuevo. El usuario
             // puede igual presionar Enter en Cantidad y se crea al vuelo (ver
@@ -738,7 +758,7 @@
         if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
         // contexto suficiente y el usuario sabe que tiene que capturar arriba.
-        if (entLineas.length === 0) { tb.innerHTML = ''; return; }
+        if (entLineas.length === 0) { tb.innerHTML = ''; window.entUpdateSummary(); return; }
         // Columnas: [Código] [Descripcion] [Cantidad + UM] [delete]. El codigo sale en
         // su propia columna (en negro, monospace); la columna "Descripcion" muestra
         // unicamente el nombre del producto para que se lea limpio sin el codigo encima.
@@ -756,7 +776,17 @@
                 +   '<td class="col-del"><button type="button" class="ent-row-del-btn" onclick="window.entRemoverLinea(' + idx + ')" title="Quitar"><i class="material-icons" style="font-size:20px;">delete</i></button></td>'
                 + '</tr>';
         }).join('');
+        window.entUpdateSummary();
     }
+
+    // Panel "Resumen de la entrada": recalcula las métricas vivas (líneas + unidades
+    // totales). Lo llama entRender al agregar/quitar líneas.
+    window.entUpdateSummary = function () {
+        var nLin = entLineas.length;
+        var totU = entLineas.reduce(function (s, l) { return s + (parseFloat(l.cantidad) || 0); }, 0);
+        var elL = el('entSumLineas');   if (elL) elL.textContent = String(nLin);
+        var elU = el('entSumUnidades'); if (elU) elU.textContent = fmtCant(totU);
+    };
 
     // ── Submit ───────────────────────────────────────────────────────────
     window.entGuardar = function () {
@@ -774,7 +804,6 @@
         // texto libre, así se ven limpios y se pueden filtrar/devolver):
         //   · Nota de entrega → `referencia` (REFERENCIA) — documento del proveedor.
         //   · Proveedor       → `motivo`     (MOTIVO)     — a quién devolver si hace falta.
-        //   · Observaciones   → `notas`      (NOTAS)      — texto libre del lote.
         var payload = {
             tipo:       'ENTRADA',
             id_almacen: parseInt(idAlm, 10),
@@ -841,9 +870,9 @@
 
     // ── Limpiar el borrador completo (sin navegar ni notificar) ──
     //
-    // Vacia la tabla de lineas, la barra de captura (buscador/UM/cantidad), la
-    // cabecera (nota/proveedor/fecha) y las observaciones. Lo reusan "Cancelar
-    // operacion" y el EXITO de "Entrada": en ambos casos el modulo NO
+    // Vacia la tabla de lineas, la barra de captura (buscador/UM/cantidad) y la
+    // cabecera (nota/proveedor/fecha). Lo reusan "Cancelar operacion" y el EXITO
+    // de "Entrada": en ambos casos el modulo NO
     // navega ni recarga, solo deja el formulario en blanco para la siguiente
     // captura. No muestra notificacion — cada quien muestra la suya.
     function entLimpiarTodo() {

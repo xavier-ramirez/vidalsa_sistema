@@ -187,28 +187,44 @@ class TraspasoController extends Controller
 
         $paginator = $q->orderByDesc('ID_TRASPASO')->paginate(30)->withQueryString();
 
-        if ($request->wantsJson()) {
-            return response()->json([
-                'html'       => view('admin.almacen.recepcion.partials.rows', ['traspasos' => $paginator])->render(),
-                'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
-                'total'      => $paginator->total(),
-            ]);
-        }
-
-        // Lista de NÚMEROS de nota visibles para el usuario — alimenta el autocomplete
-        // del filtro "Buscar por número de nota" del toolbar. Limitada a los 300 más
-        // recientes para no inflar el HTML (lo típico será 30-50 en circulación).
+        // Lista de NÚMEROS de nota que alimenta el autocomplete del filtro "Buscar por
+        // número de nota" del toolbar. Debe sugerir SOLO lo que la bandeja muestra por
+        // defecto: notas EN TRÁNSITO (ENVIADO = pendientes de confirmar) cuyo DESTINO es
+        // un almacén visible del usuario (es un inbox: importa el destino, no el origen),
+        // y acotado al almacén destino filtrado (por defecto el del propio usuario). Antes
+        // sugería TODAS las notas (cualquier estado, origen o destino) de todos los
+        // almacenes visibles. Limitada a 300 para no inflar el HTML.
+        //
+        // Se calcula ANTES del wantsJson y se devuelve también en la respuesta AJAX: al
+        // cambiar el "Almacén destino" (que recarga la tabla por AJAX) las sugerencias se
+        // refrescan al nuevo almacén. Antes solo se generaba en el render inicial → quedaban
+        // pegadas las notas del almacén anterior y sugería notas que no van a ese almacén.
         $numerosNotas = Traspaso::query()
-            ->where(function ($w) use ($almacenesVisibles) {
-                $w->whereIn('ID_ALMACEN_ORIGEN', $almacenesVisibles)
-                  ->orWhereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
-            })
+            ->where('ESTADO', Traspaso::ESTADO_ENVIADO)
+            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)
+            ->when(
+                $request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all',
+                fn ($w) => $w->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'))
+            )
             ->orderByDesc('ID_TRASPASO')
             ->take(300)
             ->get(['NUMERO', 'REFERENCIA'])
-            ->flatMap(fn ($t) => array_filter([$t->REFERENCIA, $t->NUMERO]))
+            // UN solo identificador por nota — el MISMO que muestra la tabla (neNumero =
+            // REFERENCIA ?: NUMERO). Antes se devolvían los dos (NE-… y TR-…) con flatMap,
+            // así que cada nota aparecía DUPLICADA en las sugerencias y parecía que listaba
+            // "todas". El buscador del backend igual matchea NUMERO o REFERENCIA.
+            ->map(fn ($t) => $t->REFERENCIA ?: $t->NUMERO)
             ->unique()
             ->values();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html'         => view('admin.almacen.recepcion.partials.rows', ['traspasos' => $paginator])->render(),
+                'pagination'   => (string) $paginator->links('vendor.pagination.custom-sliding'),
+                'total'        => $paginator->total(),
+                'numerosNotas' => $numerosNotas,
+            ]);
+        }
 
         // NOTA: el badge "[N] por recibir" del menú principal lo provee el View Composer
         // global registrado en AppServiceProvider (en `layouts.estructura_base`), no esta

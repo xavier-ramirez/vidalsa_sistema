@@ -25,22 +25,6 @@ class TipoEquipo extends Model
         static::deleted($bust);
     }
 
-    /**
-     * Helper para saber si este tipo de equipo puede remolcar otros.
-     */
-    public function esRemolcador()
-    {
-        return $this->ROL_ANCLAJE === 'REMOLCADOR';
-    }
-
-    /**
-     * Helper para saber si este tipo de equipo debe ser remolcado.
-     */
-    public function esRemolcable()
-    {
-        return $this->ROL_ANCLAJE === 'REMOLCABLE';
-    }
-
     public function equipos()
     {
         return $this->hasMany(Equipo::class, 'id_tipo_equipo');

@@ -377,7 +377,7 @@ window.confirmarRecepcionDirecta = function () {
 
     window.cerrarRecepcionDirecta();
 
-    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const csrf = window.getCsrf();
 
     fetch('/admin/movilizaciones/recepcion-directa', {
         method: 'POST',

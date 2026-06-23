@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class Consumible extends Model
 {
@@ -52,48 +51,6 @@ class Consumible extends Model
         return $this->belongsTo(SuministroOrigen::class, 'ID_SUMINISTRO', 'ID_SUMINISTRO');
     }
 
-    // ── Scopes para filtros rápidos ──────────────────────────────
-
-    /**
-     * Solo registros con equipo confirmado (para gráficos oficiales).
-     */
-    public function scopeConfirmados(Builder $query): Builder
-    {
-        return $query->where('ESTADO_EQUIPO', 'CONFIRMADO');
-    }
-
-    /**
-     * Registros pendientes de identificar el equipo.
-     */
-    public function scopePendientes(Builder $query): Builder
-    {
-        return $query->where('ESTADO_EQUIPO', 'PENDIENTE');
-    }
-
-    /**
-     * Filtrar por rango de fechas.
-     */
-    public function scopePeriodo(Builder $query, string $desde, string $hasta): Builder
-    {
-        return $query->whereBetween('FECHA', [$desde, $hasta]);
-    }
-
-    /**
-     * Filtrar por tipo de consumible.
-     */
-    public function scopeTipo(Builder $query, string $tipo): Builder
-    {
-        return $query->where('TIPO_CONSUMIBLE', $tipo);
-    }
-
-    /**
-     * Filtrar por frente.
-     */
-    public function scopeFrente(Builder $query, int $idFrente): Builder
-    {
-        return $query->where('ID_FRENTE', $idFrente);
-    }
-
     // ── Labels útiles para vistas ────────────────────────────────
 
     public static function tiposLabel(): array
@@ -108,30 +65,8 @@ class Consumible extends Model
         ];
     }
 
-    public static function unidadesPorTipo(): array
-    {
-        return [
-            'GASOIL'       => 'LITROS',
-            'GASOLINA'     => 'LITROS',
-            'ACEITE'       => 'LITROS',
-            'CAUCHO'       => 'UNIDADES',
-            'REFRIGERANTE' => 'LITROS',
-            'OTRO'         => 'LITROS',
-        ];
-    }
-
     public function getTipoLabelAttribute(): string
     {
         return self::tiposLabel()[$this->TIPO_CONSUMIBLE] ?? $this->TIPO_CONSUMIBLE;
-    }
-
-    public function getEstadoLabelAttribute(): string
-    {
-        return match ($this->ESTADO_EQUIPO) {
-            'CONFIRMADO' => 'Confirmado',
-            'PENDIENTE'  => 'Pendiente',
-            'SIN_MATCH'  => 'Sin coincidencia',
-            default      => $this->ESTADO_EQUIPO,
-        };
     }
 }

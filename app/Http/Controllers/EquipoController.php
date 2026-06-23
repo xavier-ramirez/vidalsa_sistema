@@ -1296,7 +1296,7 @@ class EquipoController extends Controller
 
 
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'CODIGO_PATIO' => 'nullable|unique:equipos,CODIGO_PATIO',
                 'TIPO_EQUIPO' => 'required|max:35',
                 'CATEGORIA_FLOTA' => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
@@ -1479,11 +1479,6 @@ class EquipoController extends Controller
                         throw new \Exception("Error subiendo el archivo {$type}: " . $e->getMessage());
                     }
                 }
-
-                // Save accumulated doc link updates
-                if (!empty($docDataUpdates)) {
-                    // We handle this below along with documentacion input data
-                }
             }
 
             // Documentación Record
@@ -1639,7 +1634,7 @@ class EquipoController extends Controller
             $request->merge(['documentacion' => $doc]);
         }
 
-        $validated = $request->validate([
+        $request->validate([
             'CODIGO_PATIO' => 'nullable|unique:equipos,CODIGO_PATIO,' . $id . ',ID_EQUIPO',
             'TIPO_EQUIPO' => 'required|max:35',
             'CATEGORIA_FLOTA' => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
@@ -4322,7 +4317,7 @@ class EquipoController extends Controller
         }
         $frentes    = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        $statuses   = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
+        $statuses   = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
 
         // fromArray llena listas en columnas de golpe (orders of magnitude mas rapido)
         $listSheet->fromArray([['TipoEquipo']], null, 'A1');
@@ -4435,7 +4430,7 @@ class EquipoController extends Controller
 
         // Constantes de validación en memoria
         $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
+        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
         $requiredFields  = ['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'];
 
         // Pre-cargar todos los SERIAL_CHASIS y SERIAL_DE_MOTOR del archivo para detectar duplicados cross-file
@@ -4507,6 +4502,10 @@ class EquipoController extends Controller
             $motorUpper     = $rawMotor !== '' ? strtoupper($rawMotor) : null;
             $frenteUpper    = strtoupper($rawFrente);
             $statusUpper    = strtoupper($rawStatus);
+            // El template viejo ofrecía 'MANTENIMIENTO'; el resto del sistema (filtros,
+            // KPIs, changeStatus) usa 'EN MANTENIMIENTO'. Normalizamos el valor legacy
+            // para no rechazar archivos antiguos y guardar siempre el canónico.
+            if ($statusUpper === 'MANTENIMIENTO') { $statusUpper = 'EN MANTENIMIENTO'; }
 
             $errors               = [];
             $idTipoResuelto       = null;
@@ -4634,7 +4633,7 @@ class EquipoController extends Controller
 
         $rows            = $request->input('rows');
         $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'MANTENIMIENTO', 'DESINCORPORADO'];
+        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
         $requiredFields  = ['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'];
 
         // Pre-cargar seriales del lote para cross-file check
@@ -4692,6 +4691,10 @@ class EquipoController extends Controller
             $chasisUpper    = strtoupper($rawChasis);
             $motorUpper     = $rawMotor !== '' ? strtoupper($rawMotor) : null;
             $statusUpper    = strtoupper($rawStatus);
+            // El template viejo ofrecía 'MANTENIMIENTO'; el resto del sistema (filtros,
+            // KPIs, changeStatus) usa 'EN MANTENIMIENTO'. Normalizamos el valor legacy
+            // para no rechazar archivos antiguos y guardar siempre el canónico.
+            if ($statusUpper === 'MANTENIMIENTO') { $statusUpper = 'EN MANTENIMIENTO'; }
 
             $idTipoResuelto   = null;
             $idFrenteResuelto = null;
@@ -4817,7 +4820,7 @@ class EquipoController extends Controller
                     'NUMERO_ETIQUETA'          => $row['numero_etiqueta'],
                     'SERIAL_CHASIS'            => strtoupper($row['serial_chasis']),
                     'SERIAL_DE_MOTOR'          => $row['serial_de_motor'] ? strtoupper($row['serial_de_motor']) : null,
-                    'ESTADO_OPERATIVO'         => $row['status'],
+                    'ESTADO_OPERATIVO'         => $statusUpper,
                     'CONFIRMADO_EN_SITIO'      => 0,
                     'ID_ESPEC'                 => null,
                     'CODIGO_PATIO'             => null,

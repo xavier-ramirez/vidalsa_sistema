@@ -8,6 +8,13 @@
     $e = \App\Models\Traspaso::ESTADOS_META[$traspaso->ESTADO] ?? \App\Models\Traspaso::ESTADO_META_DEFAULT;
     $puedeEnviar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
     $puedeCancelar = !$traspaso->esFinal() && auth()->user()?->can('almacen.movimiento');
+
+    // Frente vs Destino: en almacenes de PROYECTO el nombre del almacén destino y el del
+    // frente suelen coincidir → no repetir la fila "Frente" cuando dice lo mismo que
+    // "Destino" (tolerante a tildes/mayúsculas/espacios). Mismo criterio que el modal.
+    $norm = fn ($s) => $s ? mb_strtoupper(trim(preg_replace('/\s+/', ' ', \Illuminate\Support\Str::ascii((string) $s)))) : '';
+    $frenteRedundante = optional($traspaso->frenteDestino)->NOMBRE_FRENTE
+        && $norm(optional($traspaso->frenteDestino)->NOMBRE_FRENTE) === $norm(optional($traspaso->almacenDestino)->NOMBRE);
 @endphp
 
 <section class="page-title-card" style="text-align:left;margin:0 0 10px 0;">
@@ -58,7 +65,7 @@
     /* Tabla de líneas */
     .lineas-detalle { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .lineas-detalle thead tr { background:#1e293b; }
-    .lineas-detalle thead th { text-align:left; color:#fff; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .lineas-detalle thead th { text-align:left; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
     .lineas-detalle thead th:last-child { border-right:none; }
     .lineas-detalle tbody td { padding:10px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .lineas-detalle tbody td:last-child { border-right:none; }
@@ -126,16 +133,18 @@
     <div class="dt-meta">
         <div class="dt-meta-item">
             <span class="dt-meta-label">Origen</span>
-            <span class="dt-meta-value">{{ optional($traspaso->almacenOrigen)->NOMBRE }}@if(optional($traspaso->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+            <span class="dt-meta-value">{{ optional($traspaso->almacenOrigen)->NOMBRE }}</span>
         </div>
         <div class="dt-meta-item">
             <span class="dt-meta-label">Destino</span>
-            <span class="dt-meta-value">{{ optional($traspaso->almacenDestino)->NOMBRE }}@if(optional($traspaso->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+            <span class="dt-meta-value">{{ optional($traspaso->almacenDestino)->NOMBRE }}</span>
         </div>
+        @unless($frenteRedundante)
         <div class="dt-meta-item">
             <span class="dt-meta-label">Frente</span>
             <span class="dt-meta-value">{{ optional($traspaso->frenteDestino)->NOMBRE_FRENTE ?: '—' }}</span>
         </div>
+        @endunless
         <div class="dt-meta-item">
             <span class="dt-meta-label">Despachado por</span>
             <span class="dt-meta-value">
@@ -171,9 +180,8 @@
     @endif
 
     {{-- ── Líneas ── --}}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;margin-bottom:8px;">
         <span style="font-size:13px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.5px;">Materiales</span>
-        <span style="font-size:12px;font-weight:800;color:#0067b1;background:#e1effa;padding:2px 10px;border-radius:999px;">{{ $traspaso->lineas->count() }} líneas</span>
     </div>
     <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:0;">
         <table class="lineas-detalle">

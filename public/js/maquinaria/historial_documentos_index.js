@@ -328,11 +328,10 @@ window.unlockIp = function(id, ipAddress) {
             if (window.showPreloader) window.showPreloader();
             
             try {
-                const token = document.querySelector('meta[name="csrf-token"]');
                 const response = await fetch('/admin/historial-documentos/unlock-ip/' + id, {
                     method: 'DELETE',
                     headers: {
-                        'X-CSRF-TOKEN': token ? token.content : '',
+                        'X-CSRF-TOKEN': window.getCsrf(),
                         'Accept': 'application/json'
                     }
                 });

@@ -81,11 +81,6 @@ class FrenteTrabajo extends Model
         return $this->hasMany(\App\Models\EquipoAuxiliar::class, 'ID_FRENTE_ACTUAL', 'ID_FRENTE');
     }
 
-    public function despachoCombustible()
-    {
-        return $this->hasMany(DespachoCombustible::class, 'ID_FRENTE', 'ID_FRENTE');
-    }
-
     public function movilizacionesOrigen()
     {
         return $this->hasMany(Movilizacion::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');

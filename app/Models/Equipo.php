@@ -13,7 +13,6 @@ class Equipo extends Model
     protected $primaryKey = 'ID_EQUIPO';
     // SoftDeletes filtra deleted_at != NULL automaticamente. deleted_by guarda
     // el ID_USUARIO que ejecuto el borrado (auditoria + papelera).
-    protected $dates = ['deleted_at'];
 
     /**
      * Mass-assignment seguro. ID_FRENTE_ACTUAL y ID_ANCLAJE fueron removidos:
@@ -91,13 +90,8 @@ class Equipo extends Model
         return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_ACTUAL', 'ID_FRENTE');
     }
 
-    public function anclaje()
-    {
-        return $this->belongsTo(Equipo::class, 'ID_ANCLAJE', 'ID_EQUIPO');
-    }
-
     /**
-     * Alias semántico de anclaje() usado en vistas — incluye sub-relaciones necesarias.
+     * Alias semántico usado en vistas — incluye sub-relaciones necesarias.
      */
     public function ancladoA()
     {
@@ -118,11 +112,6 @@ class Equipo extends Model
     public function responsables()
     {
         return $this->hasMany(Responsable::class, 'ID_EQUIPO', 'ID_EQUIPO');
-    }
-
-    public function despachosCombustible()
-    {
-        return $this->hasMany(DespachoCombustible::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
 
     public function movilizaciones()

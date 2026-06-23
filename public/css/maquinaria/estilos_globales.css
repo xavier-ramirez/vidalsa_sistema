@@ -2914,11 +2914,21 @@ input:-webkit-autofill:active {
     gap: 12px;
     font-size: 14px;
     font-weight: 600;
-    min-width: 300px;
-    max-width: 500px;
+    min-width: 260px;
+    /* Ancho máx. más angosto para que los mensajes largos se repartan en ~2 líneas
+       (antes 500px dejaba casi todo en una sola línea muy ancha). */
+    max-width: 360px;
     pointer-events: auto;
     animation: toast-slide-down 0.3s ease-out;
     border-left: 4px solid var(--maquinaria-blue);
+}
+
+/* Texto del toast: centrado y repartido parejo entre líneas (text-wrap: balance evita
+   una línea larga + una palabra suelta). El icono va al lado sin comprimirse. */
+.toast-notification span {
+    text-wrap: balance;
+    line-height: 1.35;
+    min-width: 0;
 }
 
 .toast-notification.success {
@@ -2935,6 +2945,7 @@ input:-webkit-autofill:active {
 
 .toast-notification i {
     font-size: 20px;
+    flex-shrink: 0;
 }
 
 .toast-notification.fade-out {
@@ -3349,20 +3360,22 @@ input:-webkit-autofill:active {
 }
 
 @media (max-width: 900px) {
-    /* Cabecera (Nota|Proveedor|Fecha|Acciones): 4 cols → Nota|Proveedor en 2 cols, y
-       Fecha + Acciones cada una a todo el ancho en su propia fila. Los 4 bloques son
-       hijos directos de .ent-form-grid. minmax(0,1fr) (no 1fr) por el fix anti-desborde:
-       con base 0 las columnas siempre caben. (La captura ya no está acá: se movió a
-       .ent-capt-bar, que maneja su propio responsive con flex-wrap.) */
-    body:has(.ent-layout) .ent-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    body:has(.ent-layout) .ent-form-grid > :nth-child(3),
-    body:has(.ent-layout) .ent-form-grid > :nth-child(4) { grid-column: 1 / -1; }
-    /* Acciones a todo el ancho con botones 50/50. justify-content:center para que
-       el texto quede centrado en cada botón (Cancelar / Registrar) al ocupar todo
-       el ancho — sin esto el flex los deja pegados a la izquierda. */
-    body:has(.ent-layout) .ent-actions-group { align-self: stretch; }
-    body:has(.ent-layout) .ent-actions-group .ent-btn-submit,
-    body:has(.ent-layout) .ent-actions-group .ent-btn-cancel { flex: 1 1 0; justify-content: center; }
+    /* Layout 2 columnas → apilado: el panel "Resumen de la entrada" baja debajo del
+       bloque formulario+tabla y pierde el sticky (no tiene sentido en una sola columna). */
+    body:has(.ent-layout) .ent-layout { flex-direction: column; }
+    body:has(.ent-layout) .ent-main,
+    body:has(.ent-layout) .ent-summary { width: 100%; max-width: 100%; box-sizing: border-box; }
+    body:has(.ent-layout) .ent-summary { position: static; flex: 0 0 auto; }
+
+    /* Cabecera (Nota | Proveedor | Fecha): en TABLET (≤900px) los 3 campos van uno al
+       lado del otro (3 columnas iguales con minmax(0,1fr) = base 0, caben sin desbordar).
+       En TELÉFONO (≤768px) el cliente pidió reacomodar a "Nota + Fecha arriba, Proveedor
+       abajo a todo el ancho" — ver el bloque @media (max-width:768px) más abajo.
+       (La captura no está acá: vive en .ent-capt-bar, con su propio responsive.) */
+    body:has(.ent-layout) .ent-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 7px; }
+    body:has(.ent-layout) .ent-form-grid .ent-field-label { font-size: 10px; letter-spacing: .2px; }
+    body:has(.ent-layout) .ent-form-grid .ent-input { padding: 0 7px; font-size: 12px; }
+    body:has(.ent-layout) .ent-form-grid #entFecha { font-size: 11px !important; }
 }
 
 @media (max-width: 768px) {
@@ -3421,6 +3434,24 @@ input:-webkit-autofill:active {
        flex:0 1 auto y se encogía al texto, quedando comprimida en el teléfono. */
     body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill { flex: 0 0 auto !important; width: 280px !important; min-width: 200px !important; max-width: 100% !important; overflow: hidden; }
     body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Cabecera del lote en teléfono ──
+       El cliente pidió reacomodar (antes los 3 campos iban en una sola fila, ver bloque
+       ≤900px): "Nota de entrega" + "Fecha" en la primera fila y "Proveedor" debajo a
+       todo el ancho. El DOM es Nota · Proveedor · Fecha, así que se reordena con `order`
+       y Proveedor pasa a ocupar la fila completa. */
+    body:has(.ent-layout) .ent-form-grid { grid-template-columns: 1fr 1fr !important; }
+    body:has(.ent-layout) .ent-form-grid .ent-field-group:nth-child(1) { order: 1 !important; }                              /* Nota  → fila 1 izq. */
+    body:has(.ent-layout) .ent-form-grid .ent-field-group:nth-child(3) { order: 2 !important; }                              /* Fecha → fila 1 der. */
+    body:has(.ent-layout) .ent-form-grid .ent-field-group:nth-child(2) { order: 3 !important; grid-column: 1 / -1 !important; } /* Proveedor → fila 2 completa. */
+
+    /* ── Resumen de la entrada en teléfono: comprimido verticalmente ──
+       Cada métrica en UNA sola línea (número junto al label) → ~mitad de altura. El
+       apilado/full-width/sin-sticky ya lo aplica el bloque ≤900px de arriba. */
+    body:has(.ent-layout) .ent-summary { padding: 12px 14px !important; gap: 10px !important; }
+    body:has(.ent-layout) .ent-summary-metric { display: flex !important; align-items: baseline !important; justify-content: center !important; gap: 6px !important; padding: 8px 6px !important; }
+    body:has(.ent-layout) .ent-summary-metric strong { font-size: 20px !important; }
+    body:has(.ent-layout) .ent-summary-metric span { margin-top: 0 !important; }
 
     /* ── MOBILE CARD LAYOUT — Lineas de la recepcion ──
        Cada <tr> se transforma en una tarjeta 2x2:
@@ -3513,45 +3544,35 @@ input:-webkit-autofill:active {
         justify-content: flex-end !important;
     }
 
-    /* ── Barra de captura en móvil ──
-       En desktop la barra va ARRIBA de la lista (radio arriba, lista radio abajo).
-       En móvil la lista son tarjetas sueltas, así que la barra pasa a ser su PROPIA
-       tarjeta: borde y radio completos. Y compacta: buscador full-width arriba,
-       UND + cantidad + ↵ en la fila de abajo (flex-wrap ya lo gestiona). */
+    /* ── Barra de captura en móvil — tarjeta blanca limpia y elegante ──
+       En desktop la barra va ARRIBA de la lista (gris, radios solo arriba). En móvil la
+       lista son tarjetas sueltas, así que la barra es su PROPIA tarjeta BLANCA con borde,
+       radio completo y una sombra sutil. Layout en 2 filas: buscador a fila completa
+       arriba; Unidad + Cantidad al 50/50 abajo (en iOS se les suma el botón +). Campos
+       altos (42px) y redondeados (10px) para un toque cómodo y prolijo. */
     body:has(.ent-layout) .ent-capt-bar {
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 12px !important;
+        background: #fff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 1px 3px rgba(15,23,42,0.04) !important;
         margin-top: 10px !important;
-        padding: 8px !important;
-        gap: 6px !important;
+        padding: 10px !important;
+        gap: 8px !important;
     }
-    /* Buscador full-width arriba; UND + cantidad + ↵ JUNTOS en UNA sola fila abajo,
-       todo más compacto (36px de alto) para que entren en el ancho del teléfono. */
-    body:has(.ent-layout) .ent-capt-bar .ent-search-field { flex: 1 1 100% !important; height: 36px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-search-input { height: 36px !important; font-size: 13px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-selected-badge { font-size: 12px !important; }
-    /* En telefono la UNIDAD es el campo ANCHO (crece para mostrar UMs largas tipo
-       BARRIL/PAQUETE) y la CANTIDAD queda angosta y fija (es solo un numero). */
-    body:has(.ent-layout) .ent-capt-bar .ent-um-wrap       { flex: 1 1 auto !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-um-input      { height: 36px !important; font-size: 12px !important; padding: 0 7px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper  { flex: 0 0 100px !important; height: 36px !important; }
-    body:has(.ent-layout) .ent-capt-bar .ent-cant-input    { font-size: 13px !important; }
-    /* Botón "+" en teléfono: solo se ve en iOS (regla html.is-ios), pero lo
-       dimensionamos a 36px para que combine con la fila (UM/cantidad). En Android/PC
-       está display:none, así que estas medidas no afectan ahí. */
-    body:has(.ent-layout) .ent-capt-add-btn { flex: 0 0 36px !important; width: 36px !important; height: 36px !important; border-radius: 8px !important; }
-    body:has(.ent-layout) .ent-capt-add-btn .material-icons { font-size: 18px !important; }
-}
-
-@media (max-width: 480px) {
-    /* Pantallas muy chicas (telefono): cada campo de la cabecera a todo el ancho,
-       apilado. Nota y Proveedor full-width aquí; Fecha y Acciones ya van full-width
-       desde el breakpoint ≤900. (La captura no está en este grid: vive en
-       .ent-capt-bar, con su propio responsive.) */
-    body:has(.ent-layout) .ent-form-grid > :nth-child(1),
-    body:has(.ent-layout) .ent-form-grid > :nth-child(2) {
-        grid-column: 1 / -1;
-    }
+    /* Buscador: fila completa arriba. */
+    body:has(.ent-layout) .ent-capt-bar .ent-search-field { flex: 1 1 100% !important; height: 42px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-search-input { height: 42px !important; font-size: 13.5px !important; border-radius: 10px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-selected-badge { font-size: 12.5px !important; border-radius: 10px !important; }
+    /* Unidad + Cantidad: 50/50 abajo, MISMAS dimensiones (alto/redondeo) para que se vean
+       como un par parejo. La UM centrada (valores cortos tipo UND/CAJA/PAQUETE). */
+    body:has(.ent-layout) .ent-capt-bar .ent-um-wrap       { flex: 1 1 0 !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-um-input      { height: 42px !important; font-size: 13px !important; padding: 0 12px !important; border-radius: 10px !important; text-align: center !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-cant-stepper  { flex: 1 1 0 !important; height: 42px !important; border-radius: 10px !important; }
+    body:has(.ent-layout) .ent-capt-bar .ent-cant-input    { font-size: 13.5px !important; }
+    /* Botón "+" en teléfono: solo se ve en iOS (regla html.is-ios); lo dimensionamos a
+       42px para que combine con la fila (UM/Cantidad). En Android/PC está display:none. */
+    body:has(.ent-layout) .ent-capt-add-btn { flex: 0 0 42px !important; width: 42px !important; height: 42px !important; border-radius: 10px !important; }
+    body:has(.ent-layout) .ent-capt-add-btn .material-icons { font-size: 20px !important; }
 }
 
 /* ── Recepción "Nueva entrada": botón "Agregar línea" (+) ──

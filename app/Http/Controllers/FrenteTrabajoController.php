@@ -41,6 +41,25 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
+     * Autocomplete de frentes para los formularios de OTROS módulos
+     * (equipos/usuarios/almacén). Lo consume uicomponents.js → performFrentesFetch
+     * vía GET /admin/frentes/buscar?query=. Devuelve un array [{ID_FRENTE, NOMBRE_FRENTE}]
+     * (mismo set que el dropdown precargado de create(), pero filtrado por nombre).
+     */
+    public function search(Request $request)
+    {
+        $query = trim((string) $request->input('query', ''));
+
+        $frentes = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE')
+            ->when($query !== '', fn ($q) => $q->where('NOMBRE_FRENTE', 'like', "%{$query}%"))
+            ->orderBy('NOMBRE_FRENTE')
+            ->limit(50)
+            ->get();
+
+        return response()->json($frentes);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */    public function store(\App\Http\Requests\FrenteRequest $request)
     {

@@ -12,7 +12,6 @@ class EquipoAuxiliar extends Model
     protected $table      = 'equipos_auxiliares';
     protected $primaryKey = 'ID_AUXILIAR';
     // deleted_at + deleted_by para papelera con auditoria de quien borro.
-    protected $dates = ['deleted_at'];
 
     protected $fillable = [
         'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD',

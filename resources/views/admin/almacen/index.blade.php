@@ -1861,7 +1861,8 @@
     almPintarBadges();
 
     // ── Autocompletado del filtro "Buscar" (código o descripción), con el look de los desplegables de la app ──
-    function almNorm(s) { return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : ''; }
+    // Normalizacion (sin acentos + minusculas): delega en el modulo compartido FuzzySearch.
+    function almNorm(s) { return window.FuzzySearch.norm(s); }
     function almSuggestHide() { var box = el('almFiltroBuscarSuggest'); if (box) box.classList.remove('open'); }
     function almCatSuggestHide() { var box = el('almFiltroCatSuggest'); if (box) box.classList.remove('open'); }
 
@@ -1882,79 +1883,14 @@
         box.classList.add('open');
     }
     // ── Buscador "estilo Google" — fuzzy + ranking por relevancia ─────────────
-    //   El autocomplete ya no exige el match EXACTO de todos los tokens. Tokeniza,
-    //   descarta stopwords ("de","la","y"...) y numeros sueltos cortos, tolera
-    //   errores de tipeo (distancia de edicion) y RANKEA los resultados por un
-    //   score — los mas relevantes primero. Mismo criterio reflejado en el
-    //   backend (AlmacenController::index) para el fallback de "tipear + Enter".
-    var ALM_STOPWORDS = { de:1, del:1, la:1, el:1, los:1, las:1, un:1, una:1,
-                          unos:1, unas:1, y:1, e:1, o:1, u:1, a:1, en:1, con:1,
-                          para:1, por:1 };
-
-    // Distancia de Levenshtein con tope: si la edicion minima supera `max`,
-    // corta temprano y devuelve max+1 (evita calcular distancias irrelevantes).
-    function almLeven(a, b, max) {
-        var la = a.length, lb = b.length;
-        if (la === 0) return lb;
-        if (lb === 0) return la;
-        if (Math.abs(la - lb) > max) return max + 1;
-        var prev = [], cur = [], i, j;
-        for (j = 0; j <= lb; j++) prev[j] = j;
-        for (i = 1; i <= la; i++) {
-            cur[0] = i;
-            var best = i;
-            for (j = 1; j <= lb; j++) {
-                var cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-                cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
-                if (cur[j] < best) best = cur[j];
-            }
-            if (best > max) return max + 1;          // fila entera supera el tope
-            for (j = 0; j <= lb; j++) prev[j] = cur[j];
-        }
-        return prev[lb];
-    }
-
-    // Tokeniza el termino: normaliza (lower + sin acentos), separa por espacios,
-    // descarta stopwords y numeros sueltos de 1-2 digitos (solo meten ruido).
-    // Si TODO era stopword/numero, devuelve los tokens crudos (no deja vacio).
-    function almTokenizar(raw) {
-        var crudos = almNorm(raw || '').split(/\s+/).filter(Boolean);
-        var sig = crudos.filter(function (t) {
-            return !ALM_STOPWORDS[t];
-        });
-        return sig.length ? sig : crudos;
-    }
-
-    function almScoreToken(palabras, hayFull, token) {
-        var esNum = /^\d+$/.test(token);
-        var idx = hayFull.indexOf(token);
-        if (idx > -1) {
-            var s = 12;
-            if (idx === 0) s += 12;
-            else if (hayFull.charAt(idx - 1) === ' ') s += 9;
-            if (esNum) s += 8;
-            for (var wi = 0; wi < palabras.length; wi++) {
-                if (palabras[wi] === token) { s += 10; break; }
-            }
-            return { score: s, hit: true };
-        }
-        if (esNum) return { score: 0, hit: false };
-        var tol = token.length <= 2 ? 1 : (token.length <= 5 ? 2 : 3);
-        var mejor = tol + 1;
-        for (var i = 0; i < palabras.length; i++) {
-            var w = palabras[i];
-            if (!w) continue;
-            var d = almLeven(token, w, tol);
-            if (d < mejor) mejor = d;
-            if (w.length > token.length) {
-                var dp = almLeven(token, w.substr(0, token.length), tol);
-                if (dp < mejor) mejor = dp;
-            }
-            if (mejor === 0) break;
-        }
-        if (mejor <= tol) return { score: 8 - mejor * 2, hit: true };
-        return { score: 0, hit: false };
-    }
+    //   El algoritmo (normaliza, tokeniza, tolera typos por Levenshtein y rankea por
+    //   relevancia) vive en el módulo compartido window.FuzzySearch
+    //   (public/js/maquinaria/fuzzy_search.js, cargado global en el layout base → SPA-safe),
+    //   reutilizado también por Recepción. Aquí solo queda el alias del tokenizado (lo
+    //   usa almBuscarSuggest para el link "VER TODO"); el ranking se hace con
+    //   FuzzySearch.rank. Mismo criterio reflejado en el backend (AlmacenController::index)
+    //   para el fallback de "tipear + Enter".
+    function almTokenizar(raw) { return window.FuzzySearch.tokenize(raw); }
 
     window.almBuscarSuggest = function () {
         almCatSuggestHide();
@@ -2026,56 +1962,19 @@
         var matches = [];
         // vistosNom: dedupe por nombre normalizado — una sola entrada por descripcion.
         var vistosNom = {};
-        if (tokens.length === 0) {
-            for (var i = 0; i < lista.length && matches.length < 17; i++) {
-                var kI = almNorm(lista[i].NOMBRE || '');
-                if (vistosNom[kI]) continue;
-                if (catActivaNorm && !(gruposNombre[kI] && gruposNombre[kI].enCat)) continue;
-                vistosNom[kI] = true;
-                matches.push(lista[i]);
-            }
-        } else {
-            // Scoring estilo Google: por cada producto sumamos el score de cada
-            // token (substring fuerte / fuzzy debil). Un producto entra como
-            // candidato si matchea al menos la MITAD de los tokens — asi un typo
-            // o una palabra de mas no descarta el resultado correcto. Luego
-            // bonus por: todos los tokens, frase completa contenida, nombre
-            // corto (match mas especifico). Se ordena por score desc.
-            var minTokens = Math.ceil(tokens.length / 2);
-            var scored = [];
-            for (var j = 0; j < lista.length; j++) {
-                var p = lista[j];
-                var nom = almNorm(p.NOMBRE || '');
-                var hayFull = almNorm((p.CODIGO || '') + ' ' + (p.NOMBRE || ''));
-                var palabras = hayFull.split(/\s+/).filter(Boolean);
-                var total = 0, matched = 0;
-                for (var k = 0; k < tokens.length; k++) {
-                    var r = almScoreToken(palabras, hayFull, tokens[k]);
-                    if (r.hit) { matched++; total += r.score; }
-                }
-                if (matched < minTokens) continue;
-                if (matched === tokens.length) total += 35;
-                if (rawNorm && nom.indexOf(rawNorm) > -1) total += 40;
-                var consec = 0;
-                for (var ci = 0; ci < tokens.length - 1; ci++) {
-                    if (hayFull.indexOf(tokens[ci] + ' ' + tokens[ci + 1]) > -1) consec++;
-                }
-                total += consec * 12;
-                total += Math.max(0, 25 - nom.length * 0.2);
-                scored.push({ p: p, score: total });
-            }
-            scored.sort(function (a, b) {
-                if (b.score !== a.score) return b.score - a.score;
-                return String(a.p.NOMBRE || '').localeCompare(String(b.p.NOMBRE || ''));
-            });
-            // TODAS las descripciones DISTINTAS que matchean, mejor-scoreadas primero (dedupe por nombre).
-            for (var s = 0; s < scored.length && matches.length < 17; s++) {
-                var kS = almNorm(scored[s].p.NOMBRE || '');
-                if (vistosNom[kS]) continue;
-                if (catActivaNorm && !(gruposNombre[kS] && gruposNombre[kS].enCat)) continue;
-                vistosNom[kS] = true;
-                matches.push(scored[s].p);
-            }
+        // Ranking robusto compartido (window.FuzzySearch): término vacío → catálogo en su
+        // orden natural (NOMBRE); con término → mejores por relevancia (fuzzy + score).
+        // Sobre el resultado aplicamos el dedupe por descripción (una entrada por nombre,
+        // con badge de N presentaciones) y el filtro por categoría activa, hasta 17.
+        var ranked = window.FuzzySearch.rank(lista, rawTerm, function (p) {
+            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || ''), label: p.NOMBRE || '' };
+        });
+        for (var s = 0; s < ranked.length && matches.length < 17; s++) {
+            var kS = almNorm(ranked[s].NOMBRE || '');
+            if (vistosNom[kS]) continue;
+            if (catActivaNorm && !(gruposNombre[kS] && gruposNombre[kS].enCat)) continue;
+            vistosNom[kS] = true;
+            matches.push(ranked[s]);
         }
 
         if (!matches.length) {
@@ -2161,6 +2060,27 @@
         // filtro de categoría aquí.
         almSuggestHide();
         almCargar();
+    };
+    // Ver el MISMO producto en otro almacén (clic en el sidebar "En otros almacenes").
+    // Antes hacía window.location.href → recarga completa de la página. Ahora reusa el
+    // flujo AJAX del módulo (preloader + almCargar, igual que cambiar el almacén en el
+    // dropdown): fija el producto enfocado y cambia el almacén con selectOption, que
+    // dispara 'dropdown-selection' → almCargar (refresca tabla + KPIs + el propio sidebar).
+    window.almVerProductoEnAlmacen = function (idAlmacen, nombre, idProducto) {
+        // Solo el producto enfocado (sin arrastrar el texto de búsqueda previo), igual
+        // que el link viejo que solo llevaba id_almacen + id_producto.
+        var inp = el('almFiltroBuscar');
+        if (inp) { inp.value = ''; inp.dataset.active = ''; inp.placeholder = inp.dataset.placeholderEmpty || 'Buscar por código o descripción…'; }
+        almBuscarPickedId  = idProducto ? parseInt(idProducto, 10) : null;
+        almBuscarPickedIds = null;
+        if (window.almScanIconToggle) window.almScanIconToggle();
+        almSuggestHide();
+        if (typeof selectOption === 'function') {
+            selectOption('almSelAlmacenDropdown', String(idAlmacen), nombre);
+        } else {
+            var h = el('almSelAlmacen'); if (h) h.value = idAlmacen;
+            almCargar();
+        }
     };
     window.almBuscarLimpiar = function () {
         var inp = el('almFiltroBuscar');

@@ -35,7 +35,7 @@
                 'Accept': 'application/json',
                 // Add CSRF Token explicitly if needed, though cookie usually handles it. 
                 // equipso_form.js adds it manually, so we should too for consistency.
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                'X-CSRF-TOKEN': window.getCsrf()
             }
         })
             .then(response => {

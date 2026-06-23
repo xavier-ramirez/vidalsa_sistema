@@ -217,12 +217,4 @@ class MovimientoInventario extends Model
         return in_array($this->TIPO, self::TIPOS_SALIDA, true);
     }
 
-    /** Cantidad con signo según el tipo (+ entrada, − salida, ± ajuste). */
-    public function getCantidadConSignoAttribute(): float
-    {
-        if ($this->esEntrada()) return (float) $this->CANTIDAD;
-        if ($this->esSalida())  return -1 * (float) $this->CANTIDAD;
-        // AJUSTE: el signo real lo da resultante - anterior
-        return (float) $this->CANTIDAD_RESULTANTE - (float) $this->CANTIDAD_ANTERIOR;
-    }
 }

@@ -5,6 +5,15 @@
     $puedeEnviar   = $traspaso->esBorrador()  && auth()->user()?->can('almacen.movimiento');
     $puedeCancelar = !$traspaso->esFinal() && auth()->user()?->can('almacen.movimiento');
     $neNumero = $traspaso->REFERENCIA ?: $traspaso->NUMERO;
+
+    // Frente vs Destino: en almacenes de PROYECTO el nombre del almacén destino y el del
+    // frente suelen coincidir → no repetir la fila "Frente" cuando dice lo mismo que
+    // "Destino" (comparación tolerante a tildes/mayúsculas/espacios). Si el frente es
+    // distinto (caso típico de un almacén GENERAL) se sigue mostrando.
+    $destNombre   = optional($traspaso->almacenDestino)->NOMBRE;
+    $frenteNombre = optional($traspaso->frenteDestino)->NOMBRE_FRENTE;
+    $norm = fn ($s) => $s ? mb_strtoupper(trim(preg_replace('/\s+/', ' ', \Illuminate\Support\Str::ascii((string) $s)))) : '';
+    $frenteRedundante = $frenteNombre && $norm($frenteNombre) === $norm($destNombre);
 @endphp
 
 <div class="dtm-header">
@@ -25,16 +34,18 @@
     <div class="dtm-meta">
         <div class="dtm-meta-item">
             <span class="dtm-meta-label">Origen</span>
-            <span class="dtm-meta-value">{{ optional($traspaso->almacenOrigen)->NOMBRE }}@if(optional($traspaso->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+            <span class="dtm-meta-value">{{ optional($traspaso->almacenOrigen)->NOMBRE }}</span>
         </div>
         <div class="dtm-meta-item">
             <span class="dtm-meta-label">Destino</span>
-            <span class="dtm-meta-value">{{ optional($traspaso->almacenDestino)->NOMBRE }}@if(optional($traspaso->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+            <span class="dtm-meta-value">{{ optional($traspaso->almacenDestino)->NOMBRE }}</span>
         </div>
+        @unless($frenteRedundante)
         <div class="dtm-meta-item">
             <span class="dtm-meta-label">Frente</span>
             <span class="dtm-meta-value">{{ optional($traspaso->frenteDestino)->NOMBRE_FRENTE ?: '—' }}</span>
         </div>
+        @endunless
         <div class="dtm-meta-item">
             <span class="dtm-meta-label">Despachado</span>
             <span class="dtm-meta-value">
@@ -67,7 +78,7 @@
 
     <div class="dtm-lineas-header">
         <span>Materiales</span>
-        <span class="dtm-lineas-count">{{ $traspaso->lineas->count() }} líneas</span>
+        @if($puedeRecibir)<span class="dtm-rec-hint"><i class="material-icons">touch_app</i> Toca los que llegaron</span>@endif
     </div>
 
     <div class="dtm-table-wrap">
@@ -79,7 +90,8 @@
                     <th>Enviado</th>
                     <th>Recibido</th>
                     {{-- Las columnas Dif./Estado solo aplican a una nota ya cerrada (vista
-                         vía "Todas"). En la recepción activa, "Recibido" es un checkbox. --}}
+                         vía "Todas"). En la recepción activa, "Recibido" se marca tocando la
+                         fila (se resalta en azul). --}}
                     @unless($puedeRecibir)
                         <th>Dif.</th>
                         <th>Estado</th>
@@ -94,9 +106,10 @@
                         $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
                         $cantEnvFmt = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',');
                     @endphp
-                    {{-- La clase .dtm-linea + data-* se conservan en el <tr>: el JS los usa
-                         (data-enviada = cantidad que el checkbox confirma como recibida). --}}
-                    <tr class="dtm-linea" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}">
+                    {{-- .dtm-linea + data-* los usa el JS. Cuando $puedeRecibir, .dtm-linea-rec
+                         hace la fila clicable: al tocarla se marca .recibida (azul) y
+                         trCollectLineas registra data-enviada como cantidad recibida. --}}
+                    <tr class="dtm-linea{{ $puedeRecibir ? ' dtm-linea-rec' : '' }}" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}">
                         <td class="dtm-col-idx">{{ $loop->iteration }}</td>
                         <td class="dtm-td-prod">
                             <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
@@ -105,9 +118,12 @@
                         </td>
                         <td class="dtm-col-num">{{ $cantEnvFmt }}</td>
                         @if($puedeRecibir)
-                            {{-- Checkbox = recibido COMPLETO. Sin marcar = no recibido (faltante).
-                                 El JS (trCollectLineas) lee data-enviada según el check. --}}
-                            <td><input type="checkbox" class="dtm-rec-check" title="Marcar producto recibido completo"></td>
+                            {{-- Recibido = TOCAR la fila (se resalta en azul + check verde).
+                                 Muestra la cantidad enviada (lo que se registra como recibido al
+                                 marcar). Sin marcar = no recibido → faltante. --}}
+                            <td class="dtm-col-num dtm-rec-cant">
+                                <span class="material-icons dtm-rec-ico">check_circle</span>{{ $cantEnvFmt }}
+                            </td>
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
                             <td class="dtm-col-num" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}</td>
                             <td><span class="dtm-diff-value" style="color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};">{{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}</span></td>
@@ -130,9 +146,13 @@
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">
             <i class="material-icons">block</i> Cancelar
         </button>
-        {{-- Un solo botón: marca TODAS las filas como recibidas y confirma (caso común
-             "llegó todo"). Para una recepción parcial: marca solo las filas que llegaron
-             y cierra el modal → se guarda como parcial (ver window.trCloseModal). --}}
+        {{-- "Confirmar (N)": confirma SOLO las filas tildadas. Oculto hasta que el usuario
+             toca al menos una fila (lo muestra trUpdateConfirmBtn). Texto corto para que el
+             botón no quede desproporcionado. --}}
+        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" style="display:none;" onclick="window.trModalConfirmarSeleccionados()">
+            <i class="material-icons">playlist_add_check</i> Confirmar (<span class="tr-confirm-sel-count">0</span>)
+        </button>
+        {{-- "Confirmar todo": un solo toque marca todo y confirma (caso "llegó todo"). --}}
         <button type="button" class="dt-btn dt-btn-primary" onclick="window.trModalConfirmarTodo()">
             <i class="material-icons">check_circle</i> Confirmar todo
         </button>

@@ -137,11 +137,8 @@ function usuariosNorm(s) {
     return s ? String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() : '';
 }
 
-function escHtmlUsuarios(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
-}
+// Delegado al helper central (dom_helpers.js).
+function escHtmlUsuarios(s) { return window.escapeHtml(s); }
 
 // Cache: parseamos el JSON y PRE-NORMALIZAMOS nombre+correo UNA sola vez. Antes se
 // re-parseaba y re-normalizaba la lista COMPLETA de usuarios en CADA tecla → esa era

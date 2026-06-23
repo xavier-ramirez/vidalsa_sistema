@@ -37,11 +37,9 @@
 
         // GUARD: Prevent double initialization
         if (isInitialized && widget.dataset.catalogBound === 'true') {
-            console.log('⚠️ Catalog System: Already initialized, skipping...');
             return;
         }
 
-        console.log('✅ Catalog System: Initializing...');
 
         // Reset state for fresh init (SPA navigation)
         matches = [];
@@ -57,7 +55,6 @@
         isInitialized = true;
         widget.dataset.catalogBound = 'true';
 
-        console.log('✅ Catalog System: Ready');
     }
 
     // Cleanup function for SPA navigation
@@ -93,7 +90,6 @@
         // Only respond to model and year dropdowns
         const relevantIds = ['modelo', 'anio', 'MODELO', 'ANIO', 'ANIO_ESPEC', 'input_tipo_equipo'];
         if (e.detail && e.detail.id && relevantIds.includes(e.detail.id)) {
-            console.log('📋 Dropdown selected:', e.detail);
             // Clear any pending debounce and search immediately
             clearTimeout(searchTimer);
             setTimeout(attemptSearch, 150); // Small delay for DOM to update
@@ -126,12 +122,10 @@
         // GUARD: Prevent duplicate searches for same values (incluye TIPO).
         const searchKey = `${model}|${year}|${tipo}`;
         if (searchKey === lastSearchKey) {
-            console.log('⏭️ Skipping duplicate search:', searchKey);
             return;
         }
         lastSearchKey = searchKey;
 
-        console.log(`🔍 Searching: ${model} (${year}) [${tipo || 'sin tipo'}]`);
 
         let url = `${CONFIG.searchUrl}?model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`;
         if (tipo) url += `&tipo=${encodeURIComponent(tipo)}`;
@@ -139,7 +133,6 @@
         fetch(url)
             .then(r => r.json())
             .then(res => {
-                console.log('📥 Response:', res);
                 if (res.found && res.data.length > 0) {
                     matches = res.data;
                     currentIndex = 0;
@@ -348,7 +341,6 @@
         const hiddenInput = document.getElementById(CONFIG.hiddenInputId);
         if (hiddenInput) hiddenInput.value = '';
         hideWidget();
-        console.log('🧹 Catalog System: Full Reset');
     }
 
     // Expose to window for onclick handlers
@@ -386,7 +378,6 @@
 
     // Explicit SPA Event: Reset flags and allow re-init
     window.addEventListener('spa:contentLoaded', function () {
-        console.log('🔄 SPA Navigation detected by Catalog');
 
         // Clean up old state
         cleanup();
@@ -396,7 +387,6 @@
         const widget = document.getElementById(CONFIG.widgetId);
         if (widget) {
             widget.dataset.catalogBound = 'false';
-            console.log('🔓 Widget flag reset, observer will re-init');
         }
 
         // Force init as backup (observer handles it, but this is failsafe)

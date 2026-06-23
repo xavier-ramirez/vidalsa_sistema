@@ -157,7 +157,8 @@ class EquipoAuxiliarController extends Controller
         $hasFilter = $request->filled('tipo') || $request->filled('id_frente')
                   || $request->filled('estado') || $request->filled('search')
                   || $request->filled('marca') || $request->filled('modelo')
-                  || $request->filled('capacidad') || $request->boolean('con_propiedad')
+                  || $request->filled('capacidad') || $request->filled('detalle_ubicacion')
+                  || $request->boolean('con_propiedad')
                   || $request->boolean('con_certificado');
 
         // Eager-loads ampliados: incluyen TODO lo que necesita buildAuxDetailsArray
@@ -590,11 +591,6 @@ class EquipoAuxiliarController extends Controller
         $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
         $response->headers->set('Cache-Control', 'max-age=0');
         return $response;
-    }
-
-    public function count()
-    {
-        return response()->json(['total' => EquipoAuxiliar::count()]);
     }
 
     /**

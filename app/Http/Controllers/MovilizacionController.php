@@ -280,6 +280,16 @@ class MovilizacionController extends Controller
             'destination'          => 'required|string|max:255',
             'destination_ubicacion'=> 'nullable|string|max:150',
             'generar_pdf'          => 'boolean',
+            // Datos del Acta editados en la vista previa (opcionales). Sólo se usan
+            // para la AUDITORÍA del movimiento — el PDF se genera aparte con su
+            // propio endpoint. firmas = null cuando el usuario no editó firmas.
+            'origin'               => 'nullable|string|max:255',
+            'origin_zona'          => 'nullable|string|max:150',
+            'firmas'               => 'nullable|array',
+            'firmas.*.label'       => 'nullable|string|max:60',
+            'firmas.*.car'         => 'nullable|string|max:120',
+            'firmas.*.nom'         => 'nullable|string|max:120',
+            'firmas.*.ced'         => 'nullable|string|max:40',
         ]);
 
         $authUser = auth()->user();
@@ -388,6 +398,49 @@ class MovilizacionController extends Controller
             ]);
 
             DB::commit();
+
+            // ── AUDITORÍA de la movilización ──────────────────────────────────
+            // El cambio de frente de arriba se hace con un mass-update de query
+            // builder, que NO dispara EquipoObserver → sin esto la movilización no
+            // dejaría NINGÚN rastro en el módulo de auditoría. Registramos por
+            // equipo: origen, destino, N° de acta y las firmas EDITADAS en la
+            // vista previa (las firmas por defecto ya viven en el frente de origen).
+            // $aMovilizar conserva el ID_FRENTE_ACTUAL ORIGINAL (se cargó antes del
+            // update y éste fue por query aparte) → es el frente de origen real.
+            try {
+                $firmasAudit  = $this->normalizeFirmasOverride($request->input('firmas'));
+                $overrideOrig = strtoupper(trim((string) $request->input('origin', '')));
+                $overrideZona = strtoupper(trim((string) $request->input('origin_zona', '')));
+                $ubicLabel    = $destUbicacion !== '' ? strtoupper($destUbicacion) : (string) ($frente->UBICACION ?? '');
+                $actaNum      = $generarPdf ? str_pad((string) $nextId, 6, '0', STR_PAD_LEFT) : null;
+
+                $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $aMovilizar->pluck('ID_FRENTE_ACTUAL')->filter()->unique())
+                    ->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+
+                foreach ($aMovilizar as $equipo) {
+                    $origenNom = $overrideOrig !== ''
+                        ? $overrideOrig
+                        : ($origenNombres[$equipo->ID_FRENTE_ACTUAL] ?? '—');
+
+                    $cambios = [
+                        'Origen'  => $origenNom . ($overrideZona !== '' ? ' — ' . $overrideZona : ''),
+                        'Destino' => $destNombre . ($ubicLabel !== '' ? ' — ' . $ubicLabel : ''),
+                    ];
+                    if ($actaNum) $cambios['N°_de_acta'] = $actaNum;
+                    if ($firmasAudit) {
+                        foreach ($firmasAudit as $i => $f) {
+                            $rol = rtrim($f['label'], ':');
+                            $val = $rol . ' — ' . $f['nom'];
+                            if ($f['car'] !== '' && $f['car'] !== 'RESPONSABLE') $val .= ' · ' . $f['car'];
+                            if ($f['ced'] !== '') $val .= ' · CI ' . $f['ced'];
+                            $cambios['Firma_' . ($i + 1)] = $val;
+                        }
+                    }
+                    \App\Models\EquipoAuditLog::registrar($equipo->ID_EQUIPO, 'movilizacion', $cambios);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Auditoría de movilización falló: ' . $e->getMessage());
+            }
 
             return response()->json([
                 'success'          => true,

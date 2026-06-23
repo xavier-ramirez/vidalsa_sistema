@@ -140,15 +140,6 @@ class Usuario extends Authenticatable
     }
 
     /**
-     * Devuelve todos los frentes asignados al usuario como colección.
-     */
-    public function frentesAsignados()
-    {
-        $ids = $this->getFrentesIds();
-        return FrenteTrabajo::whereIn('ID_FRENTE', $ids)->get();
-    }
-
-    /**
      * Devuelve el array de IDs de frentes asignados.
      */
     public function getFrentesIds(): array

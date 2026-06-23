@@ -10,7 +10,6 @@ use App\Models\TipoEquipo;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Modulo de Reportes de Fallas (/admin/fallas).

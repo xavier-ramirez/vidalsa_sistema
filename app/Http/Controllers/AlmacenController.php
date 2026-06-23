@@ -288,6 +288,53 @@ class AlmacenController extends Controller
      *    una sugerencia la tabla NUNCA queda vacía (que hacía creer "no registrado"
      *    y disparaba que la persona lo registrara de nuevo).
      */
+
+    /**
+     * Tokeniza un término de búsqueda de productos: minúsculas, DESCARTA stopwords
+     * (de/la/y…) y números sueltos de 1-2 dígitos. Si el término era SOLO ruido,
+     * cae al término completo para no terminar con un WHERE vacío que devolvería
+     * TODO el catálogo. Punto ÚNICO de verdad para que la tabla (/admin/almacen),
+     * la bitácora (/almacen/movimientos) y el ranking de consumo busquen IGUAL.
+     */
+    private function tokenizarBusquedaProducto(string $term): array
+    {
+        $stop = ['de','del','la','el','los','las','un','una','unos','unas',
+                 'y','e','o','u','a','en','con','para','por'];
+        $tokens = array_values(array_filter(
+            preg_split('/\s+/', mb_strtolower($term)),
+            fn ($t) => $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t)
+        ));
+        return empty($tokens) ? [mb_strtolower($term)] : $tokens;
+    }
+
+    /**
+     * Aplica la búsqueda tokenizada de productos sobre $q: AND entre tokens y, por
+     * cada token >3 letras terminado en 's', prueba también el SINGULAR ("BOTAS"
+     * encuentra "BOTA DE SEGURIDAD"). $cols son las columnas CODIGO/NOMBRE ya
+     * calificadas según el contexto del llamador (tabla con JOIN → 'productos_inventario.X';
+     * relación whereHas('producto') → 'X'). El fuzzy + ranking real vive en el
+     * autocomplete del frontend; este LIKE es el fallback de "tipear + Enter".
+     */
+    private function aplicarBusquedaProducto($q, string $term, array $cols): void
+    {
+        $tokens = $this->tokenizarBusquedaProducto($term);
+        $q->where(function ($s) use ($tokens, $cols) {
+            foreach ($tokens as $tok) {
+                $variantes = [$tok];
+                if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
+                    $variantes[] = mb_substr($tok, 0, -1);
+                }
+                $s->where(function ($t) use ($variantes, $cols) {
+                    foreach ($variantes as $v) {
+                        foreach ($cols as $col) {
+                            $t->orWhere($col, 'like', "%{$v}%");
+                        }
+                    }
+                });
+            }
+        });
+    }
+
     /**
      * Aplica los filtros de CONTENIDO (los que operan sobre columnas de
      * productos_inventario) a una query: id_producto_in, id_producto, search, categoria.
@@ -331,43 +378,9 @@ class AlmacenController extends Controller
         if ($request->filled('id_producto')) {
             $q->where('productos_inventario.ID_PRODUCTO', '=', (int) $request->input('id_producto'));
         } elseif ($request->filled('search')) {
-            $term = trim((string) $request->input('search'));
             // (cae aquí solo si NO vino id_producto — typed-and-Enter, no clic en sugerencia)
-            // Búsqueda flexible: tokeniza por espacios, DESCARTA stopwords (de/la/y…)
-            // y números sueltos de 1-2 dígitos — sin esto cada palabra vacía ("de")
-            // o cifra suelta ("5") se volvía un requisito del AND y volvía la
-            // búsqueda frágil (había que escribir el nombre casi textual). AND entre
-            // tokens significativos; por cada token >3 letras terminado en 'S' se
-            // prueba el SINGULAR ("BOTAS" encuentra "BOTA DE SEGURIDAD").
-            // El fuzzy + ranking real vive en el autocomplete del frontend
-            // (almBuscarSuggest); este LIKE es el fallback de "tipear + Enter".
-            $stop = ['de','del','la','el','los','las','un','una','unos','unas',
-                     'y','e','o','u','a','en','con','para','por'];
-            $tokens = array_values(array_filter(
-                preg_split('/\s+/', mb_strtolower($term)),
-                function ($t) use ($stop) {
-                    return $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t);
-                }
-            ));
-            // Si el término era SOLO stopwords/números, caemos al término completo
-            // para no terminar con un WHERE vacío que devolvería todo el catálogo.
-            if (empty($tokens)) {
-                $tokens = [mb_strtolower($term)];
-            }
-            $q->where(function ($s) use ($tokens) {
-                foreach ($tokens as $tok) {
-                    $variantes = [$tok];
-                    if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
-                        $variantes[] = mb_substr($tok, 0, -1);
-                    }
-                    $s->where(function ($t) use ($variantes) {
-                        foreach ($variantes as $v) {
-                            $t->orWhere('productos_inventario.CODIGO', 'like', "%{$v}%")
-                              ->orWhere('productos_inventario.NOMBRE', 'like', "%{$v}%");
-                        }
-                    });
-                }
-            });
+            $term = trim((string) $request->input('search'));
+            $this->aplicarBusquedaProducto($q, $term, ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE']);
         }
         if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
             // Coincidencia parcial (igual que "search"): el filtro de categoría es un
@@ -916,35 +929,10 @@ class AlmacenController extends Controller
             $q->where('ID_PRODUCTO', $request->integer('id_producto'));
         }
         if ($request->filled('search')) {
+            // Misma tokenización que la tabla de /admin/almacen (ver aplicarBusquedaProducto).
             $term = trim((string) $request->input('search'));
-            // Tokeniza, descarta stopwords (de/la/y…) y números sueltos de 1-2
-            // dígitos, AND entre tokens significativos y singular por token >3
-            // letras terminado en 'S' — consistente con el filtro Descripción de
-            // /admin/almacen. El fuzzy + ranking real vive en el autocomplete JS.
-            $stop = ['de','del','la','el','los','las','un','una','unos','unas',
-                     'y','e','o','u','a','en','con','para','por'];
-            $tokens = array_values(array_filter(
-                preg_split('/\s+/', mb_strtolower($term)),
-                function ($t) use ($stop) {
-                    return $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t);
-                }
-            ));
-            if (empty($tokens)) {
-                $tokens = [mb_strtolower($term)];
-            }
-            $q->whereHas('producto', function ($p) use ($tokens) {
-                foreach ($tokens as $tok) {
-                    $variantes = [$tok];
-                    if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
-                        $variantes[] = mb_substr($tok, 0, -1);
-                    }
-                    $p->where(function ($s) use ($variantes) {
-                        foreach ($variantes as $v) {
-                            $s->orWhere('CODIGO', 'like', "%{$v}%")
-                              ->orWhere('NOMBRE', 'like', "%{$v}%");
-                        }
-                    });
-                }
+            $q->whereHas('producto', function ($p) use ($term) {
+                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE']);
             });
         }
         if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
@@ -1242,9 +1230,11 @@ class AlmacenController extends Controller
             $q->where('movimientos_inventario.ID_PRODUCTO', $request->integer('id_producto'));
         }
         if ($request->filled('search')) {
+            // Antes era un LIKE plano que divergía del resto del módulo; ahora usa la
+            // misma búsqueda tokenizada que la tabla y la bitácora.
             $term = trim((string) $request->input('search'));
             $q->whereHas('producto', function ($p) use ($term) {
-                $p->where('CODIGO', 'like', "%{$term}%")->orWhere('NOMBRE', 'like', "%{$term}%");
+                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE']);
             });
         }
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
@@ -1894,7 +1884,9 @@ class AlmacenController extends Controller
 
         $n = count($lineas);
         return response()->json([
-            'message'         => "Salida hacia otro proyecto enviada ({$n} producto" . ($n === 1 ? '' : 's') . ') — pendiente de recepción.',
+            // Dos líneas en el toast: showToast (uicomponents.js) inyecta el message
+            // como innerHTML, así que el <br> separa el resumen del estado.
+            'message'         => "Salida hacia otro proyecto enviada ({$n} producto" . ($n === 1 ? '' : 's') . ')<br>pendiente de recepción.',
             'nota_url'        => route('almacen.nota-entrega', ['numero' => $resultado['numero_nota']]),
             'numero_nota'     => $resultado['numero_nota'],
             'numero_traspaso' => $resultado['numero_traspaso'],

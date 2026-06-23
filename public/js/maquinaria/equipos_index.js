@@ -257,7 +257,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            'X-CSRF-TOKEN': window.getCsrf(),
             'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ status: newStatus })
@@ -315,7 +315,7 @@ window.toggleConfirmacionSitio = function (el) {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            'X-CSRF-TOKEN': window.getCsrf(),
             'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({ confirmado: nuevo ? 1 : 0 }),
@@ -661,7 +661,7 @@ window.unanchorEquipos = async function (e) {
     const executeUnanchor = async () => {
         if (window.showPreloader) window.showPreloader();
         try {
-            const token = document.querySelector('meta[name="csrf-token"]').content;
+            const token = window.getCsrf();
             const baseUrl = document.querySelector('meta[name="base-url"]')?.content || '';
             const url = `${baseUrl}/admin/equipos/clear-anchor`;
 
@@ -821,9 +821,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     if (window._resetImageLoader) window._resetImageLoader();
 
     let baseUrl = url || window.location.pathname;
-    const searchInput = document.getElementById("searchInput");
-    const frenteInput = document.querySelector('input[name="id_frente"]');
-    const tipoInput = document.querySelector('input[name="id_tipo"]');
     const advancedPanel = document.getElementById("advancedFilterPanel");
 
     // Helper robusto para obtener valores de inputs
@@ -1398,7 +1395,7 @@ window.openUbicacionBulkModal = function (event) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-CSRF-TOKEN': window.getCsrf(),
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({ ids: ids, detalle_ubicacion: valorFinal }),
@@ -1728,17 +1725,19 @@ window.openBulkModal = function (event) {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "X-CSRF-TOKEN":
-                        document
-                            .querySelector('meta[name="csrf-token"]')
-                            ?.getAttribute("content") || "",
+                    "X-CSRF-TOKEN": window.getCsrf(),
                     Accept: "application/json",
                 },
                 body: JSON.stringify({
                     ids: actaState.ids,
                     destination: actaState.destination,
                     destination_ubicacion: actaState.destination_ubicacion, // requerido si el frente es nuevo O si existe pero sin UBICACION
-                    generar_pdf: generarPdf
+                    generar_pdf: generarPdf,
+                    // Datos del acta (origen/zona/firmas editados en la vista previa) para
+                    // que la movilización quede registrada en auditoría con esos valores.
+                    origin: actaState.origin || '',
+                    origin_zona: actaState.origin_zona || '',
+                    firmas: actaState.firmas // null si no se editaron firmas
                 }),
             });
 
@@ -1829,7 +1828,7 @@ window.openBulkModal = function (event) {
                             headers: {
                                 'Accept': 'application/pdf',
                                 'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                                'X-CSRF-TOKEN': window.getCsrf()
                             },
                             credentials: 'same-origin',
                             body: JSON.stringify({
@@ -1935,14 +1934,14 @@ window.openBulkModal = function (event) {
 // el PDF con esos cambios; "Confirmar" ejecuta el commit real
 // (onConfirm = ejecutarCommit) usando el estado editado (actaState).
 window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
-    var csrf = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
+    var csrf = window.getCsrf; // helper central (dom_helpers.js)
     // editarDirecto = abrir el FORMULARIO del acta de una (frente nuevo/sin ubicación),
     // sin mostrar primero la vista previa del PDF. previewMostrada controla a dónde
     // vuelve el botón "Cancelar" del editor: si nunca se mostró la previa (editarDirecto),
     // "Cancelar" cierra el acta y regresa al modal de Movilización (que sigue detrás).
     var editarDirecto = !!(opts && opts.editarDirecto);
     var previewMostrada = false;
-    var escA = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
+    var escA = window.escapeHtml; // helper central (dom_helpers.js)
 
     // N° de firmas efectivas del último PDF (header X-Acta-Firmas). 0 = el frente de
     // origen no tiene responsables → pediremos esos datos en el formulario.
@@ -2153,7 +2152,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             var labelSelect = '<select class="ed-f-label" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;background:white;cursor:pointer;">' +
                 roleOpts.map(function (o) { return '<option value="' + escA(o) + '"' + (o === cur ? ' selected' : '') + '>' + escA(o) + '</option>'; }).join('') +
                 '</select>';
-            return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:1fr 1fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
+            return '<div class="ed-firma-row" data-i="' + i + '" style="display:grid;grid-template-columns:0.7fr 1.7fr 1.3fr 1fr 26px;gap:5px;align-items:center;margin-bottom:4px;">' +
                 labelSelect +
                 '<input class="ed-f-car" value="' + escA(f.car) + '" placeholder="Cargo" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
                 '<input class="ed-f-nom" value="' + escA(f.nom) + '" placeholder="Nombre y apellido" style="padding:8px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:11.5px;min-width:0;">' +
@@ -2609,9 +2608,7 @@ window.openAnchorModal = async function (event) {
                     "Content-Type": "application/json",
                     "Accept": "application/json",
                     "X-Requested-With": "XMLHttpRequest",
-                    "X-CSRF-TOKEN": document.querySelector(
-                        'meta[name="csrf-token"]',
-                    ).content,
+                    "X-CSRF-TOKEN": window.getCsrf(),
                 },
                 body: JSON.stringify({
                     ids: selections.map((s) => s[0]),

@@ -13,11 +13,22 @@
         <td style="font-family:monospace;font-weight:800;font-size:13px;color:#0f172a;white-space:nowrap;letter-spacing:.3px;">
             {{ $neNumero }}
         </td>
-        <td style="font-size:12px;">
-            <div style="font-weight:700;color:#1e293b;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}@if(optional($t->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</div>
-            <div class="tr-ruta-dest" style="color:#64748b;display:flex;align-items:center;justify-content:center;gap:3px;margin-top:1px;">
-                <i class="material-icons" style="font-size:12px;color:#94a3b8;">south</i>
-                <span style="font-weight:600;">{{ optional($t->almacenDestino)->NOMBRE ?: '—' }}@if(optional($t->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+        {{-- Trayecto Origen → Destino lado a lado, mismo diseño que el historial de
+             movilizaciones de equipos (admin/movilizaciones/partials/table_rows): dos
+             columnas (label arriba + nombre abajo) con una flecha `east` en medio.
+             Origen en gris, Destino en azul. Se conserva el badge "P" de los almacenes
+             tipo PROYECTO. --}}
+        <td class="tr-ruta-dest">
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;word-break:break-word;overflow-wrap:break-word;">
+                <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
+                    <span style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.3px;">Origen</span>
+                    <span style="font-weight:600;color:#4a5568;font-size:13px;line-height:1.2;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}@if(optional($t->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+                </div>
+                <i class="material-icons" style="font-size:18px;color:#cbd5e0;flex-shrink:0;">east</i>
+                <div style="display:flex;flex-direction:column;align-items:center;max-width:160px;text-align:center;">
+                    <span style="font-size:11px;color:#0067b1;font-weight:800;text-transform:uppercase;letter-spacing:.3px;">Destino</span>
+                    <span style="font-weight:700;color:var(--maquinaria-dark-blue,#1e3a5f);font-size:13px;line-height:1.2;">{{ optional($t->almacenDestino)->NOMBRE ?: '—' }}@if(optional($t->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
+                </div>
             </div>
         </td>
         <td style="text-align:center;">

@@ -1243,10 +1243,18 @@
 
         {{-- Core Scripts (Always Loaded) --}}
 
+        {{-- Helpers DOM compartidos (window.getCsrf / window.escapeHtml): DEBEN cargar
+             primero para estar disponibles cuando el resto de scripts los invoque. --}}
+        <script
+            src="{{ asset('js/maquinaria/dom_helpers.js') }}?v={{ @filemtime(public_path('js/maquinaria/dom_helpers.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/uicomponents.js') }}?v={{ @filemtime(public_path('js/maquinaria/uicomponents.js')) }}"></script>
+        {{-- Buscador "estilo Google" compartido (window.FuzzySearch): lo usan Inventario
+             y Recepción. Global aquí → sobrevive a la navegación SPA. --}}
+        <script
+            src="{{ asset('js/maquinaria/fuzzy_search.js') }}?v={{ @filemtime(public_path('js/maquinaria/fuzzy_search.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/navegacion.js') }}?v={{ @filemtime(public_path('js/maquinaria/navegacion.js')) }}"></script>
         <script
@@ -2636,6 +2644,9 @@
         {{-- NOTE: form_selects.js removed (deprecated, merged into form_logic.js) --}}
         <script
             src="{{ asset('js/maquinaria/equipos_form.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_form.js')) }}"></script>
+        {{-- Bulk upload: andamiaje compartido (window.createBulkPreview) ANTES de los módulos --}}
+        <script
+            src="{{ asset('js/maquinaria/bulk_preview_factory.js') }}?v={{ @filemtime(public_path('js/maquinaria/bulk_preview_factory.js')) }}"></script>
         {{-- Bulk upload de equipos (Global: @yield('extra_js') queda fuera del .main-viewport → SPA no lo re-ejecutaría) --}}
         <script
             src="{{ asset('js/maquinaria/equipos_bulk.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_bulk.js')) }}"></script>

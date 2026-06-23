@@ -311,6 +311,7 @@ class HistorialDocumentosController extends Controller
                     'delete_adicional'     => 'Borrado Certificado',
                     'delete_adicional_2'   => 'Borrado Compraventa',
                     'bulk_ubicacion'       => 'Detalle Masivo',
+                    'movilizacion'         => 'Movilización',
                     'delete'               => 'Eliminación de Equipo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 

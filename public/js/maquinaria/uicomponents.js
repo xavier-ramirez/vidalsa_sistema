@@ -323,22 +323,9 @@ window.clearDropdownFilter = function (dropdownId) {
     window.selectOption(dropdownId, "", defaultLabel);
 };
 
-window.updateSelectedCount = function () {
-    const checkboxes = document.querySelectorAll(
-        'input[name="PERMISOS[]"]:checked',
-    );
-    const countSpan = document.getElementById("selectedCount");
-    if (!countSpan) return;
-
-    if (checkboxes.length === 0) {
-        countSpan.innerText = "Seleccione permisos...";
-        countSpan.style.color = "#a0aec0";
-    } else {
-        const labels = Array.from(checkboxes).map((cb) => cb.value);
-        countSpan.innerText = labels.join(", ");
-        countSpan.style.color = "inherit";
-    }
-};
+// updateSelectedCount (contador de PERMISOS[]) vive en form_logic.js — fuente
+// única. Carga DESPUÉS que este archivo, así que la copia que existía aquí siempre
+// quedaba pisada (código muerto). Removida para evitar la colisión global.
 
 // Confirm Delete — uses standardModal system (unified)
 window.confirmDelete = function (id, name) {
@@ -1265,7 +1252,7 @@ window.saveResponsable = function(isAutoSave = false) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'X-CSRF-TOKEN': window.getCsrf(),
             'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({
@@ -1334,10 +1321,8 @@ window.uploadDocument = function (input, type, equipoId, containerId, label) {
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/admin/equipos/${equipoId}/upload-doc`, true);
-    // CSRF fetch
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta)
-        xhr.setRequestHeader("X-CSRF-TOKEN", meta.getAttribute("content"));
+    // CSRF (helper central dom_helpers.js)
+    xhr.setRequestHeader("X-CSRF-TOKEN", window.getCsrf());
     xhr.setRequestHeader("Accept", "application/json");
 
     xhr.onload = function () {
@@ -1487,74 +1472,3 @@ window.showToast = function (message, type = "info") {
  * El endpoint PATCH /admin/equipos/{id}/ubicacion sigue vivo (lo usa el centro de
  * notificaciones al confirmar recepción).
  */
-// (bloque removido)
-/*
-window.__deprecatedSaveUbicacion__ = async function () {
-    const input    = document.getElementById('input_ubicacion');
-    const detalleEl = document.getElementById('d_detalle_ubicacion');
-    const equipoId  = window._quickEditEquipoId;
-    if (!input || !equipoId) return;
-
-    const nuevoValor = input.value.trim().toUpperCase();
-    const btn        = input.nextElementSibling; // botón Guardar
-    const originalText = btn ? btn.textContent : '';
-
-    // Estado cargando
-    if (btn) { btn.textContent = '...'; btn.disabled = true; }
-
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]');
-        const res = await fetch(`/admin/equipos/${equipoId}/ubicacion`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept':       'application/json',
-                'X-CSRF-TOKEN': csrfToken ? csrfToken.content : '',
-            },
-            body: JSON.stringify({ DETALLE_UBICACION_ACTUAL: nuevoValor }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) throw new Error(data.message || 'Error al guardar');
-
-        // Actualizar display en el modal
-        window._quickEditUbicacion = nuevoValor;
-        if (detalleEl) detalleEl.innerText = nuevoValor || '—';
-
-        // Actualizar tooltip en la tabla de equipos (si el botón activo tiene data-equipo-id)
-        const activeBtn = window.activeEquipoButton;
-        if (activeBtn) {
-            activeBtn.setAttribute('data-detalle-ubicacion', nuevoValor);
-            // Actualizar el tooltip visible en la fila
-            const row     = activeBtn.closest('tr');
-            if (row) {
-                const bubble = row.querySelector('.tooltip-bubble');
-                if (bubble) {
-                    if (nuevoValor) {
-                        bubble.childNodes[0].textContent = '\uD83D\uDCCD ' + nuevoValor;
-                        bubble.style.display = '';
-                    } else {
-                        bubble.remove();
-                    }
-                } else if (nuevoValor) {
-                    // No existía el tooltip: mostrar indicador simple
-                    const freneCell = row.querySelector('.tooltip-wrapper');
-                    if (freneCell && !freneCell.querySelector('.tooltip-bubble')) {
-                        freneCell.insertAdjacentHTML('beforeend',
-                            `<div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:50%;transform:translateX(-50%) translateY(5px);background-color:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">\uD83D\uDCCD ${nuevoValor}<div style="position:absolute;top:100%;left:50%;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div></div>`
-                        );
-                    }
-                }
-            }
-        }
-
-        cancelEditUbicacion();
-        showToast('Ubicación actualizada', 'success');
-
-    } catch (err) {
-        showToast('Error: ' + err.message, 'error');
-        if (btn) { btn.textContent = originalText; btn.disabled = false; }
-    }
-};
-*/

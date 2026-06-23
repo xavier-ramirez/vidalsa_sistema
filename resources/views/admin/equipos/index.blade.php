@@ -1800,6 +1800,28 @@
        disponible junto al botón Buscar (sin tope). */
     #bulkLookupFrenteDropdown { flex: 1 1 auto; }
 
+    /* ── Botones del footer del modal de Búsqueda Masiva ──
+       Mismo lenguaje que los botones del modal de recepción (rectángulo redondeado
+       radio 10, 42px de alto, 13px/700, icono+texto): outline para los secundarios
+       (Modificar / Copiar), sólido para las acciones (Detalle / Movilizar). La
+       VISIBILIDAD la sigue controlando el JS (display:none → flex por fase). */
+    #bulkLookupFooter button {
+        height: 42px; padding: 0 18px; border-radius: 10px; cursor: pointer;
+        font-size: 13px; font-weight: 700; letter-spacing: .2px;
+        display: none; align-items: center; justify-content: center; gap: 7px;
+        border: none; transition: background .15s, transform .1s;
+    }
+    #bulkLookupFooter button:active { transform: scale(0.98); }
+    #bulkLookupFooter button i.material-icons { font-size: 18px; }
+    .blk-btn-ghost  { background: #fff; color: #475569; border: 1px solid #cbd5e0 !important; }
+    .blk-btn-ghost:hover  { background: #f1f5f9; }
+    .blk-btn-danger { background: #fff; color: #b91c1c; border: 1px solid #fca5a5 !important; }
+    .blk-btn-danger:hover { background: #fee2e2; }
+    .blk-btn-slate  { background: #64748b; color: #fff; }
+    .blk-btn-slate:hover  { background: #475569; }
+    .blk-btn-blue   { background: #0067b1; color: #fff; box-shadow: 0 4px 8px -2px rgba(0,103,177,0.3); }
+    .blk-btn-blue:hover   { background: #005a9c; }
+
     /* ── Teléfono ─────────────────────────────────────────────────────────────
        El modal pasa a pantalla completa y el footer reparte los botones de forma
        uniforme; en pantallas chicas los botones van SIN icono (solo texto) para
@@ -1869,7 +1891,7 @@
 </style>
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
     {{-- max-width arranca angosto (fase de pegado: solo dropdown + textarea). El JS
-         lo ensancha a 720px al pasar a resultados, donde la tabla necesita el ancho. --}}
+         lo ensancha a 860px al pasar a resultados, donde la tabla necesita el ancho. --}}
     <div class="modal-content" style="width: 95%; max-width: 480px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
         <!-- Header estilo modal de Movilización: barra slate #1e293b, ícono azul #0067b1
              + título centrados; botón Cerrar fijo a la derecha (absolute). -->
@@ -1987,26 +2009,24 @@
                  forma de píldora (radius 20px), font-size 12.5px / weight 700.
                  Mantienen su color semántico, igual que la barra (Anclar=verde,
                  Detalle=gris, Movilización=azul). --}}
-            <button type="button" id="bulkLookupBackBtn" onclick="bulkLookupBack()" style="display: none; padding: 6px 14px; background: white; color: #475569; border: 1px solid #cbd5e0; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px;">
-                <i class="material-icons" style="font-size: 17px;">arrow_back</i>
+            <button type="button" id="bulkLookupBackBtn" onclick="bulkLookupBack()" class="blk-btn-ghost" style="display: none;">
+                <i class="material-icons">arrow_back</i>
                 Modificar lista
             </button>
-            <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" style="display: none; padding: 6px 14px; background: white; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px;">
-                <i class="material-icons" style="font-size: 17px;">content_copy</i>
+            <button type="button" id="bulkLookupCopyMissingBtn" onclick="bulkLookupCopyMissing()" class="blk-btn-danger" style="display: none;">
+                <i class="material-icons">content_copy</i>
                 Copiar no encontrados
             </button>
             {{-- Asignar Detalle a los encontrados: los pasa a la selección y abre el
-                 modal "Asignar Detalle". Mismo gris (#64748b) que el botón "Detalle"
-                 de la barra flotante. --}}
-            <button type="button" id="bulkLookupDetalleBtn" onclick="window.detalleEncontrados()" style="display: none; padding: 6px 14px; background: #64748b; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px; transition: 0.2s;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#64748b'">
-                <i class="material-icons" style="font-size: 17px;">description</i>
+                 modal "Asignar Detalle" (slate, igual que el botón "Detalle" de la barra). --}}
+            <button type="button" id="bulkLookupDetalleBtn" onclick="window.detalleEncontrados()" class="blk-btn-slate" style="display: none;">
+                <i class="material-icons">description</i>
                 Detalle
             </button>
             {{-- Movilizar TODOS los equipos encontrados de una vez: los pasa a la
-                 selección y abre el modal de Movilización. Mismo azul (#0067b1) que
-                 el botón "Movilización" de la barra flotante. --}}
-            <button type="button" id="bulkLookupMovilizarBtn" onclick="window.movilizarEncontrados()" style="display: none; padding: 6px 14px; background: #0067b1; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; align-items: center; gap: 5px; transition: 0.2s;" onmouseover="this.style.background='#005a9c'" onmouseout="this.style.background='#0067b1'">
-                <i class="material-icons" style="font-size: 17px;">local_shipping</i>
+                 selección y abre el modal de Movilización (azul, acción principal). --}}
+            <button type="button" id="bulkLookupMovilizarBtn" onclick="window.movilizarEncontrados()" class="blk-btn-blue" style="display: none;">
+                <i class="material-icons">local_shipping</i>
                 Movilizar <span id="bulkLookupMovilizarCount"></span>
             </button>
         </div>
@@ -2310,7 +2330,7 @@
         document.getElementById('bulkLookupResultsPhase').style.display = '';
         // Fase de resultados: ensanchar para que la tabla (4 columnas) respire.
         var mcRes = document.querySelector('#bulkLookupModal .modal-content');
-        if (mcRes) mcRes.style.maxWidth = '720px';
+        if (mcRes) mcRes.style.maxWidth = '860px';
         document.getElementById('bulkLookupBackBtn').style.display = 'flex';
         document.getElementById('bulkLookupSearchBtn').style.display = 'none';
         document.getElementById('bulkLookupCopyMissingBtn').style.display = lastMissingTerms.length > 0 ? 'flex' : 'none';

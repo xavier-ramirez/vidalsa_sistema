@@ -435,7 +435,7 @@ async function loadFleetDashboardData(frenteId) {
         const response = await fetch(url, {
             headers: {
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                'X-CSRF-TOKEN': window.getCsrf()
             }
         });
 
