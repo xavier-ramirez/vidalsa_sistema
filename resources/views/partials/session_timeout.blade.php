@@ -142,7 +142,7 @@
                 if (Date.now() - lastActivityReset >= SERVER_PING_MS) return;
 
                 // Usuario activo: renovar CSRF y mantener viva la sesión del backend.
-                fetch('/refresh-csrf', { method: 'GET' })
+                fetch('/refresh-csrf', { method: 'GET', cache: 'no-store' })
                     .then(response => {
                         if (response.ok) {
                             return response.text().then(token => {
@@ -212,7 +212,7 @@
                 const controller = new AbortController();
                 const timeoutId  = setTimeout(() => controller.abort(), 8000);
 
-                fetch('/refresh-csrf', { method: 'GET', signal: controller.signal })
+                fetch('/refresh-csrf', { method: 'GET', cache: 'no-store', signal: controller.signal })
                     .then(async response => {
                         clearTimeout(timeoutId);
                         if (response.ok) {

@@ -280,12 +280,17 @@
                         preloader.classList.remove('fade-out');
                     }
 
-                    // Handshake: Request fresh security token to blindly avoid 419 errors
-                    fetch('/refresh-csrf')
-                        .then(response => response.text())
+                    // Handshake: token fresco antes de enviar. cache:'no-store' igual que
+                    // el login: nunca inyectar un token cacheado/caducado (evita 419).
+                    fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
+                        .then(response => {
+                            if (!response.ok) throw new Error('HTTP ' + response.status);
+                            return response.text();
+                        })
                         .then(newToken => {
+                            newToken = (newToken || '').trim();
                             const tokenInput = logoutForm.querySelector('input[name="_token"]');
-                            if (tokenInput) {
+                            if (tokenInput && newToken && newToken.length < 100 && newToken.indexOf('<') === -1) {
                                 tokenInput.value = newToken;
                             }
                             HTMLFormElement.prototype.submit.call(logoutForm);
