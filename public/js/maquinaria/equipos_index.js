@@ -992,6 +992,13 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const displayStat = (val) => hasActiveFilters ? val : '--';
                 const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
+                // Titulo del Consolidado segun el modo (Equipos vs Auxiliares). El server-render
+                // pone el inicial; aqui se actualiza al cambiar de modo via AJAX (sin esto
+                // quedaba "de Equipos" al pasar a auxiliares, o viceversa).
+                document.querySelectorAll('.consolidado-scope').forEach(function (el) {
+                    el.textContent = (data.mode === 'aux') ? 'Auxiliares' : 'Equipos';
+                });
+
                 // Consolidado: modo "Con / Sin documento". La lista sigue filtrada
                 // por documento como siempre; aquí solo cambia el Consolidado:
                 // los bloques verde/rojo muestran cuántos equipos tienen el doc y
