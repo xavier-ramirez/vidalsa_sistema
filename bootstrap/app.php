@@ -31,13 +31,19 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
 
-        // Sesión expirada (token CSRF) → redirigir al login
+        // Token CSRF inválido. OJO con la incoherencia: si NO hay usuario logueado
+        // (p.ej. el propio formulario de login con un token viejo de la página
+        // cacheada por la PWA), NO tiene sentido decir "tu sesión expiró" — no había
+        // sesión que expirar. A un invitado lo devolvemos al login en limpio (token
+        // fresco) sin alarmar. Solo a un usuario autenticado le explicamos la caducidad.
         $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
             $wantsJson = $request->expectsJson() || $request->is('api/*') || $request->ajax() || strtolower($request->header('X-Requested-With')) === 'xmlhttprequest';
             if ($wantsJson) {
                 return response()->json(['success' => false, 'message' => 'Sesión expirada por inactividad.', 'redirect' => '/login'], 419);
             }
-            // Retornamos directamente un relative redirect o a /login previniendo pérdida de puerto local
+            if (! $request->user()) {
+                return redirect('/login');
+            }
             return redirect('/login')->with('info', 'La sesión ha caducado por seguridad. Por favor, inicie sesión nuevamente.');
         });
 

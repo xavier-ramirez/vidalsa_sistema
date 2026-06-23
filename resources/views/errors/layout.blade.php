@@ -7,7 +7,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('code', 'Error') · Sistema Vidalsa</title>
+    @php($__code = trim($__env->yieldContent('code')))
+    <title>{{ $__code !== '' ? $__code . ' · ' : '' }}Sistema Vidalsa</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -40,18 +41,18 @@
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
         .err-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,51,122,0.25); }
-        .err-foot { margin-top: 22px; font-size: 11.5px; color: #94a3b8; letter-spacing: 0.3px; }
     </style>
 </head>
 <body>
     <div class="err-card">
         <img class="err-logo" src="{{ asset('images/maquinaria/logo.webp') }}"
              alt="Constructora Vidalsa" onerror="this.style.display='none'">
-        <div class="err-code">@yield('code')</div>
+        @if($__code !== '')
+            <div class="err-code">{{ $__code }}</div>
+        @endif
         <div class="err-title">@yield('title')</div>
         <div class="err-msg">@yield('message')</div>
         <a class="err-btn" href="{{ url('/') }}">@yield('cta', 'Ir al inicio de sesión')</a>
-        <div class="err-foot">Sistema de Gestión · Constructora Vidalsa 27, C.A.</div>
     </div>
 </body>
 </html>
