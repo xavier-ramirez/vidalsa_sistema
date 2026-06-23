@@ -100,57 +100,10 @@ class EquipoAuxiliarController extends Controller
         // a ninguno de los frentes del usuario (mismo patron que /admin/equipos).
         $bypassScope = trim((string) $request->input('search', '')) !== '';
 
-        $applyFilters = function ($q) use ($request, $user, $isLocalUser, $frentesPermitidos, $bypassScope) {
-            // Barrera completa: whitelist (LOCAL → sus frentes) + blacklist de bloqueados
-            // (aplica también a GLOBAL). El search bypassa el scope, igual que en /admin/equipos.
-            if ($user && !$bypassScope) {
-                $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL');
-            }
-            if ($request->filled('tipo') && $request->tipo !== 'all') {
-                $q->where('TIPO', $request->tipo);
-            }
-            if ($request->filled('id_frente') && $request->id_frente === 'none') {
-                // Sentinel "SIN ASIGNAR": auxiliares sin ID_FRENTE_ACTUAL.
-                // Para usuario LOCAL no aplica (su scope ya excluye nulls).
-                if (!$isLocalUser) {
-                    $q->whereNull('ID_FRENTE_ACTUAL');
-                }
-            } elseif ($request->filled('id_frente') && $request->id_frente !== 'all') {
-                if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
-                    $q->where('ID_FRENTE_ACTUAL', $request->id_frente);
-                }
-            }
-            // Filtro adicional: detalle_ubicacion (sub-zona dentro de un frente
-            // ESPECIAL). Solo se aplica si tambien hay un frente especifico.
-            if ($request->filled('detalle_ubicacion')) {
-                $q->where('DETALLE_UBICACION_ACTUAL', trim($request->detalle_ubicacion));
-            }
-            if ($request->filled('estado') && $request->estado !== 'all') {
-                $q->where('ESTADO_OPERATIVO', $request->estado);
-            }
-            // Filtros avanzados
-            if ($request->filled('marca'))     $q->where('MARCA', 'like', '%' . trim($request->marca) . '%');
-            if ($request->filled('modelo'))    $q->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
-            if ($request->filled('capacidad')) $q->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
-            // Filtros booleanos por documentacion cargada (checkboxes del panel
-            // avanzado). con_propiedad=1 => solo aux con LINK_DOC_PROPIEDAD;
-            // con_certificado=1 => solo aux con LINK_CERTIFICADO. Combinables.
-            if ($request->boolean('con_propiedad')) {
-                $q->whereNotNull('LINK_DOC_PROPIEDAD')->where('LINK_DOC_PROPIEDAD', '!=', '');
-            }
-            if ($request->boolean('con_certificado')) {
-                $q->whereNotNull('LINK_CERTIFICADO')->where('LINK_CERTIFICADO', '!=', '');
-            }
-            if ($request->filled('search')) {
-                $s = trim($request->search);
-                $q->where(function ($qq) use ($s) {
-                    $qq->where('SERIAL', 'like', "%{$s}%")
-                      ->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
-                      ->orWhere('MARCA', 'like', "%{$s}%")
-                      ->orWhere('MODELO', 'like', "%{$s}%");
-                });
-            }
-        };
+        // Filtros del listado extraidos a applyAuxiliarFilters() para reutilizar
+        // EXACTAMENTE el mismo filtrado desde /admin/equipos (vista embebida de
+        // auxiliares por tipo, buildEmbedPayload()). El comportamiento aqui es identico.
+        $applyFilters = fn ($q) => $this->applyAuxiliarFilters($q, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
 
         // Flag: hay al menos un filtro activo. Si no hay, la tabla se muestra
         // vacia (patron de /admin/equipos) para evitar dump masivo de registros.
@@ -216,16 +169,7 @@ class EquipoAuxiliarController extends Controller
         // cuando no habia filas de ese tipo. Los labels bonitos del enum se
         // siguen aplicando si el codigo existe alli; si no, se genera uno
         // legible a partir del codigo.
-        $tiposLabels = EquipoAuxiliar::tiposLabel();
-        $tiposEnDB = EquipoAuxiliar::select('TIPO')
-            ->whereNotNull('TIPO')->where('TIPO', '!=', '')
-            ->tap($advBaseScope)
-            ->distinct()->orderBy('TIPO')->pluck('TIPO');
-        $tipos = [];
-        foreach ($tiposEnDB as $t) {
-            $tipos[$t] = $tiposLabels[$t] ?? ucwords(mb_strtolower(str_replace('_', ' ', $t)));
-        }
-        asort($tipos);
+        $tipos = $this->buildTiposMap();
         $availableMarcas = EquipoAuxiliar::select('MARCA')
             ->whereNotNull('MARCA')->where('MARCA', '!=', '')
             ->tap($advBaseScope)
@@ -242,16 +186,7 @@ class EquipoAuxiliarController extends Controller
         // Catalogo implicito de FOTO por MARCA|MODEL: si un auxiliar no tiene
         // FOTO propia, el partial cae a la de otro registro con el mismo modelo
         // (evita placeholders masivos cuando se registran sin foto individual).
-        $photoByModel = EquipoAuxiliar::whereNotNull('FOTO')
-            ->where('FOTO', '!=', '')
-            ->select('MARCA', 'MODELO', 'FOTO')
-            ->orderByDesc('ID_AUXILIAR')
-            ->get()
-            ->reduce(function ($carry, $a) {
-                $key = mb_strtoupper(trim(($a->MARCA ?? '') . '|' . ($a->MODELO ?? '')));
-                if ($key !== '|' && !isset($carry[$key])) $carry[$key] = $a->FOTO;
-                return $carry;
-            }, []);
+        $photoByModel = $this->buildPhotoByModel();
 
         // Stats: total/operativos/inoperativos/mantenimiento respetando los filtros
         // activos excepto el propio filtro de estado (para mostrar el breakdown real).
@@ -403,6 +338,177 @@ class EquipoAuxiliarController extends Controller
             'frenteEspecial', 'availableUbicaciones', 'ubicacionesStats',
             'PAGE_SIZE', 'offset', 'nextOffset', 'hasMore', 'totalFound', 'truncated'
         ));
+    }
+
+    /**
+     * Filtros del listado de auxiliares. Extraido de index() para reutilizar el
+     * MISMO filtrado desde la vista embebida en /admin/equipos (buildEmbedPayload()).
+     * El search bypassa el scope LOCAL, igual que en /admin/equipos.
+     */
+    private function applyAuxiliarFilters($q, Request $request, bool $bypassScope, bool $isLocalUser, array $frentesPermitidos, array $exclude = []): void
+    {
+        $user = auth()->user();
+        if ($user && !$bypassScope) {
+            $user->aplicarScopeFrentes($q, 'ID_FRENTE_ACTUAL');
+        }
+        // $exclude permite armar la query de Distribucion SIN el filtro de tipo
+        // (para listar todos los tipos), igual que /admin/equipos con tiposStats.
+        if (!in_array('tipo', $exclude) && $request->filled('tipo') && $request->tipo !== 'all') {
+            $q->where('TIPO', $request->tipo);
+        }
+        if ($request->filled('id_frente') && $request->id_frente === 'none') {
+            // Sentinel "SIN ASIGNAR": auxiliares sin ID_FRENTE_ACTUAL. Para LOCAL no aplica.
+            if (!$isLocalUser) {
+                $q->whereNull('ID_FRENTE_ACTUAL');
+            }
+        } elseif ($request->filled('id_frente') && $request->id_frente !== 'all') {
+            if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
+                $q->where('ID_FRENTE_ACTUAL', $request->id_frente);
+            }
+        }
+        if ($request->filled('detalle_ubicacion')) {
+            $q->where('DETALLE_UBICACION_ACTUAL', trim($request->detalle_ubicacion));
+        }
+        if ($request->filled('estado') && $request->estado !== 'all') {
+            $q->where('ESTADO_OPERATIVO', $request->estado);
+        }
+        if ($request->filled('marca'))     $q->where('MARCA', 'like', '%' . trim($request->marca) . '%');
+        if ($request->filled('modelo'))    $q->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
+        if ($request->filled('capacidad')) $q->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
+        if ($request->boolean('con_propiedad')) {
+            $q->whereNotNull('LINK_DOC_PROPIEDAD')->where('LINK_DOC_PROPIEDAD', '!=', '');
+        }
+        if ($request->boolean('con_certificado')) {
+            $q->whereNotNull('LINK_CERTIFICADO')->where('LINK_CERTIFICADO', '!=', '');
+        }
+        if ($request->filled('search')) {
+            $s = trim($request->search);
+            $q->where(function ($qq) use ($s) {
+                $qq->where('SERIAL', 'like', "%{$s}%")
+                  ->orWhere('CODIGO_INTERNO', 'like', "%{$s}%")
+                  ->orWhere('MARCA', 'like', "%{$s}%")
+                  ->orWhere('MODELO', 'like', "%{$s}%");
+            });
+        }
+    }
+
+    /**
+     * Mapa TIPO => label de los tipos de auxiliar presentes en el scope del
+     * usuario (whitelist LOCAL + blacklist bloqueados). Solo incluye tipos que
+     * existen en BD; aplica el label bonito del enum si el codigo existe alli.
+     * Usado por el filtro del listado y por el dropdown combinado de /admin/equipos.
+     */
+    public function buildTiposMap(): array
+    {
+        $tiposLabels = EquipoAuxiliar::tiposLabel();
+        $tiposEnDB = EquipoAuxiliar::select('TIPO')
+            ->whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->tap(fn ($q) => $this->scopeFrentes($q, 'ID_FRENTE_ACTUAL'))
+            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+        $tipos = [];
+        foreach ($tiposEnDB as $t) {
+            $tipos[$t] = $tiposLabels[$t] ?? ucwords(mb_strtolower(str_replace('_', ' ', $t)));
+        }
+        asort($tipos);
+        return $tipos;
+    }
+
+    /**
+     * Catalogo implicito de FOTO por MARCA|MODELO (fallback cuando un auxiliar
+     * no tiene FOTO propia). Reusado por index() y por la vista embebida.
+     */
+    private function buildPhotoByModel(): array
+    {
+        return EquipoAuxiliar::whereNotNull('FOTO')
+            ->where('FOTO', '!=', '')
+            ->select('MARCA', 'MODELO', 'FOTO')
+            ->orderByDesc('ID_AUXILIAR')
+            ->get()
+            ->reduce(function ($carry, $a) {
+                $key = mb_strtoupper(trim(($a->MARCA ?? '') . '|' . ($a->MODELO ?? '')));
+                if ($key !== '|' && !isset($carry[$key])) $carry[$key] = $a->FOTO;
+                return $carry;
+            }, []);
+    }
+
+    /**
+     * Payload para EMBEBER el listado de auxiliares dentro de /admin/equipos
+     * (modo aux del dropdown de tipos). Reusa el mismo filtrado, paginacion
+     * (offset/150), labels, fotos y mapa de detalles que index(); NO calcula
+     * stats/distribucion (en /admin/equipos esos paneles siguen siendo de equipos).
+     *
+     * El $request debe traer los nombres de parametro del modulo aux:
+     * tipo, id_frente, search, offset.
+     */
+    public function buildEmbedPayload(Request $request): array
+    {
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $bypassScope = trim((string) $request->input('search', '')) !== '';
+
+        $query = EquipoAuxiliar::with([
+            'frente',
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            'equipoHost.especificaciones',
+            'equipoHost.frenteActual',
+            'creador',
+        ]);
+        $this->applyAuxiliarFilters($query, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
+
+        $PAGE_SIZE = 150;
+        $offset = max(0, (int) $request->input('offset', 0));
+        $totalFound = (clone $query)->count();
+        $auxiliares = $query->orderByDesc('created_at')->offset($offset)->limit($PAGE_SIZE)->get();
+        $nextOffset = $offset + $auxiliares->count();
+        $hasMore = $nextOffset < $totalFound;
+
+        $tipos = $this->buildTiposMap();
+        $photoByModel = $this->buildPhotoByModel();
+
+        $auxDetailsMap = [];
+        foreach ($auxiliares as $aux) {
+            $auxDetailsMap[$aux->ID_AUXILIAR] = $this->buildAuxDetailsArray($aux, $tipos);
+        }
+
+        // ── Consolidado (TOTAL / Operativos / Inoperativos) del tipo+frente+busqueda
+        // actuales. Usa las MISMAS claves que el Consolidado de equipos
+        // (total/activos/inactivos) para que la vista y el JS lo pinten sin cambios. ──
+        $statsBase = EquipoAuxiliar::query();
+        $this->applyAuxiliarFilters($statsBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
+        $stats = [
+            'total'     => (clone $statsBase)->count(),
+            'activos'   => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
+            'inactivos' => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
+        ];
+
+        // ── Distribucion por TIPO: TODOS los tipos del frente/busqueda (SIN el filtro de
+        // tipo) para navegar entre ellos, igual que tiposStats en /admin/equipos. ──
+        $distBase = EquipoAuxiliar::query();
+        $this->applyAuxiliarFilters($distBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos, ['tipo']);
+        $auxDistribucion = $distBase
+            ->selectRaw('TIPO, COUNT(*) as total')
+            ->whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->groupBy('TIPO')->orderByDesc('total')->get()
+            ->map(fn ($r) => [
+                'tipo'  => $r->TIPO,
+                'label' => $tipos[$r->TIPO] ?? ucwords(mb_strtolower(str_replace('_', ' ', $r->TIPO))),
+                'total' => $r->total,
+            ])->all();
+
+        return [
+            'html'             => view('admin.equipos_auxiliares.partials.table_rows',
+                                     compact('auxiliares', 'tipos', 'photoByModel'))->render(),
+            'auxDetailsMap'    => $auxDetailsMap,
+            'nextOffset'       => $nextOffset,
+            'hasMore'          => $hasMore,
+            'totalFound'       => $totalFound,
+            'shownCount'       => $auxiliares->count(),
+            // Consolidado + Distribucion de AUXILIARES (modo aux de /admin/equipos).
+            'stats'            => $stats,
+            'auxDistribucion'  => $auxDistribucion,
+            'distribucionHtml' => view('admin.equipos.partials.aux_distribution_stats',
+                                     compact('auxDistribucion'))->render(),
+        ];
     }
 
     /**

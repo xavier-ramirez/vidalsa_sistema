@@ -166,7 +166,17 @@ class EquipoController extends Controller
         }
 
         if (!in_array('id_tipo', $exclude) && $request->filled('id_tipo') && trim($request->id_tipo) !== '' && $request->id_tipo !== 'all') {
-            $query->where('id_tipo_equipo', $request->id_tipo);
+            $tipoVal = (string) $request->id_tipo;
+            // Dropdown combinado (patron /admin/movilizaciones): el valor puede venir
+            // prefijado. 'tipo_aux:X' es un tipo de AUXILIAR -> NO aplica a la tabla
+            // equipos (esos se listan aparte en index() via buildEmbedPayload), se
+            // ignora aqui. 'tipo_eq:N' y el valor numerico pelado filtran por equipo.
+            if (str_starts_with($tipoVal, 'tipo_aux:')) {
+                // no-op: el filtro de tipo de auxiliar no aplica a equipos
+            } else {
+                $tipoId = str_starts_with($tipoVal, 'tipo_eq:') ? (int) substr($tipoVal, 8) : $tipoVal;
+                $query->where('id_tipo_equipo', $tipoId);
+            }
         }
 
         if (!in_array('modelo', $exclude) && $request->filled('modelo') && trim($request->modelo) !== '') {
@@ -302,6 +312,13 @@ class EquipoController extends Controller
 
         $user = auth()->user();
 
+        // Dropdown combinado de Tipo (VEHICULOS / AUXILIARES), patron /admin/movilizaciones.
+        // Si el tipo elegido es de auxiliar ('tipo_aux:X'), la TABLA muestra auxiliares de
+        // ese tipo (EquipoAuxiliarController::buildEmbedPayload). El Consolidado y la
+        // Distribucion siguen calculandose sobre EQUIPOS (el usuario pidio no tocar ese
+        // conteo): por eso el modo aux NO se considera filtro de tipo para esos paneles.
+        $auxMode = str_starts_with((string) $request->input('id_tipo', ''), 'tipo_aux:');
+
         // Filtros principales (todos los ejes activos)
         $this->applyEquipoFilters($equipos, $request);
 
@@ -386,7 +403,9 @@ class EquipoController extends Controller
         $truncated  = false;
         $nextOffset = 0;
         $hasMore    = false;
-        if ($hasFilter) {
+        // En modo aux la tabla NO sale de la query de equipos (sale del payload aux),
+        // asi que no paginamos equipos aqui; las stats de abajo SI corren (sobre equipos).
+        if ($hasFilter && !$auxMode) {
             $totalFound = (clone $equipos)->count();
             $equipos->offset($offset)->limit($PAGE_SIZE);
             $allResults = $equipos->get();
@@ -454,7 +473,8 @@ class EquipoController extends Controller
                 ->get();
 
             // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
-            if ($request->filled('id_tipo')) {
+            // En modo aux no aplica: la Distribucion sigue siendo la de equipos por tipo.
+            if ($request->filled('id_tipo') && !$auxMode) {
                 $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
                 $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
                 $frentesStats = $frentesQuery
@@ -492,8 +512,9 @@ class EquipoController extends Controller
         // else: $stats queda en ceros => la vista muestra '--' (comportamiento original)
 
         // Build JSON payload (needed for AJAX response AND initial page load script tag)
+        // En modo aux la tabla es de auxiliares: el payload de modal de equipos no aplica.
         $jsonPayload = [];
-        if ($hasFilter) {
+        if ($hasFilter && !$auxMode) {
             // El mapeo del payload vive en UN solo lugar: Equipo::toDetailsPayload()
             // (reusado por el panel de Alertas en /menu para que el modal sea idéntico).
             foreach ($equipos as $eq) {
@@ -501,29 +522,51 @@ class EquipoController extends Controller
             }
         }
 
+        // Modo aux: la TABLA y su modal de detalles vienen del modulo de auxiliares,
+        // filtrados por el tipo elegido + frente + busqueda actuales (params mapeados
+        // a los nombres del modulo aux: tipo/id_frente/search/offset).
+        $auxEmbed = null;
+        if ($auxMode) {
+            $auxReq = new Request([
+                'tipo'      => substr((string) $request->input('id_tipo', ''), 9),
+                'id_frente' => $request->input('id_frente'),
+                'search'    => $request->input('search_query'),
+                'offset'    => $request->input('offset', 0),
+            ]);
+            $auxEmbed = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildEmbedPayload($auxReq);
+            // El Consolidado en modo aux refleja AUXILIARES (no equipos): se reemplazan
+            // las stats que pintan la vista y el JS (mismas claves total/activos/inactivos).
+            $stats = $auxEmbed['stats'];
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
-                'html'         => view('admin.equipos.partials.table_rows', compact('equipos'))->render(),
+                'mode'         => $auxMode ? 'aux' : 'equipos',
+                'html'         => $auxMode ? $auxEmbed['html'] : view('admin.equipos.partials.table_rows', compact('equipos'))->render(),
                 'equiposData'  => $jsonPayload,
+                // Mapa de detalles de auxiliares (modal del ojo) cuando la tabla es de aux.
+                'auxData'      => $auxMode ? $auxEmbed['auxDetailsMap'] : [],
                 'pagination'   => '',
                 'stats'        => $stats,
                 'truncated'         => $truncated,
-                'totalFound'        => $totalFound,
-                'shownCount'        => $allResults->count(),
+                'totalFound'        => $auxMode ? $auxEmbed['totalFound'] : $totalFound,
+                'shownCount'        => $auxMode ? $auxEmbed['shownCount'] : $allResults->count(),
                 'hardCap'           => $PAGE_SIZE,
                 'pageSize'          => $PAGE_SIZE,
                 'offset'            => $offset,
-                'nextOffset'        => $nextOffset,
-                'hasMore'           => $hasMore,
-                'distribution'      => view('admin.equipos.partials.distribution_stats', [
-                    'frentesStats' => $frentesStats,
-                    'tiposStats'   => $tiposStats,
-                    'hasFilter'    => $hasFilter,
-                    'showFrentes'  => ($request->filled('id_tipo') && $request->id_tipo !== 'all')
-                                      && !($request->filled('id_frente') && $request->id_frente !== 'all'),
-                ])->render(),
+                'nextOffset'        => $auxMode ? $auxEmbed['nextOffset'] : $nextOffset,
+                'hasMore'           => $auxMode ? $auxEmbed['hasMore'] : $hasMore,
+                'distribution'      => $auxMode
+                    ? $auxEmbed['distribucionHtml']
+                    : view('admin.equipos.partials.distribution_stats', [
+                        'frentesStats' => $frentesStats,
+                        'tiposStats'   => $tiposStats,
+                        'hasFilter'    => $hasFilter,
+                        'showFrentes'  => ($request->filled('id_tipo') && $request->id_tipo !== 'all')
+                                          && !($request->filled('id_frente') && $request->id_frente !== 'all'),
+                    ])->render(),
                 'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteEspecial'))->render(),
-                'showUbicaciones'   => $frenteEspecial !== null,
+                'showUbicaciones'   => !$auxMode && $frenteEspecial !== null,
             ])->withHeaders([
                 // Evita que el browser sirva respuestas JSON cacheadas con stats obsoletas
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
@@ -552,6 +595,10 @@ class EquipoController extends Controller
             ->distinct()->pluck('id_tipo_equipo')->map(fn ($v) => (int) $v)->all();
         $allTipos = TipoEquipo::whereIn('id', $tipoIdsVisibles)
             ->orderBy('nombre', 'asc')->get();
+
+        // Tipos de AUXILIAR (codigo => label) en el scope del usuario, para la seccion
+        // AUXILIARES del dropdown combinado de Tipo. Reusa el builder del modulo aux.
+        $tiposAux = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildTiposMap();
 
         // Mapa { ID_FRENTE_ACTUAL : [ID_TIPO, ...] } con los tipos presentes en cada frente
         // VISIBLE. Lo usa el filtro "Tipo" para mostrar SOLO los tipos del frente seleccionado
@@ -592,10 +639,10 @@ class EquipoController extends Controller
                 ->pluck('DETALLE_UBICACION_ACTUAL');
         }
 
-        $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all')
+        $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all' && !$auxMode)
                        && !($request->filled('id_frente') && $request->id_frente !== 'all');
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableUbicaciones', 'jsonPayload', 'showFrentes'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableUbicaciones', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux'));
     }
 
     public function export(Request $request)

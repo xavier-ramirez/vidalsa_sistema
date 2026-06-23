@@ -439,6 +439,7 @@ function reApplySelections() {
     if (!tableBody) return;
 
     tableBody.querySelectorAll("tr").forEach((row) => {
+        if (row.dataset.auxId) return; // filas aux: su highlight lo maneja auxRestoreSelection
         const btn = row.querySelector(".btn-details-mini");
         if (!btn) return;
         const id = String(btn.dataset.equipoId);
@@ -477,6 +478,12 @@ function handleRowClick(e) {
     // Look for target row in the equipos table
     const row = e.target.closest("#equiposTableBody tr");
     if (!row) return;
+
+    // Modo aux: las filas de auxiliares viven en #equiposTableBody pero NO son equipos
+    // (tienen data-aux-id, no data-equipo-id). Su seleccion la maneja la maquinaria aux
+    // (auxToggleRow); aqui se ignoran para no meter basura en selectedEquipos ni
+    // doble-seleccionar la fila.
+    if (row.dataset.auxId) return;
 
     // Ignore if clicking interactive elements
     if (
@@ -962,9 +969,25 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.equiposData = { ...window.equiposData, ...data.equiposData };
             }
 
+            // Modo aux (se eligio un tipo AUXILIAR en el dropdown): la tabla viene del
+            // modulo de auxiliares. Fusionamos su mapa de detalles para que el modal del
+            // ojo (openAuxDetailsModal) abra instant sin fetch, igual que en /admin/equipos-auxiliares.
+            if (data.mode === 'aux' && data.auxData) {
+                window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxData);
+            }
+
+            // Coherencia de controles: en modo aux se ocultan los controles propios de
+            // equipos que no aplican a auxiliares (clase .eq-hide-in-aux via CSS).
+            document.body.classList.toggle('eq-aux-mode', data.mode === 'aux');
+
             // Stats / distribución / URL: solo en la primera página (offset=0).
             // En lotes subsiguientes (append) los totales ya están correctos y no se tocan.
             if (!append) {
+                // Al cambiar de modo (volver a equipos o a un tipo de vehiculo), limpiar la
+                // seleccion de auxiliares para no dejar su barra flotante activa de fondo.
+                if (data.mode !== 'aux' && typeof window.auxClearSelection === 'function') {
+                    window.auxClearSelection();
+                }
                 const hasActiveFilters = !!paramStr;
                 const displayStat = (val) => hasActiveFilters ? val : '--';
                 const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -1104,6 +1127,11 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const chunk = allRows.slice(index, index + CHUNK_SIZE);
                 if (chunk.length === 0) {
                     reApplySelections();
+                    // Modo aux: restaurar el highlight de seleccion de las filas aux (su set
+                    // de seleccion lo mantiene la maquinaria aux embebida, no reApplySelections).
+                    if (data.mode === 'aux' && typeof window.auxRestoreSelection === 'function') {
+                        window.auxRestoreSelection();
+                    }
                     // Infinite scroll: si el backend dice que hay más, observar la última fila
                     // del conjunto actual y disparar nuevo fetch con offset = nextOffset.
                     if (data && data.hasMore && typeof data.nextOffset === 'number') {
@@ -2714,6 +2742,24 @@ window.updateLocalStats = function (oldStatus, newStatus) {
 };
 
 window.exportEquipos = function () {
+    // Modo aux (se eligio un tipo AUXILIAR): exportar AUXILIARES, no equipos. Reusa la
+    // exportacion del modulo de auxiliares (equipos-auxiliares/export) con el tipo +
+    // frente + busqueda actuales. Descarga directa (el server responde el xlsx adjunto).
+    const _tipoAuxEl = document.querySelector('input[name="id_tipo"]');
+    const _tipoAuxVal = ((_tipoAuxEl && _tipoAuxEl.value) || '').trim();
+    if (_tipoAuxVal.indexOf('tipo_aux:') === 0) {
+        const ap = new URLSearchParams();
+        ap.append('tipo', _tipoAuxVal.slice(9));
+        const _frAux = ((document.querySelector('input[name="id_frente"]') || {}).value || '').trim();
+        if (_frAux) ap.append('id_frente', _frAux);
+        const _sAux = ((document.getElementById('searchInput') || {}).value || '').trim();
+        if (_sAux) ap.append('search', _sAux);
+        if (window.showPreloader) window.showPreloader();
+        window.location.href = '/admin/equipos-auxiliares/export?' + ap.toString();
+        setTimeout(function () { if (window.hidePreloader) window.hidePreloader(); }, 1500);
+        return;
+    }
+
     const searchInput = document.getElementById("searchInput");
     const frenteInput = document.querySelector('input[name="id_frente"]');
     const tipoInput = document.querySelector('input[name="id_tipo"]');

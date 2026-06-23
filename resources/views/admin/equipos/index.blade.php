@@ -778,7 +778,7 @@
 
         <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
-            Consolidado de Equipos
+            Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Auxiliares' : 'Equipos' }}</span>
         </div>
         <div style="display: flex; gap: 8px; justify-content: space-between;">
             <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
@@ -847,7 +847,7 @@
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
                 <i class="material-icons" style="font-size: 14px;">pie_chart</i>
-                Consolidado de Equipos
+                Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Auxiliares' : 'Equipos' }}</span>
             </div>
             
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -884,7 +884,7 @@
 
     <!-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — visible solo para frentes TIPO_FRENTE=ESPECIAL -->
     <div id="ubicacionesStatsCard"
-         style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
+         style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteEspecial) && $frenteEspecial && !($auxMode ?? false) ? '' : 'display: none;' }}">
         <div id="ubicacionesStatsContainer">
             @include('admin.equipos.partials.ubicaciones_stats')
         </div>
@@ -893,7 +893,13 @@
     <!-- Breakdown by Type or Front (Dynamic) -->
     <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
         <div id="distributionStatsContainer">
-            @include('admin.equipos.partials.distribution_stats')
+            {{-- Modo aux: distribucion por tipo de AUXILIAR (el AJAX la intercambia via
+                 data.distribution). En modo equipos, la distribucion normal por tipo/frente. --}}
+            @if($auxMode ?? false)
+                @include('admin.equipos.partials.aux_distribution_stats', ['auxDistribucion' => ($auxEmbed['auxDistribucion'] ?? [])])
+            @else
+                @include('admin.equipos.partials.distribution_stats')
+            @endif
         </div>
     </div>
 </div>
