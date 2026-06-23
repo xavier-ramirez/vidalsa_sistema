@@ -10,10 +10,13 @@
     @php($__code = trim($__env->yieldContent('code')))
     <title>{{ $__code !== '' ? $__code . ' · ' : '' }}Sistema Vidalsa</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+    {{-- Mismas fuentes que el login (Nunito) para que la tipografía coincida.
+         Es solo CSS estático con @font-face: si fallara, cae al fallback de abajo. --}}
+    <link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
+            font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
             padding: 24px; color: #1e293b;
             /* Fondo apenas tintado para que la sombra de la tarjeta blanca resalte. */
@@ -30,16 +33,6 @@
         }
         @keyframes err-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
         .err-logo { height: 50px; margin-bottom: 20px; object-fit: contain; }
-        /* Badge circular opcional (focal del aviso cuando no se muestra el número). */
-        .err-icon {
-            width: 82px; height: 82px; margin: 2px auto 20px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            color: #00337a;
-            background: radial-gradient(circle at 30% 25%, #eaf2ff, #d6e6ff);
-            box-shadow: inset 0 0 0 1px rgba(0,51,122,0.07), 0 6px 16px rgba(0,51,122,0.10);
-        }
-        .err-icon svg { width: 38px; height: 38px; display: block; }
         .err-code {
             font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -3px;
             color: #00337a;
@@ -49,7 +42,7 @@
         .err-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             width: 100%;
-            background: #00337a; color: #fff; font-weight: 800; font-size: 14.5px;
+            background: #00337a; color: #fff; font-weight: 700; font-size: 16px;
             text-decoration: none; padding: 14px 24px; border-radius: 12px;
             box-shadow: 0 8px 18px rgba(0,51,122,0.22);
             transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
@@ -62,9 +55,6 @@
     <div class="err-card">
         <img class="err-logo" src="{{ asset('images/maquinaria/logo.webp') }}"
              alt="Constructora Vidalsa" onerror="this.style.display='none'">
-        @hasSection('icon')
-            <div class="err-icon">@yield('icon')</div>
-        @endif
         @if($__code !== '')
             <div class="err-code">{{ $__code }}</div>
         @endif
