@@ -18,9 +18,7 @@
     }
 </style>
 <div class="cat-create-wrapper" style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
-    {{-- Título con el MISMO markup que /admin/equipos y que el edit del catálogo
-         (div flex + margin-bottom:16px): mismo tamaño y separación vertical. --}}
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px;">
         <h1 class="page-title">
             <span class="page-title-line2" style="color: #000;">Registro de Modelo</span>
         </h1>

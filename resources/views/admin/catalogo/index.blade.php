@@ -369,13 +369,13 @@
                         <div class="dropdown-item {{ !$reqTipo ? 'selected' : '' }}" data-value="" onclick="selectOption('catTipoDropdown','','TODOS LOS TIPOS'); catSelect('tipo','','');">
                             TODOS LOS TIPOS
                         </div>
-                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">VEHÍCULOS</div>
+                        <div style="{{ $catGrpHdr }}">VEHÍCULOS</div>
                         @foreach(($tiposVehiculo ?? []) as $t)
                             <div class="dropdown-item {{ $reqTipo === 'tipo_eq:'.$t->id ? 'selected' : '' }}" data-value="tipo_eq:{{ $t->id }}" onclick="selectOption('catTipoDropdown','tipo_eq:{{ $t->id }}','{{ addslashes($t->nombre) }}'); catSelect('tipo','tipo_eq:{{ $t->id }}','{{ addslashes($t->nombre) }}');">
                                 {{ $t->nombre }}
                             </div>
                         @endforeach
-                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">AUXILIARES</div>
+                        <div style="{{ $catGrpHdr }}">AUXILIARES</div>
                         @foreach(($tiposAux ?? []) as $k => $label)
                             <div class="dropdown-item {{ $reqTipo === 'tipo_aux:'.$k ? 'selected' : '' }}" data-value="tipo_aux:{{ $k }}" onclick="selectOption('catTipoDropdown','tipo_aux:{{ $k }}','{{ addslashes($label) }}'); catSelect('tipo','tipo_aux:{{ $k }}','{{ addslashes($label) }}');">
                                 {{ $label }}

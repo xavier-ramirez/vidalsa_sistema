@@ -173,38 +173,12 @@
 
         form.addEventListener('submit', handleSubmit);
 
-        // Auto-fetch years when Model changes (Manual typing)
-        const modelInput = form.querySelector('#MODELO');
-        if (modelInput) {
-            modelInput.addEventListener('blur', function () {
-                if (window.checkCatalogMatch) window.checkCatalogMatch();
-            });
-        }
-
         // Al elegir/cambiar el TIPO, sugerir los modelos de ese tipo en el campo Modelo.
         // (selectDropdownItem despacha 'change'; escribir + salir del campo también.)
         const tipoInput = form.querySelector('#TIPO');
         if (tipoInput && tipoInput.dataset.scopeBound !== 'true') {
             tipoInput.dataset.scopeBound = 'true';
             tipoInput.addEventListener('change', scopeCatalogoModelos);
-        }
-
-        // Preview de la foto referencial al elegir archivo
-        const fileInput = form.querySelector('#foto_referencial');
-        if (fileInput) {
-            fileInput.addEventListener('change', function (e) {
-                if (e.target.files && e.target.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = function (evt) {
-                        const preview = document.getElementById('preview_referencial');
-                        if (preview) {
-                            preview.innerHTML = `<img src="${evt.target.result}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;">`;
-                            preview.style.borderColor = 'var(--maquinaria-blue)';
-                        }
-                    }
-                    reader.readAsDataURL(e.target.files[0]);
-                }
-            });
         }
     }
 
