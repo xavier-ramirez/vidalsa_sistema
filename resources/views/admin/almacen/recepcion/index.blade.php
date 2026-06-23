@@ -130,11 +130,11 @@
 
     /* ── Layout: la tabla (.admin-card) y el panel de resumen, cada uno en SU PROPIO
          contenedor, lado a lado. ── */
-    .tr-layout { display:flex; gap:16px; align-items:flex-start; }
+    .tr-layout { display:flex; gap:14px; align-items:flex-start; }
     /* Panel estilo "Consolidado de Inventario" (/admin/almacen): tarjeta con gradiente
        azul y texto blanco, un número héroe (Por revisar) + dos sub-métricas
        (Recientes / Urgentes) en cajas semitransparentes de color. */
-    .tr-stats { flex:0 0 230px; position:relative; overflow:hidden; align-self:flex-start;
+    .tr-stats { flex:0 0 300px; position:relative; overflow:hidden; align-self:flex-start;
         background:linear-gradient(135deg,#1a365d 0%,#2c5282 100%); border-radius:12px;
         padding:15px; color:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); }
     .tr-stats-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
@@ -145,10 +145,12 @@
     .tr-stats-hero-num { font-size:34px; font-weight:800; line-height:1; }
     .tr-stats-hero-lbl { font-size:11px; opacity:0.85; font-weight:700; margin-top:2px; text-transform:uppercase; letter-spacing:.3px; }
     .tr-stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:4px; flex:1; }
-    .tr-stats-sub { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 2px; border-radius:8px; text-align:center; }
-    .tr-stats-sub i { font-size:18px; margin-bottom:2px; }
-    .tr-stats-sub strong { font-weight:800; font-size:16px; color:#fff; }
-    .tr-stats-sub span { font-size:10px; opacity:0.9; font-weight:700; text-transform:uppercase; line-height:1.1; }
+    /* Icono AL LADO del número (en fila); el label cae a su propia línea debajo
+       (flex:1 1 100% lo fuerza al siguiente renglón). */
+    .tr-stats-sub { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px 6px; padding:8px 4px; border-radius:8px; text-align:center; }
+    .tr-stats-sub i { font-size:18px; }
+    .tr-stats-sub strong { font-weight:800; font-size:18px; color:#fff; }
+    .tr-stats-sub span { flex:1 1 100%; font-size:10px; opacity:0.9; font-weight:700; text-transform:uppercase; line-height:1.1; }
     .tr-sub-rec { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.25); }
     .tr-sub-urg { background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.3); }
     /* Mobile: el panel (tarjeta con gradiente) sube ARRIBA de la tabla, full-width. */
@@ -425,7 +427,7 @@
 
 {{-- Layout: la tabla y el panel de resumen, cada uno en SU PROPIO contenedor. --}}
 <div class="tr-layout">
-<div class="admin-card" style="margin:0;min-height:70vh;padding:16px;flex:1 1 0;min-width:0;">
+<div class="admin-card" style="margin:0;min-height:70vh;padding:14px;flex:1 1 0;min-width:0;">
 
     {{-- ── Filtros (search por N° de nota + filtros avanzados estilo equipos) ──
          trSearch → por NUMERO de la nota de entrega (TR-2026-…) con autocomplete
@@ -482,10 +484,13 @@
                 <table class="tr-table">
                     <thead>
                         <tr>
-                            <th title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
+                            {{-- "Nº Nota" al mínimo (código fijo). "Estado" y "Enviado" con su
+                                 ancho NATURAL (nowrap, sin width:1%) para que tengan algo de aire;
+                                 "Origen / Destino" absorbe el resto, pero sin acaparar tanto. --}}
+                            <th style="width:1%;white-space:nowrap;" title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
                             <th title="Arriba el almacén que ENVÍA; abajo el que RECIBE.">Origen / Destino</th>
-                            <th style="text-align:center;" title="Estado actual de la nota.">Estado</th>
-                            <th title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
+                            <th style="white-space:nowrap;text-align:center;" title="Estado actual de la nota.">Estado</th>
+                            <th style="white-space:nowrap;" title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
                         </tr>
                     </thead>
                     <tbody id="trTableBody">

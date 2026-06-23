@@ -244,13 +244,13 @@ class AlmacenController extends Controller
             ->groupBy('ID_ALMACEN')
             ->map(fn ($rows) => $rows->pluck('ID_PRODUCTO')->values());
 
-        // CONTEO de notas de entrega pendientes de confirmar (ENVIADO en los almacenes
-        // VISIBLES) — alimenta el banner rojo "N por confirmar" que enlaza a la bandeja.
-        // Es solo el total (el banner ya NO lista cada nota), así que un count() basta:
-        // sin cargar filas/relaciones ni cap de take(). Mismos almacenes que la bandeja y
-        // el badge del nav, para que los tres cuenten lo mismo.
+        // CONTEO de notas de entrega pendientes de confirmar — alimenta el banner rojo
+        // "N por confirmar" que enlaza a la bandeja. Recepción es PERSONAL: se cuenta SOLO
+        // contra los almacenes ASOCIADOS al usuario (Almacen::asociadosIdsDe = ligados a sus
+        // frentes), NO visiblesPara (= TODOS para un GLOBAL) — si no, una cuenta que solo
+        // EMITE veía notas de otros almacenes que no recibe. Mismo criterio que el badge.
         $notasPendientes = Traspaso::where('ESTADO', Traspaso::ESTADO_ENVIADO)
-            ->whereIn('ID_ALMACEN_DESTINO', $almacenes->pluck('ID_ALMACEN'))
+            ->whereIn('ID_ALMACEN_DESTINO', Almacen::asociadosIdsDe($user))
             ->count();
 
         return view('admin.almacen.index', [

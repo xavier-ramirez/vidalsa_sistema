@@ -446,6 +446,17 @@
                 </div>
             </div>
 
+            @php
+                // URL de "Recepción" según el nivel del usuario:
+                //   LOCAL (no ve todos los frentes) → BANDEJA explícita (?force=1): su módulo
+                //     es confirmar lo que recibe. Sin el force igual cae en la bandeja, pero
+                //     dejamos la URL explícita para que SIEMPRE aterrice ahí.
+                //   GLOBAL → /recepcion (el controller lo redirige a "Entrada directa (ODC)").
+                // Se calcula una sola vez y se reutiliza en el menú desktop y móvil.
+                $recepcionUrl = (auth()->user() && !auth()->user()->veTodosLosFrentes())
+                    ? route('almacen.recepcion.index', ['force' => 1])
+                    : route('almacen.recepcion.index');
+            @endphp
             {{-- Almacén Dropdown: Inventario + Recepción (con badge si hay envíos pendientes) + Kardex --}}
             <div class="nav-dropdown">
                 <a href="#"
@@ -459,7 +470,7 @@
                         class="nav-dropdown-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                         <i class="material-icons">inventory_2</i> Inventario
                     </a>
-                    <a href="{{ route('almacen.recepcion.index') }}"
+                    <a href="{{ $recepcionUrl }}"
                         class="nav-dropdown-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                         style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
                         <span style="display:flex;align-items:center;gap:8px;">
@@ -623,7 +634,7 @@
                     class="mobile-nav-link {{ request()->routeIs('almacen.index') ? 'active' : '' }}">
                     <i class="material-icons">inventory_2</i> Inventario
                 </a>
-                <a href="{{ route('almacen.recepcion.index') }}"
+                <a href="{{ $recepcionUrl }}"
                     class="mobile-nav-link {{ request()->routeIs('almacen.recepcion.*') ? 'active' : '' }}"
                     style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
                     <span style="display:flex;align-items:center;gap:10px;">

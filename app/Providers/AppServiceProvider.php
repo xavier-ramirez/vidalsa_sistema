@@ -82,15 +82,18 @@ class AppServiceProvider extends ServiceProvider
             try {
                 $user = auth()->user();
                 if ($user && Schema::hasTable('traspasos')) {
-                    // El badge cuenta las MISMAS notas que muestra la bandeja de Recepción
-                    // (TraspasoController::index): ENVIADO en los almacenes VISIBLES del
-                    // usuario. Así el número del badge siempre coincide con lo que ve en la
-                    // bandeja. (Para un GLOBAL/admin "visibles" = todos los que puede abrir.)
-                    $almacenesVisibles = \App\Models\Almacen::visiblesPara($user)->pluck('ID_ALMACEN');
-                    $count = \App\Models\Traspaso::query()
-                        ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
-                        ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles)
-                        ->count();
+                    // La recepción es PERSONAL: el badge cuenta SOLO las notas destinadas al
+                    // almacén del usuario (Almacen::asociadosIdsDe = ligados a sus frentes),
+                    // NO visiblesPara() — que para un GLOBAL/admin devuelve TODOS y hacía que
+                    // una cuenta que solo EMITE (origen) viera notas de OTROS almacenes que
+                    // ella no recibe. Sin almacén propio → 0.
+                    $almacenesAsociados = \App\Models\Almacen::asociadosIdsDe($user);
+                    if ($almacenesAsociados->isNotEmpty()) {
+                        $count = \App\Models\Traspaso::query()
+                            ->where('ESTADO', \App\Models\Traspaso::ESTADO_ENVIADO)
+                            ->whereIn('ID_ALMACEN_DESTINO', $almacenesAsociados)
+                            ->count();
+                    }
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('View composer traspasosPorRecibir: ' . $e->getMessage());

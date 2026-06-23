@@ -147,8 +147,10 @@
 
     @media (max-width: 768px) {
         /* En móvil (touch, sin hover) el botón eliminar queda SIEMPRE visible —
-           si no, no habría forma de revelarlo. */
-        .btn-hd-del { opacity: 1 !important; }
+           si no, no habría forma de revelarlo. Además lo igualamos al botón PDF
+           (32x32, icono 18px) para que no se vean desparejos lado a lado en la tarjeta. */
+        .btn-hd-del { opacity: 1 !important; width: 32px !important; height: 32px !important; }
+        .btn-hd-del .material-icons { font-size: 18px !important; }
         .hd-filter-row {
             flex-direction: row !important;
             flex-wrap: wrap !important;
@@ -530,7 +532,7 @@
     </div>
 
     <!-- Right Sidebar -->
-    <div class="counter-sidebar historial-sidebar" id="historialSidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10;">
+    <div class="counter-sidebar historial-sidebar" id="historialSidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10;">
 
         <!-- Total Card -->
         <div class="hd-total-card" style="background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
@@ -623,7 +625,7 @@
 
         {{-- ─── Usuarios Activos (sesiones últimos 30 min) ─── --}}
         @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
-        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06); margin-top: 10px;">
+        <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06);">
             <div class="hd-collapsible-header" onclick="window.hdToggleCollapse(this)" style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <i class="material-icons" style="color: #10b981; font-size: 22px;">radio_button_checked</i>

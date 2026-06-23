@@ -195,6 +195,30 @@ class Almacen extends Model
         return $q->whereHas('frentes', fn (Builder $f) => $f->whereIn('frentes_trabajo.ID_FRENTE', $frenteIds));
     }
 
+    /**
+     * IDs de los almacenes ASOCIADOS a un usuario = los ligados a SUS frentes asignados
+     * (menos los bloqueados). Es la "propiedad" REAL del usuario sobre almacenes — a
+     * diferencia de visiblesPara(), que para un GLOBAL/admin devuelve TODOS.
+     *
+     * Lo usan los avisos de "por recibir" de Recepción (badge del nav en
+     * AppServiceProvider y widget de notas pendientes en AlmacenController::index):
+     * la recepción es PERSONAL — solo cuentas las notas destinadas a TU almacén, no a
+     * todos. Así un usuario que solo EMITE (origen) y no recibe ve 0; uno que recibe ve
+     * lo suyo. Mismo criterio frente-linked que la rama LOCAL de visiblesPara() y
+     * Usuario::almacenPorDefecto(). Devuelve Collection vacía si el usuario no tiene frentes.
+     */
+    public static function asociadosIdsDe($user): \Illuminate\Support\Collection
+    {
+        $frenteIds = array_values(array_diff(self::frenteIdsDe($user), self::frentesBloqueadosDe($user)));
+        if (empty($frenteIds)) {
+            return collect();
+        }
+        return static::query()
+            ->where('ESTATUS', 'ACTIVO')
+            ->whereHas('frentes', fn (Builder $f) => $f->whereIn('frentes_trabajo.ID_FRENTE', $frenteIds))
+            ->pluck('ID_ALMACEN');
+    }
+
     /** True si $user puede ver/operar sobre este almacén concreto. */
     public function visiblePara($user): bool
     {
