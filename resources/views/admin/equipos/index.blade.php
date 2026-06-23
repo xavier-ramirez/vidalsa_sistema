@@ -1806,7 +1806,7 @@
        (Modificar / Copiar), sólido para las acciones (Detalle / Movilizar). La
        VISIBILIDAD la sigue controlando el JS (display:none → flex por fase). */
     #bulkLookupFooter button {
-        height: 42px; padding: 0 18px; border-radius: 10px; cursor: pointer;
+        height: 36px; padding: 0 16px; border-radius: 10px; cursor: pointer;
         font-size: 13px; font-weight: 700; letter-spacing: .2px;
         display: none; align-items: center; justify-content: center; gap: 7px;
         border: none; transition: background .15s, transform .1s;
@@ -1965,7 +1965,7 @@
 
             <!-- Results phase -->
             <div id="bulkLookupResultsPhase" style="display: none;">
-                <div id="bulkLookupSummary" style="display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; justify-content: flex-start;"></div>
+                <div id="bulkLookupSummary" style="display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; justify-content: center;"></div>
 
                 {{-- Rótulo del frente seleccionado contra el que se comparan los equipos
                      (lo llena renderResults). Solo aparece si se eligió un frente. --}}
@@ -2004,7 +2004,7 @@
         </div>
 
         <!-- Footer: botones alineados a la izquierda -->
-        <div id="bulkLookupFooter" style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: flex-start; gap: 8px;">
+        <div id="bulkLookupFooter" style="padding: 8px 18px; border-top: 1px solid #e2e8f0; background: white; display: flex; justify-content: center; gap: 8px;">
             {{-- Botones uniformados con la barra flotante (.btn-bulk-action):
                  forma de píldora (radius 20px), font-size 12.5px / weight 700.
                  Mantienen su color semántico, igual que la barra (Anclar=verde,
