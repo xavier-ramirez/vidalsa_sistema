@@ -313,10 +313,11 @@ class EquipoController extends Controller
         $user = auth()->user();
 
         // Dropdown combinado de Tipo (VEHICULOS / AUXILIARES), patron /admin/movilizaciones.
-        // Si el tipo elegido es de auxiliar ('tipo_aux:X'), la TABLA muestra auxiliares de
-        // ese tipo (EquipoAuxiliarController::buildEmbedPayload). El Consolidado y la
-        // Distribucion siguen calculandose sobre EQUIPOS (el usuario pidio no tocar ese
-        // conteo): por eso el modo aux NO se considera filtro de tipo para esos paneles.
+        // Si el tipo elegido es de auxiliar ('tipo_aux:X'), la TABLA, el Consolidado y la
+        // Distribucion pasan a reflejar AUXILIARES, todo desde un solo payload
+        // (EquipoAuxiliarController::buildEmbedPayload): mas abajo $stats y la distribucion
+        // se reemplazan por los del payload aux. Por eso el trabajo propio de EQUIPOS
+        // (paginacion de la tabla, jsonPayload del modal, frentesStats) se omite en modo aux.
         $auxMode = str_starts_with((string) $request->input('id_tipo', ''), 'tipo_aux:');
 
         // Filtros principales (todos los ejes activos)
@@ -426,7 +427,9 @@ class EquipoController extends Controller
 
         // Stats, tiposStats, frentesStats, ubicacionesStats usan queries independientes del
         // cap de la tabla: siempre muestran los TOTALES completos según los filtros activos.
-        if ($hasFilter) {
+        // En modo aux se omiten: el Consolidado y la Distribucion los aporta el payload aux
+        // (mas abajo $stats se reemplaza por $auxEmbed['stats']), asi no se malgastan COUNTs.
+        if ($hasFilter && !$auxMode) {
             // Stats: count directo con los mismos filtros, sin offset/limit
             $statsBase = Equipo::query();
             $this->applyEquipoFilters($statsBase, $request);
