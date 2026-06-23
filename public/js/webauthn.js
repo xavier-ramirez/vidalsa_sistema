@@ -49,6 +49,30 @@ const VidalsaWebAuthn = (() => {
         return meta ? meta.getAttribute('content') : '';
     }
 
+    // Cabeceras que identifican la petición como AJAX/JSON. Sin esto, cuando el
+    // servidor lanza una excepción (sesión/auth/CSRF caducada) sus handlers
+    // (bootstrap/app.php) calculan wantsJson=false y devuelven un REDIRECT a /login
+    // (HTML), no JSON. fetch sigue el redirect y res.json() revienta con el críptico
+    // "Unexpected token '<', <!DOCTYPE...". Con estas cabeceras el servidor responde
+    // JSON con su status real (401/419) y el flujo de recarga de abajo lo maneja.
+    const JSON_HEADERS = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+
+    // ¿La respuesta es realmente JSON? Un redirect a /login o una página de error
+    // vienen como text/html y NO se deben pasar a res.json().
+    function esJson(res) {
+        return (res.headers.get('content-type') || '').includes('application/json');
+    }
+
+    // Una respuesta redirigida, 419/422 o no-JSON = sesión/CSRF caducada: el servidor
+    // sirvió el HTML del login (o un redirect a él) en vez de JSON. Es un fallo
+    // TRANSITORIO, no un error del usuario: recargamos para que el siguiente intento
+    // tenga sesión y challenge frescos, en vez de mostrar el error de JSON.parse
+    // sobre HTML ("Unexpected token '<'"). Los errores reales (401/403/429) vienen
+    // como JSON y NO entran aquí: caen abajo y se muestran al usuario.
+    function esRespuestaDeSesion(res) {
+        return res.redirected || res.status === 419 || res.status === 422 || !esJson(res);
+    }
+
     // ─── REGISTRO ────────────────────────────────────────────────────
 
     async function registrar() {
@@ -61,8 +85,9 @@ const VidalsaWebAuthn = (() => {
         try {
             const res = await fetch('/webauthn/register-options', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf(), ...JSON_HEADERS },
             });
+            if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             options = await res.json();
             if (!res.ok) throw new Error(options.error || 'Error obteniendo opciones');
         } catch (e) {
@@ -106,9 +131,10 @@ const VidalsaWebAuthn = (() => {
         try {
             const res = await fetch('/webauthn/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrf(), ...JSON_HEADERS },
                 body: JSON.stringify(body),
             });
+            if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Error al registrar');
             saveCredId(body.credential_id);
@@ -126,27 +152,20 @@ const VidalsaWebAuthn = (() => {
         if (!credIds.length) throw new Error('NO_CREDENTIALS');
 
         let options;
-        try {
-            const res = await fetch('/webauthn/login-options', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ credential_ids: credIds }),
-            });
-            options = await res.json();
-            if (!res.ok) {
-                if (res.status === 419) {
-                    window.location.reload();
-                    return;
-                }
-                if (res.status === 404) {
-                    localStorage.removeItem(STORAGE_KEY);
-                    throw new Error('NO_CREDENTIALS');
-                }
-                throw new Error(options.error || 'Error obteniendo opciones');
-            }
-        } catch (e) {
-            throw e;
+        const resOpt = await fetch('/webauthn/login-options', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
+            body: JSON.stringify({ credential_ids: credIds }),
+        });
+        // Sesión/CSRF caducada o HTML del login servido en vez de JSON → recargar.
+        // OJO: se comprueba ANTES de res.json() para no parsear "<!DOCTYPE...".
+        if (esRespuestaDeSesion(resOpt)) { window.location.reload(); return; }
+        if (resOpt.status === 404) {
+            localStorage.removeItem(STORAGE_KEY);
+            throw new Error('NO_CREDENTIALS');
         }
+        options = await resOpt.json();
+        if (!resOpt.ok) throw new Error(options.error || 'Error obteniendo opciones');
 
         const allowCredentials = options.allowCredentials.map(c => ({
             type: c.type,
@@ -177,16 +196,17 @@ const VidalsaWebAuthn = (() => {
 
         const res = await fetch('/webauthn/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
             body: JSON.stringify(body),
         });
-        // 419 (CSRF/sesión) y 422 (challenge expirado: la sesión perdió el desafío
-        // entre login-options y login, p.ej. tras los 20 min de SESSION_LIFETIME)
+        // 419 (CSRF/sesión), 422 (challenge expirado: la sesión perdió el desafío
+        // entre login-options y login, p.ej. tras los 20 min de SESSION_LIFETIME) y
+        // una respuesta redirigida/no-JSON (HTML del login servido en vez de JSON)
         // son fallos TRANSITORIOS de sesión, no errores del usuario. En vez de
-        // mostrar un mensaje amarillo de "token/challenge vencido", recargamos para
-        // que el siguiente toque genere un challenge fresco. Los errores reales
-        // (401/403/429) sí caen abajo y se muestran.
-        if (res.status === 419 || res.status === 422) { window.location.reload(); return; }
+        // mostrar el críptico "Unexpected token '<'" del JSON.parse sobre el HTML,
+        // recargamos para que el siguiente toque genere un challenge fresco. Los
+        // errores reales (401/403/429) sí caen abajo y se muestran.
+        if (esRespuestaDeSesion(res)) { window.location.reload(); return; }
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error de autenticación');
         return data;
