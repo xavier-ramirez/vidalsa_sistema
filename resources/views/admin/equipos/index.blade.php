@@ -5,6 +5,12 @@
 @section('content')
 
 <style>
+    /* Modo aux (se eligio un tipo AUXILIAR en el dropdown de Tipo): se ocultan los
+       controles propios de equipos que NO aplican a auxiliares (p.ej. Filtros
+       Avanzados: modelo/marca/anio/GPS/documentacion). La clase la togglea
+       loadEquipos segun data.mode (y el init inicial si se entra por URL). */
+    body.eq-aux-mode .eq-hide-in-aux { display: none !important; }
+
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {
         /* El posicionamiento/centrado del panel en mobile vive ahora en
@@ -56,10 +62,7 @@
         .table-equipos-mobile .material-icons {
             font-size: 16px !important;
         }
-        .table-equipos-mobile {
-            min-width: 900px !important; /* Reducir el min-width para evitar overflow */
-        }
-        
+
         /* Ajustes para el panel lateral de contadores (Consolidado y Distribución) */
         .counter-sidebar [style*="font-size: 13px"] { font-size: 11px !important; }
         .counter-sidebar [style*="font-size: 36px"] { font-size: 26px !important; }
@@ -172,8 +175,18 @@
             <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="id_tipo" data-default-label="Filtrar Tipo...">
                 <input type="hidden" name="id_tipo" data-filter-value value="{{ request('id_tipo') }}" form="search-form">
                 
-                @php 
-                    $currentTipo = $allTipos->firstWhere('id', request('id_tipo'));
+                @php
+                    // El valor del filtro de Tipo puede ser de VEHICULO (id numerico) o de
+                    // AUXILIAR ('tipo_aux:CODIGO'). Resolvemos el label para el placeholder.
+                    $reqTipo = (string) request('id_tipo', '');
+                    $currentTipo = $allTipos->firstWhere('id', $reqTipo);
+                    $tipoLabelActual = '';
+                    if (str_starts_with($reqTipo, 'tipo_aux:')) {
+                        $kAux = substr($reqTipo, 9);
+                        $tipoLabelActual = $tiposAux[$kAux] ?? $kAux;
+                    } elseif ($currentTipo) {
+                        $tipoLabelActual = $currentTipo->nombre;
+                    }
                 @endphp
 
                 <div class="dropdown-trigger {{ request('id_tipo') ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px;">
@@ -181,7 +194,7 @@
                         <i class="material-icons" style="font-size: 18px;">search</i>
                     </div>
                     <input type="text" name="filter_search_dropdown" data-filter-search
-                        placeholder="{{ $currentTipo ? $currentTipo->nombre : 'Filtrar Tipo...' }}" 
+                        placeholder="{{ $tipoLabelActual ?: 'Filtrar Tipo...' }}"
                          aria-label="Filtrar Tipo"
                         style="width: 100%; border: none; background: transparent; padding: 10px 5px; font-size: 14px; outline: none;"
                         oninput="window.filterDropdownOptions(this)"
@@ -196,11 +209,26 @@
                         <div class="dropdown-item {{ !request('id_tipo') || request('id_tipo') === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectOption('tipoFilterSelect', 'all', 'TODOS LOS TIPOS'); loadEquipos();">
                             TODOS LOS TIPOS
                         </div>
+                        {{-- Seccion VEHICULOS (equipos principales). El separador solo se muestra
+                             cuando ademas hay auxiliares, para no cambiar la vista si no los hay. --}}
+                        @if(!empty($tiposAux))
+                            <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">Vehículos</div>
+                        @endif
                         @foreach($allTipos as $tipo)
                             <div class="dropdown-item {{ request('id_tipo') == $tipo->id ? 'selected' : '' }}" data-value="{{ $tipo->id }}" onclick="selectOption('tipoFilterSelect', '{{ $tipo->id }}', '{{ addslashes(trim($tipo->nombre)) }}'); loadEquipos();">
                                 {{ $tipo->nombre }}
                             </div>
                         @endforeach
+                        {{-- Seccion AUXILIARES: valor prefijado 'tipo_aux:CODIGO'. Al elegir uno,
+                             la tabla muestra los equipos auxiliares de ese tipo (modo aux). --}}
+                        @if(!empty($tiposAux))
+                            <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">Auxiliares</div>
+                            @foreach($tiposAux as $codAux => $labelAux)
+                                <div class="dropdown-item eq-tipo-aux {{ $reqTipo === 'tipo_aux:'.$codAux ? 'selected' : '' }}" data-value="tipo_aux:{{ $codAux }}" onclick="selectOption('tipoFilterSelect', 'tipo_aux:{{ $codAux }}', '{{ addslashes($labelAux) }}'); loadEquipos();">
+                                    {{ $labelAux }}
+                                </div>
+                            @endforeach
+                        @endif
                     </div>
                 </div>
             </div>
@@ -226,7 +254,9 @@
                 if (!cont) return;
                 cont.querySelectorAll('.dropdown-item[data-value]').forEach(function (it) {
                     var v = it.getAttribute('data-value');
-                    if (v === 'all') { it.style.display = ''; it.classList.remove('eq-tipo-oculto'); return; } // "TODOS LOS TIPOS" siempre visible
+                    // "TODOS LOS TIPOS" y los tipos de AUXILIAR ('tipo_aux:*') SIEMPRE visibles:
+                    // el filtro dependiente del frente solo aplica a los tipos de equipo.
+                    if (v === 'all' || v.indexOf('tipo_aux:') === 0) { it.style.display = ''; it.classList.remove('eq-tipo-oculto'); return; }
                     var ok = (permitidos === null) || (permitidos.indexOf(parseInt(v, 10)) !== -1);
                     // La clase 'eq-tipo-oculto' marca los tipos que NO son del frente: el buscador
                     // interno del dropdown (filterDropdownOptions) la respeta y NO los re-muestra
@@ -239,7 +269,8 @@
                 if (permitidos !== null) {
                     var tInput = document.querySelector('#tipoFilterSelect input[name="id_tipo"]');
                     var cur = tInput ? tInput.value : '';
-                    if (cur && cur !== 'all' && permitidos.indexOf(parseInt(cur, 10)) === -1
+                    if (cur && cur !== 'all' && cur.indexOf('tipo_aux:') !== 0
+                        && permitidos.indexOf(parseInt(cur, 10)) === -1
                         && typeof selectOption === 'function') {
                         selectOption('tipoFilterSelect', 'all', 'TODOS LOS TIPOS');
                     }
@@ -274,7 +305,7 @@
                 @php
                     $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
-                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria eq-hide-in-aux" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
                 </button>
                 
@@ -767,20 +798,27 @@
 
     <div class="custom-scrollbar-container" style="margin-top: 5px; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">
 
-        <table class="admin-table table-equipos-mobile" style="width: 100%; min-width: 1000px; border-collapse: separate; border-spacing: 0 8px;">
+        <table class="admin-table table-equipos-mobile" style="width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0 8px;">
             <thead>
                 <tr class="table-row-header">
                     <th class="table-header-custom" style="width: 150px;"></th> {{-- Foto + Frente --}}
                     <th class="table-header-custom" style="width: 24%;">TIPO</th>
-                    <th class="table-header-custom" style="width: 15%;">MARCA / MODELO</th>
-                    <th class="table-header-custom" style="width: 23%;">SERIALES / PLACA / ID</th>
+                    <th class="table-header-custom" style="width: 18%;">MARCA / MODELO</th>
+                    <th class="table-header-custom" style="width: 20%;">SERIALES / PLACA</th>
                     <th class="table-header-custom" style="width: 145px;">ESTATUS</th>
                     <th class="table-cell-center" style="width: 72px;"></th> {{-- Acciones --}}
                 </tr>
             </thead>
             <tbody id="equiposTableBody" style="font-size: 15px;">
-                @include('admin.equipos.partials.table_rows')
-
+                {{-- Modo aux (tipo auxiliar elegido): la tabla muestra las filas de
+                     auxiliares (mismo partial que /admin/equipos-auxiliares). En carga
+                     inicial por URL ya vienen renderizadas; la navegacion AJAX las
+                     intercambia via loadEquipos (data.mode === 'aux'). --}}
+                @if($auxMode ?? false)
+                    {!! ($auxEmbed['html'] ?? '') !!}
+                @else
+                    @include('admin.equipos.partials.table_rows')
+                @endif
             </tbody>
         </table>
         
@@ -824,13 +862,19 @@
                 <!-- Detailed Stats Row -->
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
                     <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? 'Ver solo los que tienen ' . $docLabel : 'Filtrar: Operativos' }}" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
-                        <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
-                        <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $operVal }}</strong>
+                        {{-- Icono AL LADO del numero (antes en columna -> se montaba encima en PC). --}}
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <i class="material-icons" style="font-size: 18px; color: #22c55e;">check_circle</i>
+                            <strong id="stats_activos" style="font-weight: 800; font-size: 16px; color: white;">{{ $operVal }}</strong>
+                        </div>
                         <span id="stats_oper_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}">{{ $operLabel }}</span>
                     </div>
                     <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? 'Ver solo los que NO tienen ' . $docLabel : 'Filtrar: Inoperativos' }}" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
-                        <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
-                        <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $inopVal }}</strong>
+                        {{-- Icono AL LADO del numero (antes en columna -> se montaba encima en PC). --}}
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <i class="material-icons" style="font-size: 18px; color: #ef4444;">cancel</i>
+                            <strong id="stats_inactivos" style="font-weight: 800; font-size: 16px; color: white;">{{ $inopVal }}</strong>
+                        </div>
                         <span id="stats_inop_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}">{{ $inopLabel }}</span>
                     </div>
                 </div>
@@ -867,7 +911,10 @@
 </div>
 
 <!-- Floating Action Bar -->
-<div id="bulkFloatingBar" class="selection-floating-bar">
+{{-- eq-hide-in-aux: en modo aux se oculta la barra de seleccion de EQUIPOS (la
+     seleccion se conserva, solo no se muestra) para que no se solape con la barra
+     de seleccion de AUXILIARES (auxBulkBar). --}}
+<div id="bulkFloatingBar" class="selection-floating-bar eq-hide-in-aux">
     <div class="selection-counter" onclick="window.toggleEquiposSoloSel(event)" title="Ver solo los seleccionados (toca de nuevo para ver todos)" style="cursor: pointer;">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
             <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
@@ -2450,11 +2497,40 @@
         urlSearch: '{{ route("fallas.searchActivos") }}',
         urlStore:  '{{ route("fallas.store") }}',
         urlBase:   '{{ url("admin/fallas") }}',
-        onCreated: function () { if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(); },
+        onCreated: function () {
+            // El reporte puede venir de un EQUIPO o de un AUXILIAR (al poner inoperativo
+            // una fila aux embebida). Ambos handlers son idempotentes: cada uno actua solo
+            // si su contexto esta pendiente, asi que llamarlos a ambos es seguro.
+            if (window.handleFallaCreatedAux)    window.handleFallaCreatedAux();
+            if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo();
+        },
         onClosed:  function () { if (window.loadEquipos) window.loadEquipos(); }
     };
 </script>
 {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}
+
+{{-- ═══════════════════════════════════════════════════════════
+     MAQUINARIA DE EQUIPOS AUXILIARES (reusada de /admin/equipos-auxiliares).
+     Da vida a las filas aux cuando el dropdown de Tipo esta en modo AUXILIAR:
+     modal de detalles, menu de estado, seleccion masiva, anclar y movilizar.
+     Recibe los tipos aux (labels) y el mapa de detalles inicial; $frentes ya
+     esta en scope (lo usa el modal de movilizacion).
+     ═══════════════════════════════════════════════════════════ --}}
+@include('admin.equipos_auxiliares.partials._machinery', [
+    'tipos'         => $tiposAux ?? [],
+    'auxDetailsMap' => ($auxEmbed['auxDetailsMap'] ?? []),
+])
+<script>
+    // En /admin/equipos el refresco de la lista tras mutar un auxiliar (cambiar estado,
+    // movilizar, anclar, borrar) NO usa cargarAuxiliares (atado a los filtros del modulo
+    // aux): reusa loadEquipos, que respeta el tipo aux + frente + busqueda actuales.
+    window.cargarAuxiliares = function () { if (window.loadEquipos) window.loadEquipos(); };
+
+    // Init: si se entra directo por URL con un tipo auxiliar (?id_tipo=tipo_aux:..),
+    // marcar el modo aux ya en la carga inicial para ocultar los controles de equipos
+    // que no aplican (loadEquipos lo re-togglea en cada navegacion AJAX).
+    document.body.classList.toggle('eq-aux-mode', {{ ($auxMode ?? false) ? 'true' : 'false' }});
+</script>
 
 @endsection
 @section('extra_js')
