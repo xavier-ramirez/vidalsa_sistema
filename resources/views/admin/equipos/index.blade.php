@@ -117,7 +117,10 @@
         {{-- =====================================================================
              FILTRO FRENTE: LOCAL = bloqueado | GLOBAL = dropdown con default real
              ===================================================================== --}}
-        <div class="filter-item aligned-filter">
+        {{-- Frente crece (flex:1.5, sin tope de 300px) para absorber el espacio que
+             antes quedaba muerto entre Filtros Avanzados y Acciones (a este ultimo se
+             le quito el margin-left:auto que empujaba ese hueco a la derecha). --}}
+        <div class="filter-item aligned-filter" style="flex: 1.5; max-width: none;">
             @php
                 $currentFrenteId = request('id_frente');
                 $currentFrente   = $currentFrenteId ? $frentes->firstWhere('ID_FRENTE', $currentFrenteId) : null;
@@ -668,7 +671,7 @@
 
         <!-- New Button -->
         <!-- Dropdown Menu Button (Acciones: Nuevo, Exportar, Movilización) -->
-        <div class="filter-item aligned-filter" style="position: relative; width: auto; flex: 0 0 auto; margin-left: auto;">
+        <div class="filter-item aligned-filter" style="position: relative; width: auto; flex: 0 0 auto;">
             
             <!-- Main Trigger Button -->
             <button type="button" id="btnAcciones" onclick="const sm = document.getElementById('splitDropdownMenu'); const p = document.getElementById('advancedFilterPanel'); if (p) p.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); sm.style.display = sm.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();" class="btn-primary-maquinaria" style="padding: 0 15px; height: 45px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
@@ -2523,8 +2526,10 @@
      esta en scope (lo usa el modal de movilizacion).
      ═══════════════════════════════════════════════════════════ --}}
 @include('admin.equipos_auxiliares.partials._machinery', [
-    'tipos'         => $tiposAux ?? [],
-    'auxDetailsMap' => ($auxEmbed['auxDetailsMap'] ?? []),
+    'tipos'             => $tiposAux ?? [],
+    'auxDetailsMap'     => ($auxEmbed['auxDetailsMap'] ?? []),
+    // En /admin/equipos NO se ofrece el boton "Anclar" para auxiliares (solo Asignar/Detalle).
+    'embeddedInEquipos' => true,
 ])
 <script>
     // En /admin/equipos el refresco de la lista tras mutar un auxiliar (cambiar estado,
