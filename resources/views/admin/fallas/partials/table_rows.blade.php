@@ -109,8 +109,7 @@
         {{-- Acciones --}}
         <div class="falla-actions" style="flex-direction: column; align-items: flex-end; gap:6px;">
             <div class="falla-reporto-desktop" style="font-size:11.5px; color:#64748b; text-align:right; line-height:1.2;">
-                Reportó:<br>
-                <span style="color:#1e293b; font-weight:700;">{{ $f->NOMBRE_REPORTA ?: '—' }}</span>
+                Reportó: <span style="color:#1e293b; font-weight:700;">{{ $f->NOMBRE_REPORTA ?: '—' }}</span>
             </div>
             <div class="falla-btn-stack" style="display:flex; gap:4px; align-items:center;">
                 @if($f->TIPO_REPORTE === 'extenso')
