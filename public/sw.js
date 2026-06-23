@@ -73,6 +73,7 @@ self.addEventListener('fetch', (event) => {
         url.pathname.includes('/acta-traslado') ||
         url.pathname === '/login' ||
         url.pathname === '/logout' ||
+        url.pathname === '/refresh-csrf' ||
         url.pathname === '/manifest.json'
     ) {
         return;

@@ -193,22 +193,30 @@
                 );
             }
 
-            // 1. Handshake: Request fresh security token
-            fetch('/refresh-csrf')
-                .then(response => response.text())
+            // 1. Handshake: pedir un token CSRF fresco.
+            //    cache:'no-store' es OBLIGATORIO: el HTML del login se sirve desde la
+            //    caché del Service Worker (token viejo), y si el navegador también
+            //    cacheara /refresh-csrf devolvería un token caducado -> 419 al primer
+            //    intento. Forzamos red para traer SIEMPRE el token de la sesión actual.
+            fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
+                .then(response => {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.text();
+                })
                 .then(newToken => {
-                    // 2. Inject new token into form
+                    // 2. Inyectar el token nuevo (validando que sea un token, no HTML
+                    //    de una página de error: evita romper el _token con basura).
+                    newToken = (newToken || '').trim();
                     const tokenInput = loginForm.querySelector('input[name="_token"]');
-                    if (tokenInput) {
+                    if (tokenInput && newToken && newToken.length < 100 && newToken.indexOf('<') === -1) {
                         tokenInput.value = newToken;
                     }
-                    
-                    // 3. Submit form securely
+                    // 3. Enviar
                     loginForm.submit();
                 })
                 .catch(error => {
                     console.error('Handshake failed:', error);
-                    // Fallback: submit anyway, let server decide
+                    // Fallback: enviar igual con el token del HTML, que el servidor decida.
                     loginForm.submit();
                 });
         });

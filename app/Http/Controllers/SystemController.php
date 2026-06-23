@@ -23,7 +23,13 @@ class SystemController extends Controller
 
     public function refreshCsrf()
     {
-        return csrf_token();
+        // El token DEBE viajar siempre fresco: si el navegador (o un proxy) cachea
+        // esta respuesta, el login inyectaría un token caducado -> 419. Forzamos
+        // no-store para que cada handshake traiga el token de la sesión vigente.
+        return response(csrf_token())
+            ->header('Content-Type', 'text/plain')
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
     }
 
     public function forceFixDb()
