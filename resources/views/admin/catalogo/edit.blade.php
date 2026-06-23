@@ -18,10 +18,10 @@
     }
 </style>
 <div class="cat-create-wrapper" style="max-width: 1100px; margin: 0 auto; padding: 0 12px;">
-    {{-- Título centrado (.page-title/.page-title-line2) --}}
     <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 16px;">
         <h1 class="page-title" style="text-align: center;">
-            <span class="page-title-line2" style="color: #000;">Edición: {{ $catalogo->MODELO }}</span>
+            <span class="page-title-line2" style="color: #000;">Edición Catálogo</span>
+            <span style="display:block;font-size:15px;font-weight:600;color:#64748b;margin-top:2px;">{{ $catalogo->MODELO }}</span>
         </h1>
     </div>
 
