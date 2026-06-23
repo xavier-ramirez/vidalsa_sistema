@@ -1467,6 +1467,7 @@ class AlmacenController extends Controller
         $lastCol   = $totalCol ?: ($stockCols ? end($stockCols) : 'E');
 
         // ── Encabezado: logo + título + meta ───────────────────────────────────
+        foreach ([1, 2, 3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
         $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
@@ -1492,8 +1493,6 @@ class AlmacenController extends Controller
             $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11);
         }
         $sheet->getStyle('F1:' . $lastCol . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        foreach ([1, 2, 3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
 
         $sheet->mergeCells('A4:' . $lastCol . '4');
         $sheet->setCellValue('A4', 'Exportado por: Sistema de Gestión de Equipos Operacionales — ' . optional($request->user())->NOMBRE_COMPLETO);

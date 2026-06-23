@@ -787,6 +787,10 @@ class EquipoController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
+        $sheet->getRowDimension(1)->setRowHeight(40);
+        $sheet->getRowDimension(2)->setRowHeight(40);
+        $sheet->getRowDimension(3)->setRowHeight(40);
+
         // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
         $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
@@ -838,10 +842,6 @@ class EquipoController extends Controller
         $sheet->getStyle($startEdicion.'3')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         $sheet->getStyle($startEdicion.'3')->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
         $sheet->getStyle($startEdicion.'3:'.$lastCol.'3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        $sheet->getRowDimension(1)->setRowHeight(40);
-        $sheet->getRowDimension(2)->setRowHeight(40);
-        $sheet->getRowDimension(3)->setRowHeight(40);
 
         // Fila 4 - Texto Exportado por
         $sheet->mergeCells('A4:'.$lastCol.'4');
@@ -3001,17 +3001,15 @@ class EquipoController extends Controller
 
             $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-            // Logo centrado en A1:A3 (trait ExcelLogoCorporativo)
-            $this->insertarLogoCorporativo($sheet, ['A'], [1,2,3], 90);
-
-            // Headers & Metadata
-            $sheet->mergeCells('A1:A3');
-            $sheet->getStyle('A1:A3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-            
-            // Ajustar altura de cabecera para atrapar el logo
+            // Alturas ANTES del logo para centrado correcto
             $sheet->getRowDimension(1)->setRowHeight(35);
             $sheet->getRowDimension(2)->setRowHeight(35);
             $sheet->getRowDimension(3)->setRowHeight(35);
+
+            // Logo centrado en A1:A3 (trait ExcelLogoCorporativo)
+            $sheet->mergeCells('A1:A3');
+            $sheet->getStyle('A1:A3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+            $this->insertarLogoCorporativo($sheet, ['A'], [1,2,3], 90);
 
             $sheet->mergeCells('B1:E3');
             $titleText = "ANÁLISIS ESTADÍSTICO DE FLOTA OPERACIONAL\nPROYECTO: \"{$frenteNombre}\"";
@@ -3624,15 +3622,14 @@ class EquipoController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
-
         $sheet->getRowDimension('1')->setRowHeight(35);
         $sheet->getRowDimension('2')->setRowHeight(35);
         $sheet->getRowDimension('3')->setRowHeight(35);
 
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         $subTitle = $nombreFrente !== 'TODOS LOS FRENTES' ? 'FRENTE: "' . $nombreFrente . '"' : 'TODOS LOS FRENTES';
         $titleText = "CONTROL DE EQUIPOS ANCLADOS\n" . $subTitle;

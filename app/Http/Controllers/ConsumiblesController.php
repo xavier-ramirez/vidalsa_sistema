@@ -753,9 +753,6 @@ class ConsumiblesController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
-
         $sheet->getRowDimension('1')->setRowHeight(35);
         $sheet->getRowDimension('2')->setRowHeight(35);
         $sheet->getRowDimension('3')->setRowHeight(35);
@@ -763,6 +760,8 @@ class ConsumiblesController extends Controller
         // Fila 1 a 3 - Título Empresa
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
         $sheet->mergeCells('C1:E3');
 
         $subTitle = $nombreFrente !== 'TODOS LOS FRENTES' ? 'PROYECTO: "' . $nombreFrente . '"' : 'REPORTE GENERAL';

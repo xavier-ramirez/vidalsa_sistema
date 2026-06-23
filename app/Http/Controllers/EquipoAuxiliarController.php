@@ -478,10 +478,15 @@ class EquipoAuxiliarController extends Controller
 
         $lastCol = 'I'; // 9 columnas
 
+        // Alturas de fila del encabezado (ANTES del logo para que el centrado vertical funcione)
+        $sheet->getRowDimension(1)->setRowHeight(40);
+        $sheet->getRowDimension(2)->setRowHeight(40);
+        $sheet->getRowDimension(3)->setRowHeight(40);
+
         // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         // Titulo central con filtros aplicados (C1:E3)
         $partes = [];
@@ -509,10 +514,6 @@ class EquipoAuxiliarController extends Controller
             $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
             $sheet->getStyle("F{$row}:{$lastCol}{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
         }
-
-        $sheet->getRowDimension(1)->setRowHeight(40);
-        $sheet->getRowDimension(2)->setRowHeight(40);
-        $sheet->getRowDimension(3)->setRowHeight(40);
 
         // Fila 4 - Exportado por
         $sheet->mergeCells("A4:{$lastCol}4");
@@ -560,7 +561,7 @@ class EquipoAuxiliarController extends Controller
         if ($row > 6) {
             $sheet->getStyle("A5:{$lastCol}" . ($row - 1))->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
-                ->getColor()->setARGB('FFCBD5E0');
+                ->getColor()->setARGB('FF000000');
         }
         foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
@@ -684,10 +685,13 @@ class EquipoAuxiliarController extends Controller
         $sheet->setTitle('Anclajes Auxiliares');
         $lastCol = 'I'; // 9 columnas
 
+        // Alturas de fila del encabezado (ANTES del logo para centrado vertical correcto)
+        foreach ([1,2,3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
+
         // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
-        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         // Titulo central (C1:E3)
         $sheet->mergeCells('C1:E3');
@@ -710,7 +714,6 @@ class EquipoAuxiliarController extends Controller
             $sheet->getStyle($cell)->getFont()->setBold(true)->setSize(11)->getColor()->setARGB(\PhpOffice\PhpSpreadsheet\Style\Color::COLOR_BLACK);
             $sheet->getStyle("F{$row}:{$lastCol}{$row}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
         }
-        foreach ([1,2,3] as $r) $sheet->getRowDimension($r)->setRowHeight(40);
 
         // Fila 4 — Exportado por
         $sheet->mergeCells("A4:{$lastCol}4");
@@ -783,7 +786,7 @@ class EquipoAuxiliarController extends Controller
         if ($row > 6) {
             $sheet->getStyle("A5:{$lastCol}" . ($row - 1))->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
-                ->getColor()->setARGB('FFCBD5E0');
+                ->getColor()->setARGB('FF000000');
         }
         foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
