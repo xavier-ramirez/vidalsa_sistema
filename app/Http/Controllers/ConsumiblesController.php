@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 class ConsumiblesController extends Controller
 {
+    use \App\Traits\ExcelLogoCorporativo;
+
     // ══════════════════════════════════════════════════════════════
     // INDEX — Lista + pendientes
     // ══════════════════════════════════════════════════════════════
@@ -751,22 +753,8 @@ class ConsumiblesController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        // Logo
-        $logoPath = public_path('img/imagen_uno.jpg');
-        if (file_exists($logoPath)) {
-            try {
-                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                $drawing->setName('Logo CVIDALSA');
-                $drawing->setDescription('Logo');
-                $drawing->setPath($logoPath);
-                $drawing->setCoordinates('A1');
-                $drawing->setOffsetX(45);
-                $drawing->setOffsetY(10);
-                $drawing->setHeight(100);
-                $drawing->setWorksheet($sheet);
-            } catch (\Exception $e) {
-            }
-        }
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         $sheet->getRowDimension('1')->setRowHeight(35);
         $sheet->getRowDimension('2')->setRowHeight(35);

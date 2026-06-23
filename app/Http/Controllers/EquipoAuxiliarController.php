@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 class EquipoAuxiliarController extends Controller
 {
-    use \App\Traits\ConvertsImageToWebp;
+    use \App\Traits\ConvertsImageToWebp, \App\Traits\ExcelLogoCorporativo;
 
     public function __construct()
     {
@@ -478,23 +478,8 @@ class EquipoAuxiliarController extends Controller
 
         $lastCol = 'I'; // 9 columnas
 
-        // Logo corporativo (A1:B3)
-        $logoPath = public_path('img/imagen_uno.jpg');
-        if (file_exists($logoPath)) {
-            try {
-                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                $drawing->setName('Logo CVIDALSA');
-                $drawing->setDescription('Logo');
-                $drawing->setPath($logoPath);
-                $drawing->setCoordinates('A1');
-                $drawing->setOffsetX(45);
-                $drawing->setOffsetY(12);
-                $drawing->setHeight(135);
-                $drawing->setWorksheet($sheet);
-            } catch (\Exception $e) {
-                // silently ignore
-            }
-        }
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 
@@ -699,17 +684,8 @@ class EquipoAuxiliarController extends Controller
         $sheet->setTitle('Anclajes Auxiliares');
         $lastCol = 'I'; // 9 columnas
 
-        // Logo (A1:B3)
-        $logoPath = public_path('img/imagen_uno.jpg');
-        if (file_exists($logoPath)) {
-            try {
-                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                $drawing->setName('Logo CVIDALSA')->setDescription('Logo')
-                    ->setPath($logoPath)->setCoordinates('A1')
-                    ->setOffsetX(45)->setOffsetY(12)->setHeight(135)
-                    ->setWorksheet($sheet);
-            } catch (\Exception $e) { /* silently ignore */ }
-        }
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
 

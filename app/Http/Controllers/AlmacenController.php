@@ -11,6 +11,7 @@ use App\Services\InventarioService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Traits\ExcelLogoCorporativo;
 use Throwable;
 
 /**
@@ -42,6 +43,8 @@ use Throwable;
  */
 class AlmacenController extends Controller
 {
+    use ExcelLogoCorporativo;
+
     public function __construct(
         private InventarioService $inventario,
         private \App\Services\TraspasoService $traspasos,
@@ -1466,23 +1469,7 @@ class AlmacenController extends Controller
         // ── Encabezado: logo + título + meta ───────────────────────────────────
         $sheet->mergeCells('A1:B3');
         $sheet->getStyle('A1:B3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB('FFFFFFFF');
-
-        $logoPath = public_path('img/imagen_uno.jpg');
-        if (file_exists($logoPath)) {
-            try {
-                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                $drawing->setName('Logo CVIDALSA');
-                $drawing->setDescription('Logo');
-                $drawing->setPath($logoPath);
-                $drawing->setCoordinates('A1');
-                $drawing->setOffsetX(45);
-                $drawing->setOffsetY(12);
-                $drawing->setHeight(110);
-                $drawing->setWorksheet($sheet);
-            } catch (\Throwable $e) {
-                // ignorar fallo de imagen
-            }
-        }
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         $sheet->mergeCells('C1:E3');
         $titleText = "COPIA DE INVENTARIO\n" . ($idAlmacenSel ? 'PROYECTO: "' . $tituloProyecto . '"' : 'COPIA DE BASE DE DATOS DEL INVENTARIO');

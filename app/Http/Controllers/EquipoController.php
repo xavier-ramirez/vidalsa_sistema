@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Log;
 
 class EquipoController extends Controller
 {
+    use \App\Traits\ExcelLogoCorporativo;
+
     /**
      * Filtros de documento → columna LINK_* en `documentacion`.
      * Fuente única para: (a) detectar qué filtros de doc están activos y
@@ -785,23 +787,8 @@ class EquipoController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        // Logo
-        $logoPath = public_path('img/imagen_uno.jpg');
-        if (file_exists($logoPath)) {
-            try {
-                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                $drawing->setName('Logo CVIDALSA');
-                $drawing->setDescription('Logo');
-                $drawing->setPath($logoPath);
-                $drawing->setCoordinates('A1');
-                $drawing->setOffsetX(45);
-                $drawing->setOffsetY(12);
-                $drawing->setHeight(135); // LOGO GIGANTE Y CENTRADO
-                $drawing->setWorksheet($sheet);
-            } catch (\Exception $e) {
-                // Silently ignore if image failed
-            }
-        }
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
         // +10 columnas de documentación: SÍ/NO + dato por cada uno (Tít.Prop+Titular /
@@ -3014,21 +3001,8 @@ class EquipoController extends Controller
 
             $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-            // LOGO
-            $logoPath = public_path('img/imagen_uno.jpg');
-            if (file_exists($logoPath)) {
-                try {
-                    $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                    $drawing->setName('Logo CVIDALSA');
-                    $drawing->setDescription('Logo');
-                    $drawing->setPath($logoPath);
-                    $drawing->setCoordinates('A1');
-                    $drawing->setOffsetX(5);
-                    $drawing->setOffsetY(8);
-                    $drawing->setHeight(90);
-                    $drawing->setWorksheet($sheet);
-                } catch (\Exception $e) { }
-            }
+            // Logo centrado en A1:A3 (trait ExcelLogoCorporativo)
+            $this->insertarLogoCorporativo($sheet, ['A'], [1,2,3], 90);
 
             // Headers & Metadata
             $sheet->mergeCells('A1:A3');
@@ -3650,21 +3624,8 @@ class EquipoController extends Controller
 
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
-        // ── Encabezado corporativo (mismo patron que ConsumiblesController::exportarCsv) ──
-        $logoPath = public_path('img/imagen_uno.jpg');
-        if (file_exists($logoPath)) {
-            try {
-                $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                $drawing->setName('Logo CVIDALSA');
-                $drawing->setDescription('Logo');
-                $drawing->setPath($logoPath);
-                $drawing->setCoordinates('A1');
-                $drawing->setOffsetX(45);
-                $drawing->setOffsetY(10);
-                $drawing->setHeight(100);
-                $drawing->setWorksheet($sheet);
-            } catch (\Exception $e) { /* silencioso si no puede cargarse */ }
-        }
+        // Logo centrado en A1:B3 (trait ExcelLogoCorporativo)
+        $this->insertarLogoCorporativo($sheet, ['A','B'], [1,2,3]);
 
         $sheet->getRowDimension('1')->setRowHeight(35);
         $sheet->getRowDimension('2')->setRowHeight(35);
