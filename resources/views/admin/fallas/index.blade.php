@@ -21,19 +21,27 @@
             }
 
             .falla-row-card {
-                grid-template-columns: 80px minmax(0, 1fr) !important;
-                padding: 10px 8px !important;
+                grid-template-columns: 62px minmax(0, 1fr) !important;
+                padding: 7px 8px !important;
+                gap: 8px !important;
                 align-items: start !important;
             }
 
             .falla-foto {
-                width: 80px !important;
-                height: 80px !important;
+                width: 62px !important;
+                height: 62px !important;
             }
 
             .falla-foto .material-icons {
-                font-size: 24px !important;
+                font-size: 20px !important;
             }
+
+            /* Líneas de la meta más juntas en móvil para comprimir la tarjeta. */
+            .falla-meta { gap: 2px !important; }
+            .falla-foto-col { gap: 3px !important; }
+            .falla-codigo { font-size: 9.5px !important; }
+            .falla-equipo { font-size: 13px !important; line-height: 1.2 !important; }
+            .falla-info { font-size: 11.5px !important; }
 
             /* En móvil la descripción pasa a ancho completo (no al lado) y, si es
                larga, se trunca a 2 líneas. Al tocar la tarjeta se expande (.falla-expanded). */
@@ -42,8 +50,10 @@
                 border-left: none !important;
                 padding-left: 0 !important;
                 border-top: 1px solid #f1f5f9;
-                padding-top: 8px !important;
-                margin-top: 6px !important;
+                padding-top: 5px !important;
+                margin-top: 4px !important;
+                font-size: 11.5px !important;
+                line-height: 1.3 !important;
                 display: -webkit-box;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
@@ -77,8 +87,8 @@
                 justify-content: flex-end !important;
                 align-items: center !important;
                 border-top: 1px solid #f1f5f9;
-                padding-top: 12px !important;
-                margin-top: 8px !important;
+                padding-top: 7px !important;
+                margin-top: 5px !important;
                 width: 100%;
             }
 
