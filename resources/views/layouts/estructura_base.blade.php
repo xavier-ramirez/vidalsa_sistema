@@ -447,15 +447,21 @@
             </div>
 
             @php
-                // URL de "Recepción" según el nivel del usuario:
-                //   LOCAL (no ve todos los frentes) → BANDEJA explícita (?force=1): su módulo
-                //     es confirmar lo que recibe. Sin el force igual cae en la bandeja, pero
-                //     dejamos la URL explícita para que SIEMPRE aterrice ahí.
-                //   GLOBAL → /recepcion (el controller lo redirige a "Entrada directa (ODC)").
+                // URL de "Recepción" según el nivel del usuario (veTodosLosFrentes == el MISMO
+                // criterio que Almacen::usuarioEsGlobal del controller, así no hay desfase):
+                //   LOCAL  → BANDEJA explícita (?force=1) PRESELECCIONADA a SU almacén (el
+                //     ligado a su frente, vía almacenPorDefecto). El id_almacen_destino en la
+                //     URL garantiza la preselección sin depender solo del merge del controller.
+                //   GLOBAL → /recepcion a secas → el controller lo redirige a "Entrada por
+                //     ODC". NO se le pone id_almacen_destino: si lo lleva, el controller NO
+                //     redirige a ODC (cuenta como filtro) y se quedaría en la bandeja.
                 // Se calcula una sola vez y se reutiliza en el menú desktop y móvil.
-                $recepcionUrl = (auth()->user() && !auth()->user()->veTodosLosFrentes())
-                    ? route('almacen.recepcion.index', ['force' => 1])
-                    : route('almacen.recepcion.index');
+                $__recUser     = auth()->user();
+                $__recEsGlobal = $__recUser && $__recUser->veTodosLosFrentes();
+                $__recAlmacen  = $__recUser ? $__recUser->almacenPorDefecto() : null; // almacén del frente
+                $recepcionUrl  = $__recEsGlobal
+                    ? route('almacen.recepcion.index')
+                    : route('almacen.recepcion.index', array_filter(['force' => 1, 'id_almacen_destino' => $__recAlmacen]));
             @endphp
             {{-- Almacén Dropdown: Inventario + Recepción (con badge si hay envíos pendientes) + Kardex --}}
             <div class="nav-dropdown">

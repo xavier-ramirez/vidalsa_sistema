@@ -10,7 +10,12 @@
 <div class="dtm-header">
     <div class="dtm-title-row">
         <span class="dtm-numero">{{ $neNumero }}</span>
+        {{-- El pill de estado solo se muestra cuando NO está "En tránsito" (en la bandeja
+             ya se sabe que está en tránsito; el cliente pidió quitar ese pill del modal).
+             Para notas confirmadas/canceladas (vistas vía "Todas") sí se muestra. --}}
+        @unless($traspaso->esEnviado())
         <span class="estado-pill" style="background:{{ $em[1] }};color:{{ $em[2] }};">{{ $em[0] }}</span>
+        @endunless
         <button type="button" class="dtm-close" onclick="window.trCloseModal()" title="Cerrar">
             <i class="material-icons">close</i>
         </button>
@@ -59,13 +64,6 @@
         </div>
     @endif
 
-    @if($puedeRecibir)
-        <div class="dtm-banner">
-            <i class="material-icons">pending_actions</i>
-            Revisa las cantidades y confirma la recepción.
-        </div>
-    @endif
-
     <div class="dtm-lineas-header">
         <span>Materiales</span>
         <span class="dtm-lineas-count">{{ $traspaso->lineas->count() }} líneas</span>
@@ -75,11 +73,16 @@
         <table class="dtm-table">
             <thead>
                 <tr>
+                    <th>#</th>
                     <th>Producto</th>
                     <th>Enviado</th>
                     <th>Recibido</th>
-                    <th>Dif.</th>
-                    <th>{{ $puedeRecibir ? 'Dañado' : 'Estado' }}</th>
+                    {{-- Las columnas Dif./Estado solo aplican a una nota ya cerrada (vista
+                         vía "Todas"). En la recepción activa, "Recibido" es un checkbox. --}}
+                    @unless($puedeRecibir)
+                        <th>Dif.</th>
+                        <th>Estado</th>
+                    @endunless
                 </tr>
             </thead>
             <tbody>
@@ -89,10 +92,11 @@
                         // Metadata visual del estado de línea — single source of truth en el modelo.
                         $el = \App\Models\TraspasoLinea::ESTADOS_META[$linea->ESTADO_LINEA] ?? \App\Models\TraspasoLinea::ESTADO_META_DEFAULT;
                         $cantEnvFmt = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, ',', '.'), '0'), ',');
-                        $cantEnvRaw = rtrim(rtrim(number_format((float) $linea->CANTIDAD_ENVIADA, 3, '.', ''), '0'), '.');
                     @endphp
-                    {{-- La clase .dtm-linea + data-* se conservan en el <tr>: el JS los usa. --}}
+                    {{-- La clase .dtm-linea + data-* se conservan en el <tr>: el JS los usa
+                         (data-enviada = cantidad que el checkbox confirma como recibida). --}}
                     <tr class="dtm-linea" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}">
+                        <td class="dtm-col-idx">{{ $loop->iteration }}</td>
                         <td class="dtm-td-prod">
                             <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
                             <span class="dtm-linea-nom">{{ optional($linea->producto)->NOMBRE }}</span>
@@ -100,9 +104,9 @@
                         </td>
                         <td class="dtm-col-num">{{ $cantEnvFmt }}</td>
                         @if($puedeRecibir)
-                            <td><input type="number" min="0" step="0.001" class="dtm-rec-input" value="{{ $cantEnvRaw }}"></td>
-                            <td><span class="dtm-diff-value">0</span></td>
-                            <td><input type="checkbox" class="dtm-rec-danado" title="Marcar como dañado"></td>
+                            {{-- Checkbox = recibido COMPLETO. Sin marcar = no recibido (faltante).
+                                 El JS (trCollectLineas) lee data-enviada según el check. --}}
+                            <td><input type="checkbox" class="dtm-rec-check" title="Marcar producto recibido completo"></td>
                         @elseif($traspaso->esRecibido() || $traspaso->esCancelado())
                             <td class="dtm-col-num" style="color:{{ $linea->CANTIDAD_RECIBIDA === null ? '#94a3b8' : ($diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#0f172a')) }};">{{ $linea->CANTIDAD_RECIBIDA === null ? '—' : rtrim(rtrim(number_format((float) $linea->CANTIDAD_RECIBIDA, 3, ',', '.'), '0'), ',') }}</td>
                             <td><span class="dtm-diff-value" style="color:{{ $diff < 0 ? '#dc2626' : ($diff > 0 ? '#1d4ed8' : '#64748b') }};">{{ $diff > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($diff, 3, ',', '.'), '0'), ',') }}</span></td>
@@ -126,11 +130,11 @@
             <i class="material-icons">block</i> Cancelar
         </button>
         <div style="flex:1;"></div>
-        <button type="button" class="dt-btn dt-btn-confirm-all" onclick="window.trModalTodoOk()">
-            <i class="material-icons">done_all</i> Todo OK
-        </button>
-        <button type="button" class="dt-btn dt-btn-primary" onclick="window.trModalConfirmar()">
-            <i class="material-icons">check_circle</i> Confirmar
+        {{-- Un solo botón: marca TODAS las filas como recibidas y confirma (caso común
+             "llegó todo"). Para una recepción parcial: marca solo las filas que llegaron
+             y cierra el modal → se guarda como parcial (ver window.trCloseModal). --}}
+        <button type="button" class="dt-btn dt-btn-primary" onclick="window.trModalConfirmarTodo()">
+            <i class="material-icons">check_circle</i> Confirmar todo
         </button>
     @elseif($puedeEnviar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>

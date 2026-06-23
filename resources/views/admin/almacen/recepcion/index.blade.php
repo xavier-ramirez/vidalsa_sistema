@@ -67,7 +67,7 @@
         </div>
     </div>
     {{-- Fila 2: Tabs de navegación --}}
-    <div style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
+    <div class="tr-tabs" style="display:flex;gap:0;margin-top:12px;border-bottom:2px solid #e2e8f0;">
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
            style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;text-decoration:none;transition:all .15s;">
             <i class="material-icons" style="font-size:16px;">inbox</i> Bandeja de entrada
@@ -76,7 +76,7 @@
         <a href="{{ route('almacen.recepcion.nueva') }}"
            style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;"
            onmouseenter="this.style.color='#0067b1'" onmouseleave="this.style.color='#64748b'">
-            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada directa (ODC)
+            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada por ODC
         </a>
         @endcan
     </div>
@@ -88,8 +88,7 @@
     /* Toolbar de filtros */
     #trFilters {
         display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-        padding:10px 14px; margin-bottom:12px;
-        background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+        margin-bottom:12px;
     }
     #trFilters .tr-item { flex:1 1 220px; min-width:180px; max-width:300px; }
     #trFilters .tr-search-num  { flex:1 1 280px; max-width:400px; min-width:200px; position:relative; }
@@ -97,15 +96,19 @@
     .tr-search-box.active { border-color:#0067b1; background:#e1effa; }
     .tr-search-box i.lupa { padding:0 10px; color:#64748b; font-size:18px; }
     .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:8px 5px; font-size:13px; min-width:0; color:#0f172a; }
-    /* Filtros en línea (Estado / Desde / Hasta) — misma altura (40px) que el buscador. */
+    /* Filtro Estado (custom-dropdown) — misma altura (40px) que el buscador. */
     #trFilters .tr-filter-estado { flex:0 1 180px; min-width:150px; max-width:220px; }
-    #trFilters .tr-filter-fecha  { flex:0 1 170px; min-width:140px; max-width:200px; }
-    .tr-filter-input { width:100%; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; outline:none; box-sizing:border-box; }
-    .tr-filter-input:focus { border-color:#0067b1; }
+    /* Cajas de fecha (Desde/Hasta), ahora dentro del panel "Filtros avanzados". */
     .tr-date-box { display:flex; align-items:center; gap:5px; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; cursor:pointer; box-sizing:border-box; }
     .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
-    .tr-date-box .tr-date-label { font-size:12px; font-weight:600; color:#64748b; pointer-events:none; white-space:nowrap; }
     .tr-date-box input[type=date] { flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:12px; outline:none; color:#0f172a; cursor:pointer; }
+
+    /* Panel "Filtros avanzados": Desde/Hasta en 2 columnas (lado a lado). El min-width:0
+       en las celdas deja que los inputs de fecha encojan y NO se desborden del panel. */
+    .tr-adv-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .tr-adv-grid > div { min-width:0; }
+    .tr-adv-grid .tr-date-box { padding:0 6px; gap:4px; }
+    .tr-adv-grid .tr-date-box input[type=date] { font-size:11px; }
 
     /* Dropdown de sugerencias */
     .tr-suggest {
@@ -140,17 +143,21 @@
     .tr-stats-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
     .tr-stats-title { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; opacity:0.8; margin-bottom:10px; }
     .tr-stats-title i { font-size:14px; }
-    .tr-stats-row { display:flex; align-items:center; gap:8px; }
-    .tr-stats-hero { display:flex; flex-direction:column; align-items:center; background:rgba(255,255,255,0.15); padding:8px 6px; border-radius:10px; min-width:72px; }
-    .tr-stats-hero-num { font-size:34px; font-weight:800; line-height:1; }
-    .tr-stats-hero-lbl { font-size:11px; opacity:0.85; font-weight:700; margin-top:2px; text-transform:uppercase; letter-spacing:.3px; }
-    .tr-stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:4px; flex:1; }
+    /* Las 3 métricas, TODAS del mismo tamaño: grid de 3 columnas iguales. */
+    .tr-stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
     /* Icono AL LADO del número (en fila); el label cae a su propia línea debajo
        (flex:1 1 100% lo fuerza al siguiente renglón). */
-    .tr-stats-sub { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px 6px; padding:8px 4px; border-radius:8px; text-align:center; }
+    /* Cada métrica: contenido centrado (icono+número en una línea, label debajo),
+       clicable para filtrar la bandeja. */
+    .tr-stats-sub { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:3px 6px; padding:8px 4px; border-radius:8px; text-align:center; cursor:pointer; user-select:none; transition:transform .12s ease, box-shadow .15s ease, filter .15s ease; }
     .tr-stats-sub i { font-size:18px; }
-    .tr-stats-sub strong { font-weight:800; font-size:18px; color:#fff; }
+    .tr-stats-sub strong { flex:0 0 auto; font-weight:800; font-size:18px; color:#fff; }
     .tr-stats-sub span { flex:1 1 100%; font-size:10px; opacity:0.9; font-weight:700; text-transform:uppercase; line-height:1.1; }
+    .tr-stats-sub:hover { filter:brightness(1.18); }
+    .tr-stats-sub:active { transform:scale(0.96); }
+    /* Métrica activa: anillo blanco que resalta sobre el gradiente azul. */
+    .tr-stats-sub.active { box-shadow:0 0 0 2px rgba(255,255,255,0.95), 0 4px 10px rgba(0,0,0,0.18); }
+    .tr-sub-rev { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); }
     .tr-sub-rec { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.25); }
     .tr-sub-urg { background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.3); }
     /* Mobile: el panel (tarjeta con gradiente) sube ARRIBA de la tabla, full-width. */
@@ -162,9 +169,9 @@
     /* Tabla */
     .tr-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
     .tr-table thead tr { background:#1e293b; }
-    .tr-table thead th { text-align:left; color:#fff; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
+    .tr-table thead th { text-align:center; color:#fff; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; padding:10px 14px; border-right:1px solid #334155; border-bottom:2px solid #0f172a; white-space:nowrap; }
     .tr-table thead th:last-child { border-right:none; }
-    .tr-table tbody td { padding:11px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; }
+    .tr-table tbody td { padding:11px 14px; color:#000; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; text-align:center; vertical-align:middle; }
     .tr-table tbody td:last-child { border-right:none; }
     .tr-table tbody tr:hover td { background:#e0f2fe; cursor:pointer; }
     .tr-table tbody tr:nth-child(even) td { background:#fafbfc; }
@@ -180,8 +187,8 @@
     }
     .dtm-overlay.open { display:flex; }
     .dtm-box {
-        background:#fff; border-radius:16px; width:100%; max-width:700px;
-        max-height:90vh; display:flex; flex-direction:column; overflow:hidden;
+        background:#fff; border-radius:16px; width:100%; max-width:600px;
+        max-height:95vh; min-height:60vh; display:flex; flex-direction:column; overflow:hidden;
         box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
         animation: dtmIn .2s ease-out;
     }
@@ -227,18 +234,17 @@
     .dtm-table tbody tr:hover td { background:#f8fafc; }
     .dtm-td-prod { text-align:left !important; min-width:0; }
     .dtm-td-prod .dtm-linea-cod, .dtm-td-prod .dtm-linea-nom, .dtm-td-prod .dtm-linea-um { display:inline; }
-    .dtm-linea-cod { font-family:monospace; font-weight:800; font-size:11.5px; color:#0f172a; }
-    .dtm-linea-nom { font-size:12.5px; font-weight:600; color:#334155; margin-left:4px; }
-    .dtm-linea-um { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-left:4px; }
-    .dtm-col-num { font-family:monospace; font-weight:700; font-size:13.5px; color:#0f172a; white-space:nowrap; }
-    .dtm-rec-input {
-        width:72px; max-width:100%; height:30px; border:1px solid #93c5fd; border-radius:6px;
-        padding:0 4px; font-size:13px; font-weight:700; background:#eff6ff;
-        outline:none; color:#1e3a5f; text-align:center; font-family:monospace;
-    }
-    .dtm-rec-input:focus { border-color:#3b82f6; background:#fff; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
-    .dtm-diff-value { font-size:13px; font-weight:700; font-family:monospace; color:#64748b; }
-    .dtm-rec-danado { width:17px; height:17px; margin:0; accent-color:#b45309; cursor:pointer; }
+    /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), para que
+       código, nombre, UM y cantidades se vean uniformes (pedido del cliente). */
+    .dtm-linea-cod { font-weight:700; font-size:13px; color:#0f172a; }
+    .dtm-linea-nom { font-size:13px; font-weight:500; color:#334155; margin-left:4px; }
+    .dtm-linea-um { font-size:13px; font-weight:500; color:#94a3b8; text-transform:uppercase; margin-left:4px; }
+    .dtm-col-num { font-weight:600; font-size:13px; color:#0f172a; white-space:nowrap; }
+    /* Columna "#": numeración de filas, gris y discreta. */
+    .dtm-col-idx { font-size:13px; font-weight:700; color:#94a3b8; width:1%; white-space:nowrap; }
+    /* Recibido = checkbox por fila (marcado = recibido completo). Verde como "OK". */
+    .dtm-rec-check { width:19px; height:19px; margin:0; accent-color:#16a34a; cursor:pointer; }
+    .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
 
     .dtm-footer {
         display:flex; align-items:center; gap:8px; flex-wrap:wrap;
@@ -254,11 +260,9 @@
     .dt-btn i { font-size:17px; }
     .dt-btn-cancel { background:#fff; color:#dc2626; border:1px solid #fca5a5; }
     .dt-btn-cancel:hover { background:#fee2e2; border-color:#dc2626; }
-    .dt-btn-confirm-all { background:#065f46; color:#fff; border:none; }
-    .dt-btn-confirm-all:hover { background:#064e3b; }
     .dt-btn-primary { background:#16a34a; color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(22,163,74,0.3); }
     .dt-btn-primary:hover { background:#15803d; }
-    .dt-btn-primary:active, .dt-btn-confirm-all:active { transform:scale(0.98); }
+    .dt-btn-primary:active { transform:scale(0.98); }
     .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
     .dt-btn-blue:hover { background:#005391; }
 
@@ -271,9 +275,8 @@
         /* Materiales (tabla): celdas y fuentes más compactas para el ancho del teléfono. */
         .dtm-table { font-size:12px; }
         .dtm-table thead th, .dtm-table tbody td { padding:5px 4px; }
-        .dtm-col-num, .dtm-diff-value { font-size:12px; }
-        .dtm-linea-nom { font-size:11.5px; }
-        .dtm-rec-input { width:54px; height:28px; font-size:12px; }
+        /* Misma letra (12px) para TODO el texto de la tabla también en móvil. */
+        .dtm-col-num, .dtm-diff-value, .dtm-linea-cod, .dtm-linea-nom, .dtm-linea-um, .dtm-col-idx { font-size:12px; }
     }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/almacen ──
@@ -304,13 +307,17 @@
         /* Cabecera apilada para que el selector de almacen destino ocupe todo el ancho */
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
+        /* …pero las 2 pestañas (Bandeja de entrada / Entrada por ODC) van LADO A LADO,
+           no apiladas: revertimos la columna solo para la fila de tabs y repartimos el
+           ancho 50/50 con el texto centrado. */
+        .page-title-card > div.tr-tabs { flex-direction: row !important; gap: 0 !important; }
+        .tr-tabs a { flex: 1 1 0 !important; justify-content: center !important; padding-left: 8px !important; padding-right: 8px !important; }
 
         /* Filtros en mobile: buscador y Estado a fila completa; Desde/Hasta lado a
            lado; el botón Limpiar (40x40) cierra la fila de fechas. */
         #trFilters { gap: 8px !important; }
         #trFilters > .tr-search-num    { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
-        #trFilters > .tr-filter-estado { flex: 1 1 100% !important; max-width: none !important; }
-        #trFilters > .tr-filter-fecha  { flex: 1 1 0 !important; min-width: 0 !important; }
+        #trFilters > .tr-filter-estado { flex: 1 1 0 !important; max-width: none !important; }
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Recepción (bandeja)
@@ -377,7 +384,12 @@
             border: none !important;
             background: transparent !important;
             font-size: 12.5px !important;
+            /* En la TARJETA móvil el contenido va a la izquierda (el centrado es solo
+               para la tabla de escritorio). El Estado (td:3) se realínea a la derecha
+               más abajo; el Origen/Destino vuelve a flex-start. */
+            text-align: left !important;
         }
+        .tr-table tbody tr[data-id] .tr-ruta-dest { justify-content: flex-start !important; }
 
         /* td:1 = Nº TR-... (esquina sup-izq, monospace destacado) */
         .tr-table tbody tr[data-id] td:nth-child(1) {
@@ -436,7 +448,7 @@
         <div class="tr-item tr-search-num">
             <div class="tr-search-box {{ $reqSearch ? 'active' : '' }}">
                 <i class="material-icons lupa">search</i>
-                <input type="text" id="trSearch" autocomplete="off" placeholder="N° de nota (NE-… o TR-…)" value="{{ $reqSearch }}"
+                <input type="text" id="trSearch" autocomplete="off" placeholder="Buscar por número de nota de entrega" value="{{ $reqSearch }}"
                        oninput="window.trSearchInput()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trSearchSuggest'); if(s) s.classList.remove('open'); }, 150);">
             </div>
@@ -449,32 +461,82 @@
         {{-- Filtros en línea, al lado del buscador (antes vivían en un panel "Filtros
              Avanzados" desplegable). Mismo border/radius/altura (40px) que el buscador.
              Azul = filtro activo: en Estado, "En tránsito" es el default → se ve blanco. --}}
+        {{-- Filtro Estado con el mismo custom-dropdown que el resto de la app (igual que
+             "Almacén destino" del header). El <select> nativo se reemplazó para unificar
+             el estilo. Azul = filtro activo (cualquier estado distinto del default "En
+             tránsito"). selectOption actualiza el hidden input y dispara 'dropdown-selection'
+             → trLoad (ver listener abajo). --}}
+        @php
+            $reqEstadoLabel = $badgesEstado[$reqEstado][0] ?? ($reqEstado === 'all' ? 'Todas' : 'Estado');
+            $estadoActivo   = $reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO;
+        @endphp
         <div class="tr-item tr-filter-estado">
-            <select id="trEstado" onchange="window.trLoad()" class="tr-filter-input"
-                    title="Estado de la nota"
-                    style="cursor:pointer;background:{{ $reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO ? '#e1effa' : '#fff' }};">
-                @foreach($badgesEstado as $k => $b)
-                    <option value="{{ $k }}" {{ $reqEstado === $k ? 'selected' : '' }}>{{ $b[0] }}</option>
-                @endforeach
-                <option value="all" {{ $reqEstado === 'all' ? 'selected' : '' }}>Todas (historial)</option>
-            </select>
-        </div>
-        {{-- Las cajas de fecha envuelven el input para que el clic en CUALQUIER parte
-             abra el picker nativo via showPicker() — sin apuntar al iconito chiquito. --}}
-        <div class="tr-item tr-filter-fecha">
-            <div id="trDesdeBox" class="tr-date-box" style="background:{{ $reqDesde ? '#e1effa' : '#fff' }};"
-                 onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                <i class="material-icons">event</i>
-                <span class="tr-date-label">Desde</span>
-                <input type="date" id="trDesde" value="{{ $reqDesde }}" onchange="window.trLoad()">
+            <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado" data-default-label="Estado">
+                <input type="hidden" name="estado" data-filter-value value="{{ $reqEstado }}">
+                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:{{ $estadoActivo ? '#e1effa' : '#fff' }};overflow:hidden;border:1px solid {{ $estadoActivo ? '#0067b1' : '#cbd5e0' }};border-radius:8px;height:40px;">
+                    <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
+                           placeholder="{{ $reqEstadoLabel }}"
+                           style="flex:1;border:none;background:transparent;padding:8px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
+                           oninput="window.filterDropdownOptions(this)">
+                    {{-- X = "ver TODAS las notas" (estado=all). El selectOption global la
+                         muestra/oculta solo: visible con un estado concreto, oculta en 'all'. --}}
+                    <i class="material-icons" data-clear-btn title="Ver todas las notas"
+                       style="padding:0 6px;color:#64748b;font-size:18px;cursor:pointer;transform:none !important;display:{{ $reqEstado !== '' && $reqEstado !== 'all' ? 'block' : 'none' }};"
+                       onclick="event.stopPropagation(); selectOption('trEstadoDropdown','all','Todas');">close</i>
+                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;pointer-events:none;transform:none !important;">expand_more</i>
+                </div>
+                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                    <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                        {{-- Solo los estados accionables de la recepción: En tránsito (pendiente),
+                             Confirmada y Confirmada parcial. Se omiten:
+                               • BORRADOR  → estado del almacén que EMITE; nunca llega al que recibe.
+                               • CANCELADO → la nota cancelada deshace todo (reversa el stock), no
+                                             es algo que se filtre en la bandeja.
+                             "Todas" tampoco es un item: se obtiene con la X de arriba (estado=all),
+                             que sí incluye las canceladas como historial completo. --}}
+                        @foreach($badgesEstado as $k => $b)
+                            @continue($k === \App\Models\Traspaso::ESTADO_BORRADOR || $k === \App\Models\Traspaso::ESTADO_CANCELADO)
+                            <div class="dropdown-item {{ $reqEstado === $k ? 'selected' : '' }}" data-value="{{ $k }}"
+                                 onclick="selectOption('trEstadoDropdown','{{ $k }}','{{ addslashes($b[0]) }}');">{{ $b[0] }}</div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="tr-item tr-filter-fecha">
-            <div id="trHastaBox" class="tr-date-box" style="background:{{ $reqHasta ? '#e1effa' : '#fff' }};"
-                 onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
-                <i class="material-icons">event</i>
-                <span class="tr-date-label">Hasta</span>
-                <input type="date" id="trHasta" value="{{ $reqHasta }}" onchange="window.trLoad()">
+        {{-- Filtros avanzados (Desde/Hasta + atajos de rango) dentro de un panel — mismo
+             patrón que /admin/equipos: un botón filter_list que abre el panel. Rojo si hay
+             alguna fecha activa. Cierra al hacer clic fuera (ver listener abajo). --}}
+        @php $fechasActivas = $reqDesde || $reqHasta; @endphp
+        <div style="position:relative;flex:0 0 auto;">
+            <button type="button" id="trAdvBtn" class="btn-primary-maquinaria"
+                    style="height:40px;width:40px;min-width:40px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:8px;background:{{ $fechasActivas ? '#fee2e2' : '#fff' }};border:1px solid {{ $fechasActivas ? '#ef4444' : '#cbd5e0' }};color:{{ $fechasActivas ? '#ef4444' : '#64748b' }};box-shadow:none;"
+                    onclick="window.trToggleAdvanced(event)" title="Filtros avanzados">
+                <i class="material-icons" style="font-size:20px;">filter_list</i>
+            </button>
+            <div id="trAdvPanel" style="display:none;position:absolute;top:100%;right:0;width:300px;max-width:calc(100vw - 20px);box-sizing:border-box;background:#e2e8f0;border-radius:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);border:1px solid #cbd5e1;z-index:100;margin-top:10px;padding:15px;">
+                <h4 style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
+                    Filtros avanzados
+                    <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;" onclick="window.trClearFechas()">Limpiar</span>
+                </h4>
+                {{-- Desde / Hasta lado a lado (2 columnas). --}}
+                <div class="tr-adv-grid">
+                    <div>
+                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Desde</span>
+                        <div id="trDesdeBox" class="tr-date-box" style="width:100%;box-sizing:border-box;background:{{ $reqDesde ? '#e1effa' : '#fff' }};"
+                             onclick="var i=document.getElementById('trDesde'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                            <i class="material-icons">event</i>
+                            <input type="date" id="trDesde" value="{{ $reqDesde }}" onchange="window.trResetKpi(); window.trLoad()">
+                        </div>
+                    </div>
+                    <div>
+                        <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Hasta</span>
+                        <div id="trHastaBox" class="tr-date-box" style="width:100%;box-sizing:border-box;background:{{ $reqHasta ? '#e1effa' : '#fff' }};"
+                             onclick="var i=document.getElementById('trHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
+                            <i class="material-icons">event</i>
+                            <input type="date" id="trHasta" value="{{ $reqHasta }}" onchange="window.trResetKpi(); window.trLoad()">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -507,22 +569,26 @@
             <i class="material-icons tr-stats-bgicon">inbox</i>
             <div style="position:relative;z-index:2;">
                 <div class="tr-stats-title"><i class="material-icons">inbox</i> Resumen de la bandeja</div>
+                {{-- 3 métricas del MISMO tamaño (grid de 3 columnas): icono al lado del
+                     número, label debajo. --}}
                 <div class="tr-stats-row">
-                    <div class="tr-stats-hero" title="Notas pendientes de confirmar">
-                        <span class="tr-stats-hero-num">{{ $bandejaStats['por_revisar'] ?? 0 }}</span>
-                        <span class="tr-stats-hero-lbl">Por revisar</span>
+                    <div class="tr-stats-sub tr-sub-rev" data-kpi="por_revisar" role="button" tabindex="0"
+                         onclick="window.trKpiFilter('por_revisar')" title="Notas pendientes de confirmar — clic para ver todas">
+                        <i class="material-icons" style="color:#fff;">pending_actions</i>
+                        <strong>{{ $bandejaStats['por_revisar'] ?? 0 }}</strong>
+                        <span>Por revisar</span>
                     </div>
-                    <div class="tr-stats-grid">
-                        <div class="tr-stats-sub tr-sub-rec" title="Llegadas en las últimas 24 h">
-                            <i class="material-icons" style="color:#22c55e;">bolt</i>
-                            <strong>{{ $bandejaStats['recientes'] ?? 0 }}</strong>
-                            <span>Recientes 24h</span>
-                        </div>
-                        <div class="tr-stats-sub tr-sub-urg" title="Esperando más de 3 días">
-                            <i class="material-icons" style="color:#f59e0b;">priority_high</i>
-                            <strong>{{ $bandejaStats['urgentes'] ?? 0 }}</strong>
-                            <span>Urgentes +3d</span>
-                        </div>
+                    <div class="tr-stats-sub tr-sub-rec" data-kpi="recientes" role="button" tabindex="0"
+                         onclick="window.trKpiFilter('recientes')" title="Llegadas en las últimas 24 h — clic para filtrar">
+                        <i class="material-icons" style="color:#22c55e;">bolt</i>
+                        <strong>{{ $bandejaStats['recientes'] ?? 0 }}</strong>
+                        <span>Recientes 24h</span>
+                    </div>
+                    <div class="tr-stats-sub tr-sub-urg" data-kpi="urgentes" role="button" tabindex="0"
+                         onclick="window.trKpiFilter('urgentes')" title="Esperando más de 3 días — clic para filtrar">
+                        <i class="material-icons" style="color:#f59e0b;">priority_high</i>
+                        <strong>{{ $bandejaStats['urgentes'] ?? 0 }}</strong>
+                        <span>Urgentes +3d</span>
                     </div>
                 </div>
             </div>
@@ -545,6 +611,11 @@
     // autocomplete sin pedir un endpoint extra.
     var TR_NUMEROS = @json($numerosNotas ?? []);
 
+    // KPI activo del panel "Resumen de la bandeja": '' | 'por_revisar' | 'recientes' |
+    // 'urgentes'. Solo 'recientes'/'urgentes' se mandan al backend (filtro datetime);
+    // 'por_revisar' = vista default de pendientes (sin parámetro extra).
+    var _trKpi = '';
+
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
     // Lectura de los hidden inputs de los custom-dropdown (por atributo data-filter-value).
@@ -561,6 +632,7 @@
         var input = el('trSearch');
         var box   = el('trSearchSuggest');
         if (!input || !box) return;
+        window.trResetKpi(); // buscar por nota sale del modo KPI
         var q = String(input.value || '').trim().toUpperCase();
 
         // Si el campo está vacío cerramos el panel de sugerencias y recargamos la tabla (para quitar el filtro).
@@ -607,7 +679,8 @@
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
 
-        if (v('trEstado'))                                 p.set('estado', v('trEstado'));
+        // Estado: ahora es un custom-dropdown → se lee del hidden input (data-filter-value).
+        if (hv('estado'))                                  p.set('estado', hv('estado'));
         // El "Almacén destino" ahora vive en el dropdown del header (no en el panel
         // avanzado). Se lee del hidden input que el custom-dropdown mantiene.
         // Pasar `all` explícito para que el controller NO re-aplique el default
@@ -616,18 +689,18 @@
         if (dest)                                          p.set('id_almacen_destino', dest);
         if (v('trDesde'))                                  p.set('desde', v('trDesde'));
         if (v('trHasta'))                                  p.set('hasta', v('trHasta'));
+        // KPI del panel (solo recientes/urgentes llevan su ventana de tiempo al backend).
+        if (_trKpi === 'recientes' || _trKpi === 'urgentes') p.set('kpi', _trKpi);
         if (pageUrl) { try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {} }
         return p;
     }
 
-    // Refresca el tinte azul de cada filtro en línea (Estado / Desde / Hasta) según si
-    // tiene un valor activo. Se llama en trLoad para mantener UI = estado.
+    // Refresca el tinte azul de los filtros de FECHA (Desde / Hasta) según si tienen valor.
+    // El Estado ahora es un custom-dropdown que maneja su propio estado activo (azul en el
+    // trigger desde el render). Se llama en trLoad para mantener UI = estado.
     function trUpdateChips() {
         var paint = function (id, on) { var e = el(id); if (e) e.style.background = on ? '#e1effa' : '#fff'; };
         var sel   = function (id) { var e = el(id); return e ? e.value : ''; };
-        // "En tránsito" (ENVIADO) es el estado por defecto → NO cuenta como filtro activo.
-        var hasEst = sel('trEstado')  && sel('trEstado')  !== '{{ \App\Models\Traspaso::ESTADO_ENVIADO }}';
-        paint('trEstado',   hasEst);
         paint('trDesdeBox', !!sel('trDesde'));
         paint('trHastaBox', !!sel('trHasta'));
     }
@@ -658,9 +731,14 @@
     // ── Modal de detalle/recepción ──────────────────────────────────
     var DETALLE_URL = @json(url('/admin/almacen/recepcion'));
     var _trModalId  = null;
+    // Evita doble guardado: lo ponen en true las acciones explícitas (confirmar/
+    // cancelar/enviar) ANTES de postear, para que el cierre del modal que disparan
+    // al terminar no vuelva a auto-guardar. Se resetea al abrir un modal nuevo.
+    var _trModalSubmitted = false;
 
     window.trOpenModal = function (id) {
         _trModalId = id;
+        _trModalSubmitted = false;
         var overlay = el('trDetalleOverlay');
         var box     = el('trDetalleBox');
         if (!overlay || !box) return;
@@ -673,7 +751,6 @@
             .then(function (data) {
                 box.innerHTML = data.html || '';
                 _trModalId = data.id || id;
-                trInitDiffCalc();
             })
             .catch(function () {
                 box.innerHTML = '<div style="padding:40px;text-align:center;color:#dc2626;font-weight:600;">No se pudo cargar el detalle.</div>';
@@ -681,46 +758,40 @@
     };
 
     window.trCloseModal = function () {
+        // Auto-guardado PARCIAL al cerrar: si el modal es una recepción activa (tiene
+        // checkboxes), hay AL MENOS una fila marcada y no se confirmó/canceló ya con un
+        // botón (_trModalSubmitted), al cerrar se guarda lo marcado (las no marcadas
+        // quedan como faltante → el backend la marca "Confirmada parcial"). Si no hay
+        // nada marcado, cerrar NO guarda nada (evita confirmaciones accidentales).
+        var box = el('trDetalleBox');
+        if (!_trModalSubmitted && box && box.querySelector('.dtm-rec-check:checked')) {
+            window.trModalConfirmar(); // postea (marca _trModalSubmitted) y al terminar reentra aquí para cerrar
+            return;
+        }
         var overlay = el('trDetalleOverlay');
         if (overlay) overlay.classList.remove('open');
         document.body.style.overflow = '';
         _trModalId = null;
+        _trModalSubmitted = false;
     };
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') window.trCloseModal();
     });
 
-    function trInitDiffCalc() {
-        var box = el('trDetalleBox');
-        if (!box) return;
-        box.querySelectorAll('.dtm-linea').forEach(function (card) {
-            var input = card.querySelector('.dtm-rec-input');
-            var diffEl = card.querySelector('.dtm-diff-value');
-            if (!input || !diffEl) return;
-            var enviada = parseFloat(card.dataset.enviada) || 0;
-            input.addEventListener('input', function () {
-                var rec = parseFloat(input.value) || 0;
-                var d = rec - enviada;
-                diffEl.textContent = d > 0 ? '+' + d.toFixed(3).replace(/\.?0+$/, '') : d.toFixed(3).replace(/\.?0+$/, '');
-                diffEl.style.color = d < 0 ? '#dc2626' : (d > 0 ? '#1d4ed8' : '#64748b');
-            });
-        });
-    }
-
+    // Lee el estado de los checkboxes: marcado = recibido COMPLETO (cantidad enviada),
+    // sin marcar = no recibido (0 → el backend lo registra como faltante).
     function trCollectLineas() {
         var box = el('trDetalleBox');
         if (!box) return [];
         var lineas = [];
         box.querySelectorAll('.dtm-linea').forEach(function (card) {
-            var inp = card.querySelector('.dtm-rec-input');
-            var danado = card.querySelector('.dtm-rec-danado');
-            var obj = {
+            var chk = card.querySelector('.dtm-rec-check');
+            var enviada = parseFloat(card.dataset.enviada) || 0;
+            lineas.push({
                 id_linea:          parseInt(card.dataset.idLinea),
-                cantidad_recibida: inp ? parseFloat(inp.value) || 0 : null,
-            };
-            if (danado && danado.checked) obj.estado = 'DANADO';
-            lineas.push(obj);
+                cantidad_recibida: (chk && chk.checked) ? enviada : 0,
+            });
         });
         return lineas;
     }
@@ -753,23 +824,20 @@
         .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
-    window.trModalTodoOk = function () {
+    // Botón "Confirmar todo": marca TODAS las filas como recibidas y confirma
+    // (caso común "llegó todo"). Para parcial, el usuario marca solo algunas y cierra.
+    window.trModalConfirmarTodo = function () {
         if (!_trModalId) return;
         var box = el('trDetalleBox');
-        if (box) {
-            box.querySelectorAll('.dtm-rec-input').forEach(function (inp) {
-                var card = inp.closest('.dtm-linea');
-                if (card) inp.value = card.dataset.enviada || inp.value;
-                inp.dispatchEvent(new Event('input'));
-            });
-            box.querySelectorAll('.dtm-rec-danado').forEach(function (cb) { cb.checked = false; });
-        }
+        if (box) box.querySelectorAll('.dtm-rec-check').forEach(function (c) { c.checked = true; });
+        window.trModalConfirmar();
     };
 
     window.trModalConfirmar = function () {
         if (!_trModalId) return;
         var lineas = trCollectLineas();
         if (!lineas.length) return;
+        _trModalSubmitted = true;
         trModalPost(
             DETALLE_URL + '/' + _trModalId + '/recibir',
             { lineas: lineas },
@@ -780,6 +848,7 @@
     window.trModalCancelar = function (neNumero) {
         if (!_trModalId) return;
         if (!confirm('¿Cancelar la nota ' + (neNumero || _trModalId) + '? Esta acción no se puede deshacer.')) return;
+        _trModalSubmitted = true; // acción explícita → el cierre posterior no auto-guarda
         trModalPost(
             DETALLE_URL + '/' + _trModalId + '/cancelar',
             {},
@@ -789,6 +858,7 @@
 
     window.trModalEnviar = function () {
         if (!_trModalId) return;
+        _trModalSubmitted = true; // acción explícita → el cierre posterior no auto-guarda
         trModalPost(
             DETALLE_URL + '/' + _trModalId + '/enviar',
             {},
@@ -803,10 +873,74 @@
     }, true);
 
     // Los custom-dropdowns disparan 'dropdown-selection' cuando el usuario elige una
-    // opcion. Recargamos la tabla cuando cambia el almacen destino (header).
+    // opcion. Recargamos la tabla al cambiar el almacen destino (header) o el Estado.
     window.addEventListener('dropdown-selection', function (e) {
         var id = e.detail && e.detail.dropdownId;
-        if (id === 'trDestHeaderDropdown') window.trLoad();
+        // Cambiar Estado/Almacén a mano sale del modo KPI (trKpiFilter fija el Estado
+        // sin emitir este evento, así que no se auto-resetea solo).
+        if (id === 'trDestHeaderDropdown' || id === 'trEstadoDropdown') { window.trResetKpi(); window.trLoad(); }
+    });
+
+    // ── Panel "Filtros avanzados" (botón filter_list, patrón /admin/equipos) ──
+    window.trToggleAdvanced = function (ev) {
+        if (ev) ev.stopPropagation();
+        var p = el('trAdvPanel'); if (!p) return;
+        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    };
+    window.trClearFechas = function () {
+        ['trDesde', 'trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        window.trResetKpi();
+        window.trLoad();
+    };
+
+    // ── KPIs del panel "Resumen de la bandeja" (clic → filtra la bandeja) ──
+    // Resalta la métrica activa (anillo blanco) en el panel.
+    function trPaintKpi() {
+        document.querySelectorAll('.tr-stats-sub[data-kpi]').forEach(function (c) {
+            c.classList.toggle('active', _trKpi !== '' && c.dataset.kpi === _trKpi);
+        });
+    }
+    // Sale del modo KPI (lo llaman búsqueda/fechas/estado al cambiar a mano).
+    window.trResetKpi = function () { _trKpi = ''; trPaintKpi(); };
+
+    // Fija el dropdown de Estado en "En tránsito" SOLO visualmente (hidden + placeholder
+    // + color default), sin emitir 'dropdown-selection' para no recargar dos veces.
+    function trSetEstadoEnviado() {
+        var hidden = document.querySelector('#trEstadoDropdown input[name="estado"][data-filter-value]');
+        if (hidden) hidden.value = 'ENVIADO';
+        var trigger = document.querySelector('#trEstadoDropdown .dropdown-trigger');
+        if (trigger) { trigger.style.background = '#fff'; trigger.style.borderColor = '#cbd5e0'; }
+        var search = document.querySelector('#trEstadoDropdown input[data-filter-search]');
+        if (search) { search.value = ''; search.placeholder = 'En tránsito'; }
+        var clearX = document.querySelector('#trEstadoDropdown [data-clear-btn]');
+        if (clearX) clearX.style.display = 'none';
+    }
+
+    // Clic en una métrica: filtra por ese criterio. Las 3 son de pendientes (ENVIADO);
+    // 'recientes'/'urgentes' añaden su ventana de tiempo (la calcula el backend con el
+    // mismo criterio que el conteo). 'por_revisar' = todas las pendientes.
+    window.trKpiFilter = function (kpi) {
+        _trKpi = kpi;
+        trSetEstadoEnviado();
+        ['trDesde', 'trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        trPaintKpi();
+        window.trLoad();
+    };
+
+    // Resaltado inicial según la URL (o 'por_revisar' = vista default de pendientes).
+    (function () {
+        var u = new URLSearchParams(window.location.search);
+        var k = u.get('kpi');
+        if (k === 'recientes' || k === 'urgentes') _trKpi = k;
+        else if (!u.get('desde') && !u.get('hasta') && (!u.get('estado') || u.get('estado') === 'ENVIADO')) _trKpi = 'por_revisar';
+        trPaintKpi();
+    })();
+    // Cerrar el panel al hacer clic fuera (ni en el panel ni en su botón).
+    document.addEventListener('click', function (e) {
+        var p = el('trAdvPanel');
+        if (p && p.style.display === 'block' && !e.target.closest('#trAdvPanel') && !e.target.closest('#trAdvBtn')) {
+            p.style.display = 'none';
+        }
     });
 })();
 </script>

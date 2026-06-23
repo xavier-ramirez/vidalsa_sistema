@@ -91,7 +91,7 @@ class TraspasoController extends Controller
             $user !== null
             && ! $request->wantsJson()
             && ! $request->boolean('force')
-            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta'])
+            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'desde', 'hasta', 'kpi'])
             && Almacen::usuarioEsGlobal($user)
         ) {
             return redirect()->route('almacen.recepcion.nueva');
@@ -137,10 +137,26 @@ class TraspasoController extends Controller
         // filtro encima → al elegir cualquier estado distinto de ENVIADO la consulta
         // quedaba ESTADO=ENVIADO AND ESTADO=X = 0 resultados. Ese era el bug: el filtro
         // solo "funcionaba" para En tránsito y devolvía vacío para los demás estados.
-        if (!$request->filled('estado')) {
+        // Atajo desde los KPIs del panel "Resumen de la bandeja": "Recientes 24h" y
+        // "Urgentes +3d" son SIEMPRE sobre pendientes (ENVIADO), igual que su conteo en
+        // $bandejaStats. Por eso fuerzan el estado a ENVIADO (sobrescriben cualquier
+        // 'estado' pedido, incluido all) y se resuelve aquí mismo para NO duplicar el
+        // WHERE ESTADO. El filtro de estado normal (default ENVIADO / estado elegido /
+        // all=historial) aplica solo cuando NO hay un KPI activo.
+        $kpi = $request->input('kpi');
+        $kpiPendiente = $kpi === 'recientes' || $kpi === 'urgentes';
+        if ($kpiPendiente || !$request->filled('estado')) {
             $q->where('ESTADO', Traspaso::ESTADO_ENVIADO);
         } elseif ($request->input('estado') !== 'all') {
             $q->where('ESTADO', $request->string('estado'));
+        }
+        // Ventana temporal del KPI: MISMO criterio (datetime) que usa $bandejaStats, así
+        // al tocar la métrica se ven EXACTAMENTE esas notas.
+        if ($kpiPendiente) {
+            $q->whereRaw(
+                'COALESCE(FECHA_ENVIO, created_at) ' . ($kpi === 'recientes' ? '>=' : '<=') . ' ?',
+                [$kpi === 'recientes' ? now()->subDay() : now()->subDays(3)]
+            );
         }
         if ($request->filled('id_almacen_origen') && $request->input('id_almacen_origen') !== 'all') {
             $q->where('ID_ALMACEN_ORIGEN', $request->integer('id_almacen_origen'));

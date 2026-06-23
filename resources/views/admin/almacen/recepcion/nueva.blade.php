@@ -1,6 +1,6 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Entrada directa (ODC)')
+@section('title', 'Entrada por ODC')
 
 @section('content')
 {{-- ────────────────────────────────────────────────────────────────
@@ -48,13 +48,13 @@
             <i class="material-icons" style="font-size:16px;">inbox</i> Bandeja de entrada
         </a>
         <span style="display:flex;align-items:center;gap:6px;padding:8px 20px;font-size:13px;font-weight:700;color:#0067b1;border-bottom:2px solid #0067b1;margin-bottom:-2px;">
-            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada directa<span class="ent-txt-full"> (ODC)</span>
+            <i class="material-icons" style="font-size:16px;">add_circle_outline</i> Entrada<span class="ent-txt-full"> por ODC</span>
         </span>
     </div>
 </section>
 
 <style>
-    /* ── Entrada directa (ODC) — layout single-column estilo WMS ── */
+    /* ── Entrada por ODC — layout single-column estilo WMS ── */
     .ent-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; box-shadow:0 4px 12px rgba(15,23,42,0.04); }
 
     /* Cabecera del lote: N° Doc | Proveedor | Fecha | Acciones en una sola fila. */

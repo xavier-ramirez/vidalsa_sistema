@@ -15,7 +15,7 @@
         </td>
         <td style="font-size:12px;">
             <div style="font-weight:700;color:#1e293b;">{{ optional($t->almacenOrigen)->NOMBRE ?: '—' }}@if(optional($t->almacenOrigen)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</div>
-            <div style="color:#64748b;display:flex;align-items:center;gap:3px;margin-top:1px;">
+            <div class="tr-ruta-dest" style="color:#64748b;display:flex;align-items:center;justify-content:center;gap:3px;margin-top:1px;">
                 <i class="material-icons" style="font-size:12px;color:#94a3b8;">south</i>
                 <span style="font-weight:600;">{{ optional($t->almacenDestino)->NOMBRE ?: '—' }}@if(optional($t->almacenDestino)->TIPO !== 'GENERAL') <span class="alm-tipo-p">P</span>@endif</span>
             </div>
@@ -27,7 +27,7 @@
             @if($t->FECHA_ENVIO)
                 {{ $t->FECHA_ENVIO->format('d/m/Y h:i A') }}
                 @if($t->esEnviado() && $horasDesdeEnvio !== null)
-                    <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+                    <div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:2px;">
                         @if($horasDesdeEnvio < 24)
                             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;" title="Hace menos de 24h"></span>
                         @elseif($horasDesdeEnvio < 72)
