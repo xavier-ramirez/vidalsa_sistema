@@ -238,7 +238,7 @@
                             style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px; border: none; background: transparent; color: #475569; font-size: 13px; font-weight: 700; cursor: pointer; text-align: left; transition: background 0.15s;"
                             onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
                             <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0284c7;">print</i></div>
-                            <span>Reimprimir Acta por Código</span>
+                            <span>Reimprimir Acta</span>
                         </button>
                     </div>
 
@@ -497,7 +497,6 @@ window.movDeshacer = function (id) {
                     <i class="material-icons" style="font-size:20px;">print</i>
                     <h2 style="margin:0; font-size:15px; font-weight:800;">Reimprimir Acta de Traslado</h2>
                 </div>
-                <p style="margin:0; font-size:12px; opacity:0.85;">Busca por N° de Operación del informe</p>
             </div>
             <button type="button" onclick="window.closeReimprimirActaModal()" aria-label="Cerrar"
                 style="background:rgba(255,255,255,0.15); border:none; color:white; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:absolute; top:10px; right:12px;">
@@ -531,7 +530,7 @@ window.movDeshacer = function (id) {
                 </button>
                 <button type="button" id="reimprimirSubmitBtn" onclick="window.submitReimprimirActa()"
                     style="padding:8px 16px; border-radius:8px; border:none; background:#1e293b; color:white; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                    <i class="material-icons" style="font-size:16px;">file_download</i> Generar
+                    <i class="material-icons" style="font-size:16px;">check</i> Aceptar
                 </button>
             </div>
         </div>
