@@ -562,6 +562,12 @@ class EquipoAuxiliarController extends Controller
             $sheet->getStyle("A5:{$lastCol}" . ($row - 1))->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setARGB('FF000000');
+            // Alinear TODA la data a la izquierda: por defecto PhpSpreadsheet alinea
+            // los valores numéricos (AÑO, código, capacidad) a la derecha y el texto a
+            // la izquierda, lo que dejaba columnas desparejas. Unificamos a la izquierda.
+            $sheet->getStyle("A6:{$lastCol}" . ($row - 1))->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)
+                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
         }
         foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
@@ -787,6 +793,11 @@ class EquipoAuxiliarController extends Controller
             $sheet->getStyle("A5:{$lastCol}" . ($row - 1))->getBorders()->getAllBorders()
                 ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)
                 ->getColor()->setARGB('FF000000');
+            // Alinear toda la data a la izquierda (los códigos/placas numéricos se irían
+            // a la derecha por defecto). Las columnas del host (A-E) ya están merged con
+            // centro vertical; este left las completa sin romper el merge.
+            $sheet->getStyle("A6:{$lastCol}" . ($row - 1))->getAlignment()
+                ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
         }
         foreach (range('A', $lastCol) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
