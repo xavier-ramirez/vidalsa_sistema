@@ -9,6 +9,7 @@
 
 <div class="dtm-header">
     <div class="dtm-title-row">
+        <i class="material-icons dtm-title-icon">receipt_long</i>
         <span class="dtm-numero">{{ $neNumero }}</span>
         {{-- El pill de estado solo se muestra cuando NO está "En tránsito" (en la bandeja
              ya se sabe que está en tránsito; el cliente pidió quitar ese pill del modal).
@@ -129,7 +130,6 @@
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">
             <i class="material-icons">block</i> Cancelar
         </button>
-        <div style="flex:1;"></div>
         {{-- Un solo botón: marca TODAS las filas como recibidas y confirma (caso común
              "llegó todo"). Para una recepción parcial: marca solo las filas que llegaron
              y cierra el modal → se guarda como parcial (ver window.trCloseModal). --}}
@@ -138,12 +138,10 @@
         </button>
     @elseif($puedeEnviar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>
-        <div style="flex:1;"></div>
         <button type="button" class="dt-btn dt-btn-blue" onclick="window.trModalEnviar()">
             <i class="material-icons">local_shipping</i> Enviar
         </button>
     @elseif($traspaso->esEnviado() && $puedeCancelar && auth()->user()->can('super.admin'))
-        <div style="flex:1;"></div>
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar y revertir</button>
     @endif
 </div>

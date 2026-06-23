@@ -4,10 +4,12 @@
 
 @section('content')
 @php
-    // Estado activo del filtro. Por defecto (sin parámetro) la bandeja muestra solo
-    // "En tránsito" (ENVIADO) = pendientes de confirmar. Debe coincidir con el default
-    // del TraspasoController@index para que el <select> refleje lo que realmente se ve.
-    $reqEstado     = request('estado', \App\Models\Traspaso::ESTADO_ENVIADO);
+    // Filtro de Estado. Por defecto (sin parámetro) la bandeja muestra solo "En tránsito"
+    // (ENVIADO) = pendientes de confirmar; ese default lo resuelve el TraspasoController@index
+    // server-side. El DROPDOWN, en cambio, arranca en BLANCO ("Estado", sin tinte azul ni X):
+    // pedido del cliente — no debe verse "filtrado" al abrir. El azul y la X aparecen solo
+    // cuando el usuario elige un estado concreto de la lista.
+    $reqEstado     = request('estado', '');
     // `idAlmacenDestinoActivo` lo provee el controller incluyendo el default-merge por frente
     // del usuario. Es la fuente de verdad — no usamos request('id_almacen_destino') porque
     // el merge del controller no siempre llega al helper global al renderizar el Blade.
@@ -98,6 +100,11 @@
     .tr-search-box input { flex:1; border:none; background:transparent; outline:none; padding:8px 5px; font-size:13px; min-width:0; color:#0f172a; }
     /* Filtro Estado (custom-dropdown) — misma altura (40px) que el buscador. */
     #trFilters .tr-filter-estado { flex:0 1 180px; min-width:150px; max-width:220px; }
+    /* Misma LETRA que los demás filtros del toolbar (13px): el global .dropdown-item es
+       14px y hacía que el texto del Estado (trigger + opciones) se viera más grande que el
+       buscador. Lo bajamos a 13px solo para este dropdown. */
+    #trEstadoDropdown .dropdown-trigger input,
+    #trEstadoDropdown .dropdown-item { font-size:13px; }
     /* Cajas de fecha (Desde/Hasta), ahora dentro del panel "Filtros avanzados". */
     .tr-date-box { display:flex; align-items:center; gap:5px; height:40px; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; cursor:pointer; box-sizing:border-box; }
     .tr-date-box i { font-size:16px; color:#94a3b8; pointer-events:none; }
@@ -187,31 +194,34 @@
     }
     .dtm-overlay.open { display:flex; }
     .dtm-box {
-        background:#fff; border-radius:16px; width:100%; max-width:600px;
+        background:#fff; border-radius:16px; width:100%; max-width:680px;
         max-height:95vh; min-height:60vh; display:flex; flex-direction:column; overflow:hidden;
         box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
         animation: dtmIn .2s ease-out;
     }
     @keyframes dtmIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-    .dtm-header { padding:16px 20px 12px; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
-    .dtm-title-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-    .dtm-numero { font-family:monospace; font-size:17px; font-weight:800; color:#0f172a; }
+    .dtm-header { padding:0; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
+    /* Barra superior estilo modal de Movilización: slate #1e293b, icono azul + número
+       centrados, botón cerrar absoluto a la derecha. Va a sangre (las esquinas las
+       redondea el overflow:hidden de .dtm-box). */
+    .dtm-title-row { position:relative; display:flex; align-items:center; justify-content:center; gap:9px; background:#1e293b; padding:15px 48px; }
+    .dtm-title-icon { color:#0067b1; font-size:19px; }
+    .dtm-numero { font-family:monospace; font-size:15px; font-weight:800; color:#fff; }
     .dtm-close {
-        margin-left:auto; background:transparent; border:none; cursor:pointer;
-        color:#64748b; padding:4px; border-radius:6px; transition:background .15s;
+        position:absolute; right:12px; top:50%; transform:translateY(-50%);
+        background:transparent; border:none; cursor:pointer;
+        color:#fff; opacity:.75; padding:4px; border-radius:6px; transition:opacity .15s;
     }
-    .dtm-close:hover { background:#f1f5f9; color:#0f172a; }
-    .dtm-meta { display:flex; flex-wrap:wrap; gap:0; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
-    .dtm-meta-item { flex:1 1 140px; padding:6px 10px; border-right:1px solid #e2e8f0; }
+    .dtm-close:hover { opacity:1; }
+    .dtm-meta { display:flex; flex-wrap:wrap; gap:0; margin:13px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+    .dtm-meta-item { flex:1 1 130px; padding:5px 9px; border-right:1px solid #e2e8f0; }
     .dtm-meta-item:last-child { border-right:none; }
-    .dtm-meta-label { display:block; font-size:9.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; }
-    .dtm-meta-value { font-size:12.5px; font-weight:600; color:#1e293b; }
-    .dtm-sub { font-size:11px; color:#94a3b8; font-weight:400; }
+    .dtm-meta-label { display:block; font-size:8.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; }
+    .dtm-meta-value { font-size:11px; font-weight:600; color:#1e293b; }
+    .dtm-sub { font-size:10px; color:#94a3b8; font-weight:400; }
 
     .dtm-body { flex:1; overflow-y:auto; padding:14px 20px; }
     .dtm-notas { display:flex; align-items:flex-start; gap:6px; padding:8px 10px; background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; font-size:12.5px; color:#92400e; margin-bottom:10px; }
-    .dtm-banner { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; font-size:12.5px; font-weight:600; color:#1e40af; margin-bottom:10px; }
-    .dtm-banner i { font-size:18px; }
     .dtm-lineas-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
     .dtm-lineas-header span:first-child { font-size:12px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
     .dtm-lineas-count { font-size:11px; font-weight:800; color:#0067b1; background:#e1effa; padding:2px 8px; border-radius:999px; }
@@ -247,17 +257,17 @@
     .dtm-diff-value { font-size:13px; font-weight:600; color:#64748b; }
 
     .dtm-footer {
-        display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-        padding:12px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
+        display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
+        padding:14px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
         background:#f8fafc;
     }
     .dt-btn {
-        height:40px; padding:0 16px; border-radius:10px; cursor:pointer;
-        font-size:13px; font-weight:700; letter-spacing:.2px;
-        display:inline-flex; align-items:center; gap:5px;
+        height:44px; padding:0 22px; border-radius:10px; cursor:pointer;
+        font-size:13.5px; font-weight:700; letter-spacing:.2px;
+        display:inline-flex; align-items:center; justify-content:center; gap:6px;
         transition:background .15s, transform .1s;
     }
-    .dt-btn i { font-size:17px; }
+    .dt-btn i { font-size:18px; }
     .dt-btn-cancel { background:#fff; color:#dc2626; border:1px solid #fca5a5; }
     .dt-btn-cancel:hover { background:#fee2e2; border-color:#dc2626; }
     .dt-btn-primary { background:#16a34a; color:#fff; border:none; box-shadow:0 4px 8px -2px rgba(22,163,74,0.3); }
@@ -467,8 +477,10 @@
              tránsito"). selectOption actualiza el hidden input y dispara 'dropdown-selection'
              → trLoad (ver listener abajo). --}}
         @php
+            // Activo (azul + X) = el usuario eligió un estado concreto. Blanco/sin X para el
+            // default (vacío) y para "all" (que selectOption global trata como neutro).
             $reqEstadoLabel = $badgesEstado[$reqEstado][0] ?? ($reqEstado === 'all' ? 'Todas' : 'Estado');
-            $estadoActivo   = $reqEstado !== \App\Models\Traspaso::ESTADO_ENVIADO;
+            $estadoActivo   = $reqEstado !== '' && $reqEstado !== 'all';
         @endphp
         <div class="tr-item tr-filter-estado">
             <div class="custom-dropdown" id="trEstadoDropdown" data-filter-type="estado" data-default-label="Estado">
@@ -478,11 +490,12 @@
                            placeholder="{{ $reqEstadoLabel }}"
                            style="flex:1;border:none;background:transparent;padding:8px 10px;font-size:13px;font-weight:600;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
                            oninput="window.filterDropdownOptions(this)">
-                    {{-- X = "ver TODAS las notas" (estado=all). El selectOption global la
-                         muestra/oculta solo: visible con un estado concreto, oculta en 'all'. --}}
-                    <i class="material-icons" data-clear-btn title="Ver todas las notas"
-                       style="padding:0 6px;color:#64748b;font-size:18px;cursor:pointer;transform:none !important;display:{{ $reqEstado !== '' && $reqEstado !== 'all' ? 'block' : 'none' }};"
-                       onclick="event.stopPropagation(); selectOption('trEstadoDropdown','all','Todas');">close</i>
+                    {{-- X = quitar el filtro de estado → vuelve al default (dropdown en blanco;
+                         la bandeja muestra "En tránsito"). El selectOption global la muestra
+                         solo cuando hay un estado concreto elegido. --}}
+                    <i class="material-icons" data-clear-btn title="Quitar filtro de estado"
+                       style="padding:0 6px;color:#64748b;font-size:18px;cursor:pointer;transform:none !important;display:{{ $estadoActivo ? 'block' : 'none' }};"
+                       onclick="event.stopPropagation(); selectOption('trEstadoDropdown','','Estado');">close</i>
                     <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;pointer-events:none;transform:none !important;">expand_more</i>
                 </div>
                 <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
@@ -492,8 +505,8 @@
                                • BORRADOR  → estado del almacén que EMITE; nunca llega al que recibe.
                                • CANCELADO → la nota cancelada deshace todo (reversa el stock), no
                                              es algo que se filtre en la bandeja.
-                             "Todas" tampoco es un item: se obtiene con la X de arriba (estado=all),
-                             que sí incluye las canceladas como historial completo. --}}
+                             La X de arriba NO es un estado: limpia el filtro y vuelve al default
+                             (dropdown en blanco → bandeja "En tránsito"). --}}
                         @foreach($badgesEstado as $k => $b)
                             @continue($k === \App\Models\Traspaso::ESTADO_BORRADOR || $k === \App\Models\Traspaso::ESTADO_CANCELADO)
                             <div class="dropdown-item {{ $reqEstado === $k ? 'selected' : '' }}" data-value="{{ $k }}"
@@ -903,15 +916,17 @@
     // Sale del modo KPI (lo llaman búsqueda/fechas/estado al cambiar a mano).
     window.trResetKpi = function () { _trKpi = ''; trPaintKpi(); };
 
-    // Fija el dropdown de Estado en "En tránsito" SOLO visualmente (hidden + placeholder
-    // + color default), sin emitir 'dropdown-selection' para no recargar dos veces.
-    function trSetEstadoEnviado() {
+    // Deja el dropdown de Estado en BLANCO ("Estado") SOLO visualmente (hidden vacío +
+    // placeholder + color neutro + sin X), sin emitir 'dropdown-selection' para no recargar
+    // dos veces. Lo usan los KPIs: filtran pendientes vía `kpi`, no vía estado, así que el
+    // dropdown debe verse sin filtro de estado activo.
+    function trSetEstadoDefault() {
         var hidden = document.querySelector('#trEstadoDropdown input[name="estado"][data-filter-value]');
-        if (hidden) hidden.value = 'ENVIADO';
+        if (hidden) hidden.value = '';
         var trigger = document.querySelector('#trEstadoDropdown .dropdown-trigger');
         if (trigger) { trigger.style.background = '#fff'; trigger.style.borderColor = '#cbd5e0'; }
         var search = document.querySelector('#trEstadoDropdown input[data-filter-search]');
-        if (search) { search.value = ''; search.placeholder = 'En tránsito'; }
+        if (search) { search.value = ''; search.placeholder = 'Estado'; }
         var clearX = document.querySelector('#trEstadoDropdown [data-clear-btn]');
         if (clearX) clearX.style.display = 'none';
     }
@@ -921,7 +936,7 @@
     // mismo criterio que el conteo). 'por_revisar' = todas las pendientes.
     window.trKpiFilter = function (kpi) {
         _trKpi = kpi;
-        trSetEstadoEnviado();
+        trSetEstadoDefault();
         ['trDesde', 'trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         trPaintKpi();
         window.trLoad();

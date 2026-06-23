@@ -590,19 +590,25 @@
                         </div>
                     </div>
                   </div>{{-- /col Tipo --}}
-                  <div style="min-width:0;">{{-- col Nota de entrega: filtra por N° de Nota de Entrega (salidas) o por
+                  <div style="min-width:0;position:relative;">{{-- col Nota de entrega: filtra por N° de Nota de Entrega (salidas) o por
                             la referencia del proveedor (entradas) — backend: NUMERO_NOTA / REFERENCIA.
-                            min-width:0 igual que Tipo: evita el desborde del grid. --}}
+                            min-width:0 igual que Tipo: evita el desborde del grid. position:relative
+                            ancla la lista de sugerencias (#almMovNotaSuggest) bajo el input. --}}
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Referencia</span>
                     <div style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
                         <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
                         <input type="text" id="almMovNota" autocomplete="off" placeholder="N° nota o referencia..." value="{{ $reqNota }}"
-                               oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none';"
-                               onkeyup="if(event.key==='Enter') window.loadMovimientos();" onchange="window.loadMovimientos()"
+                               oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none'; window.almMovNotaSuggest();"
+                               onfocus="window.almMovNotaSuggest()"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault(); window.almMovNotaSuggestHide(); window.loadMovimientos();} if(event.key==='Escape') window.almMovNotaSuggestHide();"
+                               onchange="window.loadMovimientos()"
                                style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;">
                         <i class="material-icons" id="almMovNotaClear" style="padding:0 6px;color:#64748b;font-size:18px;display:{{ $reqNota ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; window.loadMovimientos();">close</i>
+                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; window.almMovNotaSuggestHide(); window.loadMovimientos();">close</i>
                     </div>
+                    {{-- Sugerencias en vivo: N° de Nota de Entrega (NE-…) de salida en almacenes
+                         visibles. Mismo estilo (.amf-suggest) que el buscador de productos. --}}
+                    <div class="amf-suggest" id="almMovNotaSuggest"></div>
                   </div>{{-- /col Nota --}}
                 </div>
                 {{-- Desde + Hasta (2 columnas, mismo grid que Marca/Modelo en /admin/equipos) --}}
@@ -959,6 +965,45 @@
             return;
         }
         if (!e.target.closest('#almMovSearch') && !e.target.closest('#almMovSuggest')) window.almMovSuggestHide();
+    });
+
+    // ── Autocomplete del filtro "Nota de entrega" ──────────────────────────────
+    // Lista de N° de Nota de Entrega (NE-…) de salida en almacenes visibles — la pasa el
+    // controller a TODOS los usuarios (a diferencia de la del modal "Eliminar Nota", que
+    // va gateada). Sugiere por substring al escribir; clic en una → completa el filtro y
+    // recarga. Con el campo vacío (foco) muestra las más recientes.
+    window.almMovNotasFiltro = @json($notasFiltro ?? []);
+    window.almMovNotaSuggestHide = function () { var b = document.getElementById('almMovNotaSuggest'); if (b) b.classList.remove('open'); };
+    window.almMovNotaSuggest = function () {
+        var inp = document.getElementById('almMovNota'), box = document.getElementById('almMovNotaSuggest');
+        if (!inp || !box) return;
+        var q = String(inp.value || '').trim().toUpperCase();
+        var lista = window.almMovNotasFiltro || [];
+        var matches = q
+            ? lista.filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; }).slice(0, 12)
+            : lista.slice(0, 12);
+        if (!matches.length) {
+            box.innerHTML = '<div class="amf-suggest-empty">' + (q ? 'Sin Notas que coincidan.' : 'No hay Notas de Entrega.') + '</div>';
+        } else {
+            box.innerHTML = matches.map(function (n) {
+                var safe = String(n).replace(/[<>&"]/g, '');
+                return '<div class="amf-suggest-item" data-pick-nota="' + safe + '"><div class="amf-suggest-line"><span class="amf-suggest-cod">' + safe + '</span></div></div>';
+            }).join('');
+        }
+        box.classList.add('open');
+    };
+    // Delegación de clic en las sugerencias del filtro de Nota (mismo patrón que el buscador).
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('#almMovNotaSuggest .amf-suggest-item');
+        if (item) {
+            var inp = document.getElementById('almMovNota');
+            if (inp) inp.value = item.getAttribute('data-pick-nota') || '';
+            var clr = document.getElementById('almMovNotaClear'); if (clr) clr.style.display = (inp && inp.value) ? 'block' : 'none';
+            window.almMovNotaSuggestHide();
+            window.loadMovimientos();
+            return;
+        }
+        if (!e.target.closest('#almMovNota') && !e.target.closest('#almMovNotaSuggest')) window.almMovNotaSuggestHide();
     });
 
     // Selección en los custom-dropdown → recargar

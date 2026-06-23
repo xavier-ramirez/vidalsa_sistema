@@ -1871,11 +1871,12 @@
     {{-- max-width arranca angosto (fase de pegado: solo dropdown + textarea). El JS
          lo ensancha a 720px al pasar a resultados, donde la tabla necesita el ancho. --}}
     <div class="modal-content" style="width: 95%; max-width: 480px; max-height: 90vh; padding: 0; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
-        <!-- Header: título centrado; el botón Cerrar queda fijo a la derecha (absolute). -->
-        <div style="background: var(--maquinaria-dark-blue); padding: 10px 18px; display: flex; align-items: center; justify-content: center; position: relative;">
+        <!-- Header estilo modal de Movilización: barra slate #1e293b, ícono azul #0067b1
+             + título centrados; botón Cerrar fijo a la derecha (absolute). -->
+        <div style="background: #1e293b; padding: 14px 18px; display: flex; align-items: center; justify-content: center; position: relative;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="material-icons" style="font-size: 22px; color: white;">playlist_add_check</i>
-                <div style="font-size: 15px; font-weight: 700; color: white;">Búsqueda Masiva</div>
+                <i class="material-icons" style="font-size: 20px; color: #0067b1;">playlist_add_check</i>
+                <div style="font-size: 16px; font-weight: 700; color: white;">Búsqueda Masiva</div>
             </div>
             <button type="button" onclick="closeBulkLookupModal()"
                     title="Cerrar"

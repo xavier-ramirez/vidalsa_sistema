@@ -1023,22 +1023,24 @@ class AlmacenController extends Controller
         $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
             ? (int) $request->input('id_almacen')
             : null;
-        // Lista de N° de Nota de Entrega (NE-…) para el autocomplete del modal
-        // "Eliminar Nota": SOLO TIPO=SALIDA (eliminarNota() solo revierte ese tipo) y
-        // SOLO de almacenes visibles para el usuario (asi no se sugiere una Nota que
-        // luego assertPuedeVerAlmacen rechazaria). Se calcula unicamente si el usuario
-        // tiene la clave almacen.nota.eliminar; las 500 mas recientes bastan.
-        $numerosNotas = $request->user()?->can('almacen.nota.eliminar')
-            ? MovimientoInventario::query()
-                ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
-                ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
-                ->whereNotNull('NUMERO_NOTA')
-                ->where('NUMERO_NOTA', '!=', '')
-                ->distinct()
-                ->orderByDesc('NUMERO_NOTA')
-                ->limit(500)
-                ->pluck('NUMERO_NOTA')
-            : collect();
+        // Lista de N° de Nota de Entrega (NE-…) de SALIDA en almacenes visibles. Alimenta
+        // DOS autocompletes:
+        //   · el filtro "Nota de entrega" de la bitácora (para TODOS los usuarios), y
+        //   · el modal "Eliminar Nota" (solo quien tiene almacen.nota.eliminar).
+        // SOLO TIPO=SALIDA (las entradas no llevan NE; el filtro igual matchea REFERENCIA) y
+        // SOLO de almacenes visibles para el usuario (asi no se sugiere una Nota que luego
+        // assertPuedeVerAlmacen rechazaria). Las 500 mas recientes bastan.
+        $notasFiltro = MovimientoInventario::query()
+            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
+            ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
+            ->whereNotNull('NUMERO_NOTA')
+            ->where('NUMERO_NOTA', '!=', '')
+            ->distinct()
+            ->orderByDesc('NUMERO_NOTA')
+            ->limit(500)
+            ->pluck('NUMERO_NOTA');
+        // El modal "Eliminar Nota" usa la MISMA lista, pero solo si el usuario tiene la clave.
+        $numerosNotas = $request->user()?->can('almacen.nota.eliminar') ? $notasFiltro : collect();
 
         $frentesMovimientos = Almacen::usuarioEsGlobal($request->user())
             ? \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
@@ -1061,6 +1063,8 @@ class AlmacenController extends Controller
             'consumo'         => $this->consumoRanking($request),
             // Autocomplete del modal "Eliminar Nota" (ver $numerosNotas arriba).
             'numerosNotas'    => $numerosNotas,
+            // Autocomplete del filtro "Nota de entrega" de la bitácora (todos los usuarios).
+            'notasFiltro'     => $notasFiltro,
         ]);
     }
 
