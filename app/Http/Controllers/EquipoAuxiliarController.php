@@ -1513,62 +1513,6 @@ class EquipoAuxiliarController extends Controller
 
 
 
-    /**
-     * Lista las movilizaciones de auxiliares (movilizacion_historial filtrado
-     * por ID_AUXILIAR no nulo). Usado por el modal "Historial Movilizaciones"
-     * del menu Acciones del modulo /admin/equipos-auxiliares.
-     */
-    public function historialMovilizaciones(Request $request)
-    {
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-
-        $query = \App\Models\Movilizacion::with([
-                'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL',
-                'frenteOrigen:ID_FRENTE,NOMBRE_FRENTE',
-                'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
-            ])
-            ->whereNotNull('ID_AUXILIAR')
-            ->orderByDesc('created_at');
-
-        // Whitelist LOCAL: movimientos donde su frente es origen O destino.
-        if ($isLocalUser) {
-            if (count($frentesPermitidos) > 0) {
-                $query->where(function ($q) use ($frentesPermitidos) {
-                    $q->whereIn('ID_FRENTE_ORIGEN',  $frentesPermitidos)
-                      ->orWhereIn('ID_FRENTE_DESTINO', $frentesPermitidos);
-                });
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        }
-        // Blacklist (también GLOBAL): ocultar movimientos que TOQUEN un frente bloqueado
-        // (sea origen o destino). Los NULL (recepción inicial sin origen) se conservan.
-        $bloqueados = auth()->user() ? auth()->user()->getFrentesBloqueadosIds() : [];
-        if (!empty($bloqueados)) {
-            $query->where(fn ($q) => $q->whereNotIn('ID_FRENTE_ORIGEN', $bloqueados)->orWhereNull('ID_FRENTE_ORIGEN'))
-                  ->where(fn ($q) => $q->whereNotIn('ID_FRENTE_DESTINO', $bloqueados)->orWhereNull('ID_FRENTE_DESTINO'));
-        }
-
-        $tipos = $this->getTiposDinamicos();
-        $rows = $query->limit(500)->get()->map(function ($m) use ($tipos) {
-            $a = $m->auxiliar;
-            return [
-                'id'              => $m->ID_MOVILIZACION,
-                'codigo_control'  => $m->CODIGO_CONTROL,
-                'tipo_movimiento' => $m->TIPO_MOVIMIENTO,
-                'fecha'           => optional($m->created_at)->format('d/m/Y H:i'),
-                'usuario'         => $m->USUARIO_REGISTRO,
-                'frente_origen'   => optional($m->frenteOrigen)->NOMBRE_FRENTE,
-                'frente_destino'  => optional($m->frenteDestino)->NOMBRE_FRENTE,
-                'aux_tipo'        => $a ? ($tipos[$a->TIPO] ?? $a->TIPO) : null,
-                'aux_marca'       => optional($a)->MARCA,
-                'aux_modelo'      => optional($a)->MODELO,
-                'aux_serial'      => optional($a)->SERIAL,
-            ];
-        });
-
-        return response()->json(['success' => true, 'count' => $rows->count(), 'items' => $rows]);
-    }
 
     /**
      * Cambio rapido de estado operativo (inline desde la tabla del index).

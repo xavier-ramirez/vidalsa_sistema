@@ -504,12 +504,6 @@
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0284c7;">link</i></div>
                         <span>Ver Anclajes</span>
                     </a>
-                    <a href="#" onclick="event.preventDefault(); document.getElementById('auxAccionesDropdown').style.display='none'; window.openAuxHistorialMovModal();"
-                       style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
-                       onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
-                        <div style="background:#f0fdf4;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#16a34a;">history</i></div>
-                        <span>Historial Movilizaciones</span>
-                    </a>
                     <a href="#" onclick="event.preventDefault(); window.exportAuxiliaresXlsx(); document.getElementById('auxAccionesDropdown').style.display='none';"
                        style="display:flex;align-items:center;gap:10px;padding:12px 14px;text-decoration:none;color:#475569;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;"
                        onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='transparent'">
@@ -2583,78 +2577,6 @@
             document.getElementById('auxAnclajesLoading').style.display = 'none';
             document.getElementById('auxAnclajesBody').style.display = 'block';
             document.getElementById('auxAnclajesGrid').innerHTML = '<div style="grid-column:1/-1; text-align:center; color:#ef4444; padding:20px;">Error al cargar anclajes.</div>';
-        });
-    };
-
-    // ═══════════════════════════════════════════════════════════
-    // MODAL "HISTORIAL DE MOVILIZACIONES" — lista las movilizaciones de
-    // auxiliares (movilizacion_historial WHERE ID_AUXILIAR != null).
-    // ═══════════════════════════════════════════════════════════
-    window.openAuxHistorialMovModal = function () {
-        let modal = document.getElementById('auxHistMovModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'auxHistMovModal';
-            modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:10000;display:none;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
-            modal.innerHTML = '<div style="background:#fff;border-radius:14px;width:90%;max-width:780px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.3);">' +
-                '<div style="background:#1e293b;padding:14px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        '<i class="material-icons" style="color:#10b981;font-size:18px;">history</i>' +
-                        '<h3 style="margin:0;font-size:15px;font-weight:700;">Historial de Movilizaciones</h3>' +
-                        '<span id="auxHistMovCount" style="background:#10b981;color:white;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;">0</span>' +
-                    '</div>' +
-                    '<button type="button" onclick="document.getElementById(\'auxHistMovModal\').style.display=\'none\'" style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;"><i class="material-icons" style="font-size:18px;">close</i></button>' +
-                '</div>' +
-                '<div id="auxHistMovBody" style="padding:12px;overflow-y:auto;flex:1;background:#f8fafc;">' +
-                    '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:fleetSpin 1s linear infinite;font-size:24px;">refresh</i></div>' +
-                '</div>' +
-            '</div>';
-            document.body.appendChild(modal);
-            modal.addEventListener('click', function (e) { if (e.target === modal) modal.style.display = 'none'; });
-        }
-        modal.style.display = 'flex';
-        var body = document.getElementById('auxHistMovBody');
-        body.innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:fleetSpin 1s linear infinite;font-size:24px;">refresh</i> Cargando...</div>';
-
-        fetch('{{ route("equipos-auxiliares.historialMovilizaciones") }}', {
-            headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' },
-            credentials: 'same-origin'
-        })
-        .then(function (r) { return r.ok ? r.json() : Promise.reject('HTTP ' + r.status); })
-        .then(function (data) {
-            var items = Array.isArray(data.items) ? data.items : [];
-            var countBadge = document.getElementById('auxHistMovCount');
-            if (countBadge) countBadge.textContent = items.length;
-            if (items.length === 0) {
-                body.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;font-size:13px;"><i class="material-icons" style="font-size:34px;display:block;margin:0 auto 8px;">inbox</i>No hay movilizaciones de auxiliares registradas todavía.</div>';
-                return;
-            }
-            var esc = function (s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-            body.innerHTML = items.map(function (it) {
-                var auxLabel = it.aux_serial || ((it.aux_marca || '') + ' ' + (it.aux_modelo || '')).trim() || '#' + it.id;
-                return '<div style="background:white;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">' +
-                    '<div style="flex:1;min-width:200px;">' +
-                        '<div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">' + esc(it.aux_tipo || 'AUXILIAR') + '</div>' +
-                        '<div style="font-size:13px;font-weight:800;color:#1e293b;">' + esc(auxLabel) + '</div>' +
-                        (it.aux_marca || it.aux_modelo ? '<div style="font-size:11px;color:#64748b;">' + esc(it.aux_marca || '') + ' ' + esc(it.aux_modelo || '') + '</div>' : '') +
-                    '</div>' +
-                    '<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#475569;">' +
-                        '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-weight:700;">' + esc(it.frente_origen || '—') + '</span>' +
-                        '<i class="material-icons" style="font-size:14px;color:#94a3b8;">arrow_forward</i>' +
-                        '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-weight:700;">' + esc(it.frente_destino || '—') + '</span>' +
-                    '</div>' +
-                    '<div style="flex:0 0 100%;display:flex;flex-wrap:wrap;gap:8px;font-size:10.5px;color:#64748b;border-top:1px dashed #e2e8f0;padding-top:6px;margin-top:2px;">' +
-                        (it.codigo_control ? '<span><strong style="color:#0067b1;">' + esc(it.codigo_control) + '</strong></span>' : '<span style="color:#94a3b8;font-style:italic;">Sin acta</span>') +
-                        '<span><i class="material-icons" style="font-size:11px;vertical-align:middle;">person</i> ' + esc(it.usuario || 'SISTEMA') + '</span>' +
-                        '<span><i class="material-icons" style="font-size:11px;vertical-align:middle;">schedule</i> ' + esc(it.fecha) + '</span>' +
-                        '<span style="background:#e2e8f0;color:#475569;padding:1px 6px;border-radius:4px;font-weight:700;">' + esc(it.tipo_movimiento || 'ACT.') + '</span>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
-        })
-        .catch(function (err) {
-            console.error('openAuxHistorialMovModal:', err);
-            body.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:13px;">Error al cargar las movilizaciones.</div>';
         });
     };
 
