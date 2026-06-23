@@ -40,7 +40,10 @@
             .falla-meta { gap: 2px !important; }
             .falla-foto-col { gap: 3px !important; }
             .falla-codigo { font-size: 9.5px !important; }
-            .falla-equipo { font-size: 13px !important; line-height: 1.2 !important; }
+            /* Marca (hereda de .falla-equipo) y tipo más chicos en móvil. El tipo
+               tiene font-size inline; el !important del media query lo gana. */
+            .falla-equipo { font-size: 11.5px !important; line-height: 1.2 !important; }
+            .falla-eq-tipo { font-size: 10.5px !important; }
             .falla-info { font-size: 11.5px !important; }
 
             /* En móvil la descripción pasa a ancho completo (no al lado) y, si es
