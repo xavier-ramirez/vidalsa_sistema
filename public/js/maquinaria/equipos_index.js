@@ -1574,28 +1574,8 @@ window.openBulkModal = function (event) {
                 </div>
                 <input type="hidden" id="bm-frente-value">
             </div>
-            <!-- Ubicacion del frente NUEVO: aparece solo si el frente no existe. Animacion slide-in. -->
-            <div id="bm-ubicacion-wrapper"
-                 style="display:none; margin-top: 14px; overflow:hidden;">
-                <div style="background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%); border:1px solid #bfdbfe; border-left:4px solid #0067b1; border-radius:10px; padding:14px 14px; animation:bmSlideIn 0.28s cubic-bezier(0.16,1,0.3,1);">
-                    <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px;">
-                        <div style="width:32px; height:32px; border-radius:8px; background:#0067b1; color:white; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                            <i class="material-icons" style="font-size:18px;">add_location_alt</i>
-                        </div>
-                        <div style="flex:1; min-width:0;">
-                            <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;">Frente nuevo detectado</p>
-                            <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa la ubicación que saldrá en el PDF.</p>
-                        </div>
-                    </div>
-                    <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden; transition:border-color 0.2s, box-shadow 0.2s;" id="bm-ubicacion-box">
-                        <i class="material-icons" style="padding:0 10px; color:#0067b1; font-size:18px; flex-shrink:0;">location_on</i>
-                        <input type="text" id="bm-ubicacion-input"
-                            placeholder="Ej: PUERTO ORDAZ, BOLÍVAR"
-                            maxlength="150" autocomplete="off"
-                            style="flex:1; border:none; outline:none; padding:10px 6px; font-size:13.5px; background:transparent; text-transform:uppercase; color:#0f172a; letter-spacing:0.3px;">
-                    </div>
-                </div>
-            </div>
+            <!-- (Campo de ubicación inline eliminado: la ubicación del destino ahora se
+                 captura en el FORMULARIO del Acta de Traslado, no aquí.) -->
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <input type="checkbox" id="bm-generar-pdf" style="width: 16px; height: 16px; cursor: pointer; accent-color: #1e293b;">
                 <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; margin: 0;">
@@ -1612,14 +1592,6 @@ window.openBulkModal = function (event) {
     content.appendChild(header);
     content.appendChild(body);
     overlay.appendChild(content);
-
-    // Keyframe para el slide-in del campo ubicacion (inyectado una sola vez).
-    if (!document.getElementById('bm-slidein-keyframes')) {
-        const st = document.createElement('style');
-        st.id = 'bm-slidein-keyframes';
-        st.textContent = '@keyframes bmSlideIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } } #bm-ubicacion-box:focus-within { border-color: #0067b1 !important; box-shadow: 0 0 0 3px rgba(0,103,177,0.15) !important; }';
-        document.head.appendChild(st);
-    }
 
     document.body.appendChild(overlay);
 
@@ -1661,12 +1633,6 @@ window.openBulkModal = function (event) {
                     clearBtn.style.display = 'flex';
                     listBox.style.display = 'none';
                     inputBox.style.borderColor = '#0067b1';
-                    // Re-evaluar el picker de ubicacion: si el usuario abrio
-                    // "Frente nuevo" mientras escribia y luego selecciono uno
-                    // registrado de la lista, hay que ocultar el wrapper.
-                    // immediate=true: la seleccion es accion explicita, no
-                    // tiene sentido esperar 500ms aqui.
-                    toggleUbicacionPicker(true);
                 };
                 listBox.appendChild(item);
             });
@@ -1683,29 +1649,6 @@ window.openBulkModal = function (event) {
     const clearBtn = overlay.querySelector('#bm-frente-clear');
     const inputBox = overlay.querySelector('#bm-input-box');
 
-    // Helper: muestra/oculta el campo de UBICACION segun el texto tecleado.
-    // Trigger conditions (cualquiera):
-    //   1) El frente NO esta registrado (no hay match exacto por nombre).
-    //   2) El frente SI esta registrado pero su data-ubicacion esta vacia.
-    // Se ejecuta DEBOUNCED 500ms tras la ultima tecla para evitar el flicker
-    // de "Frente nuevo detectado" mientras el usuario aun esta escribiendo.
-    const ubicacionWrapper = overlay.querySelector('#bm-ubicacion-wrapper');
-    const ubicacionInput   = overlay.querySelector('#bm-ubicacion-input');
-    let _ubicTimer = null;
-    function toggleUbicacionPicker(immediate) {
-        const run = () => {
-            const typed = (searchInput.value || '').trim().toUpperCase();
-            if (!typed) { ubicacionWrapper.style.display = 'none'; return; }
-            const match = frentesData.find(f => (f.nombre || '').toUpperCase() === typed);
-            // Mostrar si: no hay match (frente nuevo) O match sin ubicacion en BD.
-            const needsUbicacion = !match || !match.ubicacion;
-            ubicacionWrapper.style.display = needsUbicacion ? 'block' : 'none';
-        };
-        clearTimeout(_ubicTimer);
-        if (immediate) { run(); return; }
-        _ubicTimer = setTimeout(run, 500);
-    }
-
     searchInput.addEventListener('focus', () => {
         inputBox.style.borderColor = '#0067b1';
         renderFrenteList(searchInput.value);
@@ -1714,10 +1657,6 @@ window.openBulkModal = function (event) {
         hiddenInput.value = searchInput.value.trim();
         clearBtn.style.display = searchInput.value ? 'flex' : 'none';
         renderFrenteList(searchInput.value);
-        // Mientras escribe, ocultamos el wrapper (limpio) y debounceamos la
-        // evaluacion. Asi nunca se ve un flicker entre tecla y tecla.
-        ubicacionWrapper.style.display = 'none';
-        toggleUbicacionPicker();
     });
     searchInput.addEventListener('blur', () => {
         setTimeout(() => { listBox.style.display = 'none'; inputBox.style.borderColor = '#e2e8f0'; }, 150);
@@ -1726,8 +1665,6 @@ window.openBulkModal = function (event) {
         searchInput.value = '';
         hiddenInput.value = '';
         clearBtn.style.display = 'none';
-        ubicacionWrapper.style.display = 'none';
-        ubicacionInput.value = '';
         searchInput.focus();
     });
 
@@ -1740,7 +1677,7 @@ window.openBulkModal = function (event) {
     overlay.querySelector("#bm-submit-btn").onclick = async function () {
         const dest = (hiddenInput.value || searchInput.value).trim();
         const generarPdfBox = overlay.querySelector("#bm-generar-pdf");
-        const generarPdf = generarPdfBox ? generarPdfBox.checked : true;
+        let generarPdf = generarPdfBox ? generarPdfBox.checked : true;
 
         if (!dest) {
             inputBox.style.borderColor = "#ef4444";
@@ -1748,26 +1685,17 @@ window.openBulkModal = function (event) {
             return;
         }
 
-        // Validar ubicacion si el frente es nuevo O si esta registrado pero
-        // sin ubicacion en BD (mismo criterio que dispara el wrapper).
+        // ¿El frente es nuevo (no existe) o existe pero sin ubicación en BD? La ubicación
+        // ya NO se pide con un campo inline: se captura en el FORMULARIO del Acta. Como es
+        // la única vía para capturarla, el acta es OBLIGATORIA en esos casos → forzamos el
+        // PDF y, más abajo, abrimos el editor directo (editarDirecto). Si el frente ya tiene
+        // ubicación en BD, se precarga la suya.
         const destUpper = dest.toUpperCase();
         const matchedFrente = frentesData.find(f => (f.nombre || '').toUpperCase() === destUpper);
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
-        let destUbicacion = '';
-        if (needsUbicacion) {
-            destUbicacion = (ubicacionInput.value || '').trim();
-            if (!destUbicacion) {
-                const box = overlay.querySelector('#bm-ubicacion-box');
-                if (box) box.style.borderColor = '#ef4444';
-                ubicacionInput.focus();
-                const msg = isNewFrente
-                    ? 'Ingresa detalle de ubicación (ciudad, zona, municipio y estado) que saldrán en el PDF.'
-                    : 'Este frente no tiene detalle de ubicación. Ingresa ciudad, zona, municipio y estado para el PDF.';
-                if (window.showToast) window.showToast(msg, 'error');
-                return;
-            }
-        }
+        const destUbicacion = needsUbicacion ? '' : (matchedFrente.ubicacion || '');
+        if (needsUbicacion) generarPdf = true;
 
         const btn = this;
         const ids = Object.keys(window.selectedEquipos);
@@ -1987,11 +1915,13 @@ window.openBulkModal = function (event) {
         }
         }; // ── fin ejecutarCommit ──
 
-        // Si se genera el Acta → VISTA PREVIA primero; el registro real
+        // Si se genera el Acta → VISTA PREVIA / EDITOR primero; el registro real
         // (ejecutarCommit) se dispara recién al "Confirmar" en la vista previa.
         // Si NO se genera acta (solo actualización de ubicación), se ejecuta directo.
+        //   editarDirecto: frente nuevo o sin ubicación → abre el FORMULARIO del acta de
+        //   una (para capturar ubicación + firmas) en vez de la vista previa del PDF.
         if (generarPdf) {
-            window._mostrarVistaPreviaActa(actaState, ejecutarCommit);
+            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: needsUbicacion });
             return;
         }
         ejecutarCommit();
@@ -2004,8 +1934,14 @@ window.openBulkModal = function (event) {
 // acta) frente de origen/destino y firmas (nombre/cargo/cédula); "Aceptar" re-genera
 // el PDF con esos cambios; "Confirmar" ejecuta el commit real
 // (onConfirm = ejecutarCommit) usando el estado editado (actaState).
-window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
+window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     var csrf = function () { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; };
+    // editarDirecto = abrir el FORMULARIO del acta de una (frente nuevo/sin ubicación),
+    // sin mostrar primero la vista previa del PDF. previewMostrada controla a dónde
+    // vuelve el botón "Cancelar" del editor: si nunca se mostró la previa (editarDirecto),
+    // "Cancelar" cierra el acta y regresa al modal de Movilización (que sigue detrás).
+    var editarDirecto = !!(opts && opts.editarDirecto);
+    var previewMostrada = false;
     var escA = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
 
     // N° de firmas efectivas del último PDF (header X-Acta-Firmas). 0 = el frente de
@@ -2159,6 +2095,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
 
     // ── Vista de PREVIEW: iframe (escritorio) / canvas (móvil) + [Editar | Confirmar] ──
     function renderPreview() {
+        previewMostrada = true; // ya hubo previa → el "Cancelar" del editor vuelve aquí
         if (cardEl) cardEl.style.maxWidth = '1100px'; // PDF: ancho para leerlo cómodo
         bodyEl.style.background = '#475569';
         if (esMovilPdf()) {
@@ -2323,7 +2260,13 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
             '<button type="button" id="mov-ed-cancel" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
             '<button type="button" id="mov-ed-apply" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check</i>Aceptar</button>';
 
-        footEl.querySelector('#mov-ed-cancel').onclick = renderPreview;
+        // "Cancelar": si ya se mostró la vista previa del PDF, vuelve a ella; si el editor
+        // se abrió directo (frente nuevo, sin previa), cierra el acta y regresa al modal de
+        // Movilización (que sigue detrás). NUNCA registra ni genera PDF.
+        footEl.querySelector('#mov-ed-cancel').onclick = function () {
+            if (previewMostrada) renderPreview();
+            else cerrar();
+        };
         footEl.querySelector('#mov-ed-apply').onclick = aplicarEdicion;
 
         // Agregar / quitar firma (delegación sobre #ed-firmas, que persiste).
@@ -2409,15 +2352,23 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm) {
         }
     }
 
-    renderPreview();
-
-    // Si el frente de ORIGEN no tiene responsables (0 firmas efectivas) y el usuario
-    // aún no las editó, abrimos el editor automáticamente con las filas REVISADO /
-    // APROBADO para que complete los datos que faltan — de forma proactiva, sin que
-    // tenga que descubrir que el acta saldría sin bloque de firma.
-    if (ultimaFirmasCount === 0 && actaState.firmas === null) {
-        sinResponsablesOrigen = true;
+    if (editarDirecto) {
+        // Frente nuevo/sin ubicación: abrir el FORMULARIO de una (sin previa primero), para
+        // capturar ubicación + firmas. Si el frente de ORIGEN no tiene responsables,
+        // sembramos las filas de firma igual que en el flujo normal.
+        if (ultimaFirmasCount === 0) sinResponsablesOrigen = true;
         abrirEditor();
+    } else {
+        renderPreview();
+
+        // Si el frente de ORIGEN no tiene responsables (0 firmas efectivas) y el usuario
+        // aún no las editó, abrimos el editor automáticamente con las filas REVISADO /
+        // APROBADO para que complete los datos que faltan — de forma proactiva, sin que
+        // tenga que descubrir que el acta saldría sin bloque de firma.
+        if (ultimaFirmasCount === 0 && actaState.firmas === null) {
+            sinResponsablesOrigen = true;
+            abrirEditor();
+        }
     }
 };
 

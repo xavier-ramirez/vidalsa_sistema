@@ -75,34 +75,39 @@
             @endif
         </td>
 
-        {{-- 2. Tipo (columna independiente, patron /admin/equipos) --}}
-        <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
-            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $tipoLabel }}</div>
+        {{-- 2. Tipo (columna independiente, patron /admin/equipos)
+             Tipografía de los valores igualada a /admin/equipos: tipo 14.5px,
+             sub-línea 12px/600 con letter-spacing. --}}
+        <td class="table-cell-custom" style="font-size: 14.5px; color: #000; word-wrap: break-word;">
+            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">{{ $tipoLabel }}</div>
             @if($aux->CAPACIDAD)
-                <div style="font-size: 11px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 3px;">{{ $aux->CAPACIDAD }}</div>
+                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.3px;">{{ $aux->CAPACIDAD }}</div>
             @endif
         </td>
 
-        {{-- 3. Marca / Modelo --}}
+        {{-- 3. Marca / Modelo — valores igualados a /admin/equipos (modelo 13.5px #475569). --}}
         <td class="table-cell-custom" style="font-size: 13px; color: #000; word-wrap: break-word;">
-            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.25;">{{ $aux->MARCA ?: '—' }}</div>
+            <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">{{ $aux->MARCA ?: '—' }}</div>
             @if($aux->MODELO)
-                <div style="font-size: 13px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 3px;">{{ $aux->MODELO }}</div>
+                <div style="font-size: 13.5px; color: #475569; font-weight: 500; text-transform: uppercase; margin-top: 3px; line-height: 1.3;">{{ $aux->MODELO }}</div>
             @endif
         </td>
 
-        {{-- 4. Serial / Codigo interno --}}
+        {{-- 4. Serial / Codigo interno — valores en negrita 600 color #1e293b, igual
+             que /admin/equipos (antes salían en texto normal/claro). --}}
         <td class="table-cell-custom" style="font-size: 14px; color: #4a5568;">
-            <div style="text-transform: uppercase; line-height: 1.3;">
-                <strong style="color:#64748b;">S:</strong> {{ $aux->SERIAL ?: '—' }}
+            <div style="line-height: 1.5; word-break: break-all;">
+                <strong style="color:#64748b;">S:</strong>
+                <span style="color:#1e293b; font-weight:600; text-transform:uppercase;">{{ $aux->SERIAL ?: '—' }}</span>
             </div>
             @if($aux->CODIGO_INTERNO)
-                <div style="font-size: 12.5px; color: #718096; margin-top: 3px; text-transform: uppercase;">
-                    <strong style="color:#64748b;">Cod:</strong> #{{ strtoupper($aux->CODIGO_INTERNO) }}
+                <div style="line-height: 1.4; margin-top: 3px;">
+                    <strong style="color:#64748b;">Cod:</strong>
+                    <span style="color:#1e293b; font-weight:600; text-transform:uppercase;">#{{ strtoupper($aux->CODIGO_INTERNO) }}</span>
                 </div>
             @endif
             @if($aux->ANIO)
-                <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Año: {{ $aux->ANIO }}</div>
+                <div style="font-size: 12.5px; color: #64748b; font-weight: 500; margin-top: 3px;">Año: {{ $aux->ANIO }}</div>
             @endif
         </td>
 

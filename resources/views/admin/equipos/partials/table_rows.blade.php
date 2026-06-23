@@ -125,10 +125,15 @@
                     <span style="color:#a0aec0; font-style:italic;">Sin Placa</span>
                 </div>
             @endif
+            {{-- "ID: #<código de patio>" SOLO si el equipo tiene CODIGO_PATIO. Sin él
+                 (p.ej. tipos que no usan código de patio) la línea no se muestra, para
+                 no dejar un "ID: #" vacío. --}}
+            @if($equipo->CODIGO_PATIO)
             <div style="line-height: 1.4; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 <strong style="color:#64748b;">ID:</strong>
                 <span style="color:#1e293b; font-weight:600;">#{{ $equipo->CODIGO_PATIO }}</span>
             </div>
+            @endif
         </td>
 
         {{-- 5. ESTATUS ─ trigger compacto estilo aux: 11px font, icono 14px,
