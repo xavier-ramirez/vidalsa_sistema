@@ -357,11 +357,13 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
+                                        <div class="adv-filter-eq-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Equipos</div>
                                         @foreach($availableModelos ?? [] as $mod)
                                             @if(trim($mod) !== '')
                                                 <div class="dropdown-item adv-filter-eq-only {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
                                             @endif
                                         @endforeach
+                                        <div class="adv-filter-aux-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares</div>
                                         @foreach($auxModelos ?? [] as $mod)
                                             @if(trim($mod) !== '')
                                                 <div class="dropdown-item adv-filter-aux-only {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
@@ -394,11 +396,13 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
+                                        <div class="adv-filter-eq-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Equipos</div>
                                         @foreach($availableMarcas ?? [] as $marca)
                                             @if(trim($marca) !== '')
                                                 <div class="dropdown-item adv-filter-eq-only {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
                                             @endif
                                         @endforeach
+                                        <div class="adv-filter-aux-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares</div>
                                         @foreach($auxMarcas ?? [] as $marca)
                                             @if(trim($marca) !== '')
                                                 <div class="dropdown-item adv-filter-aux-only {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
@@ -505,11 +509,13 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
+                                        <div class="adv-filter-eq-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Equipos</div>
                                         @foreach($availableAnios ?? [] as $anio)
                                             @if(trim($anio) !== '')
                                                 <div class="dropdown-item adv-filter-eq-only {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
                                             @endif
                                         @endforeach
+                                        <div class="adv-filter-aux-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares</div>
                                         @foreach($auxAnios ?? [] as $anio)
                                             @if(trim($anio) !== '')
                                                 <div class="dropdown-item adv-filter-aux-only {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
