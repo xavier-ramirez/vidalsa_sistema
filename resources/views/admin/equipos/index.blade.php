@@ -868,12 +868,12 @@
 
     <!-- Main Total Card -->
 
-    <div style="background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 12px; padding: 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
         <!-- Decorative Icon -->
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">agriculture</i>
 
         <div style="position: relative; z-index: 2;">
-            <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.8; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.8; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
             </div>
             
@@ -900,10 +900,10 @@
          junto al de equipos cuando NO se filtra por un tipo concreto (ver
          $showAuxConsolidado). Permanece en el DOM (toggle por JS al filtrar). --}}
     @if(!empty($auxConsolidado))
-    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%); border-radius: 12px; padding: 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
         <div style="position: relative; z-index: 2;">
-            <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 Consolidado de <span>Equipos Auxiliares</span>
             </div>
             {{-- 3 columnas iguales en UNA sola línea, sin iconos (mismo patrón que el
