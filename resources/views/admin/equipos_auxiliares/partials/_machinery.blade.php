@@ -362,11 +362,16 @@
             return '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
         };
 
-        // Fila Doc. Propiedad: label + boton (sin fecha)
+        // Fila Doc. Propiedad: label + boton (sin fecha).
+        // Usa detail-row-doc (NO detail-row-basic): en móvil la regla global
+        // fuerza detail-row-basic a flex-direction:column, apilando el icono
+        // debajo de la etiqueta. detail-row-doc mantiene nowrap horizontal.
         const rowPropiedad = `
-            <div class="detail-row-basic" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
+            <div class="detail-row-doc" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
                 <span style="color:#64748b; font-size:12px; white-space:nowrap; flex-shrink:0;">Doc. Propiedad</span>
-                ${pdfBtn(d.link_doc_propiedad, 'propiedad')}
+                <div style="display:flex !important; align-items:center; justify-content:flex-end; flex-shrink:0;">
+                    ${pdfBtn(d.link_doc_propiedad, 'propiedad')}
+                </div>
             </div>`;
 
         // Fila Certificado: label + fecha de vencimiento + boton (todo en linea)
@@ -382,7 +387,7 @@
             fechaInline = `<span style="background:${bg}; color:${co}; padding:2px 6px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap; display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis;" title="${txt}${extra}">${txt}${extra}</span>`;
         }
         const rowCertificado = `
-            <div class="detail-row-basic" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
+            <div class="detail-row-doc" style="display:flex !important; align-items:center !important; justify-content:space-between !important; gap:6px; padding:6px 0; border-bottom:1px dashed #f1f5f9; flex-wrap:nowrap; min-width:0; width:100%;">
                 <span style="color:#64748b; font-size:12px; white-space:nowrap; flex-shrink:0;">Certificado</span>
                 <div style="display:flex !important; align-items:center; gap:6px; flex-shrink:1; min-width:0; overflow:hidden;">
                     <div style="flex-shrink:1; min-width:0; overflow:hidden;">${fechaInline}</div>

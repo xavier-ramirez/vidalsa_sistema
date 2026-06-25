@@ -427,22 +427,18 @@
                 <i class="material-icons" style="font-size: 18px; margin-right: 5px;">home</i>Inicio
             </a>
 
-            {{-- Flota Dropdown: agrupa Vehiculo + Equipos Auxiliares + Reporte de Fallas + Consumibles + Historial --}}
+            {{-- Flota Dropdown: agrupa Equipos y Maquinarias + Reporte de Fallas + Consumibles + Historial --}}
             <div class="nav-dropdown">
                 <a href="#"
-                    class="nav-link {{ (request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) || request()->is('admin/equipos-auxiliares*') || request()->is('admin/fallas*') || request()->is('admin/consumibles*') || request()->is('admin/movilizaciones*')) ? 'active' : '' }}"
+                    class="nav-link {{ (request()->is('admin/equipos') || request()->is('admin/equipos/*') || request()->is('admin/equipos-auxiliares*') || request()->is('admin/fallas*') || request()->is('admin/consumibles*') || request()->is('admin/movilizaciones*')) ? 'active' : '' }}"
                     style="display: flex; align-items: center; gap: 4px;">
                     <i class="material-icons" style="font-size: 18px;">agriculture</i>Flota
                     <i class="material-icons" style="font-size: 16px;">expand_more</i>
                 </a>
                 <div class="nav-dropdown-content">
                     <a href="{{ route('equipos.index') }}"
-                        class="nav-dropdown-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
-                        <i class="material-icons">agriculture</i> Vehículos
-                    </a>
-                    <a href="{{ route('equipos-auxiliares.index') }}"
-                        class="nav-dropdown-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
-                        <i class="material-icons">construction</i> Equipos Auxiliares
+                        class="nav-dropdown-link {{ request()->is('admin/equipos') || request()->is('admin/equipos/*') ? 'active' : '' }}">
+                        <i class="material-icons">agriculture</i> Equipos y Maquinarias
                     </a>
                     <a href="{{ route('fallas.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/fallas*') ? 'active' : '' }}">
@@ -619,12 +615,8 @@
             </div>
             <div class="mobile-nav-group-content">
                 <a href="{{ route('equipos.index') }}"
-                    class="mobile-nav-link {{ request()->is('admin/equipos') || (request()->is('admin/equipos/*') && !request()->is('admin/equipos-auxiliares*')) ? 'active' : '' }}">
-                    <i class="material-icons">agriculture</i> Vehículos
-                </a>
-                <a href="{{ route('equipos-auxiliares.index') }}"
-                    class="mobile-nav-link {{ request()->is('admin/equipos-auxiliares*') ? 'active' : '' }}">
-                    <i class="material-icons">construction</i> Equipos Auxiliares
+                    class="mobile-nav-link {{ request()->is('admin/equipos') || request()->is('admin/equipos/*') ? 'active' : '' }}">
+                    <i class="material-icons">agriculture</i> Equipos y Maquinarias
                 </a>
                 <a href="{{ route('fallas.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/fallas*') ? 'active' : '' }}">
