@@ -116,8 +116,8 @@
 
     <!-- Capacidad (string libre, igual que equipos auxiliares) -->
     <div>
-        <label for="capacidad" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
-        <input type="text" id="capacidad" name="CAPACIDAD" class="form-input-custom @error('CAPACIDAD') is-invalid @enderror" value="{{ old('CAPACIDAD', $equipo->CAPACIDAD ?? '') }}" placeholder="Ej: 20 TON, 300A, 50kVA" maxlength="80" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+        <label for="CAPACIDAD" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
+        <input type="text" id="CAPACIDAD" name="CAPACIDAD" class="form-input-custom @error('CAPACIDAD') is-invalid @enderror" value="{{ old('CAPACIDAD', $equipo->CAPACIDAD ?? '') }}" placeholder="Ej: 20 TON, 300A, 50kVA" maxlength="80" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
         @error('CAPACIDAD') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
