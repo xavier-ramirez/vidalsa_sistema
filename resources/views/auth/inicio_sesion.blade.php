@@ -185,8 +185,31 @@
 
     const loginForm = document.querySelector('form');
     if (loginForm) {
+        // Aviso "sin conexión": evita que el navegador muestre su página de error
+        // (la "boba fea") cuando el login no puede contactar al servidor. En vez de
+        // navegar, mostramos un mensaje en #offlineLoginMsg y nos quedamos en el login.
+        function avisarSinConexion() {
+            const pl = document.getElementById('loginPreloader');
+            if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
+            const btnOff = document.getElementById('btnOfflineLogin');
+            const hayOffline = btnOff && btnOff.style.display !== 'none';
+            const msg = document.getElementById('offlineLoginMsg');
+            if (msg) {
+                msg.textContent = hayOffline
+                    ? 'Sin conexión a internet. Puedes usar "Entrar sin conexión" o revisar tu red.'
+                    : 'Sin conexión a internet. Revisa tu red e inténtalo de nuevo.';
+                msg.style.display = 'block';
+            }
+            const btnOn = document.getElementById('btnOnlineLogin');
+            if (btnOn) btnOn.disabled = false;
+        }
+
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault(); // Stop native submission immediately
+
+            // Sin red según el navegador → no intentes navegar (evita la página de
+            // error fea); avisa y quédate en el login.
+            if (!navigator.onLine) { avisarSinConexion(); return; }
 
             // Show Preloader
             const preloader = document.getElementById('loginPreloader');
@@ -232,8 +255,10 @@
                 })
                 .catch(error => {
                     console.error('Handshake failed:', error);
-                    // Fallback: enviar igual con el token del HTML, que el servidor decida.
-                    loginForm.submit();
+                    // No se pudo contactar al servidor (offline o caído): NO navegamos
+                    // (eso dispara la página de error del navegador). Avisamos y nos
+                    // quedamos en el login para que el usuario reintente o entre offline.
+                    avisarSinConexion();
                 });
         });
     }
