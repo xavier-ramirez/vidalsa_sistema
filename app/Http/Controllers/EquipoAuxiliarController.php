@@ -528,6 +528,22 @@ class EquipoAuxiliarController extends Controller
                 'total' => $r->total,
             ])->all();
 
+        // ── Distribucion por FRENTE: cuando hay un TIPO de aux seleccionado y NO hay
+        // frente, mostramos cuantos de ese tipo hay en CADA frente (igual que la
+        // "Ubicacion por Frente" de /admin/equipos). Usa $statsBase (ya filtrado por tipo). ──
+        $hasTipoFilter   = $request->filled('tipo') && $request->tipo !== 'all';
+        $hasFrenteFilter = $request->filled('id_frente') && $request->id_frente !== 'all';
+        $showFrentes     = $hasTipoFilter && !$hasFrenteFilter;
+        $auxDistribucionFrentes = collect();
+        if ($showFrentes) {
+            $auxDistribucionFrentes = (clone $statsBase)
+                ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
+                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
+                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
+                ->orderByDesc('total')
+                ->get();
+        }
+
         return [
             'html'             => view('admin.equipos_auxiliares.partials.table_rows',
                                      compact('auxiliares', 'tipos', 'photoByModel') + ['embed' => true])->render(),
@@ -540,7 +556,7 @@ class EquipoAuxiliarController extends Controller
             'stats'            => $stats,
             'auxDistribucion'  => $auxDistribucion,
             'distribucionHtml' => view('admin.equipos.partials.aux_distribution_stats',
-                                     compact('auxDistribucion'))->render(),
+                                     compact('auxDistribucion', 'auxDistribucionFrentes', 'showFrentes'))->render(),
         ];
     }
 
