@@ -652,13 +652,23 @@ class EquipoController extends Controller
             return Equipo::distinct()->whereNotNull('COLOR')->where('COLOR', '!=', '')->orderBy('COLOR', 'asc')->pluck('COLOR');
         });
 
+        $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 3600, function () {
+            return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
+        });
+        $auxModelos = \Illuminate\Support\Facades\Cache::remember('aux_modelos_dropdown', 3600, function () {
+            return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MODELO')->where('MODELO', '!=', '')->orderBy('MODELO', 'asc')->pluck('MODELO');
+        });
+        $auxAnios = \Illuminate\Support\Facades\Cache::remember('aux_anios_dropdown', 3600, function () {
+            return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
+        });
+
         $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all' && !$auxMode)
                        && !($request->filled('id_frente') && $request->id_frente !== 'all');
 
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado'));
     }
 
     public function export(Request $request)
