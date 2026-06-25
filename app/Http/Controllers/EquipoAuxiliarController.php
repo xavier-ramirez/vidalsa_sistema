@@ -1219,6 +1219,7 @@ class EquipoAuxiliarController extends Controller
             'can_upload_pdf'    => auth()->user() && auth()->user()->can('user.edit'),
             // Ubicación específica dentro del frente (para pre-cargar el modal de asignación)
             'detalle_ubicacion' => $aux->DETALLE_UBICACION_ACTUAL ?? '',
+            'confirmado_en_sitio' => (int) $aux->CONFIRMADO_EN_SITIO,
         ];
     }
 

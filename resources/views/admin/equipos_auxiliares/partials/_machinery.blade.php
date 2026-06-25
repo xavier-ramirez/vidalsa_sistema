@@ -189,6 +189,15 @@
                 </div>
                 <div style="display: flex; gap: 6px; flex-shrink: 0;">
                     @can('equipos.edit')
+                        <button type="button" id="btn_confirmar_sitio_aux_modal" data-aux-id="" data-confirmado="0"
+                            onclick="window.toggleConfirmacionSitioAux(this)" title="Confirmar presencia en sitio"
+                            style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                            <i class="material-icons" style="font-size: 18px;">radio_button_unchecked</i>
+                        </button>
+                    @endcan
+                    @can('equipos.edit')
                         <button type="button" id="auxDetailsEditBtn" title="Editar datos"
                             style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; transition: 0.2s;"
                             onmouseover="this.style.background='rgba(255,255,255,0.2)'"
@@ -281,7 +290,19 @@
         const title = document.getElementById('auxDetailsTitle');
         const sub   = document.getElementById('auxDetailsSubtitle');
         if (title) title.textContent = (d.tipo_label || d.tipo || 'Auxiliar');
-        if (sub)   sub.textContent   = ((d.marca || '') + ' ' + (d.modelo || '')).trim() || '—';
+        if (sub)   sub.textContent   = d.serial ? 'Serial: ' + d.serial : ((d.marca || '') + ' ' + (d.modelo || '')).trim() || '—';
+
+        // Botón "confirmar en sitio" del header: sincroniza id + estado
+        const confBtn = document.getElementById('btn_confirmar_sitio_aux_modal');
+        if (confBtn) {
+            const conf = String(d.confirmado_en_sitio) === '1';
+            confBtn.dataset.auxId = d.id;
+            confBtn.dataset.confirmado = conf ? '1' : '0';
+            const ci = confBtn.querySelector('.material-icons');
+            if (ci) ci.textContent = conf ? 'check_circle' : 'radio_button_unchecked';
+            confBtn.style.color = conf ? '#4ade80' : 'white';
+            confBtn.title = conf ? 'Confirmado en sitio (click para quitar)' : 'Confirmar presencia en sitio';
+        }
 
         // Enlazar edit en el boton del header (usa SPA navigateTo si esta disponible)
         const editBtn = document.getElementById('auxDetailsEditBtn');

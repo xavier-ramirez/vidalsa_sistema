@@ -1490,6 +1490,15 @@ window._pintarConfirmSitioAux = function (id, confirmado) {
         el.textContent = confirmado ? 'check_circle' : 'radio_button_unchecked';
         el.title = confirmado ? 'Confirmado en sitio (click para quitar)' : 'Sin confirmar (click para confirmar)';
     });
+    // Sincronizar el botón del modal de detalles (si está abierto para este auxiliar)
+    var mb = document.getElementById('btn_confirmar_sitio_aux_modal');
+    if (mb && mb.dataset.auxId === String(id)) {
+        mb.dataset.confirmado = confirmado ? '1' : '0';
+        var ic = mb.querySelector('.material-icons');
+        if (ic) ic.textContent = confirmado ? 'check_circle' : 'radio_button_unchecked';
+        mb.style.color = confirmado ? '#4ade80' : 'white';
+        mb.title = confirmado ? 'Confirmado en sitio (click para quitar)' : 'Confirmar presencia en sitio';
+    }
 };
 
 window.toggleConfirmacionSitioAux = function (el) {
