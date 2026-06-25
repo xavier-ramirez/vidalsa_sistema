@@ -357,7 +357,7 @@
                 // Usamos div+onclick en lugar de label para evitar que Materialize CSS
                 // sobreescriba display a block dentro del contenedor flex.
                 const uid = 'auxUp_' + d.id + '_' + docType;
-                return `<div title="Subir PDF" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:7px; background:#fff; border:1.5px dashed #cbd5e1; color:#0067b1; cursor:pointer; flex-shrink:0;" onclick="document.getElementById('${uid}').click()"><i class="material-icons" style="font-size:16px;">cloud_upload</i><input type="file" id="${uid}" accept="application/pdf" style="display:none;" onchange="window.auxUploadDoc(${d.id}, '${docType}', this)"></div>`;
+                return `<div title="Subir PDF" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; background:#fbfcfd; border:1px dashed #3b82f6; color:#3b82f6; cursor:pointer; flex-shrink:0;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fbfcfd'" onclick="document.getElementById('${uid}').click()"><i class="material-icons" style="font-size:18px;">cloud_upload</i><input type="file" id="${uid}" accept="application/pdf" style="display:none;" onchange="window.auxUploadDoc(${d.id}, '${docType}', this)"></div>`;
             }
             return '<span style="color:#94a3b8; font-size:12px;">No cargado</span>';
         };

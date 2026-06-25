@@ -2337,6 +2337,50 @@ input:-webkit-autofill:active {
     }
 }
 
+/* --- Aux Details Modal: mismas reglas mobile que #detailsModal --- */
+@media (max-width: 768px) {
+    #auxDetailsModal {
+        box-sizing: border-box !important;
+        align-items: center !important;
+    }
+    #auxDetailsModal .modal-content {
+        width: 90% !important;
+        max-width: 380px !important;
+        margin: auto !important;
+        height: auto !important;
+        max-height: 94dvh !important;
+        border-radius: 12px !important;
+        display: flex;
+        flex-direction: column;
+    }
+    #auxDetailsModal .modal-body-scroll {
+        padding: 12px !important;
+        max-height: 90dvh !important;
+    }
+    #auxDetailsModal details>summary {
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+    }
+    #auxDetailsModal details>summary i.material-icons {
+        font-size: 17px !important;
+    }
+    #auxDetailsModal details>div {
+        padding: 10px 14px !important;
+    }
+    #auxDetailsTitle {
+        font-size: 14.5px !important;
+        word-break: break-word;
+        white-space: normal;
+    }
+    #auxDetailsSubtitle {
+        word-break: break-word;
+        white-space: normal;
+    }
+    #auxDetailsModal .modal-content>div:first-child>div:first-child {
+        padding: 10px 14px !important;
+    }
+}
+
 /* ── Frentes de Trabajo: Responsive Grid ── */
 /* 4 columnas: Nombre · Cargo · Cédula · Filtro */
 .resp-grid {
