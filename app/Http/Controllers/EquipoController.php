@@ -4817,7 +4817,7 @@ class EquipoController extends Controller
                     'NUMERO_ETIQUETA'          => $row['numero_etiqueta'],
                     'SERIAL_CHASIS'            => strtoupper($row['serial_chasis']),
                     'SERIAL_DE_MOTOR'          => $row['serial_de_motor'] ? strtoupper($row['serial_de_motor']) : null,
-                    'ESTADO_OPERATIVO'         => $statusUpper,
+                    'ESTADO_OPERATIVO'         => $row['status'],
                     'CONFIRMADO_EN_SITIO'      => 0,
                     'ID_ESPEC'                 => null,
                     'CODIGO_PATIO'             => null,
