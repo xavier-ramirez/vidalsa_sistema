@@ -223,6 +223,12 @@
                     @error('SERIAL') <span class="error-message-inline">{{ $message }}</span> @enderror
                 </div>
 
+                {{-- SERIAL MOTOR (solo equipo, justo después del serial de chasis) --}}
+                <div id="serialMotorWrap">
+                    <label for="serial_motor" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Serial de Motor</label>
+                    <input type="text" id="serial_motor" name="SERIAL_DE_MOTOR" class="form-input-custom" value="{{ old('SERIAL_DE_MOTOR') }}" placeholder="Opcional" autocomplete="off" style="text-transform: uppercase;">
+                </div>
+
                 {{-- CAPACIDAD --}}
                 <div>
                     <label for="CAPACIDAD" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
@@ -287,12 +293,6 @@
             {{-- ═══ CAMPOS EXCLUSIVOS EQUIPO ═══ --}}
             <div id="equipoFieldsSection">
                 <div class="grid-responsive-5" style="margin-top: 12px;">
-
-                    {{-- Serial Motor --}}
-                    <div>
-                        <label for="serial_motor" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Serial de Motor</label>
-                        <input type="text" id="serial_motor" name="SERIAL_DE_MOTOR" class="form-input-custom" value="{{ old('SERIAL_DE_MOTOR') }}" placeholder="Opcional" autocomplete="off" style="text-transform: uppercase;">
-                    </div>
 
                     {{-- Color --}}
                     <div>
@@ -412,7 +412,7 @@
                 <div class="grid-responsive-5" style="margin-top: 12px;">
 
                     {{-- Equipo Vinculado --}}
-                    <div style="grid-column: span 2;">
+                    <div>
                         <label for="hostSearchInput" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Equipo Vinculado</label>
                         <div id="auxHostPicker" style="position: relative;">
                             <input type="hidden" name="ID_EQUIPO_HOST" id="ID_EQUIPO_HOST" value="{{ old('ID_EQUIPO_HOST') }}">
@@ -593,6 +593,14 @@
         var serialInput = document.getElementById('serial_principal');
         serialInput.name = isAux ? 'SERIAL' : 'SERIAL_CHASIS';
         document.getElementById('serialLabel').textContent = isAux ? 'Serial' : 'Serial de Chasis';
+
+        // Serial Motor (solo equipo)
+        var serialMotorWrap = document.getElementById('serialMotorWrap');
+        if (serialMotorWrap) {
+            serialMotorWrap.style.display = isAux ? 'none' : '';
+            var smInput = document.getElementById('serial_motor');
+            if (smInput) smInput.disabled = isAux;
+        }
 
         // Código Interno name (CODIGO_PATIO en equipos, CODIGO_INTERNO en auxiliares)
         var codigoInput = document.getElementById('codigo_interno');
