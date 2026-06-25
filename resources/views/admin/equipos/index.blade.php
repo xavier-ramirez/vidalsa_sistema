@@ -306,7 +306,7 @@
             <!-- Advanced Filter Trigger -->
             <div style="position: relative; flex-shrink: 0;">
                 @php
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('detalle_ubicacion') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria eq-hide-in-aux" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
@@ -400,39 +400,11 @@
                         </div>
                     </div>
 
-                    <!-- Ubicación Filter — visible solo para frentes TIPO_FRENTE=ESPECIAL -->
-                    <div id="ubicacionAdvFilterWrapper" style="margin-bottom: 15px; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
-                        <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Detalle (Patio/Subdivisión)</span>
-                        <div class="custom-dropdown" id="ubicacionAdvFilter" data-filter-type="detalle_ubicacion" data-default-label="Seleccionar Detalle..." style="font-size: 12px;">
-                            <input type="hidden" name="detalle_ubicacion" data-filter-value value="{{ request('detalle_ubicacion') }}">
-
-                            <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('detalle_ubicacion') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                    <i class="material-icons" style="font-size: 16px;">place</i>
-                                </div>
-                                <input type="text" name="filter_search_dropdown" data-filter-search
-                                    placeholder="{{ request('detalle_ubicacion') ?: 'Seleccionar Detalle...' }}"
-                                    aria-label="Filtrar Detalle"
-                                    style="width: 100%; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                    oninput="window.filterDropdownOptions(this)"
-                                    autocomplete="off">
-                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('detalle_ubicacion') ? 'block' : 'none' }};"
-                                   onclick="event.stopPropagation(); clearDropdownFilter('ubicacionAdvFilter'); loadEquipos();">close</i>
-                            </div>
-
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
-                                    @if(isset($availableUbicaciones))
-                                        @foreach($availableUbicaciones as $ubi)
-                                            @if(trim($ubi) !== '')
-                                                <div class="dropdown-item {{ request('detalle_ubicacion') == $ubi ? 'selected' : '' }}" data-value="{{ $ubi }}" onclick="selectOption('ubicacionAdvFilter', '{{ addslashes(trim($ubi)) }}', '{{ addslashes(trim($ubi)) }}'); loadEquipos();">{{ $ubi }}</div>
-                                            @endif
-                                        @endforeach
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {{-- Filtro Detalle (Patio/Subdivisión): NO es un filtro avanzado visible.
+                         Se activa desde el panel lateral "Detalles" (partials/ubicaciones_stats),
+                         solo presente en frentes TIPO_FRENTE=ESPECIAL. El input queda aquí (dentro del
+                         panel avanzado) para que loadEquipos()/export lo lean junto al resto de filtros. --}}
+                    <input type="hidden" name="detalle_ubicacion" id="detalleUbicacionFilter" value="{{ request('detalle_ubicacion') }}">
 
                     {{-- Categoría Flota + Estado Operativo (2 columnas, lado a lado igual que Marca/Modelo). --}}
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">

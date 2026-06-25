@@ -646,24 +646,13 @@ class EquipoController extends Controller
             return Equipo::distinct()->whereNotNull('COLOR')->where('COLOR', '!=', '')->orderBy('COLOR', 'asc')->pluck('COLOR');
         });
 
-        // Ubicaciones disponibles para el filtro avanzado — solo las del frente ESPECIAL seleccionado
-        $availableUbicaciones = collect([]);
-        if ($frenteEspecial) {
-            $availableUbicaciones = Equipo::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
-                ->whereNotNull('DETALLE_UBICACION_ACTUAL')
-                ->where('DETALLE_UBICACION_ACTUAL', '!=', '')
-                ->distinct()
-                ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')
-                ->pluck('DETALLE_UBICACION_ACTUAL');
-        }
-
         $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all' && !$auxMode)
                        && !($request->filled('id_frente') && $request->id_frente !== 'all');
 
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableUbicaciones', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado'));
     }
 
     public function export(Request $request)

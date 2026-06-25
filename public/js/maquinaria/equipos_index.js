@@ -881,7 +881,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.detalle_ubicacion || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -1077,11 +1077,10 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const distroContainer = document.getElementById('distributionStatsContainer');
                 if (distroContainer) distroContainer.innerHTML = data.distribution;
 
-                // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL
+                // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL.
+                // El filtro por detalle se activa desde este panel lateral (ya no es un filtro avanzado).
                 const ubicacionesCard      = document.getElementById('ubicacionesStatsCard');
                 const ubicacionesContainer = document.getElementById('ubicacionesStatsContainer');
-                const ubicacionFilterWrap  = document.getElementById('ubicacionAdvFilterWrapper');
-                const ubicacionFilterEl    = document.getElementById('ubicacionAdvFilter');
                 const showUbi = !!(data && data.showUbicaciones);
 
                 if (ubicacionesCard && ubicacionesContainer) {
@@ -1094,14 +1093,10 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     }
                 }
 
-                if (ubicacionFilterWrap) {
-                    ubicacionFilterWrap.style.display = showUbi ? '' : 'none';
-                    if (!showUbi && ubicacionFilterEl && typeof window.clearDropdownFilter === 'function') {
-                        const hidden = ubicacionFilterEl.querySelector('input[data-filter-value]');
-                        if (hidden && hidden.value !== '') {
-                            window.clearDropdownFilter('ubicacionAdvFilter');
-                        }
-                    }
+                // Al salir de un frente especial, limpiar el detalle para que no quede colgado.
+                const detalleUbicEl = document.getElementById('detalleUbicacionFilter');
+                if (!showUbi && detalleUbicEl && detalleUbicEl.value !== '') {
+                    detalleUbicEl.value = '';
                 }
 
                 window.history.pushState(null, '', finalUrl);

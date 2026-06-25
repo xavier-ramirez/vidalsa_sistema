@@ -18,7 +18,7 @@
                 $percentage = $totalUbicaciones > 0 ? ($stat->total / $totalUbicaciones) * 100 : 0;
                 $clickValue = $stat->detalle === 'Sin Especificación' ? '' : $stat->detalle;
             @endphp
-            <li onclick="selectOption('ubicacionAdvFilter', '{{ addslashes($clickValue) }}', '{{ addslashes($stat->detalle) }}'); loadEquipos();"
+            <li onclick="const f = document.getElementById('detalleUbicacionFilter'); if (f) { f.value = '{{ addslashes($clickValue) }}'; loadEquipos(); }"
                 style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: {{ $clickValue !== '' ? 'pointer' : 'default' }};"
                 @if($clickValue !== '') onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'" @endif>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">

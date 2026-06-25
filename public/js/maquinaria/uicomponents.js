@@ -607,13 +607,17 @@ window.clearAdvancedFilters = function () {
     const advFilters = [
         'modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter',
         'categoriaAdvFilter', 'estadoAdvFilter', 'gpsAdvFilter',
-        'ubicacionAdvFilter', 'colorAdvFilter', 'confirmadoAdvFilter',
+        'colorAdvFilter', 'confirmadoAdvFilter',
     ];
     advFilters.forEach(id => {
         if (document.getElementById(id) && typeof window.clearDropdownFilter === 'function') {
             window.clearDropdownFilter(id);
         }
     });
+
+    // Detalle (Patio/Subdivisión) es un input oculto controlado por el panel lateral, no un dropdown.
+    const detalleUbic = document.getElementById('detalleUbicacionFilter');
+    if (detalleUbic) detalleUbic.value = '';
 
     // Clear Doc Filters (Equipos specific)
     ["chk_propiedad", "chk_poliza", "chk_rotc", "chk_racda", "chk_adicional", "chk_adicional_2"].forEach((id) => {
