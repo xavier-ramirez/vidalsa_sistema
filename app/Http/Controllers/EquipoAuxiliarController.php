@@ -375,6 +375,7 @@ class EquipoAuxiliarController extends Controller
         if ($request->filled('marca'))     $q->where('MARCA', 'like', '%' . trim($request->marca) . '%');
         if ($request->filled('modelo'))    $q->where('MODELO', 'like', '%' . trim($request->modelo) . '%');
         if ($request->filled('capacidad')) $q->where('CAPACIDAD', 'like', '%' . trim($request->capacidad) . '%');
+        if ($request->filled('anio'))      $q->where('ANIO', trim($request->anio));
         if ($request->boolean('con_propiedad')) {
             $q->whereNotNull('LINK_DOC_PROPIEDAD')->where('LINK_DOC_PROPIEDAD', '!=', '');
         }

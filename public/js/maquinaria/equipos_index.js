@@ -869,6 +869,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
             ? "true"
             : null,
+        filter_aux_certificado: document.getElementById("chk_aux_certificado")?.checked
+            ? "true"
+            : null,
         // Dirección del filtro de documento (bloques clicables del Consolidado).
         // Solo se envía si NO es el default 'con', para no ensuciar la URL.
         doc_presence: (window.__equiposDocPresence && window.__equiposDocPresence !== "con")
@@ -881,7 +884,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2 || filters.filter_aux_certificado);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -2877,6 +2880,10 @@ window.exportEquipos = function () {
     }
     if (document.getElementById("chk_adicional_2")?.checked) {
         params.append("filter_adicional_2", "true");
+        hasAnyFilter = true;
+    }
+    if (document.getElementById("chk_aux_certificado")?.checked) {
+        params.append("filter_aux_certificado", "true");
         hasAnyFilter = true;
     }
 

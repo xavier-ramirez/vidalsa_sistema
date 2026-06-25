@@ -619,8 +619,8 @@ window.clearAdvancedFilters = function () {
     const detalleUbic = document.getElementById('detalleUbicacionFilter');
     if (detalleUbic) detalleUbic.value = '';
 
-    // Clear Doc Filters (Equipos specific)
-    ["chk_propiedad", "chk_poliza", "chk_rotc", "chk_racda", "chk_adicional", "chk_adicional_2"].forEach((id) => {
+    // Clear Doc Filters (Equipos + Auxiliares)
+    ["chk_propiedad", "chk_poliza", "chk_rotc", "chk_racda", "chk_adicional", "chk_adicional_2", "chk_aux_certificado"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.checked = false;
     });

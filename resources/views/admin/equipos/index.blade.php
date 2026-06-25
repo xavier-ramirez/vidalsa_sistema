@@ -10,6 +10,9 @@
        Avanzados: modelo/marca/anio/GPS/documentacion). La clase la togglea
        loadEquipos segun data.mode (y el init inicial si se entra por URL). */
     body.eq-aux-mode .eq-hide-in-aux { display: none !important; }
+    body.eq-aux-mode .adv-filter-eq-only { display: none !important; }
+    body:not(.eq-aux-mode) .adv-filter-aux-only { display: none !important; }
+    body.eq-aux-mode .adv-filter-aux-only { display: flex !important; }
 
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {
@@ -308,7 +311,7 @@
                 @php
                     $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
                 @endphp
-                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria eq-hide-in-aux" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
                 </button>
                 
@@ -408,8 +411,8 @@
 
                     {{-- Categoría Flota + Estado Operativo (2 columnas, lado a lado igual que Marca/Modelo). --}}
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <!-- Categoría Flota -->
-                        <div>
+                        <!-- Categoría Flota (solo equipos) -->
+                        <div class="adv-filter-eq-only">
                             <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Categoría Flota</span>
                             <div class="custom-dropdown" id="categoriaAdvFilter" data-filter-type="categoria" data-default-label="Seleccionar Categoría..." style="font-size: 12px;">
                                 <input type="hidden" name="categoria" data-filter-value value="{{ request('categoria') }}">
@@ -507,8 +510,8 @@
                             </div>
                         </div>
 
-                        <!-- GPS Filter -->
-                        <div>
+                        <!-- GPS Filter (solo equipos) -->
+                        <div class="adv-filter-eq-only">
                             <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">GPS</span>
                             <div class="custom-dropdown" id="gpsAdvFilter" data-filter-type="gps" data-default-label="Seleccionar Estatus..." style="font-size: 12px;">
                                 <input type="hidden" name="gps" data-filter-value value="{{ request('gps') }}">
@@ -540,8 +543,8 @@
 
                     {{-- Color + Confirmación en sitio (2 columnas) --}}
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <!-- Color Filter (búsqueda + opciones dinámicas, igual que Año) -->
-                        <div>
+                        <!-- Color Filter (solo equipos) -->
+                        <div class="adv-filter-eq-only">
                             <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Color</span>
                             <div class="custom-dropdown" id="colorAdvFilter" data-filter-type="color" data-default-label="Seleccionar Color..." style="font-size: 12px;">
                                 <input type="hidden" name="color" data-filter-value value="{{ request('color') }}">
@@ -610,29 +613,35 @@
                                 Propiedad
                             </label>
 
-                            <label for="chk_poliza" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                            <label for="chk_poliza" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_poliza" onchange="toggleDocFilter('poliza')" {{ request('filter_poliza') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Póliza
                             </label>
 
-                            <label for="chk_rotc" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                            <label for="chk_rotc" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_rotc" onchange="toggleDocFilter('rotc')" {{ request('filter_rotc') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 ROTC
                             </label>
 
-                            <label for="chk_racda" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                            <label for="chk_racda" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_racda" onchange="toggleDocFilter('racda')" {{ request('filter_racda') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 RACDA
                             </label>
 
-                            <label for="chk_adicional" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                            <label for="chk_adicional" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_adicional" onchange="toggleDocFilter('adicional')" {{ request('filter_adicional') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Certificado
                             </label>
 
-                            <label for="chk_adicional_2" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                            <label for="chk_adicional_2" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_adicional_2" onchange="toggleDocFilter('adicional_2')" {{ request('filter_adicional_2') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Compraventa
+                            </label>
+
+                            {{-- Certificado auxiliar (solo en auxMode) --}}
+                            <label for="chk_aux_certificado" class="adv-filter-aux-only" style="display: none; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                                <input type="checkbox" id="chk_aux_certificado" onchange="toggleDocFilter('aux_certificado')" {{ request('filter_aux_certificado') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                                Certificado
                             </label>
                         </div>
                     </div>

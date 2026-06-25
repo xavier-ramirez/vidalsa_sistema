@@ -533,11 +533,17 @@ class EquipoController extends Controller
         $auxEmbed = null;
         if ($auxMode) {
             $auxReq = new Request([
-                'tipo'       => substr((string) $request->input('id_tipo', ''), 9),
-                'id_frente'  => $request->input('id_frente'),
-                'search'     => $request->input('search_query'),
-                'confirmado' => $request->input('confirmado'),
-                'offset'     => $request->input('offset', 0),
+                'tipo'            => substr((string) $request->input('id_tipo', ''), 9),
+                'id_frente'       => $request->input('id_frente'),
+                'search'          => $request->input('search_query'),
+                'confirmado'      => $request->input('confirmado'),
+                'marca'           => $request->input('marca'),
+                'modelo'          => $request->input('modelo'),
+                'estado'          => $request->input('estado'),
+                'anio'            => $request->input('anio'),
+                'con_propiedad'   => $request->boolean('filter_propiedad') ? '1' : null,
+                'con_certificado' => $request->boolean('filter_aux_certificado') ? '1' : null,
+                'offset'          => $request->input('offset', 0),
             ]);
             $auxEmbed = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildEmbedPayload($auxReq);
             // El Consolidado en modo aux refleja AUXILIARES (no equipos): se reemplazan
