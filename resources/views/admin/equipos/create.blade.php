@@ -54,13 +54,13 @@
 
 <section class="page-title-card" style="margin: 0 auto 6px auto; padding: 4px 0; text-align: center;">
     <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;" id="pageTitleText">Registro de Equipo</span>
+        <span class="page-title-line2" style="color: #000;" id="pageTitleText">Registro de Equipos y Maquinarias</span>
     </h1>
 </section>
 
 {{-- ══ Bulk Upload: Equipos ══ --}}
 @can('equipos.create')
-<div id="bulkEquipoWrapper">
+<div id="bulkEquipoWrapper" style="display: none;">
     @include('admin.partials.bulk_upload_card', [
         'suffix'        => '',
         'templateRoute' => 'equipos.bulkTemplate',
@@ -641,8 +641,8 @@
         if (bulkAux) bulkAux.style.display = isAux ? '' : 'none';
 
         // Title
-        var titleMap = { liviana: 'Registro de Equipo — Flota Liviana', pesada: 'Registro de Equipo — Flota Pesada', auxiliar: 'Registro de Equipo Auxiliar' };
-        document.getElementById('pageTitleText').textContent = titleMap[mode] || 'Registro de Equipo';
+        var titleMap = { liviana: 'Registro de Equipos y Maquinarias — Flota Liviana', pesada: 'Registro de Equipos y Maquinarias — Flota Pesada', auxiliar: 'Registro de Equipo Auxiliar' };
+        document.getElementById('pageTitleText').textContent = titleMap[mode] || 'Registro de Equipos y Maquinarias';
 
         // Submit label
         document.getElementById('btnSubmitLabel').textContent = isAux ? 'Registrar Auxiliar' : 'Registrar Equipo';
