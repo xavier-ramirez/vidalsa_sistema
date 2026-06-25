@@ -39,20 +39,27 @@
         gap: 6px;
     }
     .cat-card:hover { border-color: #94a3b8; background: #f1f5f9; }
-    .cat-card.active-liviana { border-color: #0067b1; background: #eff6ff; box-shadow: 0 0 0 3px rgba(0,103,177,0.15); }
-    .cat-card.active-pesada  { border-color: #b45309; background: #fffbeb; box-shadow: 0 0 0 3px rgba(180,83,9,0.12); }
-    .cat-card.active-auxiliar { border-color: #059669; background: #ecfdf5; box-shadow: 0 0 0 3px rgba(5,150,105,0.12); }
+    .cat-card.active { border-color: #0067b1; background: #eff6ff; box-shadow: 0 0 0 3px rgba(0,103,177,0.15); }
     .cat-card .cat-icon { font-size: 32px; transition: color 0.25s; color: #94a3b8; }
-    .cat-card.active-liviana .cat-icon { color: #0067b1; }
-    .cat-card.active-pesada  .cat-icon { color: #b45309; }
-    .cat-card.active-auxiliar .cat-icon { color: #059669; }
+    .cat-card.active .cat-icon { color: #0067b1; }
     .cat-card .cat-label { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; }
-    .cat-card.active-liviana .cat-label { color: #0067b1; }
-    .cat-card.active-pesada  .cat-label { color: #b45309; }
-    .cat-card.active-auxiliar .cat-label { color: #059669; }
+    .cat-card.active .cat-label { color: #0067b1; }
+    .custom-form-autocomplete { position: relative; width: 100%; }
+    .custom-form-autocomplete .dropdown-list {
+        position: absolute; top: 100%; left: 0; right: 0; background: white;
+        border: 1px solid #cbd5e0; border-radius: 8px; margin-top: 4px;
+        max-height: 250px; overflow-y: auto; z-index: 50; display: none;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    }
+    .custom-form-autocomplete .dropdown-item {
+        padding: 10px 16px; border-bottom: 1px solid #f1f5f9;
+        color: #4a5568; font-size: 14px; transition: all 0.2s; cursor: pointer;
+    }
+    .custom-form-autocomplete .dropdown-item:last-child { border-bottom: none; }
+    .custom-form-autocomplete .dropdown-item:hover { background: #f7fafc; color: #2b6cb0; padding-left: 20px; }
 </style>
 
-<section class="page-title-card" style="margin: 0 auto 6px auto; padding: 4px 0; text-align: center;">
+<section class="page-title-card" style="margin: 0 auto 6px auto; padding: 18px 0 4px 0; text-align: center;">
     <h1 class="page-title">
         <span class="page-title-line2" style="color: #000;" id="pageTitleText">Registro de Equipos y Maquinarias</span>
     </h1>
@@ -266,12 +273,7 @@
                     </div>
                 </div>
 
-                {{-- DETALLE UBICACIÓN --}}
-                <div>
-                    <label for="detalle_ubicacion_actual" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Sección / Detalle</label>
-                    <input type="text" id="detalle_ubicacion_actual" name="DETALLE_UBICACION_ACTUAL" class="form-input-custom" value="{{ old('DETALLE_UBICACION_ACTUAL') }}"
-                           placeholder="Ej: Fase 2, Estacionamiento..." autocomplete="off">
-                </div>
+                {{-- DETALLE UBICACIÓN: no se pide al registrar; se asigna después via edición o movilización. --}}
             </div>
 
             {{-- ═══ CAMPOS EXCLUSIVOS EQUIPO ═══ --}}
@@ -421,12 +423,6 @@
                     <div>
                         <label for="CODIGO_INTERNO" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Código Interno</label>
                         <input type="text" id="CODIGO_INTERNO" name="CODIGO_INTERNO" class="form-input-custom" value="{{ old('CODIGO_INTERNO') }}" placeholder="Ej: AUX-001" maxlength="50" autocomplete="off" style="text-transform: uppercase;">
-                    </div>
-
-                    {{-- Observaciones --}}
-                    <div style="grid-column: span 2;">
-                        <label for="OBSERVACIONES" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Observaciones</label>
-                        <input type="text" id="OBSERVACIONES" name="OBSERVACIONES" class="form-input-custom" value="{{ old('OBSERVACIONES') }}" placeholder="Notas adicionales..." maxlength="500" autocomplete="off">
                     </div>
 
                     {{-- Equipo Vinculado --}}
@@ -591,10 +587,9 @@
         document.getElementById('__categoriaFlota').value = mode === 'liviana' ? 'FLOTA LIVIANA' : (mode === 'pesada' ? 'FLOTA PESADA' : '');
 
         // Cards
-        document.querySelectorAll('.cat-card').forEach(function (c) { c.className = 'cat-card'; });
+        document.querySelectorAll('.cat-card').forEach(function (c) { c.classList.remove('active'); });
         var active = mode === 'liviana' ? 'catLiviana' : (mode === 'pesada' ? 'catPesada' : 'catAuxiliar');
-        var cls = mode === 'liviana' ? 'active-liviana' : (mode === 'pesada' ? 'active-pesada' : 'active-auxiliar');
-        document.getElementById(active).classList.add(cls);
+        document.getElementById(active).classList.add('active');
 
         // Show form body + submit
         document.getElementById('unifiedFormBody').style.display = '';
