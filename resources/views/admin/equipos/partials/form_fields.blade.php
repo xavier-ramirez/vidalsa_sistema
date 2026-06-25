@@ -240,9 +240,8 @@
             @endif
         </div>
         @if($esEdicionEq)
-            <span style="margin-top:6px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:4px;">
-                <i class="material-icons" style="font-size:14px; color:#94a3b8;">info</i>
-                El frente se cambia desde <strong>&nbsp;Movilización</strong>, no por edición.
+            <span style="margin-top:4px; font-size:11px; color:#94a3b8; display:block; line-height:1.3;">
+                Cambiar frente desde Movilización.
             </span>
         @endif
         @error('ID_FRENTE_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
@@ -488,26 +487,6 @@
         </div>
     </div>
 
-    {{-- Foto del equipo: SOLO al editar una unidad existente. En el alta (create)
-         no se carga foto por unidad — la foto principal viene del catálogo del modelo
-         (FOTO_REFERENCIAL) y se gestiona en /admin/catalogo. --}}
-    @if($equipo->exists)
-    <!-- Foto -->
-    <div>
-        <label for="foto_equipo" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Foto del Equipo</label>
-        <div style="display: flex; gap: 10px; align-items: center; height: 38px;">
-            <label for="foto_equipo" id="preview_equipo" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: white; border-radius: 8px; border: 1px solid #cbd5e0; flex-shrink: 0; transition: all 0.2s;" title="Foto del Equipo" onmouseover="this.style.borderColor='var(--maquinaria-blue)';" onmouseout="this.style.borderColor='#cbd5e0';">
-                @if($equipo->FOTO_EQUIPO)
-                    <img src="{{ asset($equipo->FOTO_EQUIPO) }}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;">
-                @else
-                    <i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>
-                @endif
-            </label>
-            <input type="file" id="foto_equipo" name="foto_equipo" accept="image/*" style="display: none;">
-            <div style="font-size: 10px; color: #718096; line-height: 1.2;">Click para cambiar</div>
-        </div>
-    </div>
-    @endif
 </div>
 
 <!-- Logic moved to public/js/maquinaria/form_logic.js for CSP compliance -->

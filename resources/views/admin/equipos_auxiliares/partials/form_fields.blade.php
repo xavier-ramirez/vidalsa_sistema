@@ -153,9 +153,8 @@
             @endif
         </div>
         @if($esEdicion)
-            <span style="margin-top:6px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:4px;">
-                <i class="material-icons" style="font-size:14px; color:#94a3b8;">info</i>
-                El frente se cambia desde <strong>&nbsp;Movilización</strong>, no por edición.
+            <span style="margin-top:4px; font-size:11px; color:#94a3b8; display:block; line-height:1.3;">
+                Cambiar frente desde Movilización.
             </span>
         @endif
         @error('ID_FRENTE_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror

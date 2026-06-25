@@ -1,11 +1,32 @@
 @extends('layouts.estructura_base')
 
-@section('title', 'Editar Equipo')
+@section('title', 'Editar Equipo y Maquinaria')
 
 @section('content')
-<section class="page-title-card" style="max-width: 95%; margin: 0 auto;">
+<style>
+    @media (max-width: 768px) {
+        body:has(#editEquipoForm) .page-title-card {
+            margin-bottom: 6px !important;
+            padding: 4px 0 !important;
+        }
+        body:has(#editEquipoForm) .main-viewport {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+            box-sizing: border-box !important;
+        }
+        body:has(#editEquipoForm) .admin-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+    }
+</style>
+<section class="page-title-card" style="margin: 0 auto 6px auto; padding: 4px 0; text-align: center;">
     <h1 class="page-title">
-        <span class="page-title-line2" style="color: #000;">Edición de Equipo</span>
+        <span class="page-title-line2" style="color: #000;">Edición de Equipo y Maquinaria</span>
     </h1>
 </section>
 
