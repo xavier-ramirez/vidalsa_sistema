@@ -1395,7 +1395,11 @@
         var box    = document.getElementById('aux_box_' + prefix);
         var list   = document.getElementById('aux_list_' + prefix);
         if (hidden) hidden.value = value;
-        if (txt)    { txt.value = value; txt.placeholder = value ? value : label; }
+        // Muestra la ETIQUETA legible (label) cuando hay selección, no el código crudo:
+        // filtros como "confirmado" usan value='SI'/'NO' pero label='CONFIRMADO'/'PENDIENTE'.
+        // En los demás filtros value===label, así que el comportamiento no cambia. Al
+        // limpiar (value=''), el cuadro queda vacío y el placeholder muestra la pista.
+        if (txt)    { txt.value = value ? (label || value) : ''; txt.placeholder = value ? value : label; }
         if (clr)    clr.style.display = value ? 'block' : 'none';
         if (box)    {
             box.style.background  = value ? '#e1effa' : '#fbfcfd';
@@ -1411,7 +1415,8 @@
         modelo: 'Ej: Bobcat 225',
         capacidad: 'Ej: 300A, 20 pies',
         estado: 'Todos los estados',
-        detalle_ubicacion: 'Seleccionar detalle...'
+        detalle_ubicacion: 'Seleccionar detalle...',
+        confirmado: 'Todas'
     };
 
     window.auxAdvClear = function (prefix) {

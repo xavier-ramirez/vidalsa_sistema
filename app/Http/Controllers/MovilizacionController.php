@@ -1215,6 +1215,11 @@ class MovilizacionController extends Controller
                     // propiedad + save(), NO con update([...]) (mass-assign lo descartaría en
                     // silencio y el equipo NO volvería al origen, solo se borraría el registro).
                     $equipo->ID_FRENTE_ACTUAL = $mov->ID_FRENTE_ORIGEN;
+                    // Deshacer = "como si nunca hubiera pasado": el despacho dejó el equipo en
+                    // PENDIENTE (0); al volver al frente ORIGEN —donde estaba confirmado— lo
+                    // restauramos a CONFIRMADO (1). (No guardamos el valor previo en historial;
+                    // 1 es el caso normal: un equipo en su frente está confirmado.)
+                    $equipo->CONFIRMADO_EN_SITIO = 1;
                     $equipo->save();
                 }
             } elseif ($mov->ID_AUXILIAR) {
@@ -1224,7 +1229,9 @@ class MovilizacionController extends Controller
                         DB::rollBack();
                         return response()->json(['success' => false, 'message' => 'No se puede deshacer: el auxiliar ya fue movilizado a otro frente después de esta.'], 422);
                     }
-                    $aux->update(['ID_FRENTE_ACTUAL' => $mov->ID_FRENTE_ORIGEN]);
+                    // Mismo criterio que equipos: al volver al frente ORIGEN se restaura
+                    // CONFIRMADO_EN_SITIO=1 ("como si nunca hubiera pasado").
+                    $aux->update(['ID_FRENTE_ACTUAL' => $mov->ID_FRENTE_ORIGEN, 'CONFIRMADO_EN_SITIO' => 1]);
                 }
             }
 

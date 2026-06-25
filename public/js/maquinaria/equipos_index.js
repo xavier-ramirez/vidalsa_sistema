@@ -996,7 +996,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 // pone el inicial; aqui se actualiza al cambiar de modo via AJAX (sin esto
                 // quedaba "de Equipos" al pasar a auxiliares, o viceversa).
                 document.querySelectorAll('.consolidado-scope').forEach(function (el) {
-                    el.textContent = (data.mode === 'aux') ? 'Auxiliares' : 'Equipos';
+                    el.textContent = (data.mode === 'aux') ? 'Equipos Auxiliares' : 'Equipos y Maquinaria';
                 });
 
                 // Consolidado: modo "Con / Sin documento". La lista sigue filtrada
@@ -1017,6 +1017,28 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 setEl('mobile_stats_total',     displayStat(totalVal));
                 setEl('mobile_stats_activos',   displayStat(operVal));
                 setEl('mobile_stats_inactivos', displayStat(inopVal));
+
+                // ── Consolidado de Equipos Auxiliares (panel propio, debajo del de equipos) ──
+                // Refleja el filtro de FRENTE (mismas reglas de display: '--' sin filtro).
+                // Se oculta en modo aux: ahí el consolidado principal de arriba ya es de
+                // auxiliares, así no se duplica.
+                const auxCons = data.auxConsolidado || null;
+                if (auxCons) {
+                    setEl('aux_stats_total',            displayStat(auxCons.total));
+                    setEl('aux_stats_activos',          displayStat(auxCons.activos));
+                    setEl('aux_stats_inactivos',        displayStat(auxCons.inactivos));
+                    setEl('aux_mobile_stats_total',     displayStat(auxCons.total));
+                    setEl('aux_mobile_stats_activos',   displayStat(auxCons.activos));
+                    setEl('aux_mobile_stats_inactivos', displayStat(auxCons.inactivos));
+                }
+                // Mostrar la card de auxiliares solo cuando NO se filtra por un tipo
+                // concreto (frente o sin filtro → los dos; tipo equipo → solo equipos;
+                // tipo aux → solo auxiliares).
+                const showAux = !!data.showAuxConsolidado;
+                ['auxConsolidadoCard', 'auxConsolidadoCardMobile'].forEach(function (id) {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = showAux ? '' : 'none';
+                });
 
                 // Etiquetas dinámicas de los dos bloques.
                 setEl('stats_oper_label',  docMode ? 'Con ' + docLabel  : 'Operativo');

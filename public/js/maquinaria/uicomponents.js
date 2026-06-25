@@ -1472,3 +1472,49 @@ window.showToast = function (message, type = "info") {
  * El endpoint PATCH /admin/equipos/{id}/ubicacion sigue vivo (lo usa el centro de
  * notificaciones al confirmar recepción).
  */
+
+/**
+ * Confirmación "en sitio" de EQUIPOS AUXILIARES (espejo de toggleConfirmacionSitio
+ * de equipos, definida en equipos_index.js). Vive aquí porque uicomponents.js es
+ * GLOBAL: el chip de auxiliares aparece tanto en /admin/equipos-auxiliares como
+ * embebido en /admin/equipos (modo aux). Repinta .confirm-sitio-chip-aux por data-aux-id.
+ */
+window._pintarConfirmSitioAux = function (id, confirmado) {
+    document.querySelectorAll('.confirm-sitio-chip-aux[data-aux-id="' + id + '"]').forEach(function (el) {
+        el.dataset.confirmado = confirmado ? '1' : '0';
+        el.style.color = confirmado ? '#16a34a' : '#cbd5e0';
+        el.textContent = confirmado ? 'check_circle' : 'radio_button_unchecked';
+        el.title = confirmado ? 'Confirmado en sitio (click para quitar)' : 'Sin confirmar (click para confirmar)';
+    });
+};
+
+window.toggleConfirmacionSitioAux = function (el) {
+    var id = (el && el.dataset) ? el.dataset.auxId : null;
+    if (!id) return;
+    var actual = el.dataset.confirmado === '1';
+    var nuevo = !actual;
+    window._pintarConfirmSitioAux(id, nuevo); // optimista
+
+    fetch('/admin/equipos-auxiliares/' + id + '/confirmar-sitio', {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': window.getCsrf(),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ confirmado: nuevo ? 1 : 0 }),
+    })
+    .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+    .then(function (res) {
+        if (res.status === 200 && res.body && res.body.success) {
+            window._pintarConfirmSitioAux(id, res.body.confirmado === 1);
+            if (window.showToast) window.showToast(res.body.confirmado === 1 ? 'Confirmado en sitio.' : 'Marcado como sin confirmar.', 'success');
+            return;
+        }
+        throw new Error((res.body && res.body.message) || 'Error desconocido');
+    })
+    .catch(function (err) {
+        window._pintarConfirmSitioAux(id, actual); // revertir
+        if (window.showToast) window.showToast('No se pudo actualizar la confirmación: ' + err.message, 'error');
+    });
+};

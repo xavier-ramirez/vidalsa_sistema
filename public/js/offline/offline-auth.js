@@ -132,7 +132,11 @@
             btnOff.disabled = true;
             const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
             btnOff.disabled = false;
-            if (ok) { window.location.href = '/menu'; }
+            if (ok) {
+                // El menú omite el spinner general en esta primera carga tras login.
+                if (window.marcarLoginReciente) window.marcarLoginReciente();
+                window.location.href = '/menu';
+            }
             else { mostrarMsg('Correo o clave no coinciden con tu última sesión en este equipo.'); }
         });
     }

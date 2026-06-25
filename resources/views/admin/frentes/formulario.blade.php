@@ -42,6 +42,25 @@
         @media (max-width: 600px) {
             #btnSinEquipos span { display: none; }
             #btnSinEquipos { padding: 0; width: 38px; gap: 0; justify-content: center; }
+
+            /* Tarjeta blanca MÁS ANCHA en móvil: por defecto el main-viewport mete
+               20px de padding lateral y la tarjeta carga un max-width:800px inline,
+               dejando franjas blancas a los lados en pantallas angostas. Aquí, SOLO
+               en esta página (body:has(#frenteForm)), bajamos ese padding a 8px y
+               soltamos el límite de la tarjeta para que ocupe casi todo el ancho. */
+            body:has(#frenteForm) .main-viewport {
+                width: 100% !important;
+                max-width: 100% !important;
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+                box-sizing: border-box !important;
+            }
+            body:has(#frenteForm) .admin-card {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
         }
     </style>
 

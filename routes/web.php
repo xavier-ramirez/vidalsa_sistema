@@ -216,6 +216,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('equipos-auxiliares/{id}/anchor',    [App\Http\Controllers\EquipoAuxiliarController::class, 'anchor'])  ->middleware('can:equipos.assign')->name('equipos-auxiliares.anchor');
             Route::post  ('equipos-auxiliares/{id}/unanchor',  [App\Http\Controllers\EquipoAuxiliarController::class, 'unanchor'])->middleware('can:equipos.assign')->name('equipos-auxiliares.unanchor');
             Route::patch ('equipos-auxiliares/{id}/estado',    [App\Http\Controllers\EquipoAuxiliarController::class, 'changeStatus'])->middleware('can:equipos.edit')->name('equipos-auxiliares.estado');
+            // Confirmar presencia física del auxiliar en su frente (CONFIRMADO_EN_SITIO), espejo de equipos.
+            Route::patch ('equipos-auxiliares/{id}/confirmar-sitio', [App\Http\Controllers\EquipoAuxiliarController::class, 'confirmarSitio'])->middleware('can:equipos.edit')->name('equipos-auxiliares.confirmarSitio');
             Route::post  ('equipos-auxiliares/{id}/upload-doc',     [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadDoc'])     ->middleware('can:user.edit')->name('equipos-auxiliares.uploadDoc');
             // Borrar un documento (propiedad/certificado) del auxiliar. EXCLUSIVO super.admin,
             // igual que equipos.deleteDoc (el visor PDF gatea el botón con CAN_DELETE_DOCS=super.admin).

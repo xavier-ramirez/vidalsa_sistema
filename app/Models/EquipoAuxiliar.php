@@ -15,7 +15,7 @@ class EquipoAuxiliar extends Model
 
     protected $fillable = [
         'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'CAPACIDAD',
-        'ANIO', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'DETALLE_UBICACION_ACTUAL',
+        'ANIO', 'ESTADO_OPERATIVO', 'ID_FRENTE_ACTUAL', 'CONFIRMADO_EN_SITIO', 'DETALLE_UBICACION_ACTUAL',
         'ID_EQUIPO_HOST',
         'FOTO', 'OBSERVACIONES', 'CREADO_POR',
         'LINK_DOC_PROPIEDAD', 'LINK_CERTIFICADO', 'FECHA_VENCIMIENTO_CERT',
@@ -24,6 +24,7 @@ class EquipoAuxiliar extends Model
 
     protected $casts = [
         'ANIO' => 'integer',
+        'CONFIRMADO_EN_SITIO' => 'integer',
         'FECHA_VENCIMIENTO_CERT' => 'date',
     ];
 

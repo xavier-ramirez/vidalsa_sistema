@@ -320,7 +320,7 @@
                     <h4 style="margin:0 0 15px 0;font-size:14px;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center;">
                         Filtros Avanzados
                         <span style="font-size:11px;color:#64748b;font-weight:400;text-decoration:underline;cursor:pointer;"
-                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
+                              onclick="auxAdvClear('marca');auxAdvClear('modelo');auxAdvClear('capacidad');auxAdvClear('estado');auxAdvClear('detalle_ubicacion');auxAdvClear('confirmado'); var p=document.getElementById('aux_chk_propiedad'); if(p)p.checked=false; var c=document.getElementById('aux_chk_certificado'); if(c)c.checked=false; cargarAuxiliares();">Limpiar Todo</span>
                     </h4>
                     {{-- Filtros de a DOS por fila (Marca|Modelo, Capacidad|Estado). El
                          min-width:0 en los hijos (regla .aux-adv-grid>div) evita que se
@@ -448,6 +448,31 @@
                                     @foreach($estados as $k => $label)
                                     <div class="aux-adv-opt" data-val="{{ $k }}" onmousedown="event.preventDefault();auxAdvSelect('estado','{{ $k }}','{{ strtoupper($label) }}');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">{{ strtoupper($label) }}</div>
                                     @endforeach
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Confirmación en sitio (espejo del filtro 'confirmado' de /admin/equipos).
+                             SI = confirmado · NO = pendiente. El form se serializa con FormData,
+                             así que el name="confirmado" llega solo a applyAuxiliarFilters(). --}}
+                        @php $cfdReq = strtoupper((string) request('confirmado')); $cfdLbl = $cfdReq === 'SI' ? 'CONFIRMADO' : ($cfdReq === 'NO' ? 'PENDIENTE' : ''); @endphp
+                        <div>
+                            <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">Confirmación en sitio</span>
+                            <div style="position:relative;">
+                                <input type="hidden" id="aux_val_confirmado" name="confirmado" value="{{ $cfdReq }}">
+                                <div style="display:flex;align-items:center;background:{{ $cfdReq ? '#e1effa' : '#fbfcfd' }};border:1px solid {{ $cfdReq ? '#0067b1' : '#cbd5e0' }};border-radius:6px;height:32px;" id="aux_box_confirmado">
+                                    <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:18px;">check_circle</i>
+                                    <input type="text" id="aux_txt_confirmado" placeholder="{{ $cfdLbl ?: 'Todas' }}" value="" autocomplete="off"
+                                           style="flex:1;min-width:0;border:none;background:transparent;padding:6px 5px;font-size:13px;outline:none;color:#334155;"
+                                           oninput="auxAdvFilter('confirmado',this.value)"
+                                           onfocus="auxAdvOpen('confirmado')"
+                                           onblur="setTimeout(()=>auxAdvClose('confirmado'),200)">
+                                    <i class="material-icons" id="aux_clr_confirmado" style="padding:0 8px;color:#64748b;font-size:18px;cursor:pointer;display:{{ $cfdReq ? 'block' : 'none' }};"
+                                       onmousedown="event.preventDefault();auxAdvClear('confirmado');cargarAuxiliares();">close</i>
+                                </div>
+                                <div id="aux_list_confirmado" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);max-height:160px;overflow-y:auto;margin-top:4px;padding:5px;">
+                                    <div class="aux-adv-opt" data-val="SI" onmousedown="event.preventDefault();auxAdvSelect('confirmado','SI','CONFIRMADO');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">CONFIRMADO</div>
+                                    <div class="aux-adv-opt" data-val="NO" onmousedown="event.preventDefault();auxAdvSelect('confirmado','NO','PENDIENTE');cargarAuxiliares();" style="padding:10px 15px;font-size:14px;font-weight:600;color:var(--maquinaria-dark-blue);cursor:pointer;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background='white'">PENDIENTE</div>
                                 </div>
                             </div>
                         </div>

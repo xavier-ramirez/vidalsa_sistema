@@ -357,6 +357,19 @@
             <div class="spinner-circle"></div>
         </div>
     </div>
+    <script>
+        // Primera carga tras el login: ocultamos el preloader general (el splash con
+        // logo de la pantalla de login ya cubrió la transición; evita el "segundo
+        // spinner"). Solo cambia 'display' — NO se toca el contenido, para que las
+        // operaciones internas sigan mostrando su spinner-circle normal.
+        try {
+            if (sessionStorage.getItem('vidalsaJustLoggedIn')) {
+                sessionStorage.removeItem('vidalsaJustLoggedIn');
+                var __plLogin = document.getElementById('preloader');
+                if (__plLogin) __plLogin.style.display = 'none';
+            }
+        } catch (e) {}
+    </script>
 
     {{-- Banner global de estado de red. Se muestra cuando window.addEventListener('offline')
          dispara o cuando navigator.onLine === false al cargar la app. Persiste hasta que vuelva

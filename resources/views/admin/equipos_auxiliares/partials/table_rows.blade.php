@@ -34,8 +34,22 @@
              tooltip-bubble con DETALLE_UBICACION_ACTUAL en hover de fila (CSS
              global .admin-table tr:hover .tooltip-bubble lo hace visible). --}}
         <td class="table-cell-custom table-cell-center" style="padding: 6px 4px; width: 150px;">
+            @php $cfdAux = (int) ($aux->CONFIRMADO_EN_SITIO ?? 0); @endphp
             <div class="tooltip-wrapper" style="font-size: 13px; color: #000; margin-bottom: 5px; line-height: 1.25; font-weight: 700; text-align: center; text-transform: uppercase; word-wrap: break-word; position: relative; cursor: default;">
-                {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+                <span style="display:inline-flex; align-items:center; gap:3px; justify-content:center;">
+                    {{ optional($aux->frente)->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
+                    {{-- Chip "confirmado en sitio" — espejo de /admin/equipos. --}}
+                    <i class="material-icons confirm-sitio-chip-aux"
+                       data-aux-id="{{ $aux->ID_AUXILIAR }}"
+                       data-confirmado="{{ $cfdAux }}"
+                       @can('equipos.edit')
+                           onclick="event.stopPropagation(); window.toggleConfirmacionSitioAux(this)"
+                           title="{{ $cfdAux ? 'Confirmado en sitio (click para quitar)' : 'Sin confirmar (click para confirmar)' }}"
+                       @else
+                           title="{{ $cfdAux ? 'Confirmado en sitio' : 'Sin confirmar' }}"
+                       @endcan
+                       style="font-size:14px; color:{{ $cfdAux ? '#16a34a' : '#cbd5e0' }};@can('equipos.edit') cursor:pointer;@endcan">{{ $cfdAux ? 'check_circle' : 'radio_button_unchecked' }}</i>
+                </span>
 
                 {{-- Badge FINALIZADO: misma lógica/estilo que /admin/equipos --}}
                 @if($aux->frente && $aux->frente->ESTATUS_FRENTE === 'FINALIZADO')
@@ -80,6 +94,12 @@
              sub-línea 12px/600 con letter-spacing. --}}
         <td class="table-cell-custom" style="font-size: 14.5px; color: #000; word-wrap: break-word;">
             <div style="font-weight: 700; text-transform: uppercase; line-height: 1.3;">{{ $tipoLabel }}</div>
+            {{-- En el modo embebido dentro de /admin/equipos, donde los equipos
+                 normales muestran su CATEGORIA_FLOTA (liviana/pesada) bajo el tipo,
+                 los auxiliares se rotulan "EQUIPOS AUXILIARES" para distinguirlos. --}}
+            @if($embed ?? false)
+                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 5px; letter-spacing: 0.3px;">Equipos Auxiliares</div>
+            @endif
             @if($aux->CAPACIDAD)
                 <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.3px;">{{ $aux->CAPACIDAD }}</div>
             @endif

@@ -28,6 +28,7 @@ class Equipo extends Model
         'CODIGO_PATIO',
         'MARCA',
         'MODELO',
+        'CAPACIDAD',
         'ANIO',
         'COLOR',
         'ID_ESPEC',

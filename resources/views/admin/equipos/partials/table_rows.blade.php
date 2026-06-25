@@ -79,6 +79,11 @@
                     {{ $equipo->CATEGORIA_FLOTA }}
                 </div>
             @endif
+            @if($equipo->CAPACIDAD)
+                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 3px; letter-spacing: 0.3px;">
+                    {{ $equipo->CAPACIDAD }}
+                </div>
+            @endif
         </td>
 
         {{-- 3. MARCA / MODELO ─ marca queda en 13px (feedback del usuario:

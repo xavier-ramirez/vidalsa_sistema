@@ -114,6 +114,13 @@
         @error('COLOR') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
+    <!-- Capacidad (string libre, igual que equipos auxiliares) -->
+    <div>
+        <label for="capacidad" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
+        <input type="text" id="capacidad" name="CAPACIDAD" class="form-input-custom @error('CAPACIDAD') is-invalid @enderror" value="{{ old('CAPACIDAD', $equipo->CAPACIDAD ?? '') }}" placeholder="Ej: 20 TON, 300A, 50kVA" maxlength="80" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+        @error('CAPACIDAD') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
     <!-- Año + Número de Etiqueta (Grid 2 columnas en 1 espacio de la grilla principal) -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <!-- Año -->
@@ -123,7 +130,7 @@
                 <input type="text" id="anio" name="ANIO"
                        class="form-input-custom @error('ANIO') is-invalid @enderror" 
                        value="{{ old('ANIO', $equipo->ANIO ?? '') }}" 
-                       placeholder="Escriba o seleccione..." 
+                       placeholder="Ej: 2020"
                        required 
                        maxlength="4" 
                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); filterFormDropdown(this)"
@@ -202,20 +209,42 @@
 
     <!-- Frente de Trabajo -->
     <div>
+        @php
+            // En EDICIÓN el frente queda bloqueado: reasignar de frente es trabajo de
+            // Movilización (que deja CONFIRMADO_EN_SITIO=0). El selector solo aplica al CREAR.
+            $esEdicionEq = $equipo->exists ?? false;
+            $frenteValEq = old('ID_FRENTE_ACTUAL', $equipo->ID_FRENTE_ACTUAL ?? '');
+        @endphp
         <span id="lbl_frente_title" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Frente de Trabajo</span>
         <div class="custom-dropdown @error('ID_FRENTE_ACTUAL') is-invalid @enderror" id="frenteSelect">
-            <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_frente_trabajo" data-filter-value value="{{ old('ID_FRENTE_ACTUAL', $equipo->ID_FRENTE_ACTUAL ?? '') }}" aria-label="Frente de Trabajo">
-            <div class="dropdown-trigger" id="trigger_frente" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_frente_title label_frente_trabajo" style="cursor: default;">
-                <span id="label_frente_trabajo" data-filter-label>{{ $frentes[old('ID_FRENTE_ACTUAL', $equipo->ID_FRENTE_ACTUAL ?? '')] ?? 'SELECCIONE' }}</span>
-                <i class="material-icons">expand_more</i>
-            </div>
-            <div class="dropdown-content">
-                <div class="dropdown-item" onclick="selectOption('frenteSelect', '', 'Sin Asignar', 'frente_trabajo')">Sin Asignar</div>
-                @foreach($frentes as $id => $nombre)
-                    <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ $nombre }}', 'frente_trabajo')">{{ $nombre }}</div>
-                @endforeach
-            </div>
+            {{-- El hidden SIEMPRE envía el frente actual; update() lo descarta para conservarlo. --}}
+            <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_frente_trabajo" data-filter-value value="{{ $frenteValEq }}" aria-label="Frente de Trabajo">
+            @if($esEdicionEq)
+                {{-- EDICIÓN: trigger BLOQUEADO, sin dropdown (el frente se cambia por Movilización). --}}
+                <div class="dropdown-trigger" id="trigger_frente" tabindex="-1" aria-disabled="true"
+                     title="Para cambiar el frente usa Movilización" style="cursor: not-allowed; opacity: 0.75; background:#f1f5f9;">
+                    <span id="label_frente_trabajo" data-filter-label>{{ $frentes[$frenteValEq] ?? 'SIN ASIGNAR' }}</span>
+                    <i class="material-icons" style="color:#94a3b8;">lock</i>
+                </div>
+            @else
+                <div class="dropdown-trigger" id="trigger_frente" onclick="toggleDropdown('frenteSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_frente_title label_frente_trabajo" style="cursor: default;">
+                    <span id="label_frente_trabajo" data-filter-label>{{ $frentes[$frenteValEq] ?? 'SELECCIONE' }}</span>
+                    <i class="material-icons">expand_more</i>
+                </div>
+                <div class="dropdown-content">
+                    <div class="dropdown-item" onclick="selectOption('frenteSelect', '', 'Sin Asignar', 'frente_trabajo')">Sin Asignar</div>
+                    @foreach($frentes as $id => $nombre)
+                        <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ $nombre }}', 'frente_trabajo')">{{ $nombre }}</div>
+                    @endforeach
+                </div>
+            @endif
         </div>
+        @if($esEdicionEq)
+            <span style="margin-top:6px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:4px;">
+                <i class="material-icons" style="font-size:14px; color:#94a3b8;">info</i>
+                El frente se cambia desde <strong>&nbsp;Movilización</strong>, no por edición.
+            </span>
+        @endif
         @error('ID_FRENTE_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 

@@ -381,6 +381,15 @@ class EquipoAuxiliarController extends Controller
         if ($request->boolean('con_certificado')) {
             $q->whereNotNull('LINK_CERTIFICADO')->where('LINK_CERTIFICADO', '!=', '');
         }
+        // Confirmación de presencia en sitio (CONFIRMADO_EN_SITIO): SI=confirmado, NO=pendiente.
+        if (!in_array('confirmado', $exclude) && $request->filled('confirmado') && trim($request->confirmado) !== '') {
+            $val = strtoupper(trim($request->confirmado));
+            if ($val === 'SI') {
+                $q->where('CONFIRMADO_EN_SITIO', 1);
+            } elseif ($val === 'NO') {
+                $q->where('CONFIRMADO_EN_SITIO', 0);
+            }
+        }
         if ($request->filled('search')) {
             $s = trim($request->search);
             $q->where(function ($qq) use ($s) {
@@ -440,6 +449,30 @@ class EquipoAuxiliarController extends Controller
      * El $request debe traer los nombres de parametro del modulo aux:
      * tipo, id_frente, search, offset.
      */
+    /**
+     * Consolidado (TOTAL / Operativos / Inoperativos) de AUXILIARES dentro del
+     * scope de frentes del usuario. Ligero (solo 3 COUNT, sin cargar filas) para
+     * pintar el panel "Consolidado de Equipos Auxiliares" en /admin/equipos.
+     * Mismas claves que el consolidado de equipos (total/activos/inactivos).
+     */
+    public function consolidadoStats(Request $request): array
+    {
+        $base = EquipoAuxiliar::query();
+        $this->scopeFrentes($base); // misma barrera de visibilidad por frente del módulo
+        // Respeta el filtro de FRENTE de /admin/equipos (eje compartido): al filtrar
+        // un frente, el consolidado muestra los auxiliares de ESE frente. El filtro de
+        // TIPO no aplica (los tipos de equipos no son los tipos de auxiliares).
+        $idFrente = $request->input('id_frente');
+        if ($idFrente !== null && $idFrente !== '' && $idFrente !== 'all') {
+            $base->where('ID_FRENTE_ACTUAL', $idFrente);
+        }
+        return [
+            'total'     => (clone $base)->count(),
+            'activos'   => (clone $base)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
+            'inactivos' => (clone $base)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
+        ];
+    }
+
     public function buildEmbedPayload(Request $request): array
     {
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
@@ -497,7 +530,7 @@ class EquipoAuxiliarController extends Controller
 
         return [
             'html'             => view('admin.equipos_auxiliares.partials.table_rows',
-                                     compact('auxiliares', 'tipos', 'photoByModel'))->render(),
+                                     compact('auxiliares', 'tipos', 'photoByModel') + ['embed' => true])->render(),
             'auxDetailsMap'    => $auxDetailsMap,
             'nextOffset'       => $nextOffset,
             'hasMore'          => $hasMore,
@@ -1326,17 +1359,13 @@ class EquipoAuxiliarController extends Controller
         $this->authorizeAuxScope($auxiliar);
         $data = $this->validateData($request, false);
 
-        // LOCAL: tampoco puede mover el auxiliar a un frente fuera de su scope.
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-        if ($isLocalUser && !empty($data['ID_FRENTE_ACTUAL'])) {
-            if (!in_array((string) $data['ID_FRENTE_ACTUAL'], array_map('strval', $frentesPermitidos), true)) {
-                abort(403, 'No tiene permisos para reasignar a este frente.');
-            }
-        }
-        // Nadie (ni GLOBAL) puede reasignar a un frente BLOQUEADO.
-        if (!empty($data['ID_FRENTE_ACTUAL']) && $this->frenteEstaBloqueado($data['ID_FRENTE_ACTUAL'])) {
-            abort(403, 'No tiene permisos para reasignar a este frente.');
-        }
+        // El frente NO se cambia por edición de datos: reasignar un auxiliar de frente
+        // es trabajo de MOVILIZACIÓN (que además deja CONFIRMADO_EN_SITIO=0). El selector
+        // de frente del formulario solo aplica al CREAR; en edición va bloqueado. Lo
+        // descartamos aquí para conservar SIEMPRE el frente y la confirmación actuales,
+        // incluso si alguien manipulara el form (por eso ya no hacen falta los checks de
+        // reasignación por scope/bloqueo: el frente simplemente no se toca).
+        unset($data['ID_FRENTE_ACTUAL']);
 
         // Todos los campos de texto se normalizan a MAYUSCULAS (consistencia
         // con store y con el resto de la app).
@@ -1590,7 +1619,9 @@ class EquipoAuxiliarController extends Controller
         // Envolvemos en transaccion porque MovilizacionController::generateNextCodigoControl() hace lockForUpdate()
         $result = DB::transaction(function () use ($bulkQuery, $frenteId, $generarPdf, $userEmail) {
             $auxParaMover = (clone $bulkQuery)->lockForUpdate()->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
-            $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId]);
+            // Despacho: el auxiliar queda PENDIENTE de confirmar en el frente destino
+            // (se tilda al llegar con el chip, igual que equipos). CONFIRMADO_EN_SITIO -> 0.
+            $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId, 'CONFIRMADO_EN_SITIO' => 0]);
 
             $now = now();
             $codigoControl = $generarPdf ? \App\Http\Controllers\MovilizacionController::generateNextCodigoControl() : null;
@@ -1635,6 +1666,27 @@ class EquipoAuxiliarController extends Controller
      * Cambio rapido de estado operativo (inline desde la tabla del index).
      * Validacion minima: solo ESTADO_OPERATIVO. No toca otros campos required.
      */
+    /**
+     * Confirma (o quita) la presencia física del auxiliar en su frente actual.
+     * Espeja EquipoController::confirmarSitio. Mismo ciclo: el despacho deja el
+     * auxiliar en 0 (pendiente) y aquí se tilda en 1 (confirmado en sitio).
+     */
+    public function confirmarSitio(Request $request, $id)
+    {
+        $request->validate([
+            'confirmado' => 'required|boolean',
+        ]);
+        $aux = EquipoAuxiliar::findOrFail($id);
+        $this->authorizeAuxScope($aux);
+        $aux->CONFIRMADO_EN_SITIO = $request->boolean('confirmado') ? 1 : 0;
+        $aux->save();
+
+        return response()->json([
+            'success'    => true,
+            'confirmado' => (int) $aux->CONFIRMADO_EN_SITIO,
+        ]);
+    }
+
     public function changeStatus(Request $request, $id)
     {
         $estados = array_keys(EquipoAuxiliar::estadosLabel());
@@ -2141,6 +2193,9 @@ class EquipoAuxiliarController extends Controller
                         : 'sometimes|' . $v;
                 }
             }
+            // El frente NO se edita por datos (va por Movilización; update() lo descarta).
+            // Opcional en update para no exigirlo y poder editar auxiliares SIN ASIGNAR.
+            $rules['ID_FRENTE_ACTUAL'] = 'nullable|exists:frentes_trabajo,ID_FRENTE';
         }
 
         $validated = $request->validate($rules, [

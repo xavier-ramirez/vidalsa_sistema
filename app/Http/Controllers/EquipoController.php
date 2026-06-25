@@ -114,7 +114,9 @@ class EquipoController extends Controller
     private function applyEquipoFilters($query, Request $request, array $exclude = []): void
     {
         $user = auth()->user();
-        $search = $request->input('search_query');
+        // trim: una búsqueda de solo espacios cuenta como VACÍA → se aplica el scope
+        // por frente (sin esto, "  " saltaría la barrera de visibilidad del usuario LOCAL).
+        $search = trim((string) $request->input('search_query', ''));
 
         // Barrera de acceso por jurisdicción: lista blanca (LOCAL → solo sus frentes)
         // + lista negra de bloqueados (aplica TAMBIÉN a GLOBAL). aplicarScopeFrentes
@@ -531,16 +533,27 @@ class EquipoController extends Controller
         $auxEmbed = null;
         if ($auxMode) {
             $auxReq = new Request([
-                'tipo'      => substr((string) $request->input('id_tipo', ''), 9),
-                'id_frente' => $request->input('id_frente'),
-                'search'    => $request->input('search_query'),
-                'offset'    => $request->input('offset', 0),
+                'tipo'       => substr((string) $request->input('id_tipo', ''), 9),
+                'id_frente'  => $request->input('id_frente'),
+                'search'     => $request->input('search_query'),
+                'confirmado' => $request->input('confirmado'),
+                'offset'     => $request->input('offset', 0),
             ]);
             $auxEmbed = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildEmbedPayload($auxReq);
             // El Consolidado en modo aux refleja AUXILIARES (no equipos): se reemplazan
             // las stats que pintan la vista y el JS (mismas claves total/activos/inactivos).
             $stats = $auxEmbed['stats'];
         }
+
+        // Consolidado de AUXILIARES (TOTAL/Operativos/Inoperativos) del frente filtrado,
+        // para el panel que va DEBAJO del consolidado de equipos. Se calcula SIEMPRE y
+        // ANTES del return JSON (el filtrado AJAX retorna aquí). Visibilidad de la card:
+        //  - sin filtro o filtro por FRENTE  → se muestra junto al de equipos (los dos)
+        //  - filtro por un TIPO de EQUIPO     → solo equipos (se oculta aux)
+        //  - filtro por un TIPO AUX (auxMode) → solo auxiliares (se oculta esta card)
+        $auxConsolidado = app(\App\Http\Controllers\EquipoAuxiliarController::class)->consolidadoStats($request);
+        $tipoSel = (string) $request->input('id_tipo', '');
+        $showAuxConsolidado = ($tipoSel === '' || $tipoSel === 'all');
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -551,6 +564,8 @@ class EquipoController extends Controller
                 'auxData'      => $auxMode ? $auxEmbed['auxDetailsMap'] : [],
                 'pagination'   => '',
                 'stats'        => $stats,
+                'auxConsolidado'     => $auxConsolidado,
+                'showAuxConsolidado' => $showAuxConsolidado,
                 'truncated'         => $truncated,
                 'totalFound'        => $auxMode ? $auxEmbed['totalFound'] : $totalFound,
                 'shownCount'        => $auxMode ? $auxEmbed['shownCount'] : $allResults->count(),
@@ -645,13 +660,14 @@ class EquipoController extends Controller
         $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all' && !$auxMode)
                        && !($request->filled('id_frente') && $request->id_frente !== 'all');
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableUbicaciones', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux'));
+        // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
+        // return JSON), así están disponibles tanto para el AJAX como para esta vista.
+
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableUbicaciones', 'jsonPayload', 'showFrentes', 'auxMode', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado'));
     }
 
     public function export(Request $request)
     {
-        $user = auth()->user();
-
         // CRITICAL: Prevent exporting entire database without filters.
         // 'id_frente=all' es un filtro explícito válido (el usuario seleccionó "Todos los Frentes").
         $hasFilter = $request->filled('id_frente')   // incluye 'all' como filtro válido
@@ -684,97 +700,18 @@ class EquipoController extends Controller
             'CODIGO_PATIO', 'NUMERO_ETIQUETA', 'LINK_GPS',
         ]);
 
-        // Apply Local User Scope EXCEPT when doing a global text search
-        // FIX: Single $search variable — do not re-declare below to avoid losing strtoupper/trim normalization.
+        // $search normalizado (uppercase+trim) SOLO para el bloque de búsqueda de
+        // abajo. La barrera de visibilidad por frente (scope LOCAL + bloqueados) la
+        // aplica applyEquipoFilters() como FUENTE ÚNICA — antes este método la repetía
+        // por separado (duplicidad). Ya cubre el caso de búsqueda vacía/solo-espacios.
         $search = strtoupper(trim((string) $request->input('search_query', '')));
-        if (empty($search) && $user) {
-            // Lista blanca (LOCAL) + lista negra de bloqueados (también GLOBAL).
-            $user->aplicarScopeFrentes($equipos, 'ID_FRENTE_ACTUAL');
-        }
 
-        // Apply same filters (mismo criterio que el listado, ver applyEquipoFilters)
-        if ($request->filled('id_frente') && $request->id_frente === 'none') {
-            // Sentinel "SIN ASIGNAR": equipos sin ID_FRENTE_ACTUAL en BD.
-            $equipos->whereNull('ID_FRENTE_ACTUAL');
-        } elseif ($request->filled('id_frente') && $request->id_frente != 'all') {
-            $equipos->where('ID_FRENTE_ACTUAL', $request->id_frente);
-        } elseif (!$this->tieneFiltroEspecifico($request)) {
-            // Sin frente específico y sin búsqueda/filtro de atributo → ocultar los ESPECIAL.
-            $equipos->excludeEspecial();
-        }
-        if ($request->filled('id_tipo')) {
-            $equipos->where('id_tipo_equipo', $request->id_tipo);
-        }
-        if ($request->filled('modelo')) {
-            $equipos->where('MODELO', $request->modelo);
-        }
-        if ($request->filled('marca')) {
-            $equipos->where('MARCA', $request->marca);
-        }
-        if ($request->filled('anio')) {
-            $equipos->where('ANIO', $request->anio);
-        }
-        if ($request->filled('categoria')) {
-            $equipos->where('CATEGORIA_FLOTA', $request->categoria);
-        }
-        if ($request->filled('estado')) {
-            $equipos->where('ESTADO_OPERATIVO', $request->estado);
-        }
-        if ($request->filled('gps') && trim($request->gps) !== '') {
-            $val = strtoupper(trim($request->gps));
-            if ($val === 'SI') {
-                $equipos->whereNotNull('LINK_GPS')->where('LINK_GPS', '!=', '');
-            } elseif ($val === 'NO') {
-                $equipos->where(function($q) {
-                    $q->whereNull('LINK_GPS')->orWhere('LINK_GPS', '=', '');
-                });
-            }
-        }
-        if ($request->filled('color') && trim($request->color) !== '') {
-            $equipos->where('COLOR', $request->color);
-        }
-        if ($request->filled('confirmado') && trim($request->confirmado) !== '') {
-            $val = strtoupper(trim($request->confirmado));
-            if ($val === 'SI') {
-                $equipos->where('CONFIRMADO_EN_SITIO', 1);
-            } elseif ($val === 'NO') {
-                $equipos->where('CONFIRMADO_EN_SITIO', 0);
-            }
-        }
-
-        // --- Documentation Filters ---
-        $hasDocFilter = ($request->filled('filter_propiedad') && $request->filter_propiedad === 'true') ||
-                        ($request->filled('filter_poliza') && $request->filter_poliza === 'true') ||
-                        ($request->filled('filter_rotc') && $request->filter_rotc === 'true') ||
-                        ($request->filled('filter_racda') && $request->filter_racda === 'true') ||
-                        ($request->filled('filter_adicional') && $request->filter_adicional === 'true') ||
-                        ($request->filled('filter_adicional_2') && $request->filter_adicional_2 === 'true');
-
-        if ($hasDocFilter) {
-            // Mismo patron que applyEquipoFilters/index: !=null Y !=''
-            // (los LINK_* pueden quedar como string vacio tras un borrado).
-            $equipos->leftJoin('documentacion AS doc_filter', 'equipos.ID_EQUIPO', '=', 'doc_filter.ID_EQUIPO')
-                     ->where(function ($q) use ($request) {
-                         if ($request->filled('filter_propiedad') && $request->filter_propiedad === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_DOC_PROPIEDAD')->where('doc_filter.LINK_DOC_PROPIEDAD', '!=', '');
-                         }
-                         if ($request->filled('filter_poliza') && $request->filter_poliza === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_POLIZA_SEGURO')->where('doc_filter.LINK_POLIZA_SEGURO', '!=', '');
-                         }
-                         if ($request->filled('filter_rotc') && $request->filter_rotc === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_ROTC')->where('doc_filter.LINK_ROTC', '!=', '');
-                         }
-                         if ($request->filled('filter_racda') && $request->filter_racda === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_RACDA')->where('doc_filter.LINK_RACDA', '!=', '');
-                         }
-                         if ($request->filled('filter_adicional') && $request->filter_adicional === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_DOC_ADICIONAL')->where('doc_filter.LINK_DOC_ADICIONAL', '!=', '');
-                         }
-                         if ($request->filled('filter_adicional_2') && $request->filter_adicional_2 === 'true') {
-                             $q->whereNotNull('doc_filter.LINK_DOC_ADICIONAL_2')->where('doc_filter.LINK_DOC_ADICIONAL_2', '!=', '');
-                         }
-                     });
-        }
+        // Mismos filtros que el listado (frente/tipo/atributos/gps/color/confirmado/
+        // documentación) reutilizando applyEquipoFilters() en vez de reimplementarlos.
+        // Antes estaban DUPLICADOS aquí, y este bloque además tenía un bug: el id_tipo
+        // no manejaba el prefijo 'tipo_eq:'/'tipo_aux:' del dropdown, y los doc filters
+        // ignoraban doc_presence (sin/all). Ahora el export coincide 1:1 con la tabla.
+        $this->applyEquipoFilters($equipos, $request);
 
         // $search already normalized above — no re-declaration needed.
         if ($search) {
@@ -1341,6 +1278,7 @@ class EquipoController extends Controller
                 'MODELO' => 'required',
                 'ANIO' => 'required|integer',
                 'COLOR' => 'nullable|string|max:50',
+                'CAPACIDAD' => 'nullable|string|max:80',
                 'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS',
                 'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR',
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
@@ -1424,12 +1362,31 @@ class EquipoController extends Controller
             $data['CODIGO_PATIO'] = (trim($data['CODIGO_PATIO'] ?? '') === '') ? null : strtoupper($data['CODIGO_PATIO']);
             $data['MARCA'] = strtoupper($data['MARCA'] ?? '');
             $data['MODELO'] = strtoupper($data['MODELO'] ?? '');
+            $data['CAPACIDAD'] = (trim($data['CAPACIDAD'] ?? '') === '') ? null : strtoupper(trim($data['CAPACIDAD']));
             $data['SERIAL_CHASIS'] = strtoupper($data['SERIAL_CHASIS'] ?? '');
             $data['SERIAL_DE_MOTOR'] = (trim($data['SERIAL_DE_MOTOR'] ?? '') === '') ? null : strtoupper(trim($data['SERIAL_DE_MOTOR']));
             
             $data['CREADO_POR'] = auth()->id();
 
             $equipo = Equipo::create($data);
+
+            // Frente al CREAR: ID_FRENTE_ACTUAL no es fillable (se controla aparte para
+            // que la edición no lo toque y solo Movilización lo mueva). Pero al REGISTRAR
+            // un equipo nuevo sí permitimos asignar el frente elegido en el form, vía
+            // property+save y con las mismas guardas de scope/bloqueo. El equipo nace
+            // PENDIENTE (CONFIRMADO_EN_SITIO=0 por default) hasta confirmarse en sitio.
+            $frenteNuevo = trim((string) $request->input('ID_FRENTE_ACTUAL', ''));
+            if ($frenteNuevo !== '' && \App\Models\FrenteTrabajo::where('ID_FRENTE', $frenteNuevo)->exists()) {
+                $u = auth()->user();
+                $esLocal    = $u ? !$u->veTodosLosFrentes() : false;
+                $permitidos = $u ? array_map('strval', $u->getFrentesIds()) : [];
+                $bloqueados = $u ? array_map('strval', $u->getFrentesBloqueadosIds()) : [];
+                if (in_array($frenteNuevo, $bloqueados, true) || ($esLocal && !in_array($frenteNuevo, $permitidos, true))) {
+                    abort(403, 'No tiene permisos para registrar equipos en este frente.');
+                }
+                $equipo->ID_FRENTE_ACTUAL = $frenteNuevo;
+                $equipo->save();
+            }
 
             // Link to catalog if specified (validation already done)
             if ($request->filled('ID_ESPEC')) {
@@ -1679,6 +1636,7 @@ class EquipoController extends Controller
             'MODELO' => 'required',
             'ANIO' => 'required|integer',
             'COLOR' => 'nullable|string|max:50',
+            'CAPACIDAD' => 'nullable|string|max:80',
             // ID_ESPEC se gestiona desde el widget del catálogo, no desde
             // el formulario de edición general. Se acepta cualquier valor
             // (o null) sin validar existencia para evitar errores con vínculos huérfanos.
@@ -1765,8 +1723,13 @@ class EquipoController extends Controller
             $data['CODIGO_PATIO'] = (trim($data['CODIGO_PATIO'] ?? '') === '') ? null : strtoupper($data['CODIGO_PATIO']);
             $data['MARCA'] = strtoupper(trim($data['MARCA'] ?? ''));
             $data['MODELO'] = strtoupper(trim($data['MODELO'] ?? ''));
+            $data['CAPACIDAD'] = (trim($data['CAPACIDAD'] ?? '') === '') ? null : strtoupper(trim($data['CAPACIDAD']));
             $data['SERIAL_CHASIS'] = strtoupper(trim($data['SERIAL_CHASIS'] ?? ''));
             $data['SERIAL_DE_MOTOR'] = (trim($data['SERIAL_DE_MOTOR'] ?? '') === '') ? null : strtoupper(trim($data['SERIAL_DE_MOTOR']));
+            // El frente NO se cambia por edición de datos: reasignar es trabajo de
+            // MOVILIZACIÓN (que deja CONFIRMADO_EN_SITIO=0). El selector va bloqueado en
+            // edición; lo descartamos aquí para conservar SIEMPRE el frente y su confirmación.
+            unset($data['ID_FRENTE_ACTUAL']);
             $equipo->update($data);
 
             $driveService = \App\Services\GoogleDriveService::getInstance();

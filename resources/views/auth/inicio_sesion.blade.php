@@ -150,6 +150,11 @@
         var preloader = document.getElementById('loginPreloader');
         if (preloader) preloader.classList.add('fade-out');
 
+        // Estamos en el login: limpia cualquier bandera "login reciente" que haya
+        // quedado de un intento fallido/cancelado, para que no suprima el spinner
+        // general en una página autenticada posterior.
+        try { sessionStorage.removeItem('vidalsaJustLoggedIn'); } catch (e) {}
+
         setInterval(() => { window.location.reload(); }, 1000 * 60 * 20);
 
         const loginFormElement = document.getElementById('loginForm');
@@ -171,6 +176,13 @@
         setTimeout(() => inputs.forEach(input => checkValue(input)), 1000);
     });
 
+    // Punto ÚNICO para la bandera que consume estructura_base en la primera carga
+    // tras el login (para NO mostrar el spinner general: el logo ya cubrió la
+    // transición). Centraliza la clave 'vidalsaJustLoggedIn'.
+    window.marcarLoginReciente = function () {
+        try { sessionStorage.setItem('vidalsaJustLoggedIn', '1'); } catch (e) {}
+    };
+
     const loginForm = document.querySelector('form');
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
@@ -182,6 +194,10 @@
                 preloader.classList.remove('fade-out');
                 preloader.style.display = 'flex';
             }
+
+            // Optimista: el POST navega sin saber el resultado aquí. Si el login
+            // falla, el re-render del login limpia la bandera en su DOMContentLoaded.
+            window.marcarLoginReciente();
 
             // Guarda el verificador OFFLINE (hash de correo+clave, nunca la clave en texto)
             // para poder entrar sin internet luego. Se "confirma" al llegar al menú. La
@@ -254,6 +270,7 @@ document.addEventListener('DOMContentLoaded', function() {
         VidalsaWebAuthn.autenticar()
             .then(function(data) {
                 if (data && data.success && data.redirect) {
+                    window.marcarLoginReciente(); // solo en éxito confirmado
                     window.location.href = data.redirect;
                     return;
                 }

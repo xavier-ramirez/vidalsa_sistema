@@ -35,6 +35,10 @@
 </div>
 
 <!-- Search & Data Table -->
+{{-- Mismo contenedor que /admin/equipos: la tarjeta blanca vive dentro de
+     .page-layout-grid para heredar el ancho/márgenes móviles globales (8px
+     laterales, full-width) sin reglas .main-viewport propias. --}}
+<div class="page-layout-grid frentes-grid">
 <div class="admin-card frentes-card">
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
         <div class="frentes-search-row">
@@ -66,7 +70,7 @@
         </a>
     </div>
 
-    <div class="table-responsive">
+    <div class="frentes-table-scroll">
         <table class="admin-table">
             <thead>
                 <tr>
@@ -143,6 +147,7 @@
         {{ $frentes->links() }}
     </div>
 </div>
+</div>{{-- /.frentes-grid --}}
 
 <style>
 .frentes-search-row {
@@ -153,26 +158,33 @@
     min-width: 0;
 }
 
+/* Frentes no tiene sidebar: en escritorio el grid es de una sola columna
+   (page-layout-grid base es 1fr 300px, pensado para módulos con contador). */
+@media (min-width: 769px) {
+    .frentes-grid { grid-template-columns: 1fr !important; }
+}
+
+/* Scroll horizontal propio de la tabla. NO usamos .custom-scrollbar-container
+   porque el global lo fuerza a overflow:visible en móvil (para módulos que
+   convierten la tabla en tarjetas, que frentes no hace) y recortaría las
+   columnas derechas. */
+.frentes-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 768px) {
-    body:has(.frentes-card) .main-viewport {
-        width: 100% !important;
-        max-width: 100% !important;
-        padding-left: 8px !important;
-        padding-right: 8px !important;
-        box-sizing: border-box !important;
-    }
+    /* El ancho/margen del contenedor blanco lo da .page-layout-grid (global). */
     .page-title-card { margin-bottom: 10px !important; }
     .dashboard-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
     .stat-card { padding: 10px !important; }
     .stat-card div:last-child div:first-child { font-size: 11px !important; }
     .stat-card div:last-child div:last-child { font-size: 20px !important; }
-    .frentes-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        padding: 15px 12px !important;
-        border-radius: 12px !important;
-        box-sizing: border-box !important;
-    }
+    /* Padding interno compacto para aprovechar el ancho en móvil. */
+    .frentes-card { padding: 12px 10px !important; }
+    /* La tabla no se aplasta: mantiene un ancho mínimo legible y se desliza. */
+    .frentes-table-scroll .admin-table { min-width: 640px; }
 }
 </style>
 @endsection

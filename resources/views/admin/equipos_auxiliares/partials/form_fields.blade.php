@@ -122,22 +122,42 @@
         @php
             $frenteVal  = old('ID_FRENTE_ACTUAL', $auxiliar->ID_FRENTE_ACTUAL);
             $frenteCurr = $frentes->firstWhere('ID_FRENTE', (int) $frenteVal);
+            // En EDICIÓN el frente queda bloqueado: reasignar de frente es trabajo de
+            // Movilización (que deja CONFIRMADO_EN_SITIO=0). El selector solo aplica al CREAR.
+            $esEdicion = $auxiliar->exists ?? false;
         @endphp
         <span style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">
             Frente de Trabajo <span style="color: var(--maquinaria-red);">*</span>
         </span>
         <div class="custom-dropdown @error('ID_FRENTE_ACTUAL') is-invalid @enderror" id="auxFrenteSelect">
+            {{-- El hidden SIEMPRE envía el frente actual: en edición pasa la validación
+                 required, y update() lo descarta para conservar el frente y su confirmación. --}}
             <input type="hidden" name="ID_FRENTE_ACTUAL" id="input_aux_frente" data-filter-value value="{{ $frenteVal }}" aria-label="Frente de Trabajo" required>
-            <div class="dropdown-trigger" id="trigger_aux_frente" onclick="toggleDropdown('auxFrenteSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" style="cursor: default;">
-                <span id="label_aux_frente" data-filter-label>{{ $frenteCurr ? $frenteCurr->NOMBRE_FRENTE : 'Seleccione un frente...' }}</span>
-                <i class="material-icons">expand_more</i>
-            </div>
-            <div class="dropdown-content">
-                @foreach($frentes as $f)
-                    <div class="dropdown-item" onclick="selectOption('auxFrenteSelect', '{{ $f->ID_FRENTE }}', '{{ addslashes($f->NOMBRE_FRENTE) }}', 'aux_frente')">{{ $f->NOMBRE_FRENTE }}</div>
-                @endforeach
-            </div>
+            @if($esEdicion)
+                {{-- Trigger BLOQUEADO: el frente no se cambia por edición. --}}
+                <div class="dropdown-trigger" id="trigger_aux_frente" tabindex="-1" aria-disabled="true"
+                     title="Para cambiar el frente usa Movilización" style="cursor: not-allowed; opacity: 0.75; background:#f1f5f9;">
+                    <span id="label_aux_frente" data-filter-label>{{ $frenteCurr ? $frenteCurr->NOMBRE_FRENTE : 'SIN ASIGNAR' }}</span>
+                    <i class="material-icons" style="color:#94a3b8;">lock</i>
+                </div>
+            @else
+                <div class="dropdown-trigger" id="trigger_aux_frente" onclick="toggleDropdown('auxFrenteSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" style="cursor: default;">
+                    <span id="label_aux_frente" data-filter-label>{{ $frenteCurr ? $frenteCurr->NOMBRE_FRENTE : 'Seleccione un frente...' }}</span>
+                    <i class="material-icons">expand_more</i>
+                </div>
+                <div class="dropdown-content">
+                    @foreach($frentes as $f)
+                        <div class="dropdown-item" onclick="selectOption('auxFrenteSelect', '{{ $f->ID_FRENTE }}', '{{ addslashes($f->NOMBRE_FRENTE) }}', 'aux_frente')">{{ $f->NOMBRE_FRENTE }}</div>
+                    @endforeach
+                </div>
+            @endif
         </div>
+        @if($esEdicion)
+            <span style="margin-top:6px; font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:4px;">
+                <i class="material-icons" style="font-size:14px; color:#94a3b8;">info</i>
+                El frente se cambia desde <strong>&nbsp;Movilización</strong>, no por edición.
+            </span>
+        @endif
         @error('ID_FRENTE_ACTUAL') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
