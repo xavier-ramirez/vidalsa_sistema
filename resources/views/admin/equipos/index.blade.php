@@ -753,7 +753,7 @@
 
         <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
-            Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
+            <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
         </div>
         <div style="display: flex; gap: 8px; justify-content: space-between;">
             <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
@@ -777,7 +777,7 @@
     <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
-            Consolidado de Equipos Auxiliares
+            Equipos Auxiliares
         </div>
         <div style="display: flex; gap: 8px; justify-content: space-between;">
             <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
@@ -846,7 +846,7 @@
 
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.8; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
+                <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
             </div>
 
             {{-- 3 columnas iguales en UNA sola línea, sin iconos (el color del bloque
@@ -876,7 +876,7 @@
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                Consolidado de <span>Equipos Auxiliares</span>
+                <span>Equipos Auxiliares</span>
             </div>
             {{-- 3 columnas iguales en UNA sola línea, sin iconos (mismo patrón que el
                  consolidado de equipos para que ambos se vean idénticos). --}}

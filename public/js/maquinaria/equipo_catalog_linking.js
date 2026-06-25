@@ -184,21 +184,21 @@
             style.textContent = `
                 .catalog-grid {
                     display: grid;
-                    gap: 7px 12px;
-                    font-size: 12.5px;
+                    gap: 3px 12px;
+                    font-size: 12px;
                 }
                 /* Desktop: 4 Columns */
                 @media (min-width: 768px) {
                     .catalog-grid { grid-template-columns: repeat(4, 1fr); }
                      .catalog-flex-container { display: flex; gap: 12px; align-items: flex-start; }
-                     .catalog-photo-wrapper { width: 90px; flex-shrink: 0; }
+                     .catalog-photo-wrapper { width: 110px; flex-shrink: 0; }
                 }
                 /* Mobile: 2 Columns */
                 @media (max-width: 767px) {
                      .catalog-grid { grid-template-columns: repeat(2, 1fr); }
                      .catalog-flex-container { display: flex; flex-direction: column; gap: 10px; }
                      .catalog-photo-wrapper { width: 100%; display: flex; justify-content: center; margin-bottom: 6px; }
-                     .catalog-photo-wrapper img, .catalog-photo-wrapper div { width: 100% !important; max-width: 160px; height: auto !important; }
+                     .catalog-photo-wrapper img, .catalog-photo-wrapper div { width: 100% !important; max-width: 190px; height: auto !important; max-height: 110px; object-fit: contain; }
                 }
             `;
             document.head.appendChild(style);
@@ -211,13 +211,13 @@
         if (data.FOTO_REFERENCIAL) {
             html += `
                 <div class="catalog-photo-wrapper">
-                    <img src="${data.FOTO_REFERENCIAL}" style="width: 100%; height: 78px; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;">
+                    <img src="${data.FOTO_REFERENCIAL}" style="width: 100%; height: 92px; border-radius: 8px; object-fit: contain; background: #f8fafc; border: 1px solid #e2e8f0;">
                 </div>`;
         } else {
             // Placeholder if no photo
             html += `
                 <div class="catalog-photo-wrapper">
-                    <div style="width: 90px; height: 78px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #cbd5e0;">
+                    <div style="width: 110px; height: 92px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #cbd5e0;">
                         <i class="material-icons" style="font-size: 32px;">image</i>
                     </div>
                 </div>`;

@@ -107,20 +107,6 @@
         @error('MODELO') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
-    <!-- Color (al lado de Modelo) -->
-    <div>
-        <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
-        <input type="text" id="color" name="COLOR" class="form-input-custom @error('COLOR') is-invalid @enderror" value="{{ old('COLOR', $equipo->COLOR ?? '') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
-        @error('COLOR') <span class="error-message-inline">{{ $message }}</span> @enderror
-    </div>
-
-    <!-- Capacidad (string libre, igual que equipos auxiliares) -->
-    <div>
-        <label for="CAPACIDAD" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
-        <input type="text" id="CAPACIDAD" name="CAPACIDAD" class="form-input-custom @error('CAPACIDAD') is-invalid @enderror" value="{{ old('CAPACIDAD', $equipo->CAPACIDAD ?? '') }}" placeholder="Ej: 20 TON, 300A, 50kVA" maxlength="80" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
-        @error('CAPACIDAD') <span class="error-message-inline">{{ $message }}</span> @enderror
-    </div>
-
     <!-- Año + Número de Etiqueta (Grid 2 columnas en 1 espacio de la grilla principal) -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <!-- Año -->
@@ -187,6 +173,20 @@
         <label for="serial_motor" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Serial de Motor</label>
         <input type="text" id="serial_motor" name="SERIAL_DE_MOTOR" class="form-input-custom @error('SERIAL_DE_MOTOR') is-invalid @enderror" value="{{ old('SERIAL_DE_MOTOR', $equipo->SERIAL_DE_MOTOR ?? '') }}" placeholder="Opcional" autocomplete="off">
         @error('SERIAL_DE_MOTOR') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    <!-- Color (después de los seriales) -->
+    <div>
+        <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
+        <input type="text" id="color" name="COLOR" class="form-input-custom @error('COLOR') is-invalid @enderror" value="{{ old('COLOR', $equipo->COLOR ?? '') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+        @error('COLOR') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
+    <!-- Capacidad (string libre, igual que equipos auxiliares) -->
+    <div>
+        <label for="CAPACIDAD" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Capacidad</label>
+        <input type="text" id="CAPACIDAD" name="CAPACIDAD" class="form-input-custom @error('CAPACIDAD') is-invalid @enderror" value="{{ old('CAPACIDAD', $equipo->CAPACIDAD ?? '') }}" placeholder="Ej: 20 TON, 300A, 50kVA" maxlength="80" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+        @error('CAPACIDAD') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
     <!-- Categoría de Flota -->
@@ -292,7 +292,7 @@
         </div>
         <div style="flex: 1;">
             <h4 style="margin: 0; color: #0c4a6e; font-size: 13.5px; font-weight: 800;">¡Encontramos este modelo en el Catálogo!</h4>
-            <p style="margin: 2px 0 0 0; color: #075985; font-size: 12px;">Vincular las especificaciones técnicas si coinciden con las del equipo a registrar.</p>
+            <p style="margin: 2px 0 0 0; color: #075985; font-size: 12px;">Vincula las especificaciones técnicas si coinciden con el equipo.</p>
         </div>
     </div>
 
