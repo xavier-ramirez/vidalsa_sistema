@@ -185,23 +185,25 @@
 
     const loginForm = document.querySelector('form');
     if (loginForm) {
-        // Aviso "sin conexión": evita que el navegador muestre su página de error
-        // (la "boba fea") cuando el login no puede contactar al servidor. En vez de
-        // navegar, mostramos un mensaje en #offlineLoginMsg y nos quedamos en el login.
-        function avisarSinConexion() {
+        // Muestra un mensaje en #offlineLoginMsg, oculta el spinner y rehabilita el
+        // botón. Lo usan tanto el aviso "sin conexión" como los errores de credenciales.
+        function mostrarMsgLogin(texto) {
             const pl = document.getElementById('loginPreloader');
             if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
-            const btnOff = document.getElementById('btnOfflineLogin');
-            const hayOffline = btnOff && btnOff.style.display !== 'none';
             const msg = document.getElementById('offlineLoginMsg');
-            if (msg) {
-                msg.textContent = hayOffline
-                    ? 'Sin conexión a internet. Puedes usar "Entrar sin conexión" o revisar tu red.'
-                    : 'Sin conexión a internet. Revisa tu red e inténtalo de nuevo.';
-                msg.style.display = 'block';
-            }
+            if (msg) { msg.textContent = texto; msg.style.display = 'block'; }
             const btnOn = document.getElementById('btnOnlineLogin');
             if (btnOn) btnOn.disabled = false;
+        }
+        // Aviso "sin conexión": evita que el navegador muestre su página de error (la
+        // "boba fea") cuando el login no puede contactar al servidor. Si hay credenciales
+        // offline guardadas, sugiere "Entrar sin conexión".
+        function avisarSinConexion() {
+            const btnOff = document.getElementById('btnOfflineLogin');
+            const hayOffline = btnOff && btnOff.style.display !== 'none';
+            mostrarMsgLogin(hayOffline
+                ? 'Sin conexión a internet. Puedes usar "Entrar sin conexión" o revisar tu red.'
+                : 'Sin conexión a internet. Revisa tu red e inténtalo de nuevo.');
         }
 
         loginForm.addEventListener('submit', function(e) {
@@ -211,20 +213,17 @@
             // error fea); avisa y quédate en el login.
             if (!navigator.onLine) { avisarSinConexion(); return; }
 
-            // Show Preloader
+            // Limpia un mensaje previo y muestra el spinner.
+            const msgPrev = document.getElementById('offlineLoginMsg');
+            if (msgPrev) msgPrev.style.display = 'none';
             const preloader = document.getElementById('loginPreloader');
             if (preloader) {
                 preloader.classList.remove('fade-out');
                 preloader.style.display = 'flex';
             }
 
-            // Optimista: el POST navega sin saber el resultado aquí. Si el login
-            // falla, el re-render del login limpia la bandera en su DOMContentLoaded.
-            window.marcarLoginReciente();
-
             // Guarda el verificador OFFLINE (hash de correo+clave, nunca la clave en texto)
-            // para poder entrar sin internet luego. Se "confirma" al llegar al menú. La
-            // función es asíncrona pero el handshake de abajo da tiempo de sobra a que termine.
+            // para poder entrar sin internet luego. Se "confirma" al llegar al menú.
             if (window.OfflineAuth) {
                 window.OfflineAuth.guardarPendiente(
                     (document.getElementById('login_identifier') || {}).value,
@@ -234,30 +233,48 @@
 
             // 1. Handshake: pedir un token CSRF fresco.
             //    cache:'no-store' es OBLIGATORIO: el HTML del login se sirve desde la
-            //    caché del Service Worker (token viejo), y si el navegador también
-            //    cacheara /refresh-csrf devolvería un token caducado -> 419 al primer
-            //    intento. Forzamos red para traer SIEMPRE el token de la sesión actual.
+            //    caché del Service Worker (token viejo); forzamos red para el token actual.
             fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
                 .then(response => {
                     if (!response.ok) throw new Error('HTTP ' + response.status);
                     return response.text();
                 })
                 .then(newToken => {
-                    // 2. Inyectar el token nuevo (validando que sea un token, no HTML
-                    //    de una página de error: evita romper el _token con basura).
+                    // 2. Inyectar el token nuevo (validando que sea un token, no HTML).
                     newToken = (newToken || '').trim();
                     const tokenInput = loginForm.querySelector('input[name="_token"]');
                     if (tokenInput && newToken && newToken.length < 100 && newToken.indexOf('<') === -1) {
                         tokenInput.value = newToken;
                     }
-                    // 3. Enviar
-                    loginForm.submit();
+                    // 3. Enviar por FETCH (no navegación nativa): así un bajón de red en el
+                    //    POST se atrapa en el .catch de abajo y NO dispara la página de
+                    //    error del navegador — te quedas en el login para reintentar.
+                    return fetch(loginForm.action, {
+                        method: 'POST',
+                        body: new FormData(loginForm),
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        credentials: 'same-origin',
+                    }).then(function (resp) {
+                        if (resp.status === 419) { window.location.reload(); return; } // CSRF expiró → token fresco
+                        return resp.json().then(function (data) {
+                            if (resp.ok && data && data.success && data.redirect) {
+                                window.marcarLoginReciente();          // solo en éxito confirmado
+                                window.location.href = data.redirect;  // → menú
+                                return;
+                            }
+                            // Credenciales/negocio (422): mostrar el mensaje, quedarse en el login.
+                            mostrarMsgLogin((data && data.message) || 'Usuario o clave incorrecta.');
+                        }).catch(function () {
+                            // Respuesta no-JSON inesperada: recargar para mostrar el server-render.
+                            window.location.reload();
+                        });
+                    });
                 })
                 .catch(error => {
-                    console.error('Handshake failed:', error);
-                    // No se pudo contactar al servidor (offline o caído): NO navegamos
-                    // (eso dispara la página de error del navegador). Avisamos y nos
-                    // quedamos en el login para que el usuario reintente o entre offline.
+                    console.error('Login failed:', error);
+                    // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO
+                    // navegamos (eso dispara la página de error del navegador). Avisamos y
+                    // nos quedamos en el login para reintentar o entrar sin conexión.
                     avisarSinConexion();
                 });
         });

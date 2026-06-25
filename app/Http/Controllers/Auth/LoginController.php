@@ -23,7 +23,10 @@ class LoginController extends Controller
                 'password' => ['required', 'string'],
             ]);
         } catch (\Illuminate\Session\TokenMismatchException $e) {
-            // Token expired, redirect to fresh login
+            // Token expired. En fetch devolvemos JSON con 'reload' para refrescar el CSRF.
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'reload' => true, 'message' => 'Su sesión expiró. Recargando…'], 419);
+            }
             return redirect()->route('login')->with('info', 'Su sesión expiró. Por favor, inicie sesión nuevamente.');
         }
 
@@ -32,9 +35,7 @@ class LoginController extends Controller
         // 0. BLOQUEO PERMANENTE (Base de Datos)
         $bloqueo = BloqueoIp::where('DIRECCION_IP', $ip)->first();
         if ($bloqueo && $bloqueo->BLOQUEO_PERMANENTE) {
-            return back()->withErrors([
-                'login_error' => 'Su dirección IP ha sido bloqueada permanentemente por seguridad. Contacte al administrador.',
-            ])->withInput($request->except('password'));
+            return $this->respuestaLogin($request, false, null, 'Su dirección IP ha sido bloqueada permanentemente por seguridad. Contacte al administrador.');
         }
 
         // 1. Rate Limiting (Protección contra fuerza bruta Temporal)
@@ -44,9 +45,7 @@ class LoginController extends Controller
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
             
-            return back()->withErrors([
-                'login_error' => 'Demasiados intentos fallidos. Por favor intente de nuevo en ' . $seconds . ' segundos.',
-            ])->withInput($request->except('password'));
+            return $this->respuestaLogin($request, false, null, 'Demasiados intentos fallidos. Por favor intente de nuevo en ' . $seconds . ' segundos.');
         }
 
         try {
@@ -66,9 +65,7 @@ class LoginController extends Controller
                     Auth::logout(); // Cerramos la sesión que attempt acaba de abrir
                     RateLimiter::hit($throttleKey); // Contamos como intento fallido para seguridad
                     
-                    return back()->withErrors([
-                        'login_error' => 'Usuario inactivo. Contacte al administrador.',
-                    ])->withInput($request->except('password'));
+                    return $this->respuestaLogin($request, false, null, 'Usuario inactivo. Contacte al administrador.');
                 }
 
                 // 4. Token de Sesión Única (Tu lógica personalizada)
@@ -96,12 +93,12 @@ class LoginController extends Controller
 
                 // OPTIMIZATION: Direct redirect for password change
                 if ($user->REQUIERE_CAMBIO_CLAVE) {
-                    return redirect()->route('password.change');
+                    return $this->respuestaLogin($request, true, route('password.change'));
                 }
 
                 $request->session()->flash('webauthn_prompt', true);
 
-                return redirect()->route('menu');
+                return $this->respuestaLogin($request, true, route('menu'));
             }
 
             // 6. Fallo de Credenciales
@@ -124,21 +121,35 @@ class LoginController extends Controller
             $bloqueo->save();
 
             if ($bloqueo->BLOQUEO_PERMANENTE) {
-                 return back()->withErrors([
-                    'login_error' => 'Ha excedido el límite de intentos. Su IP ha sido bloqueada permanentemente.',
-                ])->withInput($request->except('password'));
+                 return $this->respuestaLogin($request, false, null, 'Ha excedido el límite de intentos. Su IP ha sido bloqueada permanentemente.');
             }
 
-            return back()->withErrors([
-                'login_error' => 'Usuario o clave incorrecta.',
-            ])->withInput($request->except('password'));
+            return $this->respuestaLogin($request, false, null, 'Usuario o clave incorrecta.');
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Login Error: ' . $e->getMessage());
-            return back()->withErrors([
-                'login_error' => 'Error del sistema al iniciar sesión. Intente nuevamente.',
-            ])->withInput($request->except('password'));
+            return $this->respuestaLogin($request, false, null, 'Error del sistema al iniciar sesión. Intente nuevamente.');
         }
+    }
+
+    /**
+     * Respuesta del login compatible con fetch (AJAX) y con navegación clásica.
+     * Cuando el front envía por fetch (X-Requested-With/Accept JSON) devolvemos JSON
+     * { success, redirect } o { success:false, message }, para que un bajón de red se
+     * maneje en JS (quedarse en el login) en vez de disparar la página de error del
+     * navegador. Sin AJAX, conserva el comportamiento clásico (redirect/back con errores).
+     */
+    private function respuestaLogin(Request $request, bool $exito, ?string $redirect = null, ?string $error = null)
+    {
+        if ($request->ajax() || $request->wantsJson()) {
+            return $exito
+                ? response()->json(['success' => true, 'redirect' => $redirect])
+                : response()->json(['success' => false, 'message' => $error], 422);
+        }
+        if ($exito) {
+            return redirect()->to($redirect);
+        }
+        return back()->withErrors(['login_error' => $error])->withInput($request->except('password'));
     }
 
     // ─── MOBILE API ENDPOINTS ─────────────────────────────────────────────
