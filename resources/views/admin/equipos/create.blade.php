@@ -230,6 +230,14 @@
                            placeholder="Ej: 20 TON, 300A, 50kVA" maxlength="80" autocomplete="off" style="text-transform: uppercase;">
                 </div>
 
+                {{-- CÓDIGO INTERNO (común: CODIGO_PATIO en equipos, CODIGO_INTERNO en auxiliares) --}}
+                <div>
+                    <label for="codigo_interno" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Código Interno</label>
+                    <input type="text" id="codigo_interno" name="CODIGO_PATIO" class="form-input-custom"
+                           value="{{ old('CODIGO_PATIO', old('CODIGO_INTERNO')) }}"
+                           placeholder="Ej: V-01" maxlength="50" autocomplete="off" style="text-transform: uppercase;">
+                </div>
+
                 {{-- ESTADO (opciones cambian por modo) --}}
                 <div>
                     <span style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Estatus</span>
@@ -280,16 +288,6 @@
             <div id="equipoFieldsSection">
                 <div class="grid-responsive-5" style="margin-top: 12px;">
 
-                    {{-- Nro Etiqueta --}}
-                    <div>
-                        <label for="numero_etiqueta" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">N Etiqueta</label>
-                        @if(auth()->user()?->can('equipos.edit'))
-                            <input type="text" id="numero_etiqueta" name="NUMERO_ETIQUETA" class="form-input-custom" value="{{ old('NUMERO_ETIQUETA') }}" placeholder="Ej: 001" maxlength="10" autocomplete="off">
-                        @else
-                            <input type="text" class="form-input-custom" readonly style="background: #f8fafc; color: #94a3b8; cursor: not-allowed;" title="No tienes permiso">
-                        @endif
-                    </div>
-
                     {{-- Serial Motor --}}
                     <div>
                         <label for="serial_motor" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Serial de Motor</label>
@@ -300,12 +298,6 @@
                     <div>
                         <label for="color" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Color</label>
                         <input type="text" id="color" name="COLOR" class="form-input-custom" value="{{ old('COLOR') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
-                    </div>
-
-                    {{-- Código de Patio --}}
-                    <div>
-                        <label for="codigo_patio" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Código de Patio</label>
-                        <input type="text" id="codigo_patio" name="CODIGO_PATIO" class="form-input-custom" value="{{ old('CODIGO_PATIO') }}" placeholder="Ej: V-01" autocomplete="off">
                     </div>
 
                     {{-- Link GPS --}}
@@ -418,12 +410,6 @@
             {{-- ═══ CAMPOS EXCLUSIVOS AUXILIAR ═══ --}}
             <div id="auxiliarFieldsSection" style="display: none;">
                 <div class="grid-responsive-5" style="margin-top: 12px;">
-
-                    {{-- Código Interno --}}
-                    <div>
-                        <label for="CODIGO_INTERNO" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Código Interno</label>
-                        <input type="text" id="CODIGO_INTERNO" name="CODIGO_INTERNO" class="form-input-custom" value="{{ old('CODIGO_INTERNO') }}" placeholder="Ej: AUX-001" maxlength="50" autocomplete="off" style="text-transform: uppercase;">
-                    </div>
 
                     {{-- Equipo Vinculado --}}
                     <div style="grid-column: span 2;">
@@ -607,6 +593,10 @@
         var serialInput = document.getElementById('serial_principal');
         serialInput.name = isAux ? 'SERIAL' : 'SERIAL_CHASIS';
         document.getElementById('serialLabel').textContent = isAux ? 'Serial' : 'Serial de Chasis';
+
+        // Código Interno name (CODIGO_PATIO en equipos, CODIGO_INTERNO en auxiliares)
+        var codigoInput = document.getElementById('codigo_interno');
+        if (codigoInput) codigoInput.name = isAux ? 'CODIGO_INTERNO' : 'CODIGO_PATIO';
 
         // Año required
         document.getElementById('anio').required = !isAux;
