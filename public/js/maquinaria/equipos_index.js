@@ -1047,7 +1047,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 setEl('mobile_inop_label', docMode ? 'SIN' : 'INOP.');
 
                 // En modo documento el label es más largo: .is-doc lo achica y lo
-                // mantiene en una sola línea (ver CSS .consolidado-stat-label).
+                // mantiene en una sola línea (ver CSS .consolidado-stat-label.is-doc).
                 ['stats_oper_label', 'stats_inop_label'].forEach((id) => {
                     const el = document.getElementById(id);
                     if (el) el.classList.toggle('is-doc', docMode);

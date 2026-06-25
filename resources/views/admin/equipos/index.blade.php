@@ -751,22 +751,22 @@
     {{-- ── Stats compactas solo en móvil ── --}}
     <div class="equipos-mobile-stats">
 
-        <div class="cons-header">
-            <span class="cons-header-badge"><i class="material-icons" style="font-size: 14px;">pie_chart</i></span>
-            <span class="cons-header-title">Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span></span>
+        <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+            <i class="material-icons" style="font-size: 13px;">pie_chart</i>
+            Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
         </div>
-        <div class="cons-grid">
-            <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total cons-block is-clickable" style="background:rgba(255,255,255,0.1); --cons-accent: rgba(255,255,255,0.65); --cons-hover: rgba(255,255,255,0.2);">
-                <span style="font-size:10px; font-weight:700; opacity:0.75; margin-bottom:3px;">TOTAL</span>
-                <span id="mobile_stats_total" class="cons-num">{{ $totalVal }}</span>
+        <div style="display: flex; gap: 8px; justify-content: space-between;">
+            <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+                <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
+                <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $totalVal }}</span>
             </div>
-            <div onclick="filterByStatus('OPERATIVO')" class="eq-mobile-stat-block eq-block-oper cons-block is-clickable" style="background:rgba(34,197,94,0.22); --cons-accent: #4ade80; --cons-hover: rgba(34,197,94,0.34);">
-                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:3px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="mobile_oper_label">{{ $docMode ? 'CON' : 'OPER.' }}</span></span>
-                <span id="mobile_stats_activos" class="cons-num">{{ $operVal }}</span>
+            <div onclick="filterByStatus('OPERATIVO')" class="eq-mobile-stat-block eq-block-oper" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="mobile_oper_label">{{ $docMode ? 'CON' : 'OPER.' }}</span></span>
+                <span id="mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $operVal }}</span>
             </div>
-            <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-block eq-block-inop cons-block is-clickable" style="background:rgba(239,68,68,0.22); --cons-accent: #f87171; --cons-hover: rgba(239,68,68,0.34);">
-                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:3px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="mobile_inop_label">{{ $docMode ? 'SIN' : 'INOP.' }}</span></span>
-                <span id="mobile_stats_inactivos" class="cons-num">{{ $inopVal }}</span>
+            <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="mobile_inop_label">{{ $docMode ? 'SIN' : 'INOP.' }}</span></span>
+                <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $inopVal }}</span>
             </div>
         </div>
     </div>
@@ -775,22 +775,22 @@
          Mismo color teal que la card del sidebar para distinguirlo del de equipos. --}}
     @if(!empty($auxConsolidado))
     <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
-        <div class="cons-header">
-            <span class="cons-header-badge"><i class="material-icons" style="font-size: 14px;">pie_chart</i></span>
-            <span class="cons-header-title">Consolidado de Equipos Auxiliares</span>
+        <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+            <i class="material-icons" style="font-size: 13px;">pie_chart</i>
+            Consolidado de Equipos Auxiliares
         </div>
-        <div class="cons-grid">
-            <div class="cons-block" style="background:rgba(255,255,255,0.1); --cons-accent: rgba(255,255,255,0.65);">
-                <span style="font-size:10px; font-weight:700; opacity:0.75; margin-bottom:3px;">TOTAL</span>
-                <span id="aux_mobile_stats_total" class="cons-num">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
+        <div style="display: flex; gap: 8px; justify-content: space-between;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
+                <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
+                <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
             </div>
-            <div class="cons-block" style="background:rgba(34,197,94,0.22); --cons-accent: #4ade80;">
-                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:3px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> OPER.</span>
-                <span id="aux_mobile_stats_activos" class="cons-num">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</span>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> OPER.</span>
+                <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</span>
             </div>
-            <div class="cons-block" style="background:rgba(239,68,68,0.22); --cons-accent: #f87171;">
-                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:3px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
-                <span id="aux_mobile_stats_inactivos" class="cons-num">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</span>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
+                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
+                <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</span>
             </div>
         </div>
     </div>
@@ -840,28 +840,30 @@
 
     <!-- Main Total Card -->
 
-    <div class="cons-card" style="background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%);">
-        <i class="material-icons cons-card-deco">agriculture</i>
+    <div style="background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+        <!-- Decorative Icon -->
+        <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">agriculture</i>
 
-        <div class="cons-header">
-            <span class="cons-header-badge"><i class="material-icons" style="font-size: 14px;">pie_chart</i></span>
-            <span class="cons-header-title">Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span></span>
-        </div>
+        <div style="position: relative; z-index: 2;">
+            <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.8; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                Consolidado de <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
+            </div>
 
-        {{-- 3 columnas iguales en UNA sola línea: el color y el acento superior del
-             bloque ya indican el estado. Mismo tamaño de número en los tres. --}}
-        <div class="cons-grid">
-            <div id="block_total" onclick="filterByStatus('')" title="Ver todos los equipos" class="cons-block is-clickable" style="background: rgba(255,255,255,0.1); --cons-accent: rgba(255,255,255,0.65); --cons-hover: rgba(255,255,255,0.2);">
-                <span id="stats_total" class="cons-num">{{ $totalVal }}</span>
-                <span class="consolidado-stat-label" style="margin-top: 5px; opacity: 0.75;">TOTAL</span>
-            </div>
-            <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? 'Ver solo los que tienen ' . $docLabel : 'Filtrar: Operativos' }}" class="cons-block is-clickable" style="background: rgba(34,197,94,0.22); --cons-accent: #4ade80; --cons-hover: rgba(34,197,94,0.34);">
-                <strong id="stats_activos" class="cons-num">{{ $operVal }}</strong>
-                <span id="stats_oper_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}" style="margin-top: 5px;">{{ $operLabel }}</span>
-            </div>
-            <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? 'Ver solo los que NO tienen ' . $docLabel : 'Filtrar: Inoperativos' }}" class="cons-block is-clickable" style="background: rgba(239,68,68,0.22); --cons-accent: #f87171; --cons-hover: rgba(239,68,68,0.34);">
-                <strong id="stats_inactivos" class="cons-num">{{ $inopVal }}</strong>
-                <span id="stats_inop_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}" style="margin-top: 5px;">{{ $inopLabel }}</span>
+            {{-- 3 columnas iguales en UNA sola línea, sin iconos (el color del bloque
+                 ya indica el estado). Mismo tamaño de número en los tres. --}}
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                <div id="block_total" onclick="filterByStatus('')" title="Ver todos los equipos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px;">
+                    <span id="stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $totalVal }}</span>
+                    <span class="consolidado-stat-label" style="margin-top: 4px; opacity: 0.8;">TOTAL</span>
+                </div>
+                <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? 'Ver solo los que tienen ' . $docLabel : 'Filtrar: Operativos' }}" class="eq-block-oper" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
+                    <strong id="stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $operVal }}</strong>
+                    <span id="stats_oper_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $operLabel }}</span>
+                </div>
+                <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? 'Ver solo los que NO tienen ' . $docLabel : 'Filtrar: Inoperativos' }}" class="eq-block-inop" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
+                    <strong id="stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $inopVal }}</strong>
+                    <span id="stats_inop_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $inopLabel }}</span>
+                </div>
             </div>
         </div>
     </div>
@@ -870,25 +872,27 @@
          junto al de equipos cuando NO se filtra por un tipo concreto (ver
          $showAuxConsolidado). Permanece en el DOM (toggle por JS al filtrar). --}}
     @if(!empty($auxConsolidado))
-    <div id="auxConsolidadoCard" class="cons-card" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
-        <i class="material-icons cons-card-deco">construction</i>
-        <div class="cons-header">
-            <span class="cons-header-badge"><i class="material-icons" style="font-size: 14px;">pie_chart</i></span>
-            <span class="cons-header-title">Consolidado de <span>Equipos Auxiliares</span></span>
-        </div>
-        {{-- Mismo patrón que el consolidado de equipos para que ambos se vean idénticos. --}}
-        <div class="cons-grid">
-            <div class="cons-block" style="background: rgba(255,255,255,0.1); --cons-accent: rgba(255,255,255,0.65);">
-                <span id="aux_stats_total" class="cons-num">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
-                <span class="consolidado-stat-label" style="margin-top: 5px; opacity: 0.75;">TOTAL</span>
+    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+        <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
+        <div style="position: relative; z-index: 2;">
+            <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                Consolidado de <span>Equipos Auxiliares</span>
             </div>
-            <div class="cons-block" style="background: rgba(34,197,94,0.22); --cons-accent: #4ade80;">
-                <strong id="aux_stats_activos" class="cons-num">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</strong>
-                <span class="consolidado-stat-label" style="margin-top: 5px;">Operativo</span>
-            </div>
-            <div class="cons-block" style="background: rgba(239,68,68,0.22); --cons-accent: #f87171;">
-                <strong id="aux_stats_inactivos" class="cons-num">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</strong>
-                <span class="consolidado-stat-label" style="margin-top: 5px;">Inoperativo</span>
+            {{-- 3 columnas iguales en UNA sola línea, sin iconos (mismo patrón que el
+                 consolidado de equipos para que ambos se vean idénticos). --}}
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px;">
+                    <span id="aux_stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
+                    <span class="consolidado-stat-label" style="margin-top: 4px; opacity: 0.8;">TOTAL</span>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25);">
+                    <strong id="aux_stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</strong>
+                    <span class="consolidado-stat-label" style="margin-top: 4px;">Operativo</span>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
+                    <strong id="aux_stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</strong>
+                    <span class="consolidado-stat-label" style="margin-top: 4px;">Inoperativo</span>
+                </div>
             </div>
         </div>
     </div>
@@ -996,100 +1000,6 @@
             font-size: 9px;
             letter-spacing: -0.3px;
             text-transform: none;
-        }
-
-        /* ── Consolidado moderno (cards de equipos / auxiliares) ───────────────
-           Mismo alto compacto de antes, pero con: cabecera con badge de icono,
-           bloques tipo "glass" (borde sutil + acento de color arriba) y leve
-           elevación al pasar el cursor en los bloques clicables. Las clases se
-           reutilizan en las 4 tarjetas (desktop + móvil) para que sean idénticas. */
-        .cons-card {
-            border-radius: 14px;
-            padding: 11px 12px;
-            color: #fff;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.55);
-        }
-        .cons-card-deco {
-            position: absolute;
-            right: -16px;
-            bottom: -16px;
-            font-size: 78px;
-            opacity: 0.08;
-            transform: rotate(-15deg);
-            pointer-events: none;
-        }
-        .cons-header {
-            position: relative;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            margin-bottom: 9px;
-        }
-        .cons-header-badge {
-            flex: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 22px;
-            height: 22px;
-            border-radius: 7px;
-            background: rgba(255, 255, 255, 0.16);
-        }
-        .cons-header-title {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            opacity: 0.9;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .cons-grid {
-            position: relative;
-            z-index: 2;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 7px;
-        }
-        .cons-block {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 9px 4px 7px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            overflow: hidden;
-            transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
-        }
-        .cons-block::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 26px;
-            height: 3px;
-            border-radius: 0 0 3px 3px;
-            background: var(--cons-accent, rgba(255, 255, 255, 0.55));
-        }
-        .cons-block.is-clickable { cursor: pointer; }
-        .cons-block.is-clickable:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 7px 16px -8px rgba(0, 0, 0, 0.6);
-            background: var(--cons-hover, rgba(255, 255, 255, 0.22));
-        }
-        .cons-num {
-            font-size: 23px;
-            font-weight: 800;
-            line-height: 1;
-            letter-spacing: -0.5px;
-            color: #fff;
         }
 
         .fleet-dashboard-header {
