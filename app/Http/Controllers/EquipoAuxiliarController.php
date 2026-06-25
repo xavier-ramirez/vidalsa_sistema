@@ -1326,14 +1326,16 @@ class EquipoAuxiliarController extends Controller
         // Guardar archivos PDF (si vinieron) en storage/app/public/equipos_auxiliares/{id}/
         $this->storeAuxDocs($request, $auxiliar);
 
+        $redirectUrl = $request->input('__unified_redirect', route('equipos-auxiliares.index'));
+
         if ($request->wantsJson()) {
             return response()->json([
                 'success'  => true,
                 'message'  => 'Equipo auxiliar registrado correctamente.',
-                'redirect' => route('equipos-auxiliares.index'),
+                'redirect' => $redirectUrl,
             ]);
         }
-        return redirect()->route('equipos-auxiliares.index')->with('success', 'Equipo auxiliar registrado correctamente.');
+        return redirect($redirectUrl)->with('success', 'Equipo auxiliar registrado correctamente.');
     }
 
     public function edit($id)

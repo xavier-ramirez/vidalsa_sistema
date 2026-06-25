@@ -131,6 +131,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get  ('equipos/papelera',          [App\Http\Controllers\EquipoController::class, 'papelera'])->name('equipos.papelera');
             Route::post ('equipos/bulk-delete',       [App\Http\Controllers\EquipoController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos.bulkDelete');
             Route::patch('equipos/{id}/restore',      [App\Http\Controllers\EquipoController::class, 'restoreEquipo'])->middleware('can:super.admin')->name('equipos.restore');
+            Route::post ('equipos/store-unified',   [App\Http\Controllers\EquipoController::class, 'storeUnified'])->middleware('can:equipos.create')->name('equipos.storeUnified');
             Route::resource('equipos', App\Http\Controllers\EquipoController::class);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
             Route::post('movilizaciones/recepcion-directa', [App\Http\Controllers\MovilizacionController::class, 'recepcionDirecta'])->name('movilizaciones.recepcionDirecta');

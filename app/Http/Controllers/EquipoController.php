@@ -1232,7 +1232,28 @@ class EquipoController extends Controller
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
 
         $equipo = new Equipo(); // Empty instance for form partial
-        return view('admin.equipos.create', compact('frentes', 'seguros', 'tipos_equipo', 'marcas', 'modelos', 'categorias', 'equipo', 'modelosList', 'aniosList'));
+
+        $tiposAux = \App\Models\EquipoAuxiliar::tiposLabel();
+        $estadosAux = \App\Models\EquipoAuxiliar::estadosLabel();
+        $auxiliar = new \App\Models\EquipoAuxiliar();
+        $frentesAux = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE', 'asc')->get();
+
+        return view('admin.equipos.create', compact(
+            'frentes', 'seguros', 'tipos_equipo', 'marcas', 'modelos', 'categorias', 'equipo', 'modelosList', 'aniosList',
+            'tiposAux', 'estadosAux', 'auxiliar', 'frentesAux'
+        ));
+    }
+
+    public function storeUnified(Request $request)
+    {
+        $modo = $request->input('__modo', 'equipo');
+
+        if ($modo === 'auxiliar') {
+            $request->merge(['__unified_redirect' => route('equipos.index')]);
+            return app(EquipoAuxiliarController::class)->store($request);
+        }
+
+        return $this->store($request);
     }
 
     public function store(Request $request)
