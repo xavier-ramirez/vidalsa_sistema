@@ -1934,11 +1934,6 @@
                             } else if (ctx.docType === 'certificado') {
                                 html += `
                                 <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} autocomplete="off"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Serial</label><input type="text" value="${info.serial || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Tipo</label><input type="text" value="${info.tipo || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Marca</label><input type="text" value="${info.marca || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Modelo</label><input type="text" value="${info.modelo || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
-                                <div style="${containerStyle}"><label style="${labelStyle}">Capacidad</label><input type="text" value="${info.capacidad || ''}" disabled style="${commonInputStyle} opacity:0.7;cursor:not-allowed;"></div>
                             `;
                             }
                             container.innerHTML = html;
