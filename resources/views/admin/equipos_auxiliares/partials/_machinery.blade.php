@@ -304,16 +304,19 @@
             confBtn.title = conf ? 'Confirmado en sitio (click para quitar)' : 'Confirmar presencia en sitio';
         }
 
-        // Enlazar edit en el boton del header (usa SPA navigateTo si esta disponible)
+        // Enlazar edit en el boton del header (usa SPA navigateTo si esta disponible).
+        // Pasa la URL actual como ?ref= para que el formulario de edición sepa
+        // a dónde volver (fix: desde /admin/equipos redirigía a /admin/equipos-auxiliares).
         const editBtn = document.getElementById('auxDetailsEditBtn');
         if (editBtn) editBtn.onclick = () => {
             window.closeAuxDetailsModal();
+            const editUrl = d.edit_url + (d.edit_url.includes('?') ? '&' : '?') + 'ref=' + encodeURIComponent(window.location.href);
             if (typeof window.navigateTo === 'function') {
-                window.navigateTo(d.edit_url);
+                window.navigateTo(editUrl);
             } else {
                 // Fallback: click en un <a> para que el interceptor SPA global lo tome
                 const a = document.createElement('a');
-                a.href = d.edit_url;
+                a.href = editUrl;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();

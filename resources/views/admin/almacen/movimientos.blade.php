@@ -107,6 +107,11 @@
     .amf-suggest-line .nom { flex:1 1 auto; min-width:0; }
     .amf-suggest-cod { font-size:13.5px; font-weight:600; color:#475569; flex:0 0 auto; white-space:nowrap; }
     .amf-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
+    /* Igualar el tamaño de letra de la lista del filtro Frente con la del filtro
+       Descripción: el .dropdown-item global usa 14px y las sugerencias de
+       descripción (.amf-suggest-item .nom) usan 13.5px, por lo que el Frente se
+       veía con la letra más grande. Lo acotamos solo a este dropdown. */
+    #almMovFiltroFrente .dropdown-item { font-size:13.5px; }
     /* Tabla limpia: thead oscuro + body con TODOS los valores CENTRADOS (verticales y horizontales).
        Sin bordes verticales entre columnas. */
     .alm-mov-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }

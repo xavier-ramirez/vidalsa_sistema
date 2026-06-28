@@ -96,9 +96,11 @@ class EquipoAuxiliarController extends Controller
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
         // Buscar por serial/codigo/marca/modelo bypassa el scope LOCAL: el
-        // filtro de seriales debe encontrar el equipo aunque no este asignado
-        // a ninguno de los frentes del usuario (mismo patron que /admin/equipos).
-        $bypassScope = trim((string) $request->input('search', '')) !== '';
+        // filtro debe encontrar el auxiliar aunque no esté en los frentes del usuario
+        // (mismo patron que buildEmbedPayload y /admin/equipos).
+        $bypassScope = trim((string) $request->input('search', '')) !== ''
+            || trim((string) $request->input('marca', '')) !== ''
+            || trim((string) $request->input('modelo', '')) !== '';
 
         // Filtros del listado extraidos a applyAuxiliarFilters() para reutilizar
         // EXACTAMENTE el mismo filtrado desde /admin/equipos (vista embebida de
@@ -353,7 +355,11 @@ class EquipoAuxiliarController extends Controller
         }
         // $exclude permite armar la query de Distribucion SIN el filtro de tipo
         // (para listar todos los tipos), igual que /admin/equipos con tiposStats.
-        if (!in_array('tipo', $exclude) && $request->filled('tipo') && $request->tipo !== 'all') {
+        // Si el usuario filtra por marca/modelo, el tipo se omite para permitir
+        // búsquedas de modelo/marca cruzadas entre tipos (p.ej. LINCOLN puede ser
+        // CAMION aunque el tipo seleccionado sea COMPRESOR).
+        $searchByAttr = $request->filled('marca') || $request->filled('modelo');
+        if (!in_array('tipo', $exclude) && !$searchByAttr && $request->filled('tipo') && $request->tipo !== 'all') {
             $q->where('TIPO', $request->tipo);
         }
         if ($request->filled('id_frente') && $request->id_frente === 'none') {
@@ -400,6 +406,57 @@ class EquipoAuxiliarController extends Controller
                   ->orWhere('MODELO', 'like', "%{$s}%");
             });
         }
+    }
+
+    /**
+     * Verificación de unicidad en vivo (segundo plano) para el formulario de create
+     * unificado: comprueba si un SERIAL o CODIGO_INTERNO ya existe en otro auxiliar.
+     * Espejo de EquipoController::checkUniqueness. SoftDeletes excluye automáticamente
+     * los registros en papelera (coherente con la regla unique de validateData, que
+     * también ignora deleted_at). El valor se compara en MAYÚSCULAS porque así se guarda.
+     */
+    public function checkUnique(Request $request)
+    {
+        $field = $request->input('field');
+        $value = trim((string) $request->input('value'));
+        $id    = $request->input('id'); // exclusión en update (paridad; el create no lo usa)
+
+        $allowed = ['SERIAL', 'CODIGO_INTERNO'];
+        if (!in_array($field, $allowed, true)) {
+            return response()->json(['error' => 'Invalid field'], 400);
+        }
+        if ($value === '') {
+            return response()->json(['exists' => false]);
+        }
+
+        $query = EquipoAuxiliar::where($field, mb_strtoupper($value));
+        if ($id) {
+            $query->where('ID_AUXILIAR', '!=', $id);
+        }
+
+        return response()->json(['exists' => $query->exists()]);
+    }
+
+    /**
+     * Cuenta los auxiliares que coinciden con una búsqueda de texto
+     * (serial / código interno / marca / modelo). Reutiliza EXACTAMENTE el mismo
+     * filtrado que index()/buildEmbedPayload() (applyAuxiliarFilters con bypass de
+     * scope en búsqueda) para que el conteo cuadre con lo que el usuario verá al
+     * abrir el modo auxiliar. Lo usa /admin/equipos para avisar "N auxiliares
+     * coinciden" cuando un serial buscado no está entre los vehículos.
+     */
+    public function countMatchingSearch(string $search): int
+    {
+        $search = trim($search);
+        if ($search === '') return 0;
+
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $req = new Request(['search' => $search]);
+        $q = EquipoAuxiliar::query();
+        // bypassScope=true: la búsqueda debe encontrar el auxiliar aunque esté en un
+        // frente fuera del scope del usuario (mismo criterio que index/buildEmbedPayload).
+        $this->applyAuxiliarFilters($q, $req, true, $isLocalUser, $frentesPermitidos);
+        return $q->count();
     }
 
     /**
@@ -458,15 +515,16 @@ class EquipoAuxiliarController extends Controller
      */
     public function consolidadoStats(Request $request): array
     {
+        // Usa el mismo filtrado que las filas aux embebidas en la tabla (applyAuxiliarFilters),
+        // con los mismos nombres del módulo aux (id_frente, estado, search, detalle_ubicacion,
+        // confirmado, con_propiedad). El TIPO de equipo no aplica a auxiliares, por eso se excluye.
+        // IMPORTANTE: el consolidado es un CONTEO, así que SIEMPRE respeta la barrera de frentes
+        // del usuario (lista blanca + lista negra de bloqueados). A diferencia del LISTADO, la
+        // búsqueda por texto NO bypassa el scope aquí: el conteo nunca debe incluir frentes fuera
+        // del alcance ni bloqueados → bypassScope = false fuerza aplicar la barrera completa.
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
         $base = EquipoAuxiliar::query();
-        $this->scopeFrentes($base); // misma barrera de visibilidad por frente del módulo
-        // Respeta el filtro de FRENTE de /admin/equipos (eje compartido): al filtrar
-        // un frente, el consolidado muestra los auxiliares de ESE frente. El filtro de
-        // TIPO no aplica (los tipos de equipos no son los tipos de auxiliares).
-        $idFrente = $request->input('id_frente');
-        if ($idFrente !== null && $idFrente !== '' && $idFrente !== 'all') {
-            $base->where('ID_FRENTE_ACTUAL', $idFrente);
-        }
+        $this->applyAuxiliarFilters($base, $request, false, $isLocalUser, $frentesPermitidos, ['tipo']);
         return [
             'total'     => (clone $base)->count(),
             'activos'   => (clone $base)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
@@ -474,10 +532,28 @@ class EquipoAuxiliarController extends Controller
         ];
     }
 
+    /**
+     * Query de auxiliares filtrada para EXPORTACIÓN, reutilizando applyAuxiliarFilters (misma
+     * barrera de scope y mismos ejes que el listado embebido en /admin/equipos). El $request
+     * trae los nombres del módulo aux. Scope SIEMPRE aplicado (export = dataset completo, sin
+     * bypass por búsqueda → nunca filtra registros de frentes fuera de alcance ni bloqueados).
+     * Devuelve el Builder sin paginar (el llamador decide columnas/eager-load/orden).
+     */
+    public function exportQuery(Request $request)
+    {
+        [$isLocalUser, $frentesPermitidos] = $this->userScope();
+        $query = EquipoAuxiliar::query();
+        $this->applyAuxiliarFilters($query, $request, false, $isLocalUser, $frentesPermitidos);
+        return $query;
+    }
+
     public function buildEmbedPayload(Request $request): array
     {
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
-        $bypassScope = trim((string) $request->input('search', '')) !== '';
+        // Buscar por marca/modelo bypassa el scope LOCAL igual que la búsqueda por serial.
+        $bypassScope = trim((string) $request->input('search', '')) !== ''
+            || trim((string) $request->input('marca', '')) !== ''
+            || trim((string) $request->input('modelo', '')) !== '';
 
         $query = EquipoAuxiliar::with([
             'frente',
@@ -1324,6 +1400,23 @@ class EquipoAuxiliarController extends Controller
 
         $auxiliar = EquipoAuxiliar::create($data);
 
+        // Auditoría de REGISTRO de auxiliar. Reutiliza CatalogoAuditLog, el mismo canal
+        // que ya audita eventos de auxiliares (p.ej. 'upload_foto_aux'), porque los
+        // auxiliares no tienen tabla de auditoría propia. El serial/tipo van en CAMBIOS
+        // para que el módulo de historial muestre qué unidad se creó.
+        \App\Models\CatalogoAuditLog::registrar(
+            null,
+            'create_aux',
+            $auxiliar->MODELO,
+            $auxiliar->ANIO ? (int) $auxiliar->ANIO : null,
+            [
+                'tipo'         => $auxiliar->TIPO,
+                'marca'        => $auxiliar->MARCA,
+                'serial'       => $auxiliar->SERIAL,
+                'id_auxiliar'  => $auxiliar->ID_AUXILIAR,
+            ]
+        );
+
         // Guardar archivos PDF (si vinieron) en storage/app/public/equipos_auxiliares/{id}/
         $this->storeAuxDocs($request, $auxiliar);
 
@@ -1339,7 +1432,7 @@ class EquipoAuxiliarController extends Controller
         return redirect($redirectUrl)->with('success', 'Equipo auxiliar registrado correctamente.');
     }
 
-    public function edit($id)
+    public function edit(Request $request, $id)
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($auxiliar);
@@ -1349,7 +1442,9 @@ class EquipoAuxiliarController extends Controller
         // TIPOS dinamicos: base del enum + los tipos custom guardados en DB.
         $tipos    = $this->getTiposDinamicos();
         $estados  = EquipoAuxiliar::estadosLabel();
-        return view('admin.equipos_auxiliares.edit', compact('auxiliar', 'frentes', 'tipos', 'estados'));
+        // URL de retorno: la pasa el JS del módulo origen (equipos o equipos-auxiliares).
+        $ref = $request->input('ref', '');
+        return view('admin.equipos_auxiliares.edit', compact('auxiliar', 'frentes', 'tipos', 'estados', 'ref'));
     }
 
     /**
@@ -1403,14 +1498,16 @@ class EquipoAuxiliarController extends Controller
 
         $this->storeAuxDocs($request, $auxiliar);
 
+        $redirectUrl = $request->input('__unified_redirect', route('equipos-auxiliares.index'));
+
         if ($request->wantsJson()) {
             return response()->json([
                 'success'  => true,
                 'message'  => 'Equipo auxiliar actualizado correctamente.',
-                'redirect' => route('equipos-auxiliares.index'),
+                'redirect' => $redirectUrl,
             ]);
         }
-        return redirect()->route('equipos-auxiliares.index')->with('success', 'Equipo auxiliar actualizado correctamente.');
+        return redirect($redirectUrl)->with('success', 'Equipo auxiliar actualizado correctamente.');
     }
 
     public function destroy(Request $request, $id)
@@ -1507,6 +1604,26 @@ class EquipoAuxiliarController extends Controller
         $aux->restore();
 
         return response()->json(['success' => true, 'message' => 'Auxiliar restaurado.']);
+    }
+
+    /** Borra PERMANENTEMENTE un auxiliar de la papelera (forceDelete) — irreversible, exclusivo super.admin. */
+    public function forceDeleteAuxiliar(int $id)
+    {
+        $aux = EquipoAuxiliar::onlyTrashed()->where('ID_AUXILIAR', $id)->first();
+        if (!$aux) {
+            return response()->json(['success' => false, 'message' => 'Auxiliar no encontrado en la papelera.'], 404);
+        }
+
+        try {
+            $aux->forceDelete();
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede eliminar permanentemente: el auxiliar tiene registros asociados.',
+            ], 422);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Auxiliar eliminado permanentemente.']);
     }
 
     // ═══════════════════════════════════════════════════════════

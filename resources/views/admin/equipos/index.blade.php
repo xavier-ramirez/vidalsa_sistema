@@ -5,15 +5,16 @@
 @section('content')
 
 <style>
-    /* Modo aux (se eligio un tipo AUXILIAR en el dropdown de Tipo): se ocultan los
-       controles propios de equipos que NO aplican a auxiliares (p.ej. Filtros
-       Avanzados: modelo/marca/anio/GPS/documentacion). La clase la togglea
-       loadEquipos segun data.mode (y el init inicial si se entra por URL). */
-    body.eq-aux-mode .eq-hide-in-aux { display: none !important; }
+    /* eq-aux-mode: activado SOLO cuando el dropdown de Tipo tiene un tipo_aux:X seleccionado.
+       Oculta filtros de equipos que no aplican a auxiliares (GPS, Color, docs, etc.).
+       NO se activa cuando el usuario filtra por categoria=AUXILIARES (para no cambiar el panel). */
     body.eq-aux-mode .adv-filter-eq-only { display: none !important; }
     body:not(.eq-aux-mode) .adv-filter-aux-only { display: none !important; }
     body.eq-aux-mode .adv-filter-aux-only { display: revert !important; }
     body.eq-aux-mode label.adv-filter-aux-only { display: flex !important; }
+    /* aux-table-active: activado cuando la tabla muestra datos de auxiliares (cualquier path).
+       Oculta controles de equipos que no tienen sentido sobre la tabla de auxiliares. */
+    body.aux-table-active .eq-hide-in-aux { display: none !important; }
 
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {
@@ -357,18 +358,22 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
-                                        <div class="adv-filter-eq-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Equipos</div>
+                                        @if(!empty($availableModelos) && count($availableModelos))
+                                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Vehículos</div>
                                         @foreach($availableModelos ?? [] as $mod)
                                             @if(trim($mod) !== '')
-                                                <div class="dropdown-item adv-filter-eq-only {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
+                                                <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
                                             @endif
                                         @endforeach
-                                        <div class="adv-filter-aux-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares</div>
+                                        @endif
+                                        @if(!empty($auxModelos) && count($auxModelos))
+                                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">Auxiliares</div>
                                         @foreach($auxModelos ?? [] as $mod)
                                             @if(trim($mod) !== '')
-                                                <div class="dropdown-item adv-filter-aux-only {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
+                                                <div class="dropdown-item {{ request('modelo') == $mod ? 'selected' : '' }}" data-value="{{ $mod }}" onclick="window._skipModoClear=true; selectOption('tipoFilterSelect','tipo_aux:all','Auxiliares'); selectOption('modeloAdvFilter', '{{ addslashes(trim($mod)) }}', '{{ addslashes(trim($mod)) }}'); loadEquipos();">{{ $mod }}</div>
                                             @endif
                                         @endforeach
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -396,18 +401,22 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
-                                        <div class="adv-filter-eq-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Equipos</div>
+                                        @if(!empty($availableMarcas) && count($availableMarcas))
+                                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Vehículos</div>
                                         @foreach($availableMarcas ?? [] as $marca)
                                             @if(trim($marca) !== '')
-                                                <div class="dropdown-item adv-filter-eq-only {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
+                                                <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
                                             @endif
                                         @endforeach
-                                        <div class="adv-filter-aux-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares</div>
+                                        @endif
+                                        @if(!empty($auxMarcas) && count($auxMarcas))
+                                        <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; border-top:1px solid #e2e8f0; margin-top:4px;">Auxiliares</div>
                                         @foreach($auxMarcas ?? [] as $marca)
                                             @if(trim($marca) !== '')
-                                                <div class="dropdown-item adv-filter-aux-only {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
+                                                <div class="dropdown-item {{ request('marca') == $marca ? 'selected' : '' }}" data-value="{{ $marca }}" onclick="window._skipModoClear=true; selectOption('tipoFilterSelect','tipo_aux:all','Auxiliares'); selectOption('marcaAdvFilter', '{{ addslashes(trim($marca)) }}', '{{ addslashes(trim($marca)) }}'); loadEquipos();">{{ $marca }}</div>
                                             @endif
                                         @endforeach
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -422,15 +431,15 @@
 
                     {{-- Categoría Flota + Estado Operativo (2 columnas, lado a lado igual que Marca/Modelo). --}}
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <!-- Categoría Flota (solo equipos) -->
-                        <div class="adv-filter-eq-only">
+                        <!-- Categoría Flota (FLOTA LIVIANA / FLOTA PESADA) -->
+                        <div>
                             <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Categoría Flota</span>
                             <div class="custom-dropdown" id="categoriaAdvFilter" data-filter-type="categoria" data-default-label="Seleccionar Categoría..." style="font-size: 12px;">
                                 <input type="hidden" name="categoria" data-filter-value value="{{ request('categoria') }}">
 
                                 <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('categoria') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
                                     <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
-                                        <i class="material-icons" style="font-size: 16px;">local_shipping</i>
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
                                         id="filter_display_categoria"
@@ -447,6 +456,7 @@
                                     <div class="dropdown-item-list">
                                         <div class="dropdown-item {{ request('categoria') == 'FLOTA LIVIANA' ? 'selected' : '' }}" data-value="FLOTA LIVIANA" onclick="selectOption('categoriaAdvFilter', 'FLOTA LIVIANA', 'FLOTA LIVIANA'); loadEquipos();">FLOTA LIVIANA</div>
                                         <div class="dropdown-item {{ request('categoria') == 'FLOTA PESADA' ? 'selected' : '' }}" data-value="FLOTA PESADA" onclick="selectOption('categoriaAdvFilter', 'FLOTA PESADA', 'FLOTA PESADA'); loadEquipos();">FLOTA PESADA</div>
+                                        <div class="dropdown-item {{ request('categoria') == 'AUXILIARES' ? 'selected' : '' }}" data-value="AUXILIARES" onclick="selectOption('categoriaAdvFilter', 'AUXILIARES', 'AUXILIARES'); loadEquipos();">AUXILIARES</div>
                                     </div>
                                 </div>
                             </div>
@@ -460,7 +470,7 @@
 
                                 <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('estado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
                                     <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
-                                        <i class="material-icons" style="font-size: 16px;">info</i>
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
                                         id="filter_display_estado"
@@ -484,8 +494,9 @@
                             </div>
                         </div>
                     </div>
-                    {{-- Año + GPS Filter (2 columnas): ambos son selectores cortos
-                         (4 digitos / SI-NO), no requieren ancho completo del panel. --}}
+                    {{-- Año + Confirmación (siempre visibles, 2 columnas).
+                         GPS y Color se movieron a la fila de abajo (eq-only)
+                         para que en aux-mode este par no quede deformado. --}}
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <!-- Año Filter -->
                         <div>
@@ -495,7 +506,7 @@
 
                                 <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('anio') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                        <i class="material-icons" style="font-size: 16px;">event</i>
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" name="filter_search_dropdown" data-filter-search
                                         placeholder="{{ request('anio') ?: 'Año...' }}"
@@ -509,39 +520,65 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
-                                        <div class="adv-filter-eq-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Equipos</div>
-                                        @foreach($availableAnios ?? [] as $anio)
-                                            @if(trim($anio) !== '')
-                                                <div class="dropdown-item adv-filter-eq-only {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
-                                            @endif
-                                        @endforeach
-                                        <div class="adv-filter-aux-only" style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Auxiliares</div>
-                                        @foreach($auxAnios ?? [] as $anio)
-                                            @if(trim($anio) !== '')
-                                                <div class="dropdown-item adv-filter-aux-only {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
-                                            @endif
+                                        @php
+                                            $todosAnios = collect($availableAnios ?? [])->merge($auxAnios ?? [])->filter(fn($a) => trim($a) !== '')->unique()->sortDesc()->values();
+                                        @endphp
+                                        @foreach($todosAnios as $anio)
+                                            <div class="dropdown-item {{ request('anio') == $anio ? 'selected' : '' }}" data-value="{{ $anio }}" onclick="selectOption('anioAdvFilter', '{{ addslashes(trim($anio)) }}', '{{ addslashes(trim($anio)) }}'); loadEquipos();">{{ $anio }}</div>
                                         @endforeach
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- GPS Filter (solo equipos) -->
-                        <div class="adv-filter-eq-only">
+                        <!-- Confirmación en sitio (fijo SI/NO — visible en eq y aux mode) -->
+                        <div>
+                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Confirmación</span>
+                            <div class="custom-dropdown" id="confirmadoAdvFilter" data-filter-type="confirmado" data-default-label="Seleccionar..." style="font-size: 12px;">
+                                <input type="hidden" name="confirmado" data-filter-value value="{{ request('confirmado') }}">
+                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('confirmado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
+                                    </div>
+                                    <input type="text" readonly
+                                        id="filter_display_confirmado"
+                                        name="filter_display_confirmado"
+                                        placeholder="{{ request('confirmado') === 'SI' ? 'CONFIRMADOS' : (request('confirmado') === 'NO' ? 'SIN CONFIRMAR' : 'Estatus...') }}"
+                                        aria-label="Filtrar Confirmación"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
+                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('confirmado') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('confirmadoAdvFilter'); loadEquipos();">close</i>
+                                </div>
+                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                    <div class="dropdown-item-list">
+                                        <div class="dropdown-item {{ request('confirmado') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('confirmadoAdvFilter', 'SI', 'CONFIRMADOS'); loadEquipos();">CONFIRMADOS</div>
+                                        <div class="dropdown-item {{ request('confirmado') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('confirmadoAdvFilter', 'NO', 'SIN CONFIRMAR'); loadEquipos();">SIN CONFIRMAR</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- GPS + Color (solo equipos): fila completa con adv-filter-eq-only
+                         para que desaparezca limpiamente al pasar a aux-mode. --}}
+                    <div class="adv-filter-eq-only" style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <!-- GPS Filter -->
+                        <div>
                             <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">GPS</span>
                             <div class="custom-dropdown" id="gpsAdvFilter" data-filter-type="gps" data-default-label="Seleccionar Estatus..." style="font-size: 12px;">
                                 <input type="hidden" name="gps" data-filter-value value="{{ request('gps') }}">
 
                                 <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('gps') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                        <i class="material-icons" style="font-size: 16px;">gps_fixed</i>
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
                                         id="filter_display_gps"
                                         name="filter_display_gps"
-                                        placeholder="{{ request('gps') === 'SI' ? 'Tienen GPS' : (request('gps') === 'NO' ? 'No Tienen GPS' : 'Estatus...') }}"
+                                        placeholder="{{ request('gps') === 'SI' ? 'TIENEN GPS' : (request('gps') === 'NO' ? 'NO TIENEN GPS' : 'Estatus...') }}"
                                         aria-label="Filtrar Estatus GPS"
-                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none; cursor: pointer;"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
                                         onclick="this.closest('.custom-dropdown').classList.toggle('active')">
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('gps') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); clearDropdownFilter('gpsAdvFilter'); loadEquipos();">close</i>
@@ -549,24 +586,21 @@
 
                                 <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
                                     <div class="dropdown-item-list">
-                                        <div class="dropdown-item {{ request('gps') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('gpsAdvFilter', 'SI', 'Tienen GPS'); loadEquipos();">Tienen GPS</div>
-                                        <div class="dropdown-item {{ request('gps') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('gpsAdvFilter', 'NO', 'No Tienen GPS'); loadEquipos();">No Tienen GPS</div>
+                                        <div class="dropdown-item {{ request('gps') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('gpsAdvFilter', 'SI', 'TIENEN GPS'); loadEquipos();">TIENEN GPS</div>
+                                        <div class="dropdown-item {{ request('gps') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('gpsAdvFilter', 'NO', 'NO TIENEN GPS'); loadEquipos();">NO TIENEN GPS</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {{-- Color + Confirmación en sitio (2 columnas) --}}
-                    <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <!-- Color Filter (solo equipos) -->
-                        <div class="adv-filter-eq-only">
+                        <!-- Color Filter -->
+                        <div>
                             <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Color</span>
                             <div class="custom-dropdown" id="colorAdvFilter" data-filter-type="color" data-default-label="Seleccionar Color..." style="font-size: 12px;">
                                 <input type="hidden" name="color" data-filter-value value="{{ request('color') }}">
                                 <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('color') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                        <i class="material-icons" style="font-size: 16px;">palette</i>
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" name="filter_search_dropdown" data-filter-search
                                         placeholder="{{ request('color') ?: 'Color...' }}"
@@ -582,38 +616,10 @@
                                         @if(isset($availableColores))
                                             @foreach($availableColores as $color)
                                                 @if(trim($color) !== '')
-                                                    <div class="dropdown-item {{ request('color') == $color ? 'selected' : '' }}" data-value="{{ $color }}" onclick="selectOption('colorAdvFilter', '{{ addslashes(trim($color)) }}', '{{ addslashes(trim($color)) }}'); loadEquipos();">{{ $color }}</div>
+                                                    <div class="dropdown-item {{ request('color') == $color ? 'selected' : '' }}" data-value="{{ $color }}" onclick="selectOption('colorAdvFilter', '{{ addslashes(trim($color)) }}', '{{ addslashes(mb_strtoupper(trim($color))) }}'); loadEquipos();">{{ mb_strtoupper($color) }}</div>
                                                 @endif
                                             @endforeach
                                         @endif
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Confirmación en sitio (fijo SI/NO, igual que GPS) -->
-                        <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Confirmación</span>
-                            <div class="custom-dropdown" id="confirmadoAdvFilter" data-filter-type="confirmado" data-default-label="Seleccionar..." style="font-size: 12px;">
-                                <input type="hidden" name="confirmado" data-filter-value value="{{ request('confirmado') }}">
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('confirmado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
-                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
-                                        <i class="material-icons" style="font-size: 16px;">check_circle</i>
-                                    </div>
-                                    <input type="text" readonly
-                                        id="filter_display_confirmado"
-                                        name="filter_display_confirmado"
-                                        placeholder="{{ request('confirmado') === 'SI' ? 'Confirmados' : (request('confirmado') === 'NO' ? 'Sin confirmar' : 'Estatus...') }}"
-                                        aria-label="Filtrar Confirmación"
-                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none; cursor: pointer;"
-                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
-                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('confirmado') ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); clearDropdownFilter('confirmadoAdvFilter'); loadEquipos();">close</i>
-                                </div>
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
-                                    <div class="dropdown-item-list">
-                                        <div class="dropdown-item {{ request('confirmado') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('confirmadoAdvFilter', 'SI', 'Confirmados'); loadEquipos();">Confirmados</div>
-                                        <div class="dropdown-item {{ request('confirmado') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('confirmadoAdvFilter', 'NO', 'Sin confirmar'); loadEquipos();">Sin confirmar</div>
                                     </div>
                                 </div>
                             </div>
@@ -745,16 +751,9 @@
         <!-- Advanced Filter Logic migrated to equipos_index.js -->
     </div>
 
-    {{-- ── $hasFilter: definido aquí para estar disponible tanto en el bloque móvil como en el sidebar ── --}}
+    {{-- $hasFilter llega del controlador (EquipoController::index, fuente única) para no
+         duplicar la lista de filtros ni desincronizarse. Disponible en bloque móvil y sidebar. --}}
     @php
-        $hasFilter = request('search_query') || request('id_frente') || request('id_tipo')
-                  || request('modelo') || request('marca') || request('anio')
-                  || request('categoria') || request('estado')
-                  || request('gps') || request('detalle_ubicacion')
-                  || request('filter_propiedad') || request('filter_poliza')
-                  || request('filter_rotc') || request('filter_racda')
-                  || request('filter_adicional') || request('filter_adicional_2');
-
         // ── Consolidado: modo "Con / Sin documento" ──
         // La LISTA sigue filtrada por documento como siempre. Cuando hay filtros
         // de documento activos, SOLO el Consolidado cambia: los dos bloques
@@ -799,27 +798,40 @@
     {{-- Consolidado de Auxiliares en móvil (en móvil el sidebar desktop se oculta).
          Mismo color teal que la card del sidebar para distinguirlo del de equipos. --}}
     @if(!empty($auxConsolidado))
-    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #475569 0%, #334155 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
             Equipos Auxiliares
         </div>
         <div style="display: flex; gap: 8px; justify-content: space-between;">
-            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
+            <div onclick="filterAuxByStatus('')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
                 <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
                 <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
             </div>
-            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
+            <div onclick="filterAuxByStatus('OPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
                 <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> OPER.</span>
                 <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</span>
             </div>
-            <div style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
+            <div onclick="filterAuxByStatus('INOPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
                 <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
                 <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</span>
             </div>
         </div>
     </div>
     @endif
+
+    {{-- Aviso "también hay auxiliares": la búsqueda de esta tabla solo cubre VEHÍCULOS.
+         Si el texto buscado coincide con equipos auxiliares, este banner los enlaza (modo
+         auxiliar). Se actualiza también vía AJAX desde equipos_index.js (data.auxMatchCount). --}}
+    <a id="auxMatchBanner"
+       href="{{ $auxMatchUrl ?? '#' }}"
+       style="display:{{ ($auxMatchCount ?? 0) > 0 ? 'flex' : 'none' }}; align-items:center; gap:10px; text-decoration:none; margin-top:8px; padding:10px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#92400e; font-size:13px; font-weight:600;">
+        <i class="material-icons" style="font-size:20px; color:#d97706;">construction</i>
+        <span>
+            <strong id="auxMatchCountLabel">{{ $auxMatchCount ?? 0 }}</strong>
+            equipo(s) auxiliar(es) coinciden con tu búsqueda — <u>ver en Auxiliares</u>
+        </span>
+    </a>
 
     <div class="custom-scrollbar-container" style="margin-top: 5px; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">
 
@@ -842,7 +854,13 @@
                 @if($auxMode ?? false)
                     {!! ($auxEmbed['html'] ?? '') !!}
                 @else
-                    @include('admin.equipos.partials.table_rows')
+                    {{-- Merge: filas de equipos + (al filtrar por frente) separador + filas
+                         de auxiliares. Si el frente no tiene equipos pero sí auxiliares,
+                         se omite el empty-state de equipos. --}}
+                    @unless($equipos->isEmpty() && !empty($mergeAuxHtml ?? ''))
+                        @include('admin.equipos.partials.table_rows')
+                    @endunless
+                    {!! $mergeAuxHtml ?? '' !!}
                 @endif
             </tbody>
         </table>
@@ -897,7 +915,7 @@
          junto al de equipos cuando NO se filtra por un tipo concreto (ver
          $showAuxConsolidado). Permanece en el DOM (toggle por JS al filtrar). --}}
     @if(!empty($auxConsolidado))
-    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #0067b1 0%, #00477a 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #475569 0%, #334155 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -906,15 +924,15 @@
             {{-- 3 columnas iguales en UNA sola línea, sin iconos (mismo patrón que el
                  consolidado de equipos para que ambos se vean idénticos). --}}
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px;">
+                <div onclick="filterAuxByStatus('')" title="Ver todos los auxiliares de este frente" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px; transition: background 0.2s;">
                     <span id="aux_stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
                     <span class="consolidado-stat-label" style="margin-top: 4px; opacity: 0.8;">TOTAL</span>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25);">
+                <div onclick="filterAuxByStatus('OPERATIVO')" title="Filtrar: auxiliares Operativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
                     <strong id="aux_stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</strong>
                     <span class="consolidado-stat-label" style="margin-top: 4px;">Operativo</span>
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
+                <div onclick="filterAuxByStatus('INOPERATIVO')" title="Filtrar: auxiliares Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
                     <strong id="aux_stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</strong>
                     <span class="consolidado-stat-label" style="margin-top: 4px;">Inoperativo</span>
                 </div>
@@ -1269,20 +1287,6 @@
                         <canvas id="chartAgeByType"></canvas>
                     </div>
 
-                    <!-- Flota Pesada vs Liviana por Tipo -->
-                    <div id="fdm-panel-category" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
-                            <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 20px; color: #f59e0b;">category</i>
-                                Flota Pesada vs Liviana por Tipo
-                            </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-category', 'flota_pesada_liviana')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                            </button>
-                        </h4>
-                        <canvas id="chartCategoryByType"></canvas>
-                    </div>
-
                     <!-- Inoperatividad por Tipo de Equipo -->
                     <div id="fdm-panel-inoperative" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                         <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
@@ -1295,6 +1299,20 @@
                             </button>
                         </h4>
                         <canvas id="chartInoperativeByType"></canvas>
+                    </div>
+
+                    <!-- Equipos Auxiliares por Tipo -->
+                    <div id="fdm-panel-auxiliares" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 10px;">
+                                <i class="material-icons" style="font-size: 20px; color: #374151;">construction</i>
+                                Equipos Auxiliares por Tipo
+                            </span>
+                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                                <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                            </button>
+                        </h4>
+                        <canvas id="chartAuxByType"></canvas>
                     </div>
                 </div>
 
@@ -1452,9 +1470,9 @@
             /* Panels de gráficos: menos padding */
             #fdm-panel-status,
             #fdm-panel-age,
-            #fdm-panel-category,
             #fdm-panel-inoperative,
-            #fdm-panel-assigned {
+            #fdm-panel-assigned,
+            #fdm-panel-auxiliares {
                 padding: 14px !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
@@ -1469,8 +1487,8 @@
             /* Título de paneles */
             #fdm-panel-status h4,
             #fdm-panel-age h4,
-            #fdm-panel-category h4,
-            #fdm-panel-inoperative h4 {
+            #fdm-panel-inoperative h4,
+            #fdm-panel-auxiliares h4 {
                 font-size: 13px !important;
                 margin-bottom: 12px !important;
             }
@@ -1553,14 +1571,25 @@
                 const auxGroups = (data && Array.isArray(data.aux)) ? data.aux : [];
 
                 const grid = document.getElementById('anclajesGrid');
-                if (pairs.length === 0 && auxGroups.length === 0) {
-                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: #94a3b8; background: #fff; border-radius: 8px; border: 1px dashed #cbd5e1;">No hay equipos anclados en este frente.</div>';
-                    return;
-                }
-
                 const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+                // ── Encabezado de sección reutilizable ──────────────────────
+                const sectionHeader = (icon, color, title, count) =>
+                    `<div style="grid-column:1/-1; display:flex; align-items:center; gap:10px; padding:10px 14px; background:#fff; border-radius:10px; border-left:4px solid ${color}; box-shadow:0 1px 3px rgba(0,0,0,0.06); margin-top:4px;">
+                        <i class="material-icons" style="font-size:18px;color:${color};">${icon}</i>
+                        <span style="font-size:13px;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:0.4px;flex:1;">${title}</span>
+                        <span style="background:${color};color:#fff;font-size:11px;font-weight:800;padding:2px 10px;border-radius:10px;">${count}</span>
+                    </div>`;
+
                 let html = '';
+
+                // ── Sección 1: Pares Remolcador / Remolcado ─────────────────
+                html += sectionHeader('link', '#2563eb', 'Pares Remolcador / Remolcado', pairs.length);
+
+                if (pairs.length === 0) {
+                    html += `<div style="grid-column:1/-1; text-align:center; padding:18px; color:#94a3b8; background:#fff; border-radius:8px; border:1px dashed #cbd5e1; font-size:13px;">Sin pares de equipos anclados en esta selección.</div>`;
+                }
+
                 pairs.forEach(pair => {
                     const a = pair.eq_a;
                     const b = pair.eq_b;
@@ -1609,9 +1638,14 @@
                     </div>`;
                 });
 
+                // ── Sección 2: Equipos con Auxiliares Anclados ──────────────
+                html += sectionHeader('construction', '#d97706', 'Equipos con Auxiliares Anclados', auxGroups.length);
+
+                if (auxGroups.length === 0) {
+                    html += `<div style="grid-column:1/-1; text-align:center; padding:18px; color:#94a3b8; background:#fff7ed; border-radius:8px; border:1px dashed #fed7aa; font-size:13px;">Sin equipos con auxiliares anclados.<br><span style="font-size:11px;margin-top:4px;display:block;">Para vincular un auxiliar a un equipo host, edítalo en <strong>Equipos Auxiliares</strong>.</span></div>`;
+                }
+
                 // ─── Anclajes equipo→auxiliares (1 tarjeta por host con sus aux) ───
-                // Mismo patron visual que el modal de /admin/equipos-auxiliares:
-                // host arriba (azul), lista de auxiliares abajo (ambar).
                 auxGroups.forEach(g => {
                     const h = g.host || {};
                     const auxes = Array.isArray(g.auxes) ? g.auxes : [];
@@ -2567,7 +2601,7 @@
      ═══════════════════════════════════════════════════════════ --}}
 @include('admin.equipos_auxiliares.partials._machinery', [
     'tipos'             => $tiposAux ?? [],
-    'auxDetailsMap'     => ($auxEmbed['auxDetailsMap'] ?? []),
+    'auxDetailsMap'     => ($auxInitDetailsMap ?? $auxEmbed['auxDetailsMap'] ?? []),
     // En /admin/equipos NO se ofrece el boton "Anclar" para auxiliares (solo Asignar/Detalle).
     'embeddedInEquipos' => true,
 ])
@@ -2577,10 +2611,11 @@
     // aux): reusa loadEquipos, que respeta el tipo aux + frente + busqueda actuales.
     window.cargarAuxiliares = function () { if (window.loadEquipos) window.loadEquipos(); };
 
-    // Init: si se entra directo por URL con un tipo auxiliar (?id_tipo=tipo_aux:..),
-    // marcar el modo aux ya en la carga inicial para ocultar los controles de equipos
-    // que no aplican (loadEquipos lo re-togglea en cada navegacion AJAX).
-    document.body.classList.toggle('eq-aux-mode', {{ ($auxMode ?? false) ? 'true' : 'false' }});
+    // Init: marcar clases de modo aux en la carga inicial (antes del primer AJAX).
+    // eq-aux-mode: SOLO cuando tipo_aux: está activo (oculta filtros de equipos).
+    // aux-table-active: cuando cualquier path produce tabla de auxiliares (oculta bulkFloatingBar).
+    document.body.classList.toggle('eq-aux-mode',      {{ ($auxModeByTipo ?? false) ? 'true' : 'false' }});
+    document.body.classList.toggle('aux-table-active', {{ ($auxMode ?? false) ? 'true' : 'false' }});
 </script>
 
 @endsection

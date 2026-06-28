@@ -807,6 +807,25 @@ window.filterByStatus = function (status) {
     window.loadEquipos();
 };
 
+// Filtra desde la card "Equipos Auxiliares" (TOTAL / Operativo / Inoperativo), igual
+// que filterByStatus lo hace para la card de equipos. Como auxiliares y equipos son
+// tablas distintas, entrar a "ver auxiliares" = modo auxiliar (categoria=AUXILIARES,
+// todos los tipos) conservando el FRENTE activo y aplicando el estado elegido.
+//  status === ''           -> todos los auxiliares del frente
+//  status === 'OPERATIVO'  -> solo operativos
+//  status === 'INOPERATIVO'-> solo inoperativos
+window.filterAuxByStatus = function (status) {
+    const cur = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams();
+    const frente = cur.get('id_frente');
+    if (frente) params.set('id_frente', frente);
+    params.set('categoria', 'AUXILIARES'); // activa modo auxiliar (todos los tipos)
+    if (status) params.set('estado', status);
+    const url = '/admin/equipos?' + params.toString();
+    if (typeof window.navigateTo === 'function') window.navigateTo(url);
+    else window.location.href = url;
+};
+
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Defensa: si el primer argumento es boolean (caller antiguo que usaba loadEquipos(true)),
     // interpretarlo como el flag silent para no romper con "baseUrl.includes is not a function".
@@ -836,6 +855,23 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         if (!el) return null;
         return el.value && el.value.trim() !== "" ? el.value.trim() : null;
     };
+
+    // Al cambiar de modo aux → equipo (o viceversa), los inputs de modelo/marca/anio
+    // pueden tener valores del modo anterior que no aplican en la nueva tabla.
+    // Se limpian antes de leer los filtros para evitar 0 resultados por valores cruzados.
+    // Excepción: _skipModoClear=true cuando el propio click de modelo/marca provoca el cambio
+    // (el valor recién elegido DEBE preservarse, no borrarse).
+    const _tipoInputEl = document.querySelector('#tipoFilterSelect input[name="id_tipo"]');
+    {
+        const newIsAux = _tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:');
+        const wasAux = document.body.classList.contains('eq-aux-mode');
+        if (newIsAux !== wasAux && !window._skipModoClear && typeof window.clearDropdownFilter === 'function') {
+            ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter'].forEach(function(id) {
+                window.clearDropdownFilter(id);
+            });
+        }
+        window._skipModoClear = false;
+    }
 
     // Unified Filter Object
     const filters = {
@@ -972,16 +1008,21 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.equiposData = { ...window.equiposData, ...data.equiposData };
             }
 
-            // Modo aux (se eligio un tipo AUXILIAR en el dropdown): la tabla viene del
-            // modulo de auxiliares. Fusionamos su mapa de detalles para que el modal del
-            // ojo (openAuxDetailsModal) abra instant sin fetch, igual que en /admin/equipos-auxiliares.
-            if (data.mode === 'aux' && data.auxData) {
+            // Mapa de detalles de auxiliares: aplica tanto en modo aux (tabla 100% aux) como
+            // en el MERGE (filas aux anexadas a la tabla de equipos al filtrar por frente). En
+            // ambos el backend manda data.auxData; lo fusionamos para que el modal del ojo
+            // (openAuxDetailsModal) abra instant sin fetch, igual que en /admin/equipos-auxiliares.
+            if (data.auxData) {
                 window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxData);
             }
 
-            // Coherencia de controles: en modo aux se ocultan los controles propios de
-            // equipos que no aplican a auxiliares (clase .eq-hide-in-aux via CSS).
-            document.body.classList.toggle('eq-aux-mode', data.mode === 'aux');
+            // eq-aux-mode: solo cuando tipo_aux: está activo en el dropdown de Tipo.
+            // No se activa por categoria=AUXILIARES, para no alterar el panel de filtros.
+            document.body.classList.toggle('eq-aux-mode',
+                !!(_tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:')));
+            // aux-table-active: cualquier path que muestre la tabla de auxiliares.
+            // Controla .eq-hide-in-aux (p.ej. bulkFloatingBar de equipos).
+            document.body.classList.toggle('aux-table-active', data.mode === 'aux');
 
             // Stats / distribución / URL: solo en la primera página (offset=0).
             // En lotes subsiguientes (append) los totales ya están correctos y no se tocan.
@@ -1095,6 +1136,22 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     }
                 }
 
+                // Banner "también hay auxiliares": la búsqueda de esta tabla solo cubre
+                // vehículos; si el texto coincide con auxiliares, el server manda el conteo
+                // y el enlace al modo auxiliar. Lo mostramos/ocultamos según la respuesta.
+                const auxMatchBanner = document.getElementById('auxMatchBanner');
+                if (auxMatchBanner) {
+                    const auxCount = Number(data.auxMatchCount || 0);
+                    if (auxCount > 0 && data.auxMatchUrl) {
+                        const lbl = document.getElementById('auxMatchCountLabel');
+                        if (lbl) lbl.textContent = auxCount;
+                        auxMatchBanner.href = data.auxMatchUrl;
+                        auxMatchBanner.style.display = 'flex';
+                    } else {
+                        auxMatchBanner.style.display = 'none';
+                    }
+                }
+
                 // Al salir de un frente especial, limpiar el detalle para que no quede colgado.
                 const detalleUbicEl = document.getElementById('detalleUbicacionFilter');
                 if (!showUbi && detalleUbicEl && detalleUbicEl.value !== '') {
@@ -1153,9 +1210,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const chunk = allRows.slice(index, index + CHUNK_SIZE);
                 if (chunk.length === 0) {
                     reApplySelections();
-                    // Modo aux: restaurar el highlight de seleccion de las filas aux (su set
-                    // de seleccion lo mantiene la maquinaria aux embebida, no reApplySelections).
-                    if (data.mode === 'aux' && typeof window.auxRestoreSelection === 'function') {
+                    // Restaurar el highlight de seleccion de las filas aux (su set de seleccion
+                    // lo mantiene la maquinaria aux embebida, no reApplySelections). Aplica en
+                    // modo aux Y en el merge (filas aux anexadas a la tabla de equipos).
+                    const hayFilasAux = data.mode === 'aux'
+                        || (data.auxData && Object.keys(data.auxData).length > 0);
+                    if (hayFilasAux && typeof window.auxRestoreSelection === 'function') {
                         window.auxRestoreSelection();
                     }
                     // Infinite scroll: si el backend dice que hay más, observar la última fila
