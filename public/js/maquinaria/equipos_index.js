@@ -774,9 +774,9 @@ window.__updateDocPresenceUI = function () {
     // Cada lado cubre su bloque de escritorio (#id) y el de móvil (.eq-block-*),
     // para que el resaltado del lado activo sea coherente en ambas vistas.
     [
-        { sel: '#block_total, .eq-block-total, #aux_block_total', key: 'all' },
-        { sel: '#block_oper,  .eq-block-oper,  #aux_block_oper',  key: 'con' },
-        { sel: '#block_inop,  .eq-block-inop,  #aux_block_inop',  key: 'sin' },
+        { sel: '#block_total, .eq-block-total, #aux_block_total, #aux_mobile_block_total', key: 'all' },
+        { sel: '#block_oper,  .eq-block-oper,  #aux_block_oper,  #aux_mobile_block_oper',  key: 'con' },
+        { sel: '#block_inop,  .eq-block-inop,  #aux_block_inop,  #aux_mobile_block_inop',  key: 'sin' },
     ].forEach(({ sel, key }) => {
         const active = docMode && presence === key;
         document.querySelectorAll(sel).forEach((el) => {
@@ -2193,6 +2193,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/pdf' },
             body: JSON.stringify({
                 ids: actaState.ids,
+                type: actaState.type || 'equipo',
                 destination: actaState.destination,
                 destination_ubicacion: actaState.destination_ubicacion,
                 origin: actaState.origin || '',

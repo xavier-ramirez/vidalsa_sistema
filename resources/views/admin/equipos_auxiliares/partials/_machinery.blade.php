@@ -116,7 +116,7 @@
                                  data-id="{{ $f->ID_FRENTE }}"
                                  data-label="{{ mb_strtoupper($f->NOMBRE_FRENTE) }}"
                                  data-ubicacion="{{ trim((string) ($f->UBICACION ?? '')) }}"
-                                 onmousedown="event.preventDefault(); auxMovSelect({{ $f->ID_FRENTE }}, '{{ addslashes(mb_strtoupper($f->NOMBRE_FRENTE)) }}', '{{ addslashes(trim((string) ($f->UBICACION ?? ''))) }}');"
+                                 onmousedown="event.preventDefault(); auxMovSelect({{ $f->ID_FRENTE }}, '{{ addslashes(mb_strtoupper($f->NOMBRE_FRENTE)) }}');"
                                  style="padding:10px 14px; font-size:13px; color:#334155; cursor:pointer; border-bottom:1px solid #f1f5f9;"
                                  onmouseover="this.style.background='#f1f5f9'"
                                  onmouseout="this.style.background='white'">
@@ -126,28 +126,6 @@
                     </div>
                 </div>
 
-                {{-- Ubicacion (zona/municipio/estado) — aparece para frentes nuevos
-                     o cuando el frente seleccionado no tiene UBICACION cargada. --}}
-                <div id="auxMovilizarUbicWrapper" style="display:none; margin-top:14px; overflow:hidden;">
-                    <div style="background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%); border:1px solid #bfdbfe; border-left:4px solid #0067b1; border-radius:10px; padding:14px;">
-                        <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px;">
-                            <div style="width:32px; height:32px; border-radius:8px; background:#0067b1; color:white; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                <i class="material-icons" style="font-size:18px;">add_location_alt</i>
-                            </div>
-                            <div style="flex:1; min-width:0;">
-                                <p style="margin:0; font-size:13px; font-weight:700; color:#0c4a6e; line-height:1.2;" id="auxMovilizarUbicTitle">Frente nuevo detectado</p>
-                                <p style="margin:2px 0 0; font-size:11px; color:#475569; line-height:1.3;">Ingresa detalle de ubicación (ciudad, zona, municipio y estado) que saldrán en el PDF.</p>
-                            </div>
-                        </div>
-                        <div style="display:flex; align-items:center; border:1.5px solid #cbd5e1; border-radius:8px; background:white; overflow:hidden;">
-                            <i class="material-icons" style="padding:0 10px; color:#0067b1; font-size:18px; flex-shrink:0;">location_on</i>
-                            <input type="text" id="auxMovilizarUbicacion"
-                                   placeholder="Ej: PUERTO ORDAZ, BOLÍVAR"
-                                   maxlength="150" autocomplete="off"
-                                   style="flex:1; border:none; outline:none; padding:10px 6px; font-size:13.5px; background:transparent; text-transform:uppercase; color:#0f172a;">
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {{-- Generar Informe — checkbox opcional. Cuando esta activo, el
@@ -989,10 +967,6 @@
             list.style.display = 'none';
             list.querySelectorAll('.aux-mov-opt').forEach(o => o.style.display = '');
         }
-        const ubicEl = document.getElementById('auxMovilizarUbicacion');
-        if (ubicEl) ubicEl.value = '';
-        const ubicWrap = document.getElementById('auxMovilizarUbicWrapper');
-        if (ubicWrap) ubicWrap.style.display = 'none';
         const pdfChk = document.getElementById('auxMovilizarGenerarPdf');
         if (pdfChk) pdfChk.checked = false;
 
@@ -1007,8 +981,6 @@
     };
 
     // Helpers del autocomplete del frente destino (mismo patron que /admin/equipos).
-    // Soporta texto libre (frente nuevo) y muestra el campo Ubicacion cuando
-    // el frente seleccionado/escrito no tiene UBICACION cargada.
     window.auxMovOpenList = function () {
         const list = document.getElementById('auxMovilizarList');
         if (list) list.style.display = 'block';
@@ -1028,25 +1000,8 @@
         });
     };
 
-    // Toggle del wrapper de ubicacion: lo mostramos cuando el frente NO
-    // existe (texto libre que no matchea ninguna opcion) o cuando el
-    // frente existe pero su UBICACION esta vacia.
-    function _auxMovToggleUbic(showAsNew, hasNoUbic) {
-        const wrap = document.getElementById('auxMovilizarUbicWrapper');
-        const title = document.getElementById('auxMovilizarUbicTitle');
-        if (!wrap) return;
-        const show = showAsNew || hasNoUbic;
-        wrap.style.display = show ? 'block' : 'none';
-        if (title) {
-            title.textContent = showAsNew
-                ? 'Frente nuevo detectado'
-                : 'Este frente no tiene ubicación cargada';
-        }
-    }
-
-    // Input handler: cada vez que el usuario teclea, filtramos la lista y
-    // chequeamos si lo que escribio matchea exactamente un frente existente.
-    // Si no matchea, se considera frente nuevo => pedimos ubicacion.
+    // Input handler: filtra la lista y sincroniza el hidden con el id del frente
+    // seleccionado cuando hay match exacto. Sin match → frente nuevo, hidden queda vacío.
     window.auxMovOnInput = function (val) {
         const v = (val || '').toUpperCase().trim();
         const list = document.getElementById('auxMovilizarList');
@@ -1062,139 +1017,136 @@
             if (lbl === v) exactMatch = opt;
         });
 
-        if (exactMatch) {
-            hidden.value = exactMatch.dataset.id || '';
-            const ubic = (exactMatch.dataset.ubicacion || '').trim();
-            _auxMovToggleUbic(false, ubic === '');
-        } else if (v.length > 0) {
-            // Texto libre que no matchea: lo tratamos como frente nuevo.
-            // Limpiamos el id para que el backend lo cree.
-            hidden.value = '';
-            _auxMovToggleUbic(true, false);
-        } else {
-            hidden.value = '';
-            _auxMovToggleUbic(false, false);
-        }
+        hidden.value = exactMatch ? (exactMatch.dataset.id || '') : '';
         if (clr) clr.style.display = v ? 'block' : 'none';
     };
 
-    window.auxMovSelect = function (id, label, ubic) {
+    window.auxMovSelect = function (id, label) {
         document.getElementById('auxMovilizarFrente').value = id;
         document.getElementById('auxMovilizarSearch').value = label;
         document.getElementById('auxMovilizarClear').style.display = 'block';
-        _auxMovToggleUbic(false, !ubic || String(ubic).trim() === '');
         window.auxMovCloseList();
     };
     window.auxMovClear = function () {
         document.getElementById('auxMovilizarFrente').value = '';
         document.getElementById('auxMovilizarSearch').value = '';
         document.getElementById('auxMovilizarClear').style.display = 'none';
-        var ubicEl = document.getElementById('auxMovilizarUbicacion');
-        if (ubicEl) ubicEl.value = '';
-        _auxMovToggleUbic(false, false);
         document.getElementById('auxMovilizarList').querySelectorAll('.aux-mov-opt').forEach(o => o.style.display = '');
     };
 
     window.auxSubmitMovilizar = function () {
-        // Aceptamos frente existente (id) O frente NUEVO (texto libre que no
-        // matchea). El backend lo crea via firstOrCreate.
         const destination = (document.getElementById('auxMovilizarSearch').value || '').trim();
         const frenteId    = document.getElementById('auxMovilizarFrente').value;
-        const ubicacion   = (document.getElementById('auxMovilizarUbicacion')?.value || '').trim();
-        const generarPdf  = !!document.getElementById('auxMovilizarGenerarPdf')?.checked;
+        let generarPdf    = !!document.getElementById('auxMovilizarGenerarPdf')?.checked;
 
         if (!destination) {
             if (window.showToast) window.showToast('Selecciona o escribe un frente destino.', 'warning');
             return;
         }
-        // Si el frente es NUEVO (sin id) y NO ingresaron ubicacion, paramos.
-        // El backend tambien valida — esto es solo UX rapida.
-        const ubicWrap = document.getElementById('auxMovilizarUbicWrapper');
-        if (ubicWrap && ubicWrap.style.display !== 'none' && ubicacion === '') {
-            if (window.showToast) window.showToast('Indica la ubicación del frente (zona, municipio o estado).', 'warning');
-            return;
-        }
         const ids = Object.keys(window._auxSelectedMap).map(x => parseInt(x, 10));
         if (!ids.length) { window.closeAuxMovilizarModal(); return; }
 
-        if (typeof window.showPreloader === 'function') window.showPreloader();
-        fetch('{{ route("equipos-auxiliares.bulkMove") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? ''
-            },
-            body: JSON.stringify({
-                ids: ids,
-                id_frente:   frenteId ? parseInt(frenteId, 10) : null,
-                destination: destination,
-                ubicacion:   ubicacion,
-                generar_pdf: generarPdf
-            })
-        })
-        .then(r => r.json().then(body => ({ status: r.status, body })))
-        .then(({ status, body }) => {
-            if (status === 200 && body.success) {
-                // Si el usuario marco generar_pdf, disparamos la descarga del
-                // acta usando el primer ID de movilizacion creado. Mismo
-                // patron que /admin/equipos (acta-traslado endpoint).
-                if (body.generar_pdf && Array.isArray(body.movilizacion_ids) && body.movilizacion_ids.length > 0) {
-                    // Mismo patron que /admin/equipos: fetch->blob para mantener
-                    // el preloader visible hasta que el PDF este listo (TCPDF
-                    // puede tardar varios segundos con muchos auxiliares).
-                    var firstId = body.movilizacion_ids[0];
+        // Determinar si el frente necesita ubicacion (frente nuevo o existente sin UBICACION).
+        // En ese caso se fuerza la Vista Previa del Acta (editarDirecto) para que el usuario
+        // la capture en el formulario — mismo patron que /admin/equipos.
+        const listEl = document.getElementById('auxMovilizarList');
+        const destUp = destination.toUpperCase();
+        let matchedOpt = null;
+        if (listEl) listEl.querySelectorAll('.aux-mov-opt').forEach(o => {
+            if ((o.dataset.label || '').toUpperCase() === destUp) matchedOpt = o;
+        });
+        const isNewFrente    = !matchedOpt || !frenteId;
+        const needsUbicacion = isNewFrente || !(matchedOpt && (matchedOpt.dataset.ubicacion || '').trim());
+        if (needsUbicacion) generarPdf = true;
+        const destUbicacion  = needsUbicacion ? '' : ((matchedOpt && matchedOpt.dataset.ubicacion) || '');
+
+        const bulkMoveUrl = '{{ route("equipos-auxiliares.bulkMove") }}';
+        const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+        const actaState = {
+            ids: ids,
+            type: 'auxiliar',
+            destination: destination,
+            destination_ubicacion: destUbicacion,
+            origin: '',
+            origin_zona: '',
+            firmas: null
+        };
+
+        // ejecutarCommit: llama al endpoint de aux, descarga el acta si corresponde.
+        // Patron identico a /admin/equipos (fetch→blob para mantener preloader visible).
+        const ejecutarCommit = async function () {
+            if (window.showPreloader) window.showPreloader();
+            try {
+                const res = await fetch(bulkMoveUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() },
+                    body: JSON.stringify({
+                        ids: actaState.ids,
+                        id_frente:   frenteId ? parseInt(frenteId, 10) : null,
+                        destination: actaState.destination,
+                        ubicacion:   actaState.destination_ubicacion,
+                        generar_pdf: generarPdf
+                    })
+                });
+                if (!res.ok) {
+                    let errMsg = 'Error del servidor (' + res.status + ')';
+                    try { const e = await res.json(); errMsg = e.message || e.error || errMsg; } catch(_) {}
+                    throw new Error(errMsg);
+                }
+                const body = await res.json();
+                if (!body.success) throw new Error(body.message || 'No se pudo movilizar.');
+
+                window.auxClearSelection();
+                window.closeAuxMovilizarModal();
+                if (typeof cargarAuxiliares === 'function') cargarAuxiliares();
+
+                if (body.generar_pdf && Array.isArray(body.movilizacion_ids) && body.movilizacion_ids.length) {
+                    const firstId = body.movilizacion_ids[0];
                     if (window.showPreloader) window.showPreloader();
-                    fetch('/admin/movilizaciones/' + firstId + '/acta-traslado', {
-                        headers: { 'Accept': 'application/pdf' },
-                        credentials: 'same-origin'
-                    })
-                    .then(function (r) {
-                        if (!r.ok) throw new Error('HTTP ' + r.status);
-                        return r.blob();
-                    })
-                    .then(function (blob) {
-                        var url = URL.createObjectURL(blob);
-                        var a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'Acta_Traslado_' + firstId + '.pdf';
-                        a.style.display = 'none';
-                        a.setAttribute('data-no-spa', 'true');
-                        document.body.appendChild(a);
-                        a.click();
-                        setTimeout(function () {
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        }, 1000);
-                    })
-                    .catch(function (err) {
-                        console.error('[Acta PDF aux Error]:', err);
-                        if (window.showToast) window.showToast('No se pudo descargar el acta.', 'error');
-                    })
-                    .finally(function () {
-                        if (window.hidePreloader) window.hidePreloader();
-                    });
+                    // Si el usuario editó origen/firmas en la vista previa, los pasa como
+                    // override al POST del acta (mismo patron que /admin/equipos).
+                    const tieneOverride = (actaState.origin && actaState.origin.trim() !== '') || actaState.firmas !== null;
+                    const actaReq = tieneOverride
+                        ? { method: 'POST', headers: { 'Accept': 'application/pdf', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() }, credentials: 'same-origin',
+                            body: JSON.stringify({ override_origin: actaState.origin || '', override_origin_zona: actaState.origin_zona || '', override_firmas: actaState.firmas }) }
+                        : { headers: { 'Accept': 'application/pdf' }, credentials: 'same-origin' };
+                    fetch('/admin/movilizaciones/' + firstId + '/acta-traslado', actaReq)
+                        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+                        .then(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url; a.download = 'Acta_Traslado_' + firstId + '.pdf';
+                            a.style.display = 'none'; a.setAttribute('data-no-spa', 'true');
+                            document.body.appendChild(a); a.click();
+                            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+                        })
+                        .catch(() => { if (window.showToast) window.showToast('No se pudo descargar el acta.', 'error'); })
+                        .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
                     if (window.showToast) window.showToast('Movilización exitosa. Descargando acta...', 'success');
                 } else if (window.showToast) {
                     window.showToast(body.message || 'Movilización exitosa.', 'success');
                 }
-                window.auxClearSelection();
-                window.closeAuxMovilizarModal();
-                cargarAuxiliares();
-            } else {
+            } catch(err) {
+                if (window.hidePreloader) window.hidePreloader();
                 if (window.showModal) {
-                    window.showModal({ type:'error', title:'Error', message: body.message || 'No se pudo movilizar.', confirmText:'Entendido', hideCancel:true });
+                    window.showModal({ type:'error', title:'Error', message: err.message || 'Error al movilizar.', confirmText:'Entendido', hideCancel:true });
                 } else if (window.showToast) {
-                    window.showToast(body.message || 'Error al movilizar.', 'error');
+                    window.showToast(err.message || 'Error al movilizar.', 'error');
                 }
+            } finally {
+                if (window.hidePreloader) window.hidePreloader();
             }
-        })
-        .catch(err => {
-            console.error('auxSubmitMovilizar:', err);
-            if (window.showToast) window.showToast('Error de red.', 'error');
-        })
-        .finally(() => { if (typeof window.hidePreloader === 'function') window.hidePreloader(); });
+        };
+
+        // generarPdf=true (por checkbox o forzado por needsUbicacion) → Vista Previa del Acta.
+        // frente nuevo/sin ubicacion → abre el formulario de edicion directamente (editarDirecto)
+        // para capturar ubicacion + firmas antes del commit.
+        if (generarPdf && typeof window._mostrarVistaPreviaActa === 'function') {
+            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente || needsUbicacion });
+            return;
+        }
+        ejecutarCommit();
     };
 
     if (!window.auxAccionesOutsideBound) {
