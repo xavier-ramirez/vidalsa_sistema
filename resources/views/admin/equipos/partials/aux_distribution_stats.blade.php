@@ -34,8 +34,8 @@
 @else
     {{-- Distribución por TIPO (vista por defecto) --}}
     <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-        <i class="material-icons" style="font-size: 18px; color: #3b82f6;">pie_chart</i>
-        Distribución
+        <i class="material-icons" style="font-size: 18px; color: #3b82f6;">autorenew</i>
+        Auxiliares
     </h4>
     <ul style="list-style: none; padding: 0; margin: 0; max-height: 64vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @php $totalAux = collect($auxDistribucion)->sum('total'); @endphp

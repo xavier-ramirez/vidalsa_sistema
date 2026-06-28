@@ -2058,9 +2058,9 @@ input:-webkit-autofill:active {
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
     /* z-index alto para que SIEMPRE quede arriba del btn-details-mini, los
        dropdowns (1000) y otros chips de la tabla. DEBE quedar por debajo de
-       los modales overlay (deben usar 10000+, ej: .alm-modal-overlay y los
-       modales de movilizaciones) y de los toasts (1000002) — si un modal usa
-       un z-index <9999 la barra se transparentara sobre el. */
+       los modales overlay (deben usar 10001+, ej: .alm-modal-overlay,
+       movilizaciones y anclaje) y de los toasts (1000002) — si un modal usa
+       un z-index <=9999 la barra se transparentará sobre él. */
     z-index: 9999;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     opacity: 0;
@@ -2079,6 +2079,23 @@ input:-webkit-autofill:active {
     gap: 6px;
     font-weight: 600;
     font-size: 13px;
+}
+
+/* "Ver solo seleccionados" activo en la barra de auxiliares: mismo círculo
+   ámbar que usa #bulkFloatingBar en equipos/index.blade.php. */
+#auxBulkBar .selection-counter.is-filtering #auxBulkCount {
+    background: #fbbf24;
+    color: #1e293b;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    line-height: 1;
+    box-sizing: border-box;
 }
 
 .btn-bulk-clear {
@@ -2488,6 +2505,10 @@ input:-webkit-autofill:active {
         position: static !important;
     }
 }
+
+/* max-height y scrollbar del counter-sidebar: gestionados por JS en
+   equipos_index.js. Se aplican inline solo cuando pageMax > 0, evitando
+   que el sidebar quede clipado en páginas que no hacen scroll (almacén, etc.). */
 
 /* ── Layout principal desktop ── */
 .movilizaciones-layout {

@@ -255,6 +255,17 @@ function initEquiposForm() {
             }
         });
 
+        // Re-marcar campos opcionales con duplicado conocido (checkUniqueness los marcó
+        // como isDuplicate="true" pero el paso B limpió is-invalid visualmente). Sin esto
+        // el error desaparece al hacer clic en Guardar y reaparece del servidor con 422,
+        // dando la impresión de que el campo estaba bien.
+        form.querySelectorAll('[data-is-duplicate="true"]').forEach(input => {
+            if (input.value.trim()) {
+                showFieldError(input, 'Este valor ya ha sido registrado.');
+                hasEmpty = true;
+            }
+        });
+
         const invalidInputs = form.querySelectorAll('.is-invalid');
         if (hasEmpty || invalidInputs.length > 0) {
             if (window.hidePreloader) window.hidePreloader();

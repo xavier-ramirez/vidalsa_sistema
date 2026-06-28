@@ -495,17 +495,14 @@ window.addEventListener('spa:contentLoaded', function () {
                 if (fileInput.files && fileInput.files.length > 0) {
                     if (meta.value.trim() === '') {
                         meta.style.borderColor = '#e53e3e';
-                        meta.setCustomValidity('Debe indicar el dato asociado.');
                         if (errorMsg) errorMsg.style.display = 'block';
                     } else {
                         meta.style.borderColor = '';
-                        meta.setCustomValidity('');
                         if (errorMsg) errorMsg.style.display = 'none';
                     }
                 } else {
                     if (meta.style.borderColor === 'rgb(229, 62, 62)' || meta.style.borderColor === '#e53e3e') {
                         meta.style.borderColor = '';
-                        meta.setCustomValidity('');
                         if (errorMsg) errorMsg.style.display = 'none';
                     }
                 }

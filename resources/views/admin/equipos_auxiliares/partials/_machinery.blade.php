@@ -5,7 +5,7 @@
      /admin/equipos con CAN_ASSIGN_EQUIPOS).
      ═══════════════════════════════════════════════════════════ --}}
 <div id="auxBulkBar" class="selection-floating-bar">
-    <div class="selection-counter">
+    <div class="selection-counter" onclick="window.toggleAuxSoloSel(event)" title="Ver solo los seleccionados (toca de nuevo para ver todos)" style="cursor: pointer;">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
             <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
         </div>
@@ -669,6 +669,8 @@
         if (id in window._auxSelectedMap) {
             delete window._auxSelectedMap[id];
             tr.classList.remove('selected-row-maquinaria');
+            // En modo "solo seleccionados", ocultar la fila al deseleccionar.
+            if (window._auxSoloSel) tr.style.display = 'none';
         } else {
             window._auxSelectedMap[id] = {
                 id: id,
@@ -700,15 +702,44 @@
         document.querySelectorAll('tr[data-aux-id].selected-row-maquinaria').forEach(tr => {
             tr.classList.remove('selected-row-maquinaria');
         });
+        // Resetear filtro "solo seleccionados" si estaba activo.
+        if (window._auxSoloSel) {
+            window._auxSoloSel = false;
+            document.querySelectorAll('tr[data-aux-id]').forEach(tr => { tr.style.display = ''; });
+            const counter = document.querySelector('#auxBulkBar .selection-counter');
+            if (counter) counter.classList.remove('is-filtering');
+        }
         window.auxRefreshBulkBar();
+    };
+
+    // Filtro cliente "ver solo los auxiliares seleccionados".
+    // Como los auxiliares se renderizan en cliente (no hay paginación AJAX
+    // como en equipos), se ocultan/muestran filas directamente sin recargar.
+    window.toggleAuxSoloSel = function (e) {
+        if (e) e.stopPropagation();
+        if (Object.keys(window._auxSelectedMap || {}).length === 0) {
+            if (window.showToast) window.showToast('No hay auxiliares seleccionados.', 'error');
+            return;
+        }
+        window._auxSoloSel = !window._auxSoloSel;
+        const counter = document.querySelector('#auxBulkBar .selection-counter');
+        if (counter) counter.classList.toggle('is-filtering', window._auxSoloSel);
+        document.querySelectorAll('tr[data-aux-id]').forEach(tr => {
+            if (window._auxSoloSel) {
+                tr.style.display = tr.dataset.auxId in window._auxSelectedMap ? '' : 'none';
+            } else {
+                tr.style.display = '';
+            }
+        });
     };
 
     // Restaurar highlight tras AJAX refresh de la tabla
     window.auxRestoreSelection = function () {
         document.querySelectorAll('tr[data-aux-id]').forEach(tr => {
-            if (tr.dataset.auxId in window._auxSelectedMap) {
-                tr.classList.add('selected-row-maquinaria');
-            }
+            const inSel = tr.dataset.auxId in window._auxSelectedMap;
+            if (inSel) tr.classList.add('selected-row-maquinaria');
+            // Re-aplicar filtro de visibilidad si "solo seleccionados" está activo.
+            if (window._auxSoloSel) tr.style.display = inSel ? '' : 'none';
         });
         window.auxRefreshBulkBar();
     };
@@ -933,7 +964,11 @@
         overlay.querySelector('#auxUb-submit').onclick = doSubmit;
     };
 
-    window.openAuxMovilizarModal = function () {
+    // opts.presetFrente: nombre del frente a pre-seleccionar (usado cuando se
+    // abre automáticamente tras confirmar la movilización de equipos, para
+    // reutilizar el mismo destino sin que el usuario lo tenga que reescribir).
+    window.openAuxMovilizarModal = function (opts) {
+        opts = opts || {};
         const ids = Object.keys(window._auxSelectedMap);
         if (ids.length === 0) return;
         // Permiso: la barra es siempre visible para mostrar el conteo, pero la
@@ -972,6 +1007,20 @@
 
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+
+        // Pre-seleccionar frente si viene desde la movilización de equipos.
+        if (opts.presetFrente) {
+            const target = (opts.presetFrente || '').toUpperCase().trim();
+            const opt = list ? Array.from(list.querySelectorAll('.aux-mov-opt'))
+                .find(o => (o.dataset.label || '').toUpperCase().trim() === target) : null;
+            if (opt) {
+                window.auxMovSelect(opt.dataset.id, opt.dataset.label);
+            } else if (search) {
+                // Frente nuevo: rellenar el texto aunque no haya coincidencia exacta
+                search.value = target;
+                if (clr) clr.style.display = 'block';
+            }
+        }
     };
 
     window.closeAuxMovilizarModal = function () {

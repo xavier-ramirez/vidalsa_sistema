@@ -370,29 +370,30 @@ function updateSelectionUI() {
             text.innerText = count;
             bar.classList.add("active");
 
-            const selections = Object.values(window.selectedEquipos);
-
             const isValidId = (val) => val && val !== "null" && val !== "";
 
-            // Determinar si alguno de los seleccionados YA está anclado
-            const someAnchored = selections.some(s => isValidId(s.anchorId));
+            // Los botones Anclar/Desanclar reflejan el ÚLTIMO equipo seleccionado.
+            // Si ese ID ya no está en la selección (fue deseleccionado), fallback al
+            // primer equipo con rol de anclaje (Object.keys ordena numéricamente,
+            // no por inserción; usar fallback semántico evita IDs arbitrarios).
+            let lastId = window.lastSelectedEquipoId;
+            if (!lastId || !window.selectedEquipos[lastId]) {
+                const withRole = Object.values(window.selectedEquipos)
+                    .find(s => s.rolAnclaje === 'REMOLCADOR' || s.rolAnclaje === 'REMOLCABLE');
+                lastId = withRole ? String(withRole.id) : ids[0];
+            }
+            const lastSel    = window.selectedEquipos[lastId];
+            const lastHasRole  = lastSel && (lastSel.rolAnclaje === 'REMOLCADOR' || lastSel.rolAnclaje === 'REMOLCABLE');
+            const lastAnchored = lastSel && isValidId(lastSel.anchorId);
 
-            // Determinar si alguno puede anclar (rol válido Y sin ancla activa)
-            const canAnchor = !someAnchored && selections.some(s =>
-                (s.rolAnclaje === 'REMOLCADOR' || s.rolAnclaje === 'REMOLCABLE') &&
-                !isValidId(s.anchorId)
-            );
-
-            // ── Anclar: solo si nadie está anclado y alguno puede anclarse ──
             const anchorBtn = document.getElementById('btnAnclar');
             if (anchorBtn) {
-                anchorBtn.style.display = canAnchor ? 'flex' : 'none';
+                anchorBtn.style.display = (lastHasRole && !lastAnchored) ? 'flex' : 'none';
             }
 
-            // ── Desanclar: solo si alguno YA está anclado ──
             const unanchorBtn = document.getElementById('btnUnanchor');
             if (unanchorBtn) {
-                unanchorBtn.style.display = someAnchored ? 'flex' : 'none';
+                unanchorBtn.style.display = (lastHasRole && lastAnchored) ? 'flex' : 'none';
             }
 
         } else {
@@ -440,8 +441,10 @@ window.toggleEquiposSoloSel = function (e) {
     }
 };
 
-// Re-apply blue highlight to all rows that are in selectedEquipos
-// Called after every table render to keep visual state in sync
+// Re-apply blue highlight to all rows that are in selectedEquipos.
+// También sincroniza anchorId desde el DOM recién renderizado para que
+// los botones Anclar/Desanclar reflejen el estado real tras un reload.
+// Called after every table render to keep visual state in sync.
 function reApplySelections() {
     if (
         !window.selectedEquipos ||
@@ -459,8 +462,11 @@ function reApplySelections() {
         const id = String(btn.dataset.equipoId);
         if (window.selectedEquipos.hasOwnProperty(id)) {
             row.classList.add("selected-row-maquinaria");
+            // Sync anchorId desde datos frescos del servidor (p.ej. tras anclar/desanclar)
+            window.selectedEquipos[id].anchorId = btn.dataset.anchorId || '';
         }
     });
+    updateSelectionUI();
 }
 
 // Global Selection Action
@@ -536,6 +542,7 @@ function handleRowClick(e) {
         targetRol,
         targetAnchorId,
         targetRow,
+        isPrimary = false,
     ) => {
         if (isSelecting) {
             window.selectedEquipos[targetId] = {
@@ -548,7 +555,10 @@ function handleRowClick(e) {
                 rolAnclaje: targetRol,
                 anchorId: targetAnchorId,
             };
-            window.lastSelectedEquipoId = targetId; // Guardar el más reciente para anclaje
+            // Solo el equipo que el usuario CLICÓ actualiza lastSelectedEquipoId.
+            // El partner auto-añadido NO lo sobreescribe para que los botones
+            // Anclar/Desanclar reflejen el equipo real que se acaba de seleccionar.
+            if (isPrimary) window.lastSelectedEquipoId = targetId;
             if (targetRow) targetRow.classList.add("selected-row-maquinaria");
         } else {
             delete window.selectedEquipos[targetId];
@@ -557,8 +567,8 @@ function handleRowClick(e) {
         }
     };
 
-    // Toggle main equipment
-    toggleSelection(id, code, placa, chasis, tipo, frenteId, rolAnclaje, anchorId, row);
+    // Toggle main equipment — isPrimary=true: actualiza lastSelectedEquipoId
+    toggleSelection(id, code, placa, chasis, tipo, frenteId, rolAnclaje, anchorId, row, true);
 
     // Toggle anchored partner if exists
     if (anchorId && anchorId !== "" && anchorId !== "null") {
@@ -706,16 +716,10 @@ window.unanchorEquipos = async function (e) {
             }
 
             if (resp.ok && data.success) {
-                // EXITO: Limpieza absoluta
-                window.selectedEquipos = {};
-                
-                // Actualizar interfaz
-                document.querySelectorAll('.selected-row-maquinaria').forEach(el => el.classList.remove('selected-row-maquinaria'));
-                if (typeof updateSelectionUI === 'function') updateSelectionUI();
-                
-                // Refrescar tabla silenciosamente
+                // Refrescar tabla; reApplySelections() (dentro de loadEquipos) mantiene
+                // la selección activa y actualiza anchorId desde el DOM fresco.
                 if (typeof window.loadEquipos === 'function') {
-                    await window.loadEquipos(null, true); 
+                    await window.loadEquipos(null, true);
                 }
 
                 if (window.showToast) window.showToast('Desanclaje completado con éxito', 'success');
@@ -843,6 +847,57 @@ window.onDistribucionCardClick = function (e) {
     _eqRenderDistribucion();
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
+
+// Scroll sincronizado: mueve el sidebar proporcionalmente al scroll de la página
+// para que la card de distribución (última del sidebar) quede visible al bajar.
+// max-height/overflow se aplican inline solo cuando pageMax > 0; si la página
+// no hace scroll se eliminan para no clipar el sidebar (almacén corto, etc.).
+// Guard de página: solo actúa cuando equiposTableBody está en el DOM (evita
+// modificar el sidebar de almacén y otras páginas que comparten .counter-sidebar).
+// Guard SPA: el listener se registra una sola vez aunque el script se re-ejecute.
+function _syncSidebarScroll() {
+    // Solo en la página de equipos — otras páginas tienen su propio .counter-sidebar.
+    if (!document.getElementById('equiposTableBody')) return;
+    const sidebar = document.querySelector('.counter-sidebar');
+    if (!sidebar) return;
+    const pageMax = document.documentElement.scrollHeight - window.innerHeight;
+    if (pageMax <= 0) {
+        // Página sin scroll: retirar max-height para que el sidebar no quede clipado.
+        if (sidebar._scrollSyncActive) {
+            sidebar._scrollSyncActive = false;
+            sidebar.style.maxHeight  = '';
+            sidebar.style.overflowY  = '';
+        }
+        return;
+    }
+    // Primera vez que la página tiene scroll: activar max-height + scrollbar oculto.
+    // También se llama en DOMContentLoaded y spa:contentLoaded para evitar CLS
+    // (sin esto el sidebar se expandía a altura natural hasta el primer scroll).
+    if (!sidebar._scrollSyncActive) {
+        sidebar._scrollSyncActive = true;
+        sidebar.style.maxHeight      = 'calc(100vh - 40px)';
+        sidebar.style.overflowY      = 'auto';
+        sidebar.style.scrollbarWidth = 'none';
+        // webkit: inyectar <style> una sola vez vía clase auxiliar.
+        if (!document.getElementById('_sidebarScrollbarStyle')) {
+            const s = document.createElement('style');
+            s.id = '_sidebarScrollbarStyle';
+            s.textContent = '.counter-sidebar._scroll-sync::-webkit-scrollbar{display:none}';
+            document.head.appendChild(s);
+        }
+        sidebar.classList.add('_scroll-sync');
+    }
+    const overflow = sidebar.scrollHeight - sidebar.clientHeight;
+    if (overflow <= 0) return;
+    sidebar.scrollTop = (window.scrollY / pageMax) * overflow;
+}
+if (!window._sidebarScrollListenerReady) {
+    window._sidebarScrollListenerReady = true;
+    // Aplicar en carga inicial y navegación SPA para evitar CLS antes del primer scroll.
+    document.addEventListener('DOMContentLoaded', _syncSidebarScroll);
+    window.addEventListener('spa:contentLoaded', _syncSidebarScroll);
+    window.addEventListener('scroll', _syncSidebarScroll, { passive: true });
+}
 
 window.filterByStatus = function (status) {
     // En modo AUXILIAR (card de arriba = "Equipos Auxiliares") los bloques controlan los
@@ -1237,12 +1292,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 if (!docMode) window.__equiposDocPresence = 'con';
                 window.__updateDocPresenceUI();
 
-                // Distribución: guarda la de equipos (default) y la de auxiliares (toggle), y
-                // re-renderiza respetando el estado del toggle. En modo aux no hay alternancia
-                // (data.distribution ya es de auxiliares; auxDistribution viene vacío).
+                // Distribución: guarda la de equipos (default) y la de auxiliares (toggle).
+                // Cada filtro resetea a la vista de equipos (premisa: el usuario quiere
+                // ver los resultados nuevos, no conservar la alternancia anterior).
                 window.__distribHtml    = data.distribution;
                 window.__distribAuxHtml = data.auxDistribution || '';
-                if (data.mode === 'aux') window.__distMostrandoAux = false;
+                window.__distMostrandoAux = false;
                 _eqRenderDistribucion();
 
                 // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL.
@@ -1932,6 +1987,10 @@ window.openBulkModal = function (event) {
 
         const btn = this;
         const ids = Object.keys(window.selectedEquipos);
+        // Capturar aux seleccionados en este momento: si el usuario también
+        // tiene auxiliares marcados, se abrirá su modal automáticamente
+        // al confirmar la movilización de equipos (generando un segundo PDF/registro).
+        const auxIdsAlAbrir = Object.keys(window._auxSelectedMap || {});
 
         // Estado EDITABLE del acta. Arranca con lo del modal; la vista previa puede
         // mutarlo (quitar equipos → ids; re-rutear destino; override cosmético de
@@ -2015,6 +2074,12 @@ window.openBulkModal = function (event) {
             removePortal();
             overlay.remove();
             window.clearSelection();
+
+            // Si había auxiliares seleccionados cuando se abrió el modal, abrir
+            // automáticamente su modal de movilización con el mismo frente destino.
+            if (auxIdsAlAbrir.length && typeof window.openAuxMovilizarModal === 'function') {
+                window.openAuxMovilizarModal({ presetFrente: actaState.destination });
+            }
 
             // ── Actualizar el frente en memoria (frentesData) si se guardó una
             // ubicación nueva para él. Sin esto, al reabrir el modal en la misma
@@ -2346,8 +2411,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             '<button type="button" id="mov-prev-ok" style="padding:9px 18px;border-radius:10px;border:none;background:#0284c7;color:white;font-size:13px;font-weight:800;cursor:pointer;"><i class="material-icons" style="font-size:16px;vertical-align:-3px;margin-right:3px;">check_circle</i>Confirmar</button>';
         footEl.querySelector('#mov-prev-edit').onclick = abrirEditor;
         footEl.querySelector('#mov-prev-ok').onclick = function () {
-            // No se puede registrar sin firmantes válidos cuando el frente no tiene
-            // responsables: reabrimos el editor para que complete los datos.
+            // Firmas siempre obligatorias: al menos un firmante completo (cargo+nombre+cédula).
             if (!firmasCompletas()) {
                 if (window.showToast) window.showToast('Indica quién revisa y quién aprueba (cargo, nombre y cédula) antes de registrar.', 'error');
                 abrirEditor();
@@ -2413,11 +2477,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         actaState.firmas = arr;
     }
 
-    // ¿Las firmas están completas? Obligatorio SOLO cuando el frente de origen no
-    // tiene responsables: en ese caso cada firma debe tener cargo, nombre y cédula
-    // (si el frente sí tiene responsables, se respeta su data tal cual, sin exigir).
+    // ¿Las firmas están completas? Siempre obligatorio: al menos un firmante con
+    // cargo, nombre y cédula rellenos para poder generar el acta.
     function firmasCompletas() {
-        if (!sinResponsablesOrigen) return true;
         var fs = actaState.firmas || [];
         return fs.length > 0 && fs.every(function (f) {
             return (f.car || '').trim() && (f.nom || '').trim() && (f.ced || '').trim();
@@ -2508,7 +2570,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         bodyEl.querySelector('#ed-firma-add').onclick = function () {
             syncFirmasFromDOM();
             actaState.firmas.push({ label: 'APROBADO:', car: '', nom: '', ced: '' }); // rol por defecto válido (el select lo restringe)
-            bodyEl.querySelector('#ed-firmas').innerHTML = firmasRowsHtml();
+            var el = bodyEl.querySelector('#ed-firmas');
+            el.innerHTML = firmasRowsHtml();
+            el.style.outline = ''; // limpiar resaltado rojo al añadir la primera firma
         };
         bodyEl.querySelector('#ed-firmas').addEventListener('click', function (ev) {
             var del = ev.target.closest('.ed-firma-del');
@@ -2550,29 +2614,30 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             return;
         }
 
-        // Firmas OBLIGATORIAS cuando el frente no tiene responsables: cada firma debe
-        // llevar cargo, nombre y cédula. Se resalta en rojo el primer campo vacío.
-        if (sinResponsablesOrigen) {
-            var filas = bodyEl.querySelectorAll('.ed-firma-row');
-            if (filas.length === 0) {
-                if (window.showToast) window.showToast('Agrega al menos un firmante (quién revisa y quién aprueba).', 'error');
-                return;
-            }
-            var primerVacio = null;
-            filas.forEach(function (row) {
-                ['.ed-f-car', '.ed-f-nom', '.ed-f-ced'].forEach(function (sel) {
-                    var inp = row.querySelector(sel);
-                    if (!inp) return;
-                    var vacio = inp.value.trim() === '';
-                    inp.style.borderColor = vacio ? '#ef4444' : '#e2e8f0';
-                    if (vacio && !primerVacio) primerVacio = inp;
-                });
+        // Firmas SIEMPRE obligatorias: al menos un firmante, cada uno con cargo,
+        // nombre y cédula. Se resalta en rojo el contenedor o el primer campo vacío.
+        var firmasEl = bodyEl.querySelector('#ed-firmas');
+        var filas = bodyEl.querySelectorAll('.ed-firma-row');
+        if (filas.length === 0) {
+            if (firmasEl) firmasEl.style.outline = '2px solid #ef4444';
+            if (window.showToast) window.showToast('Agrega al menos un firmante (quién revisa y quién aprueba).', 'error');
+            return;
+        }
+        if (firmasEl) firmasEl.style.outline = '';
+        var primerVacio = null;
+        filas.forEach(function (row) {
+            ['.ed-f-car', '.ed-f-nom', '.ed-f-ced'].forEach(function (sel) {
+                var inp = row.querySelector(sel);
+                if (!inp) return;
+                var vacio = inp.value.trim() === '';
+                inp.style.borderColor = vacio ? '#ef4444' : '#e2e8f0';
+                if (vacio && !primerVacio) primerVacio = inp;
             });
-            if (primerVacio) {
-                if (window.showToast) window.showToast('Completa cargo, nombre y cédula de cada firma.', 'error');
-                primerVacio.focus();
-                return;
-            }
+        });
+        if (primerVacio) {
+            if (window.showToast) window.showToast('Completa cargo, nombre y cédula de cada firma.', 'error');
+            primerVacio.focus();
+            return;
         }
 
         if (window.showPreloader) window.showPreloader();
@@ -2662,7 +2727,7 @@ window.openAnchorModal = async function (event) {
     const overlay = document.createElement("div");
     overlay.className = "dynamic-anchor-modal";
     overlay.style.cssText =
-        "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:2500; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(2px);";
+        "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10001; display:flex; justify-content:center; align-items:center; backdrop-filter:blur(2px);";
 
     const content = document.createElement("div");
     content.style.cssText =
@@ -2875,8 +2940,10 @@ window.openAnchorModal = async function (event) {
             const data = await response.json();
             if (data.success) {
                 overlay.remove();
-                window.clearSelection();
-                window.loadEquipos();
+                // Awaited: reApplySelections (dentro de loadEquipos) sincroniza anchorId y
+                // actualiza botones antes de mostrar el toast, evitando que btnAnclar quede
+                // visible con estado obsoleto durante el render (permitiría doble-POST).
+                await window.loadEquipos();
                 if (typeof window.showToast === 'function') {
                     window.showToast(data.message || 'Equipos anclados mutuamente con éxito', 'success');
                 }

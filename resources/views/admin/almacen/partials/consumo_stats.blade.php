@@ -16,7 +16,7 @@
 </h4>
 
 @if($cons->count() > 0)
-    <ul style="list-style:none;padding:0;margin:0;max-height:64vh;overflow-y:auto;overflow-x:visible;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
+    <ul style="list-style:none;padding:0;margin:0;max-height:67vh;overflow-y:auto;overflow-x:visible;display:flex;flex-direction:column;gap:4px;" class="custom-scrollbar">
         @foreach($cons as $row)
             @php $pct = $maxTotal > 0 ? ($row->total / $maxTotal) * 100 : 0; @endphp
             {{-- json_encode + {{ }} HTML-escapa las " del JSON → &quot;; necesario porque @json() emite

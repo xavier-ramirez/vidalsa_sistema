@@ -995,7 +995,10 @@
     window.trToggleAdvanced = function (ev) {
         if (ev) ev.stopPropagation();
         var p = el('trAdvPanel'); if (!p) return;
-        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+        var opening = p.style.display !== 'block';
+        // Al abrir el panel cerramos cualquier custom-dropdown que esté activo.
+        if (opening && window.closeAllDropdowns) window.closeAllDropdowns(null);
+        p.style.display = opening ? 'block' : 'none';
     };
     window.trClearFechas = function () {
         ['trDesde', 'trHasta'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
@@ -1048,12 +1051,15 @@
         trPaintKpi();
     })();
     // Cerrar el panel al hacer clic fuera (ni en el panel ni en su botón).
+    // Capture phase (true) para que dispare ANTES de que uicomponents.js llame
+    // stopPropagation al manejar un custom-dropdown — de lo contrario el clic en
+    // el trigger del Estado nunca llega aquí y el panel queda abierto.
     if (_trBindGlobal) document.addEventListener('click', function (e) {
         var p = el('trAdvPanel');
         if (p && p.style.display === 'block' && !e.target.closest('#trAdvPanel') && !e.target.closest('#trAdvBtn')) {
             p.style.display = 'none';
         }
-    });
+    }, true);
 })();
 </script>
 
