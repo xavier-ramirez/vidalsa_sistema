@@ -643,6 +643,10 @@
         // Disable hidden inputs in inactive section to prevent them from being submitted
         document.querySelectorAll('#equipoFieldsSection input, #equipoFieldsSection select').forEach(function (el) { el.disabled = isAux; });
         document.querySelectorAll('#auxiliarFieldsSection input, #auxiliarFieldsSection select').forEach(function (el) { el.disabled = !isAux; });
+
+        // Avisar a la validación en vivo: el modo cambió, debe limpiar errores/caché de
+        // los campos compartidos (un duplicado en un modo puede no serlo en el otro).
+        window.dispatchEvent(new Event('unified-mode-changed'));
     };
 
     // ── AJAX Submit ──
@@ -713,6 +717,84 @@
             });
         });
     }
+
+    // ── Validación en vivo de unicidad (segundo plano) ──
+    // El form de EDIT usa equipos_form.js; este form es 'createUnifiedForm' (que
+    // equipos_form.js NO reconoce), así que la verificación en vivo se maneja aquí.
+    // Es consciente del modo (equipo vs auxiliar) para consultar la tabla correcta:
+    // SERIAL_CHASIS/CODIGO_PATIO/PLACA/SERIAL_DE_MOTOR → equipos; SERIAL/CODIGO_INTERNO → auxiliares.
+    (function setupLiveUnique() {
+        var ENDPOINTS = {
+            equipo: '{{ route("equipos.checkUnique") }}',
+            aux:    '{{ route("equipos-auxiliares.checkUnique") }}'
+        };
+        var FIELDS = ['serial_principal', 'serial_motor', 'codigo_interno', 'placa'];
+
+        function mapField(id, isAux) {
+            switch (id) {
+                case 'serial_principal': return { field: isAux ? 'SERIAL' : 'SERIAL_CHASIS', url: isAux ? ENDPOINTS.aux : ENDPOINTS.equipo };
+                case 'codigo_interno':   return { field: isAux ? 'CODIGO_INTERNO' : 'CODIGO_PATIO', url: isAux ? ENDPOINTS.aux : ENDPOINTS.equipo };
+                case 'serial_motor':     return isAux ? null : { field: 'SERIAL_DE_MOTOR', url: ENDPOINTS.equipo }; // solo equipo
+                case 'placa':            return isAux ? null : { field: 'PLACA', url: ENDPOINTS.equipo };           // solo equipo
+                default: return null;
+            }
+        }
+        function setErr(input, msg) {
+            input.classList.add('is-invalid');
+            var parent = input.parentNode;
+            if (!parent) return;
+            parent.querySelectorAll('.error-message-inline').forEach(function (el) { el.remove(); });
+            var fb = document.createElement('span');
+            fb.className = 'error-message-inline';
+            fb.innerText = msg;
+            parent.appendChild(fb);
+        }
+        function clrErr(input) {
+            input.classList.remove('is-invalid');
+            var parent = input.parentNode;
+            if (parent) parent.querySelectorAll('.error-message-inline').forEach(function (el) { el.remove(); });
+        }
+        function check(input) {
+            var isAux = (document.getElementById('__modo').value === 'auxiliar');
+            var m = mapField(input.id, isAux);
+            if (!m) return;
+            var val = (input.value || '').trim();
+            if (!val) { clrErr(input); input.dataset.isDuplicate = 'false'; input.dataset.lastChecked = ''; return; }
+            // Cachea por modo+valor: cambiar de modo fuerza re-chequeo (otra tabla).
+            var key = (isAux ? 'A:' : 'E:') + val.toUpperCase();
+            if (input.dataset.lastChecked === key) return;
+            input.dataset.lastChecked = key;
+
+            var ctrl = new AbortController();
+            var to = setTimeout(function () { ctrl.abort(); }, 8000);
+            fetch(m.url + '?field=' + encodeURIComponent(m.field) + '&value=' + encodeURIComponent(val), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                signal: ctrl.signal, credentials: 'same-origin'
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                clearTimeout(to);
+                if (d && d.exists) { setErr(input, 'Este valor ya está registrado.'); input.dataset.isDuplicate = 'true'; }
+                else { clrErr(input); input.dataset.isDuplicate = 'false'; }
+            })
+            .catch(function () { clearTimeout(to); }); // timeout/red: silencioso (el server revalida al enviar)
+        }
+
+        FIELDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && el.dataset.liveBound !== '1') {
+                el.dataset.liveBound = '1';
+                el.addEventListener('blur', function () { check(el); });
+            }
+        });
+        // Al cambiar de modo: limpiar error/caché de los campos compartidos.
+        window.addEventListener('unified-mode-changed', function () {
+            FIELDS.forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) { clrErr(el); el.dataset.lastChecked = ''; el.dataset.isDuplicate = 'false'; }
+            });
+        });
+    })();
 })();
 </script>
 @endsection

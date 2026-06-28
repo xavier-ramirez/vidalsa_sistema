@@ -150,6 +150,7 @@
                     data-status="{{ $equipo->ESTADO_OPERATIVO }}"
                     data-status-url="{{ route('equipos.changeStatus', $equipo->ID_EQUIPO) }}"
                     data-label="{{ optional($equipo->documentacion)->PLACA ?: ($equipo->SERIAL_CHASIS ?: ($equipo->CODIGO_PATIO ?: ('Equipo #'.$equipo->ID_EQUIPO))) }}"
+                    @if($equipo->fallaAbierta) data-falla-id="{{ $equipo->fallaAbierta->ID_FALLA }}" data-falla-codigo="{{ $equipo->fallaAbierta->CODIGO_REPORTE }}" data-falla-tipo="{{ $equipo->fallaAbierta->TIPO_REPORTE }}" @endif
                     onclick="event.stopPropagation(); openSharedStatusMenu(this)"
                     style="padding: 6px 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 5px; font-size: 12.5px; font-weight: 700; background: white; border: 1px solid #e2e8f0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                     <div style="display: flex; align-items: center; gap: 5px; color: {{ $currentConfig['color'] }};">

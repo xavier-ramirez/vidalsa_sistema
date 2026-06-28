@@ -11,8 +11,8 @@
 
      Flujo de captura:
        1) Cabecera con datos del lote (almacen derivado + nota de entrega + proveedor
-          + fecha). El panel lateral "Resumen de la entrada" muestra los totales
-          (líneas + unidades) y las acciones (Registrar / Cancelar).
+          + fecha). El panel lateral contiene las acciones del lote (Registrar /
+          Cancelar).
        2) Fila de captura: [Buscar serial/descripcion] [Cantidad] (stepper ▲▼).
           - Si el producto EXISTE: aparece como sugerencia → Enter elige el primero →
             (la UM se prefija con la del catalogo pero queda EDITABLE) → escribir
@@ -62,7 +62,7 @@
     .ent-section-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
 
     /* Cabecera del lote: N° Doc | Proveedor | Fecha. Las acciones (Cancelar / Registrar)
-       viven en el panel "Resumen de la entrada" de la derecha (estilo checkout). */
+       viven en el panel lateral de la derecha (estilo checkout). */
     .ent-form-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 160px;
@@ -92,9 +92,11 @@
 
     /* UM autocomplete */
     .ent-um-wrap { position:relative; }
+    /* Campo Unidad SIN negrita (peso normal 400), a pedido del cliente: la "UND"
+       se veía resaltada respecto al resto de la barra de captura. */
     .ent-um-input {
         width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px;
-        padding:0 10px; font-size:13.5px; font-weight:700; color:#0f172a;
+        padding:0 10px; font-size:13.5px; font-weight:400; color:#0f172a;
         background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
     .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }
@@ -106,7 +108,7 @@
         z-index:9000; display:none;
     }
     .ent-um-suggest.open { display:block; }
-    .ent-um-suggest-item { padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12.5px; font-weight:700; color:#0f172a; }
+    .ent-um-suggest-item { padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12.5px; font-weight:600; color:#0f172a; }
     .ent-um-suggest-item:hover, .ent-um-suggest-item.active { background:#e1effa; }
     .ent-um-suggest-empty { padding:8px 10px; font-size:11.5px; color:#94a3b8; font-style:italic; }
 
@@ -191,8 +193,9 @@
     .ent-layout { display:flex; gap:14px; align-items:flex-start; max-width:100%; }
     .ent-main { flex:1 1 0; min-width:0; }
 
-    /* Panel "Resumen de la entrada" — tarjeta BLANCA (mismo look que .ent-card y que el
-       resto de la app). Sticky para seguir visible al capturar muchas líneas. */
+    /* Panel lateral del lote — tarjeta BLANCA (mismo look que .ent-card y que el
+       resto de la app). Sticky para seguir visible al capturar muchas líneas.
+       Ya solo contiene las acciones (el bloque de métricas se eliminó a pedido). */
     .ent-summary {
         flex:0 0 300px; align-self:flex-start; position:sticky; top:14px;
         background:#fff; border:1px solid #e2e8f0;
@@ -200,14 +203,6 @@
         box-shadow:0 4px 12px rgba(15,23,42,0.04);
         display:flex; flex-direction:column; gap:14px;
     }
-    /* Misma tipografía que .ent-section-title (texto slate), pero este SÍ lleva icono azul. */
-    .ent-summary-title { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.5px; }
-    .ent-summary-title .material-icons { font-size:17px; color:var(--maquinaria-blue,#0067b1); }
-    /* 2 métricas vivas (se recalculan al agregar/quitar líneas). */
-    .ent-summary-metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .ent-summary-metric { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 8px; text-align:center; }
-    .ent-summary-metric strong { display:block; font-size:26px; font-weight:800; line-height:1; color:#0f172a; }
-    .ent-summary-metric span { display:block; margin-top:6px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#64748b; }
     /* Acciones del lote: usan los botones globales del formulario (btn-primary-maquinaria
        azul + btn-secondary blanco con borde azul, igual que /admin/usuarios/edit), pero a
        todo el ancho del panel y apilados. */
@@ -224,7 +219,7 @@
 
     {{-- Cabecera del lote: N° Doc | Proveedor | Fecha. Los 3 bloques son hijos
          DIRECTOS del grid. Las acciones (Cancelar / Registrar) viven ahora en el
-         panel "Resumen de la entrada" de la derecha. --}}
+         panel lateral de la derecha. --}}
     <div class="ent-form-grid">
         <div class="ent-field-group">
             <label class="ent-field-label" for="entNotaEntrega">Nota de entrega</label>
@@ -293,15 +288,10 @@
 </div>{{-- /.ent-card --}}
 </div>{{-- /.ent-main --}}
 
-{{-- Panel "Resumen de la entrada" — cálculos vivos (líneas + unidades) y las acciones
-     del lote (Registrar / Cancelar), estilo checkout. Mismo lenguaje visual que el
-     panel "Resumen de la bandeja" de la recepción. --}}
-<aside class="ent-summary" aria-label="Resumen de la entrada">
-    <div class="ent-summary-title"><i class="material-icons">fact_check</i> Resumen de la entrada</div>
-    <div class="ent-summary-metrics">
-        <div class="ent-summary-metric"><strong id="entSumLineas">0</strong><span>Líneas</span></div>
-        <div class="ent-summary-metric"><strong id="entSumUnidades">0</strong><span>Unidades</span></div>
-    </div>
+{{-- Panel lateral del lote: solo las acciones (Registrar / Cancelar), estilo checkout.
+     El cliente pidió quitar el bloque "Resumen de la entrada" (título + métricas
+     Líneas/Unidades) tanto en móvil como en PC. --}}
+<aside class="ent-summary" aria-label="Acciones de la entrada">
     <div class="ent-summary-actions">
         <button type="button" class="btn-primary-maquinaria" id="entSubmit" onclick="window.entGuardar()">
             <i class="material-icons">check_circle</i> Registrar entrada
@@ -758,7 +748,7 @@
         if (!tb) return;
         // Tbody vacio cuando no hay lineas — sin mensaje "vacio". El thead da
         // contexto suficiente y el usuario sabe que tiene que capturar arriba.
-        if (entLineas.length === 0) { tb.innerHTML = ''; window.entUpdateSummary(); return; }
+        if (entLineas.length === 0) { tb.innerHTML = ''; return; }
         // Columnas: [Código] [Descripcion] [Cantidad + UM] [delete]. El codigo sale en
         // su propia columna (en negro, monospace); la columna "Descripcion" muestra
         // unicamente el nombre del producto para que se lea limpio sin el codigo encima.
@@ -776,17 +766,7 @@
                 +   '<td class="col-del"><button type="button" class="ent-row-del-btn" onclick="window.entRemoverLinea(' + idx + ')" title="Quitar"><i class="material-icons" style="font-size:20px;">delete</i></button></td>'
                 + '</tr>';
         }).join('');
-        window.entUpdateSummary();
     }
-
-    // Panel "Resumen de la entrada": recalcula las métricas vivas (líneas + unidades
-    // totales). Lo llama entRender al agregar/quitar líneas.
-    window.entUpdateSummary = function () {
-        var nLin = entLineas.length;
-        var totU = entLineas.reduce(function (s, l) { return s + (parseFloat(l.cantidad) || 0); }, 0);
-        var elL = el('entSumLineas');   if (elL) elL.textContent = String(nLin);
-        var elU = el('entSumUnidades'); if (elU) elU.textContent = fmtCant(totU);
-    };
 
     // ── Submit ───────────────────────────────────────────────────────────
     window.entGuardar = function () {

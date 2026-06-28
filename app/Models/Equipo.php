@@ -115,6 +115,18 @@ class Equipo extends Model
         return $this->hasMany(Responsable::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
 
+    /** Reporte de falla ABIERTO del equipo (si existe). Un equipo INOPERATIVO
+     *  siempre tiene uno: su estado lo gobierna el reporte hasta cerrarlo. Se
+     *  eager-loadea en el listado para que el front abra el modal de cierre al
+     *  instante (sin esperar el 409 de changeStatus). */
+    public function fallaAbierta()
+    {
+        return $this->hasOne(\App\Models\Falla::class, 'ACTIVO_ID', 'ID_EQUIPO')
+            ->where('ACTIVO_TIPO', 'equipo')
+            ->where('ESTADO_REPORTE', 'abierto')
+            ->latest('FECHA_EMISION');
+    }
+
     public function movilizaciones()
     {
         return $this->hasMany(Movilizacion::class, 'ID_EQUIPO', 'ID_EQUIPO');

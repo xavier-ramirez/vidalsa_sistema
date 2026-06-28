@@ -34,11 +34,14 @@
     <form id="equipoAuxiliarForm" action="{{ route('equipos-auxiliares.update', $auxiliar->ID_AUXILIAR) }}" method="POST" enctype="multipart/form-data" novalidate data-is-edit="1">
         @csrf
         @method('PATCH')
+        @if(!empty($ref))
+            <input type="hidden" name="__unified_redirect" value="{{ $ref }}">
+        @endif
 
         @include('admin.equipos_auxiliares.partials.form_fields')
 
         <div style="margin-top: 40px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
-            <a href="{{ route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary">
+            <a href="{{ $ref ?: route('equipos-auxiliares.index') }}" class="btn-primary-maquinaria btn-secondary">
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria">

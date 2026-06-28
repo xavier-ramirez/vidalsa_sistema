@@ -7,15 +7,9 @@ if (!window.currentFrenteId) window.currentFrenteId = '';
 
 if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
-        status: {
-            'OPERATIVO': '#110a50ff',
-            'EN MANTENIMIENTO': '#69696dff',
-            'INOPERATIVO': '#a31616ff',
-            'DESINCORPORADO': '#07090aff'
-        },
-        age: ['#110a50ff', '#a31616ff'],
-        category: ['#a31616ff', '#110a50ff', '#69696dff'],
-        inoperative: ['#dc2626', '#f59e0b', '#0f172a']
+        // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
+        // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
+        age: ['#110a50ff', '#a31616ff']
     };
 }
 
@@ -124,7 +118,11 @@ window.openFleetDashboard = async function () {
     // Dispara la carga de Chart.js (+DataLabels) en paralelo con el fetch.
     // loadFleetDashboardData consulta _fleetChartReady antes de instanciar
     // `new Chart(...)`, asi el fetch avanza mientras Chart.js se descarga.
-    window._fleetChartReady = (typeof Chart === 'undefined') ? loadChartJS() : Promise.resolve();
+    // SIEMPRE llamamos loadChartJS(): aunque Chart ya venga del layout (chart.umd
+    // estatico), el plugin DataLabels NO se carga ahi y hay que cargarlo+registrarlo
+    // para que los valores salgan dentro de cada barra. loadChartJS es idempotente
+    // (loadScriptOnce no re-inyecta Chart si ya existe).
+    window._fleetChartReady = loadChartJS();
     const chartReady = window._fleetChartReady;
 
     setupDropdownEvents();
@@ -393,7 +391,9 @@ async function loadChartJS() {
     try {
         await loadScriptOnce(baseUrl + '/js/chartjs-plugin-datalabels.min.js', labelsLoaded);
         if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
-            Chart.register(ChartDataLabels);
+            const _alreadyReg = Chart.registry?.plugins?.items &&
+                Object.values(Chart.registry.plugins.items).some(p => p.id === 'datalabels');
+            if (!_alreadyReg) Chart.register(ChartDataLabels);
         }
     } catch (e) {
         console.warn('DataLabels plugin no cargo, charts continuan sin etiquetas:', e.message);
@@ -498,19 +498,13 @@ function createCharts(data) {
         throw new Error('Chart.js no está disponible. Verifique que los archivos JS estén instalados en /public/js/.');
     }
 
-    const canvasStatus = document.getElementById('chartStatusByFront');
     const canvasAge = document.getElementById('chartAgeByType');
-    const canvasCat = document.getElementById('chartCategoryByType');
-    const canvasInop = document.getElementById('chartInoperativeByType');
 
-    if (!canvasStatus || !canvasAge || !canvasCat) {
+    if (!canvasAge) {
         throw new Error('No se encontraron los contenedores de gr├íficos en el DOM.');
     }
 
     destroyAllCharts();
-
-    const chartsGrid = document.getElementById('fleetChartsGrid');
-    
 
 
     // Función auxiliar para mostrar mensaje de vacío
@@ -528,43 +522,10 @@ function createCharts(data) {
         }
     };
 
-    // 1. Estado Operativo - Doughnut
-    if (canvasStatus && data.byStatus && data.byStatus.labels && data.byStatus.labels.length > 0) {
-        const parent = canvasStatus.parentElement;
-        const emptyMsg = parent.querySelector('.fleet-empty-msg');
-        if (emptyMsg) emptyMsg.remove();
-        canvasStatus.style.display = '';
+    // NOTA: los gráficos "Estado Operativo de Equipos" (doughnut) e "Inoperatividad
+    // por Tipo de Equipo" se eliminaron a pedido del cliente; sus canvas ya no existen.
 
-        window.fleetCharts.byStatus = new Chart(canvasStatus, {
-            type: 'doughnut',
-            data: {
-                labels: data.byStatus.labels,
-                datasets: [{
-                    data: data.byStatus.values,
-                    backgroundColor: data.byStatus.labels.map(label => window.CHART_COLORS.status[label] || '#64748b'),
-                    borderWidth: 2,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: LEGEND_STYLE,
-                    tooltip: TOOLTIP_STYLES,
-                    datalabels: {
-                        color: 'white',
-                        font: { weight: 'bold', size: 12, family: "'Inter', 'Segoe UI', sans-serif" },
-                        formatter: (value) => value > 0 ? value : ''
-                    }
-                }
-            }
-        });
-    } else {
-        showEmptyState(canvasStatus, 'chartStatusByFront', 'Sin datos operativos en esta selección.');
-    }
-
-    // 2. Flota Nueva vs Vieja por Tipo - Stacked Horizontal Bar
+    // 1. Flota Nueva vs Vieja por Tipo - Stacked Horizontal Bar
     if (canvasAge && data.ageByType && data.ageByType.labels && data.ageByType.labels.length > 0) {
         window.fleetCharts.ageByType = createStackedBarChart('chartAgeByType', {
             labels: data.ageByType.labels,
@@ -581,121 +542,176 @@ function createCharts(data) {
         showEmptyState(canvasAge, 'chartAgeByType', 'Sin equipos registrados para este frente.');
     }
 
-    // 3. Flota Pesada vs Liviana por Tipo - Stacked Horizontal Bar
-    if (canvasCat && data.categoryByType && data.categoryByType.labels && data.categoryByType.labels.length > 0) {
-        window.fleetCharts.categoryByType = createStackedBarChart('chartCategoryByType', {
-            labels: data.categoryByType.labels,
-            datasets: data.categoryByType.datasets.map((ds, idx) => ({
+    // 2. Equipos Auxiliares por Tipo - Stacked Horizontal Bar (global)
+    const canvasAux = document.getElementById('chartAuxByType');
+    if (canvasAux && data.auxByType && data.auxByType.labels && data.auxByType.labels.length > 0) {
+        window.fleetCharts.auxByType = createStackedBarChart('chartAuxByType', {
+            labels: data.auxByType.labels,
+            datasets: data.auxByType.datasets.map((ds, idx) => ({
                 label: ds.label,
                 data: ds.data,
-                backgroundColor: window.CHART_COLORS.category[idx],
+                backgroundColor: window.CHART_COLORS.age[idx] || '#64748b',
                 borderWidth: 0,
                 borderRadius: 0,
                 borderSkipped: false
             }))
         });
-    } else {
-        showEmptyState(canvasCat, 'chartCategoryByType', 'Sin categorias asociadas en este frente.');
-    }
-
-    // 4. Inoperatividad por Tipo de Equipo - Stacked Horizontal Bar
-    if (canvasInop && data.inoperativeByType && data.inoperativeByType.labels.length > 0) {
-        window.fleetCharts.inoperativeByType = createStackedBarChart('chartInoperativeByType', {
-            labels: data.inoperativeByType.labels,
-            datasets: data.inoperativeByType.datasets.map((ds, idx) => ({
-                label: ds.label,
-                data: ds.data,
-                backgroundColor: window.CHART_COLORS.inoperative[idx] || '#64748b',
-                borderWidth: 0,
-                borderRadius: 0,
-                borderSkipped: false
-            }))
-        });
-    } else if (canvasInop) {
-        // Show empty state
-        const parent = canvasInop.parentElement;
-        const msg = document.createElement('p');
-        msg.style.cssText = 'color:#94a3b8;font-size:13px;text-align:center;padding:30px 0;';
-        msg.textContent = 'Sin equipos inoperativos en esta selecci├│n.';
-        canvasInop.style.display = 'none';
-        if (!parent.querySelector('.fleet-empty-msg')) {
-            msg.classList.add('fleet-empty-msg');
-            parent.appendChild(msg);
-        }
+    } else if (canvasAux) {
+        showEmptyState(canvasAux, 'chartAuxByType', 'Sin equipos auxiliares registrados.');
     }
 }
 
 /**
- * Create Clean Stacked Horizontal Bar Chart with rounded bars
+ * Wrap a label string into lines of at most maxChars characters,
+ * breaking on spaces. Words longer than maxChars are hard-broken in a loop.
+ * Returns an array (multi-line) or the original string (single line).
+ */
+function wrapLabel(label, maxChars) {
+    if (!label || label.length <= maxChars) return label;
+    const words = label.split(' ');
+    const lines = [];
+    let current = '';
+    words.forEach(function (w) {
+        // Hard-break words longer than maxChars in a loop (not just once)
+        while (w.length > maxChars) {
+            if (current) { lines.push(current); current = ''; }
+            lines.push(w.slice(0, maxChars));
+            w = w.slice(maxChars);
+        }
+        const test = current ? current + ' ' + w : w;
+        if (test.length <= maxChars) {
+            current = test;
+        } else {
+            if (current) lines.push(current);
+            current = w;
+        }
+    });
+    if (current) lines.push(current);
+    return lines.length > 1 ? lines : label;
+}
+
+/**
+ * Stacked horizontal bar chart.
+ * — Valor de cada segmento dentro de la barra (visible para TODO segmento con dato > 0,
+ *   sin importar su tamaño, para no tener que pasar el mouse por encima).
+ * — Total al final de la barra completa (siempre visible, texto oscuro, fuera de la barra).
  */
 function createStackedBarChart(canvasId, config) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return null;
 
-    // Remove any empty state message if re-rendering
     const parent = ctx.parentElement;
     const emptyMsg = parent.querySelector('.fleet-empty-msg');
     if (emptyMsg) emptyMsg.remove();
     ctx.style.display = '';
 
-    // Altura dinamica con cap razonable. La version anterior sin cap hacia
-    // el grafico gigante verticalmente cuando habia muchos frentes; la version
-    // aun anterior con cap 320 aplastaba las barras y volvia ilegibles los
-    // numeros. Compromiso: escala comoda para pocas labels, cap 480px para
-    // proteger el layout en casos con 15+ frentes.
-    // - ≤5  labels: 38px (espacioso, sin parecer gigante)
-    // - 6-10 labels: 32px (compacto pero con aire)
-    // - >10 labels: 26px (denso, aun legible)
     const labelCount = config.labels ? config.labels.length : 1;
-    const pxPerLabel = labelCount <= 5 ? 38 : labelCount <= 10 ? 32 : 26;
-    const dynamicHeight = Math.min(480, Math.max(180, labelCount * pxPerLabel + 50));
+    const maxChars = window.innerWidth < 480 ? 12 : 16;
+    const wrappedLabels = config.labels.map(function (l) { return wrapLabel(l, maxChars); });
+    const totalLines = wrappedLabels.reduce(function (sum, l) {
+        return sum + (Array.isArray(l) ? l.length : 1);
+    }, 0);
+    // Altura dinámica según la cantidad de barras. El tope se subió de 400 a 1200 px
+    // porque con muchos tipos de equipo las barras quedaban demasiado finas y los
+    // valores se solapaban (sobre todo en la captura de imagen). Ahora que los
+    // gráficos van en una sola columna a todo el ancho, el gráfico puede crecer y el
+    // contenedor del modal hace scroll. pxPerLine también sube un poco con >10 tipos.
+    const pxPerLine = labelCount <= 5 ? 26 : labelCount <= 10 ? 22 : 20;
+    const dynamicHeight = Math.min(1200, Math.max(120, totalLines * pxPerLine + 55));
     ctx.style.height = dynamicHeight + 'px';
     ctx.style.maxHeight = dynamicHeight + 'px';
+
+    const lastIdx = config.datasets.length - 1;
+
+    // Config de label de segmento (dentro de la barra)
+    const segmentLabel = {
+        anchor: 'center',
+        align: 'center',
+        color: 'white',
+        textShadowBlur: 4,
+        textShadowColor: 'rgba(0,0,0,0.6)',
+        font: { weight: '700', size: 9, family: "'Inter', 'Segoe UI', sans-serif" },
+        // Muestra el valor de TODO segmento con dato (> 0), sin importar su tamaño,
+        // para no tener que pasar el mouse por encima para verlo.
+        display: function (ctx) {
+            const v = ctx.dataset.data[ctx.dataIndex] || 0;
+            return v > 0;
+        },
+        formatter: Math.round
+    };
+
+    // Config de label de total al final de la barra (siempre visible)
+    const totalLabel = {
+        anchor: 'end',
+        align: 'right',
+        offset: 5,
+        color: '#1e293b',
+        textShadowBlur: 0,
+        font: { weight: '700', size: 10, family: "'Inter', 'Segoe UI', sans-serif" },
+        display: function (ctx) {
+            const total = ctx.chart.data.datasets.reduce(
+                function (s, d) { return s + (Number(d.data[ctx.dataIndex]) || 0); }, 0
+            );
+            return total > 0;
+        },
+        formatter: function (value, ctx) {
+            return ctx.chart.data.datasets.reduce(
+                function (s, d) { return s + (Number(d.data[ctx.dataIndex]) || 0); }, 0
+            );
+        }
+    };
 
     return new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: config.labels,
-            datasets: config.datasets.map(ds => ({
-                ...ds,
-                maxBarThickness: 28
-            }))
+            labels: wrappedLabels,
+            datasets: config.datasets.map(function (ds, idx) {
+                const base = Object.assign({}, ds, { maxBarThickness: 22 });
+                // Etiquetas SIEMPRE visibles (sin pasar el mouse). chartjs-plugin-datalabels
+                // exige el objeto { labels: {...} } para mostrar varias etiquetas por barra:
+                // un array NO es válido y dejaba el valor sin verse. El último dataset suma
+                // además el total al final de la barra.
+                base.datalabels = (idx === lastIdx)
+                    ? { labels: { value: segmentLabel, total: totalLabel } }
+                    : { labels: { value: segmentLabel } };
+                return base;
+            })
         },
         options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            // Espacio derecho para la etiqueta de total fuera de la barra
+            layout: { padding: { right: 38 } },
             plugins: {
                 legend: LEGEND_STYLE,
                 tooltip: {
                     ...TOOLTIP_STYLES,
                     callbacks: {
                         title: function (tooltipItems) {
-                            return tooltipItems[0]?.label || '';
+                            const raw = tooltipItems[0]?.label || '';
+                            return Array.isArray(raw) ? raw.join(' ') : raw;
                         }
                     }
                 },
-                datalabels: {
-                    color: 'white',
-                    font: { weight: 'bold', size: 12, family: "'Inter', 'Segoe UI', sans-serif" },
-                    display: function (context) {
-                        return context.dataset.data[context.dataIndex] > 0;
-                    },
-                    formatter: Math.round
-                }
+                // Config base para todos los datasets (sobreescrita por dataset.datalabels)
+                datalabels: segmentLabel
             },
             scales: {
-                x: {
-                    stacked: true,
-                    display: false,
-                    grid: { display: false }
-                },
+                x: { stacked: true, display: false, grid: { display: false } },
                 y: {
                     stacked: true,
                     grid: { display: false },
                     ticks: {
-                        font: { size: 12, weight: '600', family: "'Inter', 'Segoe UI', sans-serif" },
-                        color: '#475569'
+                        font: { size: window.innerWidth < 480 ? 10 : 11, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
+                        color: '#475569',
+                        maxRotation: 0,
+                        minRotation: 0,
+                        autoSkip: false
+                    },
+                    afterFit: function (scale) {
+                        const minW = window.innerWidth < 480 ? 100 : 140;
+                        if (scale.width < minW) scale.width = minW;
                     }
                 }
             }

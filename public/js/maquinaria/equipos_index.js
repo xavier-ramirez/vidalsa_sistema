@@ -248,6 +248,20 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         return;
     }
 
+    // Atajo: un equipo INOPERATIVO siempre tiene un reporte ABIERTO, así que
+    // cambiarle el estado SIEMPRE responde 409. Si la fila ya trae los datos del
+    // reporte (data-falla-*, eager-loaded), abrimos el modal de cierre AL INSTANTE
+    // sin el round-trip al PATCH (ni el parpadeo de optimistic UI + revert).
+    if (oldStatus === 'INOPERATIVO' && triggerEl.dataset.fallaId && typeof window.flAbrirCierre === 'function') {
+        window.flAbrirCierre({
+            id:     triggerEl.dataset.fallaId,
+            codigo: triggerEl.dataset.fallaCodigo || '',
+            tipo:   triggerEl.dataset.fallaTipo || '',
+            equipo: triggerEl.dataset.label || '',
+        });
+        return;
+    }
+
     const revert = function () { _applyStatusVisual(triggerEl, oldStatus); };
 
     // Actualizar visualmente el trigger de inmediato (optimistic UI)
@@ -760,9 +774,9 @@ window.__updateDocPresenceUI = function () {
     // Cada lado cubre su bloque de escritorio (#id) y el de móvil (.eq-block-*),
     // para que el resaltado del lado activo sea coherente en ambas vistas.
     [
-        { sel: '#block_total, .eq-block-total', key: 'all' },
-        { sel: '#block_oper,  .eq-block-oper',  key: 'con' },
-        { sel: '#block_inop,  .eq-block-inop',  key: 'sin' },
+        { sel: '#block_total, .eq-block-total, #aux_block_total, #aux_mobile_block_total', key: 'all' },
+        { sel: '#block_oper,  .eq-block-oper,  #aux_block_oper,  #aux_mobile_block_oper',  key: 'con' },
+        { sel: '#block_inop,  .eq-block-inop,  #aux_block_inop,  #aux_mobile_block_inop',  key: 'sin' },
     ].forEach(({ sel, key }) => {
         const active = docMode && presence === key;
         document.querySelectorAll(sel).forEach((el) => {
@@ -772,7 +786,73 @@ window.__updateDocPresenceUI = function () {
     });
 };
 
+// ¿La URL actual está en modo auxiliar (categoria=AUXILIARES)? Punto ÚNICO de verdad para
+// no repetir el parseo en filterByStatus / filterAuxByStatus.
+function eqEnModoAuxURL() {
+    return (new URLSearchParams(window.location.search).get('categoria') || '').toUpperCase() === 'AUXILIARES';
+}
+
+// ─── Toggle de la card de Distribución (equipos ↔ auxiliares) ─────────────────
+// Un clic en la card alterna entre la distribución de EQUIPOS (por defecto) y la de
+// AUXILIARES; los clics sobre una fila (li) conservan su acción de filtrar. El toggle solo
+// está disponible cuando hay distribución de auxiliares (window.__distribAuxHtml no vacío,
+// p.ej. al filtrar por frente/documento). __distribHtml guarda la de equipos para volver.
+window.__distMostrandoAux = false;
+window.__distribHtml = null;       // distribución de equipos (vista por defecto)
+window.__distribAuxHtml = window.__distribAuxHtml || ''; // la fija el Blade / el AJAX
+
+function _eqHayDistribAux() {
+    return !!(window.__distribAuxHtml && String(window.__distribAuxHtml).trim());
+}
+function _eqActualizarDistribHint() {
+    const card = document.getElementById('distribucionCard');
+    if (!card) return;
+    const hayAux = _eqHayDistribAux();
+    card.style.cursor = hayAux ? 'pointer' : 'default';
+    card.title = hayAux
+        ? (window.__distMostrandoAux ? 'Mostrando auxiliares — clic para ver equipos'
+                                     : 'Mostrando equipos — clic para ver auxiliares')
+        : '';
+}
+function _eqRenderDistribucion() {
+    const cont = document.getElementById('distributionStatsContainer');
+    if (cont) {
+        if (window.__distMostrandoAux && _eqHayDistribAux()) {
+            cont.innerHTML = window.__distribAuxHtml;
+        } else {
+            window.__distMostrandoAux = false;
+            if (window.__distribHtml != null) cont.innerHTML = window.__distribHtml;
+        }
+    }
+    _eqActualizarDistribHint();
+}
+// Sincroniza el toggle tras un render del BLADE (carga dura o navegación SPA): el contenedor
+// acaba de pintar la distribución de EQUIPOS (vista por defecto), así que la capturamos y
+// reseteamos el toggle a "equipos". (En AJAX se usa _eqRenderDistribucion, no esto.)
+window.eqSyncDistribToggle = function () {
+    const cont = document.getElementById('distributionStatsContainer');
+    if (cont) window.__distribHtml = cont.innerHTML;
+    window.__distMostrandoAux = false;
+    _eqActualizarDistribHint();
+};
+window.onDistribucionCardClick = function (e) {
+    // Clic en una fila de datos (li) → respetar su filtro (selectOption + loadEquipos), no alternar.
+    if (e.target.closest('li')) return;
+    if (!_eqHayDistribAux()) return;          // sin distribución aux → no hay nada que alternar
+    window.__distMostrandoAux = !window.__distMostrandoAux;
+    _eqRenderDistribucion();
+};
+document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
+
 window.filterByStatus = function (status) {
+    // En modo AUXILIAR (card de arriba = "Equipos Auxiliares") los bloques controlan los
+    // AUXILIARES, no los equipos. Se delega a filterAuxByStatus, que además permite REGRESAR
+    // a la vista del frente con un segundo clic en el bloque ya activo.
+    if (eqEnModoAuxURL()) {
+        window.filterAuxByStatus(status);
+        return;
+    }
+
     // En modo "Con / Sin documento" los bloques NO filtran por estado: filtran la
     // LISTA por presencia del documento. Verde = Con · Rojo = Sin · TOTAL = ambos.
     if (window.__equiposDocMode) {
@@ -807,6 +887,53 @@ window.filterByStatus = function (status) {
     window.loadEquipos();
 };
 
+// Filtra desde la card "Equipos Auxiliares" (TOTAL / Operativo / Inoperativo), igual
+// que filterByStatus lo hace para la card de equipos. Como auxiliares y equipos son
+// tablas distintas, entrar a "ver auxiliares" = modo auxiliar (categoria=AUXILIARES,
+// todos los tipos) conservando el FRENTE activo y aplicando el estado elegido.
+//  status === ''           -> todos los auxiliares del frente
+//  status === 'OPERATIVO'  -> solo operativos
+//  status === 'INOPERATIVO'-> solo inoperativos
+window.filterAuxByStatus = function (status) {
+    status = status || '';
+
+    // En modo DOCUMENTO (filtro por un doc compartido propiedad/certificado) los bloques de la
+    // card aux filtran por PRESENCIA del documento (Con/Sin/Todos) — igual que la card de
+    // equipos — no por estado ni entrando a modo auxiliar. Verde=Con · Rojo=Sin · TOTAL=ambos.
+    if (window.__equiposDocMode) {
+        const presence = status === 'OPERATIVO' ? 'con' : (status === 'INOPERATIVO' ? 'sin' : 'all');
+        window.__equiposDocPresence = presence;
+        window.__updateDocPresenceUI();
+        window.loadEquipos();
+        return;
+    }
+
+    const cur = new URLSearchParams(window.location.search);
+    const enAux = eqEnModoAuxURL();
+    const estadoActual = cur.get('estado') || '';
+
+    // Conserva el contexto del frente y de la búsqueda al entrar/salir.
+    const params = new URLSearchParams();
+    const frente = cur.get('id_frente');
+    if (frente) params.set('id_frente', frente);
+    const search = cur.get('search_query');
+    if (search) params.set('search_query', search);
+
+    // TOGGLE para REGRESAR rápido: si ya estamos viendo auxiliares con EXACTAMENTE este
+    // estado, un segundo clic en el mismo bloque SALE del modo auxiliar y vuelve a la vista
+    // del frente (reaparecen las dos cards y la tabla de equipos). En cualquier otro caso,
+    // entra/cambia al modo auxiliar con el estado elegido.
+    if (!(enAux && estadoActual === status)) {
+        params.set('categoria', 'AUXILIARES'); // activa modo auxiliar (todos los tipos)
+        if (status) params.set('estado', status);
+    }
+
+    const qs = params.toString();
+    const url = '/admin/equipos' + (qs ? '?' + qs : '');
+    if (typeof window.navigateTo === 'function') window.navigateTo(url);
+    else window.location.href = url;
+};
+
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Defensa: si el primer argumento es boolean (caller antiguo que usaba loadEquipos(true)),
     // interpretarlo como el flag silent para no romper con "baseUrl.includes is not a function".
@@ -836,6 +963,23 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         if (!el) return null;
         return el.value && el.value.trim() !== "" ? el.value.trim() : null;
     };
+
+    // Al cambiar de modo aux → equipo (o viceversa), los inputs de modelo/marca/anio
+    // pueden tener valores del modo anterior que no aplican en la nueva tabla.
+    // Se limpian antes de leer los filtros para evitar 0 resultados por valores cruzados.
+    // Excepción: _skipModoClear=true cuando el propio click de modelo/marca provoca el cambio
+    // (el valor recién elegido DEBE preservarse, no borrarse).
+    const _tipoInputEl = document.querySelector('#tipoFilterSelect input[name="id_tipo"]');
+    {
+        const newIsAux = _tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:');
+        const wasAux = document.body.classList.contains('eq-aux-mode');
+        if (newIsAux !== wasAux && !window._skipModoClear && typeof window.clearDropdownFilter === 'function') {
+            ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter'].forEach(function(id) {
+                window.clearDropdownFilter(id);
+            });
+        }
+        window._skipModoClear = false;
+    }
 
     // Unified Filter Object
     const filters = {
@@ -869,9 +1013,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
             ? "true"
             : null,
-        filter_aux_certificado: document.getElementById("chk_aux_certificado")?.checked
-            ? "true"
-            : null,
         // Dirección del filtro de documento (bloques clicables del Consolidado).
         // Solo se envía si NO es el default 'con', para no ensuciar la URL.
         doc_presence: (window.__equiposDocPresence && window.__equiposDocPresence !== "con")
@@ -884,7 +1025,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2 || filters.filter_aux_certificado);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -972,16 +1113,21 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.equiposData = { ...window.equiposData, ...data.equiposData };
             }
 
-            // Modo aux (se eligio un tipo AUXILIAR en el dropdown): la tabla viene del
-            // modulo de auxiliares. Fusionamos su mapa de detalles para que el modal del
-            // ojo (openAuxDetailsModal) abra instant sin fetch, igual que en /admin/equipos-auxiliares.
-            if (data.mode === 'aux' && data.auxData) {
+            // Mapa de detalles de auxiliares: aplica tanto en modo aux (tabla 100% aux) como
+            // en el MERGE (filas aux anexadas a la tabla de equipos al filtrar por frente). En
+            // ambos el backend manda data.auxData; lo fusionamos para que el modal del ojo
+            // (openAuxDetailsModal) abra instant sin fetch, igual que en /admin/equipos-auxiliares.
+            if (data.auxData) {
                 window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxData);
             }
 
-            // Coherencia de controles: en modo aux se ocultan los controles propios de
-            // equipos que no aplican a auxiliares (clase .eq-hide-in-aux via CSS).
-            document.body.classList.toggle('eq-aux-mode', data.mode === 'aux');
+            // eq-aux-mode: solo cuando tipo_aux: está activo en el dropdown de Tipo.
+            // No se activa por categoria=AUXILIARES, para no alterar el panel de filtros.
+            document.body.classList.toggle('eq-aux-mode',
+                !!(_tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:')));
+            // aux-table-active: cualquier path que muestre la tabla de auxiliares.
+            // Controla .eq-hide-in-aux (p.ej. bulkFloatingBar de equipos).
+            document.body.classList.toggle('aux-table-active', data.mode === 'aux');
 
             // Stats / distribución / URL: solo en la primera página (offset=0).
             // En lotes subsiguientes (append) los totales ya están correctos y no se tocan.
@@ -1026,12 +1172,27 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 // auxiliares, así no se duplica.
                 const auxCons = data.auxConsolidado || null;
                 if (auxCons) {
-                    setEl('aux_stats_total',            displayStat(auxCons.total));
-                    setEl('aux_stats_activos',          displayStat(auxCons.activos));
-                    setEl('aux_stats_inactivos',        displayStat(auxCons.inactivos));
-                    setEl('aux_mobile_stats_total',     displayStat(auxCons.total));
-                    setEl('aux_mobile_stats_activos',   displayStat(auxCons.activos));
-                    setEl('aux_mobile_stats_inactivos', displayStat(auxCons.inactivos));
+                    // Modo documento de la card AUX (espejo de equipos): con un doc compartido
+                    // activo, TOTAL=doc_total y verde/rojo = Con/Sin [doc]; si no, estado.
+                    const auxDoc      = !!auxCons.doc_mode;
+                    const auxTotalVal = auxDoc ? auxCons.doc_total : auxCons.total;
+                    const auxOperVal  = auxDoc ? auxCons.doc_con   : auxCons.activos;
+                    const auxInopVal  = auxDoc ? auxCons.doc_sin   : auxCons.inactivos;
+                    setEl('aux_stats_total',            displayStat(auxTotalVal));
+                    setEl('aux_stats_activos',          displayStat(auxOperVal));
+                    setEl('aux_stats_inactivos',        displayStat(auxInopVal));
+                    setEl('aux_mobile_stats_total',     displayStat(auxTotalVal));
+                    setEl('aux_mobile_stats_activos',   displayStat(auxOperVal));
+                    setEl('aux_mobile_stats_inactivos', displayStat(auxInopVal));
+                    // Etiquetas de los bloques verde/rojo de la card aux (escritorio + móvil).
+                    setEl('aux_oper_label', auxDoc ? 'Con ' + (auxCons.doc_label || '') : 'Operativo');
+                    setEl('aux_inop_label', auxDoc ? 'Sin ' + (auxCons.doc_label || '') : 'Inoperativo');
+                    setEl('aux_mobile_oper_label', auxDoc ? 'CON' : 'OPER.');
+                    setEl('aux_mobile_inop_label', auxDoc ? 'SIN' : 'INOP.');
+                    ['aux_oper_label', 'aux_inop_label'].forEach(function (id) {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.toggle('is-doc', auxDoc);
+                    });
                 }
                 // Mostrar la card de auxiliares solo cuando NO se filtra por un tipo
                 // concreto (frente o sin filtro → los dos; tipo equipo → solo equipos;
@@ -1076,8 +1237,13 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 if (!docMode) window.__equiposDocPresence = 'con';
                 window.__updateDocPresenceUI();
 
-                const distroContainer = document.getElementById('distributionStatsContainer');
-                if (distroContainer) distroContainer.innerHTML = data.distribution;
+                // Distribución: guarda la de equipos (default) y la de auxiliares (toggle), y
+                // re-renderiza respetando el estado del toggle. En modo aux no hay alternancia
+                // (data.distribution ya es de auxiliares; auxDistribution viene vacío).
+                window.__distribHtml    = data.distribution;
+                window.__distribAuxHtml = data.auxDistribution || '';
+                if (data.mode === 'aux') window.__distMostrandoAux = false;
+                _eqRenderDistribucion();
 
                 // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL.
                 // El filtro por detalle se activa desde este panel lateral (ya no es un filtro avanzado).
@@ -1092,6 +1258,22 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     } else {
                         ubicacionesCard.style.display = 'none';
                         ubicacionesContainer.innerHTML = '';
+                    }
+                }
+
+                // Banner "también hay auxiliares": la búsqueda de esta tabla solo cubre
+                // vehículos; si el texto coincide con auxiliares, el server manda el conteo
+                // y el enlace al modo auxiliar. Lo mostramos/ocultamos según la respuesta.
+                const auxMatchBanner = document.getElementById('auxMatchBanner');
+                if (auxMatchBanner) {
+                    const auxCount = Number(data.auxMatchCount || 0);
+                    if (auxCount > 0 && data.auxMatchUrl) {
+                        const lbl = document.getElementById('auxMatchCountLabel');
+                        if (lbl) lbl.textContent = auxCount;
+                        auxMatchBanner.href = data.auxMatchUrl;
+                        auxMatchBanner.style.display = 'flex';
+                    } else {
+                        auxMatchBanner.style.display = 'none';
                     }
                 }
 
@@ -1153,9 +1335,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const chunk = allRows.slice(index, index + CHUNK_SIZE);
                 if (chunk.length === 0) {
                     reApplySelections();
-                    // Modo aux: restaurar el highlight de seleccion de las filas aux (su set
-                    // de seleccion lo mantiene la maquinaria aux embebida, no reApplySelections).
-                    if (data.mode === 'aux' && typeof window.auxRestoreSelection === 'function') {
+                    // Restaurar el highlight de seleccion de las filas aux (su set de seleccion
+                    // lo mantiene la maquinaria aux embebida, no reApplySelections). Aplica en
+                    // modo aux Y en el merge (filas aux anexadas a la tabla de equipos).
+                    const hayFilasAux = data.mode === 'aux'
+                        || (data.auxData && Object.keys(data.auxData).length > 0);
+                    if (hayFilasAux && typeof window.auxRestoreSelection === 'function') {
                         window.auxRestoreSelection();
                     }
                     // Infinite scroll: si el backend dice que hay más, observar la última fila
@@ -1625,15 +1810,6 @@ window.openBulkModal = function (event) {
                 </div>
                 <input type="hidden" id="bm-frente-value">
             </div>
-            <div id="bm-ubicacion-wrapper" style="margin-top: 12px; display: none;">
-                <label for="bm-ubicacion-dest" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:5px;">
-                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:3px;">location_on</i>
-                    Ubicación del destino <span style="color:#ef4444;">*</span>
-                </label>
-                <input type="text" id="bm-ubicacion-dest" placeholder="Ej: CALLE / SECTOR / ZONA"
-                    autocomplete="off"
-                    style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;background:white;box-sizing:border-box;text-transform:uppercase;">
-            </div>
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <input type="checkbox" id="bm-generar-pdf" style="width: 16px; height: 16px; cursor: pointer; accent-color: #1e293b;">
                 <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; margin: 0;">
@@ -1660,18 +1836,6 @@ window.openBulkModal = function (event) {
     // lista de sugerencias de frente NO quede oculta detrás del formulario.
     listBox.style.cssText = 'display:none;position:fixed;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100020;max-height:240px;overflow-y:auto;';
     document.body.appendChild(listBox);
-
-    const ubicWrapper = overlay.querySelector('#bm-ubicacion-wrapper');
-    const ubicInput = overlay.querySelector('#bm-ubicacion-dest');
-    function toggleUbicacionField(dest) {
-        const d = (dest || '').trim().toUpperCase();
-        const matched = d ? frentesData.find(f => (f.nombre || '').toUpperCase() === d) : null;
-        const needs = d && (!matched || !matched.ubicacion);
-        ubicWrapper.style.display = needs ? 'block' : 'none';
-        if (!needs && matched && matched.ubicacion) ubicInput.value = matched.ubicacion;
-        else if (!needs) ubicInput.value = '';
-    }
-    ubicInput.addEventListener('input', () => { ubicInput.style.borderColor = '#e2e8f0'; });
 
     // Reposiciona el portal justo debajo del input
     function positionListBox() {
@@ -1703,7 +1867,6 @@ window.openBulkModal = function (event) {
                     clearBtn.style.display = 'flex';
                     listBox.style.display = 'none';
                     inputBox.style.borderColor = '#0067b1';
-                    toggleUbicacionField(f.nombre);
                 };
                 listBox.appendChild(item);
             });
@@ -1728,7 +1891,6 @@ window.openBulkModal = function (event) {
         hiddenInput.value = searchInput.value.trim();
         clearBtn.style.display = searchInput.value ? 'flex' : 'none';
         renderFrenteList(searchInput.value);
-        toggleUbicacionField(searchInput.value);
     });
     searchInput.addEventListener('blur', () => {
         setTimeout(() => { listBox.style.display = 'none'; inputBox.style.borderColor = '#e2e8f0'; }, 150);
@@ -1738,7 +1900,6 @@ window.openBulkModal = function (event) {
         hiddenInput.value = '';
         clearBtn.style.display = 'none';
         searchInput.focus();
-        toggleUbicacionField('');
     });
 
     // ── Close handlers ──
@@ -1763,20 +1924,11 @@ window.openBulkModal = function (event) {
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
 
-        // Si el frente es nuevo/sin ubicación, la ubicación se captura en el campo
-        // inline del modal (bm-ubicacion-dest) — ya no se fuerza el Acta para eso.
-        let destUbicacion = '';
-        if (needsUbicacion) {
-            destUbicacion = (ubicInput.value || '').trim().toUpperCase();
-            if (!destUbicacion) {
-                ubicInput.style.borderColor = '#ef4444';
-                ubicInput.focus();
-                if (window.showToast) window.showToast('Indica la ubicación del frente de destino.', 'error');
-                return;
-            }
-        } else {
-            destUbicacion = matchedFrente.ubicacion || '';
-        }
+        // Cuando el frente es nuevo o no tiene ubicación registrada, la ubicación
+        // se captura en el formulario de la Vista Previa del Acta (ed-destubic).
+        // Por eso forzamos generarPdf=true para que el Acta siempre se abra.
+        if (needsUbicacion) generarPdf = true;
+        const destUbicacion = needsUbicacion ? '' : (matchedFrente.ubicacion || '');
 
         const btn = this;
         const ids = Object.keys(window.selectedEquipos);
@@ -1998,9 +2150,10 @@ window.openBulkModal = function (event) {
         }
         }; // ── fin ejecutarCommit ──
 
-        // Checkbox NO tildado → ejecutar movilización directo (sin Acta).
-        // Checkbox tildado + frente viejo con datos completos → PDF directo.
-        // Checkbox tildado + frente nuevo/sin responsables → formulario para firmas.
+        // Checkbox NO tildado (y frente ya tiene ubicación) → ejecutar directo sin Acta.
+        // generarPdf=true (por checkbox o por needsUbicacion) → Vista Previa del Acta:
+        //   frente nuevo/sin ubicación → abre el formulario de edición directamente (editarDirecto).
+        //   frente existente con datos completos → muestra primero la previa PDF.
         if (generarPdf) {
             window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente });
             return;
@@ -2040,6 +2193,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/pdf' },
             body: JSON.stringify({
                 ids: actaState.ids,
+                type: actaState.type || 'equipo',
                 destination: actaState.destination,
                 destination_ubicacion: actaState.destination_ubicacion,
                 origin: actaState.origin || '',
@@ -2880,10 +3034,6 @@ window.exportEquipos = function () {
     }
     if (document.getElementById("chk_adicional_2")?.checked) {
         params.append("filter_adicional_2", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_aux_certificado")?.checked) {
-        params.append("filter_aux_certificado", "true");
         hasAnyFilter = true;
     }
 

@@ -8,7 +8,7 @@ var initAuxiliaresBulk = window.createBulkPreview({
     ids: {
         btn: 'btnCargarExcelAux', file: 'bulkExcelInputAux', panel: 'bulkPreviewPanelAux',
         table: 'bulkPreviewTableAux', header: 'bulkPreviewHeaderAux',
-        save: 'btnGuardarBulkAux', cancel: 'btnCancelBulkAux', formCard: 'formEquipoAuxiliarCard',
+        save: 'btnGuardarBulkAux', cancel: 'btnCancelBulkAux', formCard: 'formUnificadoCard',
     },
     datalistId: 'bulkTiposAuxDatalist',
     previewUrl: '/admin/equipos-auxiliares/bulk-preview',

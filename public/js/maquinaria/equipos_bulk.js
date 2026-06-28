@@ -8,7 +8,7 @@ var initEquiposBulk = window.createBulkPreview({
     ids: {
         btn: 'btnCargarExcel', file: 'bulkExcelInput', panel: 'bulkPreviewPanel',
         table: 'bulkPreviewTable', header: 'bulkPreviewHeader',
-        save: 'btnGuardarBulk', cancel: 'btnCancelBulk', formCard: 'formEquipoCard',
+        save: 'btnGuardarBulk', cancel: 'btnCancelBulk', formCard: 'formUnificadoCard',
     },
     datalistId: 'bulkTiposDatalist',
     previewUrl: '/admin/equipos/bulk-preview',

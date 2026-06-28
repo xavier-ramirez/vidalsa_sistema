@@ -126,7 +126,7 @@
                             style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:#fff;color:#b45309;border:1.5px solid #fdba74;border-radius:8px;padding:11px;font-weight:800;font-size:14px;cursor:pointer;">
                         Entrar sin conexión
                     </button>
-                    <div id="offlineLoginMsg" style="display:none;margin-top:8px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;"></div>
+                    <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;"></div>
                 </form>
             </div>
         </div>

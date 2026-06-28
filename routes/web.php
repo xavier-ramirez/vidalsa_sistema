@@ -130,7 +130,8 @@ Route::middleware(['auth'])->group(function () {
             // Definidos ANTES del resource para que /papelera no choque con {id}.
             Route::get  ('equipos/papelera',          [App\Http\Controllers\EquipoController::class, 'papelera'])->name('equipos.papelera');
             Route::post ('equipos/bulk-delete',       [App\Http\Controllers\EquipoController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos.bulkDelete');
-            Route::patch('equipos/{id}/restore',      [App\Http\Controllers\EquipoController::class, 'restoreEquipo'])->middleware('can:super.admin')->name('equipos.restore');
+            Route::patch ('equipos/{id}/restore',    [App\Http\Controllers\EquipoController::class, 'restoreEquipo'])->middleware('can:super.admin')->name('equipos.restore');
+            Route::delete('equipos/{id}/permanente', [App\Http\Controllers\EquipoController::class, 'forceDeleteEquipo'])->whereNumber('id')->middleware('can:super.admin')->name('equipos.forceDelete');
             Route::post ('equipos/store-unified',   [App\Http\Controllers\EquipoController::class, 'storeUnified'])->middleware('can:equipos.create')->name('equipos.storeUnified');
             Route::resource('equipos', App\Http\Controllers\EquipoController::class);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
@@ -196,13 +197,17 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('equipos-auxiliares/by-host/{id}',   [App\Http\Controllers\EquipoAuxiliarController::class, 'byHost']) ->name('equipos-auxiliares.byHost');
             Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');
             Route::get   ('equipos-auxiliares/hosts/search',   [App\Http\Controllers\EquipoAuxiliarController::class, 'searchHosts'])->name('equipos-auxiliares.searchHosts');
+            // Verificación de unicidad en vivo (SERIAL / CODIGO_INTERNO) para el form de create
+            // unificado. Espejo de equipos/check-unique (read-only, sin gating extra).
+            Route::get   ('equipos-auxiliares/check-unique',   [App\Http\Controllers\EquipoAuxiliarController::class, 'checkUnique'])->name('equipos-auxiliares.checkUnique');
             // Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD (vista de solo lectura)
             Route::get   ('equipos-auxiliares/catalogo',       [App\Http\Controllers\EquipoAuxiliarController::class, 'catalogo'])->name('equipos-auxiliares.catalogo');
             Route::post  ('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadCatalogoPhoto'])->middleware('can:equipos.create')->name('equipos-auxiliares.catalogo.uploadPhoto');
             Route::delete('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'deleteCatalogoPhoto'])->middleware('can:super.admin')->name('equipos-auxiliares.catalogo.deletePhoto');
             Route::post  ('equipos-auxiliares/bulk-delete',    [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos-auxiliares.bulkDelete');
             Route::get   ('equipos-auxiliares/papelera',       [App\Http\Controllers\EquipoAuxiliarController::class, 'papelera'])->middleware('can:user.delete')->name('equipos-auxiliares.papelera');
-            Route::patch ('equipos-auxiliares/{id}/restore',   [App\Http\Controllers\EquipoAuxiliarController::class, 'restoreAuxiliar'])->middleware('can:user.delete')->name('equipos-auxiliares.restore');
+            Route::patch ('equipos-auxiliares/{id}/restore',    [App\Http\Controllers\EquipoAuxiliarController::class, 'restoreAuxiliar'])->middleware('can:user.delete')->name('equipos-auxiliares.restore');
+            Route::delete('equipos-auxiliares/{id}/permanente', [App\Http\Controllers\EquipoAuxiliarController::class, 'forceDeleteAuxiliar'])->whereNumber('id')->middleware('can:super.admin')->name('equipos-auxiliares.forceDelete');
             // Listado y export de auxiliares anclados a equipos host (modal Acciones).
             Route::get   ('equipos-auxiliares/anchored',          [App\Http\Controllers\EquipoAuxiliarController::class, 'anchoredList'])->name('equipos-auxiliares.anchoredList');
             Route::get   ('equipos-auxiliares/export-anclajes',   [App\Http\Controllers\EquipoAuxiliarController::class, 'exportAnclajes'])->name('equipos-auxiliares.exportAnclajes');

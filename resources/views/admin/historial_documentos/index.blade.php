@@ -405,7 +405,6 @@
                                 <div class="dropdown-item {{ $reqTipo === 'Registro de Vehículo' ? 'selected' : '' }}" data-value="Registro de Vehículo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Vehículo', 'Registro de Vehículo'); window.loadHistorialDocumentos();">Registro de Vehículo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Edición de Datos' ? 'selected' : '' }}" data-value="Edición de Datos" onclick="selectOption('tipoDocFilterSelect', 'Edición de Datos', 'Edición de Datos'); window.loadHistorialDocumentos();">Edición de Datos</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Detalle Masivo' ? 'selected' : '' }}" data-value="Detalle Masivo" onclick="selectOption('tipoDocFilterSelect', 'Detalle Masivo', 'Detalle Masivo'); window.loadHistorialDocumentos();">Detalle Masivo</div>
-                                <div class="dropdown-item {{ $reqTipo === 'Movilización' ? 'selected' : '' }}" data-value="Movilización" onclick="selectOption('tipoDocFilterSelect', 'Movilización', 'Movilización'); window.loadHistorialDocumentos();">Movilización</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Eliminación de Equipo' ? 'selected' : '' }}" data-value="Eliminación de Equipo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Equipo', 'Eliminación de Equipo'); window.loadHistorialDocumentos();">Eliminación de Equipo</div>
 
                                 {{-- Acciones sobre documentos: 1 opción por acción (antes había 6
@@ -420,6 +419,7 @@
                                 <div class="dropdown-item {{ $reqTipo === 'Registro de Modelo' ? 'selected' : '' }}" data-value="Registro de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Registro de Modelo', 'Registro de Modelo'); window.loadHistorialDocumentos();">Registro de Modelo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Edición de Modelo' ? 'selected' : '' }}" data-value="Edición de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Edición de Modelo', 'Edición de Modelo'); window.loadHistorialDocumentos();">Edición de Modelo</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Foto de Modelo' ? 'selected' : '' }}" data-value="Foto de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Foto de Modelo', 'Foto de Modelo'); window.loadHistorialDocumentos();">Foto de Modelo</div>
+                                <div class="dropdown-item {{ $reqTipo === 'Registro de Auxiliar' ? 'selected' : '' }}" data-value="Registro de Auxiliar" onclick="selectOption('tipoDocFilterSelect', 'Registro de Auxiliar', 'Registro de Auxiliar'); window.loadHistorialDocumentos();">Registro de Auxiliar</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Foto de Auxiliar' ? 'selected' : '' }}" data-value="Foto de Auxiliar" onclick="selectOption('tipoDocFilterSelect', 'Foto de Auxiliar', 'Foto de Auxiliar'); window.loadHistorialDocumentos();">Foto de Auxiliar</div>
                                 <div class="dropdown-item {{ $reqTipo === 'Eliminación de Modelo' ? 'selected' : '' }}" data-value="Eliminación de Modelo" onclick="selectOption('tipoDocFilterSelect', 'Eliminación de Modelo', 'Eliminación de Modelo'); window.loadHistorialDocumentos();">Eliminación de Modelo</div>
                             </div>
@@ -840,7 +840,8 @@
         var fotoHtml = it.foto_drive_id
             ? '<img src="https://drive.google.com/thumbnail?id=' + esc(it.foto_drive_id) + '&sz=w120" style="width:42px;height:42px;border-radius:6px;object-fit:contain;background:white;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.outerHTML=\'<div style=&quot;width:42px;height:42px;border-radius:6px;background:' + iconBg + ';color:' + iconCol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:20px;&quot;>' + iconNm + '</i></div>\'">'
             : '<div style="width:42px;height:42px;border-radius:6px;background:' + iconBg + ';color:' + iconCol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #e2e8f0;"><i class="material-icons" style="font-size:20px;">' + iconNm + '</i></div>';
-        var fn = kind === 'aux' ? 'window.recuperarAuxiliar' : 'window.recuperarEquipo';
+        var fn    = kind === 'aux' ? 'window.recuperarAuxiliar'      : 'window.recuperarEquipo';
+        var fnDel = kind === 'aux' ? 'window.eliminarDefinitivoAux'   : 'window.eliminarDefinitivoEquipo';
         var meta = [esc(it.marca || ''), esc(it.modelo || '')].filter(Boolean).join(' ');
         return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:white;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:5px;">' +
             fotoHtml +
@@ -849,9 +850,14 @@
                 '<div style="font-size:11px;color:#64748b;margin-top:2px;">' + esc(idStr) + (it.frente ? ' · <span style="color:#f97316;">' + esc(it.frente) + '</span>' : '') + '</div>' +
                 '<div style="font-size:10px;color:#94a3b8;margin-top:2px;">' + esc(it.eliminado_por || it.deleted_by || '') + (it.eliminado_en || it.deleted_at ? ' · ' + esc(it.eliminado_en || it.deleted_at) : '') + '</div>' +
             '</div>' +
-            '<button type="button" onclick="' + fn + '(' + it.id + ', \'' + esc(idStr).replace(/\'/g, "\\\'") + '\')" style="padding:5px 8px;font-size:11px;background:#10b981;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:700;">' +
-                '<i class="material-icons" style="font-size:13px;">restore</i>' +
-            '</button>' +
+            '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">' +
+                '<button type="button" onclick="' + fn + '(' + it.id + ', \'' + esc(idStr).replace(/\'/g, "\\\'") + '\')" title="Restaurar" style="padding:5px 8px;font-size:11px;background:#10b981;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:700;">' +
+                    '<i class="material-icons" style="font-size:13px;">restore</i>' +
+                '</button>' +
+                '<button type="button" onclick="' + fnDel + '(' + it.id + ')" title="Eliminar permanentemente" style="padding:5px 8px;font-size:11px;background:#ef4444;color:white;border:none;border-radius:6px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-weight:700;">' +
+                    '<i class="material-icons" style="font-size:13px;">delete_forever</i>' +
+                '</button>' +
+            '</div>' +
         '</div>';
     }
 
@@ -955,6 +961,48 @@
     };
     window.recuperarAuxiliar = function (id, label) {
         restoreItem('{{ url("admin/equipos-auxiliares") }}/' + id + '/restore', label, window.abrirPapeleraAuxiliares);
+    };
+
+    function forceDeleteItem(url, refreshFn) {
+        var doDelete = function () {
+            if (window.showPreloader) window.showPreloader();
+            fetch(url, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrfTok(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }})
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
+                .then(function (res) {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (res.ok && res.body.success) {
+                        if (window.showToast) window.showToast(res.body.message || 'Eliminado permanentemente.', 'success');
+                        refreshFn();
+                    } else {
+                        if (window.showToast) window.showToast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
+                    }
+                })
+                .catch(function () {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (window.showToast) window.showToast('Error de red.', 'error');
+                });
+        };
+        if (typeof window.showModal === 'function') {
+            window.showModal({
+                type: 'danger',
+                title: 'Eliminar permanentemente',
+                message: '¿Eliminar este elemento de forma permanente?\nEsta acción no se puede deshacer.',
+                confirmText: 'Eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: doDelete
+            });
+        } else {
+            if (window.confirm('¿Eliminar este elemento de forma permanente?\nEsta acción no se puede deshacer.')) {
+                doDelete();
+            }
+        }
+    }
+
+    window.eliminarDefinitivoEquipo = function (id) {
+        forceDeleteItem('{{ url("admin/equipos") }}/' + id + '/permanente', window.abrirPapeleraEquipos);
+    };
+    window.eliminarDefinitivoAux = function (id) {
+        forceDeleteItem('{{ url("admin/equipos-auxiliares") }}/' + id + '/permanente', window.abrirPapeleraAuxiliares);
     };
 })();
 </script>
@@ -1086,10 +1134,16 @@ if (!window._hdInlineClickRegistered) {
         if (!detail) return;
         var isOpen = detail.style.display === 'block';
         document.querySelectorAll('.hd-cambios-detail').forEach(function (d) { d.style.display = 'none'; });
-        document.querySelectorAll('.hd-detail-open').forEach(function (r) { r.classList.remove('hd-detail-open'); });
+        document.querySelectorAll('.hd-detail-open').forEach(function (r) {
+            r.classList.remove('hd-detail-open');
+            var chip = r.querySelector('.hd-ver-cambios-chip i');
+            if (chip) chip.textContent = 'history';
+        });
         if (!isOpen) {
             detail.style.display = 'block';
             row.classList.add('hd-detail-open');
+            var openChip = row.querySelector('.hd-ver-cambios-chip i');
+            if (openChip) openChip.textContent = 'expand_less';
         }
     });
 }

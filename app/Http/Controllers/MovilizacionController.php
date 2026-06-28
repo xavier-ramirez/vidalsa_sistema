@@ -953,6 +953,7 @@ class MovilizacionController extends Controller
         $data = $request->validate([
             'ids'                   => 'required|array|min:1',
             'ids.*'                 => 'integer',
+            'type'                  => 'nullable|in:equipo,auxiliar',
             'destination'           => 'required|string|max:150',
             'destination_ubicacion' => 'nullable|string|max:150',
             // Ediciones manuales OPCIONALES desde el botón "Editar" de la vista previa
@@ -967,12 +968,38 @@ class MovilizacionController extends Controller
         ]);
 
         try {
-            $equipos = \App\Models\Equipo::with(['tipo', 'documentacion', 'especificaciones'])
-                ->whereIn('ID_EQUIPO', $data['ids'])
-                ->get();
-
-            if ($equipos->isEmpty()) {
-                return response()->json(['message' => 'No se encontraron equipos para previsualizar.'], 422);
+            // Para auxiliares: crea objetos sintéticos compatibles con buildActaPdfBinary,
+            // igual que generarActaTraslado() hace para movilizaciones ya registradas.
+            if (($data['type'] ?? 'equipo') === 'auxiliar') {
+                $auxItems = \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids'])->get();
+                if ($auxItems->isEmpty()) {
+                    return response()->json(['message' => 'No se encontraron auxiliares para previsualizar.'], 422);
+                }
+                $equipos = $auxItems->map(function ($a) {
+                    $s = new \stdClass();
+                    $s->ID_FRENTE_ACTUAL = $a->ID_FRENTE_ACTUAL;
+                    $s->CODIGO_PATIO     = $a->CODIGO_INTERNO ?: $a->SERIAL;
+                    $s->SERIAL_CHASIS    = $a->SERIAL ?: '—';
+                    $s->SERIAL_DE_MOTOR  = '';
+                    $s->MARCA            = $a->MARCA ?: '';
+                    $s->MODELO           = $a->MODELO ?: '';
+                    $s->ANIO             = $a->ANIO ?? '';
+                    $s->NUMERO_ETIQUETA  = '';
+                    $s->ESTADO_OPERATIVO = $a->ESTADO_OPERATIVO ?? 'OPERATIVO';
+                    $s->FOTO_EQUIPO      = $a->FOTO ?? null;
+                    $s->tipo             = (object) ['nombre' => $a->TIPO ?? 'AUXILIAR'];
+                    $s->documentacion    = (object) ['PLACA' => 'S/P'];
+                    $s->especificaciones = null;
+                    $s->CATEGORIA_FLOTA  = 'FLOTA LIVIANA';
+                    return $s;
+                });
+            } else {
+                $equipos = \App\Models\Equipo::with(['tipo', 'documentacion', 'especificaciones'])
+                    ->whereIn('ID_EQUIPO', $data['ids'])
+                    ->get();
+                if ($equipos->isEmpty()) {
+                    return response()->json(['message' => 'No se encontraron equipos para previsualizar.'], 422);
+                }
             }
 
             // Origen del acta: si el usuario lo editó a mano (texto libre) usamos un stub
@@ -981,8 +1008,8 @@ class MovilizacionController extends Controller
             if (!empty(trim($data['origin'] ?? ''))) {
                 $frenteOrigen = $this->stubFrenteOrigen($data['origin'], $data['origin_zona'] ?? '');
             } else {
-                $idOrigen = $equipos->groupBy('ID_FRENTE_ACTUAL')
-                    ->map(fn ($g) => $g->count())
+                $idOrigen = collect($equipos)->groupBy('ID_FRENTE_ACTUAL')
+                    ->map(fn ($g) => count($g))
                     ->sortDesc()
                     ->keys()
                     ->first();

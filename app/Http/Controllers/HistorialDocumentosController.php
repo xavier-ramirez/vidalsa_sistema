@@ -259,6 +259,9 @@ class HistorialDocumentosController extends Controller
                 'del_id'       => $equipo->ID_EQUIPO,
             ]);
         }
+        // IDs de equipos que YA produjeron una fila 'creacion' aquí. Sirve para no
+        // duplicar la creación con el log 'create' del audit (ver loop de auditoría).
+        $creacionEquipoIds = array_flip($equiposCreados->pluck('ID_EQUIPO')->all());
 
         // Eventos de AUDITORIA de equipos (ediciones, cambios de metadata, ubicacion).
         // Se cargan desde la tabla `equipo_audit_log` con eager loading de
@@ -272,6 +275,7 @@ class HistorialDocumentosController extends Controller
                     'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'documentacion']); },
                     'usuario',
                 ])
+                ->where('ACCION', '!=', 'movilizacion')
                 ->orderByDesc('created_at');
 
             // Scope LOCAL + search_equipo + rango de fechas en SQL.
@@ -283,6 +287,15 @@ class HistorialDocumentosController extends Controller
             $auditLogs = $auditQuery->limit(5000)->get();
             foreach ($auditLogs as $log) {
                 $eq = $log->equipo;
+
+                // Dedup de la CREACIÓN: el log 'create' del audit duplica la fila 'creacion'
+                // del loop anterior (mismo vehículo, misma hora). Si el equipo ya salió ahí, se
+                // omite. Los equipos BORRADOS no aparecen en $equiposCreados (no withTrashed),
+                // así que su 'create' SÍ se conserva → su creación no se pierde.
+                if ($log->ACCION === 'create' && $eq && isset($creacionEquipoIds[$eq->ID_EQUIPO])) {
+                    continue;
+                }
+
                 $eName = $eq ? (($eq->tipo->nombre ?? 'Equipo') . ' ' . $eq->MARCA . ' ' . $eq->MODELO) : 'Equipo Eliminado';
                 $eId   = $this->buildEquipoId($eq);
                 // Mapping cubre solo las ACCION values que el codigo realmente
@@ -311,11 +324,27 @@ class HistorialDocumentosController extends Controller
                     'delete_adicional'     => 'Borrado Certificado',
                     'delete_adicional_2'   => 'Borrado Compraventa',
                     'bulk_ubicacion'       => 'Detalle Masivo',
-                    'movilizacion'         => 'Movilización',
+                    'create'               => 'Registro de Vehículo',
                     'delete'               => 'Eliminación de Equipo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
                 $cambiosRaw = is_array($log->CAMBIOS) ? $log->CAMBIOS : (is_string($log->CAMBIOS) ? json_decode($log->CAMBIOS, true) : []);
+
+                // El historial de documentos NO muestra CONFIRMACIONES (CONFIRMADO_EN_SITIO)
+                // ni MOVILIZACIONES. Aparte del log explícito 'movilizacion' (ya excluido en
+                // el query), el EquipoObserver registra el cambio de frente/ubicación al
+                // movilizar como un 'edit'; lo filtramos de los cambios. Si un 'edit' se queda
+                // sin cambios visibles tras el filtro, se omite por completo.
+                if (is_array($cambiosRaw)) {
+                    unset(
+                        $cambiosRaw['CONFIRMADO_EN_SITIO'],
+                        $cambiosRaw['ID_FRENTE_ACTUAL'],
+                        $cambiosRaw['DETALLE_UBICACION_ACTUAL']
+                    );
+                }
+                if ($log->ACCION === 'edit' && empty($cambiosRaw)) {
+                    continue;
+                }
 
                 $events->push((object)[
                     'doc_key'       => $log->ACCION,
@@ -353,6 +382,7 @@ class HistorialDocumentosController extends Controller
             foreach ($catAuditLogs as $log) {
                 $catTipoLabel = [
                     'create'          => 'Registro de Modelo',
+                    'create_aux'      => 'Registro de Auxiliar',
                     'edit'            => 'Edición de Modelo',
                     'upload_foto'     => 'Foto de Modelo',
                     'upload_foto_aux' => 'Foto de Auxiliar',
@@ -388,56 +418,10 @@ class HistorialDocumentosController extends Controller
         }
         } // fin if searchEquipoSql === ''
 
-        // Eventos de AUDITORÍA de ALMACÉN: recepción de notas de entrega (traspasos
-        // CONFIRMADOS, completos o parciales). Deja trazabilidad de QUIÉN recibió
-        // (usuarioRecepcion) y el número de REFERENCIA de la nota. Se lee en vivo de
-        // `traspasos` — los campos FECHA_RECEPCION / ID_USUARIO_RECEPCION / REFERENCIA
-        // se persisten al confirmar y son inmutables (estado terminal), así que no se
-        // necesita una tabla de log aparte. Solo super.admin llega a esta vista (ruta
-        // gateada con can:super.admin), por eso no se aplica scope por frentes. Se
-        // omiten cuando hay filtro search_equipo (una recepción no tiene equipo).
-        if ($searchEquipoSql === '') {
-        try {
-            $recepQuery = \App\Models\Traspaso::with(['usuarioRecepcion', 'almacenOrigen', 'almacenDestino'])
-                ->whereIn('ESTADO', [\App\Models\Traspaso::ESTADO_RECIBIDO, \App\Models\Traspaso::ESTADO_RECIBIDO_PARCIAL])
-                ->whereNotNull('FECHA_RECEPCION');
-
-            if ($fechaDesdeSql) $recepQuery->where('FECHA_RECEPCION', '>=', $fechaDesdeSql);
-            if ($fechaHastaSql) $recepQuery->where('FECHA_RECEPCION', '<=', $fechaHastaSql);
-
-            $recepciones = $recepQuery->orderByDesc('FECHA_RECEPCION')->limit(5000)->get();
-            foreach ($recepciones as $t) {
-                $parcial = $t->ESTADO === \App\Models\Traspaso::ESTADO_RECIBIDO_PARCIAL;
-                $ruta    = ($t->almacenOrigen->NOMBRE ?? '—') . ' → ' . ($t->almacenDestino->NOMBRE ?? '—');
-
-                $events->push((object)[
-                    'doc_key'      => 'recepcion_traspaso',
-                    'tipo'         => $parcial ? 'Recepción parcial de nota' : 'Recepción de nota',
-                    // Usuario que EJECUTÓ la recepción (lo pedido).
-                    'autor'        => $t->usuarioRecepcion ? $t->usuarioRecepcion->CORREO_ELECTRONICO : ('Usuario #' . $t->ID_USUARIO_RECEPCION),
-                    'autor_nombre' => $t->usuarioRecepcion ? ($t->usuarioRecepcion->NOMBRE_COMPLETO ?? '') : '',
-                    'fecha'        => $t->FECHA_RECEPCION,
-                    'link'         => null,
-                    'equipo_nombre'=> 'Nota ' . $t->NUMERO,
-                    // Número de REFERENCIA de la nota (lo pedido, junto al usuario).
-                    'equipo_id'    => 'Ref: ' . ($t->REFERENCIA ?: 'Sin referencia'),
-                    'equipo_db_id' => null,
-                    'cambios'      => array_filter([
-                        'Número de nota' => $t->NUMERO,
-                        'Referencia'     => $t->REFERENCIA,
-                        'Ruta'           => $ruta,
-                        'Resultado'      => $parcial ? 'Recibida parcial (con diferencias)' : 'Recibida completa',
-                    ], fn ($v) => $v !== null && $v !== ''),
-                    // Derivado del traspaso (NO es un log propio): borrarlo desde aquí
-                    // alteraría la recepción. deleteRegistro lo BLOQUEA con un mensaje.
-                    'del_source'   => 'traspaso_recepcion',
-                    'del_id'       => $t->ID_TRASPASO,
-                ]);
-            }
-        } catch (\Illuminate\Database\QueryException $e) {
-            \Illuminate\Support\Facades\Log::warning('recepcion audit read failed: ' . $e->getMessage());
-        }
-        } // fin if searchEquipoSql === '' (recepciones)
+        // (Las recepciones de notas de traspaso de ALMACÉN ya NO se listan aquí: el
+        // historial de documentos es de DOCUMENTOS/equipos, no de confirmaciones ni
+        // movimientos de inventario. La trazabilidad de recepciones vive en el módulo
+        // de Almacén.)
 
         // ── DEDUPLICACION legacy ↔ audit log ──────────────────────────────────
         // Cada subida de documento genera DOS eventos:
@@ -642,7 +626,7 @@ class HistorialDocumentosController extends Controller
     public function deleteRegistro(Request $request)
     {
         $data = $request->validate([
-            'source' => 'required|string|in:equipo_audit,catalogo_audit,doc,equipo_creacion,traspaso_recepcion',
+            'source' => 'required|string|in:equipo_audit,catalogo_audit,doc,equipo_creacion',
             'id'     => 'nullable',
         ]);
 
@@ -658,12 +642,6 @@ class HistorialDocumentosController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Esta fila es el registro de creación de un vehículo. Para eliminarlo usa el módulo de Equipos.',
-            ], 422);
-        }
-        if ($data['source'] === 'traspaso_recepcion') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Esta fila es la recepción de una nota de entrega. Para revertirla usa el módulo de Almacén (cancelar/deshacer), no el historial.',
             ], 422);
         }
 

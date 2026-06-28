@@ -300,33 +300,25 @@
                 })
                 .then(r => r.json().then(body => ({ status: r.status, body })))
                 .then(({ status, body }) => {
-                    if (window.hidePreloader) window.hidePreloader();
                     if (status === 200 && body.success) {
-                        const dest = typeof config.redirect === 'function' ? config.redirect(body) : (body.redirect || config.redirect);
-                        if (window.showToast) window.showToast(body.message || config.successMessage, 'success');
-                        if (config.flashToast) {
-                            try {
-                                sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
-                                    message: body.message || config.successMessage, type: 'success'
-                                }));
-                            } catch (_) {}
-                        }
-                        setTimeout(() => {
-                            if (window.navigateTo) window.navigateTo(dest);
-                            else window.location.href = dest;
-                        }, config.redirectDelay || 1000);
-                    } else if (status === 422 && body.errors) {
-                        applyServerErrors(body.errors);
-                        if (config.on422 === 'toast') {
-                            if (window.showToast) {
-                                window.showToast(body.message || 'Algunas filas tienen errores. Revísalas y reintenta.', 'warning');
-                            } else {
-                                modal('warning', 'Corrige los errores', body.message || 'Algunas filas tienen errores.');
-                            }
-                        } else {
-                            modal('warning', 'Corrige los errores', 'Algunas filas tienen errores. Revísalas y reintenta.');
-                        }
+                        // Éxito: guardar toast en sessionStorage para que se muestre
+                        // después de la navegación (el preloader se queda activo hasta
+                        // que la nueva página cargue — sin doble spinner).
+                        var msg = body.message || config.successMessage;
+                        try {
+                            sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
+                        } catch (_) {}
+                        var dest = typeof config.redirect === 'function' ? config.redirect(body) : (body.redirect || config.redirect);
+                        if (window.navigateTo) window.navigateTo(dest);
+                        else window.location.href = dest;
+                    } else if (status === 422) {
+                        if (window.hidePreloader) window.hidePreloader();
+                        if (body.errors) applyServerErrors(body.errors);
+                        var errMsg = body.message || 'Algunas filas tienen errores. Revísalas y reintenta.';
+                        if (window.showToast) window.showToast(errMsg, 'error');
+                        else modal('warning', 'Errores encontrados', errMsg);
                     } else {
+                        if (window.hidePreloader) window.hidePreloader();
                         modal('error', 'Error', body.message || 'No se pudo guardar.', 'Cerrar');
                     }
                 })
