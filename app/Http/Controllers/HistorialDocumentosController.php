@@ -275,6 +275,7 @@ class HistorialDocumentosController extends Controller
                     'equipo' => function ($q) { $q->withTrashed()->with(['tipo', 'documentacion']); },
                     'usuario',
                 ])
+                ->whereNull('ID_AUXILIAR')   // los logs de auxiliar se procesan en su propio loop
                 ->where('ACCION', '!=', 'movilizacion')
                 ->orderByDesc('created_at');
 
@@ -366,6 +367,110 @@ class HistorialDocumentosController extends Controller
         } catch (\Illuminate\Database\QueryException $e) {
             // Tabla no existente / driver distinto → no rompe la vista, solo skip.
             \Illuminate\Support\Facades\Log::warning('audit log read failed: ' . $e->getMessage());
+        }
+
+        // Eventos de AUDITORIA de equipos AUXILIARES (ediciones + subidas/borrados de PDF).
+        // Viven en la MISMA tabla equipo_audit_log pero con ID_AUXILIAR != null (ID_EQUIPO
+        // null): un auxiliar puede no estar anclado a ningún vehículo host. Por eso el scope
+        // de visibilidad se resuelve por el FRENTE PROPIO del auxiliar, no por un equipo host.
+        try {
+            $auxAuditQuery = \App\Models\EquipoAuditLog::with([
+                    'auxiliar' => function ($q) { $q->withTrashed(); },
+                    'usuario',
+                ])
+                ->whereNotNull('ID_AUXILIAR')
+                ->orderByDesc('created_at');
+
+            // Scope LOCAL (lista blanca) + lista negra por el ID_FRENTE_ACTUAL del auxiliar.
+            if ($frentesVisibles !== null) {
+                if (empty($frentesVisibles)) {
+                    $auxAuditQuery->whereRaw('1 = 0'); // local sin frentes => nada
+                } else {
+                    $auxAuditQuery->whereHas('auxiliar', function ($q) use ($frentesVisibles) {
+                        $q->withTrashed()->whereIn('ID_FRENTE_ACTUAL', $frentesVisibles);
+                    });
+                }
+            }
+            if (!empty($frentesBloqueados)) {
+                $auxAuditQuery->whereHas('auxiliar', function ($q) use ($frentesBloqueados) {
+                    $q->withTrashed()->whereNotIn('ID_FRENTE_ACTUAL', $frentesBloqueados);
+                });
+            }
+            // search_equipo por SERIAL / CÓDIGO INTERNO del propio auxiliar.
+            if ($searchEquipoSql !== '') {
+                $like = '%' . strtoupper($searchEquipoSql) . '%';
+                $auxAuditQuery->whereHas('auxiliar', function ($q) use ($like) {
+                    $q->withTrashed()->where(function ($w) use ($like) {
+                        $w->whereRaw('UPPER(SERIAL) like ?', [$like])
+                          ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]);
+                    });
+                });
+            }
+            if ($fechaDesdeSql) $auxAuditQuery->where('created_at', '>=', $fechaDesdeSql);
+            if ($fechaHastaSql) $auxAuditQuery->where('created_at', '<=', $fechaHastaSql);
+
+            // Labels de tipo de auxiliar (código → etiqueta legible), resueltos una vez.
+            $auxTiposLabel = \App\Models\EquipoAuxiliar::tiposLabel();
+
+            $auxAuditLogs = $auxAuditQuery->limit(5000)->get();
+            foreach ($auxAuditLogs as $log) {
+                $ax = $log->auxiliar;
+
+                // Label "Edición de Datos (Auxiliar)" contiene "Edición de Datos" a propósito:
+                // así el filtro de Tipo "Edición de Datos" (match por substring) lo incluye.
+                $tipoLabel = [
+                    'aux_edit'               => 'Edición de Datos (Auxiliar)',
+                    'aux_upload_propiedad'   => 'Subida Propiedad (Auxiliar)',
+                    'aux_upload_certificado' => 'Subida Certificado (Auxiliar)',
+                    'aux_delete_propiedad'   => 'Borrado Propiedad (Auxiliar)',
+                    'aux_delete_certificado' => 'Borrado Certificado (Auxiliar)',
+                ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
+
+                $cambiosRaw = is_array($log->CAMBIOS) ? $log->CAMBIOS : (is_string($log->CAMBIOS) ? json_decode($log->CAMBIOS, true) : []);
+                $auxLabel = $cambiosRaw['_aux_label'] ?? '';
+                if (is_array($cambiosRaw)) {
+                    unset(
+                        $cambiosRaw['_aux_label'],
+                        $cambiosRaw['CONFIRMADO_EN_SITIO'],
+                        $cambiosRaw['ID_FRENTE_ACTUAL'],
+                        $cambiosRaw['DETALLE_UBICACION_ACTUAL']
+                    );
+                }
+                // Un aux_edit que solo tocó frente/confirmación queda sin cambios visibles → se omite.
+                if ($log->ACCION === 'aux_edit' && empty($cambiosRaw)) {
+                    continue;
+                }
+
+                if ($ax) {
+                    $tipoTxt = $ax->TIPO ? ($auxTiposLabel[$ax->TIPO] ?? $ax->TIPO) : '';
+                    $eName   = 'Auxiliar ' . trim($tipoTxt . ' ' . $ax->MARCA . ' ' . $ax->MODELO);
+                    if (!empty($ax->CODIGO_INTERNO))      $eId = 'Código: ' . $ax->CODIGO_INTERNO;
+                    elseif (!empty($ax->SERIAL))          $eId = 'Serial: ' . $ax->SERIAL;
+                    else                                  $eId = 'ID Aux: #' . $log->ID_AUXILIAR;
+                } else {
+                    // Auxiliar borrado en duro: usar el label embebido como fallback.
+                    $eName = $auxLabel !== '' ? ('Auxiliar ' . $auxLabel) : 'Auxiliar Eliminado';
+                    $eId   = 'ID Aux: #' . $log->ID_AUXILIAR;
+                }
+
+                $events->push((object)[
+                    'doc_key'       => $log->ACCION,
+                    'tipo'          => $tipoLabel,
+                    'autor'         => $log->usuario ? $log->usuario->CORREO_ELECTRONICO : ('Usuario #' . $log->ID_USUARIO),
+                    'autor_nombre'  => $log->usuario ? ($log->usuario->NOMBRE_COMPLETO ?? '') : '',
+                    'fecha'         => $log->created_at,
+                    'link'          => null,
+                    'equipo_nombre' => $eName,
+                    'equipo_id'     => $eId,
+                    'equipo_db_id'  => null,
+                    'cambios'       => is_array($cambiosRaw) ? $cambiosRaw : [],
+                    // Registro propio (equipo_audit_log) → borrable por super.admin.
+                    'del_source'    => 'equipo_audit',
+                    'del_id'        => $log->ID_LOG,
+                ]);
+            }
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Illuminate\Support\Facades\Log::warning('aux audit log read failed: ' . $e->getMessage());
         }
 
         // Eventos de AUDITORIA del CATÁLOGO (ediciones de modelos, subida de foto).
@@ -495,9 +600,11 @@ class HistorialDocumentosController extends Controller
                 if ($search_tipo && $search_tipo !== 'all') {
                     if ($search_tipo === 'cat_uploads') {
                         $okTipo = in_array($event->doc_key, $catUploadKeys, true)
-                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'upload_');
+                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'upload_')
+                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'aux_upload_');
                     } elseif ($search_tipo === 'cat_borrados') {
-                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'delete_');
+                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'delete_')
+                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'aux_delete_');
                     } elseif ($search_tipo === 'cat_metadatos') {
                         $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'metadata_');
                     } else {

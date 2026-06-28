@@ -2981,7 +2981,11 @@ class EquipoController extends Controller
         });
 
         if (!empty($updateData)) {
-            $equipo->documentacion->update($updateData);
+            // updateQuietly: NO disparar DocumentacionObserver (que registraria un
+            // 'edit' de PLACA/NRO/TITULAR). Esta edicion ya se audita explicitamente
+            // abajo como 'metadata_<tipo>' con el diff completo; sin el quiet, una sola
+            // edicion por el panel del visor generaria DOS eventos en el historial.
+            $equipo->documentacion->updateQuietly($updateData);
         }
 
         // Auditoria: registra la edicion de metadata por tipo de documento.
