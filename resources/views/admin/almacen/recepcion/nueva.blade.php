@@ -92,12 +92,11 @@
 
     /* UM autocomplete */
     .ent-um-wrap { position:relative; }
-    /* Mismo tamaño/peso que el badge del producto y .ent-list-nom (13.5px / 600,
-       que en este módulo es el "sin negrita") para que la barra de captura se vea
-       uniforme — el cliente pidió quitarle la negrita al campo Unidad. */
+    /* Campo Unidad SIN negrita (peso normal 400), a pedido del cliente: la "UND"
+       se veía resaltada respecto al resto de la barra de captura. */
     .ent-um-input {
         width:100%; height:40px; border:1px solid #cbd5e0; border-radius:10px;
-        padding:0 10px; font-size:13.5px; font-weight:600; color:#0f172a;
+        padding:0 10px; font-size:13.5px; font-weight:400; color:#0f172a;
         background:#fff; outline:none; box-sizing:border-box; text-transform:uppercase;
     }
     .ent-um-input:focus { border-color:var(--maquinaria-blue,#0067b1); }

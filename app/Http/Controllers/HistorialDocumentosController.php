@@ -259,6 +259,9 @@ class HistorialDocumentosController extends Controller
                 'del_id'       => $equipo->ID_EQUIPO,
             ]);
         }
+        // IDs de equipos que YA produjeron una fila 'creacion' aquí. Sirve para no
+        // duplicar la creación con el log 'create' del audit (ver loop de auditoría).
+        $creacionEquipoIds = array_flip($equiposCreados->pluck('ID_EQUIPO')->all());
 
         // Eventos de AUDITORIA de equipos (ediciones, cambios de metadata, ubicacion).
         // Se cargan desde la tabla `equipo_audit_log` con eager loading de
@@ -284,6 +287,15 @@ class HistorialDocumentosController extends Controller
             $auditLogs = $auditQuery->limit(5000)->get();
             foreach ($auditLogs as $log) {
                 $eq = $log->equipo;
+
+                // Dedup de la CREACIÓN: el log 'create' del audit duplica la fila 'creacion'
+                // del loop anterior (mismo vehículo, misma hora). Si el equipo ya salió ahí, se
+                // omite. Los equipos BORRADOS no aparecen en $equiposCreados (no withTrashed),
+                // así que su 'create' SÍ se conserva → su creación no se pierde.
+                if ($log->ACCION === 'create' && $eq && isset($creacionEquipoIds[$eq->ID_EQUIPO])) {
+                    continue;
+                }
+
                 $eName = $eq ? (($eq->tipo->nombre ?? 'Equipo') . ' ' . $eq->MARCA . ' ' . $eq->MODELO) : 'Equipo Eliminado';
                 $eId   = $this->buildEquipoId($eq);
                 // Mapping cubre solo las ACCION values que el codigo realmente

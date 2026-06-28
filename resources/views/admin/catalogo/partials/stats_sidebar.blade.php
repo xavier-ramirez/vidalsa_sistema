@@ -16,6 +16,7 @@
         font-size: 13px;
         color: #475569;
         font-weight: 500;
+        text-transform: uppercase;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

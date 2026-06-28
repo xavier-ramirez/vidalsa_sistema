@@ -1,3 +1,38 @@
+@php
+    // Etiquetas legibles de los campos de 'cambios'. Las claves son los nombres REALES
+    // de columna que registra el EquipoObserver (getChanges → columnas de la tabla) y los
+    // logs de metadata de documentación. Definido UNA vez aquí (antes era por cada cambio
+    // de cada evento). ID_FRENTE_ACTUAL/DETALLE_UBICACION_ACTUAL/CONFIRMADO_EN_SITIO se
+    // filtran en el controlador (movilizaciones/confirmaciones), por eso no están aquí.
+    $hdFieldMap = [
+        // Columnas de EQUIPO
+        'MARCA'             => 'Marca',
+        'MODELO'            => 'Modelo',
+        'SERIAL_CHASIS'     => 'Serial de Chasis',
+        'SERIAL_DE_MOTOR'   => 'Serial de Motor',
+        'CODIGO_PATIO'      => 'Código de Patio',
+        'NUMERO_ETIQUETA'   => 'Número de Etiqueta',
+        'CATEGORIA_FLOTA'   => 'Categoría de Flota',
+        'ANIO'              => 'Año',
+        'COLOR'             => 'Color',
+        'CAPACIDAD'         => 'Capacidad',
+        'LINK_GPS'          => 'GPS',
+        'ESTADO_OPERATIVO'  => 'Estatus',
+        'id_tipo_equipo'    => 'Tipo',
+        'FOTO_EQUIPO'       => 'Foto',
+        'OBSERVACIONES'     => 'Observaciones',
+        // Columnas de DOCUMENTACIÓN (logs de metadata)
+        'PLACA'             => 'Placa',
+        'ID_SEGURO'         => 'Aseguradora',
+        'FECHA_VENC_POLIZA' => 'Fecha Póliza',
+        'FECHA_ROTC'        => 'Fecha ROTC',
+        'FECHA_RACDA'       => 'Fecha RACDA',
+        'FECHA_ADICIONAL'   => 'Fecha Certificado',
+        'NUMERO_POLIZA'     => 'Nº Póliza',
+        'NUMERO_ROTC'       => 'Nº ROTC',
+        'NUMERO_RACDA'      => 'Nº RACDA',
+    ];
+@endphp
 @forelse ($events as $event)
     <tr class="hd-selectable-row {{ !empty($event->cambios) ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
         <td>
@@ -36,32 +71,7 @@
                         <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;">
                             @foreach($event->cambios as $campo => $val)
                                 @php
-                                    $fieldMap = [
-                                        'MARCA'                  => 'Marca',
-                                        'MODELO'                 => 'Modelo',
-                                        'SERIAL_CHASIS'          => 'Serial de Chasis',
-                                        'SERIAL_DE_MOTOR'        => 'Serial de Motor',
-                                        'CODIGO_PATIO'           => 'Código de Patio',
-                                        'ANIO'                   => 'Año',
-                                        'COLOR'                  => 'Color',
-                                        'PLACA'                  => 'Placa',
-                                        'GPS'                    => 'GPS',
-                                        'STATUS'                 => 'Estatus',
-                                        'ID_FRENTE'              => 'Frente',
-                                        'ID_TIPO'                => 'Tipo',
-                                        'ID_SEGURO'              => 'Aseguradora',
-                                        'FECHA_VENC_POLIZA'      => 'Fecha Póliza',
-                                        'FECHA_ROTC'             => 'Fecha ROTC',
-                                        'FECHA_RACDA'            => 'Fecha RACDA',
-                                        'FECHA_ADICIONAL'        => 'Fecha Certificado',
-                                        'NUMERO_POLIZA'          => 'Nº Póliza',
-                                        'NUMERO_ROTC'            => 'Nº ROTC',
-                                        'NUMERO_RACDA'           => 'Nº RACDA',
-                                        'OBSERVACIONES'          => 'Observaciones',
-                                        'INOPERATIVO'            => 'Inoperativo',
-                                        'FOTO_EQUIPO'            => 'Foto',
-                                    ];
-                                    $label = $fieldMap[$campo] ?? ucwords(strtolower(str_replace('_', ' ', $campo)));
+                                    $label = $hdFieldMap[$campo] ?? ucwords(strtolower(str_replace('_', ' ', $campo)));
                                     $esDiff = is_array($val) && array_key_exists('antes', $val);
                                     $humanize = function($v) {
                                         if ($v === 0 || $v === '0' || $v === false) return 'No';

@@ -7,14 +7,9 @@ if (!window.currentFrenteId) window.currentFrenteId = '';
 
 if (!window.CHART_COLORS) {
     window.CHART_COLORS = {
-        status: {
-            'OPERATIVO': '#110a50ff',
-            'EN MANTENIMIENTO': '#69696dff',
-            'INOPERATIVO': '#a31616ff',
-            'DESINCORPORADO': '#07090aff'
-        },
-        age: ['#110a50ff', '#a31616ff'],
-        inoperative: ['#dc2626', '#f59e0b', '#0f172a']
+        // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
+        // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
+        age: ['#110a50ff', '#a31616ff']
     };
 }
 
@@ -123,7 +118,11 @@ window.openFleetDashboard = async function () {
     // Dispara la carga de Chart.js (+DataLabels) en paralelo con el fetch.
     // loadFleetDashboardData consulta _fleetChartReady antes de instanciar
     // `new Chart(...)`, asi el fetch avanza mientras Chart.js se descarga.
-    window._fleetChartReady = (typeof Chart === 'undefined') ? loadChartJS() : Promise.resolve();
+    // SIEMPRE llamamos loadChartJS(): aunque Chart ya venga del layout (chart.umd
+    // estatico), el plugin DataLabels NO se carga ahi y hay que cargarlo+registrarlo
+    // para que los valores salgan dentro de cada barra. loadChartJS es idempotente
+    // (loadScriptOnce no re-inyecta Chart si ya existe).
+    window._fleetChartReady = loadChartJS();
     const chartReady = window._fleetChartReady;
 
     setupDropdownEvents();
@@ -392,7 +391,9 @@ async function loadChartJS() {
     try {
         await loadScriptOnce(baseUrl + '/js/chartjs-plugin-datalabels.min.js', labelsLoaded);
         if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
-            Chart.register(ChartDataLabels);
+            const _alreadyReg = Chart.registry?.plugins?.items &&
+                Object.values(Chart.registry.plugins.items).some(p => p.id === 'datalabels');
+            if (!_alreadyReg) Chart.register(ChartDataLabels);
         }
     } catch (e) {
         console.warn('DataLabels plugin no cargo, charts continuan sin etiquetas:', e.message);
@@ -497,11 +498,9 @@ function createCharts(data) {
         throw new Error('Chart.js no está disponible. Verifique que los archivos JS estén instalados en /public/js/.');
     }
 
-    const canvasStatus = document.getElementById('chartStatusByFront');
     const canvasAge = document.getElementById('chartAgeByType');
-    const canvasInop = document.getElementById('chartInoperativeByType');
 
-    if (!canvasStatus || !canvasAge) {
+    if (!canvasAge) {
         throw new Error('No se encontraron los contenedores de gr├íficos en el DOM.');
     }
 
@@ -523,50 +522,10 @@ function createCharts(data) {
         }
     };
 
-    // 1. Estado Operativo - Doughnut
-    if (canvasStatus && data.byStatus && data.byStatus.labels && data.byStatus.labels.length > 0) {
-        const parent = canvasStatus.parentElement;
-        const emptyMsg = parent.querySelector('.fleet-empty-msg');
-        if (emptyMsg) emptyMsg.remove();
-        canvasStatus.style.display = '';
+    // NOTA: los gráficos "Estado Operativo de Equipos" (doughnut) e "Inoperatividad
+    // por Tipo de Equipo" se eliminaron a pedido del cliente; sus canvas ya no existen.
 
-        window.fleetCharts.byStatus = new Chart(canvasStatus, {
-            type: 'doughnut',
-            data: {
-                labels: data.byStatus.labels,
-                datasets: [{
-                    data: data.byStatus.values,
-                    backgroundColor: data.byStatus.labels.map(label => window.CHART_COLORS.status[label] || '#64748b'),
-                    borderWidth: 2,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: LEGEND_STYLE,
-                    tooltip: TOOLTIP_STYLES,
-                    datalabels: {
-                        color: 'white',
-                        font: { weight: '700', size: 13, family: "'Inter', 'Segoe UI', sans-serif" },
-                        textShadowBlur: 4,
-                        textShadowColor: 'rgba(0,0,0,0.5)',
-                        formatter: function (value, ctx) {
-                            if (value <= 0) return '';
-                            const sum = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
-                            const pct = sum > 0 ? Math.round(value / sum * 100) : 0;
-                            return value + '\n(' + pct + '%)';
-                        }
-                    }
-                }
-            }
-        });
-    } else {
-        showEmptyState(canvasStatus, 'chartStatusByFront', 'Sin datos operativos en esta selección.');
-    }
-
-    // 2. Flota Nueva vs Vieja por Tipo - Stacked Horizontal Bar
+    // 1. Flota Nueva vs Vieja por Tipo - Stacked Horizontal Bar
     if (canvasAge && data.ageByType && data.ageByType.labels && data.ageByType.labels.length > 0) {
         window.fleetCharts.ageByType = createStackedBarChart('chartAgeByType', {
             labels: data.ageByType.labels,
@@ -583,24 +542,7 @@ function createCharts(data) {
         showEmptyState(canvasAge, 'chartAgeByType', 'Sin equipos registrados para este frente.');
     }
 
-    // 3. Inoperatividad por Tipo de Equipo - Stacked Horizontal Bar
-    if (canvasInop && data.inoperativeByType && data.inoperativeByType.labels.length > 0) {
-        window.fleetCharts.inoperativeByType = createStackedBarChart('chartInoperativeByType', {
-            labels: data.inoperativeByType.labels,
-            datasets: data.inoperativeByType.datasets.map((ds, idx) => ({
-                label: ds.label,
-                data: ds.data,
-                backgroundColor: window.CHART_COLORS.inoperative[idx] || '#64748b',
-                borderWidth: 0,
-                borderRadius: 0,
-                borderSkipped: false
-            }))
-        });
-    } else if (canvasInop) {
-        showEmptyState(canvasInop, 'chartInoperativeByType', 'Sin equipos inoperativos en esta selección.');
-    }
-
-    // 4. Equipos Auxiliares por Tipo - Stacked Horizontal Bar (global)
+    // 2. Equipos Auxiliares por Tipo - Stacked Horizontal Bar (global)
     const canvasAux = document.getElementById('chartAuxByType');
     if (canvasAux && data.auxByType && data.auxByType.labels && data.auxByType.labels.length > 0) {
         window.fleetCharts.auxByType = createStackedBarChart('chartAuxByType', {
@@ -669,9 +611,13 @@ function createStackedBarChart(canvasId, config) {
     const totalLines = wrappedLabels.reduce(function (sum, l) {
         return sum + (Array.isArray(l) ? l.length : 1);
     }, 0);
-    // Alturas comprimidas: menos espacio por línea, tope 400 px
-    const pxPerLine = labelCount <= 5 ? 26 : labelCount <= 10 ? 22 : 18;
-    const dynamicHeight = Math.min(400, Math.max(120, totalLines * pxPerLine + 55));
+    // Altura dinámica según la cantidad de barras. El tope se subió de 400 a 1200 px
+    // porque con muchos tipos de equipo las barras quedaban demasiado finas y los
+    // valores se solapaban (sobre todo en la captura de imagen). Ahora que los
+    // gráficos van en una sola columna a todo el ancho, el gráfico puede crecer y el
+    // contenedor del modal hace scroll. pxPerLine también sube un poco con >10 tipos.
+    const pxPerLine = labelCount <= 5 ? 26 : labelCount <= 10 ? 22 : 20;
+    const dynamicHeight = Math.min(1200, Math.max(120, totalLines * pxPerLine + 55));
     ctx.style.height = dynamicHeight + 'px';
     ctx.style.maxHeight = dynamicHeight + 'px';
 
@@ -721,8 +667,13 @@ function createStackedBarChart(canvasId, config) {
             labels: wrappedLabels,
             datasets: config.datasets.map(function (ds, idx) {
                 const base = Object.assign({}, ds, { maxBarThickness: 22 });
-                // Último dataset: label de segmento + total al final
-                base.datalabels = (idx === lastIdx) ? [segmentLabel, totalLabel] : segmentLabel;
+                // Etiquetas SIEMPRE visibles (sin pasar el mouse). chartjs-plugin-datalabels
+                // exige el objeto { labels: {...} } para mostrar varias etiquetas por barra:
+                // un array NO es válido y dejaba el valor sin verse. El último dataset suma
+                // además el total al final de la barra.
+                base.datalabels = (idx === lastIdx)
+                    ? { labels: { value: segmentLabel, total: totalLabel } }
+                    : { labels: { value: segmentLabel } };
                 return base;
             })
         },

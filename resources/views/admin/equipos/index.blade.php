@@ -9,9 +9,6 @@
        Oculta filtros de equipos que no aplican a auxiliares (GPS, Color, docs, etc.).
        NO se activa cuando el usuario filtra por categoria=AUXILIARES (para no cambiar el panel). */
     body.eq-aux-mode .adv-filter-eq-only { display: none !important; }
-    body:not(.eq-aux-mode) .adv-filter-aux-only { display: none !important; }
-    body.eq-aux-mode .adv-filter-aux-only { display: revert !important; }
-    body.eq-aux-mode label.adv-filter-aux-only { display: flex !important; }
     /* aux-table-active: activado cuando la tabla muestra datos de auxiliares (cualquier path).
        Oculta controles de equipos que no tienen sentido sobre la tabla de auxiliares. */
     body.aux-table-active .eq-hide-in-aux { display: none !important; }
@@ -650,7 +647,9 @@
                                 RACDA
                             </label>
 
-                            <label for="chk_adicional" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
+                            {{-- Certificado: doc COMPARTIDO (equipo: LINK_DOC_ADICIONAL / auxiliar:
+                                 LINK_CERTIFICADO). Visible siempre, como Propiedad: filtra ambos. --}}
+                            <label for="chk_adicional" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_adicional" onchange="toggleDocFilter('adicional')" {{ request('filter_adicional') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Certificado
                             </label>
@@ -658,12 +657,6 @@
                             <label for="chk_adicional_2" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
                                 <input type="checkbox" id="chk_adicional_2" onchange="toggleDocFilter('adicional_2')" {{ request('filter_adicional_2') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
                                 Compraventa
-                            </label>
-
-                            {{-- Certificado auxiliar (solo en auxMode) --}}
-                            <label for="chk_aux_certificado" class="adv-filter-aux-only" style="display: none; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_aux_certificado" onchange="toggleDocFilter('aux_certificado')" {{ request('filter_aux_certificado') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
-                                Certificado
                             </label>
                         </div>
                     </div>
@@ -798,6 +791,19 @@
     {{-- Consolidado de Auxiliares en móvil (en móvil el sidebar desktop se oculta).
          Mismo color teal que la card del sidebar para distinguirlo del de equipos. --}}
     @if(!empty($auxConsolidado))
+    @php
+        // Modo documento de la card AUX (espejo de equipos): con un doc compartido
+        // (propiedad/certificado) los bloques verde/rojo pasan a "Con/Sin [doc]" y el conteo a
+        // doc_con/doc_sin (TOTAL = doc_total). Calculado UNA vez aquí, usado por la card móvil
+        // y la de escritorio. El JS reaplica esto en cada AJAX.
+        $auxDocMode   = $auxConsolidado['doc_mode'] ?? false;
+        $auxDocLabel  = $auxConsolidado['doc_label'] ?? '';
+        $auxOperLabel = $auxDocMode ? 'Con ' . $auxDocLabel : 'Operativo';
+        $auxInopLabel = $auxDocMode ? 'Sin ' . $auxDocLabel : 'Inoperativo';
+        $auxTotalVal  = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_total'] : $auxConsolidado['total'])     : '--';
+        $auxOperVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_con']   : $auxConsolidado['activos'])   : '--';
+        $auxInopVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_sin']   : $auxConsolidado['inactivos']) : '--';
+    @endphp
     <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #475569 0%, #334155 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
@@ -806,15 +812,15 @@
         <div style="display: flex; gap: 8px; justify-content: space-between;">
             <div onclick="filterAuxByStatus('')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
                 <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
-                <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
+                <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $auxTotalVal }}</span>
             </div>
             <div onclick="filterAuxByStatus('OPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
-                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> OPER.</span>
-                <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</span>
+                <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="aux_mobile_oper_label">{{ $auxDocMode ? 'CON' : 'OPER.' }}</span></span>
+                <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $auxOperVal }}</span>
             </div>
             <div onclick="filterAuxByStatus('INOPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
-                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> INOP.</span>
-                <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</span>
+                <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="aux_mobile_inop_label">{{ $auxDocMode ? 'SIN' : 'INOP.' }}</span></span>
+                <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $auxInopVal }}</span>
             </div>
         </div>
     </div>
@@ -915,6 +921,8 @@
          junto al de equipos cuando NO se filtra por un tipo concreto (ver
          $showAuxConsolidado). Permanece en el DOM (toggle por JS al filtrar). --}}
     @if(!empty($auxConsolidado))
+    {{-- $auxDocMode/$auxOperLabel/$auxInopLabel/$auxTotalVal/$auxOperVal/$auxInopVal se calcularon
+         arriba (card móvil), reutilizados aquí para la card de escritorio. --}}
     <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #475569 0%, #334155 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
         <div style="position: relative; z-index: 2;">
@@ -922,19 +930,20 @@
                 <span>Equipos Auxiliares</span>
             </div>
             {{-- 3 columnas iguales en UNA sola línea, sin iconos (mismo patrón que el
-                 consolidado de equipos para que ambos se vean idénticos). --}}
+                 consolidado de equipos para que ambos se vean idénticos). En modo documento los
+                 bloques verde/rojo filtran por PRESENCIA (Con/Sin) en vez de por estado. --}}
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                <div onclick="filterAuxByStatus('')" title="Ver todos los auxiliares de este frente" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px; transition: background 0.2s;">
-                    <span id="aux_stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $hasFilter ? $auxConsolidado['total'] : '--' }}</span>
+                <div id="aux_block_total" onclick="filterAuxByStatus('')" title="Ver todos los auxiliares" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px; transition: background 0.2s;">
+                    <span id="aux_stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $auxTotalVal }}</span>
                     <span class="consolidado-stat-label" style="margin-top: 4px; opacity: 0.8;">TOTAL</span>
                 </div>
-                <div onclick="filterAuxByStatus('OPERATIVO')" title="Filtrar: auxiliares Operativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
-                    <strong id="aux_stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $hasFilter ? $auxConsolidado['activos'] : '--' }}</strong>
-                    <span class="consolidado-stat-label" style="margin-top: 4px;">Operativo</span>
+                <div id="aux_block_oper" onclick="filterAuxByStatus('OPERATIVO')" title="Filtrar auxiliares" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
+                    <strong id="aux_stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $auxOperVal }}</strong>
+                    <span id="aux_oper_label" class="consolidado-stat-label{{ $auxDocMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $auxOperLabel }}</span>
                 </div>
-                <div onclick="filterAuxByStatus('INOPERATIVO')" title="Filtrar: auxiliares Inoperativos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
-                    <strong id="aux_stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $hasFilter ? $auxConsolidado['inactivos'] : '--' }}</strong>
-                    <span class="consolidado-stat-label" style="margin-top: 4px;">Inoperativo</span>
+                <div id="aux_block_inop" onclick="filterAuxByStatus('INOPERATIVO')" title="Filtrar auxiliares" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
+                    <strong id="aux_stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $auxInopVal }}</strong>
+                    <span id="aux_inop_label" class="consolidado-stat-label{{ $auxDocMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $auxInopLabel }}</span>
                 </div>
             </div>
         </div>
@@ -950,7 +959,10 @@
     </div>
 
     <!-- Breakdown by Type or Front (Dynamic) -->
-    <div style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
+    {{-- La card alterna equipos↔auxiliares al hacer CLIC (onDistribucionCardClick); los clics
+         sobre una fila (li) conservan su acción de filtrar. El toggle solo se activa cuando hay
+         distribución de auxiliares disponible (frente/doc/etc. — ver $auxDistributionHtml). --}}
+    <div id="distribucionCard" onclick="onDistribucionCardClick(event)" style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
         <div id="distributionStatsContainer">
             {{-- Modo aux: usamos el HTML ya renderizado por buildEmbedPayload (mismo que
                  el AJAX via data.distribution) → así el render inicial también respeta la
@@ -963,6 +975,11 @@
             @endif
         </div>
     </div>
+    <script>
+        // HTML de la distribución de auxiliares para el toggle de la card (vacío si no aplica).
+        window.__distribAuxHtml = @json($auxDistributionHtml ?? '');
+        if (typeof window.eqSyncDistribToggle === 'function') window.eqSyncDistribToggle();
+    </script>
 </div>
 
 </div> <!-- End Page Layout Grid -->
@@ -1096,7 +1113,7 @@
     </style>
     
     <div id="fleetDashboardModal" class="modal-overlay">
-        <div class="modal-content" style="width: 95%; max-width: 1400px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative;">
+        <div class="modal-content" style="width: 95%; max-width: 1000px; height: 90vh; padding: 0; display: flex; flex-direction: column; background: #f8fafc; position: relative;">
             <!-- Header -->
             <div class="fleet-dashboard-header">
                 <div class="fleet-header-wrapper">
@@ -1257,22 +1274,10 @@
                 </div>
 
 
-                <!-- Charts Row -->
-                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px;">
-                    <!-- Estado Operativo -->
-                    <div id="fdm-panel-status" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
-                            <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 20px; color: #10b981;">donut_small</i>
-                                Estado Operativo de Equipos
-                            </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-status', 'estado_operativo')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                            </button>
-                        </h4>
-                        <canvas id="chartStatusByFront" style="max-height: 350px;"></canvas>
-                    </div>
-
+                <!-- Charts Row — una sola columna (gráficos apilados uno debajo del otro)
+                     a pedido del cliente: con muchos equipos, a todo el ancho del modal
+                     los valores de las barras dejan de solaparse. -->
+                <div id="fleetChartsGrid" style="display: grid; grid-template-columns: 1fr; gap: 20px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
                     <div id="fdm-panel-age" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                         <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
@@ -1285,20 +1290,6 @@
                             </button>
                         </h4>
                         <canvas id="chartAgeByType"></canvas>
-                    </div>
-
-                    <!-- Inoperatividad por Tipo de Equipo -->
-                    <div id="fdm-panel-inoperative" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h4 style="margin: 0 0 20px 0; font-size: 16px; color: #1e293b; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
-                            <span style="display: flex; align-items: center; gap: 10px;">
-                                <i class="material-icons" style="font-size: 20px; color: #ef4444;">warning_amber</i>
-                                Inoperatividad por Tipo de Equipo
-                            </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-inoperative', 'inoperatividad')" title="Descargar imagen" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                                <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                            </button>
-                        </h4>
-                        <canvas id="chartInoperativeByType"></canvas>
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo -->
@@ -1468,9 +1459,7 @@
             }
 
             /* Panels de gráficos: menos padding */
-            #fdm-panel-status,
             #fdm-panel-age,
-            #fdm-panel-inoperative,
             #fdm-panel-assigned,
             #fdm-panel-auxiliares {
                 padding: 14px !important;
@@ -1485,21 +1474,13 @@
             }
 
             /* Título de paneles */
-            #fdm-panel-status h4,
             #fdm-panel-age h4,
-            #fdm-panel-inoperative h4,
             #fdm-panel-auxiliares h4 {
                 font-size: 13px !important;
                 margin-bottom: 12px !important;
             }
         }
 
-        /* Tablet (769-1024px): 2 columnas de gráficos */
-        @media (min-width: 769px) and (max-width: 1024px) {
-            #fleetChartsGrid {
-                grid-template-columns: repeat(2, 1fr) !important;
-            }
-        }
     </style>
 
 <!-- Anclajes Dashboard Modal -->

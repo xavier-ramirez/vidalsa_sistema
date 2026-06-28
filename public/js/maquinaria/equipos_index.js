@@ -248,6 +248,20 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
         return;
     }
 
+    // Atajo: un equipo INOPERATIVO siempre tiene un reporte ABIERTO, así que
+    // cambiarle el estado SIEMPRE responde 409. Si la fila ya trae los datos del
+    // reporte (data-falla-*, eager-loaded), abrimos el modal de cierre AL INSTANTE
+    // sin el round-trip al PATCH (ni el parpadeo de optimistic UI + revert).
+    if (oldStatus === 'INOPERATIVO' && triggerEl.dataset.fallaId && typeof window.flAbrirCierre === 'function') {
+        window.flAbrirCierre({
+            id:     triggerEl.dataset.fallaId,
+            codigo: triggerEl.dataset.fallaCodigo || '',
+            tipo:   triggerEl.dataset.fallaTipo || '',
+            equipo: triggerEl.dataset.label || '',
+        });
+        return;
+    }
+
     const revert = function () { _applyStatusVisual(triggerEl, oldStatus); };
 
     // Actualizar visualmente el trigger de inmediato (optimistic UI)
@@ -760,9 +774,9 @@ window.__updateDocPresenceUI = function () {
     // Cada lado cubre su bloque de escritorio (#id) y el de móvil (.eq-block-*),
     // para que el resaltado del lado activo sea coherente en ambas vistas.
     [
-        { sel: '#block_total, .eq-block-total', key: 'all' },
-        { sel: '#block_oper,  .eq-block-oper',  key: 'con' },
-        { sel: '#block_inop,  .eq-block-inop',  key: 'sin' },
+        { sel: '#block_total, .eq-block-total, #aux_block_total', key: 'all' },
+        { sel: '#block_oper,  .eq-block-oper,  #aux_block_oper',  key: 'con' },
+        { sel: '#block_inop,  .eq-block-inop,  #aux_block_inop',  key: 'sin' },
     ].forEach(({ sel, key }) => {
         const active = docMode && presence === key;
         document.querySelectorAll(sel).forEach((el) => {
@@ -772,7 +786,73 @@ window.__updateDocPresenceUI = function () {
     });
 };
 
+// ¿La URL actual está en modo auxiliar (categoria=AUXILIARES)? Punto ÚNICO de verdad para
+// no repetir el parseo en filterByStatus / filterAuxByStatus.
+function eqEnModoAuxURL() {
+    return (new URLSearchParams(window.location.search).get('categoria') || '').toUpperCase() === 'AUXILIARES';
+}
+
+// ─── Toggle de la card de Distribución (equipos ↔ auxiliares) ─────────────────
+// Un clic en la card alterna entre la distribución de EQUIPOS (por defecto) y la de
+// AUXILIARES; los clics sobre una fila (li) conservan su acción de filtrar. El toggle solo
+// está disponible cuando hay distribución de auxiliares (window.__distribAuxHtml no vacío,
+// p.ej. al filtrar por frente/documento). __distribHtml guarda la de equipos para volver.
+window.__distMostrandoAux = false;
+window.__distribHtml = null;       // distribución de equipos (vista por defecto)
+window.__distribAuxHtml = window.__distribAuxHtml || ''; // la fija el Blade / el AJAX
+
+function _eqHayDistribAux() {
+    return !!(window.__distribAuxHtml && String(window.__distribAuxHtml).trim());
+}
+function _eqActualizarDistribHint() {
+    const card = document.getElementById('distribucionCard');
+    if (!card) return;
+    const hayAux = _eqHayDistribAux();
+    card.style.cursor = hayAux ? 'pointer' : 'default';
+    card.title = hayAux
+        ? (window.__distMostrandoAux ? 'Mostrando auxiliares — clic para ver equipos'
+                                     : 'Mostrando equipos — clic para ver auxiliares')
+        : '';
+}
+function _eqRenderDistribucion() {
+    const cont = document.getElementById('distributionStatsContainer');
+    if (cont) {
+        if (window.__distMostrandoAux && _eqHayDistribAux()) {
+            cont.innerHTML = window.__distribAuxHtml;
+        } else {
+            window.__distMostrandoAux = false;
+            if (window.__distribHtml != null) cont.innerHTML = window.__distribHtml;
+        }
+    }
+    _eqActualizarDistribHint();
+}
+// Sincroniza el toggle tras un render del BLADE (carga dura o navegación SPA): el contenedor
+// acaba de pintar la distribución de EQUIPOS (vista por defecto), así que la capturamos y
+// reseteamos el toggle a "equipos". (En AJAX se usa _eqRenderDistribucion, no esto.)
+window.eqSyncDistribToggle = function () {
+    const cont = document.getElementById('distributionStatsContainer');
+    if (cont) window.__distribHtml = cont.innerHTML;
+    window.__distMostrandoAux = false;
+    _eqActualizarDistribHint();
+};
+window.onDistribucionCardClick = function (e) {
+    // Clic en una fila de datos (li) → respetar su filtro (selectOption + loadEquipos), no alternar.
+    if (e.target.closest('li')) return;
+    if (!_eqHayDistribAux()) return;          // sin distribución aux → no hay nada que alternar
+    window.__distMostrandoAux = !window.__distMostrandoAux;
+    _eqRenderDistribucion();
+};
+document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
+
 window.filterByStatus = function (status) {
+    // En modo AUXILIAR (card de arriba = "Equipos Auxiliares") los bloques controlan los
+    // AUXILIARES, no los equipos. Se delega a filterAuxByStatus, que además permite REGRESAR
+    // a la vista del frente con un segundo clic en el bloque ya activo.
+    if (eqEnModoAuxURL()) {
+        window.filterAuxByStatus(status);
+        return;
+    }
+
     // En modo "Con / Sin documento" los bloques NO filtran por estado: filtran la
     // LISTA por presencia del documento. Verde = Con · Rojo = Sin · TOTAL = ambos.
     if (window.__equiposDocMode) {
@@ -815,13 +895,41 @@ window.filterByStatus = function (status) {
 //  status === 'OPERATIVO'  -> solo operativos
 //  status === 'INOPERATIVO'-> solo inoperativos
 window.filterAuxByStatus = function (status) {
+    status = status || '';
+
+    // En modo DOCUMENTO (filtro por un doc compartido propiedad/certificado) los bloques de la
+    // card aux filtran por PRESENCIA del documento (Con/Sin/Todos) — igual que la card de
+    // equipos — no por estado ni entrando a modo auxiliar. Verde=Con · Rojo=Sin · TOTAL=ambos.
+    if (window.__equiposDocMode) {
+        const presence = status === 'OPERATIVO' ? 'con' : (status === 'INOPERATIVO' ? 'sin' : 'all');
+        window.__equiposDocPresence = presence;
+        window.__updateDocPresenceUI();
+        window.loadEquipos();
+        return;
+    }
+
     const cur = new URLSearchParams(window.location.search);
+    const enAux = eqEnModoAuxURL();
+    const estadoActual = cur.get('estado') || '';
+
+    // Conserva el contexto del frente y de la búsqueda al entrar/salir.
     const params = new URLSearchParams();
     const frente = cur.get('id_frente');
     if (frente) params.set('id_frente', frente);
-    params.set('categoria', 'AUXILIARES'); // activa modo auxiliar (todos los tipos)
-    if (status) params.set('estado', status);
-    const url = '/admin/equipos?' + params.toString();
+    const search = cur.get('search_query');
+    if (search) params.set('search_query', search);
+
+    // TOGGLE para REGRESAR rápido: si ya estamos viendo auxiliares con EXACTAMENTE este
+    // estado, un segundo clic en el mismo bloque SALE del modo auxiliar y vuelve a la vista
+    // del frente (reaparecen las dos cards y la tabla de equipos). En cualquier otro caso,
+    // entra/cambia al modo auxiliar con el estado elegido.
+    if (!(enAux && estadoActual === status)) {
+        params.set('categoria', 'AUXILIARES'); // activa modo auxiliar (todos los tipos)
+        if (status) params.set('estado', status);
+    }
+
+    const qs = params.toString();
+    const url = '/admin/equipos' + (qs ? '?' + qs : '');
     if (typeof window.navigateTo === 'function') window.navigateTo(url);
     else window.location.href = url;
 };
@@ -905,9 +1013,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         filter_adicional_2: document.getElementById("chk_adicional_2")?.checked
             ? "true"
             : null,
-        filter_aux_certificado: document.getElementById("chk_aux_certificado")?.checked
-            ? "true"
-            : null,
         // Dirección del filtro de documento (bloques clicables del Consolidado).
         // Solo se envía si NO es el default 'con', para no ensuciar la URL.
         doc_presence: (window.__equiposDocPresence && window.__equiposDocPresence !== "con")
@@ -920,7 +1025,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2 || filters.filter_aux_certificado);
+        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
         if (hasAdv) {
             btnAdv.style.background = '#fee2e2';
             btnAdv.style.borderColor = '#ef4444';
@@ -1067,12 +1172,27 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 // auxiliares, así no se duplica.
                 const auxCons = data.auxConsolidado || null;
                 if (auxCons) {
-                    setEl('aux_stats_total',            displayStat(auxCons.total));
-                    setEl('aux_stats_activos',          displayStat(auxCons.activos));
-                    setEl('aux_stats_inactivos',        displayStat(auxCons.inactivos));
-                    setEl('aux_mobile_stats_total',     displayStat(auxCons.total));
-                    setEl('aux_mobile_stats_activos',   displayStat(auxCons.activos));
-                    setEl('aux_mobile_stats_inactivos', displayStat(auxCons.inactivos));
+                    // Modo documento de la card AUX (espejo de equipos): con un doc compartido
+                    // activo, TOTAL=doc_total y verde/rojo = Con/Sin [doc]; si no, estado.
+                    const auxDoc      = !!auxCons.doc_mode;
+                    const auxTotalVal = auxDoc ? auxCons.doc_total : auxCons.total;
+                    const auxOperVal  = auxDoc ? auxCons.doc_con   : auxCons.activos;
+                    const auxInopVal  = auxDoc ? auxCons.doc_sin   : auxCons.inactivos;
+                    setEl('aux_stats_total',            displayStat(auxTotalVal));
+                    setEl('aux_stats_activos',          displayStat(auxOperVal));
+                    setEl('aux_stats_inactivos',        displayStat(auxInopVal));
+                    setEl('aux_mobile_stats_total',     displayStat(auxTotalVal));
+                    setEl('aux_mobile_stats_activos',   displayStat(auxOperVal));
+                    setEl('aux_mobile_stats_inactivos', displayStat(auxInopVal));
+                    // Etiquetas de los bloques verde/rojo de la card aux (escritorio + móvil).
+                    setEl('aux_oper_label', auxDoc ? 'Con ' + (auxCons.doc_label || '') : 'Operativo');
+                    setEl('aux_inop_label', auxDoc ? 'Sin ' + (auxCons.doc_label || '') : 'Inoperativo');
+                    setEl('aux_mobile_oper_label', auxDoc ? 'CON' : 'OPER.');
+                    setEl('aux_mobile_inop_label', auxDoc ? 'SIN' : 'INOP.');
+                    ['aux_oper_label', 'aux_inop_label'].forEach(function (id) {
+                        const el = document.getElementById(id);
+                        if (el) el.classList.toggle('is-doc', auxDoc);
+                    });
                 }
                 // Mostrar la card de auxiliares solo cuando NO se filtra por un tipo
                 // concreto (frente o sin filtro → los dos; tipo equipo → solo equipos;
@@ -1117,8 +1237,13 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 if (!docMode) window.__equiposDocPresence = 'con';
                 window.__updateDocPresenceUI();
 
-                const distroContainer = document.getElementById('distributionStatsContainer');
-                if (distroContainer) distroContainer.innerHTML = data.distribution;
+                // Distribución: guarda la de equipos (default) y la de auxiliares (toggle), y
+                // re-renderiza respetando el estado del toggle. En modo aux no hay alternancia
+                // (data.distribution ya es de auxiliares; auxDistribution viene vacío).
+                window.__distribHtml    = data.distribution;
+                window.__distribAuxHtml = data.auxDistribution || '';
+                if (data.mode === 'aux') window.__distMostrandoAux = false;
+                _eqRenderDistribucion();
 
                 // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL.
                 // El filtro por detalle se activa desde este panel lateral (ya no es un filtro avanzado).
@@ -2940,10 +3065,6 @@ window.exportEquipos = function () {
     }
     if (document.getElementById("chk_adicional_2")?.checked) {
         params.append("filter_adicional_2", "true");
-        hasAnyFilter = true;
-    }
-    if (document.getElementById("chk_aux_certificado")?.checked) {
-        params.append("filter_aux_certificado", "true");
         hasAnyFilter = true;
     }
 

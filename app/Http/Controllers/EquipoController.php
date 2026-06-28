@@ -322,9 +322,10 @@ class EquipoController extends Controller
      * True si los filtros apuntan SOLO a equipos → NO se muestran/exportan auxiliares ni su
      * card. El FRENTE no cuenta (agrupa equipos Y auxiliares). Dos motivos de enfoque:
      *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, año, GPS o categoría de flota.
-     *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/certificado/compraventa):
-     *      un auxiliar no puede cumplirlo. Se deriva de DOC_FILTER_COLS (menos 'filter_propiedad',
-     *      el único doc que también tienen los auxiliares) para no desincronizarse.
+     *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/compraventa): un auxiliar
+     *      no puede cumplirlo. Se deriva de DOC_FILTER_COLS menos los DOCS COMPARTIDOS
+     *      (filter_propiedad y filter_adicional/"Certificado", que los auxiliares también
+     *      tienen) para no desincronizarse. Ver self::SHARED_DOC_FILTERS.
      * Fuente ÚNICA: la usan el merge y la card en index() y la hoja aux de export().
      */
     private function esFocoSoloEquipos(Request $request): bool
@@ -339,13 +340,38 @@ class EquipoController extends Controller
             || $request->filled('gps')
             || ($categoriaSel !== '' && $categoriaSel !== 'AUXILIARES');
         // Documentos solo-equipos activos = los doc filters activos (detector canónico
-        // activeDocFilters, criterio === 'true') MENOS 'filter_propiedad' (único doc que los
-        // auxiliares también tienen). Reutiliza la fuente única para no divergir del filtrado real.
+        // activeDocFilters, criterio === 'true') MENOS los DOCS COMPARTIDOS (propiedad y
+        // certificado, que los auxiliares también tienen). Reutiliza la fuente única para no
+        // divergir del filtrado real.
         $equipoOnlyDocFilter = !empty(array_diff(
             array_keys($this->activeDocFilters($request)),
-            ['filter_propiedad']
+            self::SHARED_DOC_FILTERS
         ));
         return $equipoDeviceFilter || $equipoOnlyDocFilter;
+    }
+
+    /**
+     * Doc filters COMPARTIDOS equipo↔auxiliar: el auxiliar tiene la misma clase de documento,
+     * así que tildarlos NO enfoca solo-equipos y se reenvían al módulo aux (con_propiedad /
+     * con_certificado). El resto de docs (póliza/ROTC/RACDA/compraventa) son solo-equipos.
+     *   filter_propiedad → LINK_DOC_PROPIEDAD (equipo) / LINK_DOC_PROPIEDAD (aux)
+     *   filter_adicional ("Certificado") → LINK_DOC_ADICIONAL (equipo) / LINK_CERTIFICADO (aux)
+     */
+    private const SHARED_DOC_FILTERS = ['filter_propiedad', 'filter_adicional'];
+
+    /**
+     * ¿Hay algún EJE COMPARTIDO activo (frente, búsqueda o doc compartido) que los auxiliares
+     * también puedan satisfacer? Gobierna por igual el merge de filas aux y la card en index(),
+     * y la hoja aux de export(), para que la tabla, la card y el Excel coincidan EXACTAMENTE.
+     */
+    private function auxFiltroCompartidoActivo(Request $request): bool
+    {
+        if ($request->filled('id_frente')) return true;
+        if (trim((string) $request->input('search_query', '')) !== '') return true;
+        foreach (self::SHARED_DOC_FILTERS as $param) {
+            if ($request->input($param) === 'true') return true;
+        }
+        return false;
     }
 
     /**
@@ -361,8 +387,13 @@ class EquipoController extends Controller
             'search'            => $request->input('search_query'),
             'detalle_ubicacion' => $request->input('detalle_ubicacion'),
             'confirmado'        => $request->input('confirmado'),
-            // Doc filters: criterio === 'true' (igual que activeDocFilters y el blade).
+            // Doc filters COMPARTIDOS: criterio === 'true' (igual que activeDocFilters y el blade).
+            // "Certificado" del panel (filter_adicional) → con_certificado del aux (LINK_CERTIFICADO).
             'con_propiedad'     => $request->input('filter_propiedad') === 'true' ? '1' : null,
+            'con_certificado'   => $request->input('filter_adicional') === 'true' ? '1' : null,
+            // Dirección de presencia del doc (Con/Sin/Todos) para que el merge y el conteo del
+            // card aux filtren igual que la lista de equipos al clicar los bloques del Consolidado.
+            'doc_presence'      => $request->input('doc_presence'),
         ]);
     }
 
@@ -382,9 +413,10 @@ class EquipoController extends Controller
             'modelo'            => $request->input('modelo'),
             'estado'            => $request->input('estado'),
             'anio'              => $request->input('anio'),
-            // Doc filters: criterio === 'true' (igual que activeDocFilters y el blade).
+            // Doc filters COMPARTIDOS: criterio === 'true' (igual que activeDocFilters y el blade).
+            // "Certificado" del panel (filter_adicional) → con_certificado del aux (LINK_CERTIFICADO).
             'con_propiedad'     => $request->input('filter_propiedad') === 'true' ? '1' : null,
-            'con_certificado'   => $request->input('filter_aux_certificado') === 'true' ? '1' : null,
+            'con_certificado'   => $request->input('filter_adicional') === 'true' ? '1' : null,
             'offset'            => $request->input('offset', 0),
         ]);
     }
@@ -413,7 +445,8 @@ class EquipoController extends Controller
 
         // En modo "solo seleccionados" (ids_in) la whitelist es la única condición:
         // applyEquipoFilters ya hizo short-circuit, así que ignoramos la búsqueda.
-        if ($search && !$request->filled('ids_in')) {
+        // trim()!=='' (no truthy): un serial/código exacto '0' es falsy en PHP y se perdería.
+        if (trim((string) $search) !== '' && !$request->filled('ids_in')) {
             $searchUpper = strtoupper(trim($search));
 
             // Smart Search by prefix
@@ -469,6 +502,9 @@ class EquipoController extends Controller
                 'especificaciones:ID_ESPEC,COMBUSTIBLE,CONSUMO_PROMEDIO,FOTO_REFERENCIAL',
                 'tipo',
                 'frenteActual',
+                // Reporte abierto: permite abrir el modal de cierre al instante al
+                // pasar un INOPERATIVO a OPERATIVO (sin round-trip al 409).
+                'fallaAbierta:ID_FALLA,ACTIVO_ID,ACTIVO_TIPO,ESTADO_REPORTE,CODIGO_REPORTE,TIPO_REPORTE,FECHA_EMISION',
                 'ancladoA.tipo',
                 'ancladoA.documentacion',
                 'ancladoA.frenteActual',
@@ -636,15 +672,18 @@ class EquipoController extends Controller
         $auxSharedReq = $this->auxSharedRequest($request);
 
         // ── MERGE de auxiliares en la tabla de equipos ──────────────────────────
-        // Al filtrar por FRENTE (sin enfoque solo-equipos y fuera del modo aux-only), la tabla
-        // lista los equipos del frente y, al final del ÚLTIMO lote del scroll infinito, anexa
-        // las filas de AUXILIARES que coinciden con los MISMOS filtros (filas funcionales:
-        // reutilizan el partial y la maquinaria aux ya cargada). Reutiliza buildEmbedPayload
-        // (sin duplicar la lógica de filtrado/cap). Solo se agrega cuando !$hasMore para que
-        // los auxiliares aparezcan UNA sola vez, después de TODOS los equipos.
+        // Cuando hay un EJE COMPARTIDO activo (frente, búsqueda de serial/placa/código, o un doc
+        // compartido propiedad/certificado) — sin enfoque solo-equipos y fuera del modo aux-only —
+        // la tabla lista los equipos y, al final del ÚLTIMO lote del scroll infinito, anexa las
+        // filas de AUXILIARES que coinciden con los MISMOS filtros (filas funcionales: reutilizan
+        // el partial y la maquinaria aux ya cargada). Así un serial buscado o un auxiliar con
+        // certificado/propiedad sale DIRECTO en la tabla, no en un banner aparte. Reutiliza
+        // buildEmbedPayload (sin duplicar el filtrado/cap) y SOLO se agrega cuando !$hasMore para
+        // que los auxiliares aparezcan UNA sola vez, al final. auxFiltroCompartidoActivo es la
+        // MISMA condición que usa la hoja aux de export() → tabla, card y Excel coinciden.
         $mergeAux = $hasFilter && !$auxMode
             && !$focusEquiposOnly
-            && $request->filled('id_frente');
+            && $this->auxFiltroCompartidoActivo($request);
         $mergeAuxHtml = '';
         $mergeAuxData = [];
         if ($mergeAux && !$hasMore) {
@@ -675,13 +714,24 @@ class EquipoController extends Controller
         // $focusEquiposOnly ya se calculó arriba (gobierna también el merge de la tabla).
         $showAuxConsolidado = !$auxMode && !$focusEquiposOnly;
 
-        // Aviso "también hay auxiliares": la búsqueda de esta tabla solo cubre VEHÍCULOS
-        // (equipos). Si se busca un texto y NO estamos ya en modo auxiliar, contamos cuántos
-        // auxiliares coinciden con ese serial/código para ofrecer un enlace que los muestre
-        // (modo auxiliar via categoria=AUXILIARES). Así un serial de auxiliar no "desaparece".
+        // Distribución de AUXILIARES para el TOGGLE de la card de Distribución (un clic alterna
+        // equipos↔auxiliares). Solo se calcula cuando la card aux es visible (mismo gate); en
+        // cualquier otro caso queda vacío y el toggle se desactiva en el front. Mismos ejes
+        // compartidos ($auxSharedReq) que la tabla y el consolidado.
+        $auxDistributionHtml = $showAuxConsolidado
+            ? app(\App\Http\Controllers\EquipoAuxiliarController::class)->distribucionHtml($auxSharedReq)
+            : '';
+
+        // Aviso "también hay auxiliares": se muestra cuando hay auxiliares que coinciden con la
+        // BÚSQUEDA pero que TODAVÍA no están en la tabla. Dos casos: (a) no hay merge (enfoque
+        // solo-equipos), o (b) hay merge pero los auxiliares se anexan al FINAL del scroll y aún
+        // quedan lotes de equipos por cargar ($hasMore) — sin esto, en una búsqueda con muchos
+        // equipos el auxiliar quedaría invisible hasta llegar al último lote. Cuando el merge ya
+        // los anexó en este lote ($mergeAux && !$hasMore) el banner se oculta (auxMatchCount=0).
+        $auxYaEnTabla  = $mergeAux && !$hasMore;
         $auxMatchCount = 0;
         $auxMatchUrl = null;
-        if ($search && !$auxMode && !$request->filled('ids_in')) {
+        if (trim((string) $search) !== '' && !$auxMode && !$auxYaEnTabla && !$request->filled('ids_in')) {
             $auxMatchCount = app(\App\Http\Controllers\EquipoAuxiliarController::class)->countMatchingSearch((string) $search);
             if ($auxMatchCount > 0) {
                 $auxMatchUrl = route('equipos.index', ['categoria' => 'AUXILIARES', 'search_query' => $search]);
@@ -726,6 +776,9 @@ class EquipoController extends Controller
                     ])->render(),
                 'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteEspecial'))->render(),
                 'showUbicaciones'   => !$auxMode && $frenteEspecial !== null,
+                // HTML de la distribución de auxiliares para el toggle de la card (vacío si la card
+                // aux no aplica → el front desactiva el toggle).
+                'auxDistribution'   => $auxDistributionHtml,
                 'auxMatchCount'     => $auxMatchCount,
                 'auxMatchUrl'       => $auxMatchUrl,
             ])->withHeaders([
@@ -805,7 +858,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxMatchCount', 'auxMatchUrl', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'auxMatchCount', 'auxMatchUrl', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)
@@ -1287,23 +1340,38 @@ class EquipoController extends Controller
         $sheet->getStyle('A5:'.$lastCol.$rowNum)->applyFromArray($headerBorders);
 
         // Hoja 2: Equipos Auxiliares — MISMA regla que la pantalla (index): se incluyen los
-        // auxiliares cuando estamos en modo aux, o cuando NO hay enfoque solo-equipos y hay un
-        // frente filtrado (mismo gate del merge). En cualquier otro caso la hoja queda vacía
-        // (solo cabecera), igual que en pantalla no se muestran. El filtrado se delega a
-        // EquipoAuxiliarController::exportQuery (reutiliza applyAuxiliarFilters), sin duplicar.
+        // auxiliares cuando estamos en modo aux, o cuando NO hay enfoque solo-equipos y hay un eje
+        // compartido activo (frente, búsqueda o doc compartido) — auxFiltroCompartidoActivo, el
+        // MISMO gate del merge. La hoja se agrega si hay auxiliares que exportar; y TAMBIÉN en modo
+        // aux aunque esté vacía, porque ahí la hoja aux es la PRINCIPAL (espejo de la pantalla, que
+        // muestra la tabla de auxiliares aunque salga vacía) y debe quedar al menos una hoja con la
+        // etiqueta correcta. Fuera de modo aux, una hoja aux sin filas NO se crea. El filtrado se
+        // delega a EquipoAuxiliarController::exportQuery (reutiliza applyAuxiliarFilters), sin duplicar.
         $auxMode    = $this->esModoAux($request);
         $incluirAux = $auxMode
-            || (!$this->esFocoSoloEquipos($request) && $request->filled('id_frente'));
+            || (!$this->esFocoSoloEquipos($request) && $this->auxFiltroCompartidoActivo($request));
         if ($incluirAux) {
             $auxReqExport = $auxMode ? $this->auxModeRequest($request) : $this->auxSharedRequest($request);
             $auxQuery = app(\App\Http\Controllers\EquipoAuxiliarController::class)
                 ->exportQuery($auxReqExport)
                 ->with('frente:ID_FRENTE,NOMBRE_FRENTE');
-        } else {
-            $auxQuery = \App\Models\EquipoAuxiliar::query()->whereRaw('1 = 0')
-                ->with('frente:ID_FRENTE,NOMBRE_FRENTE');
+            if ($auxMode || (clone $auxQuery)->exists()) {
+                $this->appendAuxSheet($spreadsheet, $auxQuery, $nombreFrente);
+            }
         }
-        $this->appendAuxSheet($spreadsheet, $auxQuery, $nombreFrente);
+
+        // Si el listado de equipos quedó vacío (p.ej. modo auxiliar: la pantalla solo muestra
+        // auxiliares) NO dejamos una hoja "Equipos" vacía — se elimina, siempre que exista otra
+        // hoja para no producir un libro sin hojas. En modo aux la hoja aux siempre se agregó
+        // arriba, así que el libro queda solo con "Equipos Auxiliares". Espejo de la regla de la
+        // hoja aux: cada hoja aparece solo si corresponde a lo que se ve en pantalla.
+        if ($equiposList->isEmpty() && $spreadsheet->getSheetCount() > 1) {
+            $equiposSheet = $spreadsheet->getSheetByName('Equipos');
+            if ($equiposSheet !== null) {
+                $spreadsheet->removeSheetByIndex($spreadsheet->getIndex($equiposSheet));
+            }
+            $spreadsheet->setActiveSheetIndex(0);
+        }
 
         // Limpiar TODOS los buffers de salida activos de forma segura.
         // ob_end_clean() simple puede fallar en php-fpm de producción (nginx) si hay
@@ -2309,11 +2377,9 @@ class EquipoController extends Controller
         // reporte (quedó INOPERATIVO al crearlo): no se cambia a mano desde aquí. Para
         // cambiarlo hay que CERRAR el reporte (lo que lo devuelve a OPERATIVO).
         // Devolvemos los datos del reporte para que el front muestre el modal de cierre.
-        $falla = \App\Models\Falla::where('ACTIVO_TIPO', 'equipo')
-            ->where('ACTIVO_ID', $equipo->ID_EQUIPO)
-            ->where('ESTADO_REPORTE', 'abierto')
-            ->latest('FECHA_EMISION')
-            ->first();
+        // Fuente ÚNICA del "reporte abierto": la relación Equipo::fallaAbierta (misma que
+        // eager-loadea el listado para abrir el modal al instante).
+        $falla = $equipo->fallaAbierta;
         if ($falla) {
             $ident = optional($equipo->documentacion)->PLACA
                   ?: ($equipo->SERIAL_CHASIS ?: ($equipo->CODIGO_PATIO ?: trim(($equipo->MARCA ?? '') . ' ' . ($equipo->MODELO ?? ''))));
@@ -2381,11 +2447,8 @@ class EquipoController extends Controller
         // ABIERTO, su estado lo gobierna ese reporte y NO se cambia a mano — hay que cerrar
         // el reporte primero. Se responde 409 con los datos del reporte para que la APK
         // muestre el aviso ("cierra el reporte primero") y NO reintente el outbox.
-        $falla = \App\Models\Falla::where('ACTIVO_TIPO', 'equipo')
-            ->where('ACTIVO_ID', $equipo->ID_EQUIPO)
-            ->where('ESTADO_REPORTE', 'abierto')
-            ->latest('FECHA_EMISION')
-            ->first();
+        // Fuente ÚNICA del "reporte abierto": la relación Equipo::fallaAbierta.
+        $falla = $equipo->fallaAbierta;
         if ($falla) {
             return response()->json([
                 'success'       => false,
@@ -3057,35 +3120,43 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
 
-            // Cache key — v5: almacena array plano (no JsonResponse) para evitar fallo de serialización.
-            $cacheKey = 'fleet_stats_v5_u' . ($user?->id ?? 'guest')
+            // Cache key — v6: cambió la estructura del payload (se quitaron los gráficos
+            // Estado Operativo e Inoperatividad y los auxiliares ahora se filtran por frente).
+            $cacheKey = 'fleet_stats_v6_u' . ($user?->id ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_b' . md5(implode(',', $frentesBloqueados));
 
             $payload = \Illuminate\Support\Facades\Cache::remember($cacheKey, 120, function () use (
                 $isLocal, $frentesPermitidos, $frentesBloqueados, $requestedFrenteId, $applyEspecialExclusion
             ) {
-                // ── Construir la query base una sola vez ──────────────────────────
-                $baseQuery = Equipo::query();
-
-                if ($isLocal && count($frentesPermitidos) > 0) {
-                    // Bug fix: NO aplicar dos where consecutivos — usar solo whereIn con un frente si está solicitado
-                    if ($requestedFrenteId && $requestedFrenteId !== 'all'
-                        && in_array($requestedFrenteId, $frentesPermitidos)
-                    ) {
-                        $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
-                    } else {
-                        $baseQuery->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+                // ── Scope de frente reutilizable ──────────────────────────────────
+                // Aplica el MISMO filtro (usuario local, frente solicitado en el
+                // dashboard y lista negra) a cualquier query cuya columna de frente sea
+                // ID_FRENTE_ACTUAL. Lo usan los equipos Y los auxiliares para que el
+                // dashboard filtre AMBOS por el frente seleccionado, sin duplicar lógica.
+                $scopeFrente = function ($q) use ($isLocal, $frentesPermitidos, $frentesBloqueados, $requestedFrenteId) {
+                    if ($isLocal && count($frentesPermitidos) > 0) {
+                        // NO aplicar dos where consecutivos — solo whereIn, o where con el frente solicitado.
+                        if ($requestedFrenteId && $requestedFrenteId !== 'all'
+                            && in_array($requestedFrenteId, $frentesPermitidos)
+                        ) {
+                            $q->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
+                        } else {
+                            $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
+                        }
+                    } elseif ($isLocal) {
+                        // Usuario local sin frentes permitidos: sin datos
+                        $q->whereRaw('1 = 0');
+                    } elseif ($requestedFrenteId && $requestedFrenteId !== 'all') {
+                        $q->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
                     }
-                } elseif ($isLocal) {
-                    // Usuario local sin frentes permitidos: sin datos
-                    $baseQuery->whereRaw('1 = 0');
-                } elseif ($requestedFrenteId && $requestedFrenteId !== 'all') {
-                    $baseQuery->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
-                }
+                    // Lista negra: ocultar frentes bloqueados (aplica también a GLOBAL).
+                    \App\Models\Usuario::aplicarBloqueoIds($q, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
+                };
 
-                // Lista negra: ocultar frentes bloqueados (aplica también a GLOBAL).
-                \App\Models\Usuario::aplicarBloqueoIds($baseQuery, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
+                // ── Construir la query base de equipos ────────────────────────────
+                $baseQuery = Equipo::query();
+                $scopeFrente($baseQuery);
 
                 // Excluir frentes ESPECIAL del dashboard de flota (salvo drill-down explícito).
                 if ($applyEspecialExclusion) {
@@ -3111,22 +3182,12 @@ class EquipoController extends Controller
                     ->join('caracteristicas_modelo', 'equipos.ID_ESPEC', '=', 'caracteristicas_modelo.ID_ESPEC')
                     ->sum(DB::raw('CAST(caracteristicas_modelo.CONSUMO_PROMEDIO AS DECIMAL(10,2))'));
 
-                // ── 1. Estado Operativo ───────────────────────────────────────────
-                $byStatusRaw = (clone $baseQuery)
-                    ->select('ESTADO_OPERATIVO', DB::raw('COUNT(*) as total'))
-                    ->whereNotNull('ESTADO_OPERATIVO')
-                    ->groupBy('ESTADO_OPERATIVO')
-                    ->orderByDesc('total')
-                    ->get();
-
-                // ── 2, 3. Queries agrupadas por tipo (un solo JOIN compartido) ──────
+                // ── Query agrupada por tipo (flota nueva vs vieja) ──────────────────
                 $byTypeRaw = (clone $baseQuery)
                     ->select(
                         'tipo_equipos.nombre as tipo_nombre',
                         DB::raw('SUM(CASE WHEN equipos.ANIO >= 2025 THEN 1 ELSE 0 END) as new_count'),
-                        DB::raw('SUM(CASE WHEN equipos.ANIO <  2025 THEN 1 ELSE 0 END) as old_count'),
-                        DB::raw("SUM(CASE WHEN equipos.ESTADO_OPERATIVO = 'INOPERATIVO'      THEN 1 ELSE 0 END) as inoperativo_count"),
-                        DB::raw("SUM(CASE WHEN equipos.ESTADO_OPERATIVO = 'EN MANTENIMIENTO' THEN 1 ELSE 0 END) as mantenimiento_count")
+                        DB::raw('SUM(CASE WHEN equipos.ANIO <  2025 THEN 1 ELSE 0 END) as old_count')
                     )
                     ->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id')
                     ->whereNotNull('equipos.id_tipo_equipo')
@@ -3149,20 +3210,24 @@ class EquipoController extends Controller
                     ->orderByDesc('total')
                     ->get();
 
-                // ── Transformar byTypeRaw a las 2 secciones ───────────────────────
-                // Age (flota nueva vs vieja)
+                // ── Transformar byTypeRaw a la sección de edad (flota nueva vs vieja) ──
                 $ageLabels    = $byTypeRaw->pluck('tipo_nombre')->toArray();
                 $newFleetData = $byTypeRaw->pluck('new_count')->map(fn($v) => (int)$v)->toArray();
                 $oldFleetData = $byTypeRaw->pluck('old_count')->map(fn($v) => (int)$v)->toArray();
 
-                // Inoperative (inoperativo + mantenimiento) — filtrar tipos sin datos
-                $inopFiltered    = $byTypeRaw->filter(fn($r) => ((int)$r->inoperativo_count + (int)$r->mantenimiento_count) > 0);
-                $inopLabels      = $inopFiltered->pluck('tipo_nombre')->toArray();
-                $inoperativoData = $inopFiltered->pluck('inoperativo_count')->map(fn($v) => (int)$v)->values()->toArray();
-                $mantenimientoData = $inopFiltered->pluck('mantenimiento_count')->map(fn($v) => (int)$v)->values()->toArray();
-
-                // ── 5. Auxiliares por Tipo (global — no filtrado por frente) ─────────
-                $auxByTypeRaw = EquipoAuxiliar::query()
+                // ── Auxiliares por Tipo — MISMO filtro de frente que los equipos ─────
+                // (antes era global; ahora respeta el frente seleccionado en el dashboard).
+                $auxBase = EquipoAuxiliar::query();
+                $scopeFrente($auxBase);
+                if ($applyEspecialExclusion) {
+                    $especialIds = FrenteTrabajo::especialIds();
+                    if (!empty($especialIds)) {
+                        $auxBase->where(function ($q) use ($especialIds) {
+                            $q->whereNull('ID_FRENTE_ACTUAL')->orWhereNotIn('ID_FRENTE_ACTUAL', $especialIds);
+                        });
+                    }
+                }
+                $auxByTypeRaw = $auxBase
                     ->select(
                         'TIPO',
                         DB::raw('COUNT(*) as total'),
@@ -3185,22 +3250,11 @@ class EquipoController extends Controller
                         'fleet_old'         => $fleetOld,
                         'total_consumption' => number_format((float)$totalConsumption, 2)
                     ],
-                    'byStatus' => [
-                        'labels' => $byStatusRaw->pluck('ESTADO_OPERATIVO')->toArray(),
-                        'values' => $byStatusRaw->pluck('total')->map(fn($v) => (int)$v)->toArray()
-                    ],
                     'ageByType' => [
                         'labels'   => $ageLabels,
                         'datasets' => [
                             ['label' => 'Flota Nueva (≥2025)', 'data' => $newFleetData],
                             ['label' => 'Flota Vieja (<2025)',  'data' => $oldFleetData]
-                        ]
-                    ],
-                    'inoperativeByType' => [
-                        'labels'   => $inopLabels,
-                        'datasets' => [
-                            ['label' => 'Inoperativo',      'data' => $inoperativoData],
-                            ['label' => 'En Mantenimiento', 'data' => $mantenimientoData]
                         ]
                     ],
                     'equiposPorFrente' => $eqByFrenteRaw->map(fn($r) => [
