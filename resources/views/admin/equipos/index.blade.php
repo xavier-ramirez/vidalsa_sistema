@@ -810,15 +810,15 @@
             Equipos Auxiliares
         </div>
         <div style="display: flex; gap: 8px; justify-content: space-between;">
-            <div onclick="filterAuxByStatus('')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
+            <div id="aux_mobile_block_total" onclick="filterAuxByStatus('')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
                 <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
                 <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $auxTotalVal }}</span>
             </div>
-            <div onclick="filterAuxByStatus('OPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
+            <div id="aux_mobile_block_oper" onclick="filterAuxByStatus('OPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
                 <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="aux_mobile_oper_label">{{ $auxDocMode ? 'CON' : 'OPER.' }}</span></span>
                 <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $auxOperVal }}</span>
             </div>
-            <div onclick="filterAuxByStatus('INOPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
+            <div id="aux_mobile_block_inop" onclick="filterAuxByStatus('INOPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
                 <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="aux_mobile_inop_label">{{ $auxDocMode ? 'SIN' : 'INOP.' }}</span></span>
                 <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $auxInopVal }}</span>
             </div>

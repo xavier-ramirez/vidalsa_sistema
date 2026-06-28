@@ -331,12 +331,14 @@ class EquipoController extends Controller
     private function esFocoSoloEquipos(Request $request): bool
     {
         $categoriaSel = strtoupper(trim((string) $request->input('categoria', '')));
+        // NOTA: 'anio' NO entra aquí — es un EJE COMPARTIDO (los auxiliares también tienen ANIO),
+        // así que filtrar por año muestra equipos Y auxiliares de ese año (ver auxFiltroCompartidoActivo
+        // y auxSharedRequest). marca/modelo/color/gps/categoría/tipo siguen siendo solo-equipos.
         $equipoDeviceFilter =
                ($request->filled('id_tipo') && $request->input('id_tipo') !== 'all')
             || $request->filled('modelo')
             || $request->filled('marca')
             || $request->filled('color')
-            || $request->filled('anio')
             || $request->filled('gps')
             || ($categoriaSel !== '' && $categoriaSel !== 'AUXILIARES');
         // Documentos solo-equipos activos = los doc filters activos (detector canónico
@@ -368,6 +370,7 @@ class EquipoController extends Controller
     {
         if ($request->filled('id_frente')) return true;
         if (trim((string) $request->input('search_query', '')) !== '') return true;
+        if ($request->filled('anio')) return true; // los auxiliares también tienen ANIO
         foreach (self::SHARED_DOC_FILTERS as $param) {
             if ($request->input($param) === 'true') return true;
         }
@@ -387,6 +390,7 @@ class EquipoController extends Controller
             'search'            => $request->input('search_query'),
             'detalle_ubicacion' => $request->input('detalle_ubicacion'),
             'confirmado'        => $request->input('confirmado'),
+            'anio'              => $request->input('anio'), // eje compartido: aux también tienen ANIO
             // Doc filters COMPARTIDOS: criterio === 'true' (igual que activeDocFilters y el blade).
             // "Certificado" del panel (filter_adicional) → con_certificado del aux (LINK_CERTIFICADO).
             'con_propiedad'     => $request->input('filter_propiedad') === 'true' ? '1' : null,
