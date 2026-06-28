@@ -3227,6 +3227,15 @@ function initEquipos() {
         };
     }
 
+    // Registrar las imágenes de las filas renderizadas SERVER-SIDE (carga inicial /
+    // hard-reload / navegación SPA). El path AJAX (renderNextChunk) ya las registra al
+    // insertar chunks, pero en la carga directa por URL las filas vienen del Blade y
+    // nadie las observaba → las fotos quedaban en opacity:0 (data-src nunca pasaba a src).
+    const tableBody = document.getElementById("equiposTableBody");
+    if (tableBody && window._registerLazyImages) {
+        window._registerLazyImages(tableBody);
+    }
+
     updateSelectionUI();
 }
 
