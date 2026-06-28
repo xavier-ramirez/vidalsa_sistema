@@ -418,10 +418,11 @@ function updateSelectionUI() {
     }
 }
 
-// "Ver solo seleccionados": al tocar el contador de la barra, recarga la tabla
-// mostrando ÚNICAMENTE los equipos seleccionados (whitelist server-side vía
-// ids_in, ignorando los demás filtros). Volver a tocar lo apaga. Mismo patrón
-// que el contador del módulo Almacén (almToggleSoloSel).
+// "Ver solo seleccionados": al tocar el contador de la barra filtra la tabla
+// mostrando ÚNICAMENTE los equipos seleccionados. Tiene dos capas:
+//   1. Filtro cliente-side INMEDIATO: oculta filas no seleccionadas al instante.
+//   2. Recarga AJAX con ids_in (whitelist server-side) para paginación correcta.
+// Volver a tocar deshace el filtro. Mismo patrón que almToggleSoloSel.
 window.toggleEquiposSoloSel = function (e) {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const ids = Object.keys(window.selectedEquipos || {});
@@ -434,10 +435,27 @@ window.toggleEquiposSoloSel = function (e) {
     window._equiposSoloSel = !window._equiposSoloSel;
     const counter = document.querySelector('#bulkFloatingBar .selection-counter');
     if (counter) counter.classList.toggle('is-filtering', window._equiposSoloSel);
+
+    // Capa 1: filtro cliente-side instantáneo para feedback visual inmediato.
+    // No espera al AJAX — el usuario ve el cambio en el mismo frame del click.
+    const tbody = document.getElementById('equiposTableBody');
+    if (tbody) {
+        tbody.querySelectorAll('tr').forEach(tr => {
+            if (tr.dataset.auxId) return; // filas aux: las maneja auxToggleRow
+            const btn = tr.querySelector('.btn-details-mini');
+            if (!btn) return;
+            const rowId = String(btn.dataset.equipoId);
+            tr.style.display = window._equiposSoloSel
+                ? (window.selectedEquipos.hasOwnProperty(rowId) ? '' : 'none')
+                : '';
+        });
+    }
+
+    // Capa 2: recarga AJAX con ids_in para que la paginación y el backend
+    // sean coherentes con el filtro activo (especialmente si hay más de una página).
     window.loadEquipos(null, false, { offset: 0 });
-    if (window._equiposSoloSel) {
-        const tbody = document.getElementById('equiposTableBody');
-        if (tbody) tbody.scrollIntoView({ block: 'start' });
+    if (window._equiposSoloSel && tbody) {
+        tbody.scrollIntoView({ block: 'start' });
     }
 };
 
