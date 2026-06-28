@@ -804,7 +804,7 @@
         $auxOperVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_con']   : $auxConsolidado['activos'])   : '--';
         $auxInopVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_sin']   : $auxConsolidado['inactivos']) : '--';
     @endphp
-    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #475569 0%, #334155 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
             Equipos Auxiliares
@@ -923,7 +923,7 @@
     @if(!empty($auxConsolidado))
     {{-- $auxDocMode/$auxOperLabel/$auxInopLabel/$auxTotalVal/$auxOperVal/$auxInopVal se calcularon
          arriba (card móvil), reutilizados aquí para la card de escritorio. --}}
-    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #475569 0%, #334155 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; opacity: 0.85; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">

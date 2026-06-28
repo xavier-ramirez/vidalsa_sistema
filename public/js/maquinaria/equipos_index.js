@@ -1810,15 +1810,6 @@ window.openBulkModal = function (event) {
                 </div>
                 <input type="hidden" id="bm-frente-value">
             </div>
-            <div id="bm-ubicacion-wrapper" style="margin-top: 12px; display: none;">
-                <label for="bm-ubicacion-dest" style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:5px;">
-                    <i class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:3px;">location_on</i>
-                    Ubicación del destino <span style="color:#ef4444;">*</span>
-                </label>
-                <input type="text" id="bm-ubicacion-dest" placeholder="Ej: CALLE / SECTOR / ZONA"
-                    autocomplete="off"
-                    style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;background:white;box-sizing:border-box;text-transform:uppercase;">
-            </div>
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <input type="checkbox" id="bm-generar-pdf" style="width: 16px; height: 16px; cursor: pointer; accent-color: #1e293b;">
                 <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; margin: 0;">
@@ -1845,18 +1836,6 @@ window.openBulkModal = function (event) {
     // lista de sugerencias de frente NO quede oculta detrás del formulario.
     listBox.style.cssText = 'display:none;position:fixed;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100020;max-height:240px;overflow-y:auto;';
     document.body.appendChild(listBox);
-
-    const ubicWrapper = overlay.querySelector('#bm-ubicacion-wrapper');
-    const ubicInput = overlay.querySelector('#bm-ubicacion-dest');
-    function toggleUbicacionField(dest) {
-        const d = (dest || '').trim().toUpperCase();
-        const matched = d ? frentesData.find(f => (f.nombre || '').toUpperCase() === d) : null;
-        const needs = d && (!matched || !matched.ubicacion);
-        ubicWrapper.style.display = needs ? 'block' : 'none';
-        if (!needs && matched && matched.ubicacion) ubicInput.value = matched.ubicacion;
-        else if (!needs) ubicInput.value = '';
-    }
-    ubicInput.addEventListener('input', () => { ubicInput.style.borderColor = '#e2e8f0'; });
 
     // Reposiciona el portal justo debajo del input
     function positionListBox() {
@@ -1888,7 +1867,6 @@ window.openBulkModal = function (event) {
                     clearBtn.style.display = 'flex';
                     listBox.style.display = 'none';
                     inputBox.style.borderColor = '#0067b1';
-                    toggleUbicacionField(f.nombre);
                 };
                 listBox.appendChild(item);
             });
@@ -1913,7 +1891,6 @@ window.openBulkModal = function (event) {
         hiddenInput.value = searchInput.value.trim();
         clearBtn.style.display = searchInput.value ? 'flex' : 'none';
         renderFrenteList(searchInput.value);
-        toggleUbicacionField(searchInput.value);
     });
     searchInput.addEventListener('blur', () => {
         setTimeout(() => { listBox.style.display = 'none'; inputBox.style.borderColor = '#e2e8f0'; }, 150);
@@ -1923,7 +1900,6 @@ window.openBulkModal = function (event) {
         hiddenInput.value = '';
         clearBtn.style.display = 'none';
         searchInput.focus();
-        toggleUbicacionField('');
     });
 
     // ── Close handlers ──
@@ -1948,20 +1924,11 @@ window.openBulkModal = function (event) {
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
 
-        // Si el frente es nuevo/sin ubicación, la ubicación se captura en el campo
-        // inline del modal (bm-ubicacion-dest) — ya no se fuerza el Acta para eso.
-        let destUbicacion = '';
-        if (needsUbicacion) {
-            destUbicacion = (ubicInput.value || '').trim().toUpperCase();
-            if (!destUbicacion) {
-                ubicInput.style.borderColor = '#ef4444';
-                ubicInput.focus();
-                if (window.showToast) window.showToast('Indica la ubicación del frente de destino.', 'error');
-                return;
-            }
-        } else {
-            destUbicacion = matchedFrente.ubicacion || '';
-        }
+        // Cuando el frente es nuevo o no tiene ubicación registrada, la ubicación
+        // se captura en el formulario de la Vista Previa del Acta (ed-destubic).
+        // Por eso forzamos generarPdf=true para que el Acta siempre se abra.
+        if (needsUbicacion) generarPdf = true;
+        const destUbicacion = needsUbicacion ? '' : (matchedFrente.ubicacion || '');
 
         const btn = this;
         const ids = Object.keys(window.selectedEquipos);
@@ -2183,9 +2150,10 @@ window.openBulkModal = function (event) {
         }
         }; // ── fin ejecutarCommit ──
 
-        // Checkbox NO tildado → ejecutar movilización directo (sin Acta).
-        // Checkbox tildado + frente viejo con datos completos → PDF directo.
-        // Checkbox tildado + frente nuevo/sin responsables → formulario para firmas.
+        // Checkbox NO tildado (y frente ya tiene ubicación) → ejecutar directo sin Acta.
+        // generarPdf=true (por checkbox o por needsUbicacion) → Vista Previa del Acta:
+        //   frente nuevo/sin ubicación → abre el formulario de edición directamente (editarDirecto).
+        //   frente existente con datos completos → muestra primero la previa PDF.
         if (generarPdf) {
             window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente });
             return;
