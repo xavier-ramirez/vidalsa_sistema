@@ -3357,15 +3357,6 @@ class EquipoController extends Controller
                 ->groupBy('id_tipo_equipo')
                 ->get();
 
-            // --- 3. DATA FOR "ESTADO OPERATIVO" ---
-            $statusData = (clone $baseQuery)
-                ->select(
-                    'ESTADO_OPERATIVO',
-                    DB::raw('COUNT(*) as total_count')
-                )
-                ->groupBy('ESTADO_OPERATIVO')
-                ->get();
-
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Análisis de Flota');
@@ -3430,37 +3421,7 @@ class EquipoController extends Controller
 
             $currentRow = 7;
 
-            // --- TABLA 1: ESTADO OPERATIVO ---
-            $sheet->mergeCells("A{$currentRow}:E{$currentRow}");
-            $sheet->setCellValue("A{$currentRow}", 'RESUMEN: ESTADO OPERATIVO DE EQUIPOS');
-            $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
-            $sheet->getStyle("A{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray([
-                'borders' => ['outline' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
-            ]);
-            $currentRow++;
-
-            $sheet->mergeCells("A{$currentRow}:D{$currentRow}");
-            $sheet->setCellValue("A{$currentRow}", 'ESTADO OPERATIVO');
-            $sheet->setCellValue("E{$currentRow}", 'CANTIDAD');
-            $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($headerStyle);
-            $sheet->getRowDimension($currentRow)->setRowHeight(25);
-            
-            foreach ($statusData as $row) {
-                $currentRow++;
-                $estadoName = $row->ESTADO_OPERATIVO ?: 'DESCONOCIDO';
-                
-                $sheet->mergeCells("A{$currentRow}:D{$currentRow}");
-                $sheet->setCellValue("A{$currentRow}", mb_strtoupper($estadoName));
-                $sheet->setCellValue("E{$currentRow}", $row->total_count);
-                
-                $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($rowStyle);
-                $sheet->getStyle("E{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            }
-
-            // --- TABLA 2: FLOTA NUEVA VS VIEJA ---
-            $currentRow += 4; // Espacio entre tablas
-
+            // --- TABLA 1: FLOTA NUEVA VS VIEJA ---
             $sheet->mergeCells("A{$currentRow}:E{$currentRow}");
             $sheet->setCellValue("A{$currentRow}", 'RESUMEN: FLOTA NUEVA VS FLOTA VIEJA POR TIPO');
             $sheet->getStyle("A{$currentRow}")->getFont()->setBold(true)->setSize(12);
@@ -3486,9 +3447,10 @@ class EquipoController extends Controller
                 
                 $sheet->mergeCells("A{$currentRow}:B{$currentRow}");
                 $sheet->setCellValue("A{$currentRow}", $tipoName);
-                $sheet->setCellValue("C{$currentRow}", $row->new_count);
-                $sheet->setCellValue("D{$currentRow}", $row->old_count);
-                $sheet->setCellValue("E{$currentRow}", $total);
+                // Los valores en 0 se dejan VACÍOS en el Excel (a pedido del cliente).
+                $sheet->setCellValue("C{$currentRow}", $row->new_count ?: '');
+                $sheet->setCellValue("D{$currentRow}", $row->old_count ?: '');
+                $sheet->setCellValue("E{$currentRow}", $total ?: '');
                 
                 $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($rowStyle);
                 $sheet->getStyle("C{$currentRow}:E{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -3520,10 +3482,11 @@ class EquipoController extends Controller
                 $total = $row->pesada_count + $row->liviana_count + $row->sin_asignar_count;
                 
                 $sheet->setCellValue("A{$currentRow}", $tipoName);
-                $sheet->setCellValue("B{$currentRow}", $row->pesada_count);
-                $sheet->setCellValue("C{$currentRow}", $row->liviana_count);
-                $sheet->setCellValue("D{$currentRow}", $row->sin_asignar_count);
-                $sheet->setCellValue("E{$currentRow}", $total);
+                // Los valores en 0 se dejan VACÍOS en el Excel (a pedido del cliente).
+                $sheet->setCellValue("B{$currentRow}", $row->pesada_count ?: '');
+                $sheet->setCellValue("C{$currentRow}", $row->liviana_count ?: '');
+                $sheet->setCellValue("D{$currentRow}", $row->sin_asignar_count ?: '');
+                $sheet->setCellValue("E{$currentRow}", $total ?: '');
                 
                 $sheet->getStyle("A{$currentRow}:E{$currentRow}")->applyFromArray($rowStyle);
                 $sheet->getStyle("B{$currentRow}:E{$currentRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
