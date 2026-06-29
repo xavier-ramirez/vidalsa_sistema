@@ -147,11 +147,17 @@ const VidalsaWebAuthn = (() => {
 
     // ─── AUTENTICACIÓN ───────────────────────────────────────────────
 
-    async function autenticar() {
+    // publicKey pre-cargado (challenge) para abrir el lector de huella SIN el
+    // "cargando" del fetch de opciones. Single-use: el challenge se consume en cada
+    // intento. Ver precargarOpciones() / autenticar().
+    let _precachedPublicKey = null;
+
+    // Pide /webauthn/login-options y arma el objeto publicKey listo para
+    // navigator.credentials.get(). Devuelve null si la sesión caducó (recarga en curso).
+    async function _obtenerPublicKey() {
         const credIds = getCredIds();
         if (!credIds.length) throw new Error('NO_CREDENTIALS');
 
-        let options;
         const resOpt = await fetch('/webauthn/login-options', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...JSON_HEADERS },
@@ -159,26 +165,39 @@ const VidalsaWebAuthn = (() => {
         });
         // Sesión/CSRF caducada o HTML del login servido en vez de JSON → recargar.
         // OJO: se comprueba ANTES de res.json() para no parsear "<!DOCTYPE...".
-        if (esRespuestaDeSesion(resOpt)) { window.location.reload(); return; }
+        if (esRespuestaDeSesion(resOpt)) { window.location.reload(); return null; }
         if (resOpt.status === 404) {
             localStorage.removeItem(STORAGE_KEY);
             throw new Error('NO_CREDENTIALS');
         }
-        options = await resOpt.json();
+        const options = await resOpt.json();
         if (!resOpt.ok) throw new Error(options.error || 'Error obteniendo opciones');
 
-        const allowCredentials = options.allowCredentials.map(c => ({
-            type: c.type,
-            id:   base64UrlToBytes(c.id),
-        }));
-
-        const publicKey = {
+        return {
             challenge:        base64UrlToBytes(options.challenge),
             timeout:          options.timeout,
             rpId:             options.rpId,
-            allowCredentials: allowCredentials,
+            allowCredentials: options.allowCredentials.map(c => ({ type: c.type, id: base64UrlToBytes(c.id) })),
             userVerification: options.userVerification,
         };
+    }
+
+    // Pre-carga el challenge ANTES de tocar el botón. Al pulsar, autenticar() usa lo
+    // pre-cargado y llama a navigator.credentials.get() de inmediato (sin esperar la
+    // red): el lector de huella se abre al instante. Silencioso ante errores.
+    async function precargarOpciones() {
+        try { _precachedPublicKey = await _obtenerPublicKey(); }
+        catch { _precachedPublicKey = null; }
+    }
+
+    async function autenticar() {
+        // Usa el challenge pre-cargado si existe (huella instantánea); si no, lo pide ahora.
+        let publicKey = _precachedPublicKey;
+        _precachedPublicKey = null; // single-use: el challenge se consume
+        if (!publicKey) {
+            publicKey = await _obtenerPublicKey();
+            if (!publicKey) return; // sesión caducada → recargando
+        }
 
         let assertion;
         try {
@@ -231,5 +250,5 @@ const VidalsaWebAuthn = (() => {
         localStorage.removeItem(STORAGE_KEY);
     }
 
-    return { soportado, plataformaDisponible, registrar, autenticar, tieneCredenciales, limpiarCredenciales };
+    return { soportado, plataformaDisponible, registrar, autenticar, precargarOpciones, tieneCredenciales, limpiarCredenciales };
 })();

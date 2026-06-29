@@ -296,7 +296,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof VidalsaWebAuthn === 'undefined' || !VidalsaWebAuthn.soportado() || !VidalsaWebAuthn.tieneCredenciales()) return;
 
     VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
-        if (ok) btnBio.style.display = 'flex';
+        if (ok) {
+            btnBio.style.display = 'flex';
+            // Pre-cargar el challenge YA, para que al tocar el botón el lector de
+            // huella se abra de inmediato (sin el "cargando" del fetch de opciones).
+            VidalsaWebAuthn.precargarOpciones();
+        }
     });
 
     var bioLabel = document.getElementById('bioLabel');
@@ -320,12 +325,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 btnBio.style.pointerEvents = '';
                 btnBio.style.opacity = '';
                 if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
+                // Re-cargar el challenge para que el próximo toque sea instantáneo.
+                VidalsaWebAuthn.precargarOpciones();
             })
             .catch(function(err) {
                 if (preloader) preloader.classList.add('fade-out');
                 btnBio.style.pointerEvents = '';
                 btnBio.style.opacity = '';
                 if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
+                // Re-cargar el challenge para que el próximo toque sea instantáneo.
+                VidalsaWebAuthn.precargarOpciones();
                 if (err.message === 'USER_CANCELLED') return;
                 if (err.message === 'NO_CREDENTIALS') return;
                 var msgDiv = document.getElementById('offlineLoginMsg');
