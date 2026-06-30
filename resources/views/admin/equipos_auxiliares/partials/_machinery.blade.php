@@ -1086,7 +1086,7 @@
     window.auxSubmitMovilizar = function () {
         const destination = (document.getElementById('auxMovilizarSearch').value || '').trim();
         const frenteId    = document.getElementById('auxMovilizarFrente').value;
-        let generarPdf    = !!document.getElementById('auxMovilizarGenerarPdf')?.checked;
+        const generarPdf  = !!document.getElementById('auxMovilizarGenerarPdf')?.checked;
 
         if (!destination) {
             if (window.showToast) window.showToast('Selecciona o escribe un frente destino.', 'warning');
@@ -1096,8 +1096,8 @@
         if (!ids.length) { window.closeAuxMovilizarModal(); return; }
 
         // Determinar si el frente necesita ubicacion (frente nuevo o existente sin UBICACION).
-        // En ese caso se fuerza la Vista Previa del Acta (editarDirecto) para que el usuario
-        // la capture en el formulario — mismo patron que /admin/equipos.
+        // Solo cuando se genera el Acta PDF se abre la Vista Previa para capturarla; sin PDF
+        // se moviliza directo y el frente queda sin ubicacion — mismo patron que /admin/equipos.
         const listEl = document.getElementById('auxMovilizarList');
         const destUp = destination.toUpperCase();
         let matchedOpt = null;
@@ -1106,7 +1106,6 @@
         });
         const isNewFrente    = !matchedOpt || !frenteId;
         const needsUbicacion = isNewFrente || !(matchedOpt && (matchedOpt.dataset.ubicacion || '').trim());
-        if (needsUbicacion) generarPdf = true;
         const destUbicacion  = needsUbicacion ? '' : ((matchedOpt && matchedOpt.dataset.ubicacion) || '');
 
         const bulkMoveUrl = '{{ route("equipos-auxiliares.bulkMove") }}';
@@ -1188,9 +1187,9 @@
             }
         };
 
-        // generarPdf=true (por checkbox o forzado por needsUbicacion) → Vista Previa del Acta.
-        // frente nuevo/sin ubicacion → abre el formulario de edicion directamente (editarDirecto)
-        // para capturar ubicacion + firmas antes del commit.
+        // Sin Acta PDF → movilizar directo (el backend permite crear/mover a un frente sin
+        // ubicacion cuando no se genera el acta). generarPdf=true → Vista Previa del Acta;
+        // frente nuevo/sin ubicacion abre el formulario de edicion directamente (editarDirecto).
         if (generarPdf && typeof window._mostrarVistaPreviaActa === 'function') {
             window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente || needsUbicacion });
             return;

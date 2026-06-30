@@ -858,11 +858,15 @@ window.eqSyncDistribToggle = function () {
     _eqActualizarDistribHint();
 };
 window.onDistribucionCardClick = function (e) {
-    // Acordeón (frentes especiales): clic en el header despliega "Equipos y Maquinaria"
-    // y recoge "Detalles". Solo cuando el acordeón está activo (ambas cards presentes).
+    // Acordeón (frentes especiales): clic en el header SOLO despliega la card cuando está
+    // recogida. Si ya está abierta, el clic en el header cae al toggle equipos↔auxiliares
+    // de abajo (no lo bloqueamos), para no perder esa función en frentes especiales.
     if (window.__especialAccActivo && e.target.closest('.especial-acc-header')) {
-        window.eqAbrirAcordeon('equipos');
-        return;
+        const distCont = document.getElementById('distributionStatsContainer');
+        if (distCont && distCont.classList.contains('acc-collapsed')) {
+            window.eqAbrirAcordeon('equipos');
+            return;
+        }
     }
     // Clic en una fila de datos (li) → respetar su filtro (selectOption + loadEquipos), no alternar.
     if (e.target.closest('li')) return;

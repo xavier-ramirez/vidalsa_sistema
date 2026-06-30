@@ -11,7 +11,7 @@
     @endif
     <i class="material-icons acc-chevron">expand_more</i>
 </h4>
-<ul style="list-style: none; padding: 0; margin: 0; max-height: 180px; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar acc-body">
+<ul style="list-style: none; padding: 0; margin: 0; max-height: 58vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar acc-body">
     @if(($ubicacionesStats ?? collect())->isEmpty())
         <li style="color: #94a3b8; font-size: 12px; text-align: center; padding: 10px 0;">Sin datos</li>
     @else

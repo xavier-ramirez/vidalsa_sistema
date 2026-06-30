@@ -1774,9 +1774,10 @@ class EquipoAuxiliarController extends Controller
             if ($frenteExistente) {
                 $frenteId = $frenteExistente->ID_FRENTE;
             } else {
-                // Frente nuevo: requerimos ubicacion para que los informes
-                // futuros tengan la zona/municipio del destino.
-                if ($ubicacion === '') {
+                // Frente nuevo: la ubicación SOLO es obligatoria cuando se genera el Acta PDF
+                // (la imprime en su encabezado). Sin PDF se crea sin ubicación — coherente con
+                // el flujo de equipos (MovilizacionController::bulkStore).
+                if ($generarPdf && $ubicacion === '') {
                     return response()->json([
                         'success' => false,
                         'message' => 'El frente "' . $nombre . '" no existe. Indica su ubicación (zona, municipio o estado) para crearlo.',
@@ -1785,7 +1786,7 @@ class EquipoAuxiliarController extends Controller
                 $nuevo = FrenteTrabajo::create([
                     'NOMBRE_FRENTE'  => $nombre,
                     'ESTATUS_FRENTE' => 'ACTIVO',
-                    'UBICACION'      => mb_strtoupper($ubicacion),
+                    'UBICACION'      => $ubicacion !== '' ? mb_strtoupper($ubicacion) : null,
                 ]);
                 $frenteId = $nuevo->ID_FRENTE;
             }
