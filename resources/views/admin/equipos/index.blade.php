@@ -884,6 +884,21 @@
     <div id="equiposPagination"></div>
 </div> <!-- End admin-card -->
 
+{{-- Acordeón del panel lateral SOLO en FRENTES ESPECIALES: una card abierta a la vez
+     ("Detalles" ↔ "Equipos y Maquinaria"). Lo activa el JS poniendo body.acc-especial;
+     en frentes normales no aplica (los chevrons quedan ocultos y nada se recoge). --}}
+<style>
+    body.acc-especial #ubicacionesStatsCard .especial-acc-header,
+    body.acc-especial #distribucionCard   .especial-acc-header { cursor: pointer; user-select: none; }
+    .acc-chevron { margin-left: auto; transition: transform .2s ease; font-size: 20px; color: #94a3b8; display: none; flex-shrink: 0; }
+    body.acc-especial #ubicacionesStatsCard .acc-chevron,
+    body.acc-especial #distribucionCard   .acc-chevron { display: inline-flex; }
+    .acc-collapsed .acc-chevron { transform: rotate(-90deg); }
+    .acc-collapsed .acc-body { display: none !important; }
+    /* Card abierta: más alta verticalmente (en frentes especiales salía muy pequeña). */
+    body.acc-especial .acc-body { max-height: 58vh !important; }
+</style>
+
 <!-- Right Column: Simple Counter -->
 <div class="counter-sidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 8px;">
 
@@ -952,6 +967,7 @@
 
     <!-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — visible solo para frentes TIPO_FRENTE=ESPECIAL -->
     <div id="ubicacionesStatsCard"
+         onclick="if (event.target.closest('.especial-acc-header')) window.eqAbrirAcordeon && window.eqAbrirAcordeon('detalles')"
          style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteEspecial) && $frenteEspecial && !($auxMode ?? false) ? '' : 'display: none;' }}">
         <div id="ubicacionesStatsContainer">
             @include('admin.equipos.partials.ubicaciones_stats')
@@ -979,6 +995,7 @@
         // HTML de la distribución de auxiliares para el toggle de la card (vacío si no aplica).
         window.__distribAuxHtml = @json($auxDistributionHtml ?? '');
         if (typeof window.eqSyncDistribToggle === 'function') window.eqSyncDistribToggle();
+        if (typeof window.eqAplicarAcordeon === 'function') window.eqAplicarAcordeon();
     </script>
 </div>
 

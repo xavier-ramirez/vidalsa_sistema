@@ -858,6 +858,12 @@ window.eqSyncDistribToggle = function () {
     _eqActualizarDistribHint();
 };
 window.onDistribucionCardClick = function (e) {
+    // Acordeón (frentes especiales): clic en el header despliega "Equipos y Maquinaria"
+    // y recoge "Detalles". Solo cuando el acordeón está activo (ambas cards presentes).
+    if (window.__especialAccActivo && e.target.closest('.especial-acc-header')) {
+        window.eqAbrirAcordeon('equipos');
+        return;
+    }
     // Clic en una fila de datos (li) → respetar su filtro (selectOption + loadEquipos), no alternar.
     if (e.target.closest('li')) return;
     if (!_eqHayDistribAux()) return;          // sin distribución aux → no hay nada que alternar
@@ -865,6 +871,39 @@ window.onDistribucionCardClick = function (e) {
     _eqRenderDistribucion();
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
+
+// ── Acordeón del panel lateral en FRENTES ESPECIALES ────────────────────────
+// Solo una card abierta a la vez: "Detalles" (ubicaciones) ↔ "Equipos y Maquinaria"
+// (distribución). El estado vive en window.__especialAccOpen ('detalles' por defecto →
+// Equipos arranca recogido). Las clases .acc-collapsed se ponen sobre los CONTENEDORES
+// (#…Container), que persisten aunque el AJAX reemplace su innerHTML, así el estado
+// sobrevive a los filtros. Activo solo cuando la card de Detalles está visible (= frente
+// especial); en frentes normales no hay acordeón (body sin .acc-especial).
+window.__especialAccOpen = 'detalles';
+window.__especialAccActivo = false;
+window.eqAplicarAcordeon = function () {
+    const ubiCard  = document.getElementById('ubicacionesStatsCard');
+    const distCard = document.getElementById('distribucionCard');
+    const ubiCont  = document.getElementById('ubicacionesStatsContainer');
+    const distCont = document.getElementById('distributionStatsContainer');
+    const activo = !!(ubiCard && ubiCard.style.display !== 'none' && distCard && ubiCont && distCont);
+    window.__especialAccActivo = activo;
+    document.body.classList.toggle('acc-especial', activo);
+    if (!ubiCont || !distCont) return;
+    if (!activo) {
+        ubiCont.classList.remove('acc-collapsed');
+        distCont.classList.remove('acc-collapsed');
+        return;
+    }
+    const detallesAbierto = window.__especialAccOpen === 'detalles';
+    ubiCont.classList.toggle('acc-collapsed', !detallesAbierto);  // Detalles abierto → Equipos recogido
+    distCont.classList.toggle('acc-collapsed', detallesAbierto);
+};
+window.eqAbrirAcordeon = function (cual) {
+    window.__especialAccOpen = (cual === 'equipos') ? 'equipos' : 'detalles';
+    window.eqAplicarAcordeon();
+};
+document.addEventListener('DOMContentLoaded', window.eqAplicarAcordeon);
 
 // Scroll sincronizado: mueve el sidebar proporcionalmente al scroll de la página
 // para que la card de distribución (última del sidebar) quede visible al bajar.
@@ -1333,6 +1372,10 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                         ubicacionesContainer.innerHTML = '';
                     }
                 }
+
+                // Reaplicar el acordeón del panel lateral (frentes especiales): el innerHTML
+                // de las cards se acaba de reemplazar, pero las clases viven en los contenedores.
+                if (typeof window.eqAplicarAcordeon === 'function') window.eqAplicarAcordeon();
 
                 // Banner "también hay auxiliares": la búsqueda de esta tabla solo cubre
                 // vehículos; si el texto coincide con auxiliares, el server manda el conteo
