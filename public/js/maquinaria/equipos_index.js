@@ -1997,11 +1997,10 @@ window.openBulkModal = function (event) {
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
 
-        // Cuando el frente es nuevo o no tiene ubicación registrada hay que capturar
-        // su ubicación (obligatoria para el registro; la valida también el backend) en
-        // el formulario del Acta (ed-destubic). Eso abre el formulario aunque el usuario
-        // NO haya pedido el PDF: en ese caso entra en modo "solo ubicación" (sin firmas
-        // obligatorias, sin aviso de responsables y sin generar el Acta).
+        // Si el frente es nuevo o no tiene ubicación registrada, su ubicación se captura
+        // en el formulario del Acta (ed-destubic) — pero SOLO cuando se genera el PDF (la
+        // imprime en su encabezado). Sin PDF se moviliza directo y el frente queda sin
+        // ubicación hasta que se emita un acta para él (el backend lo permite).
         const destUbicacion = needsUbicacion ? '' : (matchedFrente.ubicacion || '');
 
         const btn = this;
@@ -2234,17 +2233,12 @@ window.openBulkModal = function (event) {
         }
         }; // ── fin ejecutarCommit ──
 
-        // Sin PDF y con ubicación ya conocida → commit directo (no hace falta el Acta).
-        // En cualquier otro caso abrimos _mostrarVistaPreviaActa:
-        //   - generarPdf=true  → Vista Previa del Acta (firmas obligatorias). Frente
-        //     nuevo/sin ubicación abre el editor directo; frente completo muestra la previa.
-        //   - generarPdf=false pero needsUbicacion → modo "solo ubicación": el editor pide
-        //     únicamente la ubicación del destino, sin firmas ni PDF.
-        if (generarPdf || needsUbicacion) {
-            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, {
-                editarDirecto: isNewFrente,
-                requierePdf: generarPdf
-            });
+        // Sin Acta PDF → movilizar directo, sin pedir nada más (el backend permite
+        // crear/mover a un frente sin ubicación cuando no se genera el acta).
+        // generarPdf=true → Vista Previa del Acta: frente nuevo/sin ubicación abre el
+        // editor de una (captura ubicación + firmas); frente completo muestra la previa.
+        if (generarPdf) {
+            window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: isNewFrente });
             return;
         }
         ejecutarCommit();
@@ -2264,10 +2258,6 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     // vuelve el botón "Cancelar" del editor: si nunca se mostró la previa (editarDirecto),
     // "Cancelar" cierra el acta y regresa al modal de Movilización (que sigue detrás).
     var editarDirecto = !!(opts && opts.editarDirecto);
-    // requierePdf=false → modo "solo ubicación": el frente destino es nuevo/sin ubicación
-    // y el usuario NO pidió el Acta PDF. Solo capturamos la ubicación del destino y
-    // commiteamos; sin firmas obligatorias, sin aviso de responsables y sin generar PDF.
-    var requierePdf = !opts || opts.requierePdf !== false;
     var previewMostrada = false;
     var escA = window.escapeHtml; // helper central (dom_helpers.js)
 
@@ -2305,18 +2295,15 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         return URL.createObjectURL(pdfBlob);
     }
 
+    if (window.showPreloader) window.showPreloader();
     var pdfUrl = null;
-    // En modo "solo ubicación" no se muestra PDF, así que evitamos pedir la previa.
-    if (requierePdf) {
-        if (window.showPreloader) window.showPreloader();
-        try { pdfUrl = await pedirPreview(); }
-        catch (e) {
-            if (window.hidePreloader) window.hidePreloader();
-            if (window.showToast) window.showToast(e.message || 'No se pudo generar la vista previa.', 'error');
-            return;
-        }
+    try { pdfUrl = await pedirPreview(); }
+    catch (e) {
         if (window.hidePreloader) window.hidePreloader();
+        if (window.showToast) window.showToast(e.message || 'No se pudo generar la vista previa.', 'error');
+        return;
     }
+    if (window.hidePreloader) window.hidePreloader();
 
     // Estilos responsive (una sola vez): en teléfono el modal pasa a pantalla
     // completa, la grid del editor a 1 columna, las filas de firma a 2 columnas
@@ -2522,8 +2509,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     // ── Vista de EDICIÓN: formulario + [Cancelar | Aceptar] ──
     async function abrirEditor() {
         // Primera apertura: precargar origen/zona/firmas por defecto desde el backend.
-        // En modo "solo ubicación" no se usan (no hay encabezado de PDF ni firmas).
-        if (requierePdf && !metaCargada) {
+        if (!metaCargada) {
             metaCargada = true;
             try {
                 if (window.showPreloader) window.showPreloader();
@@ -2567,41 +2553,23 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
 
         if (cardEl) cardEl.style.maxWidth = '720px'; // formulario: modal más angosto/compacto
         bodyEl.style.background = '#fff';
-        if (requierePdf) {
-            // Acta PDF: origen/zona + destino/ubicación + bloque de firmas.
-            bodyEl.innerHTML =
-                '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
-                    avisoSinResp +
-                    '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
-                        grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place') +
-                        grpInput('ed-zona', 'Lugar / zona de origen (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
-                        grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
-                        grpInput('ed-destubic', 'Ubicación del destino', actaState.destination_ubicacion, 'location_on', 'Ej: CALLE / SECTOR') +
+        bodyEl.innerHTML =
+            '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
+                avisoSinResp +
+                '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
+                    grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place') +
+                    grpInput('ed-zona', 'Lugar / zona de origen (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
+                    grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
+                    grpInput('ed-destubic', 'Ubicación del destino', actaState.destination_ubicacion, 'location_on', 'Ej: CALLE / SECTOR') +
+                '</div>' +
+                '<div>' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                        '<label style="font-size:11.5px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.4px;">Firmas (nombre · cargo · cédula)</label>' +
+                        '<button type="button" id="ed-firma-add" style="background:#0284c7;border:none;color:white;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:14px;">add</i>Firma</button>' +
                     '</div>' +
-                    '<div>' +
-                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
-                            '<label style="font-size:11.5px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.4px;">Firmas (nombre · cargo · cédula)</label>' +
-                            '<button type="button" id="ed-firma-add" style="background:#0284c7;border:none;color:white;font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><i class="material-icons" style="font-size:14px;">add</i>Firma</button>' +
-                        '</div>' +
-                        '<div id="ed-firmas">' + firmasRowsHtml() + '</div>' +
-                    '</div>' +
-                '</div>';
-        } else {
-            // Modo "solo ubicación": el frente destino es nuevo/sin ubicación y NO se pidió
-            // el Acta PDF. Solo se captura la ubicación del destino (obligatoria para el
-            // registro); sin firmas ni datos del encabezado del acta.
-            bodyEl.innerHTML =
-                '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
-                    '<div style="display:flex;gap:7px;align-items:flex-start;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:9px;padding:7px 10px;font-size:11.5px;font-weight:600;line-height:1.35;">' +
-                        '<i class="material-icons" style="font-size:16px;flex-shrink:0;">info</i>' +
-                        '<span>Este frente es nuevo o no tiene ubicación registrada. Indica la <b>ubicación del destino</b> para completar la movilización.</span>' +
-                    '</div>' +
-                    '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
-                        grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
-                        grpInput('ed-destubic', 'Ubicación del destino', actaState.destination_ubicacion, 'location_on', 'Ej: CALLE / SECTOR') +
-                    '</div>' +
-                '</div>';
-        }
+                    '<div id="ed-firmas">' + firmasRowsHtml() + '</div>' +
+                '</div>' +
+            '</div>';
 
         footEl.innerHTML =
             '<button type="button" id="mov-ed-cancel" style="padding:9px 16px;border-radius:10px;border:1px solid #e2e8f0;background:#e2e8f0;color:#475569;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
@@ -2616,50 +2584,41 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         };
         footEl.querySelector('#mov-ed-apply').onclick = aplicarEdicion;
 
-        // Agregar / quitar firma (delegación sobre #ed-firmas, que persiste). Solo
-        // existe en modo Acta PDF; en "solo ubicación" no hay sección de firmas.
-        if (requierePdf) {
-            bodyEl.querySelector('#ed-firma-add').onclick = function () {
-                syncFirmasFromDOM();
-                actaState.firmas.push({ label: 'APROBADO:', car: '', nom: '', ced: '' }); // rol por defecto válido (el select lo restringe)
-                var el = bodyEl.querySelector('#ed-firmas');
-                el.innerHTML = firmasRowsHtml();
-                el.style.outline = ''; // limpiar resaltado rojo al añadir la primera firma
-            };
-            bodyEl.querySelector('#ed-firmas').addEventListener('click', function (ev) {
-                var del = ev.target.closest('.ed-firma-del');
-                if (!del) return;
-                var idx = parseInt(del.closest('.ed-firma-row').getAttribute('data-i'), 10);
-                syncFirmasFromDOM();
-                actaState.firmas.splice(idx, 1);
-                bodyEl.querySelector('#ed-firmas').innerHTML = firmasRowsHtml();
-            });
-        }
+        // Agregar / quitar firma (delegación sobre #ed-firmas, que persiste).
+        bodyEl.querySelector('#ed-firma-add').onclick = function () {
+            syncFirmasFromDOM();
+            actaState.firmas.push({ label: 'APROBADO:', car: '', nom: '', ced: '' }); // rol por defecto válido (el select lo restringe)
+            var el = bodyEl.querySelector('#ed-firmas');
+            el.innerHTML = firmasRowsHtml();
+            el.style.outline = ''; // limpiar resaltado rojo al añadir la primera firma
+        };
+        bodyEl.querySelector('#ed-firmas').addEventListener('click', function (ev) {
+            var del = ev.target.closest('.ed-firma-del');
+            if (!del) return;
+            var idx = parseInt(del.closest('.ed-firma-row').getAttribute('data-i'), 10);
+            syncFirmasFromDOM();
+            actaState.firmas.splice(idx, 1);
+            bodyEl.querySelector('#ed-firmas').innerHTML = firmasRowsHtml();
+        });
     }
 
     async function aplicarEdicion() {
+        actaState.origin = bodyEl.querySelector('#ed-origin').value.trim();
+        actaState.origin_zona = bodyEl.querySelector('#ed-zona').value.trim();
         actaState.destination = bodyEl.querySelector('#ed-dest').value.trim();
         actaState.destination_ubicacion = bodyEl.querySelector('#ed-destubic').value.trim();
-        // Origen/zona/firmas solo existen en el formulario del Acta PDF.
-        if (requierePdf) {
-            actaState.origin = bodyEl.querySelector('#ed-origin').value.trim();
-            actaState.origin_zona = bodyEl.querySelector('#ed-zona').value.trim();
-            syncFirmasFromDOM();
-        }
+        syncFirmasFromDOM();
 
         if (!actaState.destination) { if (window.showToast) window.showToast('El frente de destino no puede quedar vacío.', 'error'); return; }
         if (!actaState.ids.length) { if (window.showToast) window.showToast('Debe quedar al menos un equipo.', 'error'); return; }
 
-        // Campos obligatorios. La ubicación del destino SIEMPRE (la exige el backend para
-        // crear/completar el frente). El lugar/zona de origen solo cuando se genera el Acta
-        // PDF (va en su encabezado). Se resalta en rojo el contenedor del primer campo vacío
-        // (el borde vive en el wrapper, no en el input).
+        // Lugar/zona de origen y Ubicación del destino son OBLIGATORIOS: el acta los
+        // imprime en el encabezado y junto al frente de destino. Se resalta en rojo el
+        // contenedor del primer campo vacío (el borde vive en el wrapper, no en el input).
         var reqCampos = [
+            { sel: '#ed-zona',    vacio: !actaState.origin_zona,          msg: 'El lugar / zona de origen (ciudad) es obligatorio.' },
             { sel: '#ed-destubic', vacio: !actaState.destination_ubicacion, msg: 'La ubicación del destino es obligatoria.' }
         ];
-        if (requierePdf) {
-            reqCampos.unshift({ sel: '#ed-zona', vacio: !actaState.origin_zona, msg: 'El lugar / zona de origen (ciudad) es obligatorio.' });
-        }
         var faltante = null;
         reqCampos.forEach(function (c) {
             var inp = bodyEl.querySelector(c.sel);
@@ -2670,13 +2629,6 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             if (window.showToast) window.showToast(faltante.msg, 'error');
             var fInp = bodyEl.querySelector(faltante.sel);
             if (fInp) fInp.focus();
-            return;
-        }
-
-        // Modo "solo ubicación": no hay firmas ni PDF → commitear la movilización directo.
-        if (!requierePdf) {
-            cerrar();
-            if (typeof onConfirm === 'function') onConfirm();
             return;
         }
 
@@ -2718,12 +2670,11 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         }
     }
 
-    if (editarDirecto || !requierePdf) {
+    if (editarDirecto) {
         // Frente nuevo/sin ubicación: abrir el FORMULARIO de una (sin previa primero), para
         // capturar ubicación + firmas. Si el frente de ORIGEN no tiene responsables,
-        // sembramos las filas de firma igual que en el flujo normal. En modo "solo
-        // ubicación" nunca hay previa PDF ni firmas, así que siempre va directo al editor.
-        if (requierePdf && ultimaFirmasCount === 0) sinResponsablesOrigen = true;
+        // sembramos las filas de firma igual que en el flujo normal.
+        if (ultimaFirmasCount === 0) sinResponsablesOrigen = true;
         abrirEditor();
     } else {
         renderPreview();

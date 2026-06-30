@@ -298,15 +298,17 @@ class MovilizacionController extends Controller
         try {
             $destNombre    = strtoupper(trim($request->destination));
             $destUbicacion = trim((string) $request->input('destination_ubicacion', ''));
+            $generarPdf    = (bool) $request->input('generar_pdf', true);
 
             // Buscar el frente existente (puede tener UBICACION vacía en BD).
             $frenteExistente = FrenteTrabajo::where('NOMBRE_FRENTE', $destNombre)->first();
             $frenteNecesitaUbicacion = !$frenteExistente || empty(trim((string)($frenteExistente->UBICACION ?? '')));
 
-            // Guardia backend: si el frente no tiene ubicación (nuevo O viejo sin ella),
-            // se exige que el usuario la proporcione. El frontend ya lo valida; este guard
-            // previene llamadas directas al endpoint que intenten saltarse la regla.
-            if ($frenteNecesitaUbicacion && $destUbicacion === '') {
+            // Guardia backend: la ubicación SOLO es obligatoria cuando se genera el Acta
+            // PDF (la imprime en su encabezado). Sin PDF se permite crear/mover a un frente
+            // sin ubicación — queda en blanco hasta que se emita un acta para él. El
+            // frontend respeta la misma regla; este guard cubre llamadas directas.
+            if ($generarPdf && $frenteNecesitaUbicacion && $destUbicacion === '') {
                 DB::rollBack();
                 $msg = $frenteExistente
                     ? 'El frente "' . $destNombre . '" no tiene ubicación registrada. Debes indicar ciudad, zona, municipio y estado para el PDF.'
@@ -340,7 +342,7 @@ class MovilizacionController extends Controller
 
             $userEmail  = $authUser->CORREO_ELECTRONICO ?? 'SISTEMA';
             $now        = now();
-            $generarPdf = (bool) $request->input('generar_pdf', true);
+            // $generarPdf ya se resolvió arriba (junto a la guardia de ubicación).
 
             // Bloquear los equipos PRIMERO. Si por algun motivo (race con destroy,
             // ids fantasma) la coleccion queda vacia abortamos antes de consumir
