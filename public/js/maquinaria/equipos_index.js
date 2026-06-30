@@ -2440,12 +2440,15 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     }
 
     // input con icono para el editor
-    function grpInput(id, label, value, icon, placeholder) {
+    // listId (opcional): asocia el input a un <datalist> → muestra sugerencias de los frentes
+    // existentes pero deja escribir uno nuevo (autocompletado nativo). Lo usan origen/destino.
+    function grpInput(id, label, value, icon, placeholder, listId) {
+        var listAttr = listId ? ' list="' + listId + '" autocomplete="off"' : '';
         return '<div>' +
             '<label for="' + id + '" style="display:block;font-size:10.5px;font-weight:700;color:#64748b;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.3px;">' + label + '</label>' +
             '<div style="display:flex;align-items:center;border:1px solid #e2e8f0;border-radius:8px;background:#fbfcfd;overflow:hidden;">' +
                 '<i class="material-icons" style="padding:0 6px;color:#94a3b8;font-size:16px;">' + icon + '</i>' +
-                '<input id="' + id + '" value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:9px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
+                '<input id="' + id + '"' + listAttr + ' value="' + escA(value) + '" placeholder="' + escA(placeholder || '') + '" style="flex:1;border:none;outline:none;padding:9px 8px;font-size:12.5px;background:transparent;text-transform:uppercase;">' +
             '</div>' +
         '</div>';
     }
@@ -2556,9 +2559,9 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">' +
                 avisoSinResp +
                 '<div class="mov-ed-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;">' +
-                    grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place') +
+                    grpInput('ed-origin', 'Frente de origen', actaState.origin, 'place', '', 'dynamicFrentesList') +
                     grpInput('ed-zona', 'Lugar / zona de origen (ciudad)', actaState.origin_zona, 'location_city', 'Ej: MATURÍN') +
-                    grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag') +
+                    grpInput('ed-dest', 'Frente de destino', actaState.destination, 'flag', '', 'dynamicFrentesList') +
                     grpInput('ed-destubic', 'Ubicación del destino', actaState.destination_ubicacion, 'location_on', 'Ej: CALLE / SECTOR') +
                 '</div>' +
                 '<div>' +
