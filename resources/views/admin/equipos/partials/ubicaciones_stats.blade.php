@@ -10,7 +10,7 @@
         </span>
     @endif
 </h4>
-<ul style="list-style: none; padding: 0; margin: 0; max-height: 68vh; overflow-y: scroll; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+<ul style="list-style: none; padding: 0; margin: 0; max-height: 180px; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
     @if(($ubicacionesStats ?? collect())->isEmpty())
         <li style="color: #94a3b8; font-size: 12px; text-align: center; padding: 10px 0;">Sin datos</li>
     @else
