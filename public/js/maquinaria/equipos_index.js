@@ -878,6 +878,24 @@ window.onDistribucionCardClick = function (e) {
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
 
+// Acordeón de las cards de stats en MÓVIL (Equipos y Maquinaria ↔ Auxiliares): solo una
+// desplegada a la vez. Al expandir una, recoge la otra. (En escritorio estas cards están
+// ocultas — el sidebar las muestra aparte, sin acordeón.)
+window.toggleMobileStatsCard = function (cardId) {
+    var clicked = document.getElementById(cardId);
+    if (!clicked) return;
+    var seExpande = clicked.classList.contains('mobstat-collapsed');
+    clicked.classList.toggle('mobstat-collapsed');
+    if (seExpande) { // quedó desplegada → recoger las demás
+        ['equiposConsolidadoCardMobile', 'auxConsolidadoCardMobile'].forEach(function (id) {
+            if (id !== cardId) {
+                var otra = document.getElementById(id);
+                if (otra) otra.classList.add('mobstat-collapsed');
+            }
+        });
+    }
+};
+
 // Scroll sincronizado: mueve el sidebar proporcionalmente al scroll de la página
 // para que la card de distribución (última del sidebar) quede visible al bajar.
 // max-height/overflow se aplican inline solo cuando pageMax > 0; si la página
