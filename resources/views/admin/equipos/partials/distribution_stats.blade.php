@@ -15,12 +15,11 @@
 
 @if($showFrentes)
     {{-- Distribución por FRENTE (cuando filtra por tipo sin frente) --}}
-    <h4 class="especial-acc-header" style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+    <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente
-        <i class="material-icons acc-chevron">expand_more</i>
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar acc-body">
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @if($hasFilter ?? request('search_query') || request('id_frente') || request('id_tipo'))
             @php $totalFrentes = $frentesStats->sum('total'); @endphp
             @foreach($frentesStats as $stat)
@@ -46,12 +45,11 @@
 
 @else
     {{-- Distribución por TIPO (vista por defecto) --}}
-    <h4 class="especial-acc-header" style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+    <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
         <i class="material-icons" style="font-size: 18px; color: #3b82f6;">autorenew</i>
         Equipos y Maquinaria
-        <i class="material-icons acc-chevron">expand_more</i>
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar acc-body">
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @if($hasFilter ?? request('search_query') || request('id_frente') || request('id_tipo'))
             @php $totalStats = $tiposStats->sum('total'); @endphp
             @foreach($tiposStats as $stat)

@@ -815,99 +815,68 @@ function eqEnModoAuxURL() {
 }
 
 // ─── Toggle de la card de Distribución (equipos ↔ auxiliares) ─────────────────
-// Un clic en la card alterna entre la distribución de EQUIPOS (por defecto) y la de
-// AUXILIARES; los clics sobre una fila (li) conservan su acción de filtrar. El toggle solo
-// está disponible cuando hay distribución de auxiliares (window.__distribAuxHtml no vacío,
-// p.ej. al filtrar por frente/documento). __distribHtml guarda la de equipos para volver.
-window.__distMostrandoAux = false;
-window.__distribHtml = null;       // distribución de equipos (vista por defecto)
-window.__distribAuxHtml = window.__distribAuxHtml || ''; // la fija el Blade / el AJAX
+// Un clic en la card CICLA entre las vistas disponibles del panel lateral: EQUIPOS (por
+// defecto), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes especiales) y AUXILIARES
+// (cuando hay distribución de auxiliares). Los clics sobre una fila (li) conservan su acción
+// de filtrar. Cada vista guarda su HTML en su variable; orden del ciclo: equipos→detalles→aux.
+window.__distVista = 'equipos';                            // vista mostrada actualmente
+window.__distribHtml = null;                               // HTML de EQUIPOS (vista por defecto)
+window.__distribUbiHtml = window.__distribUbiHtml || '';   // HTML de DETALLES (lo fija el Blade / AJAX)
+window.__distribAuxHtml = window.__distribAuxHtml || '';   // HTML de AUXILIARES (lo fija el Blade / AJAX)
 
 function _eqHayDistribAux() {
     return !!(window.__distribAuxHtml && String(window.__distribAuxHtml).trim());
 }
+function _eqHayDistribUbi() {
+    return !!(window.__distribUbiHtml && String(window.__distribUbiHtml).trim());
+}
+// Vistas disponibles en orden de ciclo. "equipos" siempre; "detalles" solo en frentes
+// especiales; "aux" solo cuando hay distribución de auxiliares.
+function _eqVistasDistrib() {
+    const v = ['equipos'];
+    if (_eqHayDistribUbi()) v.push('detalles');
+    if (_eqHayDistribAux()) v.push('aux');
+    return v;
+}
+const _EQ_VISTA_LABEL = { equipos: 'Equipos y Maquinaria', detalles: 'Detalles', aux: 'Auxiliares' };
 function _eqActualizarDistribHint() {
     const card = document.getElementById('distribucionCard');
     if (!card) return;
-    const hayAux = _eqHayDistribAux();
-    card.style.cursor = hayAux ? 'pointer' : 'default';
-    card.title = hayAux
-        ? (window.__distMostrandoAux ? 'Mostrando auxiliares — clic para ver equipos'
-                                     : 'Mostrando equipos — clic para ver auxiliares')
-        : '';
+    const vistas = _eqVistasDistrib();
+    if (vistas.length <= 1) { card.style.cursor = 'default'; card.title = ''; return; }
+    const siguiente = vistas[(vistas.indexOf(window.__distVista) + 1) % vistas.length];
+    card.style.cursor = 'pointer';
+    card.title = 'Mostrando ' + (_EQ_VISTA_LABEL[window.__distVista] || '') + ' — clic para ver ' + (_EQ_VISTA_LABEL[siguiente] || '');
 }
 function _eqRenderDistribucion() {
     const cont = document.getElementById('distributionStatsContainer');
-    if (cont) {
-        if (window.__distMostrandoAux && _eqHayDistribAux()) {
-            cont.innerHTML = window.__distribAuxHtml;
-        } else {
-            window.__distMostrandoAux = false;
-            if (window.__distribHtml != null) cont.innerHTML = window.__distribHtml;
-        }
-    }
+    if (!cont) { _eqActualizarDistribHint(); return; }
+    // Si la vista actual ya no está disponible (p.ej. salimos del frente especial) → equipos.
+    if (_eqVistasDistrib().indexOf(window.__distVista) === -1) window.__distVista = 'equipos';
+    let html = window.__distribHtml;
+    if (window.__distVista === 'aux')           html = window.__distribAuxHtml;
+    else if (window.__distVista === 'detalles') html = window.__distribUbiHtml;
+    if (html != null) cont.innerHTML = html;
     _eqActualizarDistribHint();
 }
-// Sincroniza el toggle tras un render del BLADE (carga dura o navegación SPA): el contenedor
-// acaba de pintar la distribución de EQUIPOS (vista por defecto), así que la capturamos y
-// reseteamos el toggle a "equipos". (En AJAX se usa _eqRenderDistribucion, no esto.)
+// Sincroniza tras un render del BLADE (carga dura o navegación SPA): el contenedor acaba de
+// pintar la distribución de EQUIPOS (vista por defecto), así que la capturamos y reseteamos
+// el ciclo a "equipos". (En AJAX se usa _eqRenderDistribucion, no esto.)
 window.eqSyncDistribToggle = function () {
     const cont = document.getElementById('distributionStatsContainer');
     if (cont) window.__distribHtml = cont.innerHTML;
-    window.__distMostrandoAux = false;
+    window.__distVista = 'equipos';
     _eqActualizarDistribHint();
 };
 window.onDistribucionCardClick = function (e) {
-    // Acordeón (frentes especiales): clic en el header SOLO despliega la card cuando está
-    // recogida. Si ya está abierta, el clic en el header cae al toggle equipos↔auxiliares
-    // de abajo (no lo bloqueamos), para no perder esa función en frentes especiales.
-    if (window.__especialAccActivo && e.target.closest('.especial-acc-header')) {
-        const distCont = document.getElementById('distributionStatsContainer');
-        if (distCont && distCont.classList.contains('acc-collapsed')) {
-            window.eqAbrirAcordeon('equipos');
-            return;
-        }
-    }
-    // Clic en una fila de datos (li) → respetar su filtro (selectOption + loadEquipos), no alternar.
+    // Clic en una fila de datos (li) → respetar su filtro (selectOption/loadEquipos), no ciclar.
     if (e.target.closest('li')) return;
-    if (!_eqHayDistribAux()) return;          // sin distribución aux → no hay nada que alternar
-    window.__distMostrandoAux = !window.__distMostrandoAux;
+    const vistas = _eqVistasDistrib();
+    if (vistas.length <= 1) return;            // una sola vista → nada que alternar
+    window.__distVista = vistas[(vistas.indexOf(window.__distVista) + 1) % vistas.length];
     _eqRenderDistribucion();
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
-
-// ── Acordeón del panel lateral en FRENTES ESPECIALES ────────────────────────
-// Solo una card abierta a la vez: "Detalles" (ubicaciones) ↔ "Equipos y Maquinaria"
-// (distribución). El estado vive en window.__especialAccOpen ('detalles' por defecto →
-// Equipos arranca recogido). Las clases .acc-collapsed se ponen sobre los CONTENEDORES
-// (#…Container), que persisten aunque el AJAX reemplace su innerHTML, así el estado
-// sobrevive a los filtros. Activo solo cuando la card de Detalles está visible (= frente
-// especial); en frentes normales no hay acordeón (body sin .acc-especial).
-window.__especialAccOpen = 'detalles';
-window.__especialAccActivo = false;
-window.eqAplicarAcordeon = function () {
-    const ubiCard  = document.getElementById('ubicacionesStatsCard');
-    const distCard = document.getElementById('distribucionCard');
-    const ubiCont  = document.getElementById('ubicacionesStatsContainer');
-    const distCont = document.getElementById('distributionStatsContainer');
-    const activo = !!(ubiCard && ubiCard.style.display !== 'none' && distCard && ubiCont && distCont);
-    window.__especialAccActivo = activo;
-    document.body.classList.toggle('acc-especial', activo);
-    if (!ubiCont || !distCont) return;
-    if (!activo) {
-        ubiCont.classList.remove('acc-collapsed');
-        distCont.classList.remove('acc-collapsed');
-        return;
-    }
-    const detallesAbierto = window.__especialAccOpen === 'detalles';
-    ubiCont.classList.toggle('acc-collapsed', !detallesAbierto);  // Detalles abierto → Equipos recogido
-    distCont.classList.toggle('acc-collapsed', detallesAbierto);
-};
-window.eqAbrirAcordeon = function (cual) {
-    window.__especialAccOpen = (cual === 'equipos') ? 'equipos' : 'detalles';
-    window.eqAplicarAcordeon();
-};
-document.addEventListener('DOMContentLoaded', window.eqAplicarAcordeon);
 
 // Scroll sincronizado: mueve el sidebar proporcionalmente al scroll de la página
 // para que la card de distribución (última del sidebar) quede visible al bajar.
@@ -1353,33 +1322,16 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 if (!docMode) window.__equiposDocPresence = 'con';
                 window.__updateDocPresenceUI();
 
-                // Distribución: guarda la de equipos (default) y la de auxiliares (toggle).
-                // Cada filtro resetea a la vista de equipos (premisa: el usuario quiere
-                // ver los resultados nuevos, no conservar la alternancia anterior).
+                // Distribución: las 3 vistas del toggle de la card (equipos, detalles, aux).
+                // "detalles" (DETALLE_UBICACION_ACTUAL) solo viene en frentes TIPO_FRENTE=ESPECIAL.
+                // Cada filtro resetea a la vista de equipos (premisa: el usuario quiere ver los
+                // resultados nuevos, no conservar la alternancia anterior).
+                const showUbi = !!(data && data.showUbicaciones);
                 window.__distribHtml    = data.distribution;
                 window.__distribAuxHtml = data.auxDistribution || '';
-                window.__distMostrandoAux = false;
+                window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
+                window.__distVista = 'equipos';
                 _eqRenderDistribucion();
-
-                // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo para frentes TIPO_FRENTE=ESPECIAL.
-                // El filtro por detalle se activa desde este panel lateral (ya no es un filtro avanzado).
-                const ubicacionesCard      = document.getElementById('ubicacionesStatsCard');
-                const ubicacionesContainer = document.getElementById('ubicacionesStatsContainer');
-                const showUbi = !!(data && data.showUbicaciones);
-
-                if (ubicacionesCard && ubicacionesContainer) {
-                    if (showUbi && data.ubicaciones) {
-                        ubicacionesContainer.innerHTML = data.ubicaciones;
-                        ubicacionesCard.style.display = '';
-                    } else {
-                        ubicacionesCard.style.display = 'none';
-                        ubicacionesContainer.innerHTML = '';
-                    }
-                }
-
-                // Reaplicar el acordeón del panel lateral (frentes especiales): el innerHTML
-                // de las cards se acaba de reemplazar, pero las clases viven en los contenedores.
-                if (typeof window.eqAplicarAcordeon === 'function') window.eqAplicarAcordeon();
 
                 // Banner "también hay auxiliares": la búsqueda de esta tabla solo cubre
                 // vehículos; si el texto coincide con auxiliares, el server manda el conteo
