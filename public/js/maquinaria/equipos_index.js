@@ -2614,10 +2614,13 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         if (!actaState.destination) { if (window.showToast) window.showToast('El frente de destino no puede quedar vacío.', 'error'); return; }
         if (!actaState.ids.length) { if (window.showToast) window.showToast('Debe quedar al menos un equipo.', 'error'); return; }
 
-        // Lugar/zona de origen y Ubicación del destino son OBLIGATORIOS: el acta los
-        // imprime en el encabezado y junto al frente de destino. Se resalta en rojo el
+        // Frente de origen, Lugar/zona de origen y Ubicación del destino son OBLIGATORIOS: el
+        // acta los imprime en el encabezado y junto al frente de destino. El origen se exige
+        // para que equipos "Sin Asignar" no salgan con origen vacío/"OFICINA PRINCIPAL" — el
+        // usuario debe elegir/escribir un frente (lista de sugerencias). Se resalta en rojo el
         // contenedor del primer campo vacío (el borde vive en el wrapper, no en el input).
         var reqCampos = [
+            { sel: '#ed-origin',  vacio: !actaState.origin,                msg: 'El frente de origen es obligatorio (elige uno de la lista o escribe uno).' },
             { sel: '#ed-zona',    vacio: !actaState.origin_zona,          msg: 'El lugar / zona de origen (ciudad) es obligatorio.' },
             { sel: '#ed-destubic', vacio: !actaState.destination_ubicacion, msg: 'La ubicación del destino es obligatoria.' }
         ];
@@ -2672,23 +2675,16 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         }
     }
 
-    if (editarDirecto) {
-        // Frente nuevo/sin ubicación: abrir el FORMULARIO de una (sin previa primero), para
-        // capturar ubicación + firmas. Si el frente de ORIGEN no tiene responsables,
-        // sembramos las filas de firma igual que en el flujo normal.
+    if (editarDirecto || ultimaFirmasCount === 0) {
+        // Abrir el FORMULARIO de una (sin previa primero) cuando:
+        //  - el frente destino es nuevo/sin ubicación (editarDirecto), o
+        //  - el frente de ORIGEN no tiene responsables (0 firmas) — incluye equipos
+        //    "Sin Asignar": así el usuario fija el frente de origen + firmas ANTES de
+        //    ver/generar el acta, evitando un PDF con origen vacío/"OFICINA PRINCIPAL".
         if (ultimaFirmasCount === 0) sinResponsablesOrigen = true;
         abrirEditor();
     } else {
         renderPreview();
-
-        // Si el frente de ORIGEN no tiene responsables (0 firmas efectivas) y el usuario
-        // aún no las editó, abrimos el editor automáticamente con las filas REVISADO /
-        // APROBADO para que complete los datos que faltan — de forma proactiva, sin que
-        // tenga que descubrir que el acta saldría sin bloque de firma.
-        if (ultimaFirmasCount === 0 && actaState.firmas === null) {
-            sinResponsablesOrigen = true;
-            abrirEditor();
-        }
     }
 };
 
