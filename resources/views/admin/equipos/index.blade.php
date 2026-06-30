@@ -77,6 +77,27 @@
         .counter-sidebar { gap: 10px !important; }
     }
 
+    /* ── Consolidado (Equipos y Maquinaria / Auxiliares): más compacto verticalmente ── */
+    #block_total, #block_oper, #block_inop,
+    #aux_block_total, #aux_block_oper, #aux_block_inop {
+        padding-top: 3px !important;
+        padding-bottom: 3px !important;
+    }
+
+    @media (max-width: 900px) {
+        /* Móvil: cards de stats más bajas + bloques/números compactos. */
+        .equipos-mobile-stats { padding-top: 7px !important; padding-bottom: 7px !important; margin-bottom: 8px !important; }
+        .equipos-mobile-stats [style*="padding:8px 4px"] { padding-top: 4px !important; padding-bottom: 4px !important; }
+        .equipos-mobile-stats [style*="font-size:22px"] { font-size: 18px !important; }
+
+        /* Auxiliares en móvil: arranca RECOGIDA (solo el título). Toca el título para desplegar. */
+        #auxConsolidadoCardMobile .aux-mob-header { cursor: pointer; }
+        #auxConsolidadoCardMobile .aux-mob-chevron { margin-left: auto; transition: transform .2s ease; }
+        #auxConsolidadoCardMobile:not(.aux-mob-collapsed) .aux-mob-chevron { transform: rotate(180deg); }
+        #auxConsolidadoCardMobile.aux-mob-collapsed .aux-mob-header { margin-bottom: 0 !important; }
+        #auxConsolidadoCardMobile.aux-mob-collapsed .aux-mob-stats-row { display: none !important; }
+    }
+
     /* "Ver solo seleccionados" activo: en vez del anillo/glow que rodeaba TODO
        el contador (se veía feo), resaltamos solo el NÚMERO en un círculo ámbar
        limpio. El contador en sí queda sin borde raro. */
@@ -804,12 +825,13 @@
         $auxOperVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_con']   : $auxConsolidado['activos'])   : '--';
         $auxInopVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_sin']   : $auxConsolidado['inactivos']) : '--';
     @endphp
-    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
-        <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats aux-mob-collapsed" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+        <div class="aux-mob-header" onclick="this.closest('#auxConsolidadoCardMobile').classList.toggle('aux-mob-collapsed')" style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
             Equipos Auxiliares
+            <i class="material-icons aux-mob-chevron" style="font-size: 16px;">expand_more</i>
         </div>
-        <div style="display: flex; gap: 8px; justify-content: space-between;">
+        <div class="aux-mob-stats-row" style="display: flex; gap: 8px; justify-content: space-between;">
             <div id="aux_mobile_block_total" onclick="filterAuxByStatus('')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
                 <span style="font-size:10px; font-weight:700; opacity:0.8; margin-bottom:2px;">TOTAL</span>
                 <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $auxTotalVal }}</span>
