@@ -56,27 +56,23 @@ return new class extends Migration
 
     /**
      * Reverse the migrations.
+     *
+     * NO-OP a propósito (down() blindado): NO borra las columnas de tracking.
+     *
+     * Esta migración fue renombrada (antes tenía el timestamp malformado
+     * `2026_02_12_add_upload_tracking_to_documentacion`). En bases de datos ya
+     * migradas con el nombre viejo, el archivo renombrado se ejecuta una vez
+     * como no-op (up() está protegido con hasColumn) y queda en su propio batch.
+     * Si ese batch se revirtiera con `migrate:rollback`, un down() que dropeara
+     * las columnas destruiría datos de producción que ya existían desde antes.
+     *
+     * Como estas 10 columnas (POLIZA/ROTC/RACDA/PROPIEDAD/ADICIONAL _SUBIDO_POR
+     * y _FECHA_SUBIDA) son parte estable del esquema, este down() se deja vacío:
+     * ningún rollback las borra. En una BD nueva simplemente permanecen (son
+     * nullable, sin efecto). Seguridad de datos > reversibilidad exacta.
      */
     public function down(): void
     {
-        Schema::table('documentacion', function (Blueprint $table) {
-            // NOTA: up() crea estas columnas como unsignedBigInteger nullable
-            // SIN foreign key. Antes este down() llamaba dropForeign() sobre
-            // ellas y el rollback fallaba con "foreign key constraint does not
-            // exist" (no habia FK que dropear). Se eliminaron esos drops; solo
-            // se dropean las columnas.
-            $table->dropColumn([
-                'POLIZA_SUBIDO_POR',
-                'POLIZA_FECHA_SUBIDA',
-                'ROTC_SUBIDO_POR',
-                'ROTC_FECHA_SUBIDA',
-                'RACDA_SUBIDO_POR',
-                'RACDA_FECHA_SUBIDA',
-                'PROPIEDAD_SUBIDO_POR',
-                'PROPIEDAD_FECHA_SUBIDA',
-                'ADICIONAL_SUBIDO_POR',
-                'ADICIONAL_FECHA_SUBIDA'
-            ]);
-        });
+        // intencionalmente vacío — ver cabecera (no se borran columnas en rollback)
     }
 };
