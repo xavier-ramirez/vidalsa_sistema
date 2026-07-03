@@ -149,10 +149,12 @@
         .menu-hero { border-radius: 10px; }
     }
 
-    /* ── Wrapper grid: Salud Operacional + Alertas Documentos, responsive auto-fit ── */
+    /* ── Wrapper grid: Salud Operacional + Mapa + Alertas Documentos, responsive ── */
     .cards-wrapper {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        /* Las TRES del mismo ancho en PC (un tercio c/u): Salud y Alertas quedan
+           comprimidas para que el boton Mapa mida igual que ellas. */
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 16px;
         align-items: stretch;
         width: 100%;
@@ -168,6 +170,7 @@
     .cards-wrapper > * > .salud-card,
     .cards-wrapper > * > .alertas-card,
     .cards-wrapper > .salud-card,
+    .cards-wrapper > .mapa-card,
     .cards-wrapper > .alertas-card {
         width: 100%;
         height: 100%;
@@ -178,14 +181,18 @@
     /* Compactacion interna: reducir padding y gap dentro de cada card para bajar alto */
     .cards-wrapper > * .salud-card,
     .cards-wrapper .salud-card { padding: 16px 18px; gap: 18px; }
-    .cards-wrapper .alertas-card { padding: 14px 16px; }
+    /* Mapa comparte el padding compactado de Alertas para que las dos cards se vean
+       idénticas dentro del grid (mismo inset interno, no solo misma altura por stretch). */
+    .cards-wrapper .alertas-card,
+    .cards-wrapper .mapa-card { padding: 14px 16px; }
     @media (max-width: 1100px) {
         .cards-wrapper { grid-template-columns: 1fr; gap: 10px; }
     }
     @media (max-width: 480px) {
         .cards-wrapper { gap: 8px; }
         .cards-wrapper .salud-card { padding: 8px 6px; }
-        .cards-wrapper .alertas-card { padding: 8px 8px; }
+        .cards-wrapper .alertas-card,
+        .cards-wrapper .mapa-card { padding: 8px 8px; }
     }
 
     /* ── Modal Alertas Documentos (reemplaza el panel desplegable) ── */
@@ -266,21 +273,8 @@
         gap: 16px;
         padding-right: 24px;
         border-right: 1px solid #cfe4f9;
-        min-width: 240px;
+        min-width: 150px;
     }
-    .salud-icon {
-        flex-shrink: 0;
-        width: 54px;
-        height: 54px;
-        border-radius: 16px;
-        background: #1e293b;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        box-shadow: 0 8px 20px -6px rgba(30, 41, 59, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
-    }
-    .salud-icon .material-icons { font-size: 28px; }
     .salud-body {
         flex: 1;
         display: flex;
@@ -302,7 +296,7 @@
         flex-wrap: wrap;
     }
     .salud-percent {
-        font-size: 28px;
+        font-size: 22px;
         font-weight: 900;
         color: #0b1c30;
         letter-spacing: -0.02em;
@@ -315,13 +309,7 @@
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
-    /* Columna central: barra + leyenda horizontal — usa todo el ancho disponible */
-    .salud-bar-wrap {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-width: 0;
-    }
+    /* Barra horizontal de proporción (Operativos/Mantenim./Inoperat.) */
     .salud-bar {
         display: flex;
         height: 10px;
@@ -334,19 +322,6 @@
     .salud-bar-ok    { background: linear-gradient(90deg, #10b981, #059669); }
     .salud-bar-maint { background: linear-gradient(90deg, #f59e0b, #d97706); }
     .salud-bar-bad   { background: linear-gradient(90deg, #ef4444, #dc2626); }
-    .salud-bar-legend {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 22px;
-        font-size: 11px;
-        font-weight: 700;
-        color: #64748b;
-    }
-    .salud-bar-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-    .salud-bar-legend span::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
-    .salud-bar-legend .leg-ok::before    { background: #10b981; }
-    .salud-bar-legend .leg-maint::before { background: #f59e0b; }
-    .salud-bar-legend .leg-bad::before   { background: #ef4444; }
 
     /* Columna derecha: 3 stats horizontales */
     .salud-stats-group {
@@ -409,19 +384,12 @@
             min-width: 0;
             gap: 10px;
         }
-        .salud-icon {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-        }
-        .salud-icon .material-icons { font-size: 20px; }
         .salud-label { font-size: 10px; letter-spacing: 0.08em; }
         .salud-body { gap: 3px; }
         .salud-main { gap: 6px; }
-        .salud-percent { font-size: 22px; }
+        .salud-percent { font-size: 18px; }
         .salud-percent-sub { font-size: 9.5px; }
         .salud-bar { height: 6px; }
-        .salud-bar-wrap { gap: 6px; }
         .salud-stats-group {
             grid-column: 1 / -1;
             padding-left: 0;
@@ -438,13 +406,95 @@
     @media (max-width: 520px) {
         .salud-card { padding: 8px 10px; gap: 6px 8px; }
         .salud-main-block { padding-bottom: 6px; gap: 8px; }
-        .salud-icon { width: 34px; height: 34px; border-radius: 9px; }
-        .salud-icon .material-icons { font-size: 18px; }
-        .salud-percent { font-size: 20px; }
-        .salud-bar { height: 5px; }
+        /* Teléfono: la card muestra muchos datos → ocultar el porcentaje (.salud-main)
+           y la barra (.salud-bar). Quedan el título y los 3 conteos (más legible). */
+        .salud-main,
+        .salud-bar { display: none; }
         .salud-stat-value { font-size: 14px; }
         .salud-stat-name { font-size: 8px; }
         .salud-stats-group { padding-top: 4px; gap: 4px; }
+    }
+
+    /* ── Boton "Mapa" — MISMO lenguaje visual que Salud/Alertas: caja de icono a la
+         izquierda + texto (icono Material en caja oscura, no miniatura satelital) ── */
+    .mapa-card {
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 20px 22px;
+        border-radius: 18px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -16px rgba(15, 23, 42, 0.18);
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    }
+    .mapa-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 18px 36px -18px rgba(15, 23, 42, 0.25);
+    }
+    .mapa-card::before {
+        content: '';
+        position: absolute;
+        right: -40px;
+        top: -40px;
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, rgba(0, 103, 177, 0.12), transparent 70%);
+        pointer-events: none;
+    }
+    .mapa-card-icon {
+        position: relative;
+        flex-shrink: 0;
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        background: #1e293b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        box-shadow: 0 8px 20px -6px rgba(30, 41, 59, 0.55), inset 0 1px 0 rgba(255,255,255,0.25);
+    }
+    .mapa-card-icon .material-icons { font-size: 28px; }
+    .mapa-card-body {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+    }
+    .mapa-card-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #1e293b;
+        margin-bottom: 2px;
+    }
+    .mapa-card-sub {
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        line-height: 1.25;
+    }
+    @media (max-width: 900px) {
+        /* El padding lo fija la regla de compactacion del wrapper (.cards-wrapper .mapa-card),
+           que gana por especificidad; aqui solo ajustamos gap/borde/icono/texto. */
+        .mapa-card { gap: 12px; border-radius: 14px; }
+        .mapa-card-icon { width: 40px; height: 40px; border-radius: 11px; }
+        .mapa-card-icon .material-icons { font-size: 22px; }
+        .mapa-card-label { font-size: 10px; letter-spacing: 0.08em; }
+        .mapa-card-sub { font-size: 11px; }
+    }
+    @media (max-width: 520px) {
+        .mapa-card { gap: 10px; }
+        .mapa-card-icon { width: 36px; height: 36px; border-radius: 10px; }
+        .mapa-card-icon .material-icons { font-size: 20px; }
+        .mapa-card-sub { font-size: 10.5px; }
     }
 
     /* ── Card "Alertas Documentos" — misma superficie blanca limpia que Salud ── */
@@ -886,9 +936,6 @@
                 @endphp
                 <div class="salud-card">
                     <div class="salud-main-block">
-                        <div class="salud-icon">
-                            <i class="material-icons">monitoring</i>
-                        </div>
                         <div class="salud-body">
                             <span class="salud-label">Salud Operacional</span>
                             <div class="salud-main">
@@ -917,6 +964,22 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- ── Boton "Mapa" (entre Salud y Alertas): abre el modulo de mapa.
+                     Mismo estilo que Salud/Alertas: icono Material en caja oscura a la
+                     izquierda + texto. Navegación SPA (como Equipos): el JS global
+                     mapa_index.js carga Leaflet e inicializa en spa:contentLoaded, así que
+                     NO necesita recarga completa (data-no-spa) ni preloader manual. --}}
+                <a href="{{ route('mapa') }}" class="mapa-card"
+                   title="Abrir mapa de ubicación de los proyectos">
+                    <div class="mapa-card-icon">
+                        <i class="material-icons">satellite_alt</i>
+                    </div>
+                    <div class="mapa-card-body">
+                        <span class="mapa-card-label">Mapa</span>
+                        <span class="mapa-card-sub">Ubicación de los proyectos</span>
+                    </div>
+                </a>
 
                 <!-- ALERTAS SECTION (rediseñada) — dropup flotante: el panel se superpone arriba sin empujar el layout -->
                 <div style="position: relative;">

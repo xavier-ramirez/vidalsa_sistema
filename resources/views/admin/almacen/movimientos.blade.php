@@ -629,11 +629,12 @@
                                  navegar mes/año y elegir el día. El backend (scopePeriodo) acepta
                                  'YYYY-MM-DD' (whereDate >=). Para un mes completo, se elige el 1° y
                                  el último día del mes en Desde/Hasta. --}}
-                            <input type="date" id="almMovDesde" value="{{ $reqDesde }}" onchange="window.loadMovimientos()"
+                            <input type="date" id="almMovDesde" value="{{ $reqDesde }}"
+                                   oninput="window.almMovFechaFiltro(this)" onchange="window.almMovFechaFiltro(this)"
                                    style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#334155;cursor:pointer;">
                             <i class="material-icons" id="almMovDesdeClear"
                                style="display:{{ $reqDesde ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
-                               onclick="event.stopPropagation(); var i=document.getElementById('almMovDesde'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovDesdeBox').style.background='white'; window.loadMovimientos();">close</i>
+                               onclick="event.stopPropagation(); var i=document.getElementById('almMovDesde'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovDesdeBox').style.background='white'; window.almMovFechaFiltro(i);">close</i>
                         </div>
                     </div>
                     <div style="min-width:0;">
@@ -642,11 +643,12 @@
                              onclick="var i=document.getElementById('almMovHasta'); if(i){ i.focus(); if(i.showPicker) try{i.showPicker();}catch(e){} }">
                             {{-- Filtro por DÍA exacto (type=date). El backend (scopePeriodo) acepta
                                  'YYYY-MM-DD' (whereDate <=). --}}
-                            <input type="date" id="almMovHasta" value="{{ $reqHasta }}" onchange="window.loadMovimientos()"
+                            <input type="date" id="almMovHasta" value="{{ $reqHasta }}"
+                                   oninput="window.almMovFechaFiltro(this)" onchange="window.almMovFechaFiltro(this)"
                                    style="flex:1;min-width:0;border:none;background:transparent;padding:0;font-size:12px;outline:none;color:#334155;cursor:pointer;">
                             <i class="material-icons" id="almMovHastaClear"
                                style="display:{{ $reqHasta ? 'inline-flex' : 'none' }};font-size:14px;color:#64748b;cursor:pointer;padding:2px;border-radius:50%;"
-                               onclick="event.stopPropagation(); var i=document.getElementById('almMovHasta'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovHastaBox').style.background='white'; window.loadMovimientos();">close</i>
+                               onclick="event.stopPropagation(); var i=document.getElementById('almMovHasta'); if(i){ i.value=''; } this.style.display='none'; document.getElementById('almMovHastaBox').style.background='white'; window.almMovFechaFiltro(i);">close</i>
                         </div>
                     </div>
                 </div>
@@ -827,6 +829,25 @@
             })
             .catch(function () { body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
+    };
+
+    // Filtro de fecha ROBUSTO (Desde/Hasta). Un <input type="date"> devuelve '' mientras
+    // la fecha esté INCOMPLETA (falta día, mes o año) y su valor completo solo cuando los
+    // tres segmentos están puestos. Antes solo se escuchaba 'change', que al TECLEAR exige
+    // salir del campo (blur) para dispararse → parecía "no funcionar" si el usuario no
+    // salía. Ahora escuchamos también 'input': recarga EN CUANTO la fecha queda completa
+    // (o al limpiarla), sin blur. El dedup por dataset.lastApplied evita recargas repetidas
+    // mientras se teclea (valor '' incompleto no cambia) y la doble recarga input+change.
+    window.almMovFechaFiltro = function (el) {
+        if (!el) return;
+        var v = el.value || '';
+        // Sincronizar el icono "X" (limpiar) y el fondo azul de la caja con si hay fecha,
+        // también cuando se elige en vivo por el calendario/tecleo (no solo en la carga).
+        var clr = document.getElementById(el.id + 'Clear'); if (clr) clr.style.display = v ? 'inline-flex' : 'none';
+        var box = document.getElementById(el.id + 'Box');   if (box) box.style.background = v ? '#e1effa' : 'white';
+        if (el.dataset.lastApplied === v) return; // sin cambio real → no recargar
+        el.dataset.lastApplied = v;
+        window.loadMovimientos();
     };
 
     // ── Lista de productos para el autocomplete del filtro de búsqueda ──

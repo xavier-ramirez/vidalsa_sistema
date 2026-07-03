@@ -120,9 +120,9 @@
                        data-no-spa="true"
                        target="_blank" rel="noopener"
                        title="Ver Acta de Traslado (PDF)"
-                       style="font-weight: 800; color: #0067b1; font-size: 13px; text-decoration: none;"
+                       style="font-weight: 800; color: #0067b1; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;"
                        onmouseover="this.style.textDecoration='underline'"
-                       onmouseout="this.style.textDecoration='none'">{{ $mvLabel }}</a>
+                       onmouseout="this.style.textDecoration='none'"><i class="material-icons" style="font-size: 16px;">picture_as_pdf</i>{{ $mvLabel }}</a>
                 @else
                     <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">--</span>
                 @endif

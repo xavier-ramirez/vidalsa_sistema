@@ -176,6 +176,24 @@ class AlmacenController extends Controller
                     ->get();
                 $hasMore = $rows->count() > $PAGE_SIZE;
                 if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
+                // Equivalencias (nºs de parte alternos) + modelos de equipo compatibles: para
+                // el tooltip de la fila y el modal de detalles. Solo los filtros tienen datos;
+                // el resto de productos trae relaciones vacías. 2 consultas batcheadas.
+                $rows->load(['equivalencias', 'modelosCompatibles']);
+                // La MARCA de cada modelo NO vive en caracteristicas_modelo sino en `equipos`.
+                // Batch: ID_ESPEC → MARCA, y la pegamos a cada modelo (marca_equipo) para poder
+                // mostrar "Tipo · Marca · Modelo" en el tooltip y el modal.
+                $especIds = $rows->flatMap->modelosCompatibles->pluck('ID_ESPEC')->unique()->filter()->all();
+                if ($especIds) {
+                    $marcaPorEspec = \App\Models\Equipo::whereIn('ID_ESPEC', $especIds)
+                        ->get(['ID_ESPEC', 'MARCA'])->groupBy('ID_ESPEC')
+                        ->map(fn ($g) => $g->pluck('MARCA')->filter()->first());
+                    foreach ($rows as $r) {
+                        foreach ($r->modelosCompatibles as $m) {
+                            $m->marca_equipo = $marcaPorEspec[$m->ID_ESPEC] ?? null;
+                        }
+                    }
+                }
             }
             // En las páginas siguientes del scroll infinito ($offset > 0) NO devolvemos la
             // empty-state row del partial — sería un mensaje "Sin coincidencias" appended al
@@ -228,24 +246,27 @@ class AlmacenController extends Controller
             ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
         // CATEGORIA se incluye para que el buscador pueda avisar cuando un material existe
         // pero pertenece a OTRA categoría distinta a la filtrada (badge + toast en el front).
-        $productosLista = ProductoInventario::activos()->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
+        // EQUIV = números de parte equivalentes del filtro, unidos en un string, para que el
+        // AUTOCOMPLETE sugiera al teclear un alterno (p.ej. "MIS0531" o "1000FG") — no solo
+        // por código/nombre. El match con Enter ya lo cubre el backend (aplicarBusquedaProducto).
+        $productosLista = ProductoInventario::activos()
+            ->with(['equivalencias' => fn ($q) => $q->orderByDesc('ES_PRINCIPAL')])
+            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
+            ->map(function ($p) {
+                $p->EQUIV = $p->equivalencias->pluck('NUMERO_PARTE')->implode(' ');
+                // PARTE = número de parte PRINCIPAL (default en la sugerencia). PARTES = lista
+                // completa: la sugerencia muestra la que COINCIDE con lo buscado (ej. buscas un
+                // alterno y ese sale, no el principal), para que reconozcas por qué salió.
+                $p->PARTE  = (string) ($p->equivalencias->first()->NUMERO_PARTE ?? '');
+                $p->PARTES = $p->equivalencias->pluck('NUMERO_PARTE')->values()->all();
+                unset($p->equivalencias); // no enviar la relación completa al front
+                return $p;
+            });
         // CONTRATOS se carga junto al frente para alimentar las sugerencias del campo
         // "Contrato N°" del modal "Registrar salida" (Nota de Entrega).
         $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'CONTRATOS']);
-
-        // Mapa { ID_ALMACEN: [ID_PRODUCTO, ...] } con los productos que TIENEN fila en
-        // `almacen_stock` para cada almacén visible. Lo usa el autocompletado del filtro
-        // "Buscar" en /admin/almacen para MARCAR con un badge "sin stock aquí" los productos
-        // que aún no tienen stock en el almacén actual. Igual se pueden seleccionar: al
-        // hacerlo, la tabla los muestra con saldo 0 (ver inventarioBaseQuery, que hace LEFT
-        // JOIN con excepción para id_producto), así nunca queda vacía tras un clic.
-        $productosEnAlmacen = AlmacenStock::query()
-            ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
-            ->get(['ID_ALMACEN', 'ID_PRODUCTO'])
-            ->groupBy('ID_ALMACEN')
-            ->map(fn ($rows) => $rows->pluck('ID_PRODUCTO')->values());
 
         // CONTEO de notas de entrega pendientes de confirmar — alimenta el banner rojo
         // "N por confirmar" que enlaza a la bandeja. Recepción es PERSONAL: se cuenta SOLO
@@ -262,7 +283,6 @@ class AlmacenController extends Controller
             'productos'          => null,
             'categorias'         => $categorias,
             'productosLista'     => $productosLista,
-            'productosEnAlmacen' => $productosEnAlmacen,
             'frentesLista'       => $frentesLista,
             // El Consolidado de Inventario (KPIs: PRODUCTOS / Con stock / Stock bajo) SÍ se
             // calcula en la carga inicial — el cliente quiere verlo apenas abre el módulo,
@@ -318,19 +338,30 @@ class AlmacenController extends Controller
      * relación whereHas('producto') → 'X'). El fuzzy + ranking real vive en el
      * autocomplete del frontend; este LIKE es el fallback de "tipear + Enter".
      */
-    private function aplicarBusquedaProducto($q, string $term, array $cols): void
+    private function aplicarBusquedaProducto($q, string $term, array $cols, bool $incluirEquivalencias = false): void
     {
         $tokens = $this->tokenizarBusquedaProducto($term);
-        $q->where(function ($s) use ($tokens, $cols) {
+        $q->where(function ($s) use ($tokens, $cols, $incluirEquivalencias) {
             foreach ($tokens as $tok) {
                 $variantes = [$tok];
                 if (mb_strlen($tok) > 3 && mb_substr($tok, -1) === 's') {
                     $variantes[] = mb_substr($tok, 0, -1);
                 }
-                $s->where(function ($t) use ($variantes, $cols) {
+                $s->where(function ($t) use ($variantes, $cols, $incluirEquivalencias) {
                     foreach ($variantes as $v) {
                         foreach ($cols as $col) {
                             $t->orWhere($col, 'like', "%{$v}%");
+                        }
+                        // También por NÚMERO DE PARTE equivalente: escribir cualquier alterno
+                        // (p.ej. "1000FG") encuentra el filtro aunque su código/nombre no lo
+                        // contenga. Solo la tabla del almacén lo pide (flag) — no toca el
+                        // whereHas('producto') de la bitácora, que no pasa este parámetro.
+                        if ($incluirEquivalencias) {
+                            $t->orWhereExists(function ($sub) use ($v) {
+                                $sub->selectRaw('1')->from('producto_equivalencias')
+                                    ->whereColumn('producto_equivalencias.ID_PRODUCTO', 'productos_inventario.ID_PRODUCTO')
+                                    ->where('producto_equivalencias.NUMERO_PARTE', 'like', "%{$v}%");
+                            });
                         }
                     }
                 });
@@ -383,7 +414,7 @@ class AlmacenController extends Controller
         } elseif ($request->filled('search')) {
             // (cae aquí solo si NO vino id_producto — typed-and-Enter, no clic en sugerencia)
             $term = trim((string) $request->input('search'));
-            $this->aplicarBusquedaProducto($q, $term, ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE']);
+            $this->aplicarBusquedaProducto($q, $term, ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE'], true);
         }
         if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
             // Coincidencia parcial (igual que "search"): el filtro de categoría es un
@@ -1692,8 +1723,10 @@ class AlmacenController extends Controller
             'notas'                => 'nullable|string',
             'permitir_negativo'    => 'nullable|boolean',
             'lineas'               => 'required|array|min:1',
-            'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'lineas.*.cantidad'    => 'required|numeric',
+            'lineas.*.id_producto'  => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            'lineas.*.cantidad'     => 'required|numeric',
+            // Nº de parte específico entregado (filtros) — opcional y por línea.
+            'lineas.*.numero_parte' => 'nullable|string|max:100',
         ]);
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -1781,11 +1814,17 @@ class AlmacenController extends Controller
                 foreach ($data['lineas'] as $linea) {
                     $idProducto = (int) $linea['id_producto'];
                     $cantidad   = (float) $linea['cantidad'];
+                    // Nº de parte específico entregado — es POR LÍNEA (cada filtro puede llevar
+                    // una equivalencia distinta), por eso se mezcla aquí y no en $opts global.
+                    $optsLinea = $opts;
+                    if ($data['tipo'] === 'SALIDA' && !empty($linea['numero_parte'])) {
+                        $optsLinea['numero_parte'] = trim((string) $linea['numero_parte']);
+                    }
 
                     $mov = match ($data['tipo']) {
-                        'ENTRADA' => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
-                        'SALIDA'  => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
-                        'AJUSTE'  => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $opts),
+                        'ENTRADA' => $this->inventario->registrarEntrada((int) $data['id_almacen'], $idProducto, $cantidad, $optsLinea),
+                        'SALIDA'  => $this->inventario->registrarSalida((int) $data['id_almacen'], $idProducto, $cantidad, $optsLinea),
+                        'AJUSTE'  => $this->inventario->registrarAjuste((int) $data['id_almacen'], $idProducto, $cantidad, $optsLinea),
                     };
                     $ids[] = $mov->ID_MOVIMIENTO;
                 }
@@ -2229,8 +2268,9 @@ class AlmacenController extends Controller
             'departamento'         => 'nullable|string|max:150',
             'motivo'               => 'nullable|string|max:200',
             'lineas'               => 'required|array|min:1',
-            'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'lineas.*.cantidad'    => 'required|numeric|gt:0',
+            'lineas.*.id_producto'  => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            'lineas.*.cantidad'     => 'required|numeric|gt:0',
+            'lineas.*.numero_parte' => 'nullable|string|max:100',
         ]);
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -2294,8 +2334,11 @@ class AlmacenController extends Controller
         // el cast de ProductoInventario, no necesita fix manual.
         $movs = collect($data['lineas'])->map(function ($l) use ($productos) {
             return (object) [
-                'CANTIDAD' => (float) $l['cantidad'],
-                'producto' => $productos[(int) $l['id_producto']] ?? null,
+                'CANTIDAD'     => (float) $l['cantidad'],
+                // Nº de parte específico (filtros): el preview también lo muestra, igual que
+                // el PDF final. El blade lo lee null-safe, así que si no vino queda vacío.
+                'NUMERO_PARTE' => $l['numero_parte'] ?? null,
+                'producto'     => $productos[(int) $l['id_producto']] ?? null,
             ];
         });
 

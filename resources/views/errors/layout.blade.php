@@ -14,40 +14,44 @@
          Es solo CSS estático con @font-face: si fallara, cae al fallback de abajo. --}}
     <link href="{{ asset('css/fonts.css') }}?v={{ @filemtime(public_path('css/fonts.css')) }}" rel="stylesheet">
     <style>
+        /* Azul del botón del login (--maquinaria-blue en inicio_sesion.css). */
+        :root { --login-blue: #00004d; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Nunito', 'Segoe UI', Tahoma, sans-serif;
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
             padding: 24px; color: #1e293b;
-            /* Fondo apenas tintado para que la sombra de la tarjeta blanca resalte. */
-            background: #f4f7fb;
-        }
-        .err-card {
-            width: 100%; max-width: 410px; text-align: center;
+            /* Fondo blanco (igual pedido del cliente). */
             background: #fff;
-            border: 1px solid #eef2f7; border-radius: 24px;
-            padding: 44px 36px 38px;
-            /* Más profundidad: sombra ámplia azulada + uno cercano para apoyo. */
-            box-shadow: 0 26px 60px rgba(0,51,122,0.16), 0 8px 20px rgba(15,23,42,0.07);
+        }
+        /* Tarjeta con el MISMO tamaño, forma y sombra de la del login
+           (.login-container-float-center: 400px, radius 12px, sombra 360°). */
+        .err-card {
+            width: 100%; max-width: 400px; text-align: center;
+            background: #fff;
+            border-radius: 12px;
+            padding: 44px 40px 40px;
+            box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.25), 0 0 10px -5px rgba(0, 0, 0, 0.15);
             animation: err-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         @keyframes err-rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
         .err-logo { height: 50px; margin-bottom: 20px; object-fit: contain; }
         .err-code {
             font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -3px;
-            color: #00337a;
+            color: var(--login-blue);
         }
         .err-title { font-size: 21px; font-weight: 700; margin: 14px 0 6px; color: #0f172a; }
         .err-msg { font-size: 14px; line-height: 1.55; color: #64748b; margin-bottom: 28px; }
+        /* Botón con el azul del login (#00004d), forma y altura del .btn-maquinaria-primary. */
         .err-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-            width: 100%;
-            background: #00337a; color: #fff; font-weight: 700; font-size: 16px;
-            text-decoration: none; padding: 14px 24px; border-radius: 12px;
-            box-shadow: 0 8px 18px rgba(0,51,122,0.22);
+            width: 100%; height: 50px;
+            background: var(--login-blue); color: #fff; font-weight: 700; font-size: 16px;
+            text-decoration: none; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
-        .err-btn:hover { transform: translateY(-2px); background: #003e94; box-shadow: 0 12px 26px rgba(0,51,122,0.30); }
+        .err-btn:hover { transform: translateY(-2px); background: #000066; box-shadow: 0 8px 16px rgba(0, 0, 77, 0.28); }
         .err-btn:active { transform: translateY(0); }
     </style>
 </head>

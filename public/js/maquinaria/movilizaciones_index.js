@@ -655,13 +655,20 @@ if (!window._mvRowClickRegistered) {
     window._mvRowClickRegistered = true;
 
     document.addEventListener('click', function (e) {
-        // --- Manejo de la Selección de Fila ---
-        // Ignorar cualquier botón, enlace o dropdown
+        // Ignorar cualquier botón, enlace o dropdown (no deben togglear nada).
         if (e.target.closest('.custom-dropdown') || e.target.closest('button') || e.target.closest('a')) return;
 
         const tr = e.target.closest('.mv-selectable-row');
         if (!tr) return;
 
+        // ── Móvil (tarjeta): el tap EXPANDE para ver el detalle (PDF, usuario, hora) ──
+        // El layout de tarjeta se activa a <=1024px (ver estilos_globales.css).
+        if (window.innerWidth <= 1024) {
+            tr.classList.toggle('mv-expanded');
+            return;
+        }
+
+        // ── Desktop (tabla): el click SELECCIONA la fila (para eliminar en lote) ──
         const rowId = tr.dataset.mvId;
         if (!rowId) return;
 

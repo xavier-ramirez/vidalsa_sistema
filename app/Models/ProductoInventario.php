@@ -56,6 +56,20 @@ class ProductoInventario extends Model
         return $this->hasMany(MovimientoInventario::class, 'ID_PRODUCTO', 'ID_PRODUCTO');
     }
 
+    /** Números de parte equivalentes (cross-reference) de este filtro/producto. */
+    public function equivalencias()
+    {
+        return $this->hasMany(ProductoEquivalencia::class, 'ID_PRODUCTO', 'ID_PRODUCTO');
+    }
+
+    /** Modelos de equipo que usan este filtro (compatibilidad/fitment). */
+    public function modelosCompatibles()
+    {
+        return $this->belongsToMany(CaracteristicaModelo::class, 'modelo_filtro', 'ID_PRODUCTO', 'ID_ESPEC')
+                    ->withPivot('CANTIDAD')
+                    ->withTimestamps();
+    }
+
     public function creadoPor()
     {
         return $this->belongsTo(Usuario::class, 'CREADO_POR', 'ID_USUARIO');

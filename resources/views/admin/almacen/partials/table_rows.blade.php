@@ -51,10 +51,20 @@
             $catJs   = addslashes($p->CATEGORIA ?? '');
             $ubiJs   = addslashes($p->UBICACION ?? '');
             $minArg  = $minimo !== null ? $minimo : 'null';
+            // Filtros: números de parte EQUIVALENTES + MODELOS de equipo compatibles (para
+            // el tooltip de la fila y el modal de detalles). Vacío en productos no-filtro.
+            $equivs  = $p->relationLoaded('equivalencias')       ? $p->equivalencias->pluck('NUMERO_PARTE')->all() : [];
+            // Cada equipo compatible como {t: tipo, m: marca, mo: modelo} para mostrar los
+            // tres campos (tipo · marca · modelo) en el tooltip y apilados en el modal.
+            $equipos = $p->relationLoaded('modelosCompatibles')
+                ? $p->modelosCompatibles->map(fn ($m) => ['t' => $m->TIPO, 'm' => $m->marca_equipo ?? null, 'mo' => $m->MODELO])->all()
+                : [];
         @endphp
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
-            data-bajo="{{ $bajo ? '1' : '0' }}">
+            data-bajo="{{ $bajo ? '1' : '0' }}"
+            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ $equivs[0] }}" @endif
+            @if($equipos) data-equipos="{{ json_encode($equipos) }}" @endif>
             <td class="alm-td-codigo" style="font-weight:600;color:#1e293b;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
@@ -64,10 +74,45 @@
                  dato "00042 · ABRAZADERA"). En desktop hay columna codigo aparte, asi que
                  el atributo queda sin uso pero no estorba. --}}
             <td class="alm-td-nombre" data-codigo="{{ $p->CODIGO }}" style="font-weight:600;color:#1e293b;position:relative;">
-                {{ $p->NOMBRE }}
-                @if(!empty($p->UBICACION))
-                    <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
-                        📍 {{ $p->UBICACION }}
+                @if($equivs)
+                    {{-- Filtros: el TIPO (nombre) va un poco más chico y los NÚMEROS DE PARTE
+                         más grandes y oscuros (como el tipo) — el cliente los quiere como el dato
+                         principal para distinguir filtros del mismo tipo sin hacer hover. --}}
+                    <span style="font-size:12px;">{{ $p->NOMBRE }}</span>
+                    @if(count($equivs) > 1)
+                        {{-- Números de parte CLICKEABLES: al registrar una SALIDA, haz clic en el
+                             que entregas — se resalta (subrayado + negrita) y ESE sale en la Nota
+                             de Entrega y en la bitácora. El primero (principal) va marcado por
+                             defecto. data-no-toggle: el clic NO togglea la selección de la fila. --}}
+                        <div class="alm-parte-list" data-no-toggle style="font-size:13px;color:#1e293b;font-weight:600;margin-top:2px;line-height:1.55;word-break:break-word;">
+                            @foreach($equivs as $i => $np)
+                                <span class="alm-parte-opt{{ $i === 0 ? ' alm-parte-on' : '' }}" data-no-toggle data-parte="{{ $np }}"
+                                      onclick="window.almRowPartePick && window.almRowPartePick(this)">{{ $np }}</span>@unless($loop->last)<span style="color:#cbd5e0;"> · </span>@endunless
+                            @endforeach
+                        </div>
+                    @else
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;margin-top:2px;line-height:1.4;word-break:break-word;">{{ $equivs[0] }}</div>
+                    @endif
+                @else
+                    {{ $p->NOMBRE }}
+                @endif
+                @php
+                    // El tooltip (burbuja al hover) muestra ubicación + equipos. Las equivalencias
+                    // ya NO van aquí: se muestran inline debajo del nombre (arriba). Cada parte se
+                    // escapa con e(); el <br> literal es lo único sin escapar (de ahí el {!! !!}).
+                    $tip = [];
+                    if (!empty($p->UBICACION)) $tip[] = '📍 ' . e($p->UBICACION);
+                    if ($equipos) {
+                        // Cada equipo en su línea: "Tipo · Marca · Modelo" (uno abajo del otro).
+                        // Se muestran TODOS: la burbuja crece para que quepan (sin cortar con "+N").
+                        $fmt    = fn ($e) => implode(' · ', array_filter([$e['t'] ?? null, $e['m'] ?? null, $e['mo'] ?? null]));
+                        $lineas = array_map(fn ($e) => '&bull; ' . e($fmt($e)), $equipos);
+                        $tip[]  = '🚜 Equipos que lo usan:<br>' . implode('<br>', $lineas);
+                    }
+                @endphp
+                @if($tip)
+                    <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:9px 13px;border-radius:6px;font-size:12px;font-weight:600;line-height:1.6;white-space:normal;width:max-content;max-width:400px;word-wrap:break-word;text-align:left;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:9001;margin-bottom:5px;">
+                        {!! implode('<br>', $tip) !!}
                         <div style="position:absolute;top:100%;left:30px;margin-left:-4px;border-width:4px;border-style:solid;border-color:#1e293b transparent transparent transparent;"></div>
                     </div>
                 @endif

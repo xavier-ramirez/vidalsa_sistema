@@ -357,7 +357,8 @@
         transition: all 0.2s ease;
     }
     #movilizacionesTable tr.selected-row-maquinaria td:first-child {
-        border-left: 4px solid #0067b1 !important;
+        /* Sin franja azul gruesa a la izquierda: solo el mismo borde fino celeste. */
+        border-left-color: #93c5fd !important;
         border-top-color: #93c5fd !important;
         border-bottom-color: #93c5fd !important;
     }

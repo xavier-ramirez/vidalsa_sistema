@@ -65,6 +65,7 @@ class MovimientoInventario extends Model
         'ID_FRENTE',
         'ID_USUARIO',
         'REFERENCIA',
+        'NUMERO_PARTE',
         'NUMERO_CONTRATO',
         'NUMERO_RQ',
         'SOLICITANTE',

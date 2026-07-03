@@ -772,11 +772,11 @@
                 } else {
                     _flushFlashToast();
                 }
-                // En navegaciones SPA, leer el toast nuevo y liberar el flag
-                // de "redirigiendo" para que el siguiente submit arranque limpio.
+                // En navegaciones SPA, leer el toast nuevo del destino. El flag
+                // window.__vidalsaRedirecting lo libera loadPage() en su finally
+                // (punto único, cubre éxito y error); no se toca aquí para no duplicar.
                 window.addEventListener('spa:contentLoaded', function () {
                     _flushFlashToast();
-                    window.__vidalsaRedirecting = false;
                 });
             })();
         </script>
@@ -967,8 +967,25 @@
 
         <!-- Scripts -->
         <script>
-            // Global Preloader Controls
+            // Global Preloader Controls — CON CONTADOR DE REFERENCIAS.
+            //
+            // Motivo: un ÚNICO spinner global es compartido por varias operaciones
+            // async. El caso más común: al entrar a un módulo (navegación SPA) se
+            // muestra el spinner, se inyecta el HTML del módulo y su script de init
+            // lanza un SEGUNDO fetch (los datos de la tabla/filtro). SIN contador, el
+            // hidePreloader de la navegación ocultaba el spinner apenas llegaba el
+            // cascarón HTML, aunque el fetch de datos siguiera en vuelo → con internet
+            // lento el spinner desaparecía y los datos filtrados aparecían unos
+            // segundos DESPUÉS. CON contador, cada show() suma y cada hide() resta: el
+            // spinner solo se oculta cuando TODAS las operaciones que lo pidieron
+            // terminaron (es decir, cuando los datos ya están pintados en pantalla).
+            //
+            // hidePreloader(true) FUERZA el reset del contador y oculta de inmediato:
+            // lo usan los watchdogs anti-congelado (ver navegacion.js).
+            let _preloaderRefs = 0;
+
             window.showPreloader = function () {
+                _preloaderRefs++;
                 const preloader = document.getElementById('preloader');
                 if (preloader) {
                     preloader.classList.remove('fade-out');
@@ -980,7 +997,14 @@
                 }
             };
 
-            window.hidePreloader = function () {
+            window.hidePreloader = function (force) {
+                if (force === true) {
+                    _preloaderRefs = 0;
+                } else {
+                    _preloaderRefs = Math.max(0, _preloaderRefs - 1);
+                    // Aún hay operaciones en vuelo → mantener el spinner visible.
+                    if (_preloaderRefs > 0) return;
+                }
                 const preloader = document.getElementById('preloader');
                 if (preloader) {
                     preloader.classList.add('fade-out');
@@ -992,10 +1016,15 @@
                 }
             };
 
-            // Asegurar que el preloader inicial se oculte solo cuando todo (incluyendo imágenes/iconos) haya cargado.
+            // Ocultar el preloader INICIAL cuando todo (imágenes/iconos) haya cargado,
+            // PERO solo si ninguna operación lo está usando (refs===0). Si el script de
+            // init de un módulo ya pidió el spinner para su primer fetch (refs>0), NO lo
+            // tocamos aquí: se ocultará cuando ese fetch termine de pintar los datos.
+            // Sin esta guarda, en una carga de página COMPLETA (no-SPA) el window.load
+            // bajaba el contador del init y reaparecía el mismo bug (spinner antes que datos).
             window.addEventListener('load', function() {
-                if (typeof window.hidePreloader === 'function') {
-                    window.hidePreloader();
+                if (_preloaderRefs === 0 && typeof window.hidePreloader === 'function') {
+                    window.hidePreloader(true);
                 }
             });
 
@@ -1061,7 +1090,16 @@
                 function mostrarOffline() {
                     sinConexion = true;
                     showBanner('Sin conexión a internet', 'wifi_off', '#dc2626', 0);
-                    if (action) action.style.display = (Object.keys(renders).length && !offlineActivo) ? 'inline-block' : 'none';
+                    // AUTO-activar el modo offline si el módulo actual tiene vista offline
+                    // registrada. Antes era MANUAL (botón "Trabajar sin conexión"); si el
+                    // usuario no lo pulsaba, los filtros seguían llamando al servidor caído y
+                    // "no filtraban nada". Ahora funciona solo. El botón queda de respaldo si
+                    // aún no hay render registrado en este instante.
+                    if (Object.keys(renders).length && !offlineActivo) {
+                        activarOffline();
+                    } else if (action) {
+                        action.style.display = 'none';
+                    }
                 }
                 function activarOffline() {
                     if (offlineActivo) return;
@@ -1122,7 +1160,10 @@
                 window.OfflineMode = {
                     registrar: function (clave, fn) {
                         renders[clave] = fn;
-                        if (sinConexion && !offlineActivo && action) action.style.display = 'inline-block';
+                        // Si YA estamos sin conexión cuando el módulo se registra (p.ej. se
+                        // navegó a equipos estando offline), auto-activar en vez de solo
+                        // ofrecer el botón — así los filtros offline funcionan de inmediato.
+                        if (sinConexion && !offlineActivo) activarOffline();
                     },
                     activar: activarOffline,
                     estaActivo: function () { return offlineActivo; },
@@ -1300,6 +1341,10 @@
             src="{{ asset('js/maquinaria/historial_documentos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/historial_documentos_index.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/fleet_dashboard.js') }}?v={{ @filemtime(public_path('js/maquinaria/fleet_dashboard.js')) }}"></script>
+        {{-- Módulo "Mapa Satelital": global (la SPA no re-ejecuta los <script> del
+             contenido). Carga Leaflet de forma diferida e inicializa en spa:contentLoaded. --}}
+        <script
+            src="{{ asset('js/maquinaria/mapa_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}"></script>
 
         <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
         <script
@@ -1819,6 +1864,11 @@
 
                     iframe.onerror = function () {
                         clearTimeout(loaderTimeout);
+                        // Balancear el showPreloader() de arriba: sin esto, al fallar la
+                        // carga del PDF el contador del preloader global quedaba sin
+                        // decrementar (loaderTimeout ya fue cancelado) y el spinner se
+                        // colgaba / quedaba descalibrado para la siguiente operación.
+                        if (typeof window.hidePreloader === 'function') window.hidePreloader();
                         if (loader) loader.style.display = 'none';
                         showModal({
                             type: 'error',

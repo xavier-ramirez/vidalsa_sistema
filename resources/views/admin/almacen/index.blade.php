@@ -43,6 +43,14 @@
     /* Tooltip-bubble con la UBICACION del producto: aparece al pasar el mouse por cualquier
        parte de la fila (mismo patrón que /admin/equipos usando `.admin-table tr:hover`). */
     .alm-row:hover .tooltip-bubble { opacity: 1 !important; visibility: visible !important; }
+    /* Elevar la celda al hover para que el tooltip quede POR ENCIMA del thead sticky
+       (z-index:2) y de las demás filas — si no, el encabezado oscuro lo tapaba. */
+    .alm-row:hover .alm-td-nombre { z-index: 9000; }
+    /* Números de parte clickeables en la descripción del filtro: el elegido para la salida
+       va en negrita + subrayado; los demás se subrayan al pasar el mouse. Sin azul ni caja. */
+    .alm-parte-opt { cursor: pointer; }
+    .alm-parte-opt:hover { text-decoration: underline; }
+    .alm-parte-opt.alm-parte-on { font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
     /* Fila con stock bajo: tono rojo claro para indicar urgencia. Al hacer hover hereda
        el azul general como cualquier otra fila (sin sobrescribir con !important — antes
        quedaba naranja en hover y se sentia inconsistente). */
@@ -1308,6 +1316,10 @@
                     <div style="font-size:11.5px;font-weight:500;line-height:1.35;margin-top:2px;opacity:0.85;">El saldo está en o por debajo del mínimo configurado.</div>
                 </div>
             </div>
+            {{-- Filtros: equivalencias (nºs de parte alternos) + equipos/modelos que usan
+                 este filtro. Se llena en almAbrirDetalle desde los data-attrs de la fila;
+                 queda oculto si el producto no es un filtro (sin datos). --}}
+            <div id="almDetFiltroInfo" style="display:none;flex-direction:column;gap:12px;border-top:1px solid #f1f5f9;padding-top:12px;"></div>
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
                 {{-- Botones SIEMPRE visibles. La verificacion de permiso vive dentro de
                      almDetalleAccion / almAbrirAjuste / almEditarProducto / almEliminarProducto
@@ -1410,7 +1422,7 @@
                         <div class="custom-dropdown" id="almSalidaContratoDropdown">
                             <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                                 <input type="text" id="almSalidaContrato" autocomplete="off" maxlength="100"
-                                       placeholder="Selecciona o escribe (opcional)"
+                                       placeholder="Selecciona"
                                        style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
                                        oninput="window.almSalidaContratoFilter(this)">
                                 <i class="material-icons" id="almSalidaContratoClearBtn" style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
@@ -1548,10 +1560,6 @@
     // Catálogo de productos (CODIGO/NOMBRE/UM) — lista global, alimenta los selects de los modales
     // (Nuevo/Editar producto, modal de salida con productos seleccionados, etc.).
     window.almProductosLista = @json($productosLista ?? collect());
-    // Mapa { ID_ALMACEN: [ID_PRODUCTO, ...] } — productos que SÍ tienen fila en `almacen_stock`
-    // para cada almacén. Lo usan las sugerencias del filtro "Buscar" para acotar a productos
-    // que realmente aparecerán en la tabla (la tabla usa INNER JOIN con almacen_stock).
-    window.almProductosEnAlmacen = @json($productosEnAlmacen ?? collect());
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
     window.almCategoriasLista = @json(($categorias ?? collect())->filter()->values());
     // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo "UM" del modal.
@@ -1909,16 +1917,6 @@
             ? '<div class="alm-suggest-item" data-action="ver-todo"><span class="nom">VER TODO EL STOCK</span></div>'
             : '';
 
-        // IDs de productos que SI estan en el almacen seleccionado (set para lookup O(1)).
-        // Si no hay almacen seleccionado o no tenemos info, se omite el filtro (mostrar todo).
-        var idAlm = el('almSelAlmacen') ? el('almSelAlmacen').value : '';
-        var idsArr = idAlm ? ((window.almProductosEnAlmacen || {})[idAlm] || null) : null;
-        var idsSet = null;
-        if (idsArr && idsArr.length !== undefined) {
-            idsSet = {};
-            for (var k = 0; k < idsArr.length; k++) idsSet[idsArr[k]] = true;
-        }
-        function enEsteAlmacen(p) { return idsSet === null || !!idsSet[p.ID_PRODUCTO]; }
 
         // Categoría ACTIVA (la que filtra la tabla). Lectura NO mutante: vive en data-active
         // tras un almCatPick; si el usuario tipeó pero no aplicó, cae al value. Sirve para
@@ -1942,10 +1940,9 @@
         var gruposNombre = {};
         for (var gI = 0; gI < lista.length; gI++) {
             var gKey = almNorm(lista[gI].NOMBRE || '');
-            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, anyStock: false, ids: [], enCat: false };
+            if (!gruposNombre[gKey]) gruposNombre[gKey] = { count: 0, ids: [], enCat: false };
             gruposNombre[gKey].count++;
             gruposNombre[gKey].ids.push(lista[gI].ID_PRODUCTO);
-            if (enEsteAlmacen(lista[gI])) gruposNombre[gKey].anyStock = true;
             // enCat = ALGUNA presentación del grupo pertenece a la categoría filtrada
             // (las presentaciones suelen compartir categoría). Filtra las sugerencias.
             if (perteneceACat(lista[gI].CATEGORIA)) gruposNombre[gKey].enCat = true;
@@ -1967,35 +1964,42 @@
         // Sobre el resultado aplicamos el dedupe por descripción (una entrada por nombre,
         // con badge de N presentaciones) y el filtro por categoría activa, hasta 17.
         var ranked = window.FuzzySearch.rank(lista, rawTerm, function (p) {
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || ''), label: p.NOMBRE || '' };
+            // haystack incluye EQUIV (números de parte equivalentes) para que teclear un
+            // alterno (p.ej. "MIS0531" / "1000FG" / "LF-3977") sugiera el filtro, aunque su
+            // código/nombre no lo contenga. label sigue siendo solo el NOMBRE (lo que se ve).
+            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
         });
+        // ¿El producto es un FILTRO? Los filtros del mismo nombre son MODELOS DISTINTOS (distinto
+        // nº de parte), NO "presentaciones" → no se agrupan por descripción: cada uno es su propia
+        // sugerencia. Fuente ÚNICA de esta comprobación (la usan el dedupe y el render).
+        var esFiltroCat = function (x) { return String(x && x.CATEGORIA || '').toUpperCase().indexOf('FILTRO') !== -1; };
         for (var s = 0; s < ranked.length && matches.length < 17; s++) {
-            var kS = almNorm(ranked[s].NOMBRE || '');
+            var rp = ranked[s];
+            var esFiltro = esFiltroCat(rp);
+            var kS = esFiltro ? ('__f' + rp.ID_PRODUCTO) : almNorm(rp.NOMBRE || '');
             if (vistosNom[kS]) continue;
-            if (catActivaNorm && !(gruposNombre[kS] && gruposNombre[kS].enCat)) continue;
+            var enCat = esFiltro
+                ? perteneceACat(rp.CATEGORIA)
+                : (gruposNombre[almNorm(rp.NOMBRE || '')] && gruposNombre[almNorm(rp.NOMBRE || '')].enCat);
+            if (catActivaNorm && !enCat) continue;
             vistosNom[kS] = true;
-            matches.push(ranked[s]);
+            matches.push(rp);
         }
 
         if (!matches.length) {
             box.innerHTML = verTodoLink + '<div class="alm-suggest-empty">Sin coincidencias.</div>';
         } else {
             // Mostrar SOLO el NOMBRE; data-pick guarda el NOMBRE para que escribir encima del
-            // texto pegado siga produciendo coincidencias via LIKE %term% del backend.
-            // Badge "sin stock aquí" cuando el producto existe en el catalogo pero no en
-            // almacen_stock del almacen actual — el usuario sabe que existe y puede clickear
-            // igual: al seleccionarlo, la tabla SIEMPRE lo muestra con saldo 0 (el LEFT JOIN
-            // de inventarioBaseQuery con excepcion para id_producto), nunca queda vacia.
+            // texto pegado siga produciendo coincidencias via LIKE %term% del backend. (El badge
+            // "sin stock aquí" se retiró a pedido del cliente.) Los filtros muestran además su
+            // número de parte delante del nombre y NO se agrupan (cada uno es un modelo distinto).
             var html = verTodoLink + matches.map(function (p) {
                 var nom = (p.NOMBRE || '').replace(/[<>&"]/g, '');
                 var cod = (p.CODIGO || '').replace(/[<>&"]/g, '');
-                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, anyStock: enEsteAlmacen(p), ids: [p.ID_PRODUCTO], enCat: perteneceACat(p.CATEGORIA) };
-                var multi = grp.count > 1;
-                // sinStock a nivel GRUPO: solo si NINGUNA presentacion esta en este almacen.
-                var sinStock = !grp.anyStock;
-                var badge = sinStock
-                    ? '<span style="font-size:10.5px;color:#94a3b8;margin-left:8px;font-weight:500;">• sin stock aquí</span>'
-                    : '';
+                var esFiltroP = esFiltroCat(p);
+                var grp = gruposNombre[almNorm(p.NOMBRE || '')] || { count: 1, ids: [p.ID_PRODUCTO], enCat: perteneceACat(p.CATEGORIA) };
+                // Filtros NUNCA son "multi": cada uno es un modelo aparte, no una presentación.
+                var multi = !esFiltroP && grp.count > 1;
                 // Clic en la sugerencia:
                 //  - Descripcion UNICA → data-pid = id exacto (match de 1 producto).
                 //  - VARIAS presentaciones → data-pids = CSV de los IDs de ESAS presentaciones;
@@ -2013,11 +2017,27 @@
                 var rightBadge = multi
                     ? '<span class="alm-suggest-cod" style="color:#0067b1;display:inline-flex;align-items:center;gap:1px;" title="' + grp.count + ' presentaciones (distintas unidades)"><i class="material-icons" style="font-size:15px;line-height:1;">layers</i><span style="font-size:10.5px;font-weight:700;line-height:1;">' + grp.count + '</span></span>'
                     : '';
+                // Filtros: el nº de parte va DELANTE del tipo (gris, mismo color/letra de la
+                // lista). Se muestra la EQUIVALENCIA que COINCIDE con lo buscado — si buscas un
+                // alterno (ej. "APRO AL-7723") sale ese y no la principal, así reconoces por qué
+                // salió. Normaliza sin espacios/guiones para tolerar "AL-7723" vs "AL7723".
+                var parteMostrar = p.PARTE;
+                if (rawTerm && p.PARTES && p.PARTES.length) {
+                    var tN = almNorm(rawTerm).replace(/[\s\-]/g, '');
+                    if (tN) for (var pi = 0; pi < p.PARTES.length; pi++) {
+                        var eN = almNorm(String(p.PARTES[pi])).replace(/[\s\-]/g, '');
+                        if (eN && (eN.indexOf(tN) !== -1 || tN.indexOf(eN) !== -1)) { parteMostrar = p.PARTES[pi]; break; }
+                    }
+                }
+                // Mismo tipo de letra/color/tamaño que la descripción (.nom): 13.5px, #475569,
+                // peso 600 — para que el nº de parte se lea igual que el tipo, no más apagado.
+                var partePrefix = parteMostrar
+                    ? '<span class="alm-suggest-parte" style="font-size:13.5px;color:#475569;font-weight:600;margin-right:7px;white-space:nowrap;">' + String(parteMostrar).replace(/[<>&"]/g, '') + '</span>'
+                    : '';
                 return '<div class="alm-suggest-item" data-pid="' + pid + '" data-pids="' + pids + '" data-pick="' + nom + '" title="' + cod + '">'
-                     {{-- nom PRIMERO (flex:1 → ocupa el ancho y hace wrap desde el margen
-                          izquierdo); el badge de nº de presentaciones va DESPUÉS, a la derecha. --}}
-                     + '<div class="alm-suggest-line"><span class="nom">' + nom + '</span>' + rightBadge + '</div>'
-                     + badge + '</div>';
+                     {{-- nº de parte (si es filtro) + nom; el badge de presentaciones va a la derecha. --}}
+                     + '<div class="alm-suggest-line">' + partePrefix + '<span class="nom">' + nom + '</span>' + rightBadge + '</div>'
+                     + '</div>';
             }).join('');
             box.innerHTML = html;
         }
@@ -2355,6 +2375,8 @@
                     um:     trPick.getAttribute('data-um') || '',
                     saldo:  parseFloat(trPick.getAttribute('data-saldo') || '0') || 0,
                     cantidad: '',
+                    // Coherente con la selección por clic: nº de parte a entregar (filtros).
+                    parte:  trPick.getAttribute('data-parte-sel') || '',
                 };
                 almSelRefreshBar();
             }
@@ -2377,8 +2399,54 @@
             tr.classList.toggle('alm-row-missing-cant', !!almFaltantes[id]);
             tr.classList.toggle('alm-row-exceeds-stock', !!almExceden[id]);
             if (almSoloSel && !almSeleccion[id]) tr.style.display = 'none';
+            // Re-aplicar el nº de parte elegido (filtros) tras recargas del tbody: resalta el
+            // número clickeado en la nueva fila para conservar la elección.
+            var psel = almSeleccion[id] && almSeleccion[id].parte;
+            if (psel) {
+                tr.dataset.parteSel = psel;
+                tr.querySelectorAll('.alm-parte-opt').forEach(function (o) {
+                    o.classList.toggle('alm-parte-on', o.getAttribute('data-parte') === psel);
+                });
+            }
         });
     }
+    // Selecciona una fila (idempotente): crea su entrada en almSeleccion, la marca y enfoca
+    // el input de cantidad. Si ya estaba seleccionada NO hace nada (nunca deselecciona).
+    // Fuente única de la lógica de "seleccionar" — la usan el clic en la fila y el clic en un
+    // número de parte. Devuelve true si quedó seleccionada.
+    function almSelEnsureRow(tr) {
+        var id = tr.getAttribute('data-id-producto'); if (!id) return false;
+        if (almSeleccion[id]) return true;
+        almSeleccion[id] = {
+            codigo: tr.getAttribute('data-codigo') || '',
+            nombre: tr.getAttribute('data-nombre') || '',
+            um:     tr.getAttribute('data-um') || '',
+            saldo:  parseFloat(tr.getAttribute('data-saldo') || '0') || 0,
+            cantidad: '',
+            // Nº de parte a entregar (filtros): arranca en el actual del selector de la fila
+            // (o el principal en data-parte-sel). Vacío en productos sin equivalencias.
+            parte:  tr.getAttribute('data-parte-sel') || '',
+        };
+        almSelMarkRow(tr, true);
+        setTimeout(function () { var inp = tr.querySelector('.alm-row-cant'); if (inp) inp.focus(); }, 30);
+        return true;
+    }
+    // Clic en un número de parte de la descripción: lo marca como el que se ENTREGA (resalta
+    // dentro de la fila), lo guarda en la fila y en almSeleccion, y SELECCIONA la fila si no
+    // lo estaba. La lista de partes lleva data-no-toggle (el clic no togglea la selección por
+    // el handler genérico), así que sin esto un clic aquí no seleccionaba nada y el usuario
+    // tenía que atinarle al nombre — de ahí el "lo doy varias veces y de repente selecciona".
+    window.almRowPartePick = function (el) {
+        var tr = el.closest('tr.alm-row'); if (!tr) return;
+        var id = tr.getAttribute('data-id-producto');
+        var parte = el.getAttribute('data-parte') || '';
+        tr.querySelectorAll('.alm-parte-opt').forEach(function (o) { o.classList.toggle('alm-parte-on', o === el); });
+        tr.dataset.parteSel = parte;
+        almSelEnsureRow(tr);
+        if (almSeleccion[id]) almSeleccion[id].parte = parte;
+        if (almSoloSel) almAplicarSoloSel();
+        almSelRefreshBar();
+    };
     window.almSelClear = function (e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         almSeleccion = {};
@@ -2433,18 +2501,7 @@
         if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select') || e.target.closest('.custom-dropdown')) return;
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
         if (almSeleccion[id]) { delete almSeleccion[id]; almSelMarkRow(tr, false); almLimpiarFaltante(id); almLimpiarExceden(id); }
-        else {
-            almSeleccion[id] = {
-                codigo: tr.getAttribute('data-codigo') || '',
-                nombre: tr.getAttribute('data-nombre') || '',
-                um:     tr.getAttribute('data-um') || '',
-                saldo:  parseFloat(tr.getAttribute('data-saldo') || '0') || 0,
-                cantidad: '',
-            };
-            almSelMarkRow(tr, true);
-            // Foco automático en el input de cantidad recién habilitado.
-            setTimeout(function () { var inp = tr.querySelector('.alm-row-cant'); if (inp) inp.focus(); }, 30);
-        }
+        else almSelEnsureRow(tr);
         // Si el filtro "solo seleccionados" está activo, mantener consistencia visual:
         // al deseleccionar, la fila debe ocultarse (ya no es "selected"); al seleccionar
         // una nueva, la nueva ya estaba visible (era la que el usuario hizo clic).
@@ -3065,6 +3122,44 @@
         // 'flex' (no '' ni 'block') porque el badge se layoutea con icono a la izquierda
         // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
+
+        // Sección de filtro: equivalencias + equipos que lo usan. Se leen de los data-attrs
+        // de la fila (los rellena el partial table_rows). Oculto si el producto no es filtro.
+        var box = el('almDetFiltroInfo');
+        if (box) {
+            var tr = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
+            var equiv = (tr && tr.dataset.equiv) ? tr.dataset.equiv.split('|') : [];
+            var equipos = [];
+            if (tr && tr.dataset.equipos) { try { equipos = JSON.parse(tr.dataset.equipos); } catch (e) { equipos = []; } }
+            if (equiv.length || equipos.length) {
+                var escp = function (t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
+                var html = '';
+                if (equiv.length) {
+                    // Números de parte en TEXTO negro, SIN contenedor/chip azul, separados por
+                    // " · " — igual que en la descripción de la tabla (a pedido del cliente).
+                    var equivTxt = equiv.map(escp).join(' &middot; ');
+                    html += '<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;">🔁 Equivalencias</div>'
+                          + '<div style="font-size:12.5px;font-weight:600;color:#1e293b;line-height:1.5;word-break:break-word;">' + equivTxt + '</div></div>';
+                }
+                if (equipos.length) {
+                    // Cada equipo = tarjeta con Tipo / Marca / Modelo, uno debajo del otro.
+                    var cards = equipos.map(function (e) {
+                        var tipo   = e.t  ? '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">' + escp(e.t) + '</div>' : '';
+                        var marca  = e.m  ? '<div style="font-size:12.5px;color:#475569;">' + escp(e.m) + '</div>' : '';
+                        var modelo = e.mo ? '<div style="font-size:13px;font-weight:800;color:#0f172a;">' + escp(e.mo) + '</div>' : '';
+                        return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;background:#f8fafc;">' + tipo + marca + modelo + '</div>';
+                    }).join('');
+                    html += '<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;">🚜 Equipos que lo usan (' + equipos.length + ')</div>'
+                          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;">' + cards + '</div></div>';
+                }
+                box.innerHTML = html;
+                box.style.display = 'flex';
+            } else {
+                box.innerHTML = '';
+                box.style.display = 'none';
+            }
+        }
+
         open('almDetalleModal');
     };
     // Cancelar de un sub-modal (Auditoría / Stock mínimo / Editar): cierra ese modal y, si
@@ -3697,22 +3792,6 @@
                     } else {
                         // CREACION: agregar al final
                         window.almProductosLista.push(entry);
-
-                        // Ademas, si la creacion paso id_almacen al backend, ya hay fila en
-                        // almacen_stock con CANTIDAD=0 — espejamos eso en el cache en memoria
-                        // (window.almProductosEnAlmacen) para que el filtro enEsteAlmacen()
-                        // del autocomplete reconozca el producto INMEDIATAMENTE (sin esperar
-                        // a un F5). Sin este push, el producto aparecia como "Existe en el
-                        // catalogo pero no tiene movimientos en este almacen" hasta recargar.
-                        if (idAlmacen && window.almProductosEnAlmacen && typeof window.almProductosEnAlmacen === 'object') {
-                            var keyAlm = String(idAlmacen);
-                            if (!Array.isArray(window.almProductosEnAlmacen[keyAlm])) {
-                                window.almProductosEnAlmacen[keyAlm] = [];
-                            }
-                            if (window.almProductosEnAlmacen[keyAlm].indexOf(p.ID_PRODUCTO) === -1) {
-                                window.almProductosEnAlmacen[keyAlm].push(p.ID_PRODUCTO);
-                            }
-                        }
                     }
                 }
 
@@ -3940,7 +4019,7 @@
             var c   = parseFloat(raw);
             var nombre = s.nombre || ('#' + id);
             if (!isFinite(c) || c <= 0) faltan.push(nombre);
-            else lineas.push({ id_producto: parseInt(id, 10), cantidad: c });
+            else lineas.push({ id_producto: parseInt(id, 10), cantidad: c, numero_parte: s.parte || null });
         });
         if (!lineas.length) { showErr('almSalidaError', 'Indica una cantidad mayor que cero en al menos un producto (columna "Salida" de la tabla).'); return null; }
         if (faltan.length)  { showErr('almSalidaError', 'Falta indicar la cantidad de salida (debe ser mayor que cero) en: ' + faltan.slice(0, 4).join(', ') + (faltan.length > 4 ? '…' : '') + '. Corrígelos en la tabla o deselecciónalos.'); return null; }

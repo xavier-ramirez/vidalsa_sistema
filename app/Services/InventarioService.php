@@ -442,6 +442,8 @@ class InventarioService
             'ID_FRENTE'                 => $opts['id_frente'] ?? null,
             'ID_USUARIO'                => $opts['id_usuario'] ?? optional(auth())->id(),
             'REFERENCIA'                => $opts['referencia'] ?? null,
+            // Nº de parte específico entregado (filtros): lo elige el usuario en la salida.
+            'NUMERO_PARTE'              => $opts['numero_parte'] ?? null,
             // Nota de Entrega (solo se llenan en SALIDA — para los demás tipos quedan NULL).
             'NUMERO_CONTRATO'           => $opts['numero_contrato'] ?? null,
             'NUMERO_RQ'                 => $opts['numero_rq'] ?? null,

@@ -134,6 +134,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // si el bloque try ya lo manejó correctamente.
         let handledCleanup = false;
 
+        // HANDOFF de spinner desde un flujo que redirige (guardar→navegar). Esos
+        // flujos (equipos_form, catalogo_create, form_logic) dejan el spinner ENCENDIDO
+        // a propósito vía window.__vidalsaRedirecting y NO hacen su propio hidePreloader.
+        // Como el preloader ahora está CONTADO POR REFERENCIAS (ver estructura_base),
+        // ese show quedaría "huérfano" (+1 sin su -1) y colgaría el spinner en el destino.
+        // Solución: si venimos de un redirect, HEREDAMOS ese show (no sumamos otro) y el
+        // único hide de esta navegación lo balancea. El flag se libera en el finally.
+        const _inheritSpinner = (window.__vidalsaRedirecting === true);
+
         // Tiempo minimo que el preloader queda visible: evita el parpadeo
         // cuando la navegacion es rapida (<250ms) y el usuario no alcanza
         // a percibir el spinner. En redes rapidas consumibles/graficos
@@ -157,7 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         try {
-            if (window.showPreloader) window.showPreloader();
+            // Si NO heredamos el spinner de un redirect, lo encendemos nosotros.
+            if (window.showPreloader && !_inheritSpinner) window.showPreloader();
 
             // Deshabilitar caché para garantizar que SIEMPRE se obtenga el HTML
             // actualizado y nunca el código viejo roto en la navegación SPA.
@@ -356,6 +366,13 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = url;
 
         } finally {
+            // Liberar el flag de "redirigiendo" UNA sola vez por navegación, cubriendo
+            // TODOS los caminos (éxito y error). Punto único de propiedad: si quedara
+            // colgado en true, la siguiente navegación heredaría un spinner inexistente
+            // y se ocultaría antes de tiempo. (Antes se limpiaba en spa:contentLoaded,
+            // que solo cubre el camino de éxito.)
+            window.__vidalsaRedirecting = false;
+
             // Solo ocultar el spinner aquí si el try/catch NO lo manejó.
             // Previene el race condition donde finally ejecuta antes
             // de que el bloque try termine su limpieza.
@@ -382,8 +399,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (_origHide) {
         window.hidePreloader = function () {
-            _preloaderShownAt = 0;
             _origHide.apply(this, arguments);
+            // El preloader base ahora está CONTADO POR REFERENCIAS: un hide()
+            // intermedio (con operaciones aún en vuelo) NO oculta el spinner y NO
+            // le añade la clase 'fade-out'. Solo limpiamos el timestamp del watchdog
+            // cuando el spinner se ocultó de verdad; si no, el guard de 8s perdería
+            // su referencia de tiempo y no podría destrabar un spinner congelado.
+            const _pl = document.getElementById('preloader');
+            if (!_pl || _pl.classList.contains('fade-out')) _preloaderShownAt = 0;
         };
     }
 
@@ -392,7 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Si el spinner lleva más de 8s visible al regresar a la pestaña → forzar ocultar
             if (_preloaderShownAt > 0 && (Date.now() - _preloaderShownAt) > 8000) {
                 console.warn('SPA: Spinner detectado como posiblemente congelado al volver a la pestaña. Ocultando.');
-                if (window.hidePreloader) window.hidePreloader();
+                // force=true: resetea el contador de referencias y oculta sí o sí
+                // (un decremento normal no bastaría si quedó algún show() colgado).
+                if (window.hidePreloader) window.hidePreloader(true);
                 _preloaderShownAt = 0;
             }
 
@@ -405,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     preloader.style.display === 'flex' &&
                     _preloaderShownAt === 0) {
                     console.warn('SPA: Safety net — preloader visible sin navegación activa. Ocultando.');
-                    if (window.hidePreloader) window.hidePreloader();
+                    if (window.hidePreloader) window.hidePreloader(true);
                 }
             }, 500);
         }

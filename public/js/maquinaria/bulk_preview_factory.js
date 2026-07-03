@@ -308,6 +308,12 @@
                         try {
                             sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({ message: msg, type: 'success' }));
                         } catch (_) {}
+                        // Handoff de spinner: dejamos el preloader ENCENDIDO (no hacemos hide)
+                        // y marcamos el flag para que loadPage HEREDE este show en vez de sumar
+                        // otro — igual que equipos_form/catalogo_create/form_logic. Sin el flag,
+                        // con el preloader contado por referencias este show quedaba huérfano y
+                        // el spinner se colgaba en el destino tras un guardado masivo.
+                        window.__vidalsaRedirecting = true;
                         var dest = typeof config.redirect === 'function' ? config.redirect(body) : (body.redirect || config.redirect);
                         if (window.navigateTo) window.navigateTo(dest);
                         else window.location.href = dest;

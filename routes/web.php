@@ -49,6 +49,15 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['password.change.check'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');
+        // Modulo de Mapa: pagina nueva abierta desde el boton "Mapa" del tablero (/menu).
+        Route::get('/mapa', [App\Http\Controllers\MapaController::class, 'index'])->name('mapa');
+        // Oleoductos del mapa (proyectos de puntos + linea). API JSON que consume mapa_index.js.
+        Route::get   ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'index'])->name('mapa.oleoductos.index');
+        Route::post  ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'store'])->name('mapa.oleoductos.store');
+        Route::post  ('/mapa/oleoductos/{id}/puntos',  [App\Http\Controllers\OleoductoController::class, 'addPunto'])->name('mapa.oleoductos.addPunto');
+        Route::post  ('/mapa/oleoductos/{id}/recorrido', [App\Http\Controllers\OleoductoController::class, 'saveRecorrido'])->name('mapa.oleoductos.recorrido');
+        Route::delete('/mapa/oleoductos/puntos/{id}',  [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->name('mapa.oleoductos.destroyPunto');
+        Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->name('mapa.oleoductos.destroy');
         Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');
         Route::get('/dashboard/alerts-html', [App\Http\Controllers\DashboardController::class, 'getAlertsHtml'])->name('dashboard.alertsHtml');
         Route::post('/dashboard/iniciar-gestion', [App\Http\Controllers\DashboardController::class, 'iniciarGestion'])->name('dashboard.iniciarGestion');

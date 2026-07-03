@@ -28,4 +28,12 @@ class CaracteristicaModelo extends Model
     {
         return $this->hasMany(Equipo::class, 'ID_ESPEC', 'ID_ESPEC');
     }
+
+    /** Filtros que usa este modelo de equipo (compatibilidad/fitment). */
+    public function filtros()
+    {
+        return $this->belongsToMany(ProductoInventario::class, 'modelo_filtro', 'ID_ESPEC', 'ID_PRODUCTO')
+                    ->withPivot('CANTIDAD')
+                    ->withTimestamps();
+    }
 }

@@ -43,14 +43,20 @@
                  seguido del NOMBRE. La clase col-producto la convierte en ancla del tooltip de usuario.
                  font-size reducido (12.5px vs 14px global del tbody) para que los nombres largos no
                  acaparen visualmente la fila — son la única columna con texto extenso. --}}
-            <td class="col-producto mv-td-producto" data-label="Producto" style="font-weight:600;font-size:12.5px;">
+            <td class="col-producto mv-td-producto" data-label="Producto" style="font-weight:400;font-size:12.5px;">
                 @if($m->producto?->CODIGO)
                     {{-- "00042 NOMBRE" como texto continuo. El código usa el MISMO tipo de letra
-                         y peso que la descripción (hereda del td: font-weight:600, sin monospace),
-                         a pedido del cliente — antes iba en monospace + bold y desentonaba. --}}
+                         y peso que la descripción (hereda del td: font-weight:400, sin monospace),
+                         a pedido del cliente — antes iba en monospace + bold y desentonaba. Peso
+                         normal (400) para que la columna use la MISMA letra que el resto de la tabla. --}}
                     <span style="color:#0f172a;">{{ $m->producto->CODIGO }}</span>
                 @endif
                 {{ $m->producto?->NOMBRE ?? '—' }}
+                @if($m->NUMERO_PARTE)
+                    {{-- Nº de parte específico entregado en esta salida (filtros): la equivalencia
+                         que se movió realmente, no solo el tipo. --}}
+                    <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">🔧 {{ $m->NUMERO_PARTE }}</div>
+                @endif
                 <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
                     👤 {{ $usuarioTip }}
                     {{-- Observación del lote (NOTAS): se muestra aquí, en la burbuja al hacer
@@ -104,15 +110,16 @@
                        data-pdf-title="Nota {{ $m->NUMERO_NOTA }}"
                        onclick="if (typeof window.openPdfPreview === 'function') { event.preventDefault(); window.openPdfPreview(this.href, 'nota_entrega', 'Nota ' + this.textContent.trim(), 0, '', true, 'almacen'); }"
                        target="_blank" rel="noopener"
-                       style="color:#334155;text-decoration:none;font-weight:700;font-size:12px;"
+                       style="color:#334155;text-decoration:none;font-weight:400;font-size:12.5px;"
                        title="Ver Nota de Entrega (PDF)">{{ $m->NUMERO_NOTA }}</a>
                 @endif
                 @if($m->REFERENCIA && $m->REFERENCIA !== $m->NUMERO_NOTA)
-                    {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: en negrita igual que
-                         la Nota de Entrega de las SALIDAS (NUMERO_NOTA), para que se vea con la
-                         misma prominencia en ambos tipos de movimiento. Se OMITE si coincide con
-                         NUMERO_NOTA (en traspasos ambos traían el mismo NE → salía duplicado). --}}
-                    <div style="font-size:12px;color:#334155;font-weight:700;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
+                    {{-- Nota de entrega del proveedor (ENTRADA) / N° OC: MISMO estilo que la Nota de
+                         Entrega de las SALIDAS (NUMERO_NOTA) y que el resto de columnas — peso normal
+                         (400), no negrita, a pedido del cliente para que la columna Referencia use la
+                         misma letra que las demás. Se OMITE si coincide con NUMERO_NOTA (en traspasos
+                         ambos traían el mismo NE → salía duplicado). --}}
+                    <div style="font-size:12.5px;color:#334155;font-weight:400;{{ $m->NUMERO_NOTA ? 'margin-top:2px;' : '' }}" title="Nota de entrega / referencia">{{ $m->REFERENCIA }}</div>
                 @endif
                 @if($esEntradaDirecta && $m->MOTIVO)
                     {{-- Proveedor: visible (no solo hover) — es el dato clave para una devolución. --}}
