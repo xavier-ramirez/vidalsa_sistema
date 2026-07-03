@@ -675,10 +675,10 @@
             declutterVelas(); // agrupa velas que se superponen en el zoom actual
         }
 
-        // Cuando dos o más velas del MISMO proyecto se superponen (según el zoom), deja
-        // visible solo UNA con una etiqueta permanente del nombre del proyecto. Cuando están
-        // separadas (al acercarse), CADA vela muestra su etiqueta FIJA: proyecto + nombre del
-        // punto + coordenada (así se ven los datos sin pasar el mouse).
+        // Agrupa las velas del MISMO proyecto que se superponen (según el zoom). Regla de
+        // etiqueta CONSISTENTE: si TODO el proyecto colapsa en UNA sola vela (muy lejos) se
+        // muestra solo el nombre del proyecto; en cuanto hay 2+ velas visibles (ya estás cerca)
+        // TODAS muestran su etiqueta completa (proyecto + nombre del punto), sin mezclar.
         function declutterVelas() {
             var THRESH = 26; // px
             Object.keys(oleoMap).forEach(function (id) {
@@ -689,9 +689,10 @@
                     for (var i = 0; i < reps.length; i++) { if (reps[i].p.distanceTo(p) < THRESH) { rep = reps[i]; break; } }
                     if (rep) { rep.count++; map.removeLayer(mk); } else reps.push({ p: p, mk: mk, count: 1 });
                 });
+                var soloProyecto = reps.length <= 1; // una sola vela (todo junto) → solo el proyecto
                 reps.forEach(function (r) {
                     r.mk.unbindTooltip();
-                    var html = r.count > 1 ? '<span class="vela-proj">' + esc(o.nombre) + '</span>' : r.mk._velaTip;
+                    var html = soloProyecto ? '<span class="vela-proj">' + esc(o.nombre) + '</span>' : r.mk._velaTip;
                     r.mk.bindTooltip(html, { permanent: true, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
                 });
             });
@@ -1328,9 +1329,10 @@
                     }
                     if (rep) rep.count++; else reps.push({ pt: pt, count: 1, nombre: p.nombre });
                 });
+                var soloProyecto = reps.length <= 1; // una sola vela (todo junto) → solo el proyecto
                 reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#2979ff'); }); // pines primero
-                reps.forEach(function (r) { // etiquetas encima: proyecto (+ punto si está separado)
-                    dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, r.count > 1 ? null : (r.nombre || 'Punto'), k);
+                reps.forEach(function (r) { // etiquetas encima: si hay 2+ velas, TODAS con proyecto + punto
+                    dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, soloProyecto ? null : (r.nombre || 'Punto'), k);
                 });
             });
             ctx.restore();
