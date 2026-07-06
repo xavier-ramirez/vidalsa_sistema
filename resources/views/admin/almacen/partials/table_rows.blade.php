@@ -63,8 +63,7 @@
         <tr class="alm-row {{ $bajo ? 'alm-row-bajo' : '' }} alm-row-clickable"
             data-id-producto="{{ $p->ID_PRODUCTO }}" data-codigo="{{ $p->CODIGO }}" data-nombre="{{ $p->NOMBRE }}" data-um="{{ $p->UM }}" data-saldo="{{ $saldo }}"
             data-bajo="{{ $bajo ? '1' : '0' }}"
-            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ $equivs[0] }}" @endif
-            @if($equipos) data-equipos="{{ json_encode($equipos) }}" @endif>
+            @if($equivs) data-equiv="{{ implode('|', $equivs) }}" data-parte-sel="{{ $equivs[0] }}" @endif>
             <td class="alm-td-codigo" style="font-weight:600;color:#1e293b;white-space:nowrap;padding:12px 8px;">{{ $p->CODIGO }}</td>
             {{-- Descripción + tooltip-bubble con la UBICACION (mismo patrón de /admin/equipos).
                  El tooltip se activa al hover de cualquier parte de la fila por la regla CSS
@@ -105,9 +104,12 @@
                     if ($equipos) {
                         // Cada equipo en su línea: "Tipo · Marca · Modelo" (uno abajo del otro).
                         // Se muestran TODOS: la burbuja crece para que quepan (sin cortar con "+N").
-                        $fmt    = fn ($e) => implode(' · ', array_filter([$e['t'] ?? null, $e['m'] ?? null, $e['mo'] ?? null]));
+                        // La primera letra de cada parte va en mayúscula (los datos vienen en
+                        // minúsculas); Str::ucfirst respeta acentos.
+                        $cap    = fn ($s) => \Illuminate\Support\Str::ucfirst(trim((string) ($s ?? '')));
+                        $fmt    = fn ($e) => implode(' · ', array_filter([$cap($e['t'] ?? null), $cap($e['m'] ?? null), $cap($e['mo'] ?? null)]));
                         $lineas = array_map(fn ($e) => '&bull; ' . e($fmt($e)), $equipos);
-                        $tip[]  = '🚜 Equipos que lo usan:<br>' . implode('<br>', $lineas);
+                        $tip[]  = '🚜 Equipos asociados:<br>' . implode('<br>', $lineas);
                     }
                 @endphp
                 @if($tip)

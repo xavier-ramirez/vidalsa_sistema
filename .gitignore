@@ -40,4 +40,5 @@ scratch_*.csv
 # Generadores y entregables desechables sueltos en la raíz (no forman parte de la app)
 /*.py
 /*.xlsx
+/*.sql
 /*.png

@@ -3894,6 +3894,9 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 }
 .mapa-ctx-item:hover { background: #f1f5f9; }
 .mapa-ctx-item .material-icons { font-size: 18px; color: #0067b1; }
+/* Ítem destructivo (eliminar) del menú de clic derecho. */
+.mapa-ctx-danger, .mapa-ctx-danger .material-icons { color: #e11d48; }
+.mapa-ctx-danger:hover { background: #fef2f2; }
 
 /* Escala del mapa: pastilla blanca limpia (mejor que el borde negro por defecto) */
 /* Escala al lado de la brújula (abajo-derecha). Aspecto de REGLA: barra azul con topes
@@ -3965,9 +3968,6 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .oleo-cnt { font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 1px 7px; }
 .oleo-del { background: transparent; border: none; color: #cbd5e1; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .oleo-del:hover { color: #ef4444; }
-/* Pista en el panel para curvar la tubería con el lápiz */
-.oleo-hint2 { padding: 8px 12px; font-size: 11px; color: #64748b; line-height: 1.4; border-top: 1px solid #f1f5f9; background: #f8fafc; }
-.oleo-hint2 b { color: #0067b1; }
 
 /* Vela (pin de ubicación tipo Google Maps) — el divIcon no debe tener fondo */
 .mapa-vela { background: none !important; border: none !important; }
@@ -4007,30 +4007,28 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .mapa-dibujo-btn.primary:hover { background: #005699; }
 @media (max-width: 560px) { .mapa-dibujo-tip { display: none; } .mapa-dibujo-titulo { font-size: 12px; } }
 
-.oleo-new { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid #f1f5f9; }
-.oleo-new input { flex: 1; min-width: 0; border: 1px solid #cbd5e1; border-radius: 7px; padding: 6px 8px; font-size: 12.5px; outline: none; }
-.oleo-new button { background: #0067b1; color: #fff; border: none; border-radius: 7px; padding: 0 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
-.oleo-new button:hover { background: #005699; }
-.oleo-new button:disabled { opacity: 0.6; cursor: default; }
-
 /* Popup para guardar un punto en un proyecto */
 .oleo-save { min-width: 210px; }
-.oleo-save-t { font-size: 12.5px; color: #334155; margin-bottom: 7px; }
-.oleo-save-warn { font-size: 12px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 7px 9px; margin-bottom: 6px; line-height: 1.35; }
 .oleo-save-in,
 .oleo-save-newp { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; margin-bottom: 6px; }
 .oleo-save-in:focus,
 .oleo-save-newp:focus { border-color: #0067b1; }
-.oleo-save-new-btn { width: 100%; background: #0067b1; color: #fff; border: none; border-radius: 8px; padding: 9px; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 2px; }
-.oleo-save-new-btn:hover { background: #005699; }
-.oleo-save-new-btn:disabled { opacity: 0.6; cursor: default; }
 .oleo-save-lbl { display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin: 2px 0 4px; }
-.oleo-save-sel { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; margin-bottom: 8px; background: #fff; cursor: pointer; }
-.oleo-save-sel:focus { border-color: #0067b1; }
+/* Selector de proyecto tipo BUSCADOR (recomienda al escribir) en el popup de guardar. */
+.oleo-save-pick { position: relative; margin-bottom: 8px; }
+.oleo-save-search { width: 100%; box-sizing: border-box; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; background: #fff; }
+.oleo-save-search:focus { border-color: #0067b1; }
+.oleo-save-list { display: none; position: absolute; top: calc(100% + 3px); left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14); max-height: 180px; overflow-y: auto; padding: 4px; z-index: 30; }
+.oleo-save-op { padding: 7px 9px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #1e293b; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.oleo-save-op:hover { background: #eef4fb; color: #0067b1; }
 .oleo-save-c { font-size: 11px; color: #94a3b8; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
 .oleo-save-btn { width: 100%; background: #0067b1; color: #fff; border: none; border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .oleo-save-btn:hover { background: #005699; }
 .oleo-save-btn:disabled { opacity: 0.6; cursor: default; }
+.oleo-req { color: #e11d48; font-weight: 800; }
+.oleo-save-op-none { color: #94a3b8; cursor: default; font-weight: 500; }
+.oleo-save-op-none:hover { background: transparent; color: #94a3b8; }
+.oleo-save-err { font-size: 12px; font-weight: 600; color: #e11d48; margin-top: 6px; }
 
 /* Tabla-leyenda (historial de proyectos) — transparente, sobre el mapa */
 .mapa-leyenda {
@@ -4046,6 +4044,16 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
     backdrop-filter: blur(2px);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
+/* Cabecera plegable de la leyenda (recoger toda) + fila de proyecto plegable (recoger sus puntos). */
+.mapa-leyenda-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mapa-leyenda-titulo { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.92; }
+.mapa-leyenda-fold { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: none; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: #fff; cursor: pointer; }
+.mapa-leyenda-fold:hover { background: rgba(255, 255, 255, 0.22); }
+.mapa-leyenda-fold .material-icons { font-size: 18px; }
+.mapa-leyenda-body { margin-top: 8px; }
+.mapa-leyenda-proy { cursor: pointer; border-radius: 6px; padding-left: 2px; padding-right: 2px; }
+.mapa-leyenda-proy:hover { background: rgba(255, 255, 255, 0.08); }
+.mapa-leyenda-chevron { font-size: 18px !important; opacity: 0.7; flex: none; }
 .mapa-leyenda-t { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; opacity: 0.95; }
 .mapa-leyenda-t2 { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, 0.18); }
 /* Municipios en DOS columnas cuando son varios (rellena de arriba a abajo). */
@@ -4076,6 +4084,9 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 .mapa-leyenda-pt { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0 1px 19px; font-size: 11px; opacity: 0.82; }
 .mapa-leyenda-pt-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mapa-leyenda-pt-c { flex: none; font-variant-numeric: tabular-nums; opacity: 0.85; }
+/* Botón para eliminar un punto desde la leyenda (× rojo al pasar el mouse). */
+.mapa-leyenda-pt-del { flex: none; border: none; background: transparent; color: rgba(255, 255, 255, 0.45); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 3px; border-radius: 4px; }
+.mapa-leyenda-pt-del:hover { color: #fff; background: #e11d48; }
 .mapa-leyenda-mas { font-size: 11px; opacity: 0.7; padding: 2px 0 0 19px; }
 
 /* Diálogo de exportación de imagen */

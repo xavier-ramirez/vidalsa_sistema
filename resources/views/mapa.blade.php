@@ -22,4 +22,7 @@
          data-geojson="{{ asset('geo/venezuela-estados.geojson') }}?v={{ @filemtime(public_path('geo/venezuela-estados.geojson')) }}"
          data-municipios="{{ asset('geo/venezuela-municipios.geojson') }}?v={{ @filemtime(public_path('geo/venezuela-municipios.geojson')) }}"></div>
 </div>
+{{-- Frentes de trabajo = proyectos. mapa_index.js los usa para el selector "Vincular a un
+     proyecto" (recomendados desde la tabla frentes_trabajo; ya NO se crean a mano en el mapa). --}}
+<script>window.mapaFrentes = @json($frentes ?? []);</script>
 @endsection

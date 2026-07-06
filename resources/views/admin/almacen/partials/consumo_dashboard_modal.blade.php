@@ -25,24 +25,35 @@
     .cdash-filtros .f-group { display:flex; flex-direction:column; gap:3px; min-width:0; }
     .cdash-filtros .f-group-cat { flex:1 1 260px; }   /* Categoría: crece y queda ancha */
     .cdash-filtros label { font-size:10.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
-    .cdash-filtros input[type="month"] { height:36px; width:160px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
+    .cdash-filtros input[type="month"] { box-sizing:border-box; height:36px; width:160px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
     .cdash-cat-wrap { position:relative; width:100%; min-width:200px; }
     .cdash-cat-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; cursor:pointer; }
     .cdash-cat-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
     .cdash-cat-box input { flex:1; border:none; background:transparent; outline:none; padding:0 8px; font-size:13px; color:#0f172a; min-width:0; cursor:pointer; }
-    .cdash-cat-box i.clr { padding:0 6px; color:#64748b; font-size:16px; cursor:pointer; }
+    .cdash-cat-box i.material-icons { padding:0 6px; color:#64748b; font-size:16px; }
+    .cdash-cat-box i.clr { cursor:pointer; }
     .cdash-cat-list { display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 22px rgba(0,0,0,.12); max-height:220px; overflow-y:auto; padding:4px; z-index:20; }
     .cdash-cat-list.open { display:block; }
     .cdash-cat-item { padding:7px 10px; border-radius:6px; font-size:13px; font-weight:600; color:#1e293b; cursor:pointer; }
     .cdash-cat-item:hover { background:#f0f4f8; }
-    .cdash-kpis { display:flex; gap:10px; margin-bottom:16px; }
-    .cdash-kpi { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 14px; min-width:0; flex:1; }
-    .cdash-kpi .k-val { font-size:20px; font-weight:800; color:#0f172a; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cdash-kpi .k-lbl { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
-    .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .cdash-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; min-width:0; }
+    .cdash-kpis { display:flex; gap:12px; margin-bottom:18px; }
+    .cdash-kpi { display:flex; align-items:center; justify-content:space-between; gap:12px;
+        background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:14px 16px; min-width:0; flex:1;
+        box-shadow:0 1px 2px rgba(15,23,42,.04); }
+    .cdash-kpi .k-val { font-size:24px; font-weight:800; color:#0f172a; line-height:1.05; letter-spacing:-.5px;
+        font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cdash-kpi .k-lbl { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.4px; margin-top:3px; }
+    .cdash-kpi .k-ico { flex:0 0 auto; width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; }
+    .cdash-kpi .k-ico .material-icons { font-size:21px; }
+    .k-ico-blue   { background:#e1effa; color:#0067b1; }
+    .k-ico-teal   { background:#d6f3ee; color:#0d9488; }
+    .k-ico-indigo { background:#e8e9fd; color:#6366f1; }
+    .cdash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .cdash-card { background:#fff; border:1px solid #e9eef5; border-radius:14px; padding:16px 18px; min-width:0;
+        box-shadow:0 1px 2px rgba(15,23,42,.04); }
     .cdash-card.full { grid-column:1 / -1; }
-    .cdash-card h4 { margin:0 0 10px 0; font-size:13px; font-weight:800; color:#334155; }
+    .cdash-card h4 { margin:0 0 14px 0; font-size:13px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px; letter-spacing:.2px; }
+    .cdash-card h4::before { content:''; width:4px; height:15px; border-radius:3px; background:linear-gradient(180deg,#0ea5e9,#0067b1); flex:0 0 auto; }
     .cdash-canvas-wrap { position:relative; height:240px; }
     /* Top productos: más alto para que entren las 20 barras legibles. */
     .cdash-canvas-wrap.tall { height:520px; }
@@ -53,9 +64,16 @@
     @media (max-width: 760px) {
         .cdash-kpis { flex-direction:column; }
         .cdash-grid { grid-template-columns:1fr; }
-        /* Cada filtro a fila completa; los inputs de mes ocupan todo el ancho. */
-        .cdash-filtros .f-group { flex:1 1 100%; }
-        .cdash-filtros input[type="month"] { width:100%; }
+        .cdash-body { padding-left:14px; padding-right:14px; }   /* más ancho útil en móvil */
+        /* Desde y Hasta UNO AL LADO DEL OTRO; Categoría en su propia fila. Ancho por FLEX.
+           Gracias a box-sizing:border-box + min-width:0 el input de mes encoge y los dos caben
+           sin salirse del modal en cualquier teléfono. Se reduce fuente/padding y se oculta el
+           icono del calendario (el campo igual abre el selector al tocarlo) para más holgura. */
+        .cdash-filtros { gap:8px; }
+        .cdash-filtros .f-group { flex:1 1 0; min-width:0; }
+        .cdash-filtros .f-group-cat { flex:1 1 100%; }
+        .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
+        .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
     }
 </style>
 
@@ -83,7 +101,7 @@
                     <div class="cdash-cat-wrap">
                         <input type="hidden" id="cdashCategoria" value="">
                         <div class="cdash-cat-box" id="cdashCatBox" onclick="window._cdashCatToggle()">
-                            <i class="material-icons" style="padding:0 6px;color:#64748b;font-size:16px;">search</i>
+                            <i class="material-icons">search</i>
                             <input type="text" id="cdashCatInput" placeholder="Todas las categorías" autocomplete="off"
                                    oninput="window._cdashCatFilter(this.value)"
                                    onfocus="window._cdashCatOpen()"
@@ -98,9 +116,18 @@
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-kpis">
-                    <div class="cdash-kpi"><div class="k-val" id="cdashKpiUnidades">0</div><div class="k-lbl">Unidades consumidas</div></div>
-                    <div class="cdash-kpi"><div class="k-val" id="cdashKpiMovs">0</div><div class="k-lbl">Movimientos de salida</div></div>
-                    <div class="cdash-kpi"><div class="k-val" id="cdashKpiProductos">0</div><div class="k-lbl">Productos distintos</div></div>
+                    <div class="cdash-kpi">
+                        <div><div class="k-val" id="cdashKpiUnidades">0</div><div class="k-lbl">Unidades consumidas</div></div>
+                        <span class="k-ico k-ico-blue"><i class="material-icons">inventory_2</i></span>
+                    </div>
+                    <div class="cdash-kpi">
+                        <div><div class="k-val" id="cdashKpiMovs">0</div><div class="k-lbl">Movimientos de salida</div></div>
+                        <span class="k-ico k-ico-teal"><i class="material-icons">logout</i></span>
+                    </div>
+                    <div class="cdash-kpi">
+                        <div><div class="k-val" id="cdashKpiProductos">0</div><div class="k-lbl">Productos distintos</div></div>
+                        <span class="k-ico k-ico-indigo"><i class="material-icons">category</i></span>
+                    </div>
                 </div>
                 <div class="cdash-grid">
                     <div class="cdash-card full"><h4>Consumo por mes</h4><div class="cdash-canvas-wrap"><canvas id="cdashChartMes"></canvas></div></div>
@@ -216,57 +243,95 @@
         });
 
         var fmt = window.cdashFmt;
-        var mesColores = ['#0067b1','#0ea5e9','#0891b2','#0d9488','#059669','#16a34a','#65a30d','#ca8a04','#ea580c','#dc2626','#e11d48','#9333ea'];
-        var topColores = ['#0067b1','#0ea5e9','#22c55e','#16a34a','#0d9488','#0891b2','#6366f1','#8b5cf6','#a855f7','#ec4899','#f43f5e','#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#14b8a6','#06b6d4','#3b82f6','#6d28d9'];
 
-        // ── 1) Consumo por mes (barras) ──────────────────────────────────────
+        // Estilo COMÚN, formal y coherente (paleta corporativa azul/teal, sin arcoíris).
+        var cdTooltip = {
+            backgroundColor: 'rgba(15,23,42,0.92)', titleColor: '#fff', bodyColor: '#e2e8f0',
+            padding: 10, cornerRadius: 8, displayColors: false,
+            titleFont: { weight: '700', size: 12 }, bodyFont: { size: 12 }
+        };
+        var cdGrid  = { color: 'rgba(148,163,184,0.18)', drawBorder: false, borderDash: [4, 4] };
+        var cdTick  = { color: '#94a3b8', font: { size: 11 } };
+        // Degradado vertical (claro arriba → marca abajo) para barras verticales.
+        function cdVGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return b; var g = c.chart.ctx.createLinearGradient(0, ar.top, 0, ar.bottom); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+        // Degradado horizontal (marca izq → claro der) para barras horizontales.
+        function cdHGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return a; var g = c.chart.ctx.createLinearGradient(ar.left, 0, ar.right, 0); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+
+        // ── 1) Consumo por mes (barras, azul con degradado) ──────────────────
         var mes = data.por_mes || [];
         window._cdashCharts.mes = new Chart(document.getElementById('cdashChartMes'), {
             type: 'bar',
             data: {
                 labels: mes.map(function (x) { return x.mes; }),
                 datasets: [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
-                    backgroundColor: mes.map(function (_, i) { return mesColores[i % mesColores.length]; }), borderRadius: 6, maxBarThickness: 46 }]
+                    backgroundColor: function (c) { return cdVGrad(c, '#38bdf8', '#0067b1'); },
+                    hoverBackgroundColor: function (c) { return cdVGrad(c, '#0ea5e9', '#005a9e'); },
+                    borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return fmt(c.parsed.y); } } } },
-                scales: { y: { beginAtZero: true, ticks: { callback: function (v) { return fmt(v); } } } }
+                plugins: { legend: { display: false }, tooltip: Object.assign({}, cdTooltip, { callbacks: { label: function (c) { return fmt(c.parsed.y) + ' und'; } } }) },
+                scales: {
+                    x: { grid: { display: false, drawBorder: false }, ticks: cdTick },
+                    y: { beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) }
+                }
             }
         });
 
-        // ── 2) Top productos (barra horizontal) ──────────────────────────────
+        // ── 2) Top productos (barras horizontales, escala secuencial azul) ───
         var top = data.top_productos || [];
         window._cdashCharts.top = new Chart(document.getElementById('cdashChartTop'), {
             type: 'bar',
             data: {
                 labels: top.map(function (x) { return x.nombre; }),
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
-                    backgroundColor: top.map(function (_, i) { return topColores[i % topColores.length]; }), borderRadius: 5 }]
+                    backgroundColor: function (c) { return cdHGrad(c, '#0067b1', '#7dd3fc'); },
+                    hoverBackgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
+                    borderRadius: 5, borderSkipped: false }]
             },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return fmt(c.parsed.x); } } } },
-                scales: { x: { beginAtZero: true, ticks: { callback: function (v) { return fmt(v); } } },
-                          y: { ticks: { font: { size: 10 }, callback: function (v) { var l = this.getLabelForValue(v); return l.length > 28 ? l.slice(0, 28) + '…' : l; } } } }
+                plugins: { legend: { display: false }, tooltip: Object.assign({}, cdTooltip, { callbacks: { label: function (c) { return fmt(c.parsed.x) + ' und'; } } }) },
+                scales: {
+                    x: { beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) },
+                    y: { grid: { display: false, drawBorder: false }, ticks: { color: '#475569', font: { size: 10 }, callback: function (v) { var l = this.getLabelForValue(v); return l.length > 28 ? l.slice(0, 28) + '…' : l; } } }
+                }
             }
         });
 
-        // ── 3) Consumo por almacén (dona) ────────────────────────────────────
+        // ── 3) Consumo por almacén (dona con total al centro) ────────────────
         var alm = data.por_almacen || [];
-        var paleta = ['#0067b1', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899'];
+        var paleta = ['#0067b1', '#0ea5e9', '#14b8a6', '#6366f1', '#f59e0b', '#ec4899', '#22c55e', '#64748b'];
+        var almTotal = alm.reduce(function (s, x) { return s + (Number(x.total) || 0); }, 0);
         window._cdashCharts.alm = new Chart(document.getElementById('cdashChartAlm'), {
             type: 'doughnut',
             data: {
                 labels: alm.map(function (x) { return x.nombre; }),
                 datasets: [{ data: alm.map(function (x) { return x.total; }),
-                    backgroundColor: alm.map(function (_, i) { return paleta[i % paleta.length]; }), borderWidth: 0 }]
+                    backgroundColor: alm.map(function (_, i) { return paleta[i % paleta.length]; }),
+                    borderColor: '#fff', borderWidth: 2, hoverOffset: 6 }]
             },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
-                           tooltip: { callbacks: { label: function (c) { return c.label + ': ' + fmt(c.parsed); } } } }
-            }
+                responsive: true, maintainAspectRatio: false, cutout: '64%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#475569', font: { size: 11 }, boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle', padding: 12 } },
+                    tooltip: Object.assign({}, cdTooltip, { callbacks: { label: function (c) {
+                        var pct = almTotal ? Math.round((c.parsed / almTotal) * 100) : 0;
+                        return c.label + ': ' + fmt(c.parsed) + ' (' + pct + '%)';
+                    } } })
+                }
+            },
+            plugins: [{
+                id: 'cdashCenter',
+                beforeDraw: function (chart) {
+                    var ar = chart.chartArea; if (!ar) return;
+                    var ctx = chart.ctx, cx = (ar.left + ar.right) / 2, cy = (ar.top + ar.bottom) / 2;
+                    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#0f172a'; ctx.font = "800 20px 'Inter','Segoe UI',sans-serif"; ctx.fillText(fmt(almTotal), cx, cy - 6);
+                    ctx.fillStyle = '#94a3b8'; ctx.font = "700 10px 'Inter','Segoe UI',sans-serif"; ctx.fillText('TOTAL', cx, cy + 12);
+                    ctx.restore();
+                }
+            }]
         });
     };
 

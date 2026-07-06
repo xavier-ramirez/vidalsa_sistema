@@ -12,7 +12,7 @@ class MapaOleoducto extends Model
 {
     protected $table = 'mapa_oleoductos';
 
-    protected $fillable = ['nombre', 'color', 'descripcion', 'creado_por', 'recorrido'];
+    protected $fillable = ['id_frente', 'nombre', 'color', 'descripcion', 'creado_por', 'recorrido'];
 
     // Recorrido dibujado a mano (array de [lat, lng]) que le da forma de tubería a la línea.
     protected $casts = [

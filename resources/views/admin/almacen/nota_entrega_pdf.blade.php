@@ -106,11 +106,11 @@
                 <td width="10%" align="center"><font face="helvetica" size="8">{{ $fmt($m->CANTIDAD) }}</font></td>
                 <td width="10%" align="center"><font face="helvetica" size="8">{{ $m->producto?->UM ?? '' }}</font></td>
                 {{-- Filtros: si se eligió un nº de parte al entregar, sale el TIPO + el nº de
-                     parte específico en la descripción, y el nº de parte en la columna
-                     N° COLADA/SERIAL (su lugar natural). Sin elección, se mantiene el CÓDIGO. --}}
+                     parte específico en la DESCRIPCIÓN. La columna N° COLADA/SERIAL muestra
+                     SIEMPRE el CÓDIGO del producto (no el nº de parte). --}}
                 @php $np = $m->NUMERO_PARTE ?? null; @endphp
                 <td width="62%"><font face="helvetica" size="8">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font></td>
-                <td width="12%" align="center"><font face="helvetica" size="8">{{ $np ?: ($m->producto?->CODIGO ?? '') }}</font></td>
+                <td width="12%" align="center"><font face="helvetica" size="8">{{ $m->producto?->CODIGO ?? '' }}</font></td>
             </tr>
         @endforeach
         @for($j = $movs->count(); $j < $minFilas; $j++)

@@ -482,21 +482,31 @@
             }
         };
         // VELA azul (pin de ubicación tipo Google Maps) para los puntos y la búsqueda.
+        // Logo de la empresa (el mismo del favicon de la pestaña) para ponerlo dentro de la vela.
+        var LOGO_URL = (document.querySelector('link[rel~="icon"]') || {}).href || '/favicon.png';
+        var velaSeq = 0; // ids únicos para el clip-path de cada vela (evita que se mezclen entre SVGs)
         function velaIcon(color) {
-            var c = color || '#2979ff';
+            var c = color || '#0067b1';
+            var cid = 'vclip' + (++velaSeq);
+            // Pin de gota con el LOGO de la empresa recortado en círculo dentro del bulbo.
             return L.divIcon({
                 className: 'mapa-vela',
-                html: '<svg width="24" height="32" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">' +
+                html: '<svg width="28" height="37" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">' +
+                      '<defs><clipPath id="' + cid + '"><circle cx="12" cy="11.4" r="6"/></clipPath></defs>' +
                       '<path d="M12 .6C6 .6 1.2 5.4 1.2 11.4c0 7.6 9.2 18.4 10 19.4.4.5 1.2.5 1.6 0 .8-1 10-11.8 10-19.4C22.8 5.4 18 .6 12 .6z" fill="' + c + '" stroke="#ffffff" stroke-width="1.8"/>' +
-                      '<circle cx="12" cy="11.4" r="4" fill="#ffffff"/></svg>',
-                iconSize: [24, 32], iconAnchor: [12, 31], popupAnchor: [0, -28], tooltipAnchor: [0, -28]
+                      '<circle cx="12" cy="11.4" r="6.4" fill="#ffffff"/>' +
+                      (LOGO_URL
+                        ? '<image href="' + LOGO_URL + '" x="6" y="5.4" width="12" height="12" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid meet"/>'
+                        : '<circle cx="12" cy="11.4" r="4" fill="' + c + '"/>') +
+                      '</svg>',
+                iconSize: [28, 37], iconAnchor: [14, 36], popupAnchor: [0, -33], tooltipAnchor: [0, -33]
             });
         }
         var buscadorMarker = null;
         function marcarBusqueda(c) {
             if (buscadorMarker) { map.removeLayer(buscadorMarker); buscadorMarker = null; }
             if (!c) return;
-            buscadorMarker = L.marker(c, { icon: velaIcon('#2979ff'), zIndexOffset: 2000 }).addTo(map);
+            buscadorMarker = L.marker(c, { icon: velaIcon('#0067b1'), zIndexOffset: 2000 }).addTo(map);
         }
 
         L.Control.geocoder({
@@ -630,8 +640,11 @@
         //  /mapa/oleoductos). Se busca un lugar/coordenada, se le pone nombre y se
         //  ELIGE a qué proyecto asociarlo → se agrega el punto y se dibuja la línea.
         // ══════════════════════════════════════════════════════════════════════
-        var oleoMap = {};          // id -> { data, lines:[], markers:[] }
-        var oleoActivo = null;     // id del proyecto activo (preseleccionado al guardar)
+        var oleoMap = {};          // id oleoducto -> { data, lines:[], markers:[] }
+        var oleoActivo = null;     // id del oleoducto activo (preseleccionado al guardar)
+        // Frentes de trabajo = proyectos. Vienen del backend (window.mapaFrentes = [{id, nombre}]).
+        // El selector "Proyecto" del popup se arma con estos; NO se crean proyectos a mano.
+        var oleoFrentes = Array.isArray(window.mapaFrentes) ? window.mapaFrentes : [];
         var OLEO_PALETA = ['#00e5ff', '#ff4081', '#76ff03', '#ffea00', '#ff6d00', '#d500f9', '#00e676', '#2979ff'];
         var oleoCSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
@@ -697,24 +710,28 @@
             // Clic derecho sobre la tubería: editar o eliminar la línea.
             lines.forEach(function (l) { l.on('contextmenu', function (ev) { menuLinea(ev, o.id); }); });
             var markers = pts.map(function (p) {
-                var mk = L.marker([p.lat, p.lng], { icon: velaIcon('#2979ff'), zIndexOffset: 500 }).addTo(map);
+                var mk = L.marker([p.lat, p.lng], { icon: velaIcon('#0067b1'), zIndexOffset: 500 }).addTo(map);
                 // Etiqueta de la vela: nombre del PROYECTO arriba y, debajo, el nombre que el
                 // usuario le puso al punto (ej. "PROGRESIVA 47+100"). La COORDENADA NO va aquí:
                 // solo se muestra en el historial (leyenda).
                 mk._velaTip = '<span class="vela-proj">' + esc(o.nombre) + '</span>' +
                               '<b>' + esc(p.nombre || 'Punto') + '</b>';
+                // Clic derecho sobre la vela: eliminar ese punto del proyecto.
+                mk.on('contextmenu', function (ev) { menuVela(ev, p.id, p.nombre); });
                 return mk;
             });
             oleoMap[o.id] = { data: o, lines: lines, markers: markers };
             declutterVelas(); // agrupa velas que se superponen en el zoom actual
         }
 
-        // Agrupa las velas del MISMO proyecto que se superponen (según el zoom). Regla de
-        // etiqueta CONSISTENTE: si TODO el proyecto colapsa en UNA sola vela (muy lejos) se
-        // muestra solo el nombre del proyecto; en cuanto hay 2+ velas visibles (ya estás cerca)
-        // TODAS muestran su etiqueta completa (proyecto + nombre del punto), sin mezclar.
+        // Agrupa las velas del MISMO proyecto que se superponen (según el zoom) y decide su etiqueta:
+        //  · MÁS DE 300 km (zoom < 6): NO se muestran etiquetas fijas (se pegaban entre proyectos).
+        //    Solo los PINES; el nombre del proyecto aparece al pasar el mouse (hover).
+        //  · Más cerca: etiqueta FIJA por vela — si una vela AGRUPA varios puntos, solo el nombre del
+        //    PROYECTO (no el del punto); si es un punto suelto, proyecto + nombre del punto.
         function declutterVelas() {
             var THRESH = 26; // px
+            var lejos = map.getZoom() < 6; // más de ~300 km → solo pines, nombre al hacer foco
             Object.keys(oleoMap).forEach(function (id) {
                 var o = oleoMap[id].data, mks = oleoMap[id].markers || [], reps = [];
                 mks.forEach(function (mk) {
@@ -723,11 +740,16 @@
                     for (var i = 0; i < reps.length; i++) { if (reps[i].p.distanceTo(p) < THRESH) { rep = reps[i]; break; } }
                     if (rep) { rep.count++; map.removeLayer(mk); } else reps.push({ p: p, mk: mk, count: 1 });
                 });
-                var soloProyecto = reps.length <= 1; // una sola vela (todo junto) → solo el proyecto
+                var proyLbl = '<span class="vela-proj">' + esc(o.nombre) + '</span>';
                 reps.forEach(function (r) {
                     r.mk.unbindTooltip();
-                    var html = soloProyecto ? '<span class="vela-proj">' + esc(o.nombre) + '</span>' : r.mk._velaTip;
-                    r.mk.bindTooltip(html, { permanent: true, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
+                    if (lejos) {
+                        // Solo el pin; el nombre del proyecto se ve al pasar el mouse (NO permanente).
+                        r.mk.bindTooltip(proyLbl, { permanent: false, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
+                    } else {
+                        // Vela AGRUPADA (varios puntos) → solo proyecto; punto suelto → proyecto + punto.
+                        r.mk.bindTooltip(r.count > 1 ? proyLbl : r.mk._velaTip, { permanent: true, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
+                    }
                 });
             });
         }
@@ -738,7 +760,7 @@
             var cont = document.getElementById('oleoLista');
             if (!cont) return;
             var ids = Object.keys(oleoMap);
-            if (!ids.length) { cont.innerHTML = '<div class="oleo-vacio">Sin proyectos. Crea uno abajo.</div>'; return; }
+            if (!ids.length) { cont.innerHTML = '<div class="oleo-vacio">Sin proyectos aún. Busca un lugar y vincúlalo a un frente.</div>'; return; }
             cont.innerHTML = ids.map(function (id) {
                 var o = oleoMap[id].data;
                 var act = String(oleoActivo) === String(id);
@@ -751,102 +773,123 @@
             }).join('');
         }
 
-        // Guarda un punto en un proyecto (API) + redibuja. cb(ok).
-        function oleoAgregarPunto(oleoId, latlng, nombre, cb) {
+        // Guarda un punto en el proyecto de un FRENTE (el backend find-or-crea el oleoducto de
+        // ese frente) + redibuja. Si el proyecto se creó ahora, lo dibuja; si ya existía, agrega
+        // el punto y redibuja. cb(ok).
+        function oleoGuardarPuntoFrente(idFrente, latlng, nombre, cb) {
+            var color = OLEO_PALETA[Object.keys(oleoMap).length % OLEO_PALETA.length];
             spinOn();
-            oleoApi('/mapa/oleoductos/' + oleoId + '/puntos', 'POST', { nombre: nombre || '', lat: latlng.lat, lng: latlng.lng }).then(function (res) {
+            oleoApi('/mapa/oleoductos/frente/' + idFrente + '/puntos', 'POST',
+                { nombre: nombre || '', lat: latlng.lat, lng: latlng.lng, color: color }).then(function (res) {
                 spinOff();
-                if (res && res.success && oleoMap[oleoId]) {
-                    oleoMap[oleoId].data.puntos.push(res.punto);
-                    oleoDibujar(oleoMap[oleoId].data);
+                if (res && res.success && res.oleoducto_id) {
+                    var oid = res.oleoducto_id;
+                    if (res.oleoducto_nuevo) {              // proyecto creado en esta llamada
+                        res.oleoducto_nuevo.puntos = [res.punto];
+                        oleoDibujar(res.oleoducto_nuevo);
+                    } else if (oleoMap[oid]) {              // el proyecto del frente ya existía
+                        oleoMap[oid].data.puntos.push(res.punto);
+                        oleoDibujar(oleoMap[oid].data);
+                    }
+                    oleoActivo = oid;
                     oleoRenderLista();
-                    if (window.showToast) window.showToast('Punto agregado al proyecto.', 'success');
+                    if (window.showToast) window.showToast('Ubicación guardada en el proyecto.', 'success');
                     if (cb) cb(true);
-                } else { if (window.showToast) window.showToast('No se pudo guardar el punto.', 'error'); if (cb) cb(false); }
+                } else { if (window.showToast) window.showToast('No se pudo guardar la ubicación.', 'error'); if (cb) cb(false); }
             }).catch(function () { spinOff(); if (cb) cb(false); });
         }
 
-        // Popup para GUARDAR un punto: PREGUNTA a qué proyecto asociarlo (selector).
+        // Popup tras buscar/colocar una ubicación. AMBOS campos son OBLIGATORIOS: el NOMBRE del
+        // punto y el PROYECTO (se elige de tus FRENTES de trabajo con un buscador que recomienda;
+        // no se crean a mano). Al Guardar, el punto se PERSISTE en ese frente y aparece en la
+        // leyenda. Si hay un proyecto activo, preselecciona SU frente (para cargar varios puntos
+        // seguidos al mismo).
         function oleoPopupGuardar(latlng, nombreSugerido) {
             var coords = latlng.lat.toFixed(6) + ', ' + latlng.lng.toFixed(6);
-            var ids = Object.keys(oleoMap);
-            var html;
-            if (!ids.length) {
-                // Sin proyectos: se crea uno aquí mismo y se le asocia este punto (un solo paso).
-                html = '<div class="oleo-save">' +
-                    '<input type="text" class="oleo-save-in" placeholder="Nombre del punto (ej. Estación 1)" value="' + esc(nombreSugerido || '') + '">' +
-                    '<label class="oleo-save-lbl">Nuevo proyecto para este punto</label>' +
-                    '<input type="text" class="oleo-save-newp" placeholder="Nombre del proyecto (ej. Oleoducto Norte)">' +
-                    '<div class="oleo-save-c">' + coords + '</div>' +
-                    '<button type="button" class="oleo-save-new-btn">Crear proyecto y guardar punto</button>' +
-                    '</div>';
-            } else {
-                var opciones = ids.map(function (id) {
-                    return '<option value="' + id + '"' + (String(oleoActivo) === String(id) ? ' selected' : '') + '>' + esc(oleoMap[id].data.nombre) + '</option>';
-                }).join('');
-                html = '<div class="oleo-save">' +
-                    '<input type="text" class="oleo-save-in" placeholder="Nombre del punto (ej. Estación 1)" value="' + esc(nombreSugerido || '') + '">' +
-                    '<label class="oleo-save-lbl">Asociar al proyecto:</label>' +
-                    '<select class="oleo-save-sel">' + opciones + '</select>' +
-                    '<div class="oleo-save-c">' + coords + '</div>' +
-                    '<button type="button" class="oleo-save-btn">Guardar punto</button>' +
-                    '</div>';
-            }
+            var frenteActivo = (oleoActivo && oleoMap[oleoActivo]) ? oleoMap[oleoActivo].data.id_frente : null;
+            var faObj = frenteActivo ? oleoFrentes.filter(function (f) { return String(f.id) === String(frenteActivo); })[0] : null;
+            // Selector de proyecto tipo BUSCADOR (recomienda al escribir), no un <select> plano.
+            var html = '<div class="oleo-save">' +
+                '<label class="oleo-save-lbl">Nombre del punto <span class="oleo-req">*</span></label>' +
+                '<input type="text" class="oleo-save-in" placeholder="Ej. PROGRESIVA 47+100" value="' + esc(nombreSugerido || '') + '">' +
+                '<div class="oleo-save-c">' + coords + '</div>' +
+                '<label class="oleo-save-lbl">Proyecto <span class="oleo-req">*</span></label>' +
+                '<div class="oleo-save-pick">' +
+                    '<input type="hidden" class="oleo-save-frente" value="' + (frenteActivo ? esc(String(frenteActivo)) : '') + '">' +
+                    '<input type="text" class="oleo-save-search" placeholder="Escribe para buscar el frente…" autocomplete="off" value="' + esc(faObj ? faObj.nombre : '') + '">' +
+                    '<div class="oleo-save-list"></div>' +
+                '</div>' +
+                '<button type="button" class="oleo-save-btn">Guardar punto</button>' +
+                '<div class="oleo-save-err" style="display:none;"></div>' +
+                '</div>';
             L.popup({ className: 'mapa-oleo-pop', minWidth: 240, autoPan: true }).setLatLng(latlng).setContent(html).openOn(map);
         }
 
-        // Crea un proyecto nuevo y le asocia este punto en un solo paso.
-        function crearProyectoYGuardar(nombreProyecto, latlng, nombrePunto, cb) {
-            var color = OLEO_PALETA[Object.keys(oleoMap).length % OLEO_PALETA.length];
-            spinOn();
-            oleoApi('/mapa/oleoductos', 'POST', { nombre: nombreProyecto, color: color }).then(function (res) {
-                spinOff();
-                if (res && res.success) {
-                    res.oleoducto.puntos = res.oleoducto.puntos || [];
-                    oleoDibujar(res.oleoducto);
-                    oleoActivo = res.oleoducto.id;
-                    oleoRenderLista();
-                    oleoAgregarPunto(res.oleoducto.id, latlng, nombrePunto, cb);
-                } else { if (window.showToast) window.showToast('No se pudo crear el proyecto.', 'error'); if (cb) cb(false); }
-            }).catch(function () { spinOff(); if (cb) cb(false); });
-        }
-
-        // Guardado del punto al abrir el popup (botón "Guardar punto" con proyecto existente,
-        // o "Crear proyecto y guardar punto" cuando aún no hay ninguno).
+        // Lógica del popup al abrirse: buscador de proyecto con recomendaciones + validación de los
+        // dos campos obligatorios (nombre del punto y proyecto) antes de persistir con "Guardar".
         map.on('popupopen', function (ev) {
             var cont = ev.popup.getElement(); if (!cont) return;
-            var input = cont.querySelector('.oleo-save-in');
+            var pick = cont.querySelector('.oleo-save-pick');
+            var btn  = cont.querySelector('.oleo-save-btn');
+            if (!pick || !btn) return; // no es el popup de guardar punto
+
+            var hid    = pick.querySelector('.oleo-save-frente');
+            var search = pick.querySelector('.oleo-save-search');
+            var list   = pick.querySelector('.oleo-save-list');
+            var input  = cont.querySelector('.oleo-save-in');
+            var err    = cont.querySelector('.oleo-save-err');
             if (input) setTimeout(function () { input.focus(); }, 30);
 
-            var btn = cont.querySelector('.oleo-save-btn');
-            if (btn && !btn._ob) {
+            function mostrarErr(msg) { if (err) { err.textContent = msg || ''; err.style.display = msg ? '' : 'none'; } }
+
+            // Sugerencias del buscador: RECOMIENDA al escribir (reutiliza window.FuzzySearch.rank).
+            function renderSug() {
+                var term = search.value || '', arr;
+                if (window.FuzzySearch && window.FuzzySearch.rank) {
+                    arr = window.FuzzySearch.rank(oleoFrentes, term, function (f) { return { label: f.nombre, haystack: f.nombre }; });
+                } else {
+                    var q = term.toLowerCase();
+                    arr = oleoFrentes.filter(function (f) { return !q || String(f.nombre).toLowerCase().indexOf(q) > -1; });
+                }
+                var h = '';
+                arr.slice(0, 8).forEach(function (f) { h += '<div class="oleo-save-op" data-fid="' + esc(String(f.id)) + '">' + esc(f.nombre) + '</div>'; });
+                list.innerHTML = h || '<div class="oleo-save-op oleo-save-op-none">Sin coincidencias</div>';
+                list.style.display = 'block';
+            }
+            // Resuelve el frente: por selección de la lista, o por el nombre EXACTO tecleado.
+            function resolverFrente() {
+                if (hid.value) return hid.value;
+                var t = (search.value || '').trim().toLowerCase();
+                if (!t) return '';
+                var m = oleoFrentes.filter(function (f) { return String(f.nombre).toLowerCase() === t; })[0];
+                return m ? String(m.id) : '';
+            }
+            if (!btn._ob) {
                 btn._ob = true;
+                search.addEventListener('focus', renderSug);
+                search.addEventListener('input', function () { hid.value = ''; mostrarErr(''); renderSug(); });
+                search.addEventListener('blur', function () { setTimeout(function () { list.style.display = 'none'; }, 150); });
+                list.addEventListener('mousedown', function (e) {
+                    var op = e.target.closest ? e.target.closest('.oleo-save-op') : null;
+                    if (!op || op.classList.contains('oleo-save-op-none')) return;
+                    e.preventDefault();
+                    hid.value = op.getAttribute('data-fid') || '';
+                    search.value = op.textContent;
+                    list.style.display = 'none';
+                    mostrarErr('');
+                });
+                // AMBOS campos son OBLIGATORIOS: nombre del punto + proyecto.
                 btn.addEventListener('click', function () {
-                    var selEl = cont.querySelector('.oleo-save-sel');
-                    var oleoId = selEl ? selEl.value : oleoActivo;
-                    if (!oleoId) return;
-                    oleoActivo = oleoId; oleoRenderLista(); // el elegido pasa a ser el activo
+                    var nombre = ((input && input.value) || '').trim();
+                    if (!nombre) { mostrarErr('Escribe el nombre del punto.'); if (input) input.focus(); return; }
+                    var idFrente = resolverFrente();
+                    if (!idFrente) { mostrarErr('Elige un proyecto de la lista.'); search.focus(); renderSug(); return; }
+                    mostrarErr('');
                     var ll = ev.popup.getLatLng();
                     btn.disabled = true; btn.textContent = 'Guardando…';
-                    oleoAgregarPunto(oleoId, ll, (input && input.value) || '', function (ok) {
+                    oleoGuardarPuntoFrente(idFrente, ll, nombre, function (ok) {
                         if (ok) { marcarBusqueda(null); map.closePopup(); }
                         else { btn.disabled = false; btn.textContent = 'Guardar punto'; }
-                    });
-                });
-            }
-
-            var nbtn = cont.querySelector('.oleo-save-new-btn');
-            if (nbtn && !nbtn._ob) {
-                nbtn._ob = true;
-                nbtn.addEventListener('click', function () {
-                    var np = cont.querySelector('.oleo-save-newp');
-                    var nombreProyecto = (np && np.value || '').trim();
-                    if (!nombreProyecto) { if (window.showToast) window.showToast('Escribe el nombre del proyecto.', 'error'); if (np) np.focus(); return; }
-                    var ll = ev.popup.getLatLng();
-                    nbtn.disabled = true; nbtn.textContent = 'Creando…';
-                    crearProyectoYGuardar(nombreProyecto, ll, (input && input.value) || '', function (ok) {
-                        if (ok) { marcarBusqueda(null); map.closePopup(); }
-                        else { nbtn.disabled = false; nbtn.textContent = 'Crear proyecto y guardar punto'; }
                     });
                 });
             }
@@ -862,31 +905,11 @@
                     '<div class="oleo-panel" style="display:none;">' +
                         '<div class="oleo-panel-h">Proyectos</div>' +
                         '<div id="oleoLista" class="oleo-panel-lista"></div>' +
-                        '<div class="oleo-new"><input type="text" id="oleoNewNom" placeholder="Nombre del nuevo proyecto"><button type="button" id="oleoNewBtn">Crear</button></div>' +
-                        '<div class="oleo-hint2">Para curvar la tubería usa el <b>lápiz</b> ✏️ de la barra (arriba-izq): traza el recorrido por donde pasa.</div>' +
                     '</div>';
                 L.DomEvent.disableClickPropagation(wrap);
                 L.DomEvent.disableScrollPropagation(wrap);
                 var panel = wrap.querySelector('.oleo-panel');
                 wrap.querySelector('.oleo-toggle').addEventListener('click', function () { panel.style.display = (panel.style.display === 'none') ? 'block' : 'none'; });
-                wrap.querySelector('#oleoNewBtn').addEventListener('click', function () {
-                    var nom = (wrap.querySelector('#oleoNewNom').value || '').trim();
-                    if (!nom) { if (window.showToast) window.showToast('Escribe un nombre para el proyecto.', 'error'); return; }
-                    var btnC = this; if (btnC.disabled) return; btnC.disabled = true; // evita doble-clic (crear duplicado)
-                    var color = OLEO_PALETA[Object.keys(oleoMap).length % OLEO_PALETA.length];
-                    spinOn();
-                    oleoApi('/mapa/oleoductos', 'POST', { nombre: nom, color: color }).then(function (res) {
-                        spinOff(); btnC.disabled = false;
-                        if (res && res.success) {
-                            res.oleoducto.puntos = res.oleoducto.puntos || [];
-                            oleoDibujar(res.oleoducto);
-                            oleoActivo = res.oleoducto.id;
-                            wrap.querySelector('#oleoNewNom').value = '';
-                            oleoRenderLista();
-                            if (window.showToast) window.showToast('Proyecto creado. Ahora busca lugares y guarda sus puntos.', 'success');
-                        }
-                    }).catch(function () { spinOff(); btnC.disabled = false; });
-                });
                 wrap.querySelector('#oleoLista').addEventListener('click', function (e2) {
                     var del = e2.target.closest ? e2.target.closest('[data-del]') : null;
                     if (del) {
@@ -972,7 +995,7 @@
             var ids = Object.keys(oleoMap);
             if (!oleoActivo || !oleoMap[oleoActivo]) {
                 if (ids.length === 1) { oleoActivo = ids[0]; oleoRenderLista(); }
-                else if (!ids.length) { if (window.showToast) window.showToast('Primero crea un proyecto (panel arriba-derecha) y agrégale puntos.', 'error'); abrirPanelOleo(); return; }
+                else if (!ids.length) { if (window.showToast) window.showToast('Primero vincula ubicaciones a un frente (busca un lugar en el mapa).', 'error'); abrirPanelOleo(); return; }
                 else { if (window.showToast) window.showToast('Selecciona en el panel (arriba-derecha) el proyecto a editar.', 'error'); abrirPanelOleo(); return; }
             }
             entrarDibujo(oleoActivo);
@@ -1068,6 +1091,47 @@
             }).catch(function () { spinOff(); });
         }
 
+        // Menú de CLIC DERECHO sobre una VELA (punto): eliminar ese punto del proyecto.
+        function menuVela(ev, puntoId, puntoNombre) {
+            if (ev.originalEvent) { ev.originalEvent.preventDefault(); }
+            L.DomEvent.stop(ev);
+            document.querySelectorAll('.mapa-ctx-menu').forEach(function (m) { m.remove(); });
+            var menu = document.createElement('div'); menu.className = 'mapa-ctx-menu';
+            menu.innerHTML =
+                '<div class="mapa-ctx-title">' + esc(puntoNombre || 'Punto') + '</div>' +
+                '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>Eliminar punto</button>';
+            var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
+            menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+            menu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
+            (document.fullscreenElement || document.body).appendChild(menu);
+            menu.addEventListener('click', function (e2) {
+                var b = e2.target.closest ? e2.target.closest('.mapa-ctx-item') : null; if (!b) return;
+                menu.remove();
+                if (b.getAttribute('data-a') === 'del') eliminarPunto(puntoId);
+            });
+            var cerrar = function () { menu.remove(); document.removeEventListener('click', cerrar); };
+            setTimeout(function () { document.addEventListener('click', cerrar); }, 0);
+        }
+        // Elimina un punto de un proyecto (backend: DELETE /mapa/oleoductos/puntos/{id}).
+        // Quita el punto de su proyecto en memoria, redibuja las velas y refresca la leyenda.
+        function eliminarPunto(puntoId) {
+            if (!confirm('¿Eliminar este punto del proyecto? No se puede deshacer.')) return;
+            spinOn();
+            oleoApi('/mapa/oleoductos/puntos/' + puntoId, 'DELETE').then(function (res) {
+                spinOff();
+                if (res && res.success) {
+                    Object.keys(oleoMap).forEach(function (id) {
+                        var pts = oleoMap[id].data.puntos || [];
+                        var idx = -1;
+                        for (var i = 0; i < pts.length; i++) { if (String(pts[i].id) === String(puntoId)) { idx = i; break; } }
+                        if (idx > -1) { pts.splice(idx, 1); oleoDibujar(oleoMap[id].data); }
+                    });
+                    oleoRenderLista(); // refresca la leyenda
+                    if (window.showToast) window.showToast('Punto eliminado.', 'success');
+                } else if (window.showToast) window.showToast('No se pudo eliminar el punto.', 'error');
+            }).catch(function () { spinOff(); if (window.showToast) window.showToast('No se pudo eliminar el punto.', 'error'); });
+        }
+
         // ══════════════════════════════════════════════════════════════════════
         //  TABLA-LEYENDA (historial) + EXPORTAR IMAGEN
         //  - Leyenda transparente (abajo-izq): proyectos que TIENEN puntos.
@@ -1103,35 +1167,69 @@
             return out;
         }
 
+        // Estado de plegado de la leyenda: toda la leyenda + los puntos de cada proyecto.
+        var legendColapsada = false;
+        var proyColapsados = {};      // id de proyecto → true si sus puntos están recogidos
+        var legendClickBound = false;
+
         function actualizarLeyenda() {
             var d = document.getElementById('mapaLeyenda'); if (!d) return;
             var items = proyectosConPuntos();
             var munis = municipiosActivos();
             if (!items.length && !munis.length) { d.style.display = 'none'; d.innerHTML = ''; return; }
             d.style.display = 'block';
-            var html = '';
-            if (items.length) {
-                html += '<div class="mapa-leyenda-t">Proyectos</div>';
-                items.forEach(function (o) {
-                    html += '<div class="mapa-leyenda-row">' +
-                        '<span class="mapa-leyenda-dot" style="background:' + o.color + '"></span>' +
-                        '<span class="mapa-leyenda-nom">' + esc(o.nombre) + '</span></div>';
-                    o.puntos.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).forEach(function (p) {
-                        html += '<div class="mapa-leyenda-pt"><span class="mapa-leyenda-pt-n">' + esc(p.nombre || 'Punto') + '</span>' +
-                            '<span class="mapa-leyenda-pt-c">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span></div>';
-                    });
+
+            // Delegación de clics (una sola vez, sobrevive a los re-render de innerHTML):
+            // recoger/expandir TODA la leyenda, o los puntos de UN proyecto.
+            if (!legendClickBound) {
+                legendClickBound = true;
+                d.addEventListener('click', function (e) {
+                    var del = e.target.closest && e.target.closest('[data-ptdel]');
+                    if (del) { e.stopPropagation(); eliminarPunto(del.getAttribute('data-ptdel')); return; }
+                    if (e.target.closest && e.target.closest('[data-fold="all"]')) { legendColapsada = !legendColapsada; actualizarLeyenda(); return; }
+                    var pr = e.target.closest && e.target.closest('[data-proy]');
+                    if (pr) { var id = pr.getAttribute('data-proy'); proyColapsados[id] = !proyColapsados[id]; actualizarLeyenda(); }
                 });
             }
-            if (munis.length) {
-                html += '<div class="mapa-leyenda-t mapa-leyenda-t2">Municipios</div>';
-                // Con varios municipios se reparten en DOS columnas para que la leyenda no
-                // quede tan larga verticalmente (rellena de arriba a abajo: 1-N | N+1-…).
-                html += '<div class="mapa-leyenda-munis' + (munis.length > 6 ? ' dos-col' : '') + '">';
-                munis.forEach(function (mu) {
-                    html += '<div class="mapa-leyenda-row">' +
-                        '<span class="mapa-leyenda-num">' + mu.num + '</span>' +
-                        '<span class="mapa-leyenda-nom">' + esc(nombreBonito(mu.municipio)) + '</span></div>';
-                });
+
+            // Cabecera con botón para recoger/expandir toda la leyenda.
+            var html = '<div class="mapa-leyenda-head">' +
+                '<span class="mapa-leyenda-titulo">Leyenda</span>' +
+                '<button type="button" class="mapa-leyenda-fold" data-fold="all" title="' + (legendColapsada ? 'Expandir leyenda' : 'Recoger leyenda') + '">' +
+                    '<i class="material-icons">' + (legendColapsada ? 'unfold_more' : 'unfold_less') + '</i></button>' +
+                '</div>';
+
+            if (!legendColapsada) {
+                html += '<div class="mapa-leyenda-body">';
+                if (items.length) {
+                    html += '<div class="mapa-leyenda-t">Proyectos</div>';
+                    items.forEach(function (o) {
+                        var col = !!proyColapsados[o.id];
+                        html += '<div class="mapa-leyenda-row mapa-leyenda-proy" data-proy="' + o.id + '" title="' + (col ? 'Mostrar puntos' : 'Recoger puntos') + '">' +
+                            '<span class="mapa-leyenda-dot" style="background:' + o.color + '"></span>' +
+                            '<span class="mapa-leyenda-nom">' + esc(o.nombre) + '</span>' +
+                            '<i class="material-icons mapa-leyenda-chevron">' + (col ? 'chevron_right' : 'expand_more') + '</i></div>';
+                        if (!col) {
+                            o.puntos.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).forEach(function (p) {
+                                html += '<div class="mapa-leyenda-pt"><span class="mapa-leyenda-pt-n">' + esc(p.nombre || 'Punto') + '</span>' +
+                                    '<span class="mapa-leyenda-pt-c">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span>' +
+                                    '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" title="Eliminar punto">&times;</button></div>';
+                            });
+                        }
+                    });
+                }
+                if (munis.length) {
+                    html += '<div class="mapa-leyenda-t mapa-leyenda-t2">Municipios</div>';
+                    // Con varios municipios se reparten en DOS columnas para que la leyenda no
+                    // quede tan larga verticalmente (rellena de arriba a abajo: 1-N | N+1-…).
+                    html += '<div class="mapa-leyenda-munis' + (munis.length > 6 ? ' dos-col' : '') + '">';
+                    munis.forEach(function (mu) {
+                        html += '<div class="mapa-leyenda-row">' +
+                            '<span class="mapa-leyenda-num">' + mu.num + '</span>' +
+                            '<span class="mapa-leyenda-nom">' + esc(nombreBonito(mu.municipio)) + '</span></div>';
+                    });
+                    html += '</div>';
+                }
                 html += '</div>';
             }
             d.innerHTML = html;
@@ -1294,7 +1392,7 @@
         // `k` escala el grosor; `proj` proyecta lat/lng → píxel del canvas.
         // Dibuja la VELA (pin de gota, igual que velaIcon) con la PUNTA en (x, y).
         function dibujarVela(ctx, x, y, k, color) {
-            color = color || '#2979ff';
+            color = color || '#0067b1';
             var s = k; // proporcional a los rótulos (en pantalla el pin es 24×32)
             ctx.save();
             ctx.translate(x - 12 * s, y - 31 * s); ctx.scale(s, s); ctx.lineJoin = 'round';
@@ -1364,7 +1462,7 @@
                     if (rep) rep.count++; else reps.push({ pt: pt, count: 1, nombre: p.nombre });
                 });
                 var soloProyecto = reps.length <= 1; // una sola vela (todo junto) → solo el proyecto
-                reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#2979ff'); }); // pines primero
+                reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#0067b1'); }); // pines primero
                 reps.forEach(function (r) { // etiquetas encima: si hay 2+ velas, TODAS con proyecto + punto
                     dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, soloProyecto ? null : (r.nombre || 'Punto'), k);
                 });

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FrenteTrabajo;
+
 /**
  * Modulo de Mapa.
  *
@@ -14,6 +16,14 @@ class MapaController extends Controller
 {
     public function index()
     {
-        return view('mapa');
+        // Los "proyectos" del mapa SON los frentes de trabajo: al vincular una ubicación se
+        // elige uno de estos (no se crean proyectos a mano). Se pasan todos, con el nombre ya
+        // limpio (el modelo aplica MojibakeFix), ordenados alfabéticamente para el selector.
+        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+            ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])
+            ->values();
+
+        return view('mapa', ['frentes' => $frentes]);
     }
 }

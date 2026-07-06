@@ -24,7 +24,10 @@ class ImportarFiltros extends Command
 
     private function norm(?string $s): string
     {
-        return strtoupper(trim(preg_replace('/\s+/', ' ', (string) $s)));
+        // mb_strtoupper (NO strtoupper): strtoupper no toca los acentos, así que "Sí" no se
+        // convertía a "SÍ" y la columna ¿Principal? nunca se detectaba; igual con modelos
+        // acentuados. La normalización debe ser multibyte para comparar bien.
+        return mb_strtoupper(trim(preg_replace('/\s+/', ' ', (string) $s)), 'UTF-8');
     }
 
     public function handle(): int

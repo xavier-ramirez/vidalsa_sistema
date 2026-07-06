@@ -1225,7 +1225,7 @@
                     <div class="alm-cat-field">
                         <input type="text" id="almProdCategoria" autocomplete="off" maxlength="100"
                                placeholder="Elige una de la lista o escribe una nueva…"
-                               oninput="window.almProdCatSuggest()" onfocus="window.almProdCatSuggest(true)"
+                               oninput="window.almProdCatSuggest(); window.almProdEquivSyncVisible && window.almProdEquivSyncVisible();" onfocus="window.almProdCatSuggest(true)"
                                onclick="event.stopPropagation(); window.almProdCatSuggest(true);">
                         <button type="button" class="alm-cat-caret" id="almProdCatCaret" tabindex="-1" title="Ver categorías registradas"
                                 onclick="window.almProdCatToggle(event)"><i class="material-icons">arrow_drop_down</i></button>
@@ -1252,6 +1252,18 @@
                 <input type="text" id="almProdUbicacion" maxlength="150" autocomplete="off"
                        placeholder="Ej: Estante A3, Pasillo 2 lado izquierdo…">
                 <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Aparecerá como tooltip al pasar el mouse sobre la fila.</div>
+            </div>
+            {{-- Equivalencias (nº de parte) — SOLO al EDITAR un FILTRO. Lista editable
+                 (agregar/quitar como chips); se sincroniza al Guardar. Oculta para no-filtros
+                 y al crear (se agregan editando el filtro ya creado). --}}
+            <div id="almProdEquivWrap" style="display:none;">
+                <label>Equivalencias (números de parte)</label>
+                <div id="almProdEquivList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                <input type="text" id="almProdEquivInput" maxlength="100" autocomplete="off"
+                       placeholder="Escribe un nº de parte y presiona Enter"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();window.almProdEquivAdd();}"
+                       style="margin-top:6px;">
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Presiona <b>Enter</b> para agregar cada número. Todo se guarda con el botón <b>Guardar</b> de abajo.</div>
             </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>
@@ -3123,36 +3135,19 @@
         // y texto a la derecha (display:flex en el CSS inline del div). Ver markup arriba.
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
 
-        // Sección de filtro: equivalencias + equipos que lo usan. Se leen de los data-attrs
-        // de la fila (los rellena el partial table_rows). Oculto si el producto no es filtro.
+        // Sección de filtro: SOLO las equivalencias (nº de parte). Se lee del data-attr de la
+        // fila (lo rellena el partial table_rows). Los equipos asociados ya NO se muestran aquí
+        // (a pedido del cliente). Oculto si el producto no tiene equivalencias.
         var box = el('almDetFiltroInfo');
         if (box) {
             var tr = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
             var equiv = (tr && tr.dataset.equiv) ? tr.dataset.equiv.split('|') : [];
-            var equipos = [];
-            if (tr && tr.dataset.equipos) { try { equipos = JSON.parse(tr.dataset.equipos); } catch (e) { equipos = []; } }
-            if (equiv.length || equipos.length) {
+            if (equiv.length) {
                 var escp = function (t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
-                var html = '';
-                if (equiv.length) {
-                    // Números de parte en TEXTO negro, SIN contenedor/chip azul, separados por
-                    // " · " — igual que en la descripción de la tabla (a pedido del cliente).
-                    var equivTxt = equiv.map(escp).join(' &middot; ');
-                    html += '<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;">🔁 Equivalencias</div>'
-                          + '<div style="font-size:12.5px;font-weight:600;color:#1e293b;line-height:1.5;word-break:break-word;">' + equivTxt + '</div></div>';
-                }
-                if (equipos.length) {
-                    // Cada equipo = tarjeta con Tipo / Marca / Modelo, uno debajo del otro.
-                    var cards = equipos.map(function (e) {
-                        var tipo   = e.t  ? '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">' + escp(e.t) + '</div>' : '';
-                        var marca  = e.m  ? '<div style="font-size:12.5px;color:#475569;">' + escp(e.m) + '</div>' : '';
-                        var modelo = e.mo ? '<div style="font-size:13px;font-weight:800;color:#0f172a;">' + escp(e.mo) + '</div>' : '';
-                        return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;background:#f8fafc;">' + tipo + marca + modelo + '</div>';
-                    }).join('');
-                    html += '<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;">🚜 Equipos que lo usan (' + equipos.length + ')</div>'
-                          + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;">' + cards + '</div></div>';
-                }
-                box.innerHTML = html;
+                // Números de parte en TEXTO negro, SIN chip azul, separados por " · ".
+                var equivTxt = equiv.map(escp).join(' &middot; ');
+                box.innerHTML = '<div><div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;">🔁 Equivalencias</div>'
+                    + '<div style="font-size:12.5px;font-weight:600;color:#1e293b;line-height:1.5;word-break:break-word;">' + equivTxt + '</div></div>';
                 box.style.display = 'flex';
             } else {
                 box.innerHTML = '';
@@ -3573,7 +3568,53 @@
         almProdFieldErr('almProdNombre',  false);
         almProdFieldErr('almProdUm',      false);
         showErr('almProdError', '');
+        // Reset de la lista de equivalencias (filtros).
+        window._almProdEquivs = [];
+        var _ei = el('almProdEquivInput'); if (_ei) _ei.value = '';
+        almProdEquivRender();
+        var _ew = el('almProdEquivWrap'); if (_ew) _ew.style.display = 'none';
     }
+    // ── Equivalencias del filtro: lista editable dentro de "Editar producto" ──────────
+    // Estado en memoria; se sincroniza al Guardar (updateProducto manda el conjunto completo).
+    // Solo FILTROS y solo al EDITAR (para crear, primero se crea el filtro y luego se edita).
+    window._almProdEquivs = [];
+    function almProdEquivRender() {
+        var box = el('almProdEquivList'); if (!box) return;
+        if (!window._almProdEquivs.length) {
+            box.innerHTML = '<span style="font-size:12px;color:#94a3b8;font-style:italic;">Sin equivalencias aún.</span>';
+            return;
+        }
+        box.innerHTML = window._almProdEquivs.map(function (np, i) {
+            var safe = String(np).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            return '<span style="display:inline-flex;align-items:center;gap:6px;background:#f1f5f9;border:1px solid #e2e8f0;color:#334155;border-radius:14px;padding:3px 6px 3px 10px;font-size:12.5px;font-weight:600;">'
+                 + safe
+                 + '<button type="button" title="Quitar" onclick="window.almProdEquivRemove(' + i + ')" style="border:none;background:#e2e8f0;color:#475569;border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;font-weight:700;padding:0;">&times;</button>'
+                 + '</span>';
+        }).join('');
+    }
+    window.almProdEquivAdd = function () {
+        var inp = el('almProdEquivInput'); if (!inp) return;
+        var np = (inp.value || '').trim();
+        if (!np) { inp.focus(); return; }
+        var norm = function (s) { return String(s).replace(/\s+/g, '').toUpperCase(); }; // sin distinguir may/espacios
+        if (window._almProdEquivs.some(function (x) { return norm(x) === norm(np); })) {
+            toast('Ese número de parte ya está en la lista.', 'error'); inp.select(); return;
+        }
+        window._almProdEquivs.push(np);
+        almProdEquivRender();
+        inp.value = ''; inp.focus();
+    };
+    window.almProdEquivRemove = function (i) {
+        window._almProdEquivs.splice(i, 1);
+        almProdEquivRender();
+    };
+    // Muestra la sección SOLO si se EDITA (idProducto) un producto de categoría FILTROS.
+    window.almProdEquivSyncVisible = function () {
+        var wrap = el('almProdEquivWrap'); if (!wrap) return;
+        var editing = !!el('almProductoModal').dataset.idProducto;
+        var esFiltro = String(val('almProdCategoria') || '').trim().toUpperCase() === 'FILTROS';
+        wrap.style.display = (editing && esFiltro) ? '' : 'none';
+    };
     window.almAbrirProducto = function () {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para crear productos.')) return;
         window.almDesdeDetalle = false;   // "Nuevo producto" NO viene de Detalles → Cancelar no regresa allí
@@ -3599,6 +3640,12 @@
         // Cantidad inicial: solo aplica al CREAR. Al editar se oculta — el saldo se cambia
         // desde el modal de Ajuste / Entrada / Salida.
         var wrap = el('almProdCantInicialWrap'); if (wrap) wrap.style.display = 'none';
+        // Equivalencias (filtros): se cargan desde la fila (data-equiv) y la sección se muestra
+        // solo si el producto es FILTRO. La lista se sincroniza al Guardar.
+        var trE = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
+        window._almProdEquivs = (trE && trE.dataset.equiv) ? trE.dataset.equiv.split('|').filter(Boolean) : [];
+        almProdEquivRender();
+        window.almProdEquivSyncVisible();
         open('almProductoModal'); setTimeout(function () { el('almProdNombre').focus(); }, 60);
     };
 
@@ -3719,6 +3766,12 @@
     window.almGuardarProducto = function () {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para guardar productos.')) return;
         var m = el('almProductoModal'), id = m.dataset.idProducto || null;
+        // Sin botón "Agregar": si quedó un nº de parte escrito (sin Enter) en la sección de
+        // equivalencias visible, recógelo antes de guardar para no perderlo.
+        var _eqW = el('almProdEquivWrap'), _eqI = el('almProdEquivInput');
+        if (_eqW && _eqW.style.display !== 'none' && _eqI && _eqI.value.trim() && typeof window.almProdEquivAdd === 'function') {
+            window.almProdEquivAdd();
+        }
         var codigo = val('almProdCodigo'), nombre = val('almProdNombre'), um = val('almProdUm') || 'UND', cat = val('almProdCategoria');
         var ubicacion = val('almProdUbicacion');
         // Validaciones previas al envío.
@@ -3758,8 +3811,12 @@
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             body: JSON.stringify(id
                 // Al editar: ahora SÍ se incluye CODIGO (editable). Si va vacío, el backend
-                // conserva el actual (updateProducto hace unset cuando llega vacío).
-                ? { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null }
+                // conserva el actual (updateProducto hace unset cuando llega vacío). En FILTROS
+                // se manda la lista COMPLETA de equivalencias para sincronizarla en el backend.
+                ? Object.assign(
+                    { CODIGO: codigo || null, NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null },
+                    String(cat || '').toUpperCase() === 'FILTROS' ? { equivalencias: window._almProdEquivs } : {}
+                  )
                 // Al crear: CODIGO + opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
                 : bodyCreate
             )
@@ -3770,6 +3827,14 @@
             if (res.ok) {
                 almCerrar('almProductoModal');
                 toast(res.b.message || (id ? 'Producto actualizado.' : 'Producto creado.'));
+
+                // FILTROS editados: refleja las equivalencias en la fila (data-equiv) para que el
+                // modal de Detalles y el tooltip queden consistentes sin recargar. La descripción
+                // visible de la tabla se rehace al recargar/filtrar.
+                if (id && String(cat || '').toUpperCase() === 'FILTROS') {
+                    var trU = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
+                    if (trU) trU.dataset.equiv = window._almProdEquivs.join('|');
+                }
 
                 // Sincronizar window.almProductosLista (cache en memoria que usa el dropdown
                 // de sugerencias) para que el producto nuevo / editado aparezca en la busqueda

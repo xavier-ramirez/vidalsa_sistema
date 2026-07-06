@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Almacen;
 use App\Models\AlmacenStock;
 use App\Models\MovimientoInventario;
+use App\Models\ProductoEquivalencia;
 use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Services\InventarioService;
@@ -769,7 +770,51 @@ class AlmacenController extends Controller
         }
         $producto->update($data);
 
+        // Equivalencias (nº de parte) — SOLO filtros. Se gestionan como una lista dentro del
+        // modal "Editar producto": el front manda el conjunto COMPLETO y aquí se sincroniza
+        // (agrega las nuevas, borra las que se quitaron). El principal existente se preserva.
+        if ($request->has('equivalencias') && mb_strtoupper((string) $producto->CATEGORIA) === 'FILTROS') {
+            $request->validate([
+                'equivalencias'   => 'array|max:100',
+                'equivalencias.*' => 'nullable|string|max:100',
+            ]);
+            $this->sincronizarEquivalencias($producto, (array) $request->input('equivalencias', []));
+        }
+
         return response()->json(['message' => 'Producto actualizado.', 'producto' => $producto->fresh()]);
+    }
+
+    /**
+     * Sincroniza las equivalencias de un FILTRO con la lista recibida: agrega las nuevas y
+     * borra las que ya no están. Preserva ES_PRINCIPAL de las que se mantienen; las nuevas
+     * entran como alternas. Normaliza (trim, sin vacíos, sin duplicar).
+     */
+    private function sincronizarEquivalencias(ProductoInventario $producto, array $lista): void
+    {
+        $partes = collect($lista)
+            ->map(fn ($s) => trim((string) $s))
+            ->filter(fn ($s) => $s !== '' && mb_strlen($s) <= 100)
+            ->unique()
+            ->values();
+
+        $actuales = $producto->equivalencias()->get()->keyBy('NUMERO_PARTE');
+
+        // Borra las que el usuario quitó de la lista.
+        foreach ($actuales as $np => $eq) {
+            if (! $partes->contains($np)) {
+                $eq->delete();
+            }
+        }
+        // Agrega las nuevas (las existentes se dejan igual, conservando su principal).
+        foreach ($partes as $np) {
+            if (! $actuales->has($np)) {
+                ProductoEquivalencia::create([
+                    'ID_PRODUCTO'  => $producto->ID_PRODUCTO,
+                    'NUMERO_PARTE' => $np,
+                    'ES_PRINCIPAL' => false,
+                ]);
+            }
+        }
     }
 
     /**

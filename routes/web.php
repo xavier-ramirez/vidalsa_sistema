@@ -53,8 +53,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/mapa', [App\Http\Controllers\MapaController::class, 'index'])->name('mapa');
         // Oleoductos del mapa (proyectos de puntos + linea). API JSON que consume mapa_index.js.
         Route::get   ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'index'])->name('mapa.oleoductos.index');
-        Route::post  ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'store'])->name('mapa.oleoductos.store');
-        Route::post  ('/mapa/oleoductos/{id}/puntos',  [App\Http\Controllers\OleoductoController::class, 'addPunto'])->name('mapa.oleoductos.addPunto');
+        // Los proyectos = frentes: se agrega el punto al frente elegido (find-or-create su oleoducto).
+        Route::post  ('/mapa/oleoductos/frente/{idFrente}/puntos', [App\Http\Controllers\OleoductoController::class, 'addPuntoFrente'])->name('mapa.oleoductos.addPuntoFrente');
         Route::post  ('/mapa/oleoductos/{id}/recorrido', [App\Http\Controllers\OleoductoController::class, 'saveRecorrido'])->name('mapa.oleoductos.recorrido');
         Route::delete('/mapa/oleoductos/puntos/{id}',  [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->name('mapa.oleoductos.destroyPunto');
         Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->name('mapa.oleoductos.destroy');
