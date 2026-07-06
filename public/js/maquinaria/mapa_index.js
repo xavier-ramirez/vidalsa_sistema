@@ -491,15 +491,15 @@
             // Pin de gota con el LOGO de la empresa recortado en círculo dentro del bulbo.
             return L.divIcon({
                 className: 'mapa-vela',
-                html: '<svg width="28" height="37" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">' +
-                      '<defs><clipPath id="' + cid + '"><circle cx="12" cy="11.4" r="6"/></clipPath></defs>' +
-                      '<path d="M12 .6C6 .6 1.2 5.4 1.2 11.4c0 7.6 9.2 18.4 10 19.4.4.5 1.2.5 1.6 0 .8-1 10-11.8 10-19.4C22.8 5.4 18 .6 12 .6z" fill="' + c + '" stroke="#ffffff" stroke-width="1.8"/>' +
-                      '<circle cx="12" cy="11.4" r="6.4" fill="#ffffff"/>' +
+                html: '<svg width="34" height="45" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg">' +
+                      '<defs><clipPath id="' + cid + '"><circle cx="12" cy="11.4" r="7.5"/></clipPath></defs>' +
+                      '<path d="M12 .6C6 .6 1.2 5.4 1.2 11.4c0 7.6 9.2 18.4 10 19.4.4.5 1.2.5 1.6 0 .8-1 10-11.8 10-19.4C22.8 5.4 18 .6 12 .6z" fill="' + c + '" stroke="#ffffff" stroke-width="1.5"/>' +
+                      '<circle cx="12" cy="11.4" r="7.8" fill="#ffffff"/>' +
                       (LOGO_URL
-                        ? '<image href="' + LOGO_URL + '" x="6" y="5.4" width="12" height="12" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid meet"/>'
-                        : '<circle cx="12" cy="11.4" r="4" fill="' + c + '"/>') +
+                        ? '<image href="' + LOGO_URL + '" x="4.5" y="3.9" width="15" height="15" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid slice"/>'
+                        : '<circle cx="12" cy="11.4" r="5" fill="' + c + '"/>') +
                       '</svg>',
-                iconSize: [28, 37], iconAnchor: [14, 36], popupAnchor: [0, -33], tooltipAnchor: [0, -33]
+                iconSize: [34, 45], iconAnchor: [17, 44], popupAnchor: [0, -41], tooltipAnchor: [0, -41]
             });
         }
         var buscadorMarker = null;
@@ -1461,10 +1461,9 @@
                     }
                     if (rep) rep.count++; else reps.push({ pt: pt, count: 1, nombre: p.nombre });
                 });
-                var soloProyecto = reps.length <= 1; // una sola vela (todo junto) → solo el proyecto
                 reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#0067b1'); }); // pines primero
-                reps.forEach(function (r) { // etiquetas encima: si hay 2+ velas, TODAS con proyecto + punto
-                    dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, soloProyecto ? null : (r.nombre || 'Punto'), k);
+                reps.forEach(function (r) { // etiqueta: vela agrupada → solo proyecto; punto suelto → proyecto + punto
+                    dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, r.count > 1 ? null : (r.nombre || 'Punto'), k);
                 });
             });
             ctx.restore();
