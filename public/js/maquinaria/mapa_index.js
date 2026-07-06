@@ -496,7 +496,7 @@
                       '<path d="M12 .6C6 .6 1.2 5.4 1.2 11.4c0 7.6 9.2 18.4 10 19.4.4.5 1.2.5 1.6 0 .8-1 10-11.8 10-19.4C22.8 5.4 18 .6 12 .6z" fill="' + c + '" stroke="#ffffff" stroke-width="1.5"/>' +
                       '<circle cx="12" cy="11.4" r="7.8" fill="#ffffff"/>' +
                       (LOGO_URL
-                        ? '<image href="' + LOGO_URL + '" x="4.5" y="3.9" width="15" height="15" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid slice"/>'
+                        ? '<image href="' + LOGO_URL + '" x="6.2" y="6" width="11.6" height="11" clip-path="url(#' + cid + ')" preserveAspectRatio="xMidYMid meet"/>'
                         : '<circle cx="12" cy="11.4" r="5" fill="' + c + '"/>') +
                       '</svg>',
                 iconSize: [34, 45], iconAnchor: [17, 44], popupAnchor: [0, -41], tooltipAnchor: [0, -41]
@@ -729,9 +729,21 @@
         //    Solo los PINES; el nombre del proyecto aparece al pasar el mouse (hover).
         //  · Más cerca: etiqueta FIJA por vela — si una vela AGRUPA varios puntos, solo el nombre del
         //    PROYECTO (no el del punto); si es un punto suelto, proyecto + nombre del punto.
+        // Escala en km que muestra la barra del mapa (lo que ve el usuario: 300 km, 500 km…).
+        // Se lee del control de escala; con moveend/zoomend la barra ya está actualizada.
+        function escalaKm() {
+            var el2 = document.querySelector('.leaflet-control-scale-line');
+            if (!el2) return 0;
+            var m = (el2.textContent || '').match(/([\d.]+)\s*(km|m)\b/);
+            if (!m) return 0;
+            var v = parseFloat(m[1]);
+            return m[2] === 'km' ? v : v / 1000; // metros → km
+        }
         function declutterVelas() {
-            var THRESH = 26; // px
-            var lejos = map.getZoom() < 6; // más de ~300 km → solo pines, nombre al hacer foco
+            var THRESH = 38; // px — mayor que el ancho del pin (34) para que dos velas que se solapan se unan en una
+            // A 300 km se ve el nombre del proyecto; a MÁS de 300 km (500 km…) solo los pines
+            // (el nombre aparece al hacer foco). Umbral por la ESCALA, referencia del usuario.
+            var lejos = escalaKm() > 300;
             Object.keys(oleoMap).forEach(function (id) {
                 var o = oleoMap[id].data, mks = oleoMap[id].markers || [], reps = [];
                 mks.forEach(function (mk) {
@@ -753,7 +765,7 @@
                 });
             });
         }
-        map.on('zoomend', declutterVelas);
+        map.on('zoomend moveend', declutterVelas); // moveend: recalcula tras asentarse la vista (carga/fit)
 
         function oleoRenderLista() {
             actualizarLeyenda(); // mantiene sincronizada la tabla-leyenda del mapa
@@ -1196,7 +1208,7 @@
             var html = '<div class="mapa-leyenda-head">' +
                 '<span class="mapa-leyenda-titulo">Leyenda</span>' +
                 '<button type="button" class="mapa-leyenda-fold" data-fold="all" title="' + (legendColapsada ? 'Expandir leyenda' : 'Recoger leyenda') + '">' +
-                    '<i class="material-icons">' + (legendColapsada ? 'unfold_more' : 'unfold_less') + '</i></button>' +
+                    '<i class="material-icons">' + (legendColapsada ? 'expand_more' : 'expand_less') + '</i></button>' +
                 '</div>';
 
             if (!legendColapsada) {
@@ -1452,7 +1464,7 @@
                 }
                 // Agrupación IGUAL que en pantalla (declutterVelas): las velas que se solapan
                 // (<26px proporcional) se colapsan en UNA; separadas, cada una con su etiqueta.
-                var THRESH = 26 * k, reps = [];
+                var THRESH = 38 * k, reps = []; // igual que en pantalla: velas solapadas se unen
                 pts.forEach(function (p) {
                     var pt = proj([p.lat, p.lng]), rep = null;
                     for (var i = 0; i < reps.length; i++) {
@@ -1829,6 +1841,10 @@
         oleoApi('/mapa/oleoductos').then(function (res) {
             (res && res.oleoductos ? res.oleoductos : []).forEach(oleoDibujar);
             oleoRenderLista();
+            // Recalcular las etiquetas cuando la escala/vista ya se asentó (el setView inicial no
+            // dispara moveend, y la barra de escala se renderiza un instante después).
+            setTimeout(declutterVelas, 300);
+            setTimeout(declutterVelas, 900);
         }).catch(function () {});
 
         // Tras insertar el contenedor por SPA, Leaflet puede calcular mal el tamaño;
