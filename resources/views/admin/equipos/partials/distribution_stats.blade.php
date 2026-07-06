@@ -19,7 +19,7 @@
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @if($hasFilter ?? request('search_query') || request('id_frente') || request('id_tipo'))
             @php $totalFrentes = $frentesStats->sum('total'); @endphp
             @foreach($frentesStats as $stat)
@@ -49,7 +49,7 @@
         <i class="material-icons" style="font-size: 18px; color: #3b82f6;">autorenew</i>
         Equipos y Maquinaria
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @if($hasFilter ?? request('search_query') || request('id_frente') || request('id_tipo'))
             @php $totalStats = $tiposStats->sum('total'); @endphp
             @foreach($tiposStats as $stat)

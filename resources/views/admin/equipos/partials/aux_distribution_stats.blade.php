@@ -10,7 +10,7 @@
         <i class="material-icons" style="font-size: 18px; color: #10b981;">map</i>
         Ubicación por Frente
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @php $totalFrentesAux = collect($auxDistribucionFrentes)->sum('total'); @endphp
         @foreach($auxDistribucionFrentes as $stat)
             @php $percentage = $totalFrentesAux > 0 ? ($stat->total / $totalFrentesAux) * 100 : 0; @endphp
@@ -37,7 +37,7 @@
         <i class="material-icons" style="font-size: 18px; color: #3b82f6;">autorenew</i>
         Auxiliares
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
         @php $totalAux = collect($auxDistribucion)->sum('total'); @endphp
         @foreach($auxDistribucion as $d)
             @php $percentage = $totalAux > 0 ? ($d['total'] / $totalAux) * 100 : 0; @endphp
