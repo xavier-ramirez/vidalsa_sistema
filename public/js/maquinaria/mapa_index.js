@@ -779,13 +779,12 @@
             declutterVelas(true); // (re)etiqueta las velas recién creadas de este proyecto
         }
 
-        // Etiqueta de las velas según el zoom:
-        //  · MÁS DE 300 km (zoom < 6): las velas del MISMO proyecto que se superponen se agrupan en
-        //    una sola (para no amontonar pines); NO hay etiqueta fija (se pegaban entre proyectos),
-        //    solo el PIN y el nombre del proyecto al pasar el mouse (hover).
-        //  · Más cerca: se muestran TODOS los puntos, cada vela con su etiqueta FIJA — nombre del
-        //    PROYECTO arriba y, debajo, el nombre del punto (mk._velaTip). Sin agrupar: ningún punto
-        //    se oculta ni se reduce a solo-proyecto.
+        // Velas: SIEMPRE se agrupan las del MISMO proyecto que se superponen (<THRESH px) en una
+        // sola, contando cuántas se juntan. La ETIQUETA depende del zoom:
+        //  · MÁS DE 300 km (zoom < 6): NO hay etiqueta fija (se pegaban entre proyectos), solo el
+        //    PIN y el nombre del proyecto al pasar el mouse (hover).
+        //  · Más cerca: etiqueta FIJA — si VARIAS velas se juntaron en una (count>1) solo el nombre
+        //    del PROYECTO; si es un punto suelto, proyecto arriba + nombre del punto (mk._velaTip).
         // Escala en km que muestra la barra del mapa (lo que ve el usuario: 300 km, 500 km…).
         // Se lee del control de escala; con moveend/zoomend la barra ya está actualizada.
         function escalaKm() {
