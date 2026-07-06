@@ -645,6 +645,10 @@
         // Frentes de trabajo = proyectos. Vienen del backend (window.mapaFrentes = [{id, nombre}]).
         // El selector "Proyecto" del popup se arma con estos; NO se crean proyectos a mano.
         var oleoFrentes = Array.isArray(window.mapaFrentes) ? window.mapaFrentes : [];
+        // ¿Puede GESTIONAR proyectos? Depende del PERMISO 'super.admin' (window.mapaPuedeEditar,
+        // que pone MapaController según usuarios.PERMISOS). Si es false → mapa de CONSULTA: sin
+        // crear/asociar puntos, sin dibujar, sin borrar. El backend además valida las rutas.
+        var PUEDE_EDITAR = !!window.mapaPuedeEditar;
         var OLEO_PALETA = ['#00e5ff', '#ff4081', '#76ff03', '#ffea00', '#ff6d00', '#d500f9', '#00e676', '#2979ff'];
         var oleoCSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
@@ -707,8 +711,8 @@
             var lines = (o.recorrido && o.recorrido.length >= 2)
                 ? tuberiaCapas(o.recorrido.map(function (c) { return [c[0], c[1]]; }), o.color)
                 : [];
-            // Clic derecho sobre la tubería: editar o eliminar la línea.
-            lines.forEach(function (l) { l.on('contextmenu', function (ev) { menuLinea(ev, o.id); }); });
+            // Clic derecho sobre la tubería: editar o eliminar la línea (solo con permiso).
+            if (PUEDE_EDITAR) lines.forEach(function (l) { l.on('contextmenu', function (ev) { menuLinea(ev, o.id); }); });
             var markers = pts.map(function (p) {
                 var mk = L.marker([p.lat, p.lng], { icon: velaIcon('#0067b1'), zIndexOffset: 500 }).addTo(map);
                 // Etiqueta de la vela: nombre del PROYECTO arriba y, debajo, el nombre que el
@@ -716,8 +720,8 @@
                 // solo se muestra en el historial (leyenda).
                 mk._velaTip = '<span class="vela-proj">' + esc(o.nombre) + '</span>' +
                               '<b>' + esc(p.nombre || 'Punto') + '</b>';
-                // Clic derecho sobre la vela: eliminar ese punto del proyecto.
-                mk.on('contextmenu', function (ev) { menuVela(ev, p.id, p.nombre); });
+                // Clic derecho sobre la vela: eliminar ese punto del proyecto (solo con permiso).
+                if (PUEDE_EDITAR) mk.on('contextmenu', function (ev) { menuVela(ev, p.id, p.nombre); });
                 return mk;
             });
             oleoMap[o.id] = { data: o, lines: lines, markers: markers };
@@ -780,7 +784,7 @@
                     '<span class="oleo-dot" style="background:' + o.color + '"></span>' +
                     '<span class="oleo-nom">' + esc(o.nombre) + '</span>' +
                     '<span class="oleo-cnt">' + (o.puntos ? o.puntos.length : 0) + '</span>' +
-                    '<button class="oleo-del" title="Borrar" data-del="' + id + '">&times;</button>' +
+                    (PUEDE_EDITAR ? '<button class="oleo-del" title="Borrar" data-del="' + id + '">&times;</button>' : '') +
                 '</div>';
             }).join('');
         }
@@ -818,6 +822,13 @@
         // seguidos al mismo).
         function oleoPopupGuardar(latlng, nombreSugerido) {
             var coords = latlng.lat.toFixed(6) + ', ' + latlng.lng.toFixed(6);
+            // Sin permiso 'super.admin' → solo consulta: se muestra la coordenada, sin formulario.
+            if (!PUEDE_EDITAR) {
+                var htmlRO = '<div class="oleo-save"><div class="oleo-save-c">' + coords + '</div>' +
+                    '<div style="font-size:11.5px;color:#64748b;line-height:1.35;margin-top:2px;">Solo lectura. Para guardar puntos necesitas el permiso de gestión del mapa.</div></div>';
+                L.popup({ className: 'mapa-oleo-pop', minWidth: 220, autoPan: true }).setLatLng(latlng).setContent(htmlRO).openOn(map);
+                return;
+            }
             var frenteActivo = (oleoActivo && oleoMap[oleoActivo]) ? oleoMap[oleoActivo].data.id_frente : null;
             var faObj = frenteActivo ? oleoFrentes.filter(function (f) { return String(f.id) === String(frenteActivo); })[0] : null;
             // Selector de proyecto tipo BUSCADOR (recomienda al escribir), no un <select> plano.
@@ -1225,7 +1236,7 @@
                             o.puntos.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).forEach(function (p) {
                                 html += '<div class="mapa-leyenda-pt"><span class="mapa-leyenda-pt-n">' + esc(p.nombre || 'Punto') + '</span>' +
                                     '<span class="mapa-leyenda-pt-c">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span>' +
-                                    '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" title="Eliminar punto">&times;</button></div>';
+                                    (PUEDE_EDITAR ? '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" title="Eliminar punto">&times;</button>' : '') + '</div>';
                             });
                         }
                     });
@@ -1275,7 +1286,7 @@
                 return btn;
             }
         });
-        map.addControl(new DibujarCtrl());
+        if (PUEDE_EDITAR) map.addControl(new DibujarCtrl()); // dibujar la línea: solo con permiso
 
         // Exportación con MARCO DE RECORTE: muestra un recuadro (aspecto de la hoja) para
         // cuadrar; se exporta EXACTAMENTE lo que quede dentro del marco.

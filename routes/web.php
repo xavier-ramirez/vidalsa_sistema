@@ -53,11 +53,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/mapa', [App\Http\Controllers\MapaController::class, 'index'])->name('mapa');
         // Oleoductos del mapa (proyectos de puntos + linea). API JSON que consume mapa_index.js.
         Route::get   ('/mapa/oleoductos',              [App\Http\Controllers\OleoductoController::class, 'index'])->name('mapa.oleoductos.index');
-        // Los proyectos = frentes: se agrega el punto al frente elegido (find-or-create su oleoducto).
-        Route::post  ('/mapa/oleoductos/frente/{idFrente}/puntos', [App\Http\Controllers\OleoductoController::class, 'addPuntoFrente'])->name('mapa.oleoductos.addPuntoFrente');
-        Route::post  ('/mapa/oleoductos/{id}/recorrido', [App\Http\Controllers\OleoductoController::class, 'saveRecorrido'])->name('mapa.oleoductos.recorrido');
-        Route::delete('/mapa/oleoductos/puntos/{id}',  [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->name('mapa.oleoductos.destroyPunto');
-        Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->name('mapa.oleoductos.destroy');
+        // Escritura del mapa (crear punto, asociar/dibujar, borrar punto/proyecto): SOLO con el
+        // PERMISO 'super.admin' (depende del permiso en usuarios.PERMISOS, no del rol). Ver el
+        // mapa e index (GET) queda abierto a todos los usuarios con acceso al módulo.
+        Route::post  ('/mapa/oleoductos/frente/{idFrente}/puntos', [App\Http\Controllers\OleoductoController::class, 'addPuntoFrente'])->middleware('can:super.admin')->name('mapa.oleoductos.addPuntoFrente');
+        Route::post  ('/mapa/oleoductos/{id}/recorrido', [App\Http\Controllers\OleoductoController::class, 'saveRecorrido'])->middleware('can:super.admin')->name('mapa.oleoductos.recorrido');
+        Route::delete('/mapa/oleoductos/puntos/{id}',  [App\Http\Controllers\OleoductoController::class, 'destroyPunto'])->middleware('can:super.admin')->name('mapa.oleoductos.destroyPunto');
+        Route::delete('/mapa/oleoductos/{id}',         [App\Http\Controllers\OleoductoController::class, 'destroy'])->middleware('can:super.admin')->name('mapa.oleoductos.destroy');
         Route::post('/system/reset-cache', [App\Http\Controllers\DashboardController::class, 'resetCache'])->name('system.reset-cache');
         Route::get('/dashboard/alerts-html', [App\Http\Controllers\DashboardController::class, 'getAlertsHtml'])->name('dashboard.alertsHtml');
         Route::post('/dashboard/iniciar-gestion', [App\Http\Controllers\DashboardController::class, 'iniciarGestion'])->name('dashboard.iniciarGestion');

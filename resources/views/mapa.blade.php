@@ -24,5 +24,10 @@
 </div>
 {{-- Frentes de trabajo = proyectos. mapa_index.js los usa para el selector "Vincular a un
      proyecto" (recomendados desde la tabla frentes_trabajo; ya NO se crean a mano en el mapa). --}}
-<script>window.mapaFrentes = @json($frentes ?? []);</script>
+<script>
+    window.mapaFrentes = @json($frentes ?? []);
+    // ¿Puede GESTIONAR proyectos? (permiso super.admin). Si es false, el mapa queda en consulta:
+    // sin crear/asociar puntos, sin dibujar, sin borrar. Las rutas también lo validan en el backend.
+    window.mapaPuedeEditar = @json($puedeEditar ?? false);
+</script>
 @endsection

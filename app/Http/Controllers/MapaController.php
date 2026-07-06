@@ -24,6 +24,11 @@ class MapaController extends Controller
             ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])
             ->values();
 
-        return view('mapa', ['frentes' => $frentes]);
+        // La GESTIÓN de proyectos en el mapa (crear/asociar puntos, dibujar la línea, borrar
+        // puntos/proyectos) depende del PERMISO 'super.admin' (no del rol). El resto ve el mapa
+        // en modo consulta. Las rutas de escritura también están gateadas en routes/web.php.
+        $puedeEditar = (bool) optional(auth()->user())->can('super.admin');
+
+        return view('mapa', ['frentes' => $frentes, 'puedeEditar' => $puedeEditar]);
     }
 }
