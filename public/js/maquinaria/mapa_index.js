@@ -542,6 +542,13 @@
             }, 420);
         }).addTo(map);
 
+        // La vela de búsqueda es EFÍMERA: solo marca el lugar mientras está abierto el popup de
+        // "Guardar punto". Al cerrarse ese popup (se guarde o se cancele) se quita, para no dejar
+        // una vela de ubicación PEGADA junto a la del punto ya guardado (se veían dos iguales).
+        map.on('popupclose', function (e) {
+            if (e.popup && e.popup.options && e.popup.options.className === 'mapa-oleo-pop') marcarBusqueda(null);
+        });
+
         // Colapsa/limpia la lista de resultados del buscador (no dejarla expandida tras elegir).
         function cerrarBuscador() {
             var alt = document.querySelector('.leaflet-control-geocoder-alternatives'); if (alt) alt.innerHTML = '';
@@ -743,8 +750,9 @@
             if (lines.length) {
                 var km = longitudKm(o.recorrido);
                 var kmTxt = km.toFixed(2).replace('.', ',') + ' km';
-                var popKm = '<div class="oleo-km-pop"><span class="oleo-km-nom">' + esc(o.nombre) + '</span>' +
-                            '<span class="oleo-km-lbl">Longitud de la tubería</span>' +
+                // Sin el nombre del proyecto (ya se ve en las velas de los puntos): solo la etiqueta
+                // y los km, en letra compacta.
+                var popKm = '<div class="oleo-km-pop"><span class="oleo-km-lbl">Longitud de la tubería</span>' +
                             '<span class="oleo-km-val">' + kmTxt + '</span></div>';
                 lines.forEach(function (l) {
                     l.bindPopup(popKm, { className: 'oleo-km-popup', closeButton: true });
