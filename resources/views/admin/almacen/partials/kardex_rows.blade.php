@@ -55,7 +55,7 @@
                 @if($m->NUMERO_PARTE)
                     {{-- Nº de parte específico entregado en esta salida (filtros): la equivalencia
                          que se movió realmente, no solo el tipo. --}}
-                    <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">🔧 {{ $m->NUMERO_PARTE }}</div>
+                    <div style="font-size:11px;font-weight:600;color:#334155;margin-top:2px;">{{ $m->NUMERO_PARTE }}</div>
                 @endif
                 <div class="tooltip-bubble" style="pointer-events:none;opacity:0;visibility:hidden;position:absolute;bottom:100%;left:0;transform:translateY(5px);background:#1e293b;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:500;white-space:normal;width:max-content;max-width:240px;word-wrap:break-word;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);transition:all 0.2s ease-in-out;z-index:50;margin-bottom:5px;">
                     👤 {{ $usuarioTip }}

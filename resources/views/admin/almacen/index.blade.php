@@ -3123,29 +3123,36 @@
 
     // ── Modal "Detalles del producto" (lo abre el ojo de cada fila; agrupa todas las acciones) ──
     // El tooltip de equipos (.tooltip-bubble) vive dentro de la celda, pero el wrap de la tabla
-    // tiene overflow (recorta) y el thead sticky lo tapaba — sobre todo en búsquedas de una sola
-    // fila (la burbuja sube y choca con el encabezado). Al hacer hover lo reposicionamos como
-    // position:fixed sobre la celda, con z-index por encima de todo, así sale sin recorte ni tape.
-    document.addEventListener('mouseover', function (e) {
-        var cell = e.target.closest ? e.target.closest('#almTableBody tr.alm-row .alm-td-nombre') : null;
-        if (!cell) return;
-        var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) return;
+    // tiene overflow (recorta) y el thead sticky lo tapaba en búsquedas de una sola fila. Al
+    // hacer hover lo sacamos con position:fixed SOBRE la celda (por encima de todo). Se rastrea
+    // UNA sola burbuja activa y se RESTAURA al salir de la fila o al hacer scroll/cambio de vista
+    // — si no, la burbuja fija quedaba "flotando dentro de la lista" al seleccionar o desplazar.
+    var _almTipActiva = null;
+    function almTipReset() {
+        var b = _almTipActiva; if (!b) return; _almTipActiva = null;
+        b.style.position = ''; b.style.left = ''; b.style.bottom = ''; b.style.top = '';
+        b.style.transform = ''; b.style.margin = ''; b.style.zIndex = '';
+    }
+    function almTipShow(cell) {
+        var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) { almTipReset(); return; }
+        if (_almTipActiva && _almTipActiva !== bub) almTipReset();
         var r = cell.getBoundingClientRect();
         bub.style.position = 'fixed';
         bub.style.left = r.left + 'px';
-        bub.style.bottom = (window.innerHeight - r.top + 6) + 'px'; // 6px por encima de la celda
-        bub.style.top = 'auto';
-        bub.style.transform = 'none';
-        bub.style.margin = '0';
-        bub.style.zIndex = '10050';
-    });
-    document.addEventListener('mouseout', function (e) {
+        bub.style.bottom = (window.innerHeight - r.top + 6) + 'px'; // 6px por ENCIMA de la celda
+        bub.style.top = 'auto'; bub.style.transform = 'none'; bub.style.margin = '0'; bub.style.zIndex = '10050';
+        _almTipActiva = bub;
+    }
+    document.addEventListener('mouseover', function (e) {
         var cell = e.target.closest ? e.target.closest('#almTableBody tr.alm-row .alm-td-nombre') : null;
-        if (!cell || (e.relatedTarget && cell.contains(e.relatedTarget))) return;
-        var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) return;
-        bub.style.position = ''; bub.style.left = ''; bub.style.bottom = ''; bub.style.top = '';
-        bub.style.transform = ''; bub.style.margin = ''; bub.style.zIndex = '';
+        if (cell) almTipShow(cell); else almTipReset();
     });
+    // Al desplazar la vista (o al seleccionar, que reacomoda la fila) la burbuja fija quedaría
+    // desalineada/flotando: se restaura. Captura = true para atrapar también el scroll del wrap.
+    window.addEventListener('scroll', almTipReset, true);
+    // Al SELECCIONAR un registro (clic en la fila) la fila se reacomoda: reseteamos la burbuja
+    // para que no quede "metida" en la lista; reaparece bien al mover el mouse si sigues encima.
+    document.addEventListener('click', almTipReset, true);
     window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
         var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');

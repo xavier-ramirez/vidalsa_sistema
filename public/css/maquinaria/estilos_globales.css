@@ -3971,7 +3971,11 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
 
 /* Vela (pin de ubicación tipo Google Maps) — el divIcon no debe tener fondo */
 .mapa-vela { background: none !important; border: none !important; }
-.mapa-vela svg { display: block; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
+.mapa-vela svg { display: block; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); transition: transform .15s ease; }
+/* A más de 300 km (clase que pone declutterVelas) el pin se encoge para no verse enorme.
+   El escalado es sobre el SVG (no sobre el div, que Leaflet usa para posicionar) y con
+   origen en la PUNTA (abajo-centro) para que la punta siga clavada en la ubicación. */
+.mapa-velas-lejos .mapa-vela svg { transform: scale(0.6); transform-origin: 50% 100%; }
 
 /* Tiradores del editor de línea: vértice (arrastrar) y "+" (agregar/curvar) */
 .mapa-ed-vert {

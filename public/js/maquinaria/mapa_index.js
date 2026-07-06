@@ -679,6 +679,16 @@
             return { borde: cuerpo + 3.5, cuerpo: cuerpo, brillo: Math.max(0.7, cuerpo * 0.32) };
         }
         // Dibuja la línea como TUBERÍA 3D: borde oscuro + cuerpo de color + brillo claro encima.
+        // Longitud total de un trazo ([[lat,lng],…]) en KM: suma las distancias geodésicas
+        // (map.distance = metros) entre puntos consecutivos. 0 si el trazo tiene menos de 2 puntos.
+        function longitudKm(trazo) {
+            if (!trazo || trazo.length < 2) return 0;
+            var total = 0;
+            for (var i = 1; i < trazo.length; i++) {
+                total += map.distance(L.latLng(trazo[i - 1][0], trazo[i - 1][1]), L.latLng(trazo[i][0], trazo[i][1]));
+            }
+            return total / 1000;
+        }
         function tuberiaCapas(trazo, color, target) {
             var m = target || map, p = pesoTuberia();
             var borde  = L.polyline(trazo, { color: '#0a1620', weight: p.borde, opacity: 0.85, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
@@ -713,6 +723,13 @@
                 : [];
             // Clic derecho sobre la tubería: editar o eliminar la línea (solo con permiso).
             if (PUEDE_EDITAR) lines.forEach(function (l) { l.on('contextmenu', function (ev) { menuLinea(ev, o.id); }); });
+            // Tooltip con la LONGITUD total (km) al pasar el mouse por la línea. Solo si hay
+            // recorrido dibujado (la tubería existe). Visible para todos (es info, no edición).
+            if (lines.length) {
+                var km = longitudKm(o.recorrido);
+                var tipKm = '<b>' + esc(o.nombre) + '</b><br>Longitud: <b>' + km.toFixed(2).replace('.', ',') + ' km</b>';
+                lines.forEach(function (l) { l.bindTooltip(tipKm, { sticky: true, direction: 'top', className: 'estado-tooltip' }); });
+            }
             var markers = pts.map(function (p) {
                 var mk = L.marker([p.lat, p.lng], { icon: velaIcon('#0067b1'), zIndexOffset: 500 }).addTo(map);
                 // Etiqueta de la vela: nombre del PROYECTO arriba y, debajo, el nombre que el
@@ -748,6 +765,8 @@
             // A 300 km se ve el nombre del proyecto; a MÁS de 300 km (500 km…) solo los pines
             // (el nombre aparece al hacer foco). Umbral por la ESCALA, referencia del usuario.
             var lejos = escalaKm() > 300;
+            // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
+            el.classList.toggle('mapa-velas-lejos', lejos);
             Object.keys(oleoMap).forEach(function (id) {
                 var o = oleoMap[id].data, mks = oleoMap[id].markers || [], reps = [];
                 mks.forEach(function (mk) {
