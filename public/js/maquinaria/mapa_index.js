@@ -84,7 +84,10 @@
         // La opción zIndex por-capa de Leaflet se reasignaba y dejaba las etiquetas
         // DEBAJO del satélite (no se veían los nombres). Con un pane dedicado es fijo.
         map.createPane('labelsPane');
-        map.getPane('labelsPane').style.zIndex = 450; // encima del satélite y de los estados
+        // z 466: encima del satélite, de los estados (400), municipios (462) y de la TUBERÍA (465),
+        // para que los nombres de lugares/carreteras nunca queden tapados por esas capas. No recibe
+        // eventos (pointerEvents:none), así que la tubería debajo sigue recibiendo el hover/clic.
+        map.getPane('labelsPane').style.zIndex = 466;
         map.getPane('labelsPane').style.pointerEvents = 'none'; // deja pasar el clic al mapa
 
         // ── SATÉLITE Esri World Imagery (el mapa base — el que se ve) ──
@@ -166,6 +169,13 @@
         // Pane interactivo: municipios activados por estado — nombre al pasar el mouse.
         map.createPane('muniIntPane');
         map.getPane('muniIntPane').style.zIndex = 462;
+
+        // Pane propio para la TUBERÍA, POR ENCIMA de los estados (overlayPane, z 400) y de los
+        // municipios (muniIntPane, z 462). Esos polígonos hacían bringToFront() al pasar el mouse
+        // y quedaban encima de la línea, robándole el hover/clic → no salía la longitud. Aquí la
+        // tubería queda siempre encima de ellos, y debajo de las velas (markerPane, z 600).
+        map.createPane('tuberiaPane');
+        map.getPane('tuberiaPane').style.zIndex = 465;
 
         var muniData = null; // GeoJSON completo (para filtrar por estado)
         // Capa "municipios de los estados activados por clic derecho" — COLORES + nombre al pasar el mouse.
@@ -691,9 +701,12 @@
         }
         function tuberiaCapas(trazo, color, target) {
             var m = target || map, p = pesoTuberia();
-            var borde  = L.polyline(trazo, { color: '#0a1620', weight: p.borde, opacity: 0.85, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
-            var cuerpo = L.polyline(trazo, { color: color, weight: p.cuerpo, opacity: 1, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
-            var brillo = L.polyline(trazo, { color: aclararColor(color, 0.65), weight: p.brillo, opacity: 0.85, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
+            // pane 'tuberiaPane' (z 465): por encima de estados/municipios para que la línea
+            // reciba el hover/clic (longitud). Solo si ese pane existe en el mapa destino.
+            var pane = (m.getPane && m.getPane('tuberiaPane')) ? 'tuberiaPane' : undefined;
+            var borde  = L.polyline(trazo, { pane: pane, color: '#0a1620', weight: p.borde, opacity: 0.85, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
+            var cuerpo = L.polyline(trazo, { pane: pane, color: color, weight: p.cuerpo, opacity: 1, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
+            var brillo = L.polyline(trazo, { pane: pane, color: aclararColor(color, 0.65), weight: p.brillo, opacity: 0.85, lineJoin: 'round', lineCap: 'round', smoothFactor: 1 }).addTo(m);
             return [borde, cuerpo, brillo];
         }
         // Reajusta el grosor de TODAS las tuberías al cambiar el zoom.
@@ -723,12 +736,19 @@
                 : [];
             // Clic derecho sobre la tubería: editar o eliminar la línea (solo con permiso).
             if (PUEDE_EDITAR) lines.forEach(function (l) { l.on('contextmenu', function (ev) { menuLinea(ev, o.id); }); });
-            // Tooltip con la LONGITUD total (km) al pasar el mouse por la línea. Solo si hay
-            // recorrido dibujado (la tubería existe). Visible para todos (es info, no edición).
+            // LONGITUD total (km) de la tubería. Solo si hay recorrido dibujado. Visible para
+            // todos (es info, no edición). Se ofrece de dos formas:
+            //  · CLIC en la línea: popup con la longitud destacada (se cierra con la ✕).
+            //    (Sin tooltip de hover: la longitud sale SOLO al hacer clic, no al pasar el mouse.)
             if (lines.length) {
                 var km = longitudKm(o.recorrido);
-                var tipKm = '<b>' + esc(o.nombre) + '</b><br>Longitud: <b>' + km.toFixed(2).replace('.', ',') + ' km</b>';
-                lines.forEach(function (l) { l.bindTooltip(tipKm, { sticky: true, direction: 'top', className: 'estado-tooltip' }); });
+                var kmTxt = km.toFixed(2).replace('.', ',') + ' km';
+                var popKm = '<div class="oleo-km-pop"><span class="oleo-km-nom">' + esc(o.nombre) + '</span>' +
+                            '<span class="oleo-km-lbl">Longitud de la tubería</span>' +
+                            '<span class="oleo-km-val">' + kmTxt + '</span></div>';
+                lines.forEach(function (l) {
+                    l.bindPopup(popKm, { className: 'oleo-km-popup', closeButton: true });
+                });
             }
             var markers = pts.map(function (p) {
                 var mk = L.marker([p.lat, p.lng], { icon: velaIcon('#0067b1'), zIndexOffset: 500 }).addTo(map);
@@ -742,14 +762,16 @@
                 return mk;
             });
             oleoMap[o.id] = { data: o, lines: lines, markers: markers };
-            declutterVelas(); // agrupa velas que se superponen en el zoom actual
+            declutterVelas(true); // (re)etiqueta las velas recién creadas de este proyecto
         }
 
-        // Agrupa las velas del MISMO proyecto que se superponen (según el zoom) y decide su etiqueta:
-        //  · MÁS DE 300 km (zoom < 6): NO se muestran etiquetas fijas (se pegaban entre proyectos).
-        //    Solo los PINES; el nombre del proyecto aparece al pasar el mouse (hover).
-        //  · Más cerca: etiqueta FIJA por vela — si una vela AGRUPA varios puntos, solo el nombre del
-        //    PROYECTO (no el del punto); si es un punto suelto, proyecto + nombre del punto.
+        // Etiqueta de las velas según el zoom:
+        //  · MÁS DE 300 km (zoom < 6): las velas del MISMO proyecto que se superponen se agrupan en
+        //    una sola (para no amontonar pines); NO hay etiqueta fija (se pegaban entre proyectos),
+        //    solo el PIN y el nombre del proyecto al pasar el mouse (hover).
+        //  · Más cerca: se muestran TODOS los puntos, cada vela con su etiqueta FIJA — nombre del
+        //    PROYECTO arriba y, debajo, el nombre del punto (mk._velaTip). Sin agrupar: ningún punto
+        //    se oculta ni se reduce a solo-proyecto.
         // Escala en km que muestra la barra del mapa (lo que ve el usuario: 300 km, 500 km…).
         // Se lee del control de escala; con moveend/zoomend la barra ya está actualizada.
         function escalaKm() {
@@ -760,35 +782,49 @@
             var v = parseFloat(m[1]);
             return m[2] === 'km' ? v : v / 1000; // metros → km
         }
-        function declutterVelas() {
+        var declutterZoom = null, declutterLejos = null; // último estado para evitar recálculos en paneo
+        function declutterVelas(force) {
             var THRESH = 38; // px — mayor que el ancho del pin (34) para que dos velas que se solapan se unan en una
+            var z = map.getZoom();
             // A 300 km se ve el nombre del proyecto; a MÁS de 300 km (500 km…) solo los pines
             // (el nombre aparece al hacer foco). Umbral por la ESCALA, referencia del usuario.
             var lejos = escalaKm() > 300;
+            // En un PAN puro (mismo zoom y misma condición lejos) las distancias en px entre velas
+            // son idénticas (coordenadas globales de Mercator): no hace falta re-agrupar ni re-enlazar
+            // todos los tooltips (evita flicker/jank). `force` re-ejecuta al crear/recargar velas.
+            if (!force && z === declutterZoom && lejos === declutterLejos) return;
+            declutterZoom = z; declutterLejos = lejos;
             // A más de 300 km el pin se ve exageradamente grande → se encoge por CSS (clase en el mapa).
             el.classList.toggle('mapa-velas-lejos', lejos);
             Object.keys(oleoMap).forEach(function (id) {
-                var o = oleoMap[id].data, mks = oleoMap[id].markers || [], reps = [];
-                mks.forEach(function (mk) {
-                    if (!map.hasLayer(mk)) mk.addTo(map);
-                    var p = map.latLngToContainerPoint(mk.getLatLng()), rep = null;
-                    for (var i = 0; i < reps.length; i++) { if (reps[i].p.distanceTo(p) < THRESH) { rep = reps[i]; break; } }
-                    if (rep) { rep.count++; map.removeLayer(mk); } else reps.push({ p: p, mk: mk, count: 1 });
-                });
+                var o = oleoMap[id].data, mks = oleoMap[id].markers || [];
                 var proyLbl = '<span class="vela-proj">' + esc(o.nombre) + '</span>';
-                reps.forEach(function (r) {
-                    r.mk.unbindTooltip();
-                    if (lejos) {
-                        // Solo el pin; el nombre del proyecto se ve al pasar el mouse (NO permanente).
+                if (lejos) {
+                    // >300 km: se agrupan las velas superpuestas en una sola (pin, sin amontonar) y
+                    // el nombre del proyecto aparece solo al pasar el mouse.
+                    var reps = [];
+                    mks.forEach(function (mk) {
+                        if (!map.hasLayer(mk)) mk.addTo(map);
+                        var p = map.latLngToContainerPoint(mk.getLatLng()), rep = null;
+                        for (var i = 0; i < reps.length; i++) { if (reps[i].p.distanceTo(p) < THRESH) { rep = reps[i]; break; } }
+                        if (rep) map.removeLayer(mk); else reps.push({ p: p, mk: mk });
+                    });
+                    reps.forEach(function (r) {
+                        r.mk.unbindTooltip();
                         r.mk.bindTooltip(proyLbl, { permanent: false, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
-                    } else {
-                        // Vela AGRUPADA (varios puntos) → solo proyecto; punto suelto → proyecto + punto.
-                        r.mk.bindTooltip(r.count > 1 ? proyLbl : r.mk._velaTip, { permanent: true, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
-                    }
-                });
+                    });
+                } else {
+                    // Zoom cercano: TODOS los puntos visibles, cada uno con proyecto arriba y su
+                    // nombre de punto debajo. No se agrupa ni se oculta ninguna vela.
+                    mks.forEach(function (mk) {
+                        if (!map.hasLayer(mk)) mk.addTo(map);
+                        mk.unbindTooltip();
+                        mk.bindTooltip(mk._velaTip, { permanent: true, direction: 'right', offset: [10, -12], className: 'estado-tooltip vela-label' });
+                    });
+                }
             });
         }
-        map.on('zoomend moveend', declutterVelas); // moveend: recalcula tras asentarse la vista (carga/fit)
+        map.on('zoomend moveend', function () { declutterVelas(); }); // moveend: recalcula tras asentarse la vista (carga/fit)
 
         function oleoRenderLista() {
             actualizarLeyenda(); // mantiene sincronizada la tabla-leyenda del mapa
@@ -1492,21 +1528,27 @@
                     ctx.strokeStyle = o.color; ctx.lineWidth = pw.cuerpo * k; ctx.stroke();
                     ctx.strokeStyle = aclararColor(o.color, 0.65); ctx.lineWidth = pw.brillo * k; ctx.stroke();
                 }
-                // Agrupación IGUAL que en pantalla (declutterVelas): las velas que se solapan
-                // (<26px proporcional) se colapsan en UNA; separadas, cada una con su etiqueta.
-                var THRESH = 38 * k, reps = []; // igual que en pantalla: velas solapadas se unen
-                pts.forEach(function (p) {
-                    var pt = proj([p.lat, p.lng]), rep = null;
-                    for (var i = 0; i < reps.length; i++) {
-                        var dx = reps[i].pt.x - pt.x, dy = reps[i].pt.y - pt.y;
-                        if (dx * dx + dy * dy < THRESH * THRESH) { rep = reps[i]; break; }
-                    }
-                    if (rep) rep.count++; else reps.push({ pt: pt, count: 1, nombre: p.nombre });
-                });
-                reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#0067b1'); }); // pines primero
-                reps.forEach(function (r) { // etiqueta: vela agrupada → solo proyecto; punto suelto → proyecto + punto
-                    dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, r.count > 1 ? null : (r.nombre || 'Punto'), k);
-                });
+                // Velas IGUAL que en pantalla (declutterVelas):
+                //  · >300 km (lejos): las que se solapan (<38px proporcional) se colapsan en UNA,
+                //    etiqueta solo con el nombre del proyecto.
+                //  · Cerca: TODOS los puntos, cada uno con proyecto + nombre del punto.
+                if (escalaKm() > 300) {
+                    var THRESH = 38 * k, reps = [];
+                    pts.forEach(function (p) {
+                        var pt = proj([p.lat, p.lng]), rep = null;
+                        for (var i = 0; i < reps.length; i++) {
+                            var dx = reps[i].pt.x - pt.x, dy = reps[i].pt.y - pt.y;
+                            if (dx * dx + dy * dy < THRESH * THRESH) { rep = reps[i]; break; }
+                        }
+                        if (!rep) reps.push({ pt: pt });
+                    });
+                    reps.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#0067b1'); }); // pines primero
+                    reps.forEach(function (r) { dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, null, k); });
+                } else {
+                    var velas = pts.map(function (p) { return { pt: proj([p.lat, p.lng]), nombre: p.nombre }; });
+                    velas.forEach(function (r) { dibujarVela(ctx, r.pt.x, r.pt.y, k, '#0067b1'); }); // pines primero
+                    velas.forEach(function (r) { dibujarEtiquetaVela(ctx, r.pt.x, r.pt.y, o.nombre, r.nombre || 'Punto', k); });
+                }
             });
             ctx.restore();
         }
@@ -1873,8 +1915,8 @@
             oleoRenderLista();
             // Recalcular las etiquetas cuando la escala/vista ya se asentó (el setView inicial no
             // dispara moveend, y la barra de escala se renderiza un instante después).
-            setTimeout(declutterVelas, 300);
-            setTimeout(declutterVelas, 900);
+            setTimeout(function () { declutterVelas(true); }, 300);
+            setTimeout(function () { declutterVelas(true); }, 900);
         }).catch(function () {});
 
         // Tras insertar el contenedor por SPA, Leaflet puede calcular mal el tamaño;
