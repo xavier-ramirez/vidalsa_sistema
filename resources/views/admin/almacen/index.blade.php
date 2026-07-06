@@ -3122,6 +3122,30 @@
     var ROUTE_MOVIMIENTOS = @json(route('almacen.movimientos'));
 
     // ── Modal "Detalles del producto" (lo abre el ojo de cada fila; agrupa todas las acciones) ──
+    // El tooltip de equipos (.tooltip-bubble) vive dentro de la celda, pero el wrap de la tabla
+    // tiene overflow (recorta) y el thead sticky lo tapaba — sobre todo en búsquedas de una sola
+    // fila (la burbuja sube y choca con el encabezado). Al hacer hover lo reposicionamos como
+    // position:fixed sobre la celda, con z-index por encima de todo, así sale sin recorte ni tape.
+    document.addEventListener('mouseover', function (e) {
+        var cell = e.target.closest ? e.target.closest('#almTableBody tr.alm-row .alm-td-nombre') : null;
+        if (!cell) return;
+        var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) return;
+        var r = cell.getBoundingClientRect();
+        bub.style.position = 'fixed';
+        bub.style.left = r.left + 'px';
+        bub.style.bottom = (window.innerHeight - r.top + 6) + 'px'; // 6px por encima de la celda
+        bub.style.top = 'auto';
+        bub.style.transform = 'none';
+        bub.style.margin = '0';
+        bub.style.zIndex = '10050';
+    });
+    document.addEventListener('mouseout', function (e) {
+        var cell = e.target.closest ? e.target.closest('#almTableBody tr.alm-row .alm-td-nombre') : null;
+        if (!cell || (e.relatedTarget && cell.contains(e.relatedTarget))) return;
+        var bub = cell.querySelector(':scope > .tooltip-bubble'); if (!bub) return;
+        bub.style.position = ''; bub.style.left = ''; bub.style.bottom = ''; bub.style.top = '';
+        bub.style.transform = ''; bub.style.margin = ''; bub.style.zIndex = '';
+    });
     window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
         var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');
@@ -3557,6 +3581,7 @@
 
     function almResetProductoModal() {
         delete el('almProductoModal').dataset.idProducto;
+        delete el('almProductoModal').dataset.codOriginal;
         el('almProdCodigo').value = ''; el('almProdNombre').value = ''; el('almProdUm').value = 'UND'; el('almProdCategoria').value = '';
         if (el('almProdUbicacion')) el('almProdUbicacion').value = '';
         if (el('almProdCantInicial')) el('almProdCantInicial').value = '';
@@ -3631,6 +3656,7 @@
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
         almResetProductoModal();
         el('almProductoModal').dataset.idProducto = id;
+        el('almProductoModal').dataset.codOriginal = cod || ''; // para no exigir formato numérico si no cambia
         el('almProdTitulo').textContent = 'Editar producto'; el('almProdSubmit').textContent = 'Guardar';
         // El código AHORA es editable también al editar: el backend valida unicidad
         // ignorando el propio producto (Rule::unique->ignore). Solo dígitos (igual que al crear).
@@ -3776,9 +3802,11 @@
         var ubicacion = val('almProdUbicacion');
         // Validaciones previas al envío.
         if (!nombre) { almProdFieldErr('almProdNombre', true); showErr('almProdError', 'La descripción es obligatoria.'); return; }
-        // El código (al CREAR o al EDITAR) debe ser solo dígitos enteros positivos.
-        // Si va vacío al editar, el backend conserva el código actual del producto.
-        if (codigo && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
+        // El código debe ser solo dígitos enteros positivos — PERO solo si es nuevo o cambió.
+        // Al editar un producto con código legacy no numérico (ej. filtro "FIL-003") sin tocarlo,
+        // se permite (el backend conserva el actual). codOriginal = código con que se abrió el modal.
+        var codOriginal = m.dataset.codOriginal || '';
+        if (codigo && codigo !== codOriginal && (!/^\d+$/.test(codigo) || parseInt(codigo, 10) < 1)) {
             almProdFieldErr('almProdCodigo', true);
             showErr('almProdError', 'El código debe ser un número entero positivo.');
             return;

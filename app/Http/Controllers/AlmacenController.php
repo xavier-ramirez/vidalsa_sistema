@@ -764,6 +764,12 @@ class AlmacenController extends Controller
     public function updateProducto(Request $request, int $id)
     {
         $producto = ProductoInventario::findOrFail($id);
+        // Si el CODIGO no cambió respecto al actual, no re-validar su formato: permite editar
+        // productos con códigos legacy no numéricos (ej. filtros "FIL-003"). Se quita del request
+        // para que validarProducto lo trate como nullable y abajo se conserve el código actual.
+        if (trim((string) $request->input('CODIGO')) === (string) $producto->CODIGO) {
+            $request->request->remove('CODIGO');
+        }
         $data = $this->validarProducto($request, $producto->ID_PRODUCTO);
         if (empty($data['CODIGO'])) {
             unset($data['CODIGO']); // si viene vacío al editar, se conserva el código actual
