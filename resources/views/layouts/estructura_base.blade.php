@@ -2677,12 +2677,11 @@
                     if (stInact) stInact.textContent = '0';
                     if (stActivos) stActivos.textContent = '0';
                     if (stDist) stDist.innerHTML = '';
-                    // Reset del estado del toggle de Distribución (equipos/detalles/aux): al vaciar
-                    // el contenedor sin recargar, evitar que un clic posterior reinyecte HTML viejo.
+                    // Reset de las secciones de Distribución (equipos/detalles/aux): al vaciar el
+                    // contenedor sin recargar, evitar que un clic posterior reinyecte HTML viejo.
                     window.__distribAuxHtml = '';
                     window.__distribUbiHtml = '';
                     window.__distribHtml = '';
-                    window.__distVista = 'equipos';
                 }
 
                 // Update URL without navigation

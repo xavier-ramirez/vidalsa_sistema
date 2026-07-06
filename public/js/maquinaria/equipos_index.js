@@ -814,15 +814,16 @@ function eqEnModoAuxURL() {
     return (new URLSearchParams(window.location.search).get('categoria') || '').toUpperCase() === 'AUXILIARES';
 }
 
-// ─── Toggle de la card de Distribución (equipos ↔ auxiliares) ─────────────────
-// Un clic en la card CICLA entre las vistas disponibles del panel lateral: EQUIPOS (por
-// defecto), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes especiales) y AUXILIARES
-// (cuando hay distribución de auxiliares). Los clics sobre una fila (li) conservan su acción
-// de filtrar. Cada vista guarda su HTML en su variable; orden del ciclo: equipos→detalles→aux.
-window.__distVista = 'equipos';                            // vista mostrada actualmente
+// ─── Card de Distribución: UNA sola lista con todas las secciones ─────────────
+// La card muestra TODAS las vistas disponibles apiladas en una sola lista, separadas por
+// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes especiales)
+// y AUXILIARES (cuando hay distribución de auxiliares). El clic en la card (fuera de una fila)
+// NO intercambia el contenido: hace SCROLL rápido a la siguiente sección. Los clics sobre una
+// fila (li) conservan su acción de filtrar. Cada vista guarda su HTML en su variable.
 window.__distribHtml = null;                               // HTML de EQUIPOS (vista por defecto)
 window.__distribUbiHtml = window.__distribUbiHtml || '';   // HTML de DETALLES (lo fija el Blade / AJAX)
 window.__distribAuxHtml = window.__distribAuxHtml || '';   // HTML de AUXILIARES (lo fija el Blade / AJAX)
+window.__distSecIdx = 0;                                   // última sección a la que saltó el botón
 
 function _eqHayDistribAux() {
     return !!(window.__distribAuxHtml && String(window.__distribAuxHtml).trim());
@@ -830,8 +831,8 @@ function _eqHayDistribAux() {
 function _eqHayDistribUbi() {
     return !!(window.__distribUbiHtml && String(window.__distribUbiHtml).trim());
 }
-// Vistas disponibles en orden de ciclo. "equipos" siempre; "detalles" solo en frentes
-// especiales; "aux" solo cuando hay distribución de auxiliares.
+// Secciones disponibles en orden. "equipos" siempre; "detalles" solo en frentes especiales;
+// "aux" solo cuando hay distribución de auxiliares.
 function _eqVistasDistrib() {
     const v = ['equipos'];
     if (_eqHayDistribUbi()) v.push('detalles');
@@ -844,56 +845,86 @@ function _eqActualizarDistribHint() {
     if (!card) return;
     const vistas = _eqVistasDistrib();
     if (vistas.length <= 1) { card.style.cursor = 'default'; card.title = ''; return; }
-    const siguiente = vistas[(vistas.indexOf(window.__distVista) + 1) % vistas.length];
+    const nombres = vistas.map(function (v) { return _EQ_VISTA_LABEL[v] || v; });
     card.style.cursor = 'pointer';
-    card.title = 'Mostrando ' + (_EQ_VISTA_LABEL[window.__distVista] || '') + ' — clic para ver ' + (_EQ_VISTA_LABEL[siguiente] || '');
+    card.title = 'Clic para saltar entre secciones: ' + nombres.join(' · ');
 }
+// Pinta TODAS las secciones disponibles apiladas en el contenedor, cada una envuelta en un
+// bloque con ancla (.eq-distrib-sec[data-vista]) para poder saltar a ella con el botón.
 function _eqRenderDistribucion() {
     const cont = document.getElementById('distributionStatsContainer');
     if (!cont) { _eqActualizarDistribHint(); return; }
-    // Si la vista actual ya no está disponible (p.ej. salimos del frente especial) → equipos.
-    if (_eqVistasDistrib().indexOf(window.__distVista) === -1) window.__distVista = 'equipos';
-    let html = window.__distribHtml;
-    if (window.__distVista === 'aux')           html = window.__distribAuxHtml;
-    else if (window.__distVista === 'detalles') html = window.__distribUbiHtml;
-    if (html != null) cont.innerHTML = html;
+    const htmlPorVista = {
+        equipos:  window.__distribHtml,
+        detalles: window.__distribUbiHtml,
+        aux:      window.__distribAuxHtml
+    };
+    const html = _eqVistasDistrib().map(function (v) {
+        const h = htmlPorVista[v];
+        return (h && String(h).trim())
+            ? '<div class="eq-distrib-sec" data-vista="' + v + '">' + h + '</div>'
+            : '';
+    }).join('');
+    if (html) cont.innerHTML = html;
+    window.__distSecIdx = 0;
+    cont.scrollTop = 0;
     _eqActualizarDistribHint();
 }
 // Sincroniza tras un render del BLADE (carga dura o navegación SPA): el contenedor acaba de
-// pintar la distribución de EQUIPOS (vista por defecto), así que la capturamos y reseteamos
-// el ciclo a "equipos". (En AJAX se usa _eqRenderDistribucion, no esto.)
+// pintar SOLO la distribución de EQUIPOS. La capturamos como su HTML base (salvo que ya esté
+// unificado, para no recapturar las secciones apiladas) y renderizamos la lista unificada.
 window.eqSyncDistribToggle = function () {
     const cont = document.getElementById('distributionStatsContainer');
-    if (cont) window.__distribHtml = cont.innerHTML;
-    window.__distVista = 'equipos';
-    _eqActualizarDistribHint();
-};
-window.onDistribucionCardClick = function (e) {
-    // Clic en una fila de datos (li) → respetar su filtro (selectOption/loadEquipos), no ciclar.
-    if (e.target.closest('li')) return;
-    const vistas = _eqVistasDistrib();
-    if (vistas.length <= 1) return;            // una sola vista → nada que alternar
-    window.__distVista = vistas[(vistas.indexOf(window.__distVista) + 1) % vistas.length];
+    if (cont && !cont.querySelector('.eq-distrib-sec')) window.__distribHtml = cont.innerHTML;
     _eqRenderDistribucion();
+};
+// Scroll suave propio (rAF): el nativo scrollTo({behavior:'smooth'}) no anima en este
+// contenedor, así que lo hacemos a mano con easeInOutQuad. `now` viene del rAF (sin depender
+// de performance.now/Date). Fija el scrollTop cada frame; el navegador lo acota al máximo.
+function _eqScrollSuave(cont, destino, dur) {
+    dur = dur || 350;
+    const ini = cont.scrollTop, delta = destino - ini;
+    if (!delta) return;
+    // Con la pestaña oculta rAF no dispara → salto instantáneo (sin animación).
+    if (document.hidden) { cont.scrollTop = destino; return; }
+    let t0 = null;
+    function paso(now) {
+        if (t0 === null) t0 = now;                     // 1er frame fija el origen de tiempo
+        const p = Math.min(1, (now - t0) / dur);
+        const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // easeInOutQuad
+        cont.scrollTop = ini + delta * e;
+        if (p < 1) requestAnimationFrame(paso);
+    }
+    requestAnimationFrame(paso);
+}
+window.onDistribucionCardClick = function (e) {
+    // Clic en una fila de datos (li) → respetar su filtro (selectOption/loadEquipos), no navegar.
+    if (e.target.closest('li')) return;
+    const cont = document.getElementById('distributionStatsContainer');
+    if (!cont) return;
+    const secs = Array.prototype.slice.call(cont.querySelectorAll('.eq-distrib-sec'));
+    if (secs.length <= 1) return;              // una sola sección → nada que navegar
+    // Saltar a la siguiente sección (cíclico) desplazando el contenedor hasta su tope.
+    window.__distSecIdx = ((window.__distSecIdx || 0) + 1) % secs.length;
+    const target = secs[window.__distSecIdx];
+    const dy = target.getBoundingClientRect().top - cont.getBoundingClientRect().top;
+    const maxTop = cont.scrollHeight - cont.clientHeight;
+    _eqScrollSuave(cont, Math.max(0, Math.min(cont.scrollTop + dy, maxTop)), 350);
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
 
-// La lista de distribución (#distribucionCard) conserva su barra (max-height/overflow) para no
-// crecer sin límite y poder arrastrarla / hacer scroll táctil en móvil. PERO con la RUEDA del
-// mouse el usuario NO quiere que el scroll quede "atrapado" en la lista: la rueda debe desplazar
-// la PÁGINA. Redirigimos el wheel a la ventana (solo cuando el puntero está sobre la lista).
-// Delegado a nivel documento + guard: sobrevive a los recargados AJAX del contenido de la card.
+// La card de distribución (#distribucionCard) tiene scroll interno acotado (para saltar entre
+// secciones con el botón y arrastrar la barra / scroll táctil en móvil). PERO con la RUEDA del
+// mouse el usuario NO quiere que el scroll quede "atrapado" en la card: la rueda debe desplazar
+// la PÁGINA. Redirigimos cualquier wheel sobre la card a la ventana. Delegado a nivel documento
+// + guard: sobrevive a los recargados AJAX del contenido de la card.
 if (!window.__eqDistribWheelBound) {
     window.__eqDistribWheelBound = true;
     document.addEventListener('wheel', function (e) {
-        if (!e.target.closest) return;
-        const card = e.target.closest('#distribucionCard');
-        if (!card) return;
-        const lista = e.target.closest('ul');
-        if (!lista || !card.contains(lista)) return;
+        if (!e.target.closest || !e.target.closest('#distribucionCard')) return;
         // deltaMode 1 = líneas → aproximar a px (≈16px/línea); 0 = ya viene en px.
         window.scrollBy(0, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY);
-        e.preventDefault(); // la lista NO hace wheel-scroll; el desplazamiento va a la página
+        e.preventDefault(); // la card NO hace wheel-scroll; el desplazamiento va a la página
     }, { passive: false });
 }
 
@@ -1359,15 +1390,14 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 if (!docMode) window.__equiposDocPresence = 'con';
                 window.__updateDocPresenceUI();
 
-                // Distribución: las 3 vistas del toggle de la card (equipos, detalles, aux).
+                // Distribución: las 3 secciones de la lista unificada (equipos, detalles, aux).
                 // "detalles" (DETALLE_UBICACION_ACTUAL) solo viene en frentes TIPO_FRENTE=ESPECIAL.
-                // Cada filtro resetea a la vista de equipos (premisa: el usuario quiere ver los
-                // resultados nuevos, no conservar la alternancia anterior).
+                // Cada filtro repinta la lista unificada con las secciones nuevas; el reset del
+                // scroll a la primera sección lo hace _eqRenderDistribucion.
                 const showUbi = !!(data && data.showUbicaciones);
                 window.__distribHtml    = data.distribution;
                 window.__distribAuxHtml = data.auxDistribution || '';
                 window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
-                window.__distVista = 'equipos';
                 _eqRenderDistribucion();
 
                 // Banner "también hay auxiliares": la búsqueda de esta tabla solo cubre

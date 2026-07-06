@@ -77,6 +77,14 @@
         .counter-sidebar { gap: 10px !important; }
     }
 
+    /* ── Card de Distribución UNIFICADA: una sola lista con todas las secciones (Equipos,
+       Detalles, Auxiliares). El CONTENEDOR es el único con scroll (acotado); cada lista interna
+       pierde su scroll propio (se anula su max-height inline) para apilarse como una sola lista.
+       El botón salta entre secciones (.eq-distrib-sec); la rueda del mouse desplaza la página. ── */
+    #distributionStatsContainer { max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
+    #distributionStatsContainer .eq-distrib-sec ul { max-height: none !important; overflow: visible !important; }
+    .eq-distrib-sec + .eq-distrib-sec { margin-top: 14px; }
+
     /* ── Consolidado (Equipos y Maquinaria / Auxiliares): más compacto verticalmente ── */
     #block_total, #block_oper, #block_inop,
     #aux_block_total, #aux_block_oper, #aux_block_inop {
