@@ -1263,7 +1263,7 @@
                        placeholder="Escribe un nº de parte y presiona Enter"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.almProdEquivAdd();}"
                        style="margin-top:6px;">
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Presiona <b>Enter</b> para agregar cada número. Todo se guarda con el botón <b>Guardar</b> de abajo.</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:4px;">Se guardan al dar <b>Guardar</b>.</div>
             </div>
             <div id="almProdError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>

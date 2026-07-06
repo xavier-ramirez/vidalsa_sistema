@@ -104,9 +104,10 @@
                     if ($equipos) {
                         // Cada equipo en su línea: "Tipo · Marca · Modelo" (uno abajo del otro).
                         // Se muestran TODOS: la burbuja crece para que quepan (sin cortar con "+N").
-                        // La primera letra de cada parte va en mayúscula (los datos vienen en
-                        // minúsculas); Str::ucfirst respeta acentos.
-                        $cap    = fn ($s) => \Illuminate\Support\Str::ucfirst(trim((string) ($s ?? '')));
+                        // CADA PALABRA con su primera letra en mayúscula (Title Case): los datos
+                        // vienen en minúsculas y "camion de plataforma" debe verse "Camion De
+                        // Plataforma". Str::title es multibyte (respeta acentos).
+                        $cap    = fn ($s) => \Illuminate\Support\Str::title(trim((string) ($s ?? '')));
                         $fmt    = fn ($e) => implode(' · ', array_filter([$cap($e['t'] ?? null), $cap($e['m'] ?? null), $cap($e['mo'] ?? null)]));
                         $lineas = array_map(fn ($e) => '&bull; ' . e($fmt($e)), $equipos);
                         $tip[]  = '🚜 Equipos asociados:<br>' . implode('<br>', $lineas);
