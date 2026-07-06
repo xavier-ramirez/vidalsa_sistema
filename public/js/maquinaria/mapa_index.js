@@ -5,16 +5,19 @@
 // que este archivo se carga UNA sola vez en el layout y se engancha a
 // DOMContentLoaded + spa:contentLoaded para inicializar el mapa cuando aparece
 // el contenedor #mapa-leaflet. Leaflet + el geocoder se cargan de forma diferida
-// desde CDN (una sola vez, sin bloquear otras páginas).
+// (una sola vez, sin bloquear otras páginas) desde el PROPIO servidor
+// (public/vendor/leaflet) — antes venían de unpkg.com; alojarlos local hace que el
+// mapa cargue más rápido y no dependa de un CDN externo. Los tiles satelitales SÍ
+// siguen viniendo de Esri/Google (no se pueden alojar: son terabytes bajo demanda).
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {
     'use strict';
 
-    var LEAFLET_CSS  = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    var GEOCODER_CSS = 'https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css';
-    var LEAFLET_JS   = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    var GEOCODER_JS  = 'https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js';
-    var PROJ4_JS     = 'https://unpkg.com/proj4@2.11.0/dist/proj4.js'; // convertir UTM ↔ lat/lng
+    var LEAFLET_CSS  = '/vendor/leaflet/leaflet.css';
+    var GEOCODER_CSS = '/vendor/leaflet/Control.Geocoder.css';
+    var LEAFLET_JS   = '/vendor/leaflet/leaflet.js';
+    var GEOCODER_JS  = '/vendor/leaflet/Control.Geocoder.js';
+    var PROJ4_JS     = '/vendor/leaflet/proj4.js'; // convertir UTM ↔ lat/lng
 
     // Inserta un <link rel=stylesheet> una sola vez.
     function ensureCss(href) {
@@ -290,7 +293,11 @@
 
         var muniUrl = el.getAttribute('data-municipios');
         if (muniUrl) {
-            fetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) { muniData = gj; repintarMuniEstado(); }).catch(function () {});
+            fetch(muniUrl).then(function (r) { return r.json(); }).then(function (gj) {
+                muniData = gj;
+                // Si marcaron "Todos los municipios" antes de que cargara el geojson, aplicarlo ahora.
+                if (todosMuniOn) activarTodosMunicipios(); else repintarMuniEstado();
+            }).catch(function () {});
         }
 
         // ── Menú de CLIC DERECHO sobre un estado: resaltar + ver municipios de ESE estado ──
@@ -391,12 +398,39 @@
             fetch(geojsonUrl).then(function (r) { return r.json(); }).then(function (gj) { estados.addData(gj); }).catch(function () {});
         }
 
-        // Control de capas: solo "Estados de Venezuela". Los municipios se ven por estado (clic derecho).
+        // Control de capas: un único interruptor "Todos los municipios". Los bordes de los
+        // estados quedan SIEMPRE visibles (estados.addTo(map) arriba). Como los municipios no
+        // son una capa simple (se pintan según estadosConMuni + repintarMuniEstado), usamos una
+        // capa "fantasma" (layerGroup vacío) como respaldo del checkbox y reaccionamos a
+        // overlayadd/overlayremove: marcar = activar todos, desmarcar = ocultar todos.
+        var todosMuniOn = false;                 // estado del interruptor "Todos los municipios"
+        var todosMuniToggle = L.layerGroup();    // capa fantasma solo para tener el checkbox
+        // Activa TODOS los municipios de TODOS los estados (limpia exclusiones previas).
+        function activarTodosMunicipios() {
+            todosMuniOn = true;
+            if (!muniData) return; // aún no cargó el geojson; al terminar la carga se reaplica
+            muniExcluidos.clear();
+            muniData.features.forEach(function (f) {
+                var e = f.properties && f.properties.estado;
+                if (e) estadosConMuni.add(normEstado(e));
+            });
+            repintarMuniEstado();
+        }
+        // Oculta TODOS los municipios (por estado, sueltos y exclusiones).
+        function ocultarTodosMunicipios() {
+            todosMuniOn = false;
+            estadosConMuni.clear();
+            muniIndividuales.clear();
+            muniExcluidos.clear();
+            repintarMuniEstado();
+        }
         L.control.layers(
             null,
-            { 'Estados de Venezuela': estados },
+            { 'Todos los municipios': todosMuniToggle },
             { position: 'topright', collapsed: true }
         ).addTo(map);
+        map.on('overlayadd',    function (e) { if (e.layer === todosMuniToggle) activarTodosMunicipios(); });
+        map.on('overlayremove', function (e) { if (e.layer === todosMuniToggle) ocultarTodosMunicipios(); });
 
         // Escala al lado de la brújula (abajo-derecha), más grande.
         L.control.scale({ imperial: false, position: 'bottomright', maxWidth: 160 }).addTo(map);
