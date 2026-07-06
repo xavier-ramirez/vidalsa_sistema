@@ -878,6 +878,25 @@ window.onDistribucionCardClick = function (e) {
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
 
+// La lista de distribución (#distribucionCard) conserva su barra (max-height/overflow) para no
+// crecer sin límite y poder arrastrarla / hacer scroll táctil en móvil. PERO con la RUEDA del
+// mouse el usuario NO quiere que el scroll quede "atrapado" en la lista: la rueda debe desplazar
+// la PÁGINA. Redirigimos el wheel a la ventana (solo cuando el puntero está sobre la lista).
+// Delegado a nivel documento + guard: sobrevive a los recargados AJAX del contenido de la card.
+if (!window.__eqDistribWheelBound) {
+    window.__eqDistribWheelBound = true;
+    document.addEventListener('wheel', function (e) {
+        if (!e.target.closest) return;
+        const card = e.target.closest('#distribucionCard');
+        if (!card) return;
+        const lista = e.target.closest('ul');
+        if (!lista || !card.contains(lista)) return;
+        // deltaMode 1 = líneas → aproximar a px (≈16px/línea); 0 = ya viene en px.
+        window.scrollBy(0, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY);
+        e.preventDefault(); // la lista NO hace wheel-scroll; el desplazamiento va a la página
+    }, { passive: false });
+}
+
 // Acordeón de las cards de stats en MÓVIL (Equipos y Maquinaria ↔ Auxiliares): solo una
 // desplegada a la vez. Al expandir una, recoge la otra. (En escritorio estas cards están
 // ocultas — el sidebar las muestra aparte, sin acordeón.)
