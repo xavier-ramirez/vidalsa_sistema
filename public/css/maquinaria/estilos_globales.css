@@ -3705,12 +3705,12 @@ html.is-ios .ent-capt-add-btn { display: flex !important; }
    ═══════════════════════════════════════════════════════════════════════════ */
 /* padding-top 0: el título arranca pegado arriba, con la MISMA separación vertical
    respecto al menú que el módulo Equipos (que no tiene wrapper con padding superior). */
-.mapa-page { max-width: 1600px; margin: 0 auto; padding: 0 16px 24px; }
+.mapa-page { max-width: 1800px; margin: 0 auto; padding: 0 16px 24px; }
 
 #mapa-leaflet {
     width: 100%;
-    height: calc(100vh - 130px);
-    min-height: 500px;
+    height: calc(100vh - 96px);
+    min-height: 560px;
     border-radius: 16px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -16px rgba(15, 23, 42, 0.18);
