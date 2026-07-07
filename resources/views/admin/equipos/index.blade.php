@@ -1014,9 +1014,9 @@
         </div>
     </div>
     <script>
-        // HTML de la distribución de auxiliares para el toggle de la card (vacío si no aplica).
+        // HTML de la sección "Auxiliares" de la lista unificada de Distribución (vacío si no aplica).
         window.__distribAuxHtml = @json($auxDistributionHtml ?? '');
-        // HTML de la vista "Detalles" (DETALLE_UBICACION_ACTUAL) para el toggle de la card,
+        // HTML de la sección "Detalles" (DETALLE_UBICACION_ACTUAL) de la lista unificada,
         // capturado de la fuente oculta (vacío si el frente no es especial).
         (function () {
             var src = document.getElementById('ubicacionesStatsSource');

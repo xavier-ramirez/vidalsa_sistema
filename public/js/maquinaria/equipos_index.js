@@ -824,6 +824,13 @@ window.__distribHtml = null;                               // HTML de EQUIPOS (v
 window.__distribUbiHtml = window.__distribUbiHtml || '';   // HTML de DETALLES (lo fija el Blade / AJAX)
 window.__distribAuxHtml = window.__distribAuxHtml || '';   // HTML de AUXILIARES (lo fija el Blade / AJAX)
 window.__distSecIdx = 0;                                   // última sección a la que saltó el botón
+let _eqScrollRAF = null;                                    // id de la animación de scroll en curso
+// Cancela la animación de scroll en curso (si la hay). Se llama al arrancar una nueva y también
+// al repintar la lista (_eqRenderDistribucion), para que una animación vieja no siga escribiendo
+// scrollTop sobre el contenedor recién reseteado.
+function _eqCancelScroll() {
+    if (_eqScrollRAF !== null) { cancelAnimationFrame(_eqScrollRAF); _eqScrollRAF = null; }
+}
 
 function _eqHayDistribAux() {
     return !!(window.__distribAuxHtml && String(window.__distribAuxHtml).trim());
@@ -867,6 +874,7 @@ function _eqRenderDistribucion() {
     }).join('');
     if (html) cont.innerHTML = html;
     window.__distSecIdx = 0;
+    _eqCancelScroll();       // que una animación en curso no arrastre el contenedor recién reseteado
     cont.scrollTop = 0;
     _eqActualizarDistribHint();
 }
@@ -881,14 +889,13 @@ window.eqSyncDistribToggle = function () {
 // Scroll suave propio (rAF): el nativo scrollTo({behavior:'smooth'}) no anima en este
 // contenedor, así que lo hacemos a mano con easeInOutQuad. `now` viene del rAF (sin depender
 // de performance.now/Date). Fija el scrollTop cada frame; el navegador lo acota al máximo.
-let _eqScrollRAF = null; // id de la animación en curso (para cancelarla en un nuevo clic)
 function _eqScrollSuave(cont, destino, dur) {
     dur = dur || 350;
+    // Cancelar SIEMPRE la animación previa primero (aun si delta=0, para que un clic que ya está
+    // en su destino detenga una animación anterior en vez de dejarla correr): el último clic manda.
+    _eqCancelScroll();
     const ini = cont.scrollTop, delta = destino - ini;
     if (!delta) return;
-    // Cancelar cualquier animación previa: sin esto, dos clics seguidos dejan dos loops rAF
-    // peleando por scrollTop (scroll errático). El nuevo clic manda.
-    if (_eqScrollRAF !== null) { cancelAnimationFrame(_eqScrollRAF); _eqScrollRAF = null; }
     // Con la pestaña oculta rAF no dispara → salto instantáneo (sin animación).
     if (document.hidden) { cont.scrollTop = destino; return; }
     let t0 = null;
