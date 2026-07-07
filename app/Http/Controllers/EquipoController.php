@@ -718,11 +718,13 @@ class EquipoController extends Controller
         // $focusEquiposOnly ya se calculó arriba (gobierna también el merge de la tabla).
         $showAuxConsolidado = !$auxMode && !$focusEquiposOnly;
 
-        // Distribución de AUXILIARES para el TOGGLE de la card de Distribución (un clic alterna
-        // equipos↔auxiliares). Solo se calcula cuando la card aux es visible (mismo gate); en
-        // cualquier otro caso queda vacío y el toggle se desactiva en el front. Mismos ejes
-        // compartidos ($auxSharedReq) que la tabla y el consolidado.
-        $auxDistributionHtml = $showAuxConsolidado
+        // Distribución de AUXILIARES para la sección "Auxiliares" de la card de Distribución
+        // (lista unificada). Requiere $hasFilter, IGUAL que la distribución de equipos (que oculta
+        // sus filas sin filtro): así al abrir el módulo SIN filtrar la card no muestra datos de
+        // auxiliares (antes se veían todos al no tener este gate). Con filtro sí se calcula. Vacío
+        // en cualquier otro caso → el front no agrega la sección. Mismos ejes compartidos
+        // ($auxSharedReq) que la tabla y el consolidado.
+        $auxDistributionHtml = ($showAuxConsolidado && $hasFilter)
             ? app(\App\Http\Controllers\EquipoAuxiliarController::class)->distribucionHtml($auxSharedReq)
             : '';
 
