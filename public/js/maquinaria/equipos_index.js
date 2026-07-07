@@ -881,10 +881,14 @@ window.eqSyncDistribToggle = function () {
 // Scroll suave propio (rAF): el nativo scrollTo({behavior:'smooth'}) no anima en este
 // contenedor, así que lo hacemos a mano con easeInOutQuad. `now` viene del rAF (sin depender
 // de performance.now/Date). Fija el scrollTop cada frame; el navegador lo acota al máximo.
+let _eqScrollRAF = null; // id de la animación en curso (para cancelarla en un nuevo clic)
 function _eqScrollSuave(cont, destino, dur) {
     dur = dur || 350;
     const ini = cont.scrollTop, delta = destino - ini;
     if (!delta) return;
+    // Cancelar cualquier animación previa: sin esto, dos clics seguidos dejan dos loops rAF
+    // peleando por scrollTop (scroll errático). El nuevo clic manda.
+    if (_eqScrollRAF !== null) { cancelAnimationFrame(_eqScrollRAF); _eqScrollRAF = null; }
     // Con la pestaña oculta rAF no dispara → salto instantáneo (sin animación).
     if (document.hidden) { cont.scrollTop = destino; return; }
     let t0 = null;
@@ -893,9 +897,9 @@ function _eqScrollSuave(cont, destino, dur) {
         const p = Math.min(1, (now - t0) / dur);
         const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // easeInOutQuad
         cont.scrollTop = ini + delta * e;
-        if (p < 1) requestAnimationFrame(paso);
+        _eqScrollRAF = p < 1 ? requestAnimationFrame(paso) : null;
     }
-    requestAnimationFrame(paso);
+    _eqScrollRAF = requestAnimationFrame(paso);
 }
 window.onDistribucionCardClick = function (e) {
     // Clic en una fila de datos (li) → respetar su filtro (selectOption/loadEquipos), no navegar.

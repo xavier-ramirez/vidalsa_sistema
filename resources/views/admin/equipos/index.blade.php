@@ -986,8 +986,8 @@
     @endif
 
     {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes TIPO_FRENTE=ESPECIAL. Ya NO es
-         una card aparte: su HTML se captura aquí (fuente oculta) y se muestra como una vista
-         más del toggle de la card "Equipos y Maquinaria" (clic para ciclar equipos→detalles→aux). --}}
+         una card aparte: su HTML se captura aquí (fuente oculta) y se apila como una SECCIÓN más
+         ("Detalles") dentro de la lista unificada de la card de Distribución. --}}
     <div id="ubicacionesStatsSource" style="display: none;">
         @if(isset($frenteEspecial) && $frenteEspecial && !($auxMode ?? false))
             @include('admin.equipos.partials.ubicaciones_stats')
@@ -995,9 +995,11 @@
     </div>
 
     <!-- Breakdown by Type or Front (Dynamic) -->
-    {{-- La card alterna equipos↔auxiliares al hacer CLIC (onDistribucionCardClick); los clics
-         sobre una fila (li) conservan su acción de filtrar. El toggle solo se activa cuando hay
-         distribución de auxiliares disponible (frente/doc/etc. — ver $auxDistributionHtml). --}}
+    {{-- La card muestra TODAS las secciones disponibles (Equipos y Maquinaria, Detalles,
+         Auxiliares) apiladas en UNA sola lista. El CLIC fuera de una fila (onDistribucionCardClick)
+         hace SCROLL a la siguiente sección (no intercambia contenido); los clics sobre una fila
+         (li) conservan su acción de filtrar. La sección Auxiliares solo se agrega cuando hay
+         distribución de auxiliares (con filtro — ver $auxDistributionHtml). --}}
     <div id="distribucionCard" onclick="onDistribucionCardClick(event)" style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
         <div id="distributionStatsContainer">
             {{-- Modo aux: usamos el HTML ya renderizado por buildEmbedPayload (mismo que
