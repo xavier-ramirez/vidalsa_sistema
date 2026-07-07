@@ -46,6 +46,12 @@
     /* Elevar la celda al hover para que el tooltip quede POR ENCIMA del thead sticky
        (z-index:2) y de las demás filas — si no, el encabezado oscuro lo tapaba. */
     .alm-row:hover .alm-td-nombre { z-index: 9000; }
+    /* Estado de REPOSO de la burbuja: absolute (FUERA de flujo). CLAVE contra la deformación:
+       almTipShow la pone en position:fixed al hover y almTipReset LIMPIA los estilos inline al
+       salir/scrollear. Sin esta regla, al limpiar el inline la posición caía a `static` → la
+       burbuja entraba EN FLUJO y, como visibility:hidden igual ocupa alto, la fila CRECÍA tras
+       hacer foco/scroll. Con esto cae a `absolute` y la fila mantiene SIEMPRE la misma altura. */
+    .alm-td-nombre > .tooltip-bubble { position: absolute; left: 0; bottom: 100%; top: auto; transform: translateY(5px); margin: 0 0 5px 0; }
     /* Números de parte clickeables en la descripción del filtro: el elegido para la salida
        va en negrita + subrayado; los demás se subrayan al pasar el mouse. Sin azul ni caja. */
     .alm-parte-opt { cursor: pointer; }
