@@ -245,24 +245,11 @@ class AlmacenController extends Controller
         // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de producto.
         $unidadesMedida = ProductoInventario::activos()
             ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
-        // CATEGORIA se incluye para que el buscador pueda avisar cuando un material existe
-        // pero pertenece a OTRA categoría distinta a la filtrada (badge + toast en el front).
-        // EQUIV = números de parte equivalentes del filtro, unidos en un string, para que el
-        // AUTOCOMPLETE sugiera al teclear un alterno (p.ej. "MIS0531" o "1000FG") — no solo
-        // por código/nombre. El match con Enter ya lo cubre el backend (aplicarBusquedaProducto).
-        $productosLista = ProductoInventario::activos()
-            ->with(['equivalencias' => fn ($q) => $q->orderByDesc('ES_PRINCIPAL')])
-            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
-            ->map(function ($p) {
-                $p->EQUIV = $p->equivalencias->pluck('NUMERO_PARTE')->implode(' ');
-                // PARTE = número de parte PRINCIPAL (default en la sugerencia). PARTES = lista
-                // completa: la sugerencia muestra la que COINCIDE con lo buscado (ej. buscas un
-                // alterno y ese sale, no el principal), para que reconozcas por qué salió.
-                $p->PARTE  = (string) ($p->equivalencias->first()->NUMERO_PARTE ?? '');
-                $p->PARTES = $p->equivalencias->pluck('NUMERO_PARTE')->values()->all();
-                unset($p->equivalencias); // no enviar la relación completa al front
-                return $p;
-            });
+        // Productos para el AUTOCOMPLETE del buscador. Fuente ÚNICA (misma que recepción):
+        // trae CODIGO/NOMBRE/UM/CATEGORIA + EQUIV/PARTE/PARTES (nºs de parte de los filtros) para
+        // sugerir al teclear un alterno (p.ej. "MIS0531"), no solo por código/nombre. CATEGORIA
+        // permite avisar cuando un material existe pero es de OTRA categoría (badge + toast).
+        $productosLista = ProductoInventario::listaAutocomplete();
         // CONTRATOS se carga junto al frente para alimentar las sugerencias del campo
         // "Contrato N°" del modal "Registrar salida" (Nota de Entrega).
         $frentesLista  = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')

@@ -82,6 +82,30 @@ class ProductoInventario extends Model
         return $q->where('ESTATUS', 'ACTIVO');
     }
 
+    /**
+     * Lista de productos ACTIVOS para el AUTOCOMPLETE de descripciones. Fuente ÚNICA
+     * reutilizada por el inventario (AlmacenController::index) y por recepción
+     * (TraspasoController::nuevaEntrada) — así el buscador encuentra los FILTROS por su
+     * número de parte. Cada producto trae:
+     *   · EQUIV  = nºs de parte equivalentes unidos en un string (haystack de FuzzySearch)
+     *   · PARTE  = nº de parte PRINCIPAL (default en la sugerencia)
+     *   · PARTES = lista completa (la sugerencia muestra la que COINCIDE con lo buscado)
+     * La relación equivalencias NO se envía al front (solo los campos derivados).
+     */
+    public static function listaAutocomplete(): \Illuminate\Support\Collection
+    {
+        return static::activos()
+            ->with(['equivalencias' => fn ($q) => $q->orderByDesc('ES_PRINCIPAL')])
+            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
+            ->map(function ($p) {
+                $p->EQUIV  = $p->equivalencias->pluck('NUMERO_PARTE')->implode(' ');
+                $p->PARTE  = (string) ($p->equivalencias->first()->NUMERO_PARTE ?? '');
+                $p->PARTES = $p->equivalencias->pluck('NUMERO_PARTE')->values()->all();
+                unset($p->equivalencias);
+                return $p;
+            });
+    }
+
     // ── Accessors ────────────────────────────────────────────────
 
     /**

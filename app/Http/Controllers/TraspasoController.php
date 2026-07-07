@@ -306,25 +306,11 @@ class TraspasoController extends Controller
             ]);
         }
 
-        // Productos activos con CODIGO/NOMBRE/UM: alimentan el autocomplete del
-        // cliente (sin endpoint AJAX adicional — la lista cabe holgadamente en el
-        // HTML inicial). El autocomplete matchea por CODIGO, NOMBRE o número de parte.
-        // CATEGORIA viaja en la lista para que, al crear una presentacion nueva (cambiar la
-        // UM de un producto del catalogo en Recepcion), el producto-presentacion herede la
-        // categoria del original — ver entDoCreateProducto en la vista.
-        // EQUIV/PARTE/PARTES: números de parte equivalentes de los FILTROS — MISMO enriquecido
-        // que /admin/almacen (AlmacenController::index) para que el buscador de descripciones
-        // encuentre los filtros al teclear un nº de parte alterno, igual que en el inventario.
-        $productosLista = ProductoInventario::activos()
-            ->with(['equivalencias' => fn ($q) => $q->orderByDesc('ES_PRINCIPAL')])
-            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
-            ->map(function ($p) {
-                $p->EQUIV  = $p->equivalencias->pluck('NUMERO_PARTE')->implode(' ');
-                $p->PARTE  = (string) ($p->equivalencias->first()->NUMERO_PARTE ?? '');
-                $p->PARTES = $p->equivalencias->pluck('NUMERO_PARTE')->values()->all();
-                unset($p->equivalencias); // no enviar la relación completa al front
-                return $p;
-            });
+        // Productos activos para el autocomplete del buscador (CODIGO/NOMBRE/UM + números de
+        // parte de los FILTROS). Fuente ÚNICA compartida con /admin/almacen para que recepción
+        // encuentre los filtros por su nº de parte igual que el inventario. CATEGORIA viaja para
+        // que una presentacion nueva (cambiar la UM) herede la del original — ver entDoCreateProducto.
+        $productosLista = ProductoInventario::listaAutocomplete();
 
         // Unidades de medida DISTINTAS ya registradas en el catalogo — alimentan el
         // autocomplete del campo UM (mismo patron que el modal "Nuevo producto" de
