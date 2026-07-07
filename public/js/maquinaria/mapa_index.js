@@ -189,7 +189,7 @@
             onEachFeature: function (f, layer) {
                 var m = (f.properties && f.properties.municipio) || 'Municipio';
                 var e = (f.properties && f.properties.estado) || '';
-                layer.bindTooltip('<b>Municipio ' + esc(m) + '</b>' + (e ? '<br><span style="opacity:.85;">Estado ' + esc(nombreBonito(e)) + '</span>' : ''),
+                layer.bindTooltip('<b>Municipio ' + esc(nombreBonito(m)) + '</b>' + (e ? '<br><span style="opacity:.85;">Estado ' + esc(nombreBonito(e)) + '</span>' : ''),
                     { sticky: true, direction: 'top', className: 'estado-tooltip' });
                 layer.on({
                     mouseover: function (ev) { ev.target.setStyle({ weight: 2, fillOpacity: 0.32 }); ev.target.bringToFront(); },
@@ -274,12 +274,12 @@
             menu.className = 'mapa-ctx-menu';
             var coordM = ev.latlng ? (ev.latlng.lat.toFixed(6) + ', ' + ev.latlng.lng.toFixed(6)) : '';
             menu.innerHTML =
-                '<div class="mapa-ctx-title">' + esc(municipio) + '</div>' +
+                '<div class="mapa-ctx-title">' + esc(nombreBonito(municipio)) + '</div>' +
                 filaCoord(coordM) +
-                '<button type="button" class="mapa-ctx-item" data-a="quitar"><i class="material-icons">remove_circle_outline</i>Quitar este municipio</button>' +
-                '<button type="button" class="mapa-ctx-item" data-a="solo"><i class="material-icons">filter_center_focus</i>Mostrar solo este municipio</button>' +
-                '<button type="button" class="mapa-ctx-item" data-a="ocultar"><i class="material-icons">layers_clear</i>Ocultar municipios (todos)</button>' +
-                '<button type="button" class="mapa-ctx-item" data-a="resaltar"><i class="material-icons">star_border</i>Resaltar estado</button>';
+                '<button type="button" class="mapa-ctx-item" data-a="quitar"><i class="material-icons">remove_circle_outline</i>Quitar Este Municipio</button>' +
+                '<button type="button" class="mapa-ctx-item" data-a="solo"><i class="material-icons">filter_center_focus</i>Mostrar Solo Este Municipio</button>' +
+                '<button type="button" class="mapa-ctx-item" data-a="ocultar"><i class="material-icons">layers_clear</i>Ocultar Municipios (Todos)</button>' +
+                '<button type="button" class="mapa-ctx-item" data-a="resaltar"><i class="material-icons">star_border</i>Resaltar Estado</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0;
             var y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
@@ -320,15 +320,15 @@
             var menu = document.createElement('div');
             menu.className = 'mapa-ctx-menu';
             menu.innerHTML =
-                '<div class="mapa-ctx-title">' + (nombre || 'Estado') + '</div>' +
+                '<div class="mapa-ctx-title">' + (nombre ? esc(nombreBonito(nombre)) : 'Estado') + '</div>' +
                 filaCoord(coordE) +
                 '<button type="button" class="mapa-ctx-item" data-accion="resaltar">' +
                     '<i class="material-icons">' + (fijado ? 'star' : 'star_border') + '</i>' +
-                    (fijado ? 'Quitar resaltado' : 'Dejar resaltado') +
+                    (fijado ? 'Quitar Resaltado' : 'Dejar Resaltado') +
                 '</button>' +
                 '<button type="button" class="mapa-ctx-item" data-accion="muni">' +
                     '<i class="material-icons">' + (muniOn ? 'layers_clear' : 'account_tree') + '</i>' +
-                    (muniOn ? 'Ocultar municipios' : 'Ver municipios') +
+                    (muniOn ? 'Ocultar Municipios' : 'Ver Municipios') +
                 '</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0;
             var y = ev.originalEvent ? ev.originalEvent.clientY : 0;
@@ -1152,8 +1152,8 @@
             var menu = document.createElement('div'); menu.className = 'mapa-ctx-menu';
             menu.innerHTML =
                 '<div class="mapa-ctx-title">' + esc(nom) + '</div>' +
-                '<button type="button" class="mapa-ctx-item" data-a="editar"><i class="material-icons">edit</i>Editar línea</button>' +
-                '<button type="button" class="mapa-ctx-item" data-a="eliminar"><i class="material-icons">delete</i>Eliminar línea</button>';
+                '<button type="button" class="mapa-ctx-item" data-a="editar"><i class="material-icons">edit</i>Editar Línea</button>' +
+                '<button type="button" class="mapa-ctx-item" data-a="eliminar"><i class="material-icons">delete</i>Eliminar Línea</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 210) + 'px';
             menu.style.top = Math.min(y, window.innerHeight - 120) + 'px';
@@ -1187,7 +1187,7 @@
             var menu = document.createElement('div'); menu.className = 'mapa-ctx-menu';
             menu.innerHTML =
                 '<div class="mapa-ctx-title">' + esc(puntoNombre || 'Punto') + '</div>' +
-                '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>Eliminar punto</button>';
+                '<button type="button" class="mapa-ctx-item mapa-ctx-danger" data-a="del"><i class="material-icons">delete_outline</i>Eliminar Punto</button>';
             var x = ev.originalEvent ? ev.originalEvent.clientX : 0, y = ev.originalEvent ? ev.originalEvent.clientY : 0;
             menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
             menu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
@@ -1301,7 +1301,7 @@
                             o.puntos.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); }).forEach(function (p) {
                                 html += '<div class="mapa-leyenda-pt"><span class="mapa-leyenda-pt-n">' + esc(p.nombre || 'Punto') + '</span>' +
                                     '<span class="mapa-leyenda-pt-c">' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span>' +
-                                    (PUEDE_EDITAR ? '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" title="Eliminar punto">&times;</button>' : '') + '</div>';
+                                    (PUEDE_EDITAR ? '<button type="button" class="mapa-leyenda-pt-del" data-ptdel="' + p.id + '" title="Eliminar Punto">&times;</button>' : '') + '</div>';
                             });
                         }
                     });

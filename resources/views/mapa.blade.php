@@ -4,16 +4,7 @@
 
 @section('content')
 <div class="mapa-page">
-    {{-- Título con el estilo global (page-title / h1.page-title de menu.css). La separación
-         vertical se iguala a la del módulo Equipos: anulamos el margin-top y el padding del
-         .page-title-card (menu.css le pone padding:10px 0) para que el título NO quede más
-         abajo que en equipos; solo dejamos 16px por debajo (igual que el header de equipos). --}}
-    <section class="page-title-card" style="text-align:left;margin:0 0 16px 0;padding:0;">
-        <h1 class="page-title" style="margin:0;">
-            <span class="page-title-line2" style="color:#000;">Mapa Satelital</span>
-        </h1>
-    </section>
-
+    {{-- Sin título "Mapa Satelital" (a pedido del cliente): el contenedor del mapa sube al tope. --}}
     {{-- El JS global mapa_index.js (cargado en el layout) detecta este contenedor y
          monta el mapa, tanto en carga directa como en navegación SPA. Leaflet + el
          geocoder se cargan de forma diferida desde CDN. data-geojson = límites de los

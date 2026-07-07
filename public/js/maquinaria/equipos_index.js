@@ -913,20 +913,12 @@ window.onDistribucionCardClick = function (e) {
 };
 document.addEventListener('DOMContentLoaded', window.eqSyncDistribToggle);
 
-// La card de distribución (#distribucionCard) tiene scroll interno acotado (para saltar entre
-// secciones con el botón y arrastrar la barra / scroll táctil en móvil). PERO con la RUEDA del
-// mouse el usuario NO quiere que el scroll quede "atrapado" en la card: la rueda debe desplazar
-// la PÁGINA. Redirigimos cualquier wheel sobre la card a la ventana. Delegado a nivel documento
-// + guard: sobrevive a los recargados AJAX del contenido de la card.
-if (!window.__eqDistribWheelBound) {
-    window.__eqDistribWheelBound = true;
-    document.addEventListener('wheel', function (e) {
-        if (!e.target.closest || !e.target.closest('#distribucionCard')) return;
-        // deltaMode 1 = líneas → aproximar a px (≈16px/línea); 0 = ya viene en px.
-        window.scrollBy(0, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY);
-        e.preventDefault(); // la card NO hace wheel-scroll; el desplazamiento va a la página
-    }, { passive: false });
-}
+// La card de distribución (#distribucionCard) tiene scroll interno acotado (#distributionStatsContainer:
+// max-height:62vh; overflow-y:auto; overscroll-behavior:contain). La RUEDA del mouse sobre la card
+// desplaza SOLO el Consolidado; al llegar a su tope NO encadena a la página (overscroll-behavior:contain).
+// Fuera de la card, la rueda mueve el scroll vertical de la página con normalidad.
+// NOTA: antes un handler global de wheel redirigía el scroll de la card a window.scrollBy — se eliminó
+// a pedido para que la rueda quede "atrapada" dentro del Consolidado. El scroll lo maneja el CSS nativo.
 
 // Acordeón de las cards de stats en MÓVIL (Equipos y Maquinaria ↔ Auxiliares): solo una
 // desplegada a la vez. Al expandir una, recoge la otra. (En escritorio estas cards están
