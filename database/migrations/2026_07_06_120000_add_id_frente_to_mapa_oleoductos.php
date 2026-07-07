@@ -14,6 +14,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('mapa_oleoductos') || Schema::hasColumn('mapa_oleoductos', 'id_frente')) return; // idempotente
         Schema::table('mapa_oleoductos', function (Blueprint $table) {
             $table->unsignedBigInteger('id_frente')->nullable()->after('id');
             $table->index('id_frente');

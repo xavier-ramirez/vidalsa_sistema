@@ -16,6 +16,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('modelo_filtro')) return; // idempotente: ya existe, no re-crear
         Schema::create('modelo_filtro', function (Blueprint $table) {
             $table->id('ID_MODELO_FILTRO');
 

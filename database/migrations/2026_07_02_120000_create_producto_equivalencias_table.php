@@ -15,6 +15,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('producto_equivalencias')) return; // idempotente: ya existe, no re-crear
         Schema::create('producto_equivalencias', function (Blueprint $table) {
             $table->id('ID_EQUIVALENCIA');
 

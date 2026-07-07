@@ -12,6 +12,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('mapa_oleoductos') || Schema::hasColumn('mapa_oleoductos', 'recorrido')) return; // idempotente
         Schema::table('mapa_oleoductos', function (Blueprint $table) {
             $table->json('recorrido')->nullable()->after('color');
         });

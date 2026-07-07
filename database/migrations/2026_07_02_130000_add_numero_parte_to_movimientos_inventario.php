@@ -15,6 +15,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('movimientos_inventario', 'NUMERO_PARTE')) return; // idempotente
         Schema::table('movimientos_inventario', function (Blueprint $table) {
             $table->string('NUMERO_PARTE', 100)->nullable()->after('REFERENCIA')
                   ->comment('Nº de parte/equivalencia específica entregada (filtros)');

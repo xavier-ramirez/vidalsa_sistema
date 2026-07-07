@@ -13,15 +13,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('mapa_oleoductos', function (Blueprint $table) {
-            $table->id();
-            $table->string('nombre');
-            $table->string('color', 9)->default('#00e5ff'); // color de la línea (hex)
-            $table->text('descripcion')->nullable();
-            $table->unsignedBigInteger('creado_por')->nullable(); // usuario que lo creó
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('mapa_oleoductos')) {
+            Schema::create('mapa_oleoductos', function (Blueprint $table) {
+                $table->id();
+                $table->string('nombre');
+                $table->string('color', 9)->default('#00e5ff'); // color de la línea (hex)
+                $table->text('descripcion')->nullable();
+                $table->unsignedBigInteger('creado_por')->nullable(); // usuario que lo creó
+                $table->timestamps();
+            });
+        }
 
+        if (Schema::hasTable('mapa_oleoducto_puntos')) return; // idempotente: ya existe, no re-crear
         Schema::create('mapa_oleoducto_puntos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('oleoducto_id')->constrained('mapa_oleoductos')->cascadeOnDelete();
